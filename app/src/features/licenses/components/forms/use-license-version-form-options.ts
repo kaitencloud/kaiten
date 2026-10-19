@@ -97,7 +97,7 @@ export function useLicenseVersionFormOptions({
     baseVersion: actualBaseLicense?.version ?? '',
     copyPrices: true,
     createAsDraft: startAsDraft,
- copyAiRules: true,
+    copyAiRules: true,
     description: actualBaseLicense?.description ?? '',
     selectedFamilyId,
     versionName: suggestNextVersionName(

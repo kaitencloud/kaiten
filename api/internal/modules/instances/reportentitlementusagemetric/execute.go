@@ -2,6 +2,7 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -15,6 +16,9 @@ import (
 
 func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (result *Result, resultErr error) {
 	if command.AI != nil {
+		if command.TransactionID != nil {
+			return nil, kaitenerrors.UnprocessableEntity("ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported", "AI usage uses value.transactionId; do not send Idempotency-Key")
+		}
 		if err := validateAI(command, h.deps.ReservationMaxTTL); err != nil {
 			return nil, err
 		}
@@ -30,7 +34,9 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 	if err != nil {
 		return nil, err
 	}
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesReportedEntitlementSlug)
+	if command.AI == nil || command.AI.Phase == "commit" {
+		h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesReportedEntitlementSlug)
+	}
 	properties, tooLarge, err := encodeMetadata(command.Metadata)
 	if err != nil {
 		return nil, err
@@ -75,7 +81,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 				if original.Behavior != command.Behavior || !original.SameValue {
 					outcome = "conflict"
 					h.idempotencyConflict.Add(ctx, 1)
-					return kaitenerrors.ConflictWithErrors("ReportEntitlementUsageMetric.TransactionIdReused", "transactionId already used for another report; send a correction under a new key", &kaitenerrors.ErrorDetail{Message: "the report this transactionId was first accepted with", Location: idempotencyKeyLocation, Value: map[string]any{"reportSeq": original.ReportSeq, "reportedAt": original.ReportedAt, "behavior": original.Behavior, "value": original.ReportedValue}})
+					return kaitenerrors.ConflictWithErrors("ReportEntitlementUsageMetric.TransactionIdReused", "transactionId already used for another report; send a correction under a new key", &kaitenerrors.ErrorDetail{Message: "the report this transactionId was first accepted with", Location: idempotencyKeyLocation, Value: map[string]any{"reportSeq": original.ReportSeq, "reportedAt": original.ReportedAt, "behavior": original.Behavior, "value": json.Number(original.ReportedValue)}})
 				}
 				outcome = "replayed"
 				h.idempotentReplays.Add(ctx, 1)

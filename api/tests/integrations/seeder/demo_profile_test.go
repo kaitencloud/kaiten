@@ -500,10 +500,10 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 	}
 	require.Greater(t, pages, 1, "the demo must exercise notification pagination")
 
-	// Each assignment opens its exact license version. Legacy assignments were
-	// seeded before later versions existed; AI credits are granted afterward to
-	// both active and grandfathered versions used by the demo instances. Their
-	// rendered titles repeat, but their notification IDs and links are distinct.
+	// Each assignment opens its exact license version. Legacy entitlements are
+	// assigned to every version; AI credits are assigned only to versions used
+	// by demo instances. Titles repeat within a family, but notification IDs
+	// and version-specific links must remain distinct.
 	expectedLinks := map[string]string{
 		"AI credits was assigned to Starter":                "/licenses/starter",
 		"Sakura Tokyo Production was created":               "/customers/instances/sakura-tokyo-prod",
@@ -517,28 +517,20 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 		"Release 2026.7.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
 		"Release 2026.8.0 was deployed to Shared APAC":      "/releases/deployment-zones/shared-apac",
 		"Release 2026.8.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
-		"Delivery Drivers was assigned to Premium":          "/catalog/licenses/premium",
-		"Delivery Drivers was assigned to Standard":         "/catalog/licenses/standard",
 		"Delivery Drivers was assigned to Starter":          "/catalog/licenses/starter",
-		"Delivery Tracking was assigned to Premium":         "/catalog/licenses/premium",
-		"Delivery Tracking was assigned to Standard":        "/catalog/licenses/standard",
 		"Delivery Tracking was assigned to Starter":         "/catalog/licenses/starter",
-		"Locations was assigned to Premium":                 "/catalog/licenses/premium",
-		"Locations was assigned to Standard":                "/catalog/licenses/standard",
 		"Locations was assigned to Starter":                 "/catalog/licenses/starter",
-		"Menu Items was assigned to Premium":                "/catalog/licenses/premium",
-		"Menu Items was assigned to Standard":               "/catalog/licenses/standard",
 		"Menu Items was assigned to Starter":                "/catalog/licenses/starter",
-		"Monthly Orders was assigned to Premium":            "/catalog/licenses/premium",
-		"Monthly Orders was assigned to Standard":           "/catalog/licenses/standard",
 		"Monthly Orders was assigned to Starter":            "/catalog/licenses/starter",
-		"Support Tier was assigned to Premium":              "/catalog/licenses/premium",
-		"Support Tier was assigned to Standard":             "/catalog/licenses/standard",
 		"Support Tier was assigned to Starter":              "/catalog/licenses/starter",
 	}
 	expected := make(map[string][]string, len(expectedLinks))
 	for title, link := range expectedLinks {
 		expected[title] = []string{link}
+	}
+	for _, entitlement := range []string{"Delivery Drivers", "Delivery Tracking", "Locations", "Menu Items", "Monthly Orders", "Support Tier"} {
+		expected[entitlement+" was assigned to Premium"] = []string{"/catalog/licenses/premium", "/catalog/licenses/premium-v2", "/catalog/licenses/premium-v3"}
+		expected[entitlement+" was assigned to Standard"] = []string{"/catalog/licenses/standard", "/catalog/licenses/standard-v2"}
 	}
 	expected["AI credits was assigned to Premium"] = []string{"/catalog/licenses/premium", "/catalog/licenses/premium-v2"}
 	expected["AI credits was assigned to Standard"] = []string{"/catalog/licenses/standard", "/catalog/licenses/standard-v2"}

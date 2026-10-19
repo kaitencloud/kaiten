@@ -1,4 +1,7 @@
-import { aiMatrixQueryKey, aiWildcardImpactQueryKey } from '@/domains/ai-credits';
+import {
+  aiMatrixQueryKey,
+  aiWildcardImpactQueryKey,
+} from '@/domains/ai-credits';
 import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import { copyConversionRules } from '../../hooks/copy-conversion-rules';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -111,8 +114,7 @@ function useSubmitLicenseVersion({
   const { t } = useTranslation();
   const router = useRouter();
   const createVersion = useCreateLicenseVersion(entitlements);
- const queryClient = useQueryClient();
-
+  const queryClient = useQueryClient();
 
   return async (value: LicenseVersionFormValues) => {
     try {
@@ -126,7 +128,9 @@ function useSubmitLicenseVersion({
         );
       }
 
-      const aiEnabled = value.copyAiRules && await queryClient.ensureQueryData(aiCreditsFlagQueryOptions);
+      const aiEnabled =
+        value.copyAiRules &&
+        (await queryClient.ensureQueryData(aiCreditsFlagQueryOptions));
       // The body is built before the request, outside `send`. A version created and
       // left a draft by a failed grant, price or publish is an accepted send: its own
       // page is where the vendor finishes it, so the input is not offered again.
@@ -137,19 +141,36 @@ function useSubmitLicenseVersion({
             baseLicense,
             body,
             copyPrices: value.copyPrices,
-            afterGrants: aiEnabled ? async (created) => {
-  try {
-   const results = await copyConversionRules(baseLicense.slug!, created.slug);
-   for (const result of results) {
-    const name = `${result.rule.entitlementSlug} / ${result.rule.modelSlug ?? t('AI.anyModel')} / ${result.rule.requestType ?? t('AI.any')}`;
-    if (result.error) toast.error(t('AI.copyFailed', {name, reason: getApiErrorMessage(result.error)}));
-    else toast.success(t('AI.copySuccess', {name}));
-   }
-   if (results.some((result) => result.error)) throw new Error(t('AI.copyPartial'));
-  } finally {
-   await Promise.all([queryClient.invalidateQueries({queryKey: aiMatrixQueryKey}), queryClient.invalidateQueries({queryKey: aiWildcardImpactQueryKey})]);
-  }
- } : undefined,
+            afterGrants: aiEnabled
+              ? async (created) => {
+                  try {
+                    const results = await copyConversionRules(
+                      baseLicense.slug!,
+                      created.slug,
+                    );
+                    for (const result of results) {
+                      const name = `${result.rule.entitlementSlug} / ${result.rule.modelSlug ?? t('AI.anyModel')} / ${result.rule.requestType ?? t('AI.any')}`;
+                      if (result.error)
+                        toast.error(
+                          t('AI.copyFailed', {
+                            name,
+                            reason: getApiErrorMessage(result.error),
+                          }),
+                        );
+                      else toast.success(t('AI.copySuccess', { name }));
+                    }
+                    if (results.some((result) => result.error))
+                      throw new Error(t('AI.copyPartial'));
+                  } finally {
+                    await Promise.all([
+                      queryClient.invalidateQueries({ queryKey: aiMatrixQueryKey }),
+                      queryClient.invalidateQueries({
+                        queryKey: aiWildcardImpactQueryKey,
+                      }),
+                    ]);
+                  }
+                }
+              : undefined,
             draftEntitlements,
           }),
         {

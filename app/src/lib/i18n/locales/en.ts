@@ -3,6 +3,8 @@ export default {
     slugInvalid:
       'Use at least two lowercase letters, digits or hyphens; start and end with a letter or digit.',
     Errors: {
+      aiIdempotencyKeyUnsupported:
+        'AI usage uses its transaction ID. Remove the Idempotency-Key header and retry.',
       slugConflict: 'This model slug is already used.',
       externalIdConflict:
         'A provider identifier conflicts with another model or its slug.',

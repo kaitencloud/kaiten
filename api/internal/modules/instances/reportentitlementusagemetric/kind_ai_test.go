@@ -16,7 +16,7 @@ import (
 func TestAICommitPreservesLargeComputedUsageUnderSmallCap(t *testing.T) {
 	rate, maximum := decimal.NewFromInt(1), decimal.NewFromInt(1)
 	model := &aicredit.Model{ID: uuid.New(), Status: aicredit.Active}
-	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", LicenseEntitlementValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: model, AIModelRef: "model", AIRequestType: aicredit.Completion, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{InputToken: &rate}, Maximum: &maximum, ChargeOnError: aicredit.Never}}}
+	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: model, AIModelRef: "model", AIRequestType: aicredit.Completion, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{InputToken: &rate}, Maximum: &maximum, ChargeOnError: aicredit.Never}}}
 	status := aicredit.Success
 	tokens := int64(100000000000000)
 	effect, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "large", RequestStatus: &status, Usage: &schema.AiUsage{InputTokens: &tokens}}})
@@ -30,7 +30,7 @@ func TestAICommitPreservesLargeComputedUsageUnderSmallCap(t *testing.T) {
 
 func TestAICounterPrecisionExhaustionDoesNotWriteCorruptEvidence(t *testing.T) {
 	rate := decimal.RequireFromString("0.000001")
-	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, LicenseEntitlementValue: []byte(`{"type":"number","value":-1}`)}, Limit: usage.Limit{Threshold: -1}, Resolution: usage.Resolution{Current: usage.Counter{Value: 10000000000}}, AIModel: &aicredit.Model{ID: uuid.New(), Status: aicredit.Active}, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{Request: &rate}, ChargeOnError: aicredit.Never}}}
+	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EffectiveValue: []byte(`{"type":"number","value":-1}`)}, Limit: usage.Limit{Threshold: -1}, Resolution: usage.Resolution{Current: usage.Counter{Value: 10000000000}}, AIModel: &aicredit.Model{ID: uuid.New(), Status: aicredit.Active}, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{Request: &rate}, ChargeOnError: aicredit.Never}}}
 	status := aicredit.Success
 	if effect, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "precision", RequestStatus: &status}}); err == nil || effect != nil {
 		t.Fatalf("precision failure must not apply money: effect=%v err=%v", effect, err)
@@ -47,7 +47,7 @@ func TestNumericCreditGateAllowsExactDecimalFitAndPartialRefund(t *testing.T) {
 		{"partial refund", 12, -1, 10, "2"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, LicenseEntitlementValue: []byte(`{"type":"number","value":0.3}`)}, Limit: usage.Limit{Threshold: tc.limit}, AggregationMethod: "SUM", Reserved: decimal.RequireFromString(tc.reserved), Resolution: usage.Resolution{Current: usage.Counter{Value: tc.before}}}
+			st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EffectiveValue: []byte(`{"type":"number","value":0.3}`)}, Limit: usage.Limit{Threshold: tc.limit}, AggregationMethod: "SUM", Reserved: decimal.RequireFromString(tc.reserved), Resolution: usage.Resolution{Current: usage.Counter{Value: tc.before}}}
 			eff, err := (numberKind{}).plan(st, &Command{Value: tc.value, Behavior: usage.Append})
 			if err != nil || eff.Refusal != nil {
 				t.Fatalf("report refused: effect=%+v error=%v", eff, err)

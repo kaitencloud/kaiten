@@ -12,8 +12,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
 )
 
-// aiCreditsPrevious is the migration right before 20261019000000_ai_credits.
-const aiCreditsPrevious = 20261016000000
+// aiCreditsPrevious is the migration right before 20261022230000_ai_credits.
+const aiCreditsPrevious = 20261022220000
 
 // TestAICreditsMigration_AppliesWhetherOrNotBillingAddedTheKeysFirst: the
 // migration adds entitlement_id_organization_id_key and
@@ -39,22 +39,32 @@ func TestAICreditsMigration_AppliesWhetherOrNotBillingAddedTheKeysFirst(t *testi
 	}
 	t.Cleanup(pool.Close)
 
-	// The down kept the keys on purpose; drop them, then add them back the
-	// way billing's migration does, unguarded, before ours runs again.
-	for _, stmt := range []string{
-		`ALTER TABLE "entitlement" DROP CONSTRAINT "entitlement_id_organization_id_key"`,
-		`ALTER TABLE "instance" DROP CONSTRAINT "instance_id_organization_id_key"`,
-		`ALTER TABLE "entitlement" ADD CONSTRAINT "entitlement_id_organization_id_key" UNIQUE ("id", "organization_id")`,
-		`ALTER TABLE "instance" ADD CONSTRAINT "instance_id_organization_id_key" UNIQUE ("id", "organization_id")`,
-	} {
-		if _, err := pool.Exec(ctx, stmt); err != nil {
-			t.Fatalf("%s: %v", stmt, err)
+	// Billing owns these shared keys; rolling back AI must leave them and
+	// the effective entitlement view intact, including its dependent FKs.
+	for _, name := range []string{"entitlement_id_organization_id_key", "instance_id_organization_id_key"} {
+		var exists bool
+		if err := pool.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname=$1)`, name).Scan(&exists); err != nil {
+			t.Fatal(err)
 		}
+		if !exists {
+			t.Fatalf("AI rollback removed billing key %s", name)
+		}
+	}
+	var viewBefore, viewAfter string
+	if err := pool.QueryRow(ctx, `SELECT pg_get_viewdef('instance_effective_entitlement'::regclass, true)`).Scan(&viewBefore); err != nil {
+		t.Fatal(err)
 	}
 
 	if err := database.RunMigrations(connString); err != nil {
 		t.Fatalf("RunMigrations() over billing's keys error = %v", err)
 	}
+	if err := pool.QueryRow(ctx, `SELECT pg_get_viewdef('instance_effective_entitlement'::regclass, true)`).Scan(&viewAfter); err != nil {
+		t.Fatal(err)
+	}
+	if viewBefore != viewAfter {
+		t.Fatal("AI reapply changed billing effective view")
+	}
+
 }
 
 // TestAICreditsMigration_ACreditPoolAggregatesBySum pins
