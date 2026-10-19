@@ -1,7 +1,7 @@
 import { aiMatrixQueryKey, aiWildcardImpactQueryKey } from '@/domains/ai-credits';
 import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import { copyConversionRules } from '../../hooks/copy-conversion-rules';
-import { useQuery, useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -93,7 +93,7 @@ function useSubmitLicenseVersion({
   const router = useRouter();
   const createVersion = useCreateLicenseVersion(entitlements);
  const queryClient = useQueryClient();
- const aiFlag = useQuery(aiCreditsFlagQueryOptions);
+
 
   return async (value: LicenseVersionFormValues) => {
     try {
@@ -107,13 +107,12 @@ function useSubmitLicenseVersion({
         );
       }
 
-      const { error, hasPrices, license } = await createVersion({
+      const aiEnabled = value.copyAiRules && await queryClient.ensureQueryData(aiCreditsFlagQueryOptions);
+ const { error, hasPrices, license } = await createVersion({
         baseLicense,
         body: licenseVersionFormValuesToLicenseInput(value, baseLicense),
         copyPrices: value.copyPrices,
- afterGrants: value.copyAiRules ? async (created) => {
-  const aiEnabled = aiFlag.data ?? await queryClient.fetchQuery(aiCreditsFlagQueryOptions);
-  if (!aiEnabled) return;
+ afterGrants: aiEnabled ? async (created) => {
   try {
    const results = await copyConversionRules(baseLicense.slug!, created.slug);
    for (const result of results) {
