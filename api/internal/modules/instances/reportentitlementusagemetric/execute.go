@@ -19,6 +19,13 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 			return nil, err
 		}
 	}
+	defer func() {
+		if result == nil {
+			recordAIReport(ctx, command, nil, resultErr)
+		} else {
+			recordAIReport(ctx, command, result.Usage, resultErr)
+		}
+	}()
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
