@@ -103,6 +103,7 @@ export const entitlementToUpdateBody = (
 
   if (body.type !== 'NUMBER') {
     body.aggregationMethod = undefined;
+    body.warningThresholdPercent = undefined;
   }
 
   conditionUnitFields(body);

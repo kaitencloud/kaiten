@@ -604,3 +604,9 @@ it('keeps the complete AI credit payload for forms and inline edits and requires
   expect(entitlementFormSchema.safeParse({ ...values, aggregationMethod: 'LATEST' }).success).toBe(false);
   expect(entitlementFormSchema.safeParse(values).success).toBe(true);
 });
+
+it.each(['BOOLEAN', 'CONFIG'] as const)('omits read-side warning zero from %s inline updates', (type) => {
+  const body = entitlementToUpdateBody({ ...numberEntitlementWithUnits, type, aggregationMethod: undefined, warningThresholdPercent: 0 }, { name: 'Renamed' });
+  expect(body.warningThresholdPercent).toBeUndefined();
+  expect(JSON.stringify(body)).not.toContain('warningThresholdPercent');
+});
