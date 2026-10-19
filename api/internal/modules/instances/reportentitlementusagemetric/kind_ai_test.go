@@ -14,9 +14,9 @@ import (
 )
 
 func TestAICommitPreservesLargeComputedUsageUnderSmallCap(t *testing.T) {
-	rate, max := decimal.NewFromInt(1), decimal.NewFromInt(1)
+	rate, maximum := decimal.NewFromInt(1), decimal.NewFromInt(1)
 	model := &aicredit.Model{ID: uuid.New(), Status: aicredit.Active}
-	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", LicenseEntitlementValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: model, AIModelRef: "model", AIRequestType: aicredit.Completion, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{InputToken: &rate}, Maximum: &max, ChargeOnError: aicredit.Never}}}
+	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", LicenseEntitlementValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: model, AIModelRef: "model", AIRequestType: aicredit.Completion, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{InputToken: &rate}, Maximum: &maximum, ChargeOnError: aicredit.Never}}}
 	status := aicredit.Success
 	tokens := int64(100000000000000)
 	effect, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "large", RequestStatus: &status, Usage: &schema.AiUsage{InputTokens: &tokens}}})
