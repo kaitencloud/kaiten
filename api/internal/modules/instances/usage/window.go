@@ -104,6 +104,18 @@ func Resolve(now time.Time, p *Periodicity, stored Stored) (Resolution, error) {
 	if stored.PeriodStart != nil && stored.PeriodStart.Equal(*w.Start) {
 		return res, nil
 	}
+	// A database clock can step back across a boundary. An aligned stored
+	// window ahead of now stays current: rolling forward from it can never
+	// reach the earlier window, and resetting it would lose accepted usage.
+	if stored.PeriodStart != nil && stored.PeriodStart.After(*w.Start) {
+		storedWindow, err := CurrentWindow(*stored.PeriodStart, p)
+		if err != nil {
+			return Resolution{}, err
+		}
+		if storedWindow.Start.Equal(*stored.PeriodStart) {
+			return Resolution{Window: storedWindow, Current: stored.Counter}, nil
+		}
+	}
 	closures, err := planRollover(
 		stored.PeriodStart, stored.Counter.Value, stored.Counter.EventCount,
 		period.Window{Start: *w.Start, End: *w.End}, p.ResetPeriod, p.ResetAnchor, p.LicenseStart,

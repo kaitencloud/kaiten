@@ -311,3 +311,21 @@ func TestInWindow(t *testing.T) {
 		t.Errorf("no row reads zero: %+v", got)
 	}
 }
+
+func TestResolve_StoredWindowAheadOfClock(t *testing.T) {
+	now := mustParse(t, "2026-10-31T23:59:59Z")
+	start := mustParse(t, "2026-11-01T00:00:00Z")
+	stored := Stored{Present: true, PeriodStart: &start, Counter: Counter{Value: 12, EventCount: 3}}
+	p := &Periodicity{ResetPeriod: period.Month, ResetAnchor: period.Calendar}
+	got, err := Resolve(now, p, stored)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Current != stored.Counter || got.Stale() {
+		t.Fatalf("clock regression must preserve the stored counter without closures: %+v", got)
+	}
+	end := mustParse(t, "2026-12-01T00:00:00Z")
+	if got.Window.Start == nil || !got.Window.Start.Equal(start) || got.Window.End == nil || !got.Window.End.Equal(end) {
+		t.Fatalf("clock regression must keep the stored window: %+v", got.Window)
+	}
+}
