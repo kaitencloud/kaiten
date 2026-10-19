@@ -186,3 +186,21 @@ export function isCompleteTime(text: string): boolean {
     segmentNumber(segments, 'minutes') !== null
   );
 }
+
+/**
+ * Where a column of `rows` rows, `visibleRows` of them in view, scrolls to put
+ * row `index` in the middle. It stops at both ends instead of leaving room: the
+ * first rows sit on the first line and the last on the last, so a column is
+ * full from its top to its bottom. A missing `index` is the top.
+ */
+export function centredScrollTop(
+  index: number | null,
+  rows: number,
+  visibleRows: number,
+  rowHeight: number,
+): number {
+  const last = Math.max(0, rows - visibleRows) * rowHeight;
+  const centred = ((index ?? 0) - (visibleRows - 1) / 2) * rowHeight;
+
+  return Math.min(last, Math.max(0, centred));
+}

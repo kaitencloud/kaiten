@@ -125,6 +125,51 @@ export const Columns: Story = {
   },
 };
 
+// The columns have no empty rows: at 00:00 the first option sits on the first
+// row of each column, and at 23:59 the last option sits on the last row.
+async function expectFilled(column: HTMLElement, edge: 'first' | 'last') {
+  const options = within(column).getAllByRole('option');
+  const box = column.getBoundingClientRect();
+  const option = (edge === 'first' ? options[0] : options.at(-1))!;
+  const rect = option.getBoundingClientRect();
+
+  await expect(
+    edge === 'first' ? rect.top - box.top : box.bottom - rect.bottom,
+  ).toBeLessThan(1);
+}
+
+export const ColumnsStart: Story = {
+  args: { onChange: () => {}, value: '' },
+  render: () => <TimeFieldExample initial="00:00" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      await canvas.findByRole('button', { name: 'Choose a time' }),
+    );
+    const body = within(document.body);
+
+    await expectFilled(await body.findByRole('listbox', { name: 'Hours' }), 'first');
+    await expectFilled(body.getByRole('listbox', { name: 'Minutes' }), 'first');
+  },
+};
+
+export const ColumnsEnd: Story = {
+  args: { onChange: () => {}, value: '' },
+  render: () => <TimeFieldExample initial="23:59" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await userEvent.click(
+      await canvas.findByRole('button', { name: 'Choose a time' }),
+    );
+    const body = within(document.body);
+
+    await expectFilled(await body.findByRole('listbox', { name: 'Hours' }), 'last');
+    await expectFilled(body.getByRole('listbox', { name: 'Minutes' }), 'last');
+  },
+};
+
 export const ColumnsLight: Story = {
   ...Columns,
   globals: { theme: 'light' },

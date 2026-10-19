@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
+  centredScrollTop,
   clearSegment,
   isCompleteTime,
   isOutOfRange,
@@ -171,5 +172,40 @@ describe('typeDigit', () => {
 
   it('overwrites what the segment held', () => {
     expect(type('hours', '7', at('10', '30')).segments).toEqual(at('07', '30'));
+  });
+});
+
+describe('centredScrollTop', () => {
+  // 28px rows, seven in view: the hours are 24 rows, the minutes 60.
+  const hours = (index: number | null) => centredScrollTop(index, 24, 7, 28);
+  const minutes = (index: number | null) => centredScrollTop(index, 60, 7, 28);
+
+  it('puts the first values on the first rows, with nothing above', () => {
+    expect(hours(0)).toBe(0);
+    expect(hours(1)).toBe(0);
+    expect(hours(3)).toBe(0);
+    expect(minutes(0)).toBe(0);
+  });
+
+  it('centres a value that has three rows on each side', () => {
+    expect(hours(4)).toBe(28);
+    expect(hours(12)).toBe(9 * 28);
+    expect(minutes(30)).toBe(27 * 28);
+  });
+
+  it('puts the last values on the last rows, with nothing below', () => {
+    expect(hours(20)).toBe(17 * 28);
+    expect(hours(23)).toBe(17 * 28);
+    expect(minutes(59)).toBe(53 * 28);
+    expect(minutes(56)).toBe(53 * 28);
+  });
+
+  it('starts at the top while nothing is chosen', () => {
+    expect(hours(null)).toBe(0);
+    expect(minutes(null)).toBe(0);
+  });
+
+  it('never goes below 0 when the column is shorter than the view', () => {
+    expect(centredScrollTop(2, 5, 7, 28)).toBe(0);
   });
 });

@@ -10,6 +10,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import {
+  centredScrollTop,
   SEGMENT_MAX,
   SEGMENT_PAGE,
   segmentNumber,
@@ -19,11 +20,12 @@ import {
 import { cn } from '@/lib/utils';
 
 // A row is 28px and seven are in view: the chosen one in the middle, three
-// above and three below. The list is padded by three rows so that the first and
-// the last value can reach the middle too.
+// above and three below. The list has no padding or spacer row, so it is full
+// from its first row to its last: near an end the chosen value leaves the
+// middle (00 sits on the first row, 23 and 59 on the last) rather than show
+// empty space.
 const ROW = 28;
 const VISIBLE_ROWS = 7;
-const PADDING_ROWS = (VISIBLE_ROWS - 1) / 2;
 
 type TimeColumnsProps = {
   segments: TimeSegments;
@@ -38,8 +40,8 @@ type TimeColumnsProps = {
 /**
  * The two scrollable columns of the time popup: the hours from 00 to 23, a
  * colon, the minutes from 00 to 59. Each is a listbox whose chosen value is
- * centred and filled with the primary colour, with a chevron above and one
- * below that move it by one. Choosing moves the selection with the focus: an
+ * centred (as far as its ends allow) and filled with the primary colour, with
+ * a chevron above and one below that move it by one. Choosing moves the selection with the focus: an
  * arrow key, a click or a chevron changes the time of the field at once. Up and
  * Down move to the value above and below (earlier and later), Left and Right
  * to the other column, Enter closes the popup.
@@ -108,9 +110,10 @@ function TimeColumn({
   const placed = useRef(false);
   const max = SEGMENT_MAX[segment];
 
-  // Centres the chosen value: it jumps there as the popup opens, and glides
-  // from one value to the next after that (unless the person asked for less
-  // motion, which the CSS `scroll-behavior` of the list honours).
+  // Centres the chosen value, as far as the ends of the list allow: it jumps
+  // there as the popup opens, and glides from one value to the next after that
+  // (unless the person asked for less motion, which the CSS `scroll-behavior`
+  // of the list honours).
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list) {
@@ -119,10 +122,10 @@ function TimeColumn({
     if (!placed.current) {
       list.style.scrollBehavior = 'auto';
     }
-    list.scrollTop = (value ?? 0) * ROW;
+    list.scrollTop = centredScrollTop(value, max + 1, VISIBLE_ROWS, ROW);
     list.style.scrollBehavior = '';
     placed.current = true;
-  }, [value]);
+  }, [value, max]);
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.altKey || event.ctrlKey || event.metaKey) {
@@ -181,11 +184,7 @@ function TimeColumn({
         onKeyDown={handleKeyDown}
         ref={listRef}
         role="listbox"
-        style={{
-          height: ROW * VISIBLE_ROWS,
-          paddingBottom: ROW * PADDING_ROWS,
-          paddingTop: ROW * PADDING_ROWS,
-        }}
+        style={{ height: ROW * VISIBLE_ROWS }}
         tabIndex={0}
       >
         {Array.from({ length: max + 1 }, (_, number) => renderOption(number))}

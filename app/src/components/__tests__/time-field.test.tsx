@@ -699,3 +699,96 @@ describe('TimeField columns', () => {
     expect(clock()).toBeDisabled();
   });
 });
+
+describe('TimeField columns without blank space', () => {
+  // A row is 28px and seven are in view, so the hours (24 rows) scroll by at
+  // most 17 rows and the minutes (60 rows) by at most 53.
+  const ROW = 28;
+  const HOURS_END = 17 * ROW;
+  const MINUTES_END = 53 * ROW;
+
+  it('holds nothing but the options of its values, no spacer and no padding', async () => {
+    render(<Harness initial="00:00" />);
+
+    await userEvent.setup().click(clock());
+
+    await screen.findByRole('dialog');
+    for (const [column, count] of [
+      [hoursColumn(), 24],
+      [minutesColumn(), 60],
+    ] as const) {
+      expect(column.children).toHaveLength(count);
+      for (const child of Array.from(column.children)) {
+        expect(child).toHaveAttribute('role', 'option');
+        expect(child).not.toBeEmptyDOMElement();
+      }
+      expect(column.style.paddingTop).toBe('');
+      expect(column.style.paddingBottom).toBe('');
+    }
+  });
+
+  it('opens 00 on the first row', async () => {
+    render(<Harness initial="00:00" />);
+
+    await userEvent.setup().click(clock());
+
+    await screen.findByRole('dialog');
+    expect(hoursColumn().scrollTop).toBe(0);
+    expect(minutesColumn().scrollTop).toBe(0);
+  });
+
+  it('opens 23 and 59 on the last row, not further', async () => {
+    render(<Harness initial="23:59" />);
+
+    await userEvent.setup().click(clock());
+
+    await screen.findByRole('dialog');
+    expect(hoursColumn().scrollTop).toBe(HOURS_END);
+    expect(minutesColumn().scrollTop).toBe(MINUTES_END);
+  });
+
+  it('centres a value that has room on both sides', async () => {
+    render(<Harness initial="12:30" />);
+
+    await userEvent.setup().click(clock());
+
+    await screen.findByRole('dialog');
+    expect(hoursColumn().scrollTop).toBe(9 * ROW);
+    expect(minutesColumn().scrollTop).toBe(27 * ROW);
+  });
+
+  it('keeps the selection in view after a chevron at each end, wrapping included', async () => {
+    render(<Harness initial="23:59" />);
+    const user = userEvent.setup();
+
+    await user.click(clock());
+    await screen.findByRole('dialog');
+    await user.click(screen.getByRole('button', { name: 'Next hour' }));
+    expect(held()).toBe('00:59');
+    expect(hoursColumn().scrollTop).toBe(0);
+
+    await user.click(screen.getByRole('button', { name: 'Previous hour' }));
+    expect(held()).toBe('23:59');
+    expect(hoursColumn().scrollTop).toBe(HOURS_END);
+
+    await user.click(screen.getByRole('button', { name: 'Next minute' }));
+    expect(held()).toBe('23:00');
+    expect(minutesColumn().scrollTop).toBe(0);
+
+    await user.click(screen.getByRole('button', { name: 'Previous minute' }));
+    expect(held()).toBe('23:59');
+    expect(minutesColumn().scrollTop).toBe(MINUTES_END);
+  });
+
+  it('follows the selection down to the end and back up to the start with Home and End', async () => {
+    render(<Harness initial="10:30" />);
+    const user = userEvent.setup();
+
+    await user.click(clock());
+    await waitFor(() => expect(hoursColumn()).toHaveFocus());
+    await user.keyboard('{End}');
+    expect(hoursColumn().scrollTop).toBe(HOURS_END);
+    await user.keyboard('{Home}');
+    expect(hoursColumn().scrollTop).toBe(0);
+  });
+});
