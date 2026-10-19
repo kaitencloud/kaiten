@@ -72,7 +72,7 @@ export async function pickDateTime(trigger: Locator, value: string) {
  * Sets the time of a date and time picker from the columns of its clock, as a
  * person who points does: opens the columns, clicks the hour and the minute,
  * and closes them with Escape, which must leave whatever holds the picker (a
- * dialog) open, with the focus back on the hours.
+ * dialog) open, with the focus back on the segment the person came from, the minutes they chose last.
  */
 export async function pickTimeFromColumns(trigger: Locator, time: string) {
   const [hours, minutes] = time.split(':');
@@ -99,7 +99,7 @@ export async function pickTimeFromColumns(trigger: Locator, time: string) {
   await page.keyboard.press('Escape');
   await expect(columns).toBeHidden();
   await expect(
-    group.getByRole('spinbutton', { name: /^(Hours|Heures)$/ }),
+    group.getByRole('spinbutton', { name: 'Minutes' }),
   ).toBeFocused();
 }
 
