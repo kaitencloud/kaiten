@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -86,6 +87,10 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		gauge.Counter = usage.InWindow(stored, window)
 	}
 
+	if result.EntitlementType != nil && *result.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+		text := decimal.NewFromBigInt(result.Reserved.Int, result.Reserved.Exp).String()
+		gauge.Reserved = &text
+	}
 	out, err := usage.Present(gauge)
 	if errors.Is(err, usage.ErrMissingLicenseValue) {
 		return nil, kaitenerrors.Validation("GetEntitlementUsageMetrics.MissingLicenseValue", err.Error())

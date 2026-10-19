@@ -5,10 +5,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -16,8 +19,18 @@ import (
 // advisory lock, at the start of the report's transaction. Nothing a kind
 // plans reads the database again.
 type State struct {
-	OrganizationID uuid.UUID
-	Pair           *UsageContext
+	Reserved            decimal.Decimal
+	ReservationTTL      time.Duration
+	Operation           *db.AiInference
+	AIHash              []byte
+	Replay              *schema.EntitlementUsage
+	AIModel             *aicredit.Model
+	AIModelRef          string
+	AIRequestType       aicredit.RequestType
+	AIRules             []aicredit.Rule
+	UnauthorizedAlready bool
+	OrganizationID      uuid.UUID
+	Pair                *UsageContext
 	// Now is the report's one clock read, taken after the lock: the instant
 	// every window decision of this report is made against.
 	Now               time.Time

@@ -53,3 +53,10 @@ type InstanceEntitlementUsagePeriodRolledOver struct {
 	NewPeriodStart    time.Time  `json:"new_period_start"`
 	IsSynthetic       bool       `json:"is_synthetic"`
 }
+
+type InstanceAIModelUsageUnauthorized struct {
+	EntitlementSlug string `json:"entitlement_slug"`
+	Model           string `json:"model"`
+	RequestType     string `json:"request_type"`
+	Reason          string `json:"reason"`
+}

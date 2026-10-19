@@ -3,6 +3,7 @@ package reportentitlementusagemetric
 import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 )
@@ -11,8 +12,12 @@ import (
 // the counter to store (nil: leave it), the events to emit, and the answer.
 // apply executes it; nothing else writes.
 type Effect struct {
-	Counter *usage.Counter
-	Events  []Event
+	AIRow    *db.AiInference
+	AIUpdate bool
+	AIPhase  string
+	Replayed bool
+	Counter  *usage.Counter
+	Events   []Event
 	// Response is the 200 body. Nil when Refusal is set.
 	Response *schema.EntitlementUsage
 	// Refusal is returned to the caller after the transaction commits, so a
@@ -68,7 +73,9 @@ func (e *Effect) crossings(st *State, warningPercent int32, before, after float6
 	for _, c := range usage.Crossings(st.Limit, warningPercent, before, after) {
 		switch c.Kind {
 		case usage.Reached:
-			e.emit(instanceevents.InstanceEntitlementUsageReached, response)
+			payload := *response
+			payload.AI = nil
+			e.emit(instanceevents.InstanceEntitlementUsageReached, &payload)
 		case usage.CapExceeded:
 			e.emit(instanceevents.InstanceEntitlementCapExceeded, InstanceEntitlementCapExceeded{
 				EntitlementSlug: st.Pair.EntitlementSlug,

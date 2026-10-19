@@ -1,5 +1,221 @@
 components:
   schemas:
+    AiCredits:
+      additionalProperties: false
+      properties:
+        charged:
+          type: string
+        computed:
+          type: string
+        reserved:
+          type: string
+      type: object
+    AiInference:
+      additionalProperties: false
+      properties:
+        authorized:
+          type: boolean
+        committedAt:
+          format: date-time
+          type: string
+        conversionRuleId:
+          type: string
+        credits:
+          $ref: "#/components/schemas/AiCredits"
+        denialReason:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        model:
+          type: string
+        modelSlug:
+          type: string
+        reportedAt:
+          format: date-time
+          type: string
+        requestStatus:
+          type: string
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+          type: string
+        status:
+          enum:
+            - RESERVED
+            - COMMITTED
+            - RELEASED
+            - EXPIRED
+          type: string
+        transactionId:
+          type: string
+        usage:
+          $ref: "#/components/schemas/AiUsage"
+        valueAfter:
+          format: double
+          type: number
+        valueBefore:
+          format: double
+          type: number
+        windowStart:
+          format: date-time
+          type: string
+      required:
+        - transactionId
+        - status
+        - reportedAt
+        - model
+        - requestType
+        - usage
+        - credits
+      type: object
+    AiInferencePage:
+      additionalProperties: false
+      properties:
+        hasMore:
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/AiInference"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
+    AiReservations:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/AiInference"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    AiUsage:
+      additionalProperties: false
+      properties:
+        cacheReadInputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        cacheWriteInputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        durationMs:
+          format: int64
+          minimum: 0
+          type: integer
+        inputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        outputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        unitType:
+          enum:
+            - image
+            - second
+            - frame
+          type: string
+        units:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+      type: object
+    AiUsageOutcome:
+      additionalProperties: false
+      properties:
+        authorized:
+          type: boolean
+        credits:
+          $ref: "#/components/schemas/AiCredits"
+        expiresAt:
+          format: date-time
+          type: string
+        phase:
+          enum:
+            - reserve
+            - commit
+          type: string
+        remaining:
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - RESERVED
+            - COMMITTED
+            - RELEASED
+          type: string
+        transactionId:
+          type: string
+        warnings:
+          items:
+            type: string
+          type: array
+      required:
+        - transactionId
+        - phase
+        - status
+        - credits
+        - remaining
+        - warnings
+      type: object
+    AiUsageValue:
+      additionalProperties: false
+      properties:
+        model:
+          maxLength: 255
+          minLength: 1
+          type: string
+        phase:
+          enum:
+            - reserve
+            - commit
+          type: string
+        requestStatus:
+          enum:
+            - SUCCESS
+            - PROVIDER_ERROR
+            - CUSTOMER_ERROR
+            - NOT_SENT
+          type: string
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+          type: string
+        transactionId:
+          type: string
+        ttlSeconds:
+          format: int64
+          type: integer
+        type:
+          enum:
+            - ai_usage
+          type: string
+        usage:
+          $ref: "#/components/schemas/AiUsage"
+      required:
+        - type
+        - phase
+      type: object
     AuditTrail:
       additionalProperties: false
       properties:
@@ -1069,6 +1285,9 @@ components:
     EntitlementUsage:
       additionalProperties: false
       properties:
+        ai:
+          $ref: "#/components/schemas/AiUsageOutcome"
+          description: Outcome of this AI report; absent on ordinary reads
         currentPeriodEnd:
           description: End of the current usage window (exclusive). Null for a lifetime entitlement (no configured reset period).
           examples:
@@ -1113,6 +1332,9 @@ components:
             - $ref: "#/components/schemas/NumberEntitlementValue"
             - $ref: "#/components/schemas/BooleanEntitlementValue"
             - $ref: "#/components/schemas/ConfigEntitlementValue"
+        reserved:
+          description: Open, unexpired reserved credits; present only on AI credit pools
+          type: string
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
           discriminator:
@@ -1476,6 +1698,23 @@ components:
         - licenseSlug
         - startLicenseDate
         - endLicenseDate
+      type: object
+    InstanceAIModelUsageUnauthorized:
+      additionalProperties: false
+      properties:
+        entitlement_slug:
+          type: string
+        model:
+          type: string
+        reason:
+          type: string
+        request_type:
+          type: string
+      required:
+        - entitlement_slug
+        - model
+        - request_type
+        - reason
       type: object
     InstanceBody:
       additionalProperties: false
@@ -3001,14 +3240,12 @@ components:
           description: Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only.
           discriminator:
             mapping:
-              boolean: "#/components/schemas/BooleanEntitlementValue"
+              ai_usage: "#/components/schemas/AiUsageValue"
               number: "#/components/schemas/NumberEntitlementValue"
-              object: "#/components/schemas/ConfigEntitlementValue"
             propertyName: type
           oneOf:
             - $ref: "#/components/schemas/NumberEntitlementValue"
-            - $ref: "#/components/schemas/BooleanEntitlementValue"
-            - $ref: "#/components/schemas/ConfigEntitlementValue"
+            - $ref: "#/components/schemas/AiUsageValue"
       required:
         - value
       type: object
@@ -7237,6 +7474,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/EntitlementUsage"
           description: OK
+          headers:
+            Idempotent-Replayed:
+              schema:
+                type: string
         "400":
           content:
             application/problem+json:
@@ -7283,6 +7524,166 @@ paths:
         - bearerAuth:
             - write:instances
       summary: Report entitlement usage metric for an instance
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/inferences:
+    get:
+      operationId: listAiInferences
+      parameters:
+        - in: path
+          name: instanceSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: from
+          schema:
+            format: date-time
+            type: string
+        - explode: false
+          in: query
+          name: to
+          schema:
+            format: date-time
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - RESERVED
+              - COMMITTED
+              - RELEASED
+              - EXPIRED
+            type: string
+        - explode: false
+          in: query
+          name: transactionId
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            format: int32
+            maximum: 500
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiInferencePage"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List AI inferences
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reservations:
+    get:
+      operationId: listAiReservations
+      parameters:
+        - in: path
+          name: instanceSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiReservations"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List open AI reservations
       tags:
         - instances
   /instances/{instanceSlug}/integrations/{integrationName}:
@@ -12110,6 +12511,47 @@ webhooks:
       tags:
         - webhooks
         - identity
+  com.kaiten.instance.ai.v1.model_usage_unauthorized:
+    post:
+      description: AI usage was recorded without an authorized model conversion rule.
+      operationId: onInstanceAIModelUsageUnauthorized
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceAIModelUsageUnauthorized"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED
+                  examples:
+                    - INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.ai.v1.model_usage_unauthorized
+                  examples:
+                    - com.kaiten.instance.ai.v1.model_usage_unauthorized
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Unauthorized model usage
+      tags:
+        - webhooks
+        - instances
   com.kaiten.instance.entitlement.v1.cap_exceeded:
     post:
       description: Triggered when a SOFT-enforcement entitlement's usage crosses from below the cap to above it. Fires once per crossing.
@@ -12148,6 +12590,47 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Instance Entitlement Cap Exceeded Webhook
+      tags:
+        - webhooks
+        - instances
+  com.kaiten.instance.entitlement.v1.maximum_exceeded:
+    post:
+      description: A committed AI usage charge crossed a soft pool's maximum.
+      operationId: onInstanceEntitlementMaximumExceeded
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceEntitlementCapExceeded"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED
+                  examples:
+                    - INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.entitlement.v1.maximum_exceeded
+                  examples:
+                    - com.kaiten.instance.entitlement.v1.maximum_exceeded
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance entitlement maximum exceeded
       tags:
         - webhooks
         - instances

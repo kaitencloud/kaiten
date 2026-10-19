@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -95,6 +96,10 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 			gauge.Counter = usage.InWindow(stored, window)
 		}
 
+		if e.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+			text := decimal.NewFromBigInt(e.Reserved.Int, e.Reserved.Exp).String()
+			gauge.Reserved = &text
+		}
 		out, err := usage.Present(gauge)
 		if errors.Is(err, usage.ErrMissingLicenseValue) {
 			return nil, kaitenerrors.Validation("GetEntitlementsUsageMetrics.MissingLicenseValue", err.Error())
