@@ -478,7 +478,8 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 
 	// The seed exceeds one page. Follow cursors like the bell instead of
 	// dropping older assignments when new demo events are added.
-	opens := map[string]string{}
+	opens := map[string][]string{}
+	seenNotifications := map[uuid.UUID]bool{}
 	pages := 0
 	for {
 		list, err := feed.List(ctx, notificationsdb.New(testDB.DbPool), query)
@@ -486,8 +487,9 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 		pages++
 		for _, notification := range list.Data {
 			require.NotNil(t, notification.ActionURL, "%q links nowhere", notification.Title)
-			require.NotContains(t, opens, notification.Title, "notification repeated across pages")
-			opens[notification.Title] = *notification.ActionURL
+			require.False(t, seenNotifications[notification.ID], "notification ID repeated across pages")
+			seenNotifications[notification.ID] = true
+			opens[notification.Title] = append(opens[notification.Title], *notification.ActionURL)
 		}
 		if list.NextCursor == nil {
 			break
@@ -498,12 +500,11 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 	}
 	require.Greater(t, pages, 1, "the demo must exercise notification pagination")
 
-	// Each assignment opens the license version it was made on: the event is
-	// published when the seed assigns the entitlement, before any later version
-	// of the family exists.
-	assert.Equal(t, map[string]string{
-		"AI credits was assigned to Premium":                "/licenses/premium-v2",
-		"AI credits was assigned to Standard":               "/licenses/standard-v2",
+	// Each assignment opens its exact license version. Legacy assignments were
+	// seeded before later versions existed; AI credits are granted afterward to
+	// both active and grandfathered versions used by the demo instances. Their
+	// rendered titles repeat, but their notification IDs and links are distinct.
+	expectedLinks := map[string]string{
 		"AI credits was assigned to Starter":                "/licenses/starter",
 		"Sakura Tokyo Production was created":               "/customers/instances/sakura-tokyo-prod",
 		"Sakura Tokyo Demo was created":                     "/customers/instances/sakura-tokyo-demo",
@@ -534,7 +535,17 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 		"Support Tier was assigned to Premium":              "/catalog/licenses/premium",
 		"Support Tier was assigned to Standard":             "/catalog/licenses/standard",
 		"Support Tier was assigned to Starter":              "/catalog/licenses/starter",
-	}, opens)
+	}
+	expected := make(map[string][]string, len(expectedLinks))
+	for title, link := range expectedLinks {
+		expected[title] = []string{link}
+	}
+	expected["AI credits was assigned to Premium"] = []string{"/catalog/licenses/premium", "/catalog/licenses/premium-v2"}
+	expected["AI credits was assigned to Standard"] = []string{"/catalog/licenses/standard", "/catalog/licenses/standard-v2"}
+	for _, links := range opens {
+		slices.Sort(links)
+	}
+	assert.Equal(t, expected, opens)
 }
 
 // recordAuditTrail does what the event pipeline does on a running stack, which
