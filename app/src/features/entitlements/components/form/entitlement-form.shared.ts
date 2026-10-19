@@ -66,6 +66,7 @@ export const entitlementFormSchema = zEntitlementWritable
     icon: true,
     userFacing: true,
     displayOrder: true,
+    warningThresholdPercent: true,
   })
   .extend({
     name: entitlementNameSchema,
@@ -94,6 +95,16 @@ export const entitlementFormSchema = zEntitlementWritable
       });
     }
 
+    if (
+      values.type === 'NUMBER_AI_CREDIT' &&
+      values.aggregationMethod !== 'SUM'
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['aggregationMethod'],
+        message: 'AI.sumRequired',
+      });
+    }
     const baseSingular = isLabelSet(values.unitSingular);
     const basePlural = isLabelSet(values.unitPlural);
     const saleFlags = [
@@ -217,6 +228,7 @@ export const getEntitlementFormDefaults = (
     type: entitlement.type,
     userFacing: entitlement.userFacing ?? false,
     displayOrder: entitlement.displayOrder ?? 0,
+    warningThresholdPercent: entitlement.warningThresholdPercent,
     unitSingular: entitlement.unitSingular ?? '',
     unitPlural: entitlement.unitPlural ?? '',
     saleUnitSingular: entitlement.saleUnitSingular ?? '',

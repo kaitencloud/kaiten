@@ -18,6 +18,7 @@ export const licenseVersionFormSchema = z.object({
   // The state the new version starts in; it moves through publish, archive
   // and unarchive afterwards.
   createAsDraft: z.boolean(),
+  copyAiRules: z.boolean().optional(),
   description: z.string(),
   selectedFamilyId: z
     .string()

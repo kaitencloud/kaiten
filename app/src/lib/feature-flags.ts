@@ -40,9 +40,10 @@ import { getStoredDevToken } from './local-auth';
  * from a router `beforeLoad`, which runs before the tree renders.
  */
 export const DEMO_SANDBOX_FLAG = 'demo-sandbox';
+export const AI_CREDITS_FLAG = 'ai-credits';
 
 /** Every platform flag this app reads. */
-type PlatformFlag = typeof DEMO_SANDBOX_FLAG;
+type PlatformFlag = typeof DEMO_SANDBOX_FLAG | typeof AI_CREDITS_FLAG;
 
 /** Vite folds this at build time, so it is not a runtime bypass in a real build. */
 const BYPASS_AUTH = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true';
@@ -297,3 +298,6 @@ function platformFlagQueryOptions(flag: PlatformFlag) {
  */
 export const demoSandboxFlagQueryOptions =
   platformFlagQueryOptions(DEMO_SANDBOX_FLAG);
+
+export const aiCreditsFlagQueryOptions =
+  platformFlagQueryOptions(AI_CREDITS_FLAG);

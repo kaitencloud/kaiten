@@ -20,3 +20,5 @@ export {
   instanceInvoicesQueryOptions,
 } from './queries';
 export { readEntitlementsSearch } from './schemas/entitlements-search.schema';
+
+export { InstanceAiUsageTab } from './components/instance-detail/instance-ai-usage-tab';

@@ -101,6 +101,18 @@ describe('platform flags against the local API', () => {
     signIn('user-1');
   });
 
+  it('evaluates AI credits through the same platform provider', async () => {
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(true);
+    expect(getBooleanValueMock).toHaveBeenCalledWith('ai-credits', false);
+  });
+
+  it('keeps AI credits off when the provider cannot initialize', async () => {
+    setProviderAndWaitMock.mockRejectedValueOnce(new Error('fixture outage'));
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
+  });
+
   it('returns the evaluated flag once the provider is registered', async () => {
     expect(await evaluate()).toBe(true);
     expect(setProviderAndWaitMock).toHaveBeenCalledTimes(1);
