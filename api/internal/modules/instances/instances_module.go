@@ -23,6 +23,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
@@ -33,7 +35,8 @@ import (
 )
 
 type UseCases struct {
-	AIHistory                    aihistory.Reader
+	AIInferences                 listaiinferences.UseCase
+	AIReservations               listaireservations.UseCase
 	CreateIntegration            *createintegrations.UseCase
 	CreateInstance               *createinstance.UseCase
 	DeleteIntegration            *deleteintegrations.UseCase
@@ -72,8 +75,9 @@ func NewUseCases(svc services.Container) *UseCases {
 	}
 	retention := usageledger.Retention{Reader: svc.EntitlementConfig, Settings: ledgerSettings}
 	useCases := &UseCases{
-		BillableUsage: billableusage.New(svc.Pool, svc.Uof, retention),
-		AIHistory:     aihistory.Reader{User: svc.UserProvider, Queries: queries},
+		BillableUsage:  billableusage.New(svc.Pool, svc.Uof, retention),
+		AIInferences:   listaiinferences.UseCase{Reader: aihistory.Reader{User: svc.UserProvider, Queries: queries}},
+		AIReservations: listaireservations.UseCase{Reader: aihistory.Reader{User: svc.UserProvider, Queries: queries}},
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
