@@ -12,6 +12,7 @@ schema:
   - "../../../modules/instances/schema/*.graphqls"
   - "../../../modules/licenses/schema/*.graphqls"
   - "../../../modules/metadatafields/schema/*.graphqls"
+  - "../../../modules/models/schema/*.graphqls"
   - "../../../modules/releases/schema/*.graphqls"
 
 exec:
@@ -42,6 +43,16 @@ models:
   Map:
     model:
       - github.com/99designs/gqlgen/graphql.Map
+
+  Model:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/models/schema.Model
+  ModelStatus:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/models/schema.Status
+  ModelModality:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/models/schema.Modality
 
   # Reuse existing domain models from each module
   AuditTrail:
