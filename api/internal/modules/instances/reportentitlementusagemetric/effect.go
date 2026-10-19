@@ -58,6 +58,7 @@ func (e *Effect) rollover(st *State) {
 			ClosedPeriodEnd:   c.ClosedPeriodEnd,
 			NewPeriodStart:    c.NewPeriodStart,
 			IsSynthetic:       c.IsSynthetic,
+			Reason:            c.Reason,
 		})
 	}
 	reset := usage.Zero()

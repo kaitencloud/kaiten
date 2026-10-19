@@ -40,7 +40,7 @@ type InstanceEntitlementUsageWarningThresholdReached struct {
 
 // InstanceEntitlementUsagePeriodRolledOver is the outbox payload for
 // INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER. One is emitted per
-// usage.Closure -- see the events.InstanceEntitlementUsagePeriodRolledOver
+// rolloverClosure -- see the events.InstanceEntitlementUsagePeriodRolledOver
 // doc comment for what real vs. synthetic closures mean.
 type InstanceEntitlementUsagePeriodRolledOver struct {
 	EntitlementID     uuid.UUID  `json:"entitlement_id"`
@@ -52,4 +52,9 @@ type InstanceEntitlementUsagePeriodRolledOver struct {
 	ClosedPeriodEnd   *time.Time `json:"closed_period_end"`
 	NewPeriodStart    time.Time  `json:"new_period_start"`
 	IsSynthetic       bool       `json:"is_synthetic"`
+	// Reason is ANCHOR_CHANGED when the window configuration changed since
+	// the stored window opened -- the subscription a BILLING_PERIOD window
+	// follows, a lifetime counter that adopted a reset, a licence start --
+	// and PERIOD_ENDED otherwise, synthetic closures included (§6.7 rule 6).
+	Reason string `json:"reason" enum:"PERIOD_ENDED,ANCHOR_CHANGED"`
 }

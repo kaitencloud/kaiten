@@ -20,6 +20,7 @@ const (
 // RegisterDataloaders registers license dataloaders to the shared loaders
 // container.
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
+	loaders.Register(LicenseConversionRulesLoaderName, dataloaderLib.NewBatchedLoader(newConversionRulesBatchFn(queries)))
 	loaders.Register(LicenseLoaderName, dataloaderLib.NewBatchedLoader(
 		newLicenseBatchFn(queries),
 	))

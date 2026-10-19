@@ -4,13 +4,16 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archiveconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deprecatelicenseprice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
@@ -18,12 +21,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listconversionrules"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updateconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
@@ -31,6 +36,12 @@ import (
 )
 
 type UseCases struct {
+	CreateConversionRule  *createconversionrule.UseCase
+	UpdateConversionRule  *updateconversionrule.UseCase
+	GetConversionRule     *getconversionrule.UseCase
+	ArchiveConversionRule *archiveconversionrule.UseCase
+	ListConversionRules   *listconversionrules.UseCase
+
 	CreateLicense                   *createlicense.UseCase
 	DeleteLicense                   *deletelicense.UseCase
 	GetLicense                      *getlicense.UseCase
@@ -66,6 +77,12 @@ func NewUseCases(svc services.Container, preview previewlicenseinvoice.Sources) 
 		Gate:         gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),
 	}
 	return &UseCases{
+		CreateConversionRule:  createconversionrule.NewUseCase(createconversionrule.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		UpdateConversionRule:  updateconversionrule.NewUseCase(updateconversionrule.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		GetConversionRule:     getconversionrule.NewUseCase(getconversionrule.Deps{UserProvider: svc.UserProvider, Queries: db.New(svc.Uof.Ambient())}),
+		ArchiveConversionRule: archiveconversionrule.NewUseCase(archiveconversionrule.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		ListConversionRules:   listconversionrules.NewUseCase(listconversionrules.Deps{UserProvider: svc.UserProvider, Queries: db.New(svc.Uof.Ambient())}),
+
 		CreateLicense: createlicense.NewUseCase(createlicense.Deps{
 			UserProvider:  svc.UserProvider,
 			UsageReporter: svc.UsageReporter,
