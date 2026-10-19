@@ -24,6 +24,21 @@ export default {
         'L’identité est fixe. Archivez cette règle et créez-en une nouvelle pour la changer.',
       ruleNotFound: 'Cette règle de conversion n’existe plus.',
       invalidRange: 'La date de début doit précéder la date de fin.',
+      invalidCursor:
+        'Ce curseur d’historique est invalide. Rechargez la liste.',
+      poolNotGranted:
+        'Ce quota de crédits IA n’est pas accordé à cette instance.',
+      transactionRequired: 'Un identifiant d’opération IA est requis.',
+      transactionInvalid:
+        'Le format de l’identifiant d’opération IA est invalide.',
+      transactionReused:
+        'Cet identifiant d’opération IA a déjà été utilisé pour une autre requête ou une opération terminée.',
+      invalidUsage:
+        'Le rapport d’usage IA est invalide. Vérifiez la phase et les valeurs d’usage positives ou nulles.',
+      modelNotAuthorized:
+        'Ce modèle ne possède aucune règle de conversion autorisée pour le quota sélectionné.',
+      insufficientCredits:
+        'Il ne reste pas assez de crédits disponibles pour cette réservation.',
       appendOnly:
         'Les pools IA acceptent uniquement l’ajout de consommation ou de remboursements.',
     },

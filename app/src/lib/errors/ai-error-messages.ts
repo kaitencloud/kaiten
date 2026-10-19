@@ -43,6 +43,25 @@ export const AI_API_ERROR_KEYS: Record<string, string> = {
   'ListAiInferences.InvalidRange': 'AI.Errors.invalidRange',
   'CreateEntitlement.AiCreditPoolRequiresSum': 'AI.sumRequired',
   'UpdateEntitlement.AiCreditPoolRequiresSum': 'AI.sumRequired',
+  'ListModels.InvalidCursor': 'AI.Errors.invalidCursor',
+  'ListConversionRules.LicenseNotFound': 'Errors.api.NOT_FOUND',
+  'CreateConversionRule.EntitlementNotFound': 'Errors.api.NOT_FOUND',
+  'CreateConversionRule.ModelNotFound': 'AI.Errors.modelNotFound',
+  'ListAiInferences.InvalidCursor': 'AI.Errors.invalidCursor',
+  'ListAiInferences.ContextNotFound': 'AI.Errors.poolNotGranted',
+  'ReportEntitlementUsageMetric.TransactionIdRequired':
+    'AI.Errors.transactionRequired',
+  'ReportEntitlementUsageMetric.InvalidTransactionId':
+    'AI.Errors.transactionInvalid',
+  'ReportEntitlementUsageMetric.TransactionIdReused':
+    'AI.Errors.transactionReused',
+  'ReportEntitlementUsageMetric.InvalidAiUsage': 'AI.Errors.invalidUsage',
+  'ReportEntitlementUsageMetric.AiUsageRequiresAppend': 'AI.Errors.appendOnly',
+  'ReportEntitlementUsageMetric.UnknownModel': 'AI.Errors.modelNotFound',
+  'ReportEntitlementUsageMetric.ModelNotAuthorized':
+    'AI.Errors.modelNotAuthorized',
+  'ReportEntitlementUsageMetric.ThresholdExceeded':
+    'AI.Errors.insufficientCredits',
   'ReportEntitlementUsageMetric.AiCreditPoolAppendOnly': 'AI.Errors.appendOnly',
   'ReportEntitlementUsageMetric.AiUsageUnsupportedEntitlement':
     'AI.Errors.notCreditPool',
