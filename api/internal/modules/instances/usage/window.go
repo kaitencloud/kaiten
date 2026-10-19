@@ -14,6 +14,7 @@ type Periodicity struct {
 	ResetPeriod  period.ResetPeriod
 	ResetAnchor  period.ResetAnchor
 	LicenseStart time.Time
+	Basis        period.Basis
 }
 
 // PeriodicityOf builds the reset configuration from an entitlement row's
@@ -29,6 +30,21 @@ func PeriodicityOf[P, A ~string](resetPeriod *P, resetAnchor *A, licenseStart ti
 		ResetAnchor:  period.ResetAnchor(*resetAnchor),
 		LicenseStart: licenseStart,
 	}
+}
+
+// PeriodicityOn carries the subscription facts read under the report lock.
+func PeriodicityOn[P, A ~string](resetPeriod *P, resetAnchor *A, basis period.Basis) *Periodicity {
+	p := PeriodicityOf(resetPeriod, resetAnchor, basis.LicenseStart)
+	if p != nil {
+		p.Basis = basis
+	}
+	return p
+}
+
+func (p *Periodicity) basis() period.Basis {
+	b := p.Basis
+	b.LicenseStart = p.LicenseStart
+	return b
 }
 
 // Stored is the pair's entitlement_usage row as it was read under the lock.
@@ -66,7 +82,7 @@ func CurrentWindow(now time.Time, p *Periodicity) (Window, error) {
 	if p == nil {
 		return Window{}, nil
 	}
-	w, err := period.Current(now, p.ResetPeriod, p.ResetAnchor, p.LicenseStart)
+	w, err := period.CurrentOn(now, p.ResetPeriod, p.ResetAnchor, p.basis())
 	if err != nil {
 		return Window{}, err
 	}
@@ -128,7 +144,7 @@ func ResolveWithLimit(ctx context.Context, maxClosures int, now time.Time, p *Pe
 	closures, err := planRollover(
 		ctx, maxClosures,
 		stored.PeriodStart, stored.Counter.Value, stored.Counter.EventCount,
-		period.Window{Start: *w.Start, End: *w.End}, p.ResetPeriod, p.ResetAnchor, p.LicenseStart,
+		period.Window{Start: *w.Start, End: *w.End}, p.ResetPeriod, p.ResetAnchor, p.basis(),
 	)
 	if err != nil {
 		return Resolution{}, err
@@ -150,7 +166,13 @@ type Closure struct {
 	EventCount        int32
 	NewPeriodStart    time.Time
 	IsSynthetic       bool
+	Reason            string
 }
+
+const (
+	ReasonPeriodEnded   = "PERIOD_ENDED"
+	ReasonAnchorChanged = "ANCHOR_CHANGED"
+)
 
 // planRollover computes the ordered sequence of window closures needed to
 // bring a stale stored bucket up to currentWindow. Callers must only invoke
@@ -172,7 +194,7 @@ func planRollover(
 	currentWindow period.Window,
 	resetPeriod period.ResetPeriod,
 	resetAnchor period.ResetAnchor,
-	licenseStart time.Time,
+	basis period.Basis,
 ) ([]Closure, error) {
 	if storedPeriodStart == nil {
 		// Lifetime-to-period adoption: there is no window to reconstruct the
@@ -182,28 +204,33 @@ func planRollover(
 			EventCount:     storedEventCount,
 			NewPeriodStart: currentWindow.Start,
 			IsSynthetic:    false,
+			Reason:         ReasonAnchorChanged,
 		}}, nil
 	}
 
-	storedWindow, err := period.Current(*storedPeriodStart, resetPeriod, resetAnchor, licenseStart)
+	storedWindow, err := period.CurrentOn(*storedPeriodStart, resetPeriod, resetAnchor, basis)
 	if err != nil {
 		return nil, err
 	}
 
 	if !storedWindow.Start.Equal(*storedPeriodStart) {
-		// The cadence/anchor/license-start configuration has shifted since
-		// this bucket was stored (e.g. start_license_date changed), so
-		// stored.period_start no longer aligns to any window boundary under
-		// the current configuration. The old window's end is not derivable
-		// under a phase it was never computed against -- same shape as the
-		// lifetime-adoption case above, just with a known start.
+		// The window configuration has shifted since this bucket was stored
+		// -- the subscription a BILLING_PERIOD window follows became live,
+		// converted, changed plan or ended, or start_license_date changed --
+		// so stored.period_start is no window start of the current
+		// configuration. One closure, ANCHOR_CHANGED, ends it at the instant
+		// of the change when one marks it (§6.7 rule 6); the windows of the
+		// new configuration that elapsed without a report are not
+		// materialized.
 		closedStart := *storedPeriodStart
 		return []Closure{{
 			ClosedPeriodStart: &closedStart,
+			ClosedPeriodEnd:   changeInstant(resetAnchor, basis, closedStart),
 			Value:             storedValue,
 			EventCount:        storedEventCount,
 			NewPeriodStart:    currentWindow.Start,
 			IsSynthetic:       false,
+			Reason:            ReasonAnchorChanged,
 		}}, nil
 	}
 
@@ -218,7 +245,7 @@ func planRollover(
 			return nil, ErrRolloverLimitExceeded
 		}
 
-		nextWindow, err := period.Next(closingWindow, resetPeriod, resetAnchor, licenseStart)
+		nextWindow, err := period.NextOn(closingWindow, resetPeriod, resetAnchor, basis)
 		if err != nil {
 			return nil, err
 		}
@@ -237,6 +264,7 @@ func planRollover(
 			EventCount:        eventCount,
 			NewPeriodStart:    nextWindow.Start,
 			IsSynthetic:       !first,
+			Reason:            ReasonPeriodEnded,
 		})
 
 		if nextWindow.Start.Equal(currentWindow.Start) {
@@ -245,4 +273,23 @@ func planRollover(
 		closingWindow = nextWindow
 		first = false
 	}
+}
+
+// changeInstant is the end of a window an anchor change closes (§6.7 rule
+// 6): the live subscription's anchor_at, else live_ended_at, for a
+// BILLING_PERIOD window; nil when that instant is not after the window's
+// start, and when no instant marks the change (a start_license_date edit).
+func changeInstant(resetAnchor period.ResetAnchor, basis period.Basis, start time.Time) *time.Time {
+	if resetAnchor != period.BillingPeriod {
+		return nil
+	}
+	instant := basis.LiveAnchor
+	if instant == nil {
+		instant = basis.LiveEndedAt
+	}
+	if instant == nil || !instant.After(start) {
+		return nil
+	}
+	end := *instant
+	return &end
 }

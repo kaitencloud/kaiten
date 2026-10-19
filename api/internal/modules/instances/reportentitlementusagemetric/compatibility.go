@@ -40,7 +40,7 @@ func computeUpdatedUsage(command *Command, current *entitlementvalue.NumberUsage
 		}, nil
 
 	default:
-		return nil, kaitenerrors.Validation(
+		return nil, kaitenerrors.UnprocessableEntity(
 			"ReportEntitlementUsageMetric.InvalidBehavior",
 			"behavior must be one of: append, set",
 		)

@@ -4,24 +4,29 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archiveconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deprecatelicenseprice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listconversionrules"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updateconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
@@ -38,6 +43,15 @@ import (
 // takes it as its own one-method interface, so what an operation can reach is what
 // it named.
 func registerLicenses(core huma.API, app kaiten.Licenses) {
+	createconversionrule.RegisterEndpoint(core, app)
+	createconversionrule.RegisterWebhook(core)
+	updateconversionrule.RegisterEndpoint(core, app)
+	updateconversionrule.RegisterWebhook(core)
+	getconversionrule.RegisterEndpoint(core, app)
+	archiveconversionrule.RegisterEndpoint(core, app)
+	archiveconversionrule.RegisterWebhook(core)
+	listconversionrules.RegisterEndpoint(core, app)
+
 	createlicense.RegisterEndpoint(core, app)
 	createlicense.RegisterWebhook(core)
 	deletelicense.RegisterEndpoint(core, app)

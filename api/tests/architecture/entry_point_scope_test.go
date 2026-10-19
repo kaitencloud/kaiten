@@ -977,6 +977,8 @@ var pinnedGraphQLResolvers = map[string]string{
 	// The price row's own meter, as GET /addons/{slug}/prices returns it.
 	"AddonPrice.MeteredEntitlement": "",
 	"AddonPrice.SaleUnitFactor":     "",
+	"License.ConversionRules":       "read:licenses",
+	"Query.Models":                  "read:models",
 	// The entry's own payload column, decoded.
 	"AuditTrail.Payload": "",
 	"Customer.Instances": "read:instances",

@@ -62,6 +62,9 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 				return nil
 			}
 		}
+		if err := h.queryRepo.LoadLimits(ctx, st.Pair, instanceSlug, entitlementSlug, user.OrganizationID); err != nil {
+			return err
+		}
 		if err := h.resolveState(ctx, st); err != nil {
 			if errors.Is(err, usage.ErrRolloverLimitExceeded) {
 				h.rolloverCapExceeded.Add(ctx, 1)

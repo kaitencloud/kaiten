@@ -8,7 +8,6 @@ import (
 
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
-	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -32,7 +31,7 @@ type State struct {
 // load takes the pair's lock and reads its state. It refuses an entitlement
 // whose type no report kind handles before reading anything else.
 func (h *UseCase) load(ctx context.Context, organizationID uuid.UUID, instanceSlug, entitlementSlug string) (*State, error) {
-	pair, err := h.queryRepo.GetEntitlementUsageContext(ctx, instanceSlug, entitlementSlug, organizationID)
+	pair, err := h.queryRepo.LockPair(ctx, instanceSlug, entitlementSlug, organizationID)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +70,7 @@ func (s *State) gauge(counter usage.Counter) usage.Gauge {
 		LicenseSlug:     licenseSlug,
 		NumberFamily:    true,
 		OveragePercent:  &s.Pair.OveragePercent,
-		Source:          schema.SourceOf(s.Pair.LicenseEntitlementID),
+		Source:          s.Pair.Source,
 		Provenance:      s.Pair.Provenance,
 		LicenseValue:    s.Pair.EffectiveValue,
 		Counter:         counter,
@@ -97,7 +96,7 @@ func (h *UseCase) resolveState(ctx context.Context, st *State) error {
 
 	now := pair.ReportedAt
 
-	resolution, err := usage.ResolveWithLimit(ctx, h.maxRolloverClosures, now, usage.PeriodicityOf(pair.ResetPeriod, pair.ResetAnchor, pair.LicenseStart), stored)
+	resolution, err := usage.ResolveWithLimit(ctx, h.maxRolloverClosures, now, usage.PeriodicityOn(pair.ResetPeriod, pair.ResetAnchor, pair.Basis), stored)
 	if err != nil {
 		return err
 	}

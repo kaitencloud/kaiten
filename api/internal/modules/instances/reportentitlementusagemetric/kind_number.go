@@ -18,7 +18,7 @@ func (numberKind) plan(st *State, cmd *Command) (*Effect, error) {
 	after, err := usage.Fold(before, cmd.Value, cmd.Behavior, st.AggregationMethod)
 	switch {
 	case errors.Is(err, usage.ErrUnknownBehavior):
-		return nil, kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidBehavior", err.Error())
+		return nil, kaitenerrors.UnprocessableEntity("ReportEntitlementUsageMetric.InvalidBehavior", err.Error())
 	case errors.Is(err, usage.ErrInvalidAggregation):
 		return nil, kaitenerrors.Validation("ReportEntitlementUsageMetric.InvalidAggregationConfiguration", err.Error())
 	case err != nil:

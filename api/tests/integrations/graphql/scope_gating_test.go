@@ -352,6 +352,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			organizationAuditTrails(limit: 5) { items { id payload actor { id name kind } } }
 		}`,
 		"licenses": `query ($license: String!) {
+ models { slug }
 			licenses(limit: 5) {
 				items {
 					slug
