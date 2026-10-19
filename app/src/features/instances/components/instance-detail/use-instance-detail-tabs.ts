@@ -15,7 +15,7 @@ import { getActiveTabFromPathname } from '@/lib/detail';
  */
 export function useInstanceDetailTabs(instanceSlug: string) {
   const { t } = useTranslation();
- const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
+  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
   const { isEnabled: hasBilling } = useBillingCapabilities();
   const mayReadBilling = useCanPerform('subscription.read');
   const pathname = useRouterState({
@@ -29,7 +29,7 @@ export function useInstanceDetailTabs(instanceSlug: string) {
     basePath: `/customers/instances/${instanceSlug}`,
     defaultTab: 'overview',
     matchers: [
- { suffix: "/ai-usage", value: "ai-usage" },
+      { suffix: '/ai-usage', value: 'ai-usage' },
       { suffix: '/entitlements', value: 'entitlements' },
       { suffix: '/billing', value: 'billing' },
       { suffix: '/audit-trail', value: 'audit-trail' },
@@ -38,7 +38,16 @@ export function useInstanceDetailTabs(instanceSlug: string) {
   });
   const params = { instanceSlug };
   const items = [
- ...(aiEnabled ? [{label: t('AI.Usage.title'), params, to: '/customers/instances/$instanceSlug/ai-usage' as const, value: 'ai-usage'}] : []),
+    ...(aiEnabled
+      ? [
+          {
+            label: t('AI.Usage.title'),
+            params,
+            to: '/customers/instances/$instanceSlug/ai-usage' as const,
+            value: 'ai-usage',
+          },
+        ]
+      : []),
     {
       label: t('Pages.Customers.Instances.Detail.tabs.overview'),
       params,

@@ -1,4 +1,7 @@
-import { aiMatrixQueryKey, aiWildcardImpactQueryKey } from '@/domains/ai-credits';
+import {
+  aiMatrixQueryKey,
+  aiWildcardImpactQueryKey,
+} from '@/domains/ai-credits';
 import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import { copyConversionRules } from '../../hooks/copy-conversion-rules';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -92,8 +95,7 @@ function useSubmitLicenseVersion({
   const { t } = useTranslation();
   const router = useRouter();
   const createVersion = useCreateLicenseVersion(entitlements);
- const queryClient = useQueryClient();
-
+  const queryClient = useQueryClient();
 
   return async (value: LicenseVersionFormValues) => {
     try {
@@ -107,24 +109,43 @@ function useSubmitLicenseVersion({
         );
       }
 
-      const aiEnabled = value.copyAiRules && await queryClient.ensureQueryData(aiCreditsFlagQueryOptions);
- const { error, hasPrices, license } = await createVersion({
+      const aiEnabled =
+        value.copyAiRules &&
+        (await queryClient.ensureQueryData(aiCreditsFlagQueryOptions));
+      const { error, hasPrices, license } = await createVersion({
         baseLicense,
         body: licenseVersionFormValuesToLicenseInput(value, baseLicense),
         copyPrices: value.copyPrices,
- afterGrants: aiEnabled ? async (created) => {
-  try {
-   const results = await copyConversionRules(baseLicense.slug!, created.slug);
-   for (const result of results) {
-    const name = `${result.rule.entitlementSlug} / ${result.rule.modelSlug ?? t('AI.anyModel')} / ${result.rule.requestType ?? t('AI.any')}`;
-    if (result.error) toast.error(t('AI.copyFailed', {name, reason: getApiErrorMessage(result.error)}));
-    else toast.success(t('AI.copySuccess', {name}));
-   }
-   if (results.some((result) => result.error)) throw new Error(t('AI.copyPartial'));
-  } finally {
-   await Promise.all([queryClient.invalidateQueries({queryKey: aiMatrixQueryKey}), queryClient.invalidateQueries({queryKey: aiWildcardImpactQueryKey})]);
-  }
- } : undefined,
+        afterGrants: aiEnabled
+          ? async (created) => {
+              try {
+                const results = await copyConversionRules(
+                  baseLicense.slug!,
+                  created.slug,
+                );
+                for (const result of results) {
+                  const name = `${result.rule.entitlementSlug} / ${result.rule.modelSlug ?? t('AI.anyModel')} / ${result.rule.requestType ?? t('AI.any')}`;
+                  if (result.error)
+                    toast.error(
+                      t('AI.copyFailed', {
+                        name,
+                        reason: getApiErrorMessage(result.error),
+                      }),
+                    );
+                  else toast.success(t('AI.copySuccess', { name }));
+                }
+                if (results.some((result) => result.error))
+                  throw new Error(t('AI.copyPartial'));
+              } finally {
+                await Promise.all([
+                  queryClient.invalidateQueries({ queryKey: aiMatrixQueryKey }),
+                  queryClient.invalidateQueries({
+                    queryKey: aiWildcardImpactQueryKey,
+                  }),
+                ]);
+              }
+            }
+          : undefined,
         draftEntitlements,
       });
 

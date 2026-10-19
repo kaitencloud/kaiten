@@ -3,6 +3,7 @@ package getentitlementsusagemetrics
 import (
 	"context"
 	"errors"
+	"github.com/shopspring/decimal"
 	"time"
 
 	"github.com/google/uuid"
@@ -126,7 +127,13 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 		if err != nil {
 			return nil, err
 		}
+		var reserved *string
+		if e.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+			text := decimal.NewFromBigInt(e.Reserved.Int, e.Reserved.Exp).String()
+			reserved = &text
+		}
 		result = append(result, entitlementUsageSchema.EntitlementUsage{
+			Reserved:                       reserved,
 			EntitlementID:                  e.EntitlementID,
 			EntitlementSlug:                e.EntitlementSlug,
 			LicenseID:                      e.LicenseID,

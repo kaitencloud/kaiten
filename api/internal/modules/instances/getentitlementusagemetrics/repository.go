@@ -2,6 +2,7 @@ package getentitlementusagemetrics
 
 import (
 	"context"
+	"github.com/shopspring/decimal"
 	"time"
 
 	"github.com/google/uuid"
@@ -118,7 +119,13 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 	if err != nil {
 		return nil, err
 	}
+	var reserved *string
+	if result.EntitlementType != nil && *result.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+		text := decimal.NewFromBigInt(result.Reserved.Int, result.Reserved.Exp).String()
+		reserved = &text
+	}
 	return &entitlementUsageSchema.EntitlementUsage{
+		Reserved:                       reserved,
 		EntitlementID:                  *result.EntitlementID,
 		EntitlementSlug:                *result.EntitlementSlug,
 		LicenseID:                      *result.LicenseID,

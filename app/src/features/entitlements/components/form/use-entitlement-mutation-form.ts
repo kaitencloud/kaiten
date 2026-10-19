@@ -66,7 +66,7 @@ const entitlementFormValuesToBody = (
   };
   if (body.type !== 'NUMBER' && body.type !== 'NUMBER_AI_CREDIT') {
     body.aggregationMethod = undefined;
- body.warningThresholdPercent = undefined;
+    body.warningThresholdPercent = undefined;
   }
   conditionUnitFields(body);
 
@@ -129,7 +129,7 @@ export const useEntitlementMutationForm = (
       setRefusal(null);
       try {
         const body = entitlementFormValuesToBody(value, openedEntitlement);
- if (body.type === "NUMBER_AI_CREDIT") body.aggregationMethod = "SUM";
+        if (body.type === 'NUMBER_AI_CREDIT') body.aggregationMethod = 'SUM';
 
         // An update may answer with no body; the entitlement being edited
         // then stands in, since only its slug is needed downstream.

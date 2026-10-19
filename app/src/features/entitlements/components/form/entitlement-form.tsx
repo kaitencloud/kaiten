@@ -39,7 +39,10 @@ export const EntitlementForm = ({
   // The type is immutable once set, so an existing non-NUMBER entitlement has
   // nothing left to configure on a second step — collapse the wizard to a
   // single step. NUMBER keeps its step for the meter/unit configuration.
-  const showTypeStep = !entitlement || entitlement.type === 'NUMBER' || entitlement.type === 'NUMBER_AI_CREDIT';
+  const showTypeStep =
+    !entitlement ||
+    entitlement.type === 'NUMBER' ||
+    entitlement.type === 'NUMBER_AI_CREDIT';
   const refusalAlert = refusal ? (
     <EntitlementRefusalAlert messageKey={refusal} />
   ) : null;

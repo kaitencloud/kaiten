@@ -87,7 +87,10 @@ export function mapApiError(
     return {
       code,
       status,
-      message: data.code && AI_API_ERROR_KEYS[data.code] ? t(AI_API_ERROR_KEYS[data.code]) : (problemText(data) ?? genericMessage(code, t)),
+      message:
+        data.code && AI_API_ERROR_KEYS[data.code]
+          ? t(AI_API_ERROR_KEYS[data.code])
+          : (problemText(data) ?? genericMessage(code, t)),
       details: data.errors ?? undefined,
       originalError: error,
     };

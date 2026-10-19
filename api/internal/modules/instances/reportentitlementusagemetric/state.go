@@ -9,6 +9,7 @@ import (
 
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"

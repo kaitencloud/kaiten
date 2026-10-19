@@ -14,7 +14,7 @@ type CreateVersionOptions = {
   /** Whether the version starts with the prices of its base, where billing is on. */
   copyPrices: boolean;
   draftEntitlements: EditableLicenseEntitlement[];
- afterGrants?: (created: License & {slug: string}) => Promise<void>;
+  afterGrants?: (created: License & { slug: string }) => Promise<void>;
 };
 
 type CreateVersionResult = {
@@ -48,7 +48,7 @@ export function useCreateLicenseVersion(entitlements: Entitlement[]) {
       body,
       copyPrices: wantsPrices,
       draftEntitlements,
- afterGrants,
+      afterGrants,
     }: CreateVersionOptions): Promise<CreateVersionResult> => {
       const pricesToCopy =
         hasBilling && wantsPrices && baseLicense.slug
@@ -59,7 +59,11 @@ export function useCreateLicenseVersion(entitlements: Entitlement[]) {
         afterGrants: async (created) => {
           await afterGrants?.(created);
           if (pricesToCopy.length > 0) {
-            await copyPrices({existing: [], pending: pricesToCopy, targetSlug: created.slug});
+            await copyPrices({
+              existing: [],
+              pending: pricesToCopy,
+              targetSlug: created.slug,
+            });
           }
         },
         body,

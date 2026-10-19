@@ -67,4 +67,16 @@ The dedup horizon controls recognition, not deletion of historical evidence.
 `apply.go` is the single counter write; billing's journal INSERT and report
 sequence belong immediately after the counter upsert. AI correlation is
 `value.transactionId` / `ai.transactionId`, independent of billing's generic
-Idempotency-Key request header. AI correctness does not depend on that header.
+Idempotency-Key request header. AI requests reject a supplied Idempotency-Key
+with 422 `AiIdempotencyKeyUnsupported`: numeric header keys are never consumed
+by AI debits. The outer `transactionId` is null for AI responses; `ai.transactionId`
+is its phase key. AI phase replay preserves the original effective limit,
+source and provenance; numeric journal replay keeps billing's null source/provenance.
+
+Actual positive AI charges and numeric adjustments advance `report_seq` and
+append one billing usage journal row in the same transaction as the counter,
+operation and outbox. Reserve, release, zero-charge commits and phase replay
+write no debit journal row. The gate uses the effective entitlement at the single
+post-lock report instant, including add-ons, vouchers and instance exceptions.
+The AI migration follows billing's latest migration; rolling back AI leaves
+billing's effective entitlement view and shared foreign-key targets intact.

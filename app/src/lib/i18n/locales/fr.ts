@@ -3,6 +3,8 @@ export default {
     slugInvalid:
       'Utilisez au moins deux lettres minuscules, chiffres ou tirets ; commencez et terminez par une lettre ou un chiffre.',
     Errors: {
+      aiIdempotencyKeyUnsupported:
+        'L’usage IA utilise son identifiant de transaction. Retirez l’en-tête Idempotency-Key et réessayez.',
       slugConflict: 'Ce slug de modèle est déjà utilisé.',
       externalIdConflict:
         'Un identifiant fournisseur est utilisé par un autre modèle ou son slug.',
