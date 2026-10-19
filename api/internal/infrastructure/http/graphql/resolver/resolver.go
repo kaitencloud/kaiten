@@ -4,6 +4,7 @@ package resolver
 
 import (
 	"github.com/jackc/pgx/v5/pgxpool"
+	modelsdb "github.com/kaitencloud/kaiten/api/internal/modules/models/infrastructure/db"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	addonsdb "github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
@@ -24,6 +25,7 @@ import (
 // needed by all resolvers -- each module's own typed db.Queries or public
 // port, never a shared/global sqlc client.
 type Resolver struct {
+	ModelsQueries *modelsdb.Queries
 	// BillingGate keeps the add-on catalogue behind the billing switch, as REST
 	// keeps it. The zero Gate refuses every organization.
 	BillingGate gate.Gate
@@ -44,6 +46,7 @@ type Resolver struct {
 // NewResolver creates a new Resolver with the given dependencies.
 func NewResolver(pool *pgxpool.Pool, billingGate gate.Gate) *Resolver {
 	return &Resolver{
+		ModelsQueries:             modelsdb.New(pool),
 		BillingGate:               billingGate,
 		AddonsQueries:             addonsdb.New(pool),
 		InstancesQueries:          instancesdb.New(pool),

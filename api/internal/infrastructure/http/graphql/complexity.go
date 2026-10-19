@@ -7,6 +7,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	instancesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/instances/graphql"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
+	modelschema "github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
@@ -102,6 +103,10 @@ func newComplexityRoot() generated.ComplexityRoot {
 		return fanOut(assumedFanout, childComplexity)
 	}
 
+	root.Query.Models = func(childComplexity int, _ *modelschema.Status) int {
+		return unbounded(childComplexity)
+	}
+	root.Model.ExternalIDs = unbounded
 	root.Customer.Instances = unbounded
 	root.License.Instances = unbounded
 	root.License.Entitlements = unbounded

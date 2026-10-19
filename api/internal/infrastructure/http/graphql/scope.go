@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models/listmodels"
 	"slices"
 	"strings"
 
@@ -70,6 +71,7 @@ import (
 // GET /releases returns a release's components under read:releases alone, and
 // Release.components requires read:components as well.
 var typeScopes = map[string]string{
+	"Model":          listmodels.RequiredScope,
 	"Addon":          listaddons.RequiredScope,
 	"AddonPage":      listaddons.RequiredScope,
 	"AddonPrice":     listaddonprices.RequiredScope,
