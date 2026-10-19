@@ -22,6 +22,18 @@ export default {
         'Rule identity is fixed. Archive this rule and create a new one to change it.',
       ruleNotFound: 'This conversion rule no longer exists.',
       invalidRange: 'The start date must precede the end date.',
+      invalidCursor: 'This history cursor is invalid. Reload the list.',
+      poolNotGranted: 'This AI credit pool is not granted to the instance.',
+      transactionRequired: 'An AI operation identifier is required.',
+      transactionInvalid: 'The AI operation identifier has an invalid format.',
+      transactionReused:
+        'This AI operation identifier has already been used with a different request or closed operation.',
+      invalidUsage:
+        'The AI usage report is invalid. Check the phase and nonnegative usage fields.',
+      modelNotAuthorized:
+        'This model has no authorized conversion rule for the selected pool.',
+      insufficientCredits:
+        'There are not enough credits available for this reservation.',
       appendOnly:
         'AI credit pools accept only appended consumption or refunds.',
     },
