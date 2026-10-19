@@ -95,7 +95,7 @@ func ValidateRequestType(v *aicredit.RequestType, operation string) error {
 	return apierrors.UnprocessableEntity(operation+".InvalidRequestType", "invalid request type")
 }
 
-func CheckIdentity(cmd *UpdateConversionRuleBody, before *schema.ConversionRule) error {
+func CheckIdentity(cmd *UpdateConversionRule, before *schema.ConversionRule) error {
 	if (cmd.EntitlementSet || cmd.EntitlementSlug != nil) && (cmd.EntitlementSlug == nil || *cmd.EntitlementSlug != before.EntitlementSlug) {
 		return apierrors.UnprocessableEntity("UpdateConversionRule.ImmutableEntitlement", "entitlementSlug is immutable")
 	}

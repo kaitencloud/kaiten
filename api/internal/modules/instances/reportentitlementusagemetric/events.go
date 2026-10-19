@@ -62,6 +62,6 @@ type InstanceEntitlementUsagePeriodRolledOver struct {
 type InstanceAIModelUsageUnauthorized struct {
 	EntitlementSlug string `json:"entitlement_slug"`
 	Model           string `json:"model"`
-	RequestType     string `json:"request_type"`
+	RequestType     string `json:"requestType"`
 	Reason          string `json:"reason"`
 }

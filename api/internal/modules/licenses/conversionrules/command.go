@@ -17,16 +17,18 @@ type Pricing struct {
 	ChargeOnError            aicredit.ChargeOnError `json:"chargeOnError" required:"false" default:"NEVER" enum:"NEVER,ALWAYS,PROVIDER_ERROR_ONLY"`
 }
 
-type CreateConversionRuleBody struct {
+// CreateConversionRule requires the pool identity when granting pricing. It is
+// distinct from the read-only ConversionRule resource and the pricing update.
+type CreateConversionRule struct {
 	EntitlementSlug string                `json:"entitlementSlug" minLength:"1"`
 	ModelSlug       *string               `json:"modelSlug" required:"false"`
 	RequestType     *aicredit.RequestType `json:"requestType" required:"false" enum:"COMPLETION,EMBEDDING,IMAGE_GENERATION,AUDIO,VIDEO"`
 	Pricing
 }
 
-// UpdateConversionRuleBody replaces pricing. Identity echoes are optional but immutable;
+// UpdateConversionRule replaces pricing. Identity echoes are optional but immutable;
 // presence flags distinguish an omitted wildcard from an attempt to clear one.
-type UpdateConversionRuleBody struct {
+type UpdateConversionRule struct {
 	EntitlementSlug *string               `json:"entitlementSlug,omitempty" nullable:"true"`
 	ModelSlug       *string               `json:"modelSlug,omitempty" nullable:"true"`
 	RequestType     *aicredit.RequestType `json:"requestType,omitempty" nullable:"true"`
@@ -36,8 +38,8 @@ type UpdateConversionRuleBody struct {
 	RequestTypeSet bool `json:"-"`
 }
 
-func (c *UpdateConversionRuleBody) UnmarshalJSON(data []byte) error {
-	type plain UpdateConversionRuleBody
+func (c *UpdateConversionRule) UnmarshalJSON(data []byte) error {
+	type plain UpdateConversionRule
 	var decoded plain
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		return err
@@ -46,7 +48,7 @@ func (c *UpdateConversionRuleBody) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &fields); err != nil {
 		return err
 	}
-	*c = UpdateConversionRuleBody(decoded)
+	*c = UpdateConversionRule(decoded)
 	_, c.EntitlementSet = fields["entitlementSlug"]
 	_, c.ModelSet = fields["modelSlug"]
 	_, c.RequestTypeSet = fields["requestType"]
@@ -59,7 +61,7 @@ type Filter struct {
 	ModelSlug       *string
 }
 
-func (CreateConversionRuleBody) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+func (CreateConversionRule) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 	s.Properties["requestType"].Enum = append(s.Properties["requestType"].Enum, nil)
 	return s
 }

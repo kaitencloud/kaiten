@@ -131,7 +131,8 @@ func newAIUsagePair(t *testing.T, limit int32) (*instanceschema.Instance, *entit
 	t.Helper()
 	instance := newInstances(t, 1)[0]
 	pool := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 80)
-	assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, pool.Slug, limit, 0)
+	overagePercent := entitlementvalue.DefaultLimitCapExceededOveragePercent(float64(limit))
+	assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, pool.Slug, limit, overagePercent)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `WITH m AS (
 		INSERT INTO model (organization_id,name,slug,vendor,modality,created_by_id,updated_by_id)
 		VALUES ($1,'Lifecycle','lifecycle-model','synthetic','TEXT',$2,$2) RETURNING id)

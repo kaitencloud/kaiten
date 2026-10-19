@@ -185,6 +185,20 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 	}
 
 	implemented := map[string]sdkMethodRef{
+		// AI catalogue, pricing and history operations are public through the
+		// SDK's typed Raw client even without handwritten service wrappers.
+		"listModels":                         {receiver: client.Raw(), method: "ListModelsWithResponse"},
+		"createModel":                        {receiver: client.Raw(), method: "CreateModelWithResponse"},
+		"getModel":                           {receiver: client.Raw(), method: "GetModelWithResponse"},
+		"updateModel":                        {receiver: client.Raw(), method: "UpdateModelWithResponse"},
+		"deleteModel":                        {receiver: client.Raw(), method: "DeleteModelWithResponse"},
+		"listConversionRules":                {receiver: client.Raw(), method: "ListConversionRulesWithResponse"},
+		"createConversionRule":               {receiver: client.Raw(), method: "CreateConversionRuleWithResponse"},
+		"getConversionRule":                  {receiver: client.Raw(), method: "GetConversionRuleWithResponse"},
+		"updateConversionRule":               {receiver: client.Raw(), method: "UpdateConversionRuleWithResponse"},
+		"archiveConversionRule":              {receiver: client.Raw(), method: "ArchiveConversionRuleWithResponse"},
+		"listAiInferences":                   {receiver: client.Raw(), method: "ListAiInferencesWithResponse"},
+		"listAiReservations":                 {receiver: client.Raw(), method: "ListAiReservationsWithResponse"},
 		"list-components":                    {receiver: client.Components, method: "List"},
 		"create-component":                   {receiver: client.Components, method: "Create"},
 		"delete-component":                   {receiver: client.Components, method: "Delete"},
