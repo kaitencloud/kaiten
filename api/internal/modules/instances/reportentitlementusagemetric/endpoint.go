@@ -64,7 +64,7 @@ func (r *Request) Resolve(ctx huma.Context) []error {
 // struct published four readOnly properties as required, so a generated
 // client believed it had to send them.
 type ReportEntitlementUsageBody struct {
-	Value    schema.EntitlementValue `json:"value" doc:"Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only."`
+	Value    schema.ReportUsageValue `json:"value" doc:"Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only."`
 	Behavior string                  `json:"behavior,omitempty" doc:"Report behavior: append folds the value into the stored total through the aggregation method; set overwrites it" enum:"append,set"`
 	Metadata map[string]any          `json:"metadata,omitempty" doc:"Optional metadata for the usage report, a JSON object stored with it in the usage history when its compact encoding is at most 4 KiB. Above that it is not stored, the report is still counted, and the response carries Kaiten-Metadata-Dropped: too_large. It must contain no personal data: anyone who can read the organization's instances can read it, for as long as the usage history is kept. Numbers are read as 64-bit floats, so send large identifiers as strings."`
 }
@@ -128,14 +128,17 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 		}
 
 		behavior := Behavior(request.Body.Behavior)
-		if behavior != BehaviorAppend && behavior != BehaviorSet {
+		if request.Body.Value.AI != nil && behavior == "" {
+			behavior = BehaviorAppend
+		}
+		if request.Body.Value.AI == nil && behavior != BehaviorAppend && behavior != BehaviorSet {
 			return nil, apierrors.UnprocessableEntity(
 				"ReportEntitlementUsageMetric.InvalidBehavior",
 				"behavior must be one of: append, set",
 			)
 		}
 
-		if request.Body.Value.Number == nil {
+		if request.Body.Value.Number == nil && request.Body.Value.AI == nil {
 			return nil, apierrors.UnprocessableEntity(
 				"ReportEntitlementUsageMetric.InvalidValueType",
 				"value must be a NumberEntitlementValue for usage reporting",
@@ -158,12 +161,15 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 		}
 
 		command := &Command{
-			Value:         request.Body.Value.Number.Value,
+			AI:            request.Body.Value.AI,
 			Behavior:      behavior,
 			Metadata:      request.Body.Metadata,
 			TransactionID: transactionID,
 		}
 
+		if request.Body.Value.Number != nil {
+			command.Value = request.Body.Value.Number.Value
+		}
 		result, err := app.ReportEntitlementUsage(
 			ctx, cl, request.InstanceSlug, request.EntitlementSlug, command)
 		if err != nil {
@@ -185,6 +191,7 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 // emits: the report outcome itself, the two crossing signals, the legacy
 // exact-cap signal, and one per closed usage window.
 func RegisterWebhook(api huma.API) {
+	RegisterAIWebhooks(api)
 	webhook.Declare(
 		api,
 		webhook.Declaration{
@@ -235,5 +242,13 @@ func RegisterWebhook(api huma.API) {
 			Description: "Triggered once per usage window closed by a report: the entitlement's own stored bucket, and one synthetic event per window skipped entirely since the last report.",
 			Tags:        []string{"webhooks", "instances"},
 		},
+	)
+}
+
+func RegisterAIWebhooks(api huma.API) {
+	webhook.Declare(
+		api,
+		webhook.Declaration{Event: events.InstanceEntitlementMaximumExceeded, Data: (*InstanceEntitlementCapExceeded)(nil), OperationID: "onInstanceEntitlementMaximumExceeded", Summary: "Instance entitlement maximum exceeded", Description: "A committed AI usage charge crossed a soft pool's maximum.", Tags: []string{"webhooks", "instances"}},
+		webhook.Declaration{Event: events.InstanceAIModelUsageUnauthorized, Data: (*InstanceAIModelUsageUnauthorized)(nil), OperationID: "onInstanceAIModelUsageUnauthorized", Summary: "Unauthorized model usage", Description: "AI usage was recorded without an authorized model conversion rule.", Tags: []string{"webhooks", "instances"}},
 	)
 }

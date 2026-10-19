@@ -16,9 +16,11 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	UsageReporter services.UsageReporter
-	Uof           *uow.UnitOfWork
+	ReservationTTL    time.Duration
+	ReservationMaxTTL time.Duration
+	UserProvider      currentuser.Provider
+	UsageReporter     services.UsageReporter
+	Uof               *uow.UnitOfWork
 	// MaxRolloverClosures caps how many usage windows one report may close
 	// (KAITEN_USAGE_ROLLOVER_MAX_CLOSURES). Zero or less means
 	// DefaultMaxRolloverClosures.
@@ -68,6 +70,16 @@ type UseCase struct {
 }
 
 func NewUseCase(deps Deps) *UseCase {
+	if deps.ReservationTTL == 0 {
+		deps.ReservationTTL = DefaultReservationTTL
+	}
+	if deps.ReservationMaxTTL == 0 {
+		deps.ReservationMaxTTL = DefaultReservationMaxTTL
+	}
+	if deps.IdempotencyWindow <= 0 {
+		deps.IdempotencyWindow = DefaultIdempotencyWindow
+	}
+
 	maxRolloverClosures := deps.MaxRolloverClosures
 	if maxRolloverClosures <= 0 {
 		maxRolloverClosures = DefaultMaxRolloverClosures

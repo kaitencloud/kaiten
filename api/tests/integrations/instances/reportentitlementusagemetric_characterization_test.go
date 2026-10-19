@@ -321,7 +321,7 @@ func TestUsageReportCharacterization_Enforcement(t *testing.T) {
 		})})
 	})
 
-	t.Run("NumericSet_OnACreditPool_IsAcceptedToday", func(t *testing.T) {
+	t.Run("NumericSet_OnACreditPool_IsRefusedByD8", func(t *testing.T) {
 		// Pinned so the change that makes credit pools append-only is a
 		// deliberate, visible diff rather than a silent one.
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
@@ -330,8 +330,8 @@ func TestUsageReportCharacterization_Enforcement(t *testing.T) {
 		assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, entitlement.Slug, 100, 0)
 
 		resp := reportUsage(t, instance.Slug, entitlement.Slug, 40, "set")
-		require.Equal(t, fiber.StatusOK, resp.StatusCode)
-		readBody(t, resp)
+		require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+		require.Contains(t, readBody(t, resp), "ReportEntitlementUsageMetric.AiCreditPoolAppendOnly")
 	})
 }
 

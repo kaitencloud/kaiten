@@ -28,7 +28,7 @@ $$;
 
 -- A credit pool's counter only ever moves by + and - appends.
 ALTER TABLE "entitlement" ADD CONSTRAINT "entitlement_ai_credit_sum_check"
-  CHECK ("type" <> 'NUMBER_AI_CREDIT' OR "aggregation_method" = 'SUM');
+  CHECK ("type" <> 'NUMBER_AI_CREDIT' OR "aggregation_method" IS NOT DISTINCT FROM 'SUM');
 
 CREATE TYPE "model_modality" AS ENUM ('TEXT', 'IMAGE', 'AUDIO', 'VIDEO', 'EMBEDDING', 'MULTIMODAL');
 CREATE TYPE "model_status" AS ENUM ('ACTIVE', 'DEPRECATED', 'ARCHIVED');
@@ -195,9 +195,9 @@ CREATE TABLE "ai_inference"
   "credit_conversion_rule_id" UUID,
   "authorized"                BOOLEAN,                        -- NULL while RESERVED
   "denial_reason"             TEXT,                           -- UNKNOWN_MODEL | MODEL_ARCHIVED | NO_RULE
-  "credits_reserved"          NUMERIC(20, 6),                 -- NULL when the operation never reserved
-  "credits_computed"          NUMERIC(20, 6),
-  "credits_charged"           NUMERIC(20, 6),
+  "credits_reserved"          NUMERIC(38, 6),                 -- NULL when the operation never reserved
+  "credits_computed"          NUMERIC(38, 6),
+  "credits_charged"           NUMERIC(38, 6),
 
   "value_before"              DOUBLE PRECISION,               -- the counter around the charge; NULL when nothing was charged
   "value_after"               DOUBLE PRECISION,
@@ -205,8 +205,12 @@ CREATE TABLE "ai_inference"
 
   "request_hash"              BYTEA                 NOT NULL, -- of the phase that created the row
   "commit_hash"               BYTEA,                          -- of the commit that closed it
+  "reserve_response"          JSONB,                          -- immutable original phase response for exact replay
+  "commit_response"           JSONB,
 
   CONSTRAINT "ai_inference_pkey" PRIMARY KEY ("id"),
+  CONSTRAINT "ai_inference_hash_check" CHECK (octet_length("request_hash")=32 AND ("commit_hash" IS NULL OR octet_length("commit_hash")=32)
+    AND ("status" NOT IN ('COMMITTED','RELEASED') OR "commit_hash" IS NOT NULL)),
   CONSTRAINT "ai_inference_organization_id_fkey" FOREIGN KEY ("organization_id") REFERENCES "organization" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
   CONSTRAINT "ai_inference_reserved_check" CHECK (
     "status" <> 'RESERVED' OR ("credits_reserved" IS NOT NULL AND "expires_at" IS NOT NULL AND "committed_at" IS NULL)),

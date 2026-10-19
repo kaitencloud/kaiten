@@ -52,6 +52,9 @@ func (h *UseCase) apply(ctx context.Context, st *State, eff *Effect) error {
 
 	}
 
+	if err := h.applyAI(ctx, eff); err != nil {
+		return err
+	}
 	messages := make([]outbox.Outbox, len(eff.Events))
 	for i, e := range eff.Events {
 		messages[i] = outbox.NewOutboxMessage(
