@@ -52,7 +52,8 @@ func NewUseCase(deps Deps) *UseCase {
 // its lock, let the report's kind plan it, apply the plan. Every report,
 // whatever its kind, goes through exactly one lock, one clock read, one
 // rollover and one counter upsert.
-func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (*schema.EntitlementUsage, error) {
+func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (response *schema.EntitlementUsage, resultErr error) {
+	defer func() { recordAIReport(ctx, command, response, resultErr) }()
 	if command.AI != nil {
 		if err := validateAI(command, h.deps.ReservationMaxTTL); err != nil {
 			return nil, err
