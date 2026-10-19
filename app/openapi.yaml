@@ -670,7 +670,7 @@ components:
         - before
         - after
       type: object
-    CreateConversionRuleBody:
+    CreateConversionRule:
       additionalProperties: false
       properties:
         chargeOnError:
@@ -1726,12 +1726,12 @@ components:
           type: string
         reason:
           type: string
-        request_type:
+        requestType:
           type: string
       required:
         - entitlement_slug
         - model
-        - request_type
+        - requestType
         - reason
       type: object
     InstanceBody:
@@ -3687,7 +3687,7 @@ components:
         - createdAt
         - createdBy
       type: object
-    UpdateConversionRuleBody:
+    UpdateConversionRule:
       additionalProperties: false
       properties:
         chargeOnError:
@@ -8983,7 +8983,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/CreateConversionRuleBody"
+              $ref: "#/components/schemas/CreateConversionRule"
         required: true
       responses:
         "201":
@@ -9190,7 +9190,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/UpdateConversionRuleBody"
+              $ref: "#/components/schemas/UpdateConversionRule"
         required: true
       responses:
         "200":

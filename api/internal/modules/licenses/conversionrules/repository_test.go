@@ -38,12 +38,12 @@ func TestImmutablePresence(t *testing.T) {
 	typ := aicredit.Completion
 	before := &schema.ConversionRule{EntitlementSlug: "credits", ModelSlug: text("model"), RequestType: &typ}
 	for _, body := range []string{`{}`, `{"entitlementSlug":"credits","modelSlug":"model","requestType":"COMPLETION"}`} {
-		var c UpdateConversionRuleBody
+		var c UpdateConversionRule
 		require.NoError(t, json.Unmarshal([]byte(body), &c))
 		require.NoError(t, CheckIdentity(&c, before))
 	}
 	for _, body := range []string{`{"entitlementSlug":null}`, `{"modelSlug":null}`, `{"requestType":null}`, `{"modelSlug":"other"}`} {
-		var c UpdateConversionRuleBody
+		var c UpdateConversionRule
 		require.NoError(t, json.Unmarshal([]byte(body), &c))
 		require.Error(t, CheckIdentity(&c, before))
 	}
@@ -51,7 +51,7 @@ func TestImmutablePresence(t *testing.T) {
 
 func TestCreateWildcardSchemaIncludesNull(t *testing.T) {
 	registry := huma.NewMapRegistry("#/components/schemas/", huma.DefaultSchemaNamer)
-	body := huma.SchemaFromType(registry, reflect.TypeFor[CreateConversionRuleBody]())
+	body := huma.SchemaFromType(registry, reflect.TypeFor[CreateConversionRule]())
 	require.True(t, body.Properties["requestType"].Nullable)
 	require.Contains(t, body.Properties["requestType"].Enum, any(nil))
 }

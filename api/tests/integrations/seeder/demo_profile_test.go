@@ -450,7 +450,7 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 
 	recordAuditTrail(t, ctx, testDB, orgID)
 
-	list, err := feed.List(ctx, notificationsdb.New(testDB.DbPool), feed.Query{
+	query := feed.Query{
 		UserID:         userID,
 		OrganizationID: orgID,
 		Subscription: feed.Subscription{
@@ -460,21 +460,38 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 			licenseevents.LicenseEntitlementAssigned.Name,
 		},
 		UnreadOnly: false,
-		Limit:      feed.MaxLimit,
-		Cursor:     "",
-	})
-	require.NoError(t, err)
-
-	opens := map[string]string{}
-	for _, notification := range list.Data {
-		require.NotNil(t, notification.ActionURL, "%q links nowhere", notification.Title)
-		opens[notification.Title] = *notification.ActionURL
+		Limit:      feed.DefaultLimit,
 	}
+
+	// The seed exceeds one page. Follow cursors like the bell instead of
+	// dropping older assignments when new demo events are added.
+	opens := map[string]string{}
+	pages := 0
+	for {
+		list, err := feed.List(ctx, notificationsdb.New(testDB.DbPool), query)
+		require.NoError(t, err)
+		pages++
+		for _, notification := range list.Data {
+			require.NotNil(t, notification.ActionURL, "%q links nowhere", notification.Title)
+			require.NotContains(t, opens, notification.Title, "notification repeated across pages")
+			opens[notification.Title] = *notification.ActionURL
+		}
+		if list.NextCursor == nil {
+			break
+		}
+		require.NotEmpty(t, *list.NextCursor)
+		require.NotEqual(t, query.Cursor, *list.NextCursor, "pagination must advance")
+		query.Cursor = *list.NextCursor
+	}
+	require.Greater(t, pages, 1, "the demo must exercise notification pagination")
 
 	// Each assignment opens the license version it was made on: the event is
 	// published when the seed assigns the entitlement, before any later version
 	// of the family exists.
 	assert.Equal(t, map[string]string{
+		"AI credits was assigned to Premium":                "/licenses/premium-v2",
+		"AI credits was assigned to Standard":               "/licenses/standard-v2",
+		"AI credits was assigned to Starter":                "/licenses/starter",
 		"Sakura Tokyo Production was created":               "/customers/instances/sakura-tokyo-prod",
 		"Sakura Tokyo Demo was created":                     "/customers/instances/sakura-tokyo-demo",
 		"Ninja Osaka Production was created":                "/customers/instances/ninja-osaka-prod",
