@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/aihistory"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
@@ -14,6 +15,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -164,7 +167,8 @@ func (i Instances) ReportEntitlementUsage(
 	}
 
 	return i.uc.ReportEntitlementUsageMetric.Execute(
-		bindOrganization(ctx, cl), instanceSlug, entitlementSlug, cmd)
+		bindOrganization(ctx, cl), instanceSlug, entitlementSlug, cmd,
+	)
 }
 
 // GetEntitlementUsage reads one entitlement's usage. It emits a read-audit event,
@@ -177,7 +181,8 @@ func (i Instances) GetEntitlementUsage(
 	}
 
 	return i.uc.GetEntitlementUsageMetrics.Execute(
-		bindOrganization(ctx, cl), instanceSlug, entitlementSlug)
+		bindOrganization(ctx, cl), instanceSlug, entitlementSlug,
+	)
 }
 
 // ListEntitlementUsage reads every entitlement's usage for one instance,
@@ -209,5 +214,20 @@ func (i Instances) ListAuditTrails(
 	}
 
 	return i.uc.GetAuditTrails.Execute(
-		bindOrganization(ctx, cl), instanceSlug, eventName, after, before, limit, cursor)
+		bindOrganization(ctx, cl), instanceSlug, eventName, after, before, limit, cursor,
+	)
+}
+
+func (i Instances) ListAIInferences(ctx context.Context, cl caller.OrganizationCaller, instance, pool string, filter aihistory.Filter) (instanceschema.AiInferencePage, error) {
+	if err := cl.Require(listaiinferences.RequiredScope); err != nil {
+		return instanceschema.AiInferencePage{}, err
+	}
+	return i.uc.AIInferences.Execute(bindOrganization(ctx, cl), instance, pool, filter)
+}
+
+func (i Instances) ListAIReservations(ctx context.Context, cl caller.OrganizationCaller, instance, pool string) (instanceschema.AiReservations, error) {
+	if err := cl.Require(listaireservations.RequiredScope); err != nil {
+		return instanceschema.AiReservations{}, err
+	}
+	return i.uc.AIReservations.Execute(bindOrganization(ctx, cl), instance, pool)
 }

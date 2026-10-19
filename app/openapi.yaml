@@ -1,5 +1,221 @@
 components:
   schemas:
+    AiCredits:
+      additionalProperties: false
+      properties:
+        charged:
+          type: string
+        computed:
+          type: string
+        reserved:
+          type: string
+      type: object
+    AiInference:
+      additionalProperties: false
+      properties:
+        authorized:
+          type: boolean
+        committedAt:
+          format: date-time
+          type: string
+        conversionRuleId:
+          type: string
+        credits:
+          $ref: "#/components/schemas/AiCredits"
+        denialReason:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        model:
+          type: string
+        modelSlug:
+          type: string
+        reportedAt:
+          format: date-time
+          type: string
+        requestStatus:
+          type: string
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+          type: string
+        status:
+          enum:
+            - RESERVED
+            - COMMITTED
+            - RELEASED
+            - EXPIRED
+          type: string
+        transactionId:
+          type: string
+        usage:
+          $ref: "#/components/schemas/AiUsage"
+        valueAfter:
+          format: double
+          type: number
+        valueBefore:
+          format: double
+          type: number
+        windowStart:
+          format: date-time
+          type: string
+      required:
+        - transactionId
+        - status
+        - reportedAt
+        - model
+        - requestType
+        - usage
+        - credits
+      type: object
+    AiInferencePage:
+      additionalProperties: false
+      properties:
+        hasMore:
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/AiInference"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
+    AiReservations:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/AiInference"
+          type:
+            - array
+            - "null"
+      required:
+        - items
+      type: object
+    AiUsage:
+      additionalProperties: false
+      properties:
+        cacheReadInputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        cacheWriteInputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        durationMs:
+          format: int64
+          minimum: 0
+          type: integer
+        inputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        outputTokens:
+          format: int64
+          minimum: 0
+          type: integer
+        unitType:
+          enum:
+            - image
+            - second
+            - frame
+          type: string
+        units:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+      type: object
+    AiUsageOutcome:
+      additionalProperties: false
+      properties:
+        authorized:
+          type: boolean
+        credits:
+          $ref: "#/components/schemas/AiCredits"
+        expiresAt:
+          format: date-time
+          type: string
+        phase:
+          enum:
+            - reserve
+            - commit
+          type: string
+        remaining:
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - RESERVED
+            - COMMITTED
+            - RELEASED
+          type: string
+        transactionId:
+          type: string
+        warnings:
+          items:
+            type: string
+          type: array
+      required:
+        - transactionId
+        - phase
+        - status
+        - credits
+        - remaining
+        - warnings
+      type: object
+    AiUsageValue:
+      additionalProperties: false
+      properties:
+        model:
+          maxLength: 255
+          minLength: 1
+          type: string
+        phase:
+          enum:
+            - reserve
+            - commit
+          type: string
+        requestStatus:
+          enum:
+            - SUCCESS
+            - PROVIDER_ERROR
+            - CUSTOMER_ERROR
+            - NOT_SENT
+          type: string
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+          type: string
+        transactionId:
+          type: string
+        ttlSeconds:
+          format: int64
+          type: integer
+        type:
+          enum:
+            - ai_usage
+          type: string
+        usage:
+          $ref: "#/components/schemas/AiUsage"
+      required:
+        - type
+        - phase
+      type: object
     AuditTrail:
       additionalProperties: false
       properties:
@@ -316,6 +532,186 @@ components:
         - available
         - entitled
         - activated
+      type: object
+    ConversionRates:
+      additionalProperties: false
+      properties:
+        perCacheWriteToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perCachedInputToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perInputToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perOutputToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perRequest:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perSecond:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+        perUnit:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type:
+            - string
+            - "null"
+      type: object
+    ConversionRule:
+      additionalProperties: false
+      properties:
+        chargeOnError:
+          enum:
+            - NEVER
+            - ALWAYS
+            - PROVIDER_ERROR_ONLY
+          type: string
+        createdAt:
+          format: date-time
+          type: string
+        entitlementSlug:
+          type: string
+        grantedByLicense:
+          type: boolean
+        id:
+          format: uuid
+          type: string
+        licenseSlug:
+          type: string
+        maximumCreditsPerRequest:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type:
+            - string
+            - "null"
+        minimumCreditsPerRequest:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+        modelSlug:
+          type:
+            - string
+            - "null"
+        rates:
+          $ref: "#/components/schemas/ConversionRates"
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+            - null
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - ACTIVE
+            - ARCHIVED
+          type: string
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - id
+        - licenseSlug
+        - entitlementSlug
+        - modelSlug
+        - requestType
+        - rates
+        - minimumCreditsPerRequest
+        - maximumCreditsPerRequest
+        - chargeOnError
+        - status
+        - grantedByLicense
+        - createdAt
+        - updatedAt
+      type: object
+    ConversionRuleUpdated:
+      additionalProperties: false
+      properties:
+        after:
+          $ref: "#/components/schemas/ConversionRule"
+        before:
+          $ref: "#/components/schemas/ConversionRule"
+      required:
+        - before
+        - after
+      type: object
+    CreateConversionRule:
+      additionalProperties: false
+      properties:
+        chargeOnError:
+          default: NEVER
+          enum:
+            - NEVER
+            - ALWAYS
+            - PROVIDER_ERROR_ONLY
+          type: string
+        entitlementSlug:
+          minLength: 1
+          type: string
+        maximumCreditsPerRequest:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type:
+            - string
+            - "null"
+        minimumCreditsPerRequest:
+          default: "0"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+        modelSlug:
+          type:
+            - string
+            - "null"
+        rates:
+          $ref: "#/components/schemas/ConversionRates"
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+            - null
+          type:
+            - string
+            - "null"
+      required:
+        - entitlementSlug
+        - rates
       type: object
     Customer:
       additionalProperties: false
@@ -907,6 +1303,9 @@ components:
     EntitlementUsage:
       additionalProperties: false
       properties:
+        ai:
+          $ref: "#/components/schemas/AiUsageOutcome"
+          description: Outcome of this AI report; absent on ordinary reads
         currentPeriodEnd:
           description: End of the current usage window (exclusive). Null for a lifetime entitlement (no configured reset period).
           examples:
@@ -951,6 +1350,9 @@ components:
             - $ref: "#/components/schemas/NumberEntitlementValue"
             - $ref: "#/components/schemas/BooleanEntitlementValue"
             - $ref: "#/components/schemas/ConfigEntitlementValue"
+        reserved:
+          description: Open, unexpired reserved credits; present only on AI credit pools
+          type: string
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
           discriminator:
@@ -1314,6 +1716,23 @@ components:
         - licenseSlug
         - startLicenseDate
         - endLicenseDate
+      type: object
+    InstanceAIModelUsageUnauthorized:
+      additionalProperties: false
+      properties:
+        entitlement_slug:
+          type: string
+        model:
+          type: string
+        reason:
+          type: string
+        requestType:
+          type: string
+      required:
+        - entitlement_slug
+        - model
+        - requestType
+        - reason
       type: object
     InstanceBody:
       additionalProperties: false
@@ -2113,6 +2532,87 @@ components:
       required:
         - jsonSchema
       type: object
+    Model:
+      additionalProperties: false
+      properties:
+        createdAt:
+          format: date-time
+          readOnly: true
+          type: string
+        description:
+          type: string
+        externalIds:
+          description: Exact provider identifiers, unique per organization; cannot shadow another model's slug
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        id:
+          readOnly: true
+          type: string
+        metadata:
+          additionalProperties: {}
+          type: object
+        modality:
+          enum:
+            - TEXT
+            - IMAGE
+            - AUDIO
+            - VIDEO
+            - EMBEDDING
+            - MULTIMODAL
+          type: string
+        name:
+          maxLength: 100
+          minLength: 1
+          type: string
+        slug:
+          description: Immutable URL-friendly identifier, unique per organization
+          examples:
+            - sample-model
+          maxLength: 100
+          minLength: 2
+          pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+          type: string
+        status:
+          default: ACTIVE
+          description: ACTIVE authorizes usage; DEPRECATED keeps existing rules; ARCHIVED authorizes none. Reversible.
+          enum:
+            - ACTIVE
+            - DEPRECATED
+            - ARCHIVED
+          type: string
+        updatedAt:
+          format: date-time
+          readOnly: true
+          type: string
+        vendor:
+          maxLength: 100
+          minLength: 1
+          type: string
+        vendorCosts:
+          $ref: "#/components/schemas/VendorCosts"
+      required:
+        - id
+        - name
+        - slug
+        - vendor
+        - modality
+        - status
+        - createdAt
+        - updatedAt
+      type: object
+    ModelUpdated:
+      additionalProperties: false
+      properties:
+        after:
+          $ref: "#/components/schemas/Model"
+        before:
+          $ref: "#/components/schemas/Model"
+      required:
+        - before
+        - after
+      type: object
     Notification:
       additionalProperties: false
       properties:
@@ -2382,6 +2882,23 @@ components:
         items:
           items:
             $ref: "#/components/schemas/MetadataField"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
+    PageModel:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/Model"
           type: array
         nextCursor:
           description: Opaque cursor for the next page. Absent when hasMore is false.
@@ -2743,14 +3260,12 @@ components:
           description: Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only.
           discriminator:
             mapping:
-              boolean: "#/components/schemas/BooleanEntitlementValue"
+              ai_usage: "#/components/schemas/AiUsageValue"
               number: "#/components/schemas/NumberEntitlementValue"
-              object: "#/components/schemas/ConfigEntitlementValue"
             propertyName: type
           oneOf:
             - $ref: "#/components/schemas/NumberEntitlementValue"
-            - $ref: "#/components/schemas/BooleanEntitlementValue"
-            - $ref: "#/components/schemas/ConfigEntitlementValue"
+            - $ref: "#/components/schemas/AiUsageValue"
       required:
         - value
       type: object
@@ -3172,6 +3687,42 @@ components:
         - createdAt
         - createdBy
       type: object
+    UpdateConversionRule:
+      additionalProperties: false
+      properties:
+        chargeOnError:
+          default: NEVER
+          enum:
+            - NEVER
+            - ALWAYS
+            - PROVIDER_ERROR_ONLY
+          type: string
+        entitlementSlug:
+          type:
+            - string
+            - "null"
+        maximumCreditsPerRequest:
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type:
+            - string
+            - "null"
+        minimumCreditsPerRequest:
+          default: "0"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+        modelSlug:
+          type:
+            - string
+            - "null"
+        rates:
+          $ref: "#/components/schemas/ConversionRates"
+        requestType:
+          type:
+            - string
+            - "null"
+      required:
+        - rates
+      type: object
     User:
       additionalProperties: false
       properties:
@@ -3201,6 +3752,47 @@ components:
         - description
         - value
       type: object
+    VendorCosts:
+      additionalProperties: false
+      properties:
+        currency:
+          default: USD
+          enum:
+            - USD
+          type: string
+        perCacheWriteToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perCachedInputToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perInputToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perOutputToken:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perRequest:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+        perUnit:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,6}(\.[0-9]{1,12})?$
+          type: string
+      required:
+        - currency
+      type: object
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
@@ -3216,6 +3808,7 @@ components:
         - read:instances
         - read:licenses
         - read:metadata_fields
+        - read:models
         - read:notifications
         - read:organizations
         - read:releases
@@ -3229,6 +3822,7 @@ components:
         - write:instances
         - write:licenses
         - write:metadata_fields
+        - write:models
         - write:notifications
         - write:organizations
         - write:releases
@@ -6912,6 +7506,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/EntitlementUsage"
           description: OK
+          headers:
+            Idempotent-Replayed:
+              schema:
+                type: string
         "400":
           content:
             application/problem+json:
@@ -6958,6 +7556,166 @@ paths:
         - bearerAuth:
             - write:instances
       summary: Report entitlement usage metric for an instance
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/inferences:
+    get:
+      operationId: listAiInferences
+      parameters:
+        - in: path
+          name: instanceSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: from
+          schema:
+            format: date-time
+            type: string
+        - explode: false
+          in: query
+          name: to
+          schema:
+            format: date-time
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - RESERVED
+              - COMMITTED
+              - RELEASED
+              - EXPIRED
+            type: string
+        - explode: false
+          in: query
+          name: transactionId
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            format: int32
+            maximum: 500
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiInferencePage"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List AI inferences
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/reservations:
+    get:
+      operationId: listAiReservations
+      parameters:
+        - in: path
+          name: instanceSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiReservations"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List open AI reservations
       tags:
         - instances
   /instances/{instanceSlug}/integrations/{integrationName}:
@@ -8126,6 +8884,369 @@ paths:
       summary: Archive a license version
       tags:
         - licenses
+  /licenses/{licenseSlug}/conversion-rules:
+    get:
+      operationId: listConversionRules
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            default: ACTIVE
+            enum:
+              - ACTIVE
+              - ARCHIVED
+            type: string
+        - explode: false
+          in: query
+          name: entitlementSlug
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: modelSlug
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/ConversionRule"
+                type:
+                  - array
+                  - "null"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:licenses
+      summary: List conversion rules
+      tags:
+        - licenses
+    post:
+      operationId: createConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversionRule"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionRule"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Create a conversion rule
+      tags:
+        - licenses
+  /licenses/{licenseSlug}/conversion-rules/{ruleId}:
+    delete:
+      operationId: archiveConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Archive a conversion rule
+      tags:
+        - licenses
+    get:
+      operationId: getConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionRule"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:licenses
+      summary: Get a conversion rule
+      tags:
+        - licenses
+    put:
+      operationId: updateConversionRule
+      parameters:
+        - in: path
+          name: licenseSlug
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: ruleId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateConversionRule"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversionRule"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:licenses
+      summary: Update a conversion rule
+      tags:
+        - licenses
   /licenses/{licenseSlug}/entitlements:
     get:
       description: Returns a cursor-paginated page of entitlements granted by a license, identified by its unique slug.
@@ -9062,6 +10183,313 @@ paths:
       summary: Unarchive a metadata field
       tags:
         - metadataFields
+  /models:
+    get:
+      operationId: listModels
+      parameters:
+        - explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
+        - description: Page size (default 50, max 200)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Page size (default 50, max 200)
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+        - explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - ACTIVE
+              - DEPRECATED
+              - ARCHIVED
+            type: string
+        - explode: false
+          in: query
+          name: vendor
+          schema:
+            type: string
+        - explode: false
+          in: query
+          name: modality
+          schema:
+            enum:
+              - TEXT
+              - IMAGE
+              - AUDIO
+              - VIDEO
+              - EMBEDDING
+              - MULTIMODAL
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageModel"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:models
+      summary: List models
+      tags:
+        - models
+    post:
+      operationId: createModel
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Model"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+          description: Created
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:models
+      summary: Create a model
+      tags:
+        - models
+  /models/{modelSlug}:
+    delete:
+      operationId: deleteModel
+      parameters:
+        - in: path
+          name: modelSlug
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:models
+      summary: Delete a model
+      tags:
+        - models
+    get:
+      operationId: getModel
+      parameters:
+        - in: path
+          name: modelSlug
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:models
+      summary: Get a model
+      tags:
+        - models
+    put:
+      operationId: updateModel
+      parameters:
+        - in: path
+          name: modelSlug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Model"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Model"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:models
+      summary: Update a model
+      tags:
+        - models
   /ofrep/v1/evaluate/flags:
     post:
       description: |-
@@ -11115,6 +12543,47 @@ webhooks:
       tags:
         - webhooks
         - identity
+  com.kaiten.instance.ai.v1.model_usage_unauthorized:
+    post:
+      description: AI usage was recorded without an authorized model conversion rule.
+      operationId: onInstanceAIModelUsageUnauthorized
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceAIModelUsageUnauthorized"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED
+                  examples:
+                    - INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.ai.v1.model_usage_unauthorized
+                  examples:
+                    - com.kaiten.instance.ai.v1.model_usage_unauthorized
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Unauthorized model usage
+      tags:
+        - webhooks
+        - instances
   com.kaiten.instance.entitlement.v1.cap_exceeded:
     post:
       description: Triggered when a SOFT-enforcement entitlement's usage crosses from below the cap to above it. Fires once per crossing.
@@ -11153,6 +12622,47 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Instance Entitlement Cap Exceeded Webhook
+      tags:
+        - webhooks
+        - instances
+  com.kaiten.instance.entitlement.v1.maximum_exceeded:
+    post:
+      description: A committed AI usage charge crossed a soft pool's maximum.
+      operationId: onInstanceEntitlementMaximumExceeded
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceEntitlementCapExceeded"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED
+                  examples:
+                    - INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.entitlement.v1.maximum_exceeded
+                  examples:
+                    - com.kaiten.instance.entitlement.v1.maximum_exceeded
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance entitlement maximum exceeded
       tags:
         - webhooks
         - instances
@@ -11689,6 +13199,129 @@ webhooks:
       tags:
         - webhooks
         - instances
+  com.kaiten.license.conversion_rule.v1.archived:
+    post:
+      description: Conversion rule change.
+      operationId: onArchiveConversionRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ConversionRule"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_CONVERSION_RULE_ARCHIVED
+                  examples:
+                    - LICENSE_CONVERSION_RULE_ARCHIVED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.conversion_rule.v1.archived
+                  examples:
+                    - com.kaiten.license.conversion_rule.v1.archived
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Archive a conversion rule webhook
+      tags:
+        - webhooks
+        - licenses
+  com.kaiten.license.conversion_rule.v1.created:
+    post:
+      description: Conversion rule change.
+      operationId: onCreateConversionRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ConversionRule"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_CONVERSION_RULE_CREATED
+                  examples:
+                    - LICENSE_CONVERSION_RULE_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.conversion_rule.v1.created
+                  examples:
+                    - com.kaiten.license.conversion_rule.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Create a conversion rule webhook
+      tags:
+        - webhooks
+        - licenses
+  com.kaiten.license.conversion_rule.v1.updated:
+    post:
+      description: Conversion rule change.
+      operationId: onUpdateConversionRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ConversionRuleUpdated"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - LICENSE_CONVERSION_RULE_UPDATED
+                  examples:
+                    - LICENSE_CONVERSION_RULE_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.license.conversion_rule.v1.updated
+                  examples:
+                    - com.kaiten.license.conversion_rule.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Update a conversion rule webhook
+      tags:
+        - webhooks
+        - licenses
   com.kaiten.license.entitlement.v1.assigned:
     post:
       description: Triggered when an entitlement is assigned to a license.
@@ -12386,6 +14019,129 @@ webhooks:
       tags:
         - webhooks
         - metadataFields
+  com.kaiten.model.v1.created:
+    post:
+      description: Triggered when a catalogue model is created.
+      operationId: onModelCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Model"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - MODEL_CREATED
+                  examples:
+                    - MODEL_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.model.v1.created
+                  examples:
+                    - com.kaiten.model.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Model Created Webhook
+      tags:
+        - webhooks
+        - models
+  com.kaiten.model.v1.deleted:
+    post:
+      description: Triggered when a catalogue model is deleted.
+      operationId: onModelDeleted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/Model"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - MODEL_DELETED
+                  examples:
+                    - MODEL_DELETED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.model.v1.deleted
+                  examples:
+                    - com.kaiten.model.v1.deleted
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Model Deleted Webhook
+      tags:
+        - webhooks
+        - models
+  com.kaiten.model.v1.updated:
+    post:
+      description: Triggered when a catalogue model is updated.
+      operationId: onModelUpdated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ModelUpdated"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - MODEL_UPDATED
+                  examples:
+                    - MODEL_UPDATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.model.v1.updated
+                  examples:
+                    - com.kaiten.model.v1.updated
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Model Updated Webhook
+      tags:
+        - webhooks
+        - models
   com.kaiten.release.v1.created:
     post:
       description: Triggered when a new release is created.

@@ -16,6 +16,7 @@ type WebhookEventTypeOf<Name extends AuditEventName> = Extract<
 
 /** The groups the subscription dialog lists events under, in display order. */
 export const WEBHOOK_EVENT_GROUPS = [
+  'model',
   'customer',
   'instance',
   'license',
@@ -46,6 +47,30 @@ export type WebhookEventGroup = (typeof WEBHOOK_EVENT_GROUPS)[number];
 // subscription to either would receive a request for each one. The API still
 // accepts them for a caller that means it.
 export const WEBHOOK_EVENTS = {
+  MODEL_CREATED: { type: 'com.kaiten.model.v1.created', group: 'model' },
+  MODEL_UPDATED: { type: 'com.kaiten.model.v1.updated', group: 'model' },
+  MODEL_DELETED: { type: 'com.kaiten.model.v1.deleted', group: 'model' },
+  LICENSE_CONVERSION_RULE_CREATED: {
+    type: 'com.kaiten.license.conversion_rule.v1.created',
+    group: 'license',
+  },
+  LICENSE_CONVERSION_RULE_UPDATED: {
+    type: 'com.kaiten.license.conversion_rule.v1.updated',
+    group: 'license',
+  },
+  LICENSE_CONVERSION_RULE_ARCHIVED: {
+    type: 'com.kaiten.license.conversion_rule.v1.archived',
+    group: 'license',
+  },
+  INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED: {
+    type: 'com.kaiten.instance.entitlement.v1.maximum_exceeded',
+    group: 'usage',
+  },
+  INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED: {
+    type: 'com.kaiten.instance.ai.v1.model_usage_unauthorized',
+    group: 'usage',
+  },
+
   COMPONENT_CREATED: {
     type: 'com.kaiten.component.v1.created',
     group: 'component',

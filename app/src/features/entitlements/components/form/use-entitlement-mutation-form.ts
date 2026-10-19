@@ -26,6 +26,15 @@ export const useEntitlementMutationForm = (
     validators: {
       onChange: entitlementFormSchema,
     },
+    listeners: {
+      onChange: ({ formApi }) => {
+        if (
+          formApi.state.values.type === 'NUMBER_AI_CREDIT' &&
+          formApi.state.values.aggregationMethod !== 'SUM'
+        )
+          formApi.setFieldValue('aggregationMethod', 'SUM');
+      },
+    },
     onSubmit: async ({ value }) => {
       try {
         const body: EntitlementWritable = {
@@ -39,8 +48,12 @@ export const useEntitlementMutationForm = (
           // read as an attempted change.
           ...resolveResetFields(value, entitlement),
         };
-        if (body.type !== 'NUMBER') {
+        if (body.type === 'NUMBER_AI_CREDIT') {
+          body.aggregationMethod = 'SUM';
+        }
+        if (body.type !== 'NUMBER' && body.type !== 'NUMBER_AI_CREDIT') {
           body.aggregationMethod = undefined;
+          body.warningThresholdPercent = undefined;
         }
         conditionUnitFields(body);
 

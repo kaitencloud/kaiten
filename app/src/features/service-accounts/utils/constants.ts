@@ -43,6 +43,7 @@ const RESOURCE_GROUPS: Record<ApiScopeResource, ScopeGroupId> = {
   customers: 'customers',
   instances: 'customers',
   licenses: 'licensing',
+  models: 'licensing',
   entitlements: 'licensing',
   feature_flags: 'featureFlags',
   releases: 'releases',

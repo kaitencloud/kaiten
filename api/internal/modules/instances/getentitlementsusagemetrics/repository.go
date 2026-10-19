@@ -3,15 +3,15 @@ package getentitlementsusagemetrics
 import (
 	"context"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
-	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -46,7 +46,7 @@ func (r *QueryRepository) GetEntitlementsUsageMetrics(ctx context.Context, insta
 // MapUsageRows converts fallback-query rows into wire EntitlementUsage values:
 // NUMBER-family entitlements get their usage (zero-defaulted when nothing was
 // reported yet, and lazily windowed when a periodic reset is configured --
-// see entitlementvalue.ResolveCurrentWindowUsage), other types carry the
+// see usage.InWindow), other types carry the
 // license value. Shared with the GraphQL Instance.entitlementUsage loader so
 // both surfaces stay identical. now (database time) is read off
 // rows[0].Now rather than a separate GetDatabaseNow round trip -- every row
@@ -60,73 +60,54 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 	now := rows[0].Now.Time.UTC()
 
 	for _, e := range rows {
-		// The limit is the license grant, whatever the entitlement type: for the
-		// NUMBER family it is the cap the usage below is measured against, for
-		// BOOLEAN and CONFIG it is the value itself.
-		limit, err := entitlementUsageSchema.ParseEntitlementValue(e.LicenseValue)
-		if err != nil {
-			return nil, err
-		}
-
-		var resolvedValue entitlementUsageSchema.EntitlementValue
-		var currentPeriodStart, currentPeriodEnd *time.Time
-
-		if e.EntitlementType == db.EntitlementTypeNUMBER || e.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
-			var stored *entitlementvalue.NumberUsageValue
-			if e.UsageValue != nil {
-				stored, err = entitlementvalue.ParseNumberUsageValue(e.UsageValue)
-				if err != nil {
-					return nil, kaitenerrors.Validation("GetEntitlementsUsageMetrics.InvalidUsageValue", err.Error())
-				}
-			}
-
-			usage := stored
-			if usage == nil {
-				usage = entitlementvalue.NewDefaultNumberUsageValue()
-			}
-
-			if e.ResetPeriod != nil {
-				window, err := period.Current(now, period.ResetPeriod(*e.ResetPeriod), period.ResetAnchor(*e.ResetAnchor), e.StartLicenseDate.Time.UTC())
-				if err != nil {
-					return nil, err
-				}
-
-				var storedPeriodStart *time.Time
-				if e.PeriodStart.Valid {
-					storedPeriodStart = ptr.To(e.PeriodStart.Time.UTC())
-				}
-				usage = entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
-				currentPeriodStart, currentPeriodEnd = &window.Start, &window.End
-			}
-
-			resolvedValue = entitlementUsageSchema.EntitlementValue{
-				Number: &entitlementUsageSchema.NumberEntitlementValue{
-					Type:       "number",
-					Value:      usage.Value,
-					EventCount: usage.EventCount,
-				},
-			}
-		} else {
-			if limit == nil {
-				return nil, kaitenerrors.Validation("GetEntitlementsUsageMetrics.MissingLicenseValue", "license entitlement carries no value")
-			}
-			resolvedValue = *limit
-		}
+		isNumberFamily := e.EntitlementType == db.EntitlementTypeNUMBER || e.EntitlementType == db.EntitlementTypeNUMBERAICREDIT
 
 		licenseSlug := ""
 		if e.LicenseSlug != nil {
 			licenseSlug = *e.LicenseSlug
 		}
-		result = append(result, entitlementUsageSchema.EntitlementUsage{
-			EntitlementID:      e.EntitlementID,
-			EntitlementSlug:    e.EntitlementSlug,
-			LicenseID:          e.LicenseID,
-			LicenseSlug:        licenseSlug,
-			Value:              resolvedValue,
-			Limit:              limit,
-			CurrentPeriodStart: currentPeriodStart,
-			CurrentPeriodEnd:   currentPeriodEnd,
-		})
+		gauge := usage.Gauge{
+			EntitlementID:   e.EntitlementID,
+			EntitlementSlug: e.EntitlementSlug,
+			LicenseID:       e.LicenseID,
+			LicenseSlug:     licenseSlug,
+			NumberFamily:    isNumberFamily,
+			LicenseValue:    e.LicenseValue,
+		}
+
+		if isNumberFamily {
+			stored := usage.Stored{Present: e.UsageValue != nil}
+			if stored.Present {
+				value, err := entitlementvalue.ParseNumberUsageValue(e.UsageValue)
+				if err != nil {
+					return nil, kaitenerrors.Validation("GetEntitlementsUsageMetrics.InvalidUsageValue", err.Error())
+				}
+				stored.Counter = usage.Counter{Value: value.Value, EventCount: value.EventCount}
+				if e.PeriodStart.Valid {
+					stored.PeriodStart = ptr.To(e.PeriodStart.Time.UTC())
+				}
+			}
+
+			window, err := usage.CurrentWindow(now, usage.PeriodicityOf(e.ResetPeriod, e.ResetAnchor, e.StartLicenseDate.Time.UTC()))
+			if err != nil {
+				return nil, err
+			}
+			gauge.Window = window
+			gauge.Counter = usage.InWindow(stored, window)
+		}
+
+		if e.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+			text := decimal.NewFromBigInt(e.Reserved.Int, e.Reserved.Exp).String()
+			gauge.Reserved = &text
+		}
+		out, err := usage.Present(gauge)
+		if errors.Is(err, usage.ErrMissingLicenseValue) {
+			return nil, kaitenerrors.Validation("GetEntitlementsUsageMetrics.MissingLicenseValue", err.Error())
+		}
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, *out)
 	}
 	return result, nil
 }

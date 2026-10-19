@@ -50,6 +50,15 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 		if command.Type != nil && currentEntitlement.Type != nil && *command.Type != *currentEntitlement.Type {
 			return kaitenerrors.Validation("UpdateEntitlement.ImmutableType", "type is immutable and cannot be changed after creation")
 		}
+		if currentEntitlement.Type != nil {
+			aggregation := currentEntitlement.AggregationMethod
+			if command.AggregationMethod != nil {
+				aggregation = command.AggregationMethod
+			}
+			if err := schema.ValidateAICreditAggregation(*currentEntitlement.Type, aggregation); err != nil {
+				return kaitenerrors.UnprocessableEntity("UpdateEntitlement.AiCreditPoolRequiresSum", err.Error())
+			}
+		}
 		if command.AggregationMethod != nil {
 			if currentEntitlement.AggregationMethod == nil || *command.AggregationMethod != *currentEntitlement.AggregationMethod {
 				return kaitenerrors.Validation("UpdateEntitlement.ImmutableAggregationMethod", "aggregationMethod is immutable and cannot be changed after creation")

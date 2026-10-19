@@ -13,7 +13,7 @@ import (
 )
 
 const getDatabaseNow = `-- name: GetDatabaseNow :one
-SELECT (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+SELECT (clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 `
 
 // The single time source for periodic usage window decisions:
@@ -224,7 +224,8 @@ SELECT
   eu.period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
-  (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  (now() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>(now() AT TIME ZONE 'UTC')) AS reserved
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -265,6 +266,7 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	EntitlementSlug      *string                 `json:"entitlement_slug"`
 	LicenseSlug          *string                 `json:"license_slug"`
 	Now                  pgtype.Timestamp        `json:"now"`
+	Reserved             pgtype.Numeric          `json:"reserved"`
 }
 
 // Returns one row always. Nullable fields are nil when the entity is not found.
@@ -289,6 +291,7 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.EntitlementSlug,
 		&i.LicenseSlug,
 		&i.Now,
+		&i.Reserved,
 	)
 	return i, err
 }
@@ -306,7 +309,8 @@ SELECT
   le.value          AS license_value,
   eu.value          AS usage_value,
   eu.period_start,
-  (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  (now() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>(now() AT TIME ZONE 'UTC')) AS reserved
 FROM instance i
 JOIN license_entitlement le
   ON le.license_id = i.license_id
@@ -341,6 +345,7 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 	UsageValue       []byte                  `json:"usage_value"`
 	PeriodStart      pgtype.Timestamp        `json:"period_start"`
 	Now              pgtype.Timestamp        `json:"now"`
+	Reserved         pgtype.Numeric          `json:"reserved"`
 }
 
 // now is the same database-time value on every returned row:
@@ -368,6 +373,7 @@ func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Contex
 			&i.UsageValue,
 			&i.PeriodStart,
 			&i.Now,
+			&i.Reserved,
 		); err != nil {
 			return nil, err
 		}

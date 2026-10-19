@@ -1,3 +1,5 @@
+import { useQuery } from '@tanstack/react-query';
+import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import {
   Card,
   CardContent,
@@ -116,6 +118,7 @@ export function LicenseVersionFieldsCard({
   syncDraftEntitlementsFromBase,
   t,
 }: LicenseVersionFieldsCardProps) {
+  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
   const unknownVersionLabel = t('Pages.Licenses.List.unknownVersion');
 
   return (
@@ -237,6 +240,16 @@ export function LicenseVersionFieldsCard({
         </div>
         <div className="md:col-span-2">
           <CreateAsDraftField form={form} t={t} />
+          {aiEnabled ? (
+            <form.AppField name="copyAiRules">
+              {(field: any) => (
+                <field.CheckboxField
+                  label={t('AI.copyRules')}
+                  description={t('AI.copyDescription')}
+                />
+              )}
+            </form.AppField>
+          ) : null}
         </div>
       </CardContent>
     </Card>

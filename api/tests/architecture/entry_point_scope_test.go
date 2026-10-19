@@ -927,6 +927,8 @@ func TestEveryFiberRouteIsAuthorizedOrDeclaredPublic(t *testing.T) {
 // schema that has one. And tenant isolation on these paths comes from the
 // repository queries underneath, not from this layer.
 var pinnedGraphQLResolvers = map[string]string{
+	"License.ConversionRules": "read:licenses",
+	"Query.Models":            "read:models",
 	// The entry's own payload column, decoded.
 	"AuditTrail.Payload": "",
 	"Customer.Instances": "read:instances",

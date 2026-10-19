@@ -61,6 +61,9 @@ const (
 	// reach the feed -- otherwise the endpoints answer 403 and the bell stays
 	// empty with nothing in the logs to explain it.
 	Notifications Module = "notifications"
+	// Models gates the catalogue, including organization-private vendor costs.
+	// Add read:models and write:models to human JWT templates before exposing it.
+	Models Module = "models"
 )
 
 // allModules is the single source of truth for valid modules
@@ -80,6 +83,7 @@ var allModules = []Module{
 	Webhooks,
 	Memberships,
 	Notifications,
+	Models,
 }
 
 // Error codes a scope refusal answers with. They live here, next to the scopes

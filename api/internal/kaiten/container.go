@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
@@ -26,6 +27,7 @@ import (
 // through, and it is unexported so that reading through it is the facade's
 // privilege rather than anyone's option.
 type modules struct {
+	Models          *models.UseCases
 	AuditTrail      *audittrail.UseCases
 	Components      *components.UseCases
 	Connectors      *connectors.UseCases
@@ -148,6 +150,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	notificationModule := notifications.NewUseCases(svc)
 
 	built := modules{
+		Models:          models.NewUseCases(svc),
 		AuditTrail:      audittrail.NewUseCases(svc, notificationModule.Announcer),
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),

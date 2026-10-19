@@ -12,6 +12,182 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AggregationMethod string
+
+const (
+	AggregationMethodSUM     AggregationMethod = "SUM"
+	AggregationMethodCOUNT   AggregationMethod = "COUNT"
+	AggregationMethodAVERAGE AggregationMethod = "AVERAGE"
+	AggregationMethodMAX     AggregationMethod = "MAX"
+	AggregationMethodMIN     AggregationMethod = "MIN"
+	AggregationMethodLATEST  AggregationMethod = "LATEST"
+)
+
+func (e *AggregationMethod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AggregationMethod(s)
+	case string:
+		*e = AggregationMethod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AggregationMethod: %T", src)
+	}
+	return nil
+}
+
+type NullAggregationMethod struct {
+	AggregationMethod AggregationMethod `json:"aggregation_method"`
+	Valid             bool              `json:"valid"` // Valid is true if AggregationMethod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAggregationMethod) Scan(value interface{}) error {
+	if value == nil {
+		ns.AggregationMethod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AggregationMethod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAggregationMethod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AggregationMethod), nil
+}
+
+type AiRequestType string
+
+const (
+	AiRequestTypeCOMPLETION      AiRequestType = "COMPLETION"
+	AiRequestTypeEMBEDDING       AiRequestType = "EMBEDDING"
+	AiRequestTypeIMAGEGENERATION AiRequestType = "IMAGE_GENERATION"
+	AiRequestTypeAUDIO           AiRequestType = "AUDIO"
+	AiRequestTypeVIDEO           AiRequestType = "VIDEO"
+)
+
+func (e *AiRequestType) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AiRequestType(s)
+	case string:
+		*e = AiRequestType(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AiRequestType: %T", src)
+	}
+	return nil
+}
+
+type NullAiRequestType struct {
+	AiRequestType AiRequestType `json:"ai_request_type"`
+	Valid         bool          `json:"valid"` // Valid is true if AiRequestType is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAiRequestType) Scan(value interface{}) error {
+	if value == nil {
+		ns.AiRequestType, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AiRequestType.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAiRequestType) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AiRequestType), nil
+}
+
+type ChargeOnErrorPolicy string
+
+const (
+	ChargeOnErrorPolicyNEVER             ChargeOnErrorPolicy = "NEVER"
+	ChargeOnErrorPolicyALWAYS            ChargeOnErrorPolicy = "ALWAYS"
+	ChargeOnErrorPolicyPROVIDERERRORONLY ChargeOnErrorPolicy = "PROVIDER_ERROR_ONLY"
+)
+
+func (e *ChargeOnErrorPolicy) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ChargeOnErrorPolicy(s)
+	case string:
+		*e = ChargeOnErrorPolicy(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ChargeOnErrorPolicy: %T", src)
+	}
+	return nil
+}
+
+type NullChargeOnErrorPolicy struct {
+	ChargeOnErrorPolicy ChargeOnErrorPolicy `json:"charge_on_error_policy"`
+	Valid               bool                `json:"valid"` // Valid is true if ChargeOnErrorPolicy is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullChargeOnErrorPolicy) Scan(value interface{}) error {
+	if value == nil {
+		ns.ChargeOnErrorPolicy, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ChargeOnErrorPolicy.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullChargeOnErrorPolicy) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ChargeOnErrorPolicy), nil
+}
+
+type CreditConversionRuleStatus string
+
+const (
+	CreditConversionRuleStatusACTIVE   CreditConversionRuleStatus = "ACTIVE"
+	CreditConversionRuleStatusARCHIVED CreditConversionRuleStatus = "ARCHIVED"
+)
+
+func (e *CreditConversionRuleStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CreditConversionRuleStatus(s)
+	case string:
+		*e = CreditConversionRuleStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CreditConversionRuleStatus: %T", src)
+	}
+	return nil
+}
+
+type NullCreditConversionRuleStatus struct {
+	CreditConversionRuleStatus CreditConversionRuleStatus `json:"credit_conversion_rule_status"`
+	Valid                      bool                       `json:"valid"` // Valid is true if CreditConversionRuleStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCreditConversionRuleStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.CreditConversionRuleStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CreditConversionRuleStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCreditConversionRuleStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CreditConversionRuleStatus), nil
+}
+
 type EntitlementType string
 
 const (
@@ -141,6 +317,49 @@ func (ns NullLicenseType) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.LicenseType), nil
+}
+
+type ModelStatus string
+
+const (
+	ModelStatusACTIVE     ModelStatus = "ACTIVE"
+	ModelStatusDEPRECATED ModelStatus = "DEPRECATED"
+	ModelStatusARCHIVED   ModelStatus = "ARCHIVED"
+)
+
+func (e *ModelStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ModelStatus(s)
+	case string:
+		*e = ModelStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ModelStatus: %T", src)
+	}
+	return nil
+}
+
+type NullModelStatus struct {
+	ModelStatus ModelStatus `json:"model_status"`
+	Valid       bool        `json:"valid"` // Valid is true if ModelStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullModelStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.ModelStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ModelStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullModelStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ModelStatus), nil
 }
 
 type License struct {

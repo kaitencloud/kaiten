@@ -6,6 +6,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/aihistory"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
@@ -17,6 +18,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
@@ -25,6 +28,8 @@ import (
 )
 
 type UseCases struct {
+	AIInferences                 listaiinferences.UseCase
+	AIReservations               listaireservations.UseCase
 	CreateIntegration            *createintegrations.UseCase
 	CreateInstance               *createinstance.UseCase
 	DeleteIntegration            *deleteintegrations.UseCase
@@ -42,9 +47,12 @@ type UseCases struct {
 }
 
 func NewUseCases(svc services.Container) *UseCases {
+	startAIMaintenance(svc)
 	queries := db.New(svc.Pool)
 	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool))
 	return &UseCases{
+		AIInferences:   listaiinferences.UseCase{Reader: aihistory.Reader{User: svc.UserProvider, Queries: queries}},
+		AIReservations: listaireservations.UseCase{Reader: aihistory.Reader{User: svc.UserProvider, Queries: queries}},
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
@@ -90,9 +98,12 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		ReportEntitlementUsageMetric: reportentitlementusagemetric.NewUseCase(reportentitlementusagemetric.Deps{
-			UserProvider:  svc.UserProvider,
-			UsageReporter: svc.UsageReporter,
-			Uof:           svc.Uof,
+			IdempotencyWindow: svc.Config.AIUsage.IdempotencyWindow,
+			ReservationTTL:    svc.Config.AIUsage.ReservationTTL,
+			ReservationMaxTTL: svc.Config.AIUsage.ReservationMaxTTL,
+			UserProvider:      svc.UserProvider,
+			UsageReporter:     svc.UsageReporter,
+			Uof:               svc.Uof,
 		}),
 		GetEntitlementUsageMetrics: getentitlementusagemetrics.NewUseCase(getentitlementusagemetrics.Deps{
 			UserProvider:     svc.UserProvider,

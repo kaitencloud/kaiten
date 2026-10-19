@@ -28,7 +28,9 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listconversionrules"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/getmetadatafields"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models/listmodels"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getrelease"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getreleases"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
@@ -64,12 +66,15 @@ import (
 // GET /releases returns a release's components under read:releases alone, and
 // Release.components requires read:components as well.
 var typeScopes = map[string]string{
-	"AuditTrail":     getaudittrails.RequiredScope,
-	"AuditTrailPage": getaudittrails.RequiredScope,
-	"Component":      getcomponent.RequiredScope,
-	"ComponentPage":  getcomponents.RequiredScope,
-	"Customer":       getcustomer.RequiredScope,
-	"CustomerPage":   getcustomers.RequiredScope,
+	"ConversionRule":  listconversionrules.RequiredScope,
+	"ConversionRates": listconversionrules.RequiredScope,
+	"Model":           listmodels.RequiredScope,
+	"AuditTrail":      getaudittrails.RequiredScope,
+	"AuditTrailPage":  getaudittrails.RequiredScope,
+	"Component":       getcomponent.RequiredScope,
+	"ComponentPage":   getcomponents.RequiredScope,
+	"Customer":        getcustomer.RequiredScope,
+	"CustomerPage":    getcustomers.RequiredScope,
 	// No REST operation serves a zone's deployment log. It is part of the zone,
 	// and read under the zone's scope.
 	"Deployment":         getdeploymentzone.RequiredScope,

@@ -48,7 +48,12 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		SELECT id FROM organization WHERE external_id = 'seed-kaiten-sushi-shop'
 	`).Scan(&orgID))
 
-	require.Equal(t, 6, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM entitlement WHERE organization_id = $1`, orgID))
+	require.Equal(t, 7, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM entitlement WHERE organization_id = $1`, orgID))
+	require.Equal(t, 1, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM model WHERE organization_id = $1`, orgID))
+	require.Equal(t, 18, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM ai_inference WHERE organization_id = $1 AND status='COMMITTED'`, orgID))
+	var invalidCharges int
+	require.NoError(t, testDB.DbPool.QueryRow(ctx, `SELECT count(*) FROM ai_inference WHERE organization_id=$1 AND abs((value_after-value_before)-credits_charged::float8)>0.0000005`, orgID).Scan(&invalidCharges))
+	require.Zero(t, invalidCharges)
 	require.Equal(t, 2, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM entitlement_group WHERE organization_id = $1`, orgID))
 	// Six license rows across three families: one product with a single
 	// version, one revised once, one with a full history. The families are what
@@ -64,9 +69,9 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	require.Equal(t, 5, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM deployment d JOIN deployment_zone z ON z.id = d.deployment_zone_id WHERE z.organization_id = $1`, orgID))
 	// The seed writes no audit entries of its own: the trail is what the use
 	// cases publish, recorded by the event pipeline, which this test does not
-	// run. Ninety-seven events is the trail a running stack ends up with.
+	// run. The AI model/pool/grants/rules and eighteen reports add thirty events.
 	require.Zero(t, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM audit_trail WHERE organization_id = $1`, orgID))
-	require.Equal(t, 97, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
+	require.Equal(t, 127, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
 
 	// Members are the shared TMNT identities, not a bespoke set -- this is
 	// what makes the org reachable through the local dev token switcher.
@@ -102,13 +107,13 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		SELECT COUNT(*)
 		FROM entitlement_usage eu
 		JOIN entitlement e ON e.id = eu.entitlement_id
-		WHERE eu.organization_id = $1 AND e.slug != 'monthly-orders' AND eu.period_start IS NOT NULL
+		WHERE eu.organization_id = $1 AND e.slug NOT IN ('monthly-orders','ai-credits') AND eu.period_start IS NOT NULL
 	`, orgID))
 	// The entitlement says so too. Its rows were once dated to the month while
 	// the entitlement itself was created without a reset period, which made
 	// "monthly" orders a lifetime counter: a row is dated to a window exactly
 	// when its entitlement has one.
-	require.Equal(t, []string{"monthly-orders MONTH CALENDAR"}, stringColumn(t, ctx, testDB, `
+	require.Equal(t, []string{"ai-credits MONTH CALENDAR", "monthly-orders MONTH CALENDAR"}, stringColumn(t, ctx, testDB, `
 		SELECT slug || ' ' || reset_period::text || ' ' || reset_anchor::text
 		FROM entitlement
 		WHERE organization_id = $1 AND reset_period IS NOT NULL
@@ -445,7 +450,7 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 
 	recordAuditTrail(t, ctx, testDB, orgID)
 
-	list, err := feed.List(ctx, notificationsdb.New(testDB.DbPool), feed.Query{
+	query := feed.Query{
 		UserID:         userID,
 		OrganizationID: orgID,
 		Subscription: feed.Subscription{
@@ -455,21 +460,39 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 			licenseevents.LicenseEntitlementAssigned.Name,
 		},
 		UnreadOnly: false,
-		Limit:      feed.MaxLimit,
-		Cursor:     "",
-	})
-	require.NoError(t, err)
-
-	opens := map[string]string{}
-	for _, notification := range list.Data {
-		require.NotNil(t, notification.ActionURL, "%q links nowhere", notification.Title)
-		opens[notification.Title] = *notification.ActionURL
+		Limit:      feed.DefaultLimit,
 	}
 
-	// Each assignment opens the license version it was made on: the event is
-	// published when the seed assigns the entitlement, before any later version
-	// of the family exists.
-	assert.Equal(t, map[string]string{
+	// The seed exceeds one page. Follow cursors like the bell instead of
+	// dropping older assignments when new demo events are added.
+	opens := map[string][]string{}
+	seenNotifications := map[uuid.UUID]bool{}
+	pages := 0
+	for {
+		list, err := feed.List(ctx, notificationsdb.New(testDB.DbPool), query)
+		require.NoError(t, err)
+		pages++
+		for _, notification := range list.Data {
+			require.NotNil(t, notification.ActionURL, "%q links nowhere", notification.Title)
+			require.False(t, seenNotifications[notification.ID], "notification ID repeated across pages")
+			seenNotifications[notification.ID] = true
+			opens[notification.Title] = append(opens[notification.Title], *notification.ActionURL)
+		}
+		if list.NextCursor == nil {
+			break
+		}
+		require.NotEmpty(t, *list.NextCursor)
+		require.NotEqual(t, query.Cursor, *list.NextCursor, "pagination must advance")
+		query.Cursor = *list.NextCursor
+	}
+	require.Greater(t, pages, 1, "the demo must exercise notification pagination")
+
+	// Each assignment opens its exact license version. Legacy entitlements are
+	// assigned to every version; AI credits are assigned only to versions used
+	// by demo instances. Titles repeat within a family, but notification IDs
+	// and version-specific links must remain distinct.
+	expectedLinks := map[string]string{
+		"AI credits was assigned to Starter":                "/licenses/starter",
 		"Sakura Tokyo Production was created":               "/customers/instances/sakura-tokyo-prod",
 		"Sakura Tokyo Demo was created":                     "/customers/instances/sakura-tokyo-demo",
 		"Ninja Osaka Production was created":                "/customers/instances/ninja-osaka-prod",
@@ -481,25 +504,27 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 		"Release 2026.7.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
 		"Release 2026.8.0 was deployed to Shared APAC":      "/releases/deployment-zones/shared-apac",
 		"Release 2026.8.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
-		"Delivery Drivers was assigned to Premium":          "/licenses/premium",
-		"Delivery Drivers was assigned to Standard":         "/licenses/standard",
 		"Delivery Drivers was assigned to Starter":          "/licenses/starter",
-		"Delivery Tracking was assigned to Premium":         "/licenses/premium",
-		"Delivery Tracking was assigned to Standard":        "/licenses/standard",
 		"Delivery Tracking was assigned to Starter":         "/licenses/starter",
-		"Locations was assigned to Premium":                 "/licenses/premium",
-		"Locations was assigned to Standard":                "/licenses/standard",
 		"Locations was assigned to Starter":                 "/licenses/starter",
-		"Menu Items was assigned to Premium":                "/licenses/premium",
-		"Menu Items was assigned to Standard":               "/licenses/standard",
 		"Menu Items was assigned to Starter":                "/licenses/starter",
-		"Monthly Orders was assigned to Premium":            "/licenses/premium",
-		"Monthly Orders was assigned to Standard":           "/licenses/standard",
 		"Monthly Orders was assigned to Starter":            "/licenses/starter",
-		"Support Tier was assigned to Premium":              "/licenses/premium",
-		"Support Tier was assigned to Standard":             "/licenses/standard",
 		"Support Tier was assigned to Starter":              "/licenses/starter",
-	}, opens)
+	}
+	expected := make(map[string][]string, len(expectedLinks))
+	for title, link := range expectedLinks {
+		expected[title] = []string{link}
+	}
+	for _, entitlement := range []string{"Delivery Drivers", "Delivery Tracking", "Locations", "Menu Items", "Monthly Orders", "Support Tier"} {
+		expected[entitlement+" was assigned to Premium"] = []string{"/licenses/premium", "/licenses/premium-v2", "/licenses/premium-v3"}
+		expected[entitlement+" was assigned to Standard"] = []string{"/licenses/standard", "/licenses/standard-v2"}
+	}
+	expected["AI credits was assigned to Premium"] = []string{"/licenses/premium", "/licenses/premium-v2"}
+	expected["AI credits was assigned to Standard"] = []string{"/licenses/standard", "/licenses/standard-v2"}
+	for _, links := range opens {
+		slices.Sort(links)
+	}
+	assert.Equal(t, expected, opens)
 }
 
 // recordAuditTrail does what the event pipeline does on a running stack, which
@@ -546,7 +571,8 @@ func resolveFamily(t *testing.T, ctx context.Context, testDB *tests.TestDatabase
 		ctx, licensesdb.GetCurrentLicenseVersionsByFamilyIDsParams{
 			OrganizationID: orgID,
 			FamilyIds:      []uuid.UUID{familyID},
-		})
+		},
+	)
 	require.NoError(t, err)
 	require.Lenf(t, resolved, 1, "family %q resolves to exactly one version", familySlug)
 	return resolved[0]
@@ -586,7 +612,8 @@ func instancesOffTheirFamilysVersion(t *testing.T, ctx context.Context, testDB *
 		ctx, licensesdb.GetCurrentLicenseVersionsByFamilyIDsParams{
 			OrganizationID: orgID,
 			FamilyIds:      familyIDs,
-		})
+		},
+	)
 	require.NoError(t, err)
 	served := make(map[uuid.UUID]uuid.UUID, len(current))
 	for _, version := range current {

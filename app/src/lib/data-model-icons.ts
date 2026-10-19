@@ -1,5 +1,6 @@
 import {
   Boxes,
+  BrainCircuit,
   Braces,
   FileText,
   Flag,
@@ -14,6 +15,7 @@ import {
 } from 'lucide-react';
 
 export const dataModelIcons = {
+  model: BrainCircuit,
   customer: Users,
   instance: Server,
   entitlement: Boxes,

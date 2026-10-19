@@ -2,14 +2,15 @@ package getentitlementusagemetrics
 
 import (
 	"context"
-	"time"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
-	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -44,79 +45,55 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotAssigned", "Entitlement with slug %q is not assigned to the license used by instance %q", entitlementSlug, instanceSlug)
 	}
 
-	// The limit is the license grant, whatever the entitlement type: for the
-	// NUMBER family it is the cap the usage below is measured against, for
-	// BOOLEAN and CONFIG it is the value itself.
-	limit, err := entitlementUsageSchema.ParseEntitlementValue(result.LicenseValue)
-	if err != nil {
-		return nil, err
-	}
-
-	var resolvedValue entitlementUsageSchema.EntitlementValue
-	var currentPeriodStart, currentPeriodEnd *time.Time
 	isNumberFamily := result.EntitlementType != nil &&
 		(*result.EntitlementType == db.EntitlementTypeNUMBER || *result.EntitlementType == db.EntitlementTypeNUMBERAICREDIT)
-
-	if isNumberFamily {
-		var stored *entitlementvalue.NumberUsageValue
-		if result.UsageValue != nil {
-			stored, err = entitlementvalue.ParseNumberUsageValue(result.UsageValue)
-			if err != nil {
-				return nil, kaitenerrors.Validation("GetEntitlementUsageMetrics.InvalidUsageValue", err.Error())
-			}
-		}
-
-		usage := stored
-		if usage == nil {
-			usage = entitlementvalue.NewDefaultNumberUsageValue()
-		}
-
-		// Periodic usage windows: pure lazy read, no write. A stale
-		// row is not mutated here -- it stays physically stored until the
-		// next report rolls it over. now is folded into the same query
-		// (GetEntitlementUsageForInstanceOrDefault) rather than a separate
-		// GetDatabaseNow round trip.
-		if result.ResetPeriod != nil {
-			window, err := period.Current(result.Now.Time.UTC(), period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), result.StartLicenseDate.Time.UTC())
-			if err != nil {
-				return nil, err
-			}
-
-			var storedPeriodStart *time.Time
-			if result.PeriodStart.Valid {
-				storedPeriodStart = ptr.To(result.PeriodStart.Time.UTC())
-			}
-			usage = entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
-			currentPeriodStart, currentPeriodEnd = &window.Start, &window.End
-		}
-
-		resolvedValue = entitlementUsageSchema.EntitlementValue{
-			Number: &entitlementUsageSchema.NumberEntitlementValue{
-				Type:       "number",
-				Value:      usage.Value,
-				EventCount: usage.EventCount,
-			},
-		}
-	} else {
-		if limit == nil {
-			return nil, kaitenerrors.Validation("GetEntitlementUsageMetrics.MissingLicenseValue", "license entitlement carries no value")
-		}
-		resolvedValue = *limit
-	}
 
 	licenseSlug := ""
 	if result.LicenseSlug != nil {
 		licenseSlug = *result.LicenseSlug
 	}
+	gauge := usage.Gauge{
+		EntitlementID:   *result.EntitlementID,
+		EntitlementSlug: *result.EntitlementSlug,
+		LicenseID:       *result.LicenseID,
+		LicenseSlug:     licenseSlug,
+		NumberFamily:    isNumberFamily,
+		LicenseValue:    result.LicenseValue,
+	}
 
-	return &entitlementUsageSchema.EntitlementUsage{
-		EntitlementID:      *result.EntitlementID,
-		EntitlementSlug:    *result.EntitlementSlug,
-		LicenseID:          *result.LicenseID,
-		LicenseSlug:        licenseSlug,
-		Value:              resolvedValue,
-		Limit:              limit,
-		CurrentPeriodStart: currentPeriodStart,
-		CurrentPeriodEnd:   currentPeriodEnd,
-	}, nil
+	if isNumberFamily {
+		stored := usage.Stored{Present: result.UsageValue != nil}
+		if stored.Present {
+			value, err := entitlementvalue.ParseNumberUsageValue(result.UsageValue)
+			if err != nil {
+				return nil, kaitenerrors.Validation("GetEntitlementUsageMetrics.InvalidUsageValue", err.Error())
+			}
+			stored.Counter = usage.Counter{Value: value.Value, EventCount: value.EventCount}
+			if result.PeriodStart.Valid {
+				stored.PeriodStart = ptr.To(result.PeriodStart.Time.UTC())
+			}
+		}
+
+		// Periodic usage windows: pure lazy read, no write. A stale row is
+		// not mutated here -- it stays physically stored until the next
+		// report rolls it over. now is folded into the same query
+		// (GetEntitlementUsageForInstanceOrDefault) rather than a separate
+		// GetDatabaseNow round trip.
+		window, err := usage.CurrentWindow(result.Now.Time.UTC(), usage.PeriodicityOf(result.ResetPeriod, result.ResetAnchor, result.StartLicenseDate.Time.UTC()))
+		if err != nil {
+			return nil, err
+		}
+		gauge.Window = window
+		gauge.Counter = usage.InWindow(stored, window)
+	}
+
+	if result.EntitlementType != nil && *result.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+		text := decimal.NewFromBigInt(result.Reserved.Int, result.Reserved.Exp).String()
+		gauge.Reserved = &text
+	}
+	out, err := usage.Present(gauge)
+	if errors.Is(err, usage.ErrMissingLicenseValue) {
+		return nil, kaitenerrors.Validation("GetEntitlementUsageMetrics.MissingLicenseValue", err.Error())
+	}
+	return out, err
 }

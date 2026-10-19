@@ -4,6 +4,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/aihistory"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
@@ -33,6 +34,7 @@ import (
 // surface -- and each takes it as its own one-method interface, so what an operation
 // can reach is what it named.
 func registerInstances(core huma.API, app kaiten.Instances) {
+	aihistory.RegisterEndpoints(core, app)
 	createintegrations.RegisterEndpoint(core, app)
 	createinstance.RegisterEndpoint(core, app)
 	createinstance.RegisterWebhook(core)

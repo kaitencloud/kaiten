@@ -15,6 +15,7 @@ type CreateLicenseWithGrantsOptions = {
   // draft, anything else publishes it once its grants are attached.
   body: LicenseWritable;
   draftEntitlements: EditableLicenseEntitlement[];
+  afterGrants?: (licenseSlug: string) => Promise<void>;
 };
 
 // The license exists once the create succeeded. `error` is what failed after
@@ -106,6 +107,7 @@ export const useLicenseSave = (entitlements: Entitlement[]) => {
     async ({
       body,
       draftEntitlements,
+      afterGrants,
     }: CreateLicenseWithGrantsOptions): Promise<CreateLicenseWithGrantsResult> => {
       const license = await createLicense({
         body: { ...body, lifecycleState: 'DRAFT' },
@@ -117,6 +119,7 @@ export const useLicenseSave = (entitlements: Entitlement[]) => {
 
       try {
         await attachDraftEntitlements(licenseSlug, draftEntitlements);
+        await afterGrants?.(licenseSlug);
         if (body.lifecycleState === 'DRAFT') {
           return { license };
         }

@@ -1,3 +1,6 @@
+import { useQuery } from '@tanstack/react-query';
+import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { useTranslation } from 'react-i18next';
 import { useWebhooksServed } from '@/domains/webhooks';
 import {
@@ -45,7 +48,18 @@ function SideNavRouteList({ pathname, routes }: SideNavRouteListProps) {
 }
 
 export function SideNavPrimaryRoutes({ pathname }: SideNavRoutesProps) {
-  return <SideNavRouteList pathname={pathname} routes={topLevelRoutes} />;
+  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
+  const routes = aiEnabled
+    ? [
+        ...topLevelRoutes,
+        {
+          Icon: dataModelIcons.model,
+          path: '/ai/models',
+          titleKey: 'AI.title',
+        },
+      ]
+    : topLevelRoutes;
+  return <SideNavRouteList pathname={pathname} routes={routes} />;
 }
 
 export function useResolvedIntegrationsItems() {

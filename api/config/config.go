@@ -60,9 +60,16 @@ type Config struct {
 // worker moving between layers does not drag fields across the boundary. Ports,
 // OTel, log and GraphQL settings describe a server and stay on Config.
 type CoreConfig struct {
+	AIUsage    AIUsage `mapstructure:"ai_usage"`
 	Retention  Retention
 	Metered    Metered
 	Connectors Connectors
+}
+
+type AIUsage struct {
+	IdempotencyWindow time.Duration `mapstructure:"idempotency_window" validate:"gte=86400000000000"`
+	ReservationTTL    time.Duration `mapstructure:"reservation_ttl" validate:"gt=0,ltefield=ReservationMaxTTL"`
+	ReservationMaxTTL time.Duration `mapstructure:"reservation_max_ttl" validate:"gt=0"`
 }
 
 type Server struct {
@@ -254,6 +261,9 @@ var settings = []struct {
 	{"otel.authorization", "OTEL_EXPORTER_OTLP_AUTHORIZATION", nil, true},
 	{"graphql.playground_enabled", "KAITEN_GRAPHQL_PLAYGROUND_ENABLED", false, false},
 	{"graphql.introspection_enabled", "KAITEN_GRAPHQL_INTROSPECTION_ENABLED", false, false},
+	{"ai_usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},
+	{"ai_usage.reservation_ttl", "KAITEN_AI_RESERVATION_DEFAULT_TTL", "10m", false},
+	{"ai_usage.reservation_max_ttl", "KAITEN_AI_RESERVATION_MAX_TTL", "1h", false},
 	{"retention.enabled", "KAITEN_RETENTION_ENABLED", true, false},
 	{"retention.initial_delay", "KAITEN_RETENTION_INITIAL_DELAY", "5m", false},
 	{"retention.interval", "KAITEN_RETENTION_INTERVAL", "12h", false},

@@ -63,6 +63,10 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 		resolvedAggregationMethod = nil
 	}
 
+	if err := schema.ValidateAICreditAggregation(request.Type, resolvedAggregationMethod); err != nil {
+		return nil, kaitenerrors.UnprocessableEntity("CreateEntitlement.AiCreditPoolRequiresSum", err.Error())
+	}
+
 	if err := schema.ValidateTypeConfiguration(request.Type, resolvedAggregationMethod); err != nil {
 		return nil, kaitenerrors.Validation("CreateEntitlement.InvalidTypeConfiguration", err.Error())
 	}
