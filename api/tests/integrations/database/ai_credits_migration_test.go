@@ -201,3 +201,73 @@ func TestAICreditsMigration_RollbackAndReapply(t *testing.T) {
 		t.Fatal("schema changed after rolling back and reapplying the AI migration")
 	}
 }
+
+func TestAICreditsMigration_PhaseHashesHaveSHA256Length(t *testing.T) {
+	valid := strings.Repeat("a", 32)
+	for _, hashes := range []struct {
+		name    string
+		request any
+		commit  any
+		valid   bool
+	}{
+		{"request 32 commit absent", valid, nil, true},
+		{"both 32", valid, valid, true},
+		{"request empty", "", nil, false},
+		{"request 31", strings.Repeat("a", 31), nil, false},
+		{"request 33", strings.Repeat("a", 33), nil, false},
+		{"commit empty", valid, "", false},
+		{"commit 31", valid, strings.Repeat("a", 31), false},
+		{"commit 33", valid, strings.Repeat("a", 33), false},
+	} {
+		t.Run(hashes.name, func(t *testing.T) {
+			withRollback(t, func(ctx context.Context, tx pgx.Tx) {
+				organizationID := insertOrganization(ctx, t, tx, uuid.New())
+				_, err := tx.Exec(ctx, `INSERT INTO ai_inference (
+					organization_id,instance_id,entitlement_id,transaction_id,status,reported_at,
+					model_ref,request_type,request_hash,commit_hash)
+					VALUES ($1,$2,$3,'hash','EXPIRED',now(),'model','COMPLETION',convert_to($4::text,'UTF8'),convert_to($5::text,'UTF8'))`,
+					organizationID, uuid.New(), uuid.New(), hashes.request, hashes.commit)
+				if hashes.valid {
+					if err != nil {
+						t.Fatalf("valid phase hashes refused: %v", err)
+					}
+				} else {
+					assertViolates(t, err, "ai_inference_hash_check")
+				}
+			})
+		})
+	}
+}
+
+func TestAICreditsMigration_SettledRowsRequireCommitHash(t *testing.T) {
+	for _, status := range []string{"COMMITTED", "RELEASED"} {
+		for _, present := range []bool{false, true} {
+			name := status + " missing hash"
+			if present {
+				name = status + " valid hash"
+			}
+			t.Run(name, func(t *testing.T) {
+				withRollback(t, func(ctx context.Context, tx pgx.Tx) {
+					organizationID := insertOrganization(ctx, t, tx, uuid.New())
+					var commitHash any
+					if present {
+						commitHash = strings.Repeat("c", 32)
+					}
+					_, err := tx.Exec(ctx, `INSERT INTO ai_inference (
+						organization_id,instance_id,entitlement_id,transaction_id,status,reported_at,committed_at,
+						model_ref,request_type,request_status,authorized,credits_charged,request_hash,commit_hash)
+						VALUES ($1,$2,$3,'settled',$4,now(),now(),'model','COMPLETION','NOT_SENT',true,0,
+						decode(repeat('01',32),'hex'),convert_to($5::text,'UTF8'))`,
+						organizationID, uuid.New(), uuid.New(), status, commitHash)
+					if present {
+						if err != nil {
+							t.Fatalf("valid settled hash refused: %v", err)
+						}
+					} else {
+						assertViolates(t, err, "ai_inference_hash_check")
+					}
+				})
+			})
+		}
+	}
+}
