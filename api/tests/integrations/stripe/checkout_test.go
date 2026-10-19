@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe/stripefake"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
@@ -151,6 +152,64 @@ func TestCheckoutCapturesACardThenCharges(t *testing.T) {
 
 	again := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, asCustomer(t, s, "POST", checkoutPath, order), fiber.StatusConflict)
 	require.Equal(t, "CreateSessionCheckout.AlreadySubscribed", again.Code)
+}
+
+// TestCheckoutReplacesAFreePlan: an instance on a free plan buys the paid one
+// (V31-68). The free subscription lives on until the checkout subscribes:
+// then, in one transaction, it is canceled with no invoice and the same row
+// is subscribed to the paid plan, charged before the answer.
+func TestCheckoutReplacesAFreePlan(t *testing.T) {
+	fresh(t)
+	s := newShop(t, nil)
+	starter := commonfixture.AssertJSONResponse[licenseschema.License](t, call(t, "POST", "/api/licenses", map[string]any{
+		"name": "Starter", "description": "d", "type": "PAID", "isDefault": true,
+		"lifecycleState": licenseschema.Published, "pricingType": "FREE",
+	}), fiber.StatusCreated)
+	families := commonfixture.AssertJSONResponse[pagination.Page[licenseschema.LicenseFamilyView]](t,
+		call(t, "GET", "/api/license-families", nil), fiber.StatusOK)
+	for _, family := range families.Items {
+		if family.ID == starter.FamilyID {
+			require.Equal(t, fiber.StatusOK, call(t, "PATCH", "/api/license-families/"+family.Slug, map[string]any{"isPublic": true}).StatusCode)
+		}
+	}
+	free := commonfixture.AssertJSONResponse[prices.Price](t, call(t, "POST", "/api/licenses/"+starter.Slug+"/prices", map[string]any{
+		"billingModel": "FLAT_FEE", "billingPeriod": "MONTHLY", "currency": "EUR", "unitAmountDecimal": "0", "isDefault": true,
+	}), fiber.StatusCreated)
+	instance := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "POST", "/api/instances", map[string]any{
+		"name": "Acme starter", "description": "d", "customerId": s.customer.ID, "licenseId": starter.ID,
+		"startLicenseDate": time.Now().UTC().Add(-24 * time.Hour), "endLicenseDate": time.Now().UTC().AddDate(1, 0, 0),
+		"metadata": map[string]any{},
+	}), fiber.StatusCreated)
+	billingPath := "/api/instances/" + instance.Slug + "/billing"
+	before := commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t, call(t, "POST", billingPath,
+		map[string]any{"basePriceId": free.ID, "startAt": time.Now().UTC().Add(-time.Hour)}), fiber.StatusCreated)
+	session := commonfixture.AssertJSONResponse[createcustomersession.CreatedCustomerSession](t, call(t, "POST", "/api/customer-sessions",
+		map[string]any{"customerSlug": s.customer.Slug, "instanceSlug": instance.Slug}), fiber.StatusCreated)
+	onStarter := shop{plan: s.plan, monthly: s.monthly, customer: s.customer, instance: instance, token: session.Token}
+
+	setup := checkout(t, onStarter, map[string]any{"licensePriceId": s.monthly.ID, "returnUrl": returnURL}, fiber.StatusOK)
+	require.Equal(t, createsessioncheckout.StatusRequiresPaymentMethod, setup.Status)
+	waiting := commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t, call(t, "GET", billingPath, nil), fiber.StatusOK)
+	require.Equal(t, "ACTIVE", waiting.Status, "the free plan lives on while the card is saved")
+	require.Equal(t, free.ID, waiting.BasePrice.ID)
+
+	saveCardOnPage(t, *setup.SetupSessionID, stripefake.CardSucceeds)
+	done := checkout(t, onStarter, map[string]any{"licensePriceId": s.monthly.ID, "setupSessionId": *setup.SetupSessionID}, fiber.StatusCreated)
+	require.Equal(t, createsessioncheckout.StatusSubscribed, done.Status)
+	require.Equal(t, "ACTIVE", done.Subscription.Status)
+	require.Equal(t, "STRIPE", done.Subscription.ProviderKind)
+	require.Equal(t, createsessioncheckout.PaymentPaid, done.Payment.Status)
+	require.EqualValues(t, 2900, done.ActivationInvoice.Total)
+
+	after := commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t, call(t, "GET", billingPath, nil), fiber.StatusOK)
+	require.Equal(t, before.ID, after.ID, "the same row, subscribed again")
+	require.Equal(t, s.monthly.ID, after.BasePrice.ID)
+	moved := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+instance.Slug, nil), fiber.StatusOK)
+	require.Equal(t, s.plan.ID, moved.LicenseID)
+
+	again := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, asCustomer(t, onStarter, "POST", checkoutPath,
+		map[string]any{"licensePriceId": free.ID}), fiber.StatusConflict)
+	require.Equal(t, "CreateSessionCheckout.AlreadySubscribed", again.Code, "a paid subscription is never replaced")
 }
 
 // TestCheckoutRequiresAction: a card that needs 3-D Secure. The checkout

@@ -37,6 +37,30 @@ WHERE l.organization_id = sqlc.arg(organization_id)
   AND l.id = sqlc.arg(id);
 
 
+-- name: IsFreeSubscription :one
+-- Whether the subscription of an instance on that licence version is free
+-- (§0 Conventions, V31-68): the version's family is FREE, every version of it
+-- priced FREE, and no add-on version the instance holds has a price above 0.
+-- Only a free subscription is replaced by a public checkout.
+SELECT (EXISTS (SELECT 1
+                FROM license l
+                WHERE l.organization_id = sqlc.arg(organization_id)
+                  AND l.id = sqlc.arg(license_id))
+    AND NOT EXISTS (SELECT 1
+                    FROM license l
+                    JOIN license v ON v.family_id = l.family_id AND v.organization_id = l.organization_id
+                    WHERE l.organization_id = sqlc.arg(organization_id)
+                      AND l.id = sqlc.arg(license_id)
+                      AND v.pricing_type <> 'FREE')
+    AND NOT EXISTS (SELECT 1
+                    FROM instance_addon ia
+                    JOIN addon_price p ON p.addon_id = ia.addon_id AND p.organization_id = ia.organization_id
+                    WHERE ia.organization_id = sqlc.arg(organization_id)
+                      AND ia.instance_id = sqlc.arg(instance_id)
+                      AND ia.removed_at IS NULL
+                      AND p.unit_amount_decimal > 0))::boolean AS free;
+
+
 -- name: GetInstanceBilling :one
 -- An instance's subscription row, the one it keeps for life.
 SELECT *

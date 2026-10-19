@@ -118,7 +118,7 @@ type PortalCapabilities struct {
 	PaymentMethods bool `json:"paymentMethods" doc:"The vendor's provider captures payment methods: the payment-method and portal sessions work"`
 	Invoices       bool `json:"invoices" doc:"Billing is on: GET /public/session/invoices lists the customer's"`
 	Unsubscribe    bool `json:"unsubscribe" doc:"The instance's subscription is live and not already ending: POST /public/session/billing/cancel"`
-	Checkout       bool `json:"checkout" doc:"The instance has no live subscription, and its plan can be bought alone: POST /public/session/checkout"`
+	Checkout       bool `json:"checkout" doc:"POST /public/session/checkout: the instance has no live subscription and its plan can be bought alone, or its live subscription is free (a FREE licence family, no add-on price above 0) and the catalogue has a self-serve plan, which the checkout replaces it with"`
 }
 
 // Session is the customer session the portal is read for.
@@ -133,6 +133,11 @@ type Session struct {
 type (
 	SubscriptionReader interface {
 		Execute(ctx context.Context, instanceSlug string) (*subscriptions.InstanceBilling, error)
+	}
+	// CheckoutChecker says whether a checkout may subscribe the instance: no
+	// live subscription, or a free one it would replace (V31-68).
+	CheckoutChecker interface {
+		Replaceable(ctx context.Context, instanceSlug string) (bool, error)
 	}
 	UpcomingInvoiceReader interface {
 		Execute(ctx context.Context, instanceSlug string) (*rating.InvoicePreview, error)
@@ -156,6 +161,7 @@ type Deps struct {
 	Queries         func(ctx context.Context) *db.Queries
 	Catalog         *getpubliccatalog.UseCase
 	Subscription    SubscriptionReader
+	Checkout        CheckoutChecker
 	UpcomingInvoice UpcomingInvoiceReader
 	Entitlements    EntitlementReader
 	AddOns          AddonReader
@@ -232,7 +238,18 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 	out.PaymentMethod = paymentMethod(billing, provider)
 	out.Capabilities.Unsubscribe = live && !subscription.CancelAtPeriodEnd
 	plan := slices.IndexFunc(catalog.Plans, func(p getpubliccatalog.PublicPlan) bool { return p.FamilySlug == instance.FamilySlug })
-	out.Capabilities.Checkout = !live && plan >= 0 && catalog.Plans[plan].SelfServe
+	switch {
+	case !live:
+		out.Capabilities.Checkout = plan >= 0 && catalog.Plans[plan].SelfServe
+	case u.deps.Checkout != nil:
+		// A free live subscription is replaced by the checkout of another
+		// plan (V31-68): any self-serve plan of the catalogue will do.
+		free, err := u.deps.Checkout.Replaceable(ctx, slug)
+		if err != nil {
+			return nil, err
+		}
+		out.Capabilities.Checkout = free && slices.ContainsFunc(catalog.Plans, func(p getpubliccatalog.PublicPlan) bool { return p.SelfServe })
+	}
 
 	if out.Entitlements, err = u.entitlements(ctx, q, organizationID, slug); err != nil {
 		return nil, err
