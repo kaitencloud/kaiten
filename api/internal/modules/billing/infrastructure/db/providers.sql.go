@@ -1064,7 +1064,7 @@ func (q *Queries) GetLiveSubscriptionCurrency(ctx context.Context, arg GetLiveSu
 }
 
 const getSyncState = `-- name: GetSyncState :one
-SELECT organization_id, provider_kind, cursor, cursor_created_at, last_synced_at, last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at, created_at, updated_at
+SELECT organization_id, provider_kind, cursor, cursor_created_at, last_synced_at, last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at, created_at, updated_at, last_successful_sync_at
 FROM billing_sync_state
 WHERE organization_id = $1
   AND provider_kind = $2
@@ -1090,6 +1090,7 @@ func (q *Queries) GetSyncState(ctx context.Context, arg GetSyncStateParams) (Bil
 		&i.LastFullSweepAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastSuccessfulSyncAt,
 	)
 	return i, err
 }
@@ -1325,7 +1326,7 @@ func (q *Queries) ListOpenProviderInvoices(ctx context.Context, arg ListOpenProv
 }
 
 const listSyncStates = `-- name: ListSyncStates :many
-SELECT organization_id, provider_kind, cursor, cursor_created_at, last_synced_at, last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at, created_at, updated_at
+SELECT organization_id, provider_kind, cursor, cursor_created_at, last_synced_at, last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at, created_at, updated_at, last_successful_sync_at
 FROM billing_sync_state
 WHERE organization_id = $1
 ORDER BY provider_kind
@@ -1352,6 +1353,7 @@ func (q *Queries) ListSyncStates(ctx context.Context, organizationID uuid.UUID) 
 			&i.LastFullSweepAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LastSuccessfulSyncAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1884,15 +1886,21 @@ func (q *Queries) RequeuePush(ctx context.Context, arg RequeuePushParams) (Insta
 
 const saveSyncState = `-- name: SaveSyncState :exec
 INSERT INTO billing_sync_state (organization_id, provider_kind, cursor, cursor_created_at, last_synced_at,
-                                last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at)
+                                last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at,
+                                last_successful_sync_at)
 VALUES ($1, $2, $3, $4,
         $5, $6, $7,
-        $8, $9)
+        $8, $9,
+        CASE WHEN $6::billing_sync_status = 'SUCCESS' THEN $5::timestamp(3) END)
 ON CONFLICT (organization_id, provider_kind) DO UPDATE
   SET cursor               = EXCLUDED.cursor,
       cursor_created_at    = EXCLUDED.cursor_created_at,
       last_synced_at       = EXCLUDED.last_synced_at,
       last_sync_status     = EXCLUDED.last_sync_status,
+      last_successful_sync_at = CASE
+                                  WHEN EXCLUDED.last_sync_status = 'SUCCESS' THEN EXCLUDED.last_synced_at
+                                  ELSE billing_sync_state.last_successful_sync_at
+                                END,
       last_sync_error      = EXCLUDED.last_sync_error,
       consecutive_failures = EXCLUDED.consecutive_failures,
       last_full_sweep_at   = EXCLUDED.last_full_sweep_at,
@@ -1911,6 +1919,8 @@ type SaveSyncStateParams struct {
 	LastFullSweepAt     pgtype.Timestamp    `json:"last_full_sweep_at"`
 }
 
+// A pass that succeeded is also the last successful one (V31-11); any other
+// keeps the one before.
 func (q *Queries) SaveSyncState(ctx context.Context, arg SaveSyncStateParams) error {
 	_, err := q.db.Exec(ctx, saveSyncState,
 		arg.OrganizationID,
@@ -2115,7 +2125,7 @@ SET provider_kind = $1,
     updated_by_id = $2,
     updated_at    = $3
 WHERE id = $4
-RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 `
 
 type SetSubscriptionProviderParams struct {
@@ -2169,6 +2179,8 @@ func (q *Queries) SetSubscriptionProvider(ctx context.Context, arg SetSubscripti
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }

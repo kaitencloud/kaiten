@@ -65,7 +65,7 @@ func (q *Queries) GetPreviousInvoiceLines(ctx context.Context, arg GetPreviousIn
 }
 
 const getSubscriptionByID = `-- name: GetSubscriptionByID :one
-SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 FROM instance_billing ib
 WHERE ib.id = $1
 `
@@ -109,6 +109,8 @@ func (q *Queries) GetSubscriptionByID(ctx context.Context, id uuid.UUID) (Instan
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }
@@ -192,7 +194,7 @@ func (q *Queries) ListDueSubscriptions(ctx context.Context, arg ListDueSubscript
 }
 
 const lockDueSubscription = `-- name: LockDueSubscription :one
-SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 FROM instance_billing ib
 WHERE ib.id = $1
 FOR UPDATE SKIP LOCKED
@@ -239,6 +241,8 @@ func (q *Queries) LockDueSubscription(ctx context.Context, id uuid.UUID) (Instan
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }
@@ -344,7 +348,7 @@ FROM (SELECT $1::uuid AS id) target
 LEFT JOIN instance i ON i.id = (SELECT x.instance_id FROM instance_billing x WHERE x.id = target.id)
 LEFT JOIN customer c ON c.id = (SELECT x.customer_id FROM instance_billing x WHERE x.id = target.id)
 WHERE ib.id = target.id
-RETURNING ib.id, ib.organization_id, ib.instance_id, ib.customer_id, ib.instance_slug, ib.instance_name, ib.customer_slug, ib.customer_name, ib.status, ib.provider_kind, ib.collection_method, ib.days_until_due, ib.base_license_price_id, ib.billing_period, ib.currency, ib.anchor_at, ib.started_at, ib.current_period_start, ib.current_period_end, ib.cancel_at_period_end, ib.cancel_requested_at, ib.canceled_at, ib.cancellation_reason, ib.past_due_since, ib.scheduled_license_price_id, ib.scheduled_at, ib.created_at, ib.created_by_id, ib.updated_at, ib.updated_by_id, ib.trial_ends_at, ib.pending_license_id, ib.pending_selection, ib.incomplete_expires_at, ib.trial_will_end_notified_at
+RETURNING ib.id, ib.organization_id, ib.instance_id, ib.customer_id, ib.instance_slug, ib.instance_name, ib.customer_slug, ib.customer_name, ib.status, ib.provider_kind, ib.collection_method, ib.days_until_due, ib.base_license_price_id, ib.billing_period, ib.currency, ib.anchor_at, ib.started_at, ib.current_period_start, ib.current_period_end, ib.cancel_at_period_end, ib.cancel_requested_at, ib.canceled_at, ib.cancellation_reason, ib.past_due_since, ib.scheduled_license_price_id, ib.scheduled_at, ib.created_at, ib.created_by_id, ib.updated_at, ib.updated_by_id, ib.trial_ends_at, ib.pending_license_id, ib.pending_selection, ib.incomplete_expires_at, ib.trial_will_end_notified_at, ib.live_ended_at, ib.trial_will_end_at
 `
 
 // Brings the identity a subscription snapshots (instance and customer slugs and
@@ -390,6 +394,8 @@ func (q *Queries) RefreshSubscriptionSnapshot(ctx context.Context, id uuid.UUID)
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }

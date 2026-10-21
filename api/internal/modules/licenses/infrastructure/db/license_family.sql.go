@@ -40,7 +40,7 @@ const createLicenseFamily = `-- name: CreateLicenseFamily :one
 INSERT INTO license_family (organization_id, slug)
 VALUES ($1,
         $2)
-RETURNING id, organization_id, slug, last_version, created_at, updated_at, is_public, fallback_license_family_id, trial_end_without_payment_method
+RETURNING id, organization_id, slug, last_version, created_at, updated_at, is_public, fallback_license_family_id, trial_end_without_payment_method, trial_reminder_days
 `
 
 type CreateLicenseFamilyParams struct {
@@ -65,6 +65,7 @@ func (q *Queries) CreateLicenseFamily(ctx context.Context, arg CreateLicenseFami
 		&i.IsPublic,
 		&i.FallbackLicenseFamilyID,
 		&i.TrialEndWithoutPaymentMethod,
+		&i.TrialReminderDays,
 	)
 	return i, err
 }
@@ -163,7 +164,7 @@ func (q *Queries) GetCurrentLicenseVersionsByFamilyIDs(ctx context.Context, arg 
 }
 
 const getLicenseFamiliesByIDs = `-- name: GetLicenseFamiliesByIDs :many
-SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public, f.fallback_license_family_id, f.trial_end_without_payment_method
+SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public, f.fallback_license_family_id, f.trial_end_without_payment_method, f.trial_reminder_days
 FROM license_family f
 WHERE f.organization_id = $1
   AND f.id = ANY ($2::uuid[])
@@ -196,6 +197,7 @@ func (q *Queries) GetLicenseFamiliesByIDs(ctx context.Context, arg GetLicenseFam
 			&i.IsPublic,
 			&i.FallbackLicenseFamilyID,
 			&i.TrialEndWithoutPaymentMethod,
+			&i.TrialReminderDays,
 		); err != nil {
 			return nil, err
 		}
@@ -208,7 +210,7 @@ func (q *Queries) GetLicenseFamiliesByIDs(ctx context.Context, arg GetLicenseFam
 }
 
 const getLicenseFamilyByIDForUpdate = `-- name: GetLicenseFamilyByIDForUpdate :one
-SELECT id, organization_id, slug, last_version, created_at, updated_at, is_public, fallback_license_family_id, trial_end_without_payment_method
+SELECT id, organization_id, slug, last_version, created_at, updated_at, is_public, fallback_license_family_id, trial_end_without_payment_method, trial_reminder_days
 FROM license_family
 WHERE organization_id = $1
   AND id = $2
@@ -237,12 +239,13 @@ func (q *Queries) GetLicenseFamilyByIDForUpdate(ctx context.Context, arg GetLice
 		&i.IsPublic,
 		&i.FallbackLicenseFamilyID,
 		&i.TrialEndWithoutPaymentMethod,
+		&i.TrialReminderDays,
 	)
 	return i, err
 }
 
 const getLicenseFamilyBySlug = `-- name: GetLicenseFamilyBySlug :one
-SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public, f.fallback_license_family_id, f.trial_end_without_payment_method
+SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public, f.fallback_license_family_id, f.trial_end_without_payment_method, f.trial_reminder_days
 FROM license_family f
 WHERE f.organization_id = $1
   AND f.slug = $2
@@ -266,12 +269,13 @@ func (q *Queries) GetLicenseFamilyBySlug(ctx context.Context, arg GetLicenseFami
 		&i.IsPublic,
 		&i.FallbackLicenseFamilyID,
 		&i.TrialEndWithoutPaymentMethod,
+		&i.TrialReminderDays,
 	)
 	return i, err
 }
 
 const getLicenseFamilyForUpdate = `-- name: GetLicenseFamilyForUpdate :one
-SELECT id, organization_id, slug, last_version, created_at, updated_at, is_public, fallback_license_family_id, trial_end_without_payment_method
+SELECT id, organization_id, slug, last_version, created_at, updated_at, is_public, fallback_license_family_id, trial_end_without_payment_method, trial_reminder_days
 FROM license_family
 WHERE organization_id = $1
   AND slug = $2
@@ -303,6 +307,7 @@ func (q *Queries) GetLicenseFamilyForUpdate(ctx context.Context, arg GetLicenseF
 		&i.IsPublic,
 		&i.FallbackLicenseFamilyID,
 		&i.TrialEndWithoutPaymentMethod,
+		&i.TrialReminderDays,
 	)
 	return i, err
 }
@@ -382,7 +387,7 @@ func (q *Queries) GetLicenseVersionInFamily(ctx context.Context, arg GetLicenseV
 }
 
 const listLicenseFamiliesByCursor = `-- name: ListLicenseFamiliesByCursor :many
-SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public, f.fallback_license_family_id, f.trial_end_without_payment_method,
+SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public, f.fallback_license_family_id, f.trial_end_without_payment_method, f.trial_reminder_days,
        (SELECT count(*) FROM license l WHERE l.family_id = f.id)::integer AS version_count
 FROM license_family f
 WHERE f.organization_id = $1
@@ -411,6 +416,7 @@ type ListLicenseFamiliesByCursorRow struct {
 	IsPublic                     bool                         `json:"is_public"`
 	FallbackLicenseFamilyID      *uuid.UUID                   `json:"fallback_license_family_id"`
 	TrialEndWithoutPaymentMethod TrialEndWithoutPaymentMethod `json:"trial_end_without_payment_method"`
+	TrialReminderDays            int32                        `json:"trial_reminder_days"`
 	VersionCount                 int32                        `json:"version_count"`
 }
 
@@ -449,6 +455,7 @@ func (q *Queries) ListLicenseFamiliesByCursor(ctx context.Context, arg ListLicen
 			&i.IsPublic,
 			&i.FallbackLicenseFamilyID,
 			&i.TrialEndWithoutPaymentMethod,
+			&i.TrialReminderDays,
 			&i.VersionCount,
 		); err != nil {
 			return nil, err

@@ -92,7 +92,7 @@ func (q *Queries) GetBillingLicense(ctx context.Context, arg GetBillingLicensePa
 }
 
 const getInstanceBilling = `-- name: GetInstanceBilling :one
-SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 FROM instance_billing ib
 WHERE ib.organization_id = $1
   AND ib.instance_id = $2
@@ -143,6 +143,8 @@ func (q *Queries) GetInstanceBilling(ctx context.Context, arg GetInstanceBilling
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }
@@ -192,7 +194,7 @@ VALUES ($1, $2, $3, $4,
         $12, $13, $14, $15,
         $15, $15, $16, $17,
         $18, $18)
-RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 `
 
 type InsertInstanceBillingParams struct {
@@ -274,6 +276,8 @@ func (q *Queries) InsertInstanceBilling(ctx context.Context, arg InsertInstanceB
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }
@@ -368,7 +372,7 @@ func (q *Queries) ListInstanceBillingSummaries(ctx context.Context, arg ListInst
 }
 
 const lockInstanceBilling = `-- name: LockInstanceBilling :one
-SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 FROM instance_billing ib
 WHERE ib.organization_id = $1
   AND ib.instance_id = $2
@@ -419,6 +423,8 @@ func (q *Queries) LockInstanceBilling(ctx context.Context, arg LockInstanceBilli
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }
@@ -490,7 +496,7 @@ SET customer_id           = $1,
 WHERE id = $18
   AND organization_id = $19
   AND status = 'CANCELED'
-RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 `
 
 type ResubscribeInstanceBillingParams struct {
@@ -576,6 +582,8 @@ func (q *Queries) ResubscribeInstanceBilling(ctx context.Context, arg Resubscrib
 		&i.PendingSelection,
 		&i.IncompleteExpiresAt,
 		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
 	)
 	return i, err
 }

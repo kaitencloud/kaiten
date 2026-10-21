@@ -536,17 +536,18 @@ func (ns NullReconciliationStatus) Value() (driver.Value, error) {
 }
 
 type BillingSyncState struct {
-	OrganizationID      uuid.UUID           `json:"organization_id"`
-	ProviderKind        BillingProviderKind `json:"provider_kind"`
-	Cursor              *string             `json:"cursor"`
-	CursorCreatedAt     pgtype.Timestamp    `json:"cursor_created_at"`
-	LastSyncedAt        pgtype.Timestamp    `json:"last_synced_at"`
-	LastSyncStatus      *BillingSyncStatus  `json:"last_sync_status"`
-	LastSyncError       *string             `json:"last_sync_error"`
-	ConsecutiveFailures int32               `json:"consecutive_failures"`
-	LastFullSweepAt     pgtype.Timestamp    `json:"last_full_sweep_at"`
-	CreatedAt           pgtype.Timestamp    `json:"created_at"`
-	UpdatedAt           pgtype.Timestamp    `json:"updated_at"`
+	OrganizationID       uuid.UUID           `json:"organization_id"`
+	ProviderKind         BillingProviderKind `json:"provider_kind"`
+	Cursor               *string             `json:"cursor"`
+	CursorCreatedAt      pgtype.Timestamp    `json:"cursor_created_at"`
+	LastSyncedAt         pgtype.Timestamp    `json:"last_synced_at"`
+	LastSyncStatus       *BillingSyncStatus  `json:"last_sync_status"`
+	LastSyncError        *string             `json:"last_sync_error"`
+	ConsecutiveFailures  int32               `json:"consecutive_failures"`
+	LastFullSweepAt      pgtype.Timestamp    `json:"last_full_sweep_at"`
+	CreatedAt            pgtype.Timestamp    `json:"created_at"`
+	UpdatedAt            pgtype.Timestamp    `json:"updated_at"`
+	LastSuccessfulSyncAt pgtype.Timestamp    `json:"last_successful_sync_at"`
 }
 
 type CustomerBilling struct {
@@ -604,6 +605,8 @@ type InstanceBilling struct {
 	PendingSelection        []byte                `json:"pending_selection"`
 	IncompleteExpiresAt     pgtype.Timestamp      `json:"incomplete_expires_at"`
 	TrialWillEndNotifiedAt  pgtype.Timestamp      `json:"trial_will_end_notified_at"`
+	LiveEndedAt             pgtype.Timestamp      `json:"live_ended_at"`
+	TrialWillEndAt          pgtype.Timestamp      `json:"trial_will_end_at"`
 }
 
 type InstanceInvoice struct {

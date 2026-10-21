@@ -232,16 +232,24 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: SaveSyncState :exec
+-- A pass that succeeded is also the last successful one (V31-11); any other
+-- keeps the one before.
 INSERT INTO billing_sync_state (organization_id, provider_kind, cursor, cursor_created_at, last_synced_at,
-                                last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at)
+                                last_sync_status, last_sync_error, consecutive_failures, last_full_sweep_at,
+                                last_successful_sync_at)
 VALUES (sqlc.arg(organization_id), sqlc.arg(provider_kind), sqlc.narg(cursor), sqlc.narg(cursor_created_at),
         sqlc.arg(last_synced_at), sqlc.arg(last_sync_status), sqlc.narg(last_sync_error),
-        sqlc.arg(consecutive_failures), sqlc.narg(last_full_sweep_at))
+        sqlc.arg(consecutive_failures), sqlc.narg(last_full_sweep_at),
+        CASE WHEN sqlc.arg(last_sync_status)::billing_sync_status = 'SUCCESS' THEN sqlc.arg(last_synced_at)::timestamp(3) END)
 ON CONFLICT (organization_id, provider_kind) DO UPDATE
   SET cursor               = EXCLUDED.cursor,
       cursor_created_at    = EXCLUDED.cursor_created_at,
       last_synced_at       = EXCLUDED.last_synced_at,
       last_sync_status     = EXCLUDED.last_sync_status,
+      last_successful_sync_at = CASE
+                                  WHEN EXCLUDED.last_sync_status = 'SUCCESS' THEN EXCLUDED.last_synced_at
+                                  ELSE billing_sync_state.last_successful_sync_at
+                                END,
       last_sync_error      = EXCLUDED.last_sync_error,
       consecutive_failures = EXCLUDED.consecutive_failures,
       last_full_sweep_at   = EXCLUDED.last_full_sweep_at,

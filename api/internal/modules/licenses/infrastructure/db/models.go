@@ -521,4 +521,5 @@ type LicenseFamily struct {
 	IsPublic                     bool                         `json:"is_public"`
 	FallbackLicenseFamilyID      *uuid.UUID                   `json:"fallback_license_family_id"`
 	TrialEndWithoutPaymentMethod TrialEndWithoutPaymentMethod `json:"trial_end_without_payment_method"`
+	TrialReminderDays            int32                        `json:"trial_reminder_days"`
 }
