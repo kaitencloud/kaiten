@@ -3,6 +3,7 @@ package revokepublishablekey
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -34,6 +35,7 @@ func (u *UseCase) Execute(ctx context.Context, keyID uuid.UUID) (*keys.Publishab
 		return nil, err
 	}
 	var revoked keys.PublishableKey
+	hadSecret := false
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
 		before, err := q.GetPublishableKeyForUpdate(ctx, db.GetPublishableKeyForUpdateParams{OrganizationID: user.OrganizationID, ID: keyID})
@@ -49,8 +51,8 @@ func (u *UseCase) Execute(ctx context.Context, keyID uuid.UUID) (*keys.Publishab
 		if err != nil {
 			return err
 		}
-		revoked = keys.FromRow(row.ID, row.Label, row.KeyHint, row.AllowedOrigins,
-			row.LastUsedAt, row.CreatedAt, row.UpdatedAt, row.RevokedAt)
+		revoked = keys.FromRow(row)
+		hadSecret = before.TurnstileSecretSetAt.Valid
 		if before.RevokedAt.Valid {
 			return nil
 		}
@@ -58,6 +60,13 @@ func (u *UseCase) Execute(ctx context.Context, keyID uuid.UUID) (*keys.Publishab
 	})
 	if err != nil {
 		return nil, err
+	}
+	// The secret goes with the key (§13.12), once the revocation is committed:
+	// a failure leaves a secret no live key can use, which is logged.
+	if hadSecret && u.deps.Secrets != nil {
+		if err := u.deps.Secrets.Delete(context.WithoutCancel(ctx), user.OrganizationID, keyID); err != nil {
+			slog.WarnContext(ctx, "publishable key: Turnstile secret of a revoked key left in Vault", "key_id", keyID, "error", err)
+		}
 	}
 	return &revoked, nil
 }

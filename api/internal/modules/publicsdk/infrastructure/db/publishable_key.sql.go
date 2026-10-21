@@ -34,58 +34,67 @@ func (q *Queries) AuthenticatePublishableKey(ctx context.Context, lookupHash str
 }
 
 const createPublishableKey = `-- name: CreatePublishableKey :one
-INSERT INTO publishable_key (organization_id, label, lookup_hash, key_hint, allowed_origins,
+INSERT INTO publishable_key (id, organization_id, label, lookup_hash, key_hint, allowed_origins,
+                             anonymous_checkout, turnstile_site_key, turnstile_secret_set_at,
                              created_by_id, updated_by_id)
-VALUES ($1, $2, $3, $4,
-        $5::text[], $6, $6)
-RETURNING id, label, key_hint, allowed_origins, last_used_at, created_at, updated_at, revoked_at
+VALUES ($1, $2, $3, $4, $5,
+        $6::text[], $7, $8,
+        $9, $10, $10)
+RETURNING id, organization_id, label, lookup_hash, key_hint, allowed_origins, last_used_at, created_at, created_by_id, updated_at, updated_by_id, revoked_at, revoked_by_id, anonymous_checkout, turnstile_site_key, turnstile_secret_set_at
 `
 
 type CreatePublishableKeyParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	Label          string    `json:"label"`
-	LookupHash     string    `json:"lookup_hash"`
-	KeyHint        string    `json:"key_hint"`
-	AllowedOrigins []string  `json:"allowed_origins"`
-	ActorID        uuid.UUID `json:"actor_id"`
+	ID                   uuid.UUID        `json:"id"`
+	OrganizationID       uuid.UUID        `json:"organization_id"`
+	Label                string           `json:"label"`
+	LookupHash           string           `json:"lookup_hash"`
+	KeyHint              string           `json:"key_hint"`
+	AllowedOrigins       []string         `json:"allowed_origins"`
+	AnonymousCheckout    bool             `json:"anonymous_checkout"`
+	TurnstileSiteKey     *string          `json:"turnstile_site_key"`
+	TurnstileSecretSetAt pgtype.Timestamp `json:"turnstile_secret_set_at"`
+	ActorID              uuid.UUID        `json:"actor_id"`
 }
 
-type CreatePublishableKeyRow struct {
-	ID             uuid.UUID        `json:"id"`
-	Label          string           `json:"label"`
-	KeyHint        string           `json:"key_hint"`
-	AllowedOrigins []string         `json:"allowed_origins"`
-	LastUsedAt     pgtype.Timestamp `json:"last_used_at"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
-	RevokedAt      pgtype.Timestamp `json:"revoked_at"`
-}
-
-func (q *Queries) CreatePublishableKey(ctx context.Context, arg CreatePublishableKeyParams) (CreatePublishableKeyRow, error) {
+// The id is the caller's: a Turnstile secret is written to Vault under it
+// before the row exists (V32-01).
+func (q *Queries) CreatePublishableKey(ctx context.Context, arg CreatePublishableKeyParams) (PublishableKey, error) {
 	row := q.db.QueryRow(ctx, createPublishableKey,
+		arg.ID,
 		arg.OrganizationID,
 		arg.Label,
 		arg.LookupHash,
 		arg.KeyHint,
 		arg.AllowedOrigins,
+		arg.AnonymousCheckout,
+		arg.TurnstileSiteKey,
+		arg.TurnstileSecretSetAt,
 		arg.ActorID,
 	)
-	var i CreatePublishableKeyRow
+	var i PublishableKey
 	err := row.Scan(
 		&i.ID,
+		&i.OrganizationID,
 		&i.Label,
+		&i.LookupHash,
 		&i.KeyHint,
 		&i.AllowedOrigins,
 		&i.LastUsedAt,
 		&i.CreatedAt,
+		&i.CreatedByID,
 		&i.UpdatedAt,
+		&i.UpdatedByID,
 		&i.RevokedAt,
+		&i.RevokedByID,
+		&i.AnonymousCheckout,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecretSetAt,
 	)
 	return i, err
 }
 
 const getPublishableKeyForUpdate = `-- name: GetPublishableKeyForUpdate :one
-SELECT id, label, key_hint, allowed_origins, last_used_at, created_at, updated_at, revoked_at
+SELECT id, organization_id, label, lookup_hash, key_hint, allowed_origins, last_used_at, created_at, created_by_id, updated_at, updated_by_id, revoked_at, revoked_by_id, anonymous_checkout, turnstile_site_key, turnstile_secret_set_at
 FROM publishable_key
 WHERE organization_id = $1
   AND id = $2
@@ -97,35 +106,32 @@ type GetPublishableKeyForUpdateParams struct {
 	ID             uuid.UUID `json:"id"`
 }
 
-type GetPublishableKeyForUpdateRow struct {
-	ID             uuid.UUID        `json:"id"`
-	Label          string           `json:"label"`
-	KeyHint        string           `json:"key_hint"`
-	AllowedOrigins []string         `json:"allowed_origins"`
-	LastUsedAt     pgtype.Timestamp `json:"last_used_at"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
-	RevokedAt      pgtype.Timestamp `json:"revoked_at"`
-}
-
-func (q *Queries) GetPublishableKeyForUpdate(ctx context.Context, arg GetPublishableKeyForUpdateParams) (GetPublishableKeyForUpdateRow, error) {
+func (q *Queries) GetPublishableKeyForUpdate(ctx context.Context, arg GetPublishableKeyForUpdateParams) (PublishableKey, error) {
 	row := q.db.QueryRow(ctx, getPublishableKeyForUpdate, arg.OrganizationID, arg.ID)
-	var i GetPublishableKeyForUpdateRow
+	var i PublishableKey
 	err := row.Scan(
 		&i.ID,
+		&i.OrganizationID,
 		&i.Label,
+		&i.LookupHash,
 		&i.KeyHint,
 		&i.AllowedOrigins,
 		&i.LastUsedAt,
 		&i.CreatedAt,
+		&i.CreatedByID,
 		&i.UpdatedAt,
+		&i.UpdatedByID,
 		&i.RevokedAt,
+		&i.RevokedByID,
+		&i.AnonymousCheckout,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecretSetAt,
 	)
 	return i, err
 }
 
 const listPublishableKeys = `-- name: ListPublishableKeys :many
-SELECT id, label, key_hint, allowed_origins, last_used_at, created_at, updated_at, revoked_at
+SELECT id, organization_id, label, lookup_hash, key_hint, allowed_origins, last_used_at, created_at, created_by_id, updated_at, updated_by_id, revoked_at, revoked_by_id, anonymous_checkout, turnstile_site_key, turnstile_secret_set_at
 FROM publishable_key
 WHERE organization_id = $1
   AND ($2::boolean OR revoked_at IS NULL)
@@ -143,20 +149,9 @@ type ListPublishableKeysParams struct {
 	RowLimit       *int32           `json:"row_limit"`
 }
 
-type ListPublishableKeysRow struct {
-	ID             uuid.UUID        `json:"id"`
-	Label          string           `json:"label"`
-	KeyHint        string           `json:"key_hint"`
-	AllowedOrigins []string         `json:"allowed_origins"`
-	LastUsedAt     pgtype.Timestamp `json:"last_used_at"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
-	RevokedAt      pgtype.Timestamp `json:"revoked_at"`
-}
-
 // Newest first. Revoked keys only on request: they authenticate nothing and
 // are kept for the audit of who held what.
-func (q *Queries) ListPublishableKeys(ctx context.Context, arg ListPublishableKeysParams) ([]ListPublishableKeysRow, error) {
+func (q *Queries) ListPublishableKeys(ctx context.Context, arg ListPublishableKeysParams) ([]PublishableKey, error) {
 	rows, err := q.db.Query(ctx, listPublishableKeys,
 		arg.OrganizationID,
 		arg.IncludeRevoked,
@@ -168,18 +163,26 @@ func (q *Queries) ListPublishableKeys(ctx context.Context, arg ListPublishableKe
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListPublishableKeysRow
+	var items []PublishableKey
 	for rows.Next() {
-		var i ListPublishableKeysRow
+		var i PublishableKey
 		if err := rows.Scan(
 			&i.ID,
+			&i.OrganizationID,
 			&i.Label,
+			&i.LookupHash,
 			&i.KeyHint,
 			&i.AllowedOrigins,
 			&i.LastUsedAt,
 			&i.CreatedAt,
+			&i.CreatedByID,
 			&i.UpdatedAt,
+			&i.UpdatedByID,
 			&i.RevokedAt,
+			&i.RevokedByID,
+			&i.AnonymousCheckout,
+			&i.TurnstileSiteKey,
+			&i.TurnstileSecretSetAt,
 		); err != nil {
 			return nil, err
 		}
@@ -193,13 +196,14 @@ func (q *Queries) ListPublishableKeys(ctx context.Context, arg ListPublishableKe
 
 const revokePublishableKey = `-- name: RevokePublishableKey :one
 UPDATE publishable_key
-SET revoked_at    = coalesce(revoked_at, CURRENT_TIMESTAMP),
-    revoked_by_id = coalesce(revoked_by_id, $1::uuid),
-    updated_at    = CASE WHEN revoked_at IS NULL THEN CURRENT_TIMESTAMP ELSE updated_at END,
-    updated_by_id = CASE WHEN revoked_at IS NULL THEN $1 ELSE updated_by_id END
+SET revoked_at              = coalesce(revoked_at, CURRENT_TIMESTAMP),
+    revoked_by_id           = coalesce(revoked_by_id, $1::uuid),
+    turnstile_secret_set_at = NULL,
+    updated_at              = CASE WHEN revoked_at IS NULL THEN CURRENT_TIMESTAMP ELSE updated_at END,
+    updated_by_id           = CASE WHEN revoked_at IS NULL THEN $1 ELSE updated_by_id END
 WHERE organization_id = $2
   AND id = $3
-RETURNING id, label, key_hint, allowed_origins, last_used_at, created_at, updated_at, revoked_at
+RETURNING id, organization_id, label, lookup_hash, key_hint, allowed_origins, last_used_at, created_at, created_by_id, updated_at, updated_by_id, revoked_at, revoked_by_id, anonymous_checkout, turnstile_site_key, turnstile_secret_set_at
 `
 
 type RevokePublishableKeyParams struct {
@@ -208,30 +212,29 @@ type RevokePublishableKeyParams struct {
 	ID             uuid.UUID `json:"id"`
 }
 
-type RevokePublishableKeyRow struct {
-	ID             uuid.UUID        `json:"id"`
-	Label          string           `json:"label"`
-	KeyHint        string           `json:"key_hint"`
-	AllowedOrigins []string         `json:"allowed_origins"`
-	LastUsedAt     pgtype.Timestamp `json:"last_used_at"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
-	RevokedAt      pgtype.Timestamp `json:"revoked_at"`
-}
-
-// Idempotent: a key already revoked keeps its first revocation.
-func (q *Queries) RevokePublishableKey(ctx context.Context, arg RevokePublishableKeyParams) (RevokePublishableKeyRow, error) {
+// Idempotent: a key already revoked keeps its first revocation. Its Turnstile
+// secret is deleted from Vault after the commit (§13.12), so the row stops
+// saying it holds one.
+func (q *Queries) RevokePublishableKey(ctx context.Context, arg RevokePublishableKeyParams) (PublishableKey, error) {
 	row := q.db.QueryRow(ctx, revokePublishableKey, arg.ActorID, arg.OrganizationID, arg.ID)
-	var i RevokePublishableKeyRow
+	var i PublishableKey
 	err := row.Scan(
 		&i.ID,
+		&i.OrganizationID,
 		&i.Label,
+		&i.LookupHash,
 		&i.KeyHint,
 		&i.AllowedOrigins,
 		&i.LastUsedAt,
 		&i.CreatedAt,
+		&i.CreatedByID,
 		&i.UpdatedAt,
+		&i.UpdatedByID,
 		&i.RevokedAt,
+		&i.RevokedByID,
+		&i.AnonymousCheckout,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecretSetAt,
 	)
 	return i, err
 }
@@ -252,54 +255,71 @@ func (q *Queries) TouchPublishableKey(ctx context.Context, id uuid.UUID) error {
 
 const updatePublishableKey = `-- name: UpdatePublishableKey :one
 UPDATE publishable_key
-SET label           = coalesce($1, label),
-    allowed_origins = coalesce($2::text[], allowed_origins),
-    updated_at      = CURRENT_TIMESTAMP,
-    updated_by_id   = $3
-WHERE organization_id = $4
-  AND id = $5
-RETURNING id, label, key_hint, allowed_origins, last_used_at, created_at, updated_at, revoked_at
+SET label                   = coalesce($1, label),
+    allowed_origins         = coalesce($2::text[], allowed_origins),
+    anonymous_checkout      = coalesce($3::boolean, anonymous_checkout),
+    turnstile_site_key      = CASE
+                                WHEN $4::boolean THEN $5::text
+                                ELSE turnstile_site_key
+                              END,
+    turnstile_secret_set_at = CASE
+                                WHEN $6::boolean THEN $7::timestamp
+                                ELSE turnstile_secret_set_at
+                              END,
+    updated_at              = CURRENT_TIMESTAMP,
+    updated_by_id           = $8
+WHERE organization_id = $9
+  AND id = $10
+RETURNING id, organization_id, label, lookup_hash, key_hint, allowed_origins, last_used_at, created_at, created_by_id, updated_at, updated_by_id, revoked_at, revoked_by_id, anonymous_checkout, turnstile_site_key, turnstile_secret_set_at
 `
 
 type UpdatePublishableKeyParams struct {
-	Label          *string   `json:"label"`
-	AllowedOrigins []string  `json:"allowed_origins"`
-	ActorID        uuid.UUID `json:"actor_id"`
-	OrganizationID uuid.UUID `json:"organization_id"`
-	ID             uuid.UUID `json:"id"`
-}
-
-type UpdatePublishableKeyRow struct {
-	ID             uuid.UUID        `json:"id"`
-	Label          string           `json:"label"`
-	KeyHint        string           `json:"key_hint"`
-	AllowedOrigins []string         `json:"allowed_origins"`
-	LastUsedAt     pgtype.Timestamp `json:"last_used_at"`
-	CreatedAt      pgtype.Timestamp `json:"created_at"`
-	UpdatedAt      pgtype.Timestamp `json:"updated_at"`
-	RevokedAt      pgtype.Timestamp `json:"revoked_at"`
+	Label                *string          `json:"label"`
+	AllowedOrigins       []string         `json:"allowed_origins"`
+	AnonymousCheckout    *bool            `json:"anonymous_checkout"`
+	SetSiteKey           bool             `json:"set_site_key"`
+	TurnstileSiteKey     *string          `json:"turnstile_site_key"`
+	SetSecret            bool             `json:"set_secret"`
+	TurnstileSecretSetAt pgtype.Timestamp `json:"turnstile_secret_set_at"`
+	ActorID              uuid.UUID        `json:"actor_id"`
+	OrganizationID       uuid.UUID        `json:"organization_id"`
+	ID                   uuid.UUID        `json:"id"`
 }
 
 // The caller has locked the row and checked it is live. Each member is
-// replaced only when given.
-func (q *Queries) UpdatePublishableKey(ctx context.Context, arg UpdatePublishableKeyParams) (UpdatePublishableKeyRow, error) {
+// replaced only when given; set_site_key and set_secret write their value,
+// NULL clearing it.
+func (q *Queries) UpdatePublishableKey(ctx context.Context, arg UpdatePublishableKeyParams) (PublishableKey, error) {
 	row := q.db.QueryRow(ctx, updatePublishableKey,
 		arg.Label,
 		arg.AllowedOrigins,
+		arg.AnonymousCheckout,
+		arg.SetSiteKey,
+		arg.TurnstileSiteKey,
+		arg.SetSecret,
+		arg.TurnstileSecretSetAt,
 		arg.ActorID,
 		arg.OrganizationID,
 		arg.ID,
 	)
-	var i UpdatePublishableKeyRow
+	var i PublishableKey
 	err := row.Scan(
 		&i.ID,
+		&i.OrganizationID,
 		&i.Label,
+		&i.LookupHash,
 		&i.KeyHint,
 		&i.AllowedOrigins,
 		&i.LastUsedAt,
 		&i.CreatedAt,
+		&i.CreatedByID,
 		&i.UpdatedAt,
+		&i.UpdatedByID,
 		&i.RevokedAt,
+		&i.RevokedByID,
+		&i.AnonymousCheckout,
+		&i.TurnstileSiteKey,
+		&i.TurnstileSecretSetAt,
 	)
 	return i, err
 }

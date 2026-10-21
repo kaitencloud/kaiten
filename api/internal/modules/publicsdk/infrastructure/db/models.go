@@ -7,6 +7,9 @@ package db
 import (
 	"database/sql/driver"
 	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type AddonOverrideBehavior string
@@ -309,4 +312,23 @@ func (ns NullPricingType) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PricingType), nil
+}
+
+type PublishableKey struct {
+	ID                   uuid.UUID        `json:"id"`
+	OrganizationID       uuid.UUID        `json:"organization_id"`
+	Label                string           `json:"label"`
+	LookupHash           string           `json:"lookup_hash"`
+	KeyHint              string           `json:"key_hint"`
+	AllowedOrigins       []string         `json:"allowed_origins"`
+	LastUsedAt           pgtype.Timestamp `json:"last_used_at"`
+	CreatedAt            pgtype.Timestamp `json:"created_at"`
+	CreatedByID          uuid.UUID        `json:"created_by_id"`
+	UpdatedAt            pgtype.Timestamp `json:"updated_at"`
+	UpdatedByID          uuid.UUID        `json:"updated_by_id"`
+	RevokedAt            pgtype.Timestamp `json:"revoked_at"`
+	RevokedByID          *uuid.UUID       `json:"revoked_by_id"`
+	AnonymousCheckout    bool             `json:"anonymous_checkout"`
+	TurnstileSiteKey     *string          `json:"turnstile_site_key"`
+	TurnstileSecretSetAt pgtype.Timestamp `json:"turnstile_secret_set_at"`
 }

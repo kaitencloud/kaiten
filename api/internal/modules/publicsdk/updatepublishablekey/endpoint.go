@@ -32,7 +32,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Method:      http.MethodPatch,
 		Path:        "/publishable-keys/{keyId}",
 		Summary:     "Update a publishable key",
-		Description: "Changes a live key's label or allowed origins. A revoked key answers 409 UpdatePublishableKey.Revoked. Requires billing to be enabled for the organization.",
+		Description: "Changes a live key's label, allowed origins or anonymous checkout settings. An absent member keeps the stored value; an empty Turnstile value clears it. After the write, a key with anonymousCheckout must hold a Turnstile site key and secret, else 422 .TurnstileNotConfigured; a secret on a deployment without Vault answers 422 .VaultNotConfigured. A revoked key answers 409 UpdatePublishableKey.Revoked. Requires billing to be enabled for the organization.",
 		Tags:        []string{"publishable-keys"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

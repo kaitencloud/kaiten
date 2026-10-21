@@ -42,14 +42,19 @@ const (
 // PublishableKey is a key as the API returns it. The plaintext never appears
 // here: see Created.
 type PublishableKey struct {
-	ID             uuid.UUID  `json:"id" readOnly:"true" doc:"Unique identifier of the key"`
-	Label          string     `json:"label" doc:"What the key is for, to tell keys apart" example:"Marketing site"`
-	KeyHint        string     `json:"keyHint" readOnly:"true" doc:"The last four characters of the key" example:"x9Qa"`
-	AllowedOrigins []string   `json:"allowedOrigins" nullable:"false" doc:"Browser origins allowed to send the key. Empty: no browser origin may; requests without an Origin header (server-side rendering) still may." example:"[\"https://www.example.com\"]"`
-	LastUsedAt     *time.Time `json:"lastUsedAt,omitempty" readOnly:"true" doc:"When the key last authenticated a request, to the minute"`
-	CreatedAt      time.Time  `json:"createdAt" readOnly:"true"`
-	UpdatedAt      time.Time  `json:"updatedAt" readOnly:"true"`
-	RevokedAt      *time.Time `json:"revokedAt,omitempty" readOnly:"true" doc:"When the key was revoked; absent while it is live"`
+	ID             uuid.UUID `json:"id" readOnly:"true" doc:"Unique identifier of the key"`
+	Label          string    `json:"label" doc:"What the key is for, to tell keys apart" example:"Marketing site"`
+	KeyHint        string    `json:"keyHint" readOnly:"true" doc:"The last four characters of the key" example:"x9Qa"`
+	AllowedOrigins []string  `json:"allowedOrigins" nullable:"false" doc:"Browser origins allowed to send the key. Empty: no browser origin may; requests without an Origin header (server-side rendering) still may." example:"[\"https://www.example.com\"]"`
+	// AnonymousCheckout and the Turnstile pair open the anonymous checkout to
+	// the key (V32-01, §13.12); the secret itself is never returned.
+	AnonymousCheckout         bool       `json:"anonymousCheckout" doc:"Whether the key may start an anonymous checkout (POST /public/checkout-sessions). Needs a Turnstile site key and secret."`
+	TurnstileSiteKey          *string    `json:"turnstileSiteKey" nullable:"true" doc:"The Turnstile site key the page renders its widget with; null without one. Public: the catalogue hands it to the page."`
+	TurnstileSecretConfigured bool       `json:"turnstileSecretConfigured" readOnly:"true" doc:"Whether a Turnstile secret is stored for the key. The secret itself is write-only."`
+	LastUsedAt                *time.Time `json:"lastUsedAt,omitempty" readOnly:"true" doc:"When the key last authenticated a request, to the minute"`
+	CreatedAt                 time.Time  `json:"createdAt" readOnly:"true"`
+	UpdatedAt                 time.Time  `json:"updatedAt" readOnly:"true"`
+	RevokedAt                 *time.Time `json:"revokedAt,omitempty" readOnly:"true" doc:"When the key was revoked; absent while it is live"`
 }
 
 // Created is a key at creation, the one time its plaintext is returned.
@@ -65,6 +70,8 @@ type Deps struct {
 	// Gate keeps the management of publishable keys behind the billing switch
 	// (§13.12, S12-007).
 	Gate gate.Gate
+	// Secrets holds the keys' Turnstile secrets, in Vault (§13.12).
+	Secrets SecretStore
 }
 
 // Caller is the user a management request acts for, past the billing gate.
@@ -154,19 +161,23 @@ func NotFound(operation string, id uuid.UUID) error {
 }
 
 // FromRow maps a stored key.
-func FromRow(id uuid.UUID, label, hint string, origins []string, lastUsedAt, createdAt, updatedAt, revokedAt pgtype.Timestamp) PublishableKey {
+func FromRow(row db.PublishableKey) PublishableKey {
+	origins := row.AllowedOrigins
 	if origins == nil {
 		origins = []string{}
 	}
 	return PublishableKey{
-		ID:             id,
-		Label:          label,
-		KeyHint:        hint,
-		AllowedOrigins: origins,
-		LastUsedAt:     timePtr(lastUsedAt),
-		CreatedAt:      createdAt.Time.UTC(),
-		UpdatedAt:      updatedAt.Time.UTC(),
-		RevokedAt:      timePtr(revokedAt),
+		ID:                        row.ID,
+		Label:                     row.Label,
+		KeyHint:                   row.KeyHint,
+		AllowedOrigins:            origins,
+		AnonymousCheckout:         row.AnonymousCheckout,
+		TurnstileSiteKey:          row.TurnstileSiteKey,
+		TurnstileSecretConfigured: row.TurnstileSecretSetAt.Valid,
+		LastUsedAt:                timePtr(row.LastUsedAt),
+		CreatedAt:                 row.CreatedAt.Time.UTC(),
+		UpdatedAt:                 row.UpdatedAt.Time.UTC(),
+		RevokedAt:                 timePtr(row.RevokedAt),
 	}
 }
 

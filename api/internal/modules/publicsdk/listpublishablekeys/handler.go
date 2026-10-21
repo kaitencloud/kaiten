@@ -34,8 +34,7 @@ func (u *UseCase) Execute(ctx context.Context, includeRevoked bool, cursor strin
 	}
 	out := make([]keys.PublishableKey, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, keys.FromRow(row.ID, row.Label, row.KeyHint, row.AllowedOrigins,
-			row.LastUsedAt, row.CreatedAt, row.UpdatedAt, row.RevokedAt))
+		out = append(out, keys.FromRow(row))
 	}
 	return pagination.KeysetPage(out, page, func(k keys.PublishableKey) (time.Time, uuid.UUID) { return k.CreatedAt, k.ID })
 }

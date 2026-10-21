@@ -28,12 +28,15 @@ export function buildPublishableKey({
 }): PublishableKey {
   return {
     allowedOrigins,
+    anonymousCheckout: false,
     createdAt,
     id,
     keyHint,
     label,
     ...(lastUsedAt ? { lastUsedAt } : {}),
     ...(revokedAt ? { revokedAt } : {}),
+    turnstileSecretConfigured: false,
+    turnstileSiteKey: null,
     updatedAt: updatedAt ?? revokedAt ?? createdAt,
   };
 }

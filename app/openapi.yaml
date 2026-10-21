@@ -8703,6 +8703,9 @@ components:
           items:
             type: string
           type: array
+        anonymousCheckout:
+          description: Whether the key may start an anonymous checkout (POST /public/checkout-sessions). Needs a Turnstile site key and secret.
+          type: boolean
         createdAt:
           format: date-time
           readOnly: true
@@ -8732,6 +8735,15 @@ components:
           format: date-time
           readOnly: true
           type: string
+        turnstileSecretConfigured:
+          description: Whether a Turnstile secret is stored for the key. The secret itself is write-only.
+          readOnly: true
+          type: boolean
+        turnstileSiteKey:
+          description: "The Turnstile site key the page renders its widget with; null without one. Public: the catalogue hands it to the page."
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           readOnly: true
@@ -8741,6 +8753,9 @@ components:
         - label
         - keyHint
         - allowedOrigins
+        - anonymousCheckout
+        - turnstileSiteKey
+        - turnstileSecretConfigured
         - createdAt
         - updatedAt
       type: object
@@ -8754,6 +8769,9 @@ components:
           items:
             type: string
           type: array
+        anonymousCheckout:
+          description: Whether the key may start an anonymous checkout (POST /public/checkout-sessions). Needs a Turnstile site key and secret.
+          type: boolean
         createdAt:
           format: date-time
           readOnly: true
@@ -8789,6 +8807,15 @@ components:
           format: date-time
           readOnly: true
           type: string
+        turnstileSecretConfigured:
+          description: Whether a Turnstile secret is stored for the key. The secret itself is write-only.
+          readOnly: true
+          type: boolean
+        turnstileSiteKey:
+          description: "The Turnstile site key the page renders its widget with; null without one. Public: the catalogue hands it to the page."
+          type:
+            - string
+            - "null"
         updatedAt:
           format: date-time
           readOnly: true
@@ -8799,6 +8826,9 @@ components:
         - label
         - keyHint
         - allowedOrigins
+        - anonymousCheckout
+        - turnstileSiteKey
+        - turnstileSecretConfigured
         - createdAt
         - updatedAt
       type: object
@@ -8813,12 +8843,24 @@ components:
             type: string
           maxItems: 50
           type: array
+        anonymousCheckout:
+          description: Open POST /public/checkout-sessions to the key. Needs turnstileSiteKey and turnstileSecret, else 422 .TurnstileNotConfigured. False by default.
+          type: boolean
         label:
           description: What the key is for
           examples:
             - Marketing site
           maxLength: 100
           minLength: 1
+          type: string
+        turnstileSecret:
+          description: "The Turnstile secret the server verifies tokens with. Stored in Vault, never returned: reads say turnstileSecretConfigured. 422 .VaultNotConfigured on a deployment without Vault."
+          maxLength: 255
+          minLength: 1
+          type: string
+        turnstileSiteKey:
+          description: The Turnstile site key the page renders its widget with
+          pattern: ^[A-Za-z0-9_-]{1,255}$
           type: string
       required:
         - label
@@ -8856,10 +8898,21 @@ components:
             type: string
           maxItems: 50
           type: array
+        anonymousCheckout:
+          description: Open or close POST /public/checkout-sessions to the key. On only with a Turnstile site key and secret, else 422 .TurnstileNotConfigured.
+          type: boolean
         label:
           description: What the key is for
           maxLength: 100
           minLength: 1
+          type: string
+        turnstileSecret:
+          description: The Turnstile secret, stored in Vault and never returned; "" deletes it. 422 .VaultNotConfigured on a deployment without Vault.
+          maxLength: 255
+          type: string
+        turnstileSiteKey:
+          description: The Turnstile site key; "" clears it
+          pattern: ^[A-Za-z0-9_-]{0,255}$
           type: string
       type: object
     PushFailedInvoice:
@@ -25585,7 +25638,7 @@ paths:
       tags:
         - publishable-keys
     post:
-      description: Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and nothing else. The key is returned once; only its digest is stored. Requires billing to be enabled for the organization.
+      description: Issues a pk_ key for a web page to read the organization's public catalogue (GET /api/public/catalog) and, with anonymousCheckout, to start anonymous checkouts (POST /api/public/checkout-sessions). The key is returned once; only its digest is stored. anonymousCheckout needs a Turnstile site key and secret (422 .TurnstileNotConfigured); the secret is stored in Vault (422 .VaultNotConfigured without one) and never returned. Requires billing to be enabled for the organization.
       operationId: createPublishableKey
       requestBody:
         content:
@@ -25650,7 +25703,7 @@ paths:
         - publishable-keys
   /publishable-keys/{keyId}:
     patch:
-      description: Changes a live key's label or allowed origins. A revoked key answers 409 UpdatePublishableKey.Revoked. Requires billing to be enabled for the organization.
+      description: Changes a live key's label, allowed origins or anonymous checkout settings. An absent member keeps the stored value; an empty Turnstile value clears it. After the write, a key with anonymousCheckout must hold a Turnstile site key and secret, else 422 .TurnstileNotConfigured; a secret on a deployment without Vault answers 422 .VaultNotConfigured. A revoked key answers 409 UpdatePublishableKey.Revoked. Requires billing to be enabled for the organization.
       operationId: updatePublishableKey
       parameters:
         - description: Publishable key id
@@ -25735,7 +25788,7 @@ paths:
         - publishable-keys
   /publishable-keys/{keyId}/revoke:
     post:
-      description: The key stops authenticating on the next request. Idempotent; revocation is final. Requires billing to be enabled for the organization.
+      description: The key stops authenticating on the next request, its Turnstile secret is deleted, and its anonymous checkout sessions stop authenticating. Idempotent; revocation is final. Requires billing to be enabled for the organization.
       operationId: revokePublishableKey
       parameters:
         - description: Publishable key id

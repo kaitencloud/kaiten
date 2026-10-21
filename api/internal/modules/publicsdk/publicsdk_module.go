@@ -94,7 +94,10 @@ type Ports struct {
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
 	billingGate := gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL)
-	deps := keys.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: billingGate}
+	deps := keys.Deps{
+		UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: billingGate,
+		Secrets: keys.NewVaultSecretStore(svc.Config.Connectors.VaultBasePath),
+	}
 	catalog := getpubliccatalog.NewUseCase(getpubliccatalog.Deps{
 		Uof:       svc.Uof,
 		Gate:      billingGate,

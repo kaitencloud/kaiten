@@ -115,6 +115,22 @@ const notFound = (operation: string, id: string) =>
     `publishable key ${id} not found`,
   );
 
+/** A key that offers anonymous checkout holds a Turnstile site key and secret (§13.12). */
+function requireTurnstile(
+  operation: string,
+  anonymousCheckout: boolean,
+  hasSiteKey: boolean,
+  hasSecret: boolean,
+): void {
+  if (anonymousCheckout && (!hasSiteKey || !hasSecret)) {
+    throw new BillingProblem(
+      422,
+      `${operation}.TurnstileNotConfigured`,
+      'anonymousCheckout needs a Turnstile site key and a Turnstile secret',
+    );
+  }
+}
+
 /**
  * The publishable keys of the organization, as the Core API serves them
  * (api/internal/modules/publicsdk): the label and the origins checked in the same order
@@ -207,6 +223,13 @@ export class BillingPublishableKeys {
     const operation = 'CreatePublishableKey';
     const label = validateLabel(operation, draft.label);
     const allowedOrigins = normalizeOrigins(operation, draft.allowedOrigins);
+    const anonymousCheckout = draft.anonymousCheckout ?? false;
+    requireTurnstile(
+      operation,
+      anonymousCheckout,
+      draft.turnstileSiteKey !== undefined,
+      draft.turnstileSecret !== undefined,
+    );
 
     const number = this.sequence;
     this.sequence += 1;
@@ -215,10 +238,13 @@ export class BillingPublishableKeys {
     const now = this.nowIso();
     const record: Editable<PublishableKey> = {
       allowedOrigins,
+      anonymousCheckout,
       createdAt: now,
       id: `publishable-key-${number}`,
       keyHint: secret.slice(-4),
       label,
+      turnstileSecretConfigured: draft.turnstileSecret !== undefined,
+      turnstileSiteKey: draft.turnstileSiteKey ?? null,
       updatedAt: now,
     };
     this.keys.push(record);
@@ -253,6 +279,26 @@ export class BillingPublishableKeys {
     if (allowedOrigins !== undefined) {
       key.allowedOrigins = allowedOrigins;
     }
+    // A member left out keeps its value, "" clears a Turnstile value, and the
+    // key must hold both values whenever anonymousCheckout is on.
+    const anonymousCheckout = patch.anonymousCheckout ?? key.anonymousCheckout;
+    const turnstileSiteKey =
+      patch.turnstileSiteKey === undefined
+        ? key.turnstileSiteKey
+        : patch.turnstileSiteKey || null;
+    const turnstileSecretConfigured =
+      patch.turnstileSecret === undefined
+        ? key.turnstileSecretConfigured
+        : patch.turnstileSecret !== '';
+    requireTurnstile(
+      operation,
+      anonymousCheckout,
+      turnstileSiteKey !== null,
+      turnstileSecretConfigured,
+    );
+    key.anonymousCheckout = anonymousCheckout;
+    key.turnstileSiteKey = turnstileSiteKey;
+    key.turnstileSecretConfigured = turnstileSecretConfigured;
     key.updatedAt = this.nowIso();
 
     return clone(key);
