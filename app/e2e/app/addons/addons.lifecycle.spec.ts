@@ -312,9 +312,7 @@ test.describe('moving a version along its life', () => {
     const note = detail.confirmation().getByRole('list');
     await expect(note).toContainText('Its prices cannot be edited');
     await expect(note).toContainText('Its entitlements freeze');
-    await expect(note).toContainText(
-      'attachable only to the licenses it fits',
-    );
+    await expect(note).toContainText('attachable only to the licenses it fits');
     await detail.confirm('Publish');
 
     await expectToast(page, 'Version published');
