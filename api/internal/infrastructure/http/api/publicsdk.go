@@ -5,6 +5,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
@@ -46,4 +47,5 @@ func registerPublicSDK(core huma.API, app kaiten.PublicSDK) {
 	setsessionaddonquantity.RegisterEndpoint(core, app)
 	getsessionportal.RegisterEndpoint(core, app)
 	keys.RegisterWebhooks(core)
+	checkout.RegisterWebhooks(core)
 }

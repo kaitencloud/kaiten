@@ -42,6 +42,7 @@ const ACCEPTED_EVENTS = [
   'FEATURE_FLAG_CREATED',
   'INSTANCE_CREATED',
   'INSTANCE_DEPLOYED',
+  'INSTANCE_ENTITLEMENT_EXCEPTION_CREATED',
   'LICENSE_CREATED',
   'LICENSE_ENTITLEMENT_ASSIGNED',
   'LICENSE_FAMILY_CREATED',
@@ -114,6 +115,8 @@ describe('event status', () => {
     ['INSTANCE_VOUCHER_REVOKED', 'read'],
     // A revoked key was retired by a person, not refused by the API.
     ['PUBLISHABLE_KEY_REVOKED', 'read'],
+    // So was a revoked exception.
+    ['INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED', 'read'],
   ])('reads %s as %s', (eventName, category) => {
     expect(getEventCategory(eventName)).toBe(category);
   });

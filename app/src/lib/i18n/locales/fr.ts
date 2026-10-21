@@ -3967,6 +3967,7 @@ export default {
           invoice: 'Factures',
           voucher: 'Codes promo',
           payment: 'Paiements',
+          checkout: 'Paiements en ligne',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Zones de déploiement',
@@ -6362,6 +6363,9 @@ export default {
         BILLING_PROVIDER_DISCONNECTED: 'Fournisseur de paiement déconnecté',
         BILLING_PROVIDER_SYNC_FAILED:
           'Échec de synchronisation du fournisseur de paiement',
+        CHECKOUT_SESSION_ABANDONED: 'Paiement abandonné',
+        CHECKOUT_SESSION_COMPLETED: 'Paiement terminé',
+        CHECKOUT_SESSION_STARTED: 'Paiement commencé',
         COMPONENT_CREATED: 'Component ajouté',
         COMPONENT_DELETED: 'Component supprimé',
         COMPONENT_UPDATED: 'Component mis à jour',
@@ -6408,6 +6412,9 @@ export default {
         INSTANCE_DELETED: 'Instance supprimée',
         INSTANCE_DEPLOYED: 'Instance déployée',
         INSTANCE_ENTITLEMENT_CAP_EXCEEDED: 'Plafond du droit dépassé',
+        INSTANCE_ENTITLEMENT_EXCEPTION_CREATED: 'Exception de droit créée',
+        INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED: 'Exception de droit expirée',
+        INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED: 'Exception de droit révoquée',
         INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER:
           "Nouvelle période d'usage",
         INSTANCE_ENTITLEMENT_USAGE_REACHED: 'Droit entièrement consommé',

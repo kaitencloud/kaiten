@@ -2727,6 +2727,53 @@ components:
           description: W3C trace state of that request, when it carried one
           type: string
       type: object
+    ExceptionEvent:
+      additionalProperties: false
+      properties:
+        endsAt:
+          description: "Null: no end"
+          format: date-time
+          type:
+            - string
+            - "null"
+        entitlementSlug:
+          type: string
+        id:
+          type: string
+        instanceSlug:
+          type: string
+        kind:
+          enum:
+            - SET
+            - ADD
+            - UNLIMITED
+          type: string
+        reason:
+          type: string
+        revokedAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        startsAt:
+          format: date-time
+          type: string
+        value:
+          description: "The exception's value: a number for NUMBER and NUMBER_AI_CREDIT, a boolean for BOOLEAN, the CONFIG document as an object; null for UNLIMITED"
+          type:
+            - ""
+            - "null"
+      required:
+        - id
+        - instanceSlug
+        - entitlementSlug
+        - kind
+        - value
+        - startsAt
+        - endsAt
+        - reason
+        - revokedAt
+      type: object
     ExhaustedEvent:
       additionalProperties: false
       properties:
@@ -8873,6 +8920,8 @@ components:
           items:
             type: string
           type: array
+        anonymousCheckout:
+          type: boolean
         id:
           type: string
         keyHint:
@@ -8883,11 +8932,17 @@ components:
         revokedAt:
           format: date-time
           type: string
+        turnstileSiteKey:
+          type:
+            - string
+            - "null"
       required:
         - id
         - label
         - keyHint
         - allowedOrigins
+        - anonymousCheckout
+        - turnstileSiteKey
       type: object
     PublishableKeyPatch:
       additionalProperties: false
@@ -10313,6 +10368,56 @@ components:
         - type
         - value
         - appliesTo
+      type: object
+    SessionEvent:
+      additionalProperties: false
+      properties:
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        clientReferenceId:
+          description: The vendor's opaque reference, as given at the start
+          type:
+            - string
+            - "null"
+        customerSlug:
+          description: The customer the completion created; null before
+          type:
+            - string
+            - "null"
+        email:
+          description: The address the visitor gave at the start
+          type: string
+        instanceSlug:
+          description: The instance the completion created; null before
+          type:
+            - string
+            - "null"
+        licenseSlug:
+          type: string
+        sessionId:
+          type: string
+        status:
+          description: OPEN on started, COMPLETED on completed; on abandoned, ABANDONED (never completed, slugs null) or EXPIRED (its INCOMPLETE subscription expired or was canceled unpaid, slugs set)
+          enum:
+            - OPEN
+            - COMPLETED
+            - ABANDONED
+            - EXPIRED
+          type: string
+      required:
+        - sessionId
+        - email
+        - clientReferenceId
+        - licenseSlug
+        - billingPeriod
+        - customerSlug
+        - instanceSlug
+        - status
       type: object
     SessionInvoice:
       additionalProperties: false
@@ -28310,6 +28415,129 @@ webhooks:
       tags:
         - webhooks
         - billing
+  com.kaiten.checkout_session.v1.abandoned:
+    post:
+      description: "Triggered when an anonymous checkout ends unpaid: still OPEN 24 h after its start (status ABANDONED), or its INCOMPLETE subscription expired or was canceled (status EXPIRED, with the customer and instance to clean up)."
+      operationId: onCheckoutSessionAbandoned
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/SessionEvent"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - CHECKOUT_SESSION_ABANDONED
+                  examples:
+                    - CHECKOUT_SESSION_ABANDONED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.checkout_session.v1.abandoned
+                  examples:
+                    - com.kaiten.checkout_session.v1.abandoned
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Checkout Session Abandoned Webhook
+      tags:
+        - webhooks
+        - checkout-sessions
+  com.kaiten.checkout_session.v1.completed:
+    post:
+      description: "Triggered when an anonymous checkout completes: its ACTIVATION invoice is paid, or nothing was due. Carries the customer and instance it created; provision on this event, never on instance.v1.created."
+      operationId: onCheckoutSessionCompleted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/SessionEvent"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - CHECKOUT_SESSION_COMPLETED
+                  examples:
+                    - CHECKOUT_SESSION_COMPLETED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.checkout_session.v1.completed
+                  examples:
+                    - com.kaiten.checkout_session.v1.completed
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Checkout Session Completed Webhook
+      tags:
+        - webhooks
+        - checkout-sessions
+  com.kaiten.checkout_session.v1.started:
+    post:
+      description: Triggered when an anonymous checkout starts (POST /public/checkout-sessions). A dryRun emits nothing.
+      operationId: onCheckoutSessionStarted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/SessionEvent"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - CHECKOUT_SESSION_STARTED
+                  examples:
+                    - CHECKOUT_SESSION_STARTED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.checkout_session.v1.started
+                  examples:
+                    - com.kaiten.checkout_session.v1.started
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Checkout Session Started Webhook
+      tags:
+        - webhooks
+        - checkout-sessions
   com.kaiten.component.v1.created:
     post:
       description: Triggered when a new component is created.
@@ -30155,6 +30383,129 @@ webhooks:
       tags:
         - webhooks
         - instances
+  com.kaiten.instance.entitlement_exception.v1.created:
+    post:
+      description: Triggered when an exception is created on one entitlement of an instance. Emitted whether or not billing is enabled.
+      operationId: onInstanceEntitlementExceptionCreated
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ExceptionEvent"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ENTITLEMENT_EXCEPTION_CREATED
+                  examples:
+                    - INSTANCE_ENTITLEMENT_EXCEPTION_CREATED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.entitlement_exception.v1.created
+                  examples:
+                    - com.kaiten.instance.entitlement_exception.v1.created
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Entitlement Exception Created Webhook
+      tags:
+        - webhooks
+        - entitlement-exceptions
+  com.kaiten.instance.entitlement_exception.v1.expired:
+    post:
+      description: Triggered once per exception, when its endsAt passes; never for a revoked one.
+      operationId: onInstanceEntitlementExceptionExpired
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ExceptionEvent"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED
+                  examples:
+                    - INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.entitlement_exception.v1.expired
+                  examples:
+                    - com.kaiten.instance.entitlement_exception.v1.expired
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Entitlement Exception Expired Webhook
+      tags:
+        - webhooks
+        - entitlement-exceptions
+  com.kaiten.instance.entitlement_exception.v1.revoked:
+    post:
+      description: Triggered when an exception is revoked. Revoking one already revoked or ended emits nothing.
+      operationId: onInstanceEntitlementExceptionRevoked
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/ExceptionEvent"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED
+                  examples:
+                    - INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.entitlement_exception.v1.revoked
+                  examples:
+                    - com.kaiten.instance.entitlement_exception.v1.revoked
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Entitlement Exception Revoked Webhook
+      tags:
+        - webhooks
+        - entitlement-exceptions
   com.kaiten.instance.invoice.v1.handoff_acknowledged:
     post:
       description: Triggered when the organization's accounting system acknowledges an invoice from the handoff queue, or the invoice is marked paid while still waiting there.

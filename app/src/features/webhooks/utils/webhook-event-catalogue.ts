@@ -29,6 +29,7 @@ export const WEBHOOK_EVENT_GROUPS = [
   'invoice',
   'voucher',
   'payment',
+  'checkout',
   'featureFlag',
   'release',
   'deploymentZone',
@@ -61,6 +62,18 @@ export type WebhookEventEntries<Name extends AuditEventName = AuditEventName> =
 // subscription to either would receive a request for each one. The API still
 // accepts them for a caller that means it.
 export const WEBHOOK_EVENTS = {
+  CHECKOUT_SESSION_ABANDONED: {
+    type: 'com.kaiten.checkout_session.v1.abandoned',
+    group: 'checkout',
+  },
+  CHECKOUT_SESSION_COMPLETED: {
+    type: 'com.kaiten.checkout_session.v1.completed',
+    group: 'checkout',
+  },
+  CHECKOUT_SESSION_STARTED: {
+    type: 'com.kaiten.checkout_session.v1.started',
+    group: 'checkout',
+  },
   COMPONENT_CREATED: {
     type: 'com.kaiten.component.v1.created',
     group: 'component',
@@ -168,6 +181,18 @@ export const WEBHOOK_EVENTS = {
   INSTANCE_ENTITLEMENT_CAP_EXCEEDED: {
     type: 'com.kaiten.instance.entitlement.v1.cap_exceeded',
     group: 'usage',
+  },
+  INSTANCE_ENTITLEMENT_EXCEPTION_CREATED: {
+    type: 'com.kaiten.instance.entitlement_exception.v1.created',
+    group: 'instance',
+  },
+  INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED: {
+    type: 'com.kaiten.instance.entitlement_exception.v1.expired',
+    group: 'instance',
+  },
+  INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED: {
+    type: 'com.kaiten.instance.entitlement_exception.v1.revoked',
+    group: 'instance',
   },
   INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER: {
     type: 'com.kaiten.instance.entitlement.v1.usage_period_rolled_over',

@@ -16,17 +16,21 @@ import (
 // PublishableKeyEvent is the payload of the key events (§15.1): never the key,
 // only its hint.
 type PublishableKeyEvent struct {
-	ID             uuid.UUID  `json:"id"`
-	Label          string     `json:"label"`
-	KeyHint        string     `json:"keyHint" doc:"The last four characters of the key"`
-	AllowedOrigins []string   `json:"allowedOrigins" nullable:"false"`
-	RevokedAt      *time.Time `json:"revokedAt,omitempty"`
+	ID             uuid.UUID `json:"id"`
+	Label          string    `json:"label"`
+	KeyHint        string    `json:"keyHint" doc:"The last four characters of the key"`
+	AllowedOrigins []string  `json:"allowedOrigins" nullable:"false"`
+	// Never the Turnstile secret (V32-01).
+	AnonymousCheckout bool       `json:"anonymousCheckout"`
+	TurnstileSiteKey  *string    `json:"turnstileSiteKey" nullable:"true"`
+	RevokedAt         *time.Time `json:"revokedAt,omitempty"`
 }
 
 // Announce records a key event in the transaction ctx carries.
 func Announce(ctx context.Context, box *outbox.ScopedRepository, organizationID uuid.UUID, event kaitenevents.Metadata, key PublishableKey) error {
 	return box.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(organizationID, event.Name, event.Type, PublishableKeyEvent{
-		ID: key.ID, Label: key.Label, KeyHint: key.KeyHint, AllowedOrigins: key.AllowedOrigins, RevokedAt: key.RevokedAt,
+		ID: key.ID, Label: key.Label, KeyHint: key.KeyHint, AllowedOrigins: key.AllowedOrigins,
+		AnonymousCheckout: key.AnonymousCheckout, TurnstileSiteKey: key.TurnstileSiteKey, RevokedAt: key.RevokedAt,
 	}, nil))
 }
 

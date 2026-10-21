@@ -2,6 +2,7 @@ package api
 
 import (
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/exceptions"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/addentitlementtogroup"
@@ -47,4 +48,5 @@ func registerEntitlements(core huma.API, app kaiten.Entitlements) {
 	addentitlementtogroup.RegisterEndpoint(core, app)
 	removeentitlementfromgroup.RegisterEndpoint(core, app)
 	getentitlementgroupusage.RegisterEndpoint(core, app)
+	exceptions.RegisterWebhooks(core)
 }
