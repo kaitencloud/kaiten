@@ -61,8 +61,9 @@ func (ns NullAggregationMethod) Value() (driver.Value, error) {
 type EntitlementResetAnchor string
 
 const (
-	EntitlementResetAnchorCALENDAR     EntitlementResetAnchor = "CALENDAR"
-	EntitlementResetAnchorLICENSESTART EntitlementResetAnchor = "LICENSE_START"
+	EntitlementResetAnchorCALENDAR      EntitlementResetAnchor = "CALENDAR"
+	EntitlementResetAnchorLICENSESTART  EntitlementResetAnchor = "LICENSE_START"
+	EntitlementResetAnchorBILLINGPERIOD EntitlementResetAnchor = "BILLING_PERIOD"
 )
 
 func (e *EntitlementResetAnchor) Scan(src interface{}) error {

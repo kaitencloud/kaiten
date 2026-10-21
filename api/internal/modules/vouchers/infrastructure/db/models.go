@@ -363,6 +363,8 @@ type VoucherType string
 const (
 	VoucherTypePRICE            VoucherType = "PRICE"
 	VoucherTypeENTITLEMENTBOOST VoucherType = "ENTITLEMENT_BOOST"
+	VoucherTypeFLAGGRANT        VoucherType = "FLAG_GRANT"
+	VoucherTypeCOMPOSITE        VoucherType = "COMPOSITE"
 )
 
 func (e *VoucherType) Scan(src interface{}) error {
