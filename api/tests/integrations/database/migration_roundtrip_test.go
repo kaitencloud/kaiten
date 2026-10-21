@@ -203,7 +203,9 @@ func schemaFingerprint(ctx context.Context, t *testing.T, pool *pgxpool.Pool) st
 }
 
 // publicSchemaObjects lists everything left in the public schema apart from
-// goose's own bookkeeping - what down-to-0 should have removed.
+// goose's own bookkeeping - what down-to-0 should have removed. An
+// extension's members are not counted: 20261021020000 creates btree_gist and
+// its Down keeps it on purpose, since another object may use it by then.
 func publicSchemaObjects(ctx context.Context, t *testing.T, pool *pgxpool.Pool) []string {
 	t.Helper()
 
@@ -214,6 +216,8 @@ func publicSchemaObjects(ctx context.Context, t *testing.T, pool *pgxpool.Pool) 
 		WHERE n.nspname = 'public'
 		  AND c.relkind IN ('r', 'p', 'v', 'm', 'S')
 		  AND c.relname NOT LIKE $1
+		  AND NOT EXISTS (SELECT 1 FROM pg_depend d
+		                  WHERE d.classid = 'pg_class'::regclass AND d.objid = c.oid AND d.deptype = 'e')
 		UNION ALL
 		SELECT format('type %s', t.typname)
 		FROM pg_type t
@@ -221,12 +225,16 @@ func publicSchemaObjects(ctx context.Context, t *testing.T, pool *pgxpool.Pool) 
 		WHERE n.nspname = 'public'
 		  AND t.typtype IN ('e', 'd')
 		  AND t.typname NOT LIKE $1
+		  AND NOT EXISTS (SELECT 1 FROM pg_depend d
+		                  WHERE d.classid = 'pg_type'::regclass AND d.objid = t.oid AND d.deptype = 'e')
 		UNION ALL
 		SELECT format('function %s', p.proname)
 		FROM pg_proc p
 		JOIN pg_namespace n ON n.oid = p.pronamespace
 		WHERE n.nspname = 'public'
 		  AND p.proname NOT LIKE $1
+		  AND NOT EXISTS (SELECT 1 FROM pg_depend d
+		                  WHERE d.classid = 'pg_proc'::regclass AND d.objid = p.oid AND d.deptype = 'e')
 		ORDER BY 1`
 
 	return queryStrings(ctx, t, pool, query)
