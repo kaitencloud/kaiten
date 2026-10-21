@@ -24,8 +24,10 @@ func TestPublishableKeyTurnstile(t *testing.T) {
 	t.Setenv("VAULT_ADDR", "")
 	t.Setenv("VAULT_FAKE_FILE_PATH", "")
 	const secret = "0x4AAAAAAA-turnstile-secret-for-tests"
-	draft := map[string]any{"label": "Pricing page", "allowedOrigins": []string{storefront},
-		"anonymousCheckout": true, "turnstileSiteKey": "0x4AAAAAAAsite", "turnstileSecret": secret}
+	draft := map[string]any{
+		"label": "Pricing page", "allowedOrigins": []string{storefront},
+		"anonymousCheckout": true, "turnstileSiteKey": "0x4AAAAAAAsite", "turnstileSecret": secret,
+	}
 
 	require.Equal(t, "CreatePublishableKey.VaultNotConfigured",
 		problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/publishable-keys", draft), "no Vault, no secret")

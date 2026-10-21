@@ -2,7 +2,6 @@ package api
 
 import (
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/exceptions"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/addentitlementtogroup"
@@ -10,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlementgroup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/deleteentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/deleteentitlementgroup"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/exceptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlementgroup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlementgroups"

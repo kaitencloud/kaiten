@@ -39,7 +39,9 @@ func (u *UseCase) Execute(ctx context.Context, keyID uuid.UUID, patch Publishabl
 		return nil, err
 	}
 	params := db.UpdatePublishableKeyParams{
-		Label: nil, AllowedOrigins: nil, ActorID: user.ID, OrganizationID: user.OrganizationID, ID: keyID,
+		Label: nil, AllowedOrigins: nil, AnonymousCheckout: nil,
+		SetSiteKey: false, TurnstileSiteKey: nil, SetSecret: false, TurnstileSecretSetAt: pgtype.Timestamp{},
+		ActorID: user.ID, OrganizationID: user.OrganizationID, ID: keyID,
 	}
 	if patch.Label != nil {
 		label, err := keys.ValidateLabel(operation, *patch.Label)

@@ -3155,8 +3155,8 @@ enum TrialEndWithoutPaymentMethod {
 
 """
 LicenseFamily is the product a license is a version of. It carries identity and
-nothing else: no display name, because the display name is the current version's
-own name. Renaming a version or publishing a new one never changes it, which is
+the family's own settings, no display name: the display name is the current
+version's own name. Renaming a version or publishing a new one never changes it, which is
 what makes its slug safe to put in a public pricing URL -- for as long as the
 family has a version: deleting its last version deletes the family and frees the
 slug.

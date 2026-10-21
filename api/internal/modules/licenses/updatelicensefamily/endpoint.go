@@ -49,11 +49,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		if err != nil {
 			return nil, err
 		}
-		body := request.Body
-		view, err := app.UpdateFamily(ctx, cl, request.FamilySlug, Command{
-			IsPublic: body.IsPublic, FallbackLicenseFamilySlug: body.FallbackLicenseFamilySlug,
-			TrialEndWithoutPaymentMethod: body.TrialEndWithoutPaymentMethod, TrialReminderDays: body.TrialReminderDays,
-		})
+		view, err := app.UpdateFamily(ctx, cl, request.FamilySlug, Command(request.Body))
 		if err != nil {
 			return nil, err
 		}
