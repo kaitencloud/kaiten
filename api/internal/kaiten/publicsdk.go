@@ -13,7 +13,9 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
@@ -194,6 +196,15 @@ func (p PublicSDK) GetSessionPortal(ctx context.Context, cl caller.CustomerSessi
 // which has no scope to require: what bounds it is the customer and instance
 // it is bound to, which the facade hands to the use case from the caller --
 // never from the request.
+// CreateCheckoutSession starts an anonymous checkout with the key that
+// authenticated the request. The start writes only the session, so it binds
+// no actor.
+func (p PublicSDK) CreateCheckoutSession(ctx context.Context, cl caller.PublishableKeyCaller, draft checkout.CheckoutSessionDraft) (*checkout.CheckoutSessionStart, error) {
+	return p.uc.CreateCheckoutSession.Execute(ctx, createcheckoutsession.Start{
+		OrganizationID: cl.OrganizationID(), PublishableKeyID: cl.KeyID(), RemoteIP: cl.ClientAddress(),
+	}, draft)
+}
+
 func (p PublicSDK) CreateSessionCheckout(ctx context.Context, cl caller.CustomerSessionCaller, request createsessioncheckout.SessionCheckoutOrder) (*createsessioncheckout.SessionCheckout, error) {
 	return p.uc.CreateSessionCheckout.Execute(bindCustomerSession(ctx, cl), createsessioncheckout.Session{
 		CustomerSlug: cl.CustomerSlug(), InstanceSlug: cl.InstanceSlug(), AllowedOrigins: cl.AllowedOrigins(),

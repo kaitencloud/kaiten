@@ -217,10 +217,20 @@ func (p *PublicMiddleware) publishable(ctx fiber.Ctx) error {
 		PlatformTokenID:  uuid.Nil,
 		CustomerSession:  nil,
 		PublishableKeyID: keyID,
+		ClientAddress:    clientAddress(ctx),
 		Scopes:           nil,
 		Provisioning:     principal.Provisioning{},
 	}))
 	return ctx.Next()
+}
+
+// ClientAddressHeader is where the gateway puts the visitor's address. A
+// client cannot set it: Envoy overwrites it from the connection and its
+// trusted hops (§14.2).
+const ClientAddressHeader = "X-Envoy-External-Address"
+
+func clientAddress(ctx fiber.Ctx) string {
+	return strings.TrimSpace(ctx.Get(ClientAddressHeader))
 }
 
 // session authenticates a session route: a publishable key is the wrong class
@@ -321,6 +331,7 @@ func (p *PublicMiddleware) checkoutSession(ctx fiber.Ctx, pathSessionID string) 
 		CustomerSession:   nil,
 		PublishableKeyID:  session.PublishableKeyID,
 		CheckoutSessionID: session.ID,
+		ClientAddress:     clientAddress(ctx),
 		Scopes:            nil,
 		Provisioning:      principal.Provisioning{},
 	}))

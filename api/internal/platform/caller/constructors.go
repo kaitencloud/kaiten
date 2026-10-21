@@ -58,6 +58,7 @@ func PublishableKey(ctx context.Context) (PublishableKeyCaller, error) {
 	return PublishableKeyCaller{
 		organizationID: i.OrganizationID,
 		keyID:          i.PublishableKeyID,
+		clientAddress:  i.ClientAddress,
 	}, nil
 }
 

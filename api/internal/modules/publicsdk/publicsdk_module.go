@@ -9,11 +9,13 @@ package publicsdk
 import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/turnstile"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
@@ -57,6 +59,7 @@ type UseCases struct {
 	AuthenticateCheckoutSession *authenticatecheckoutsession.UseCase
 
 	CreateSessionCheckout *createsessioncheckout.UseCase
+	CreateCheckoutSession *createcheckoutsession.UseCase
 	ListSessionInvoices   *listsessioninvoices.UseCase
 
 	CreateSessionPaymentMethodSession   *createsessionpaymentmethodsession.UseCase
@@ -75,6 +78,7 @@ type UseCases struct {
 // billing's invoices. The modules that own them implement them.
 type Ports struct {
 	Subscriber      createsessioncheckout.Subscriber
+	Activation      createcheckoutsession.Activation
 	CustomerBilling createsessioncheckout.CustomerBillingReader
 	OpenSetup       createsessioncheckout.SetupSessionOpener
 	CompleteSetup   createsessioncheckout.SetupSessionCompleter
@@ -123,6 +127,10 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			UserProvider: svc.UserProvider, Catalog: catalog, Subscriber: from.Subscriber,
 			CustomerBilling: from.CustomerBilling, OpenSetup: from.OpenSetup, CompleteSetup: from.CompleteSetup,
 			Invoices: from.Invoices, BillingEmails: from.BillingEmails,
+		}),
+		CreateCheckoutSession: createcheckoutsession.NewUseCase(createcheckoutsession.Deps{
+			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
+			Turnstile: turnstile.NewClient(svc.Config.Billing.TurnstileVerifyURL),
 		}),
 		ListSessionInvoices: listsessioninvoices.NewUseCase(from.SessionInvoices),
 

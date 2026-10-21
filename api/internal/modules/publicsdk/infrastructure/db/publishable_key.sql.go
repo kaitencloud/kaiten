@@ -94,7 +94,7 @@ func (q *Queries) CreatePublishableKey(ctx context.Context, arg CreatePublishabl
 }
 
 const getPublishableKeyCheckout = `-- name: GetPublishableKeyCheckout :one
-SELECT anonymous_checkout, turnstile_site_key, (turnstile_secret_set_at IS NOT NULL)::boolean AS secret_set
+SELECT anonymous_checkout, turnstile_site_key, (turnstile_secret_set_at IS NOT NULL)::boolean AS secret_set, allowed_origins
 FROM publishable_key
 WHERE organization_id = $1
   AND id = $2
@@ -107,9 +107,10 @@ type GetPublishableKeyCheckoutParams struct {
 }
 
 type GetPublishableKeyCheckoutRow struct {
-	AnonymousCheckout bool    `json:"anonymous_checkout"`
-	TurnstileSiteKey  *string `json:"turnstile_site_key"`
-	SecretSet         bool    `json:"secret_set"`
+	AnonymousCheckout bool     `json:"anonymous_checkout"`
+	TurnstileSiteKey  *string  `json:"turnstile_site_key"`
+	SecretSet         bool     `json:"secret_set"`
+	AllowedOrigins    []string `json:"allowed_origins"`
 }
 
 // What the catalogue says of the key that reads it (§14.4): whether it opens
@@ -117,7 +118,12 @@ type GetPublishableKeyCheckoutRow struct {
 func (q *Queries) GetPublishableKeyCheckout(ctx context.Context, arg GetPublishableKeyCheckoutParams) (GetPublishableKeyCheckoutRow, error) {
 	row := q.db.QueryRow(ctx, getPublishableKeyCheckout, arg.OrganizationID, arg.ID)
 	var i GetPublishableKeyCheckoutRow
-	err := row.Scan(&i.AnonymousCheckout, &i.TurnstileSiteKey, &i.SecretSet)
+	err := row.Scan(
+		&i.AnonymousCheckout,
+		&i.TurnstileSiteKey,
+		&i.SecretSet,
+		&i.AllowedOrigins,
+	)
 	return i, err
 }
 

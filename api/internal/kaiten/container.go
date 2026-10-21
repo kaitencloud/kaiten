@@ -216,6 +216,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Organization:    organization.NewUseCases(svc),
 		PublicSDK: publicsdk.NewUseCases(svc, publicsdk.Ports{
 			Subscriber:      billingModule.SubscribeInstance,
+			Activation:      billingModule.SubscribeInstance,
 			CustomerBilling: billingModule.GetCustomerBilling,
 			OpenSetup:       billingModule.CreatePaymentMethodSession,
 			CompleteSetup:   billingModule.CompletePaymentMethodSession,

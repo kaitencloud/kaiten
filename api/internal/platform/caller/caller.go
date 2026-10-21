@@ -91,6 +91,7 @@ func errNoIdentity() error {
 type PublishableKeyCaller struct {
 	organizationID uuid.UUID
 	keyID          uuid.UUID
+	clientAddress  string
 }
 
 // OrganizationID is the organization whose catalogue the key reads.
@@ -98,6 +99,10 @@ func (c PublishableKeyCaller) OrganizationID() uuid.UUID { return c.organization
 
 // KeyID is the publishable key that authenticated the request.
 func (c PublishableKeyCaller) KeyID() uuid.UUID { return c.keyID }
+
+// ClientAddress is the visitor's address as the gateway saw it; "" when the
+// gateway sent none.
+func (c PublishableKeyCaller) ClientAddress() string { return c.clientAddress }
 
 // CheckoutSessionCaller is an anonymous visitor, acting through the ksc_ of
 // the checkout session it started (V32-01). It carries no scopes and no actor:

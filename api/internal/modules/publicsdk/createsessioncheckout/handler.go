@@ -107,14 +107,9 @@ type SessionCheckout struct {
 	Payment           *Payment                      `json:"payment,omitempty" doc:"subscribed: how paying the activation invoice went"`
 }
 
-// DueToday is what a checkout bills today.
-type DueToday struct {
-	Currency      string                 `json:"currency" example:"EUR"`
-	Subtotal      int64                  `json:"subtotal" doc:"Minor units"`
-	DiscountTotal int64                  `json:"discountTotal" doc:"Minor units"`
-	Total         int64                  `json:"total" doc:"Minor units"`
-	Lines         []sessions.SessionLine `json:"lines" nullable:"false"`
-}
+// DueToday is what a checkout bills today, shared with the anonymous
+// checkout.
+type DueToday = sessions.DueToday
 
 // Payment is how paying the activation invoice went (§14.4 rule 9).
 type Payment struct {

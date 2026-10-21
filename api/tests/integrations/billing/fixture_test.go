@@ -2,10 +2,14 @@ package billing_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -49,11 +53,14 @@ func TestMain(m *testing.M) {
 	}
 	defer testDb.TearDown()
 
+	turnstile := httptest.NewServer(http.HandlerFunc(fakeTurnstile))
+	defer turnstile.Close()
 	testServer = tests.NewTestServer(testDb, tests.TestServerOptions{
 		ConfigOverride: func(cfg *config.Config) {
 			cfg.Billing.Enabled = true
 			// Tests close periods themselves; the job would race them.
 			cfg.Billing.PeriodClose.Interval = -1
+			cfg.Billing.TurnstileVerifyURL = turnstile.URL
 		},
 		ConnectorEntitlements: entitlements,
 	})
@@ -242,3 +249,23 @@ func newInstance(t *testing.T, name string, customerID, licenseID uuid.UUID) ins
 		"metadata": map[string]any{},
 	}), fiber.StatusCreated)
 }
+
+// fakeTurnstile stands in for Cloudflare's siteverify: a token "pass:<host>"
+// is solved on host, "fail" is refused, "down" answers 500. It records the
+// last remoteip it was sent.
+func fakeTurnstile(w http.ResponseWriter, r *http.Request) {
+	_ = r.ParseForm()
+	tok := r.PostForm.Get("response")
+	turnstileRemoteIP.Store(r.PostForm.Get("remoteip"))
+	switch {
+	case tok == "down":
+		w.WriteHeader(http.StatusInternalServerError)
+	case strings.HasPrefix(tok, "pass:") && r.PostForm.Get("secret") != "":
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "hostname": strings.TrimPrefix(tok, "pass:")})
+	default:
+		_, _ = w.Write([]byte(`{"success":false,"error-codes":["invalid-input-response"]}`))
+	}
+}
+
+var turnstileRemoteIP atomic.Value

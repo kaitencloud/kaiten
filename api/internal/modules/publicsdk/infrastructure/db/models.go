@@ -184,6 +184,51 @@ func (ns NullBillingTiming) Value() (driver.Value, error) {
 	return string(ns.BillingTiming), nil
 }
 
+type CheckoutSessionStatus string
+
+const (
+	CheckoutSessionStatusOPEN            CheckoutSessionStatus = "OPEN"
+	CheckoutSessionStatusAWAITINGPAYMENT CheckoutSessionStatus = "AWAITING_PAYMENT"
+	CheckoutSessionStatusCOMPLETED       CheckoutSessionStatus = "COMPLETED"
+	CheckoutSessionStatusABANDONED       CheckoutSessionStatus = "ABANDONED"
+	CheckoutSessionStatusEXPIRED         CheckoutSessionStatus = "EXPIRED"
+)
+
+func (e *CheckoutSessionStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = CheckoutSessionStatus(s)
+	case string:
+		*e = CheckoutSessionStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for CheckoutSessionStatus: %T", src)
+	}
+	return nil
+}
+
+type NullCheckoutSessionStatus struct {
+	CheckoutSessionStatus CheckoutSessionStatus `json:"checkout_session_status"`
+	Valid                 bool                  `json:"valid"` // Valid is true if CheckoutSessionStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullCheckoutSessionStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.CheckoutSessionStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.CheckoutSessionStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullCheckoutSessionStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.CheckoutSessionStatus), nil
+}
+
 type EntitlementType string
 
 const (
@@ -312,6 +357,33 @@ func (ns NullPricingType) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.PricingType), nil
+}
+
+type CheckoutSession struct {
+	ID                     uuid.UUID             `json:"id"`
+	OrganizationID         uuid.UUID             `json:"organization_id"`
+	PublishableKeyID       uuid.UUID             `json:"publishable_key_id"`
+	LookupHash             string                `json:"lookup_hash"`
+	Status                 CheckoutSessionStatus `json:"status"`
+	Email                  string                `json:"email"`
+	ClientReferenceID      *string               `json:"client_reference_id"`
+	LicensePriceID         uuid.UUID             `json:"license_price_id"`
+	Selection              []byte                `json:"selection"`
+	DueTodayMinor          int64                 `json:"due_today_minor"`
+	Currency               string                `json:"currency"`
+	TrialRefusedReason     *string               `json:"trial_refused_reason"`
+	ReturnUrl              string                `json:"return_url"`
+	ExternalSetupSessionID *string               `json:"external_setup_session_id"`
+	SetupCompletedAt       pgtype.Timestamp      `json:"setup_completed_at"`
+	CustomerID             *uuid.UUID            `json:"customer_id"`
+	InstanceID             *uuid.UUID            `json:"instance_id"`
+	CreatedAt              pgtype.Timestamp      `json:"created_at"`
+	ExpiresAt              pgtype.Timestamp      `json:"expires_at"`
+	CompletedAt            pgtype.Timestamp      `json:"completed_at"`
+	AbandonedAt            pgtype.Timestamp      `json:"abandoned_at"`
+	ExpiredAt              pgtype.Timestamp      `json:"expired_at"`
+	ClosedAt               pgtype.Timestamp      `json:"closed_at"`
+	UpdatedAt              pgtype.Timestamp      `json:"updated_at"`
 }
 
 type PublishableKey struct {

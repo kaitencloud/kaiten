@@ -89,7 +89,7 @@ WHERE id = sqlc.arg(id)
 -- name: GetPublishableKeyCheckout :one
 -- What the catalogue says of the key that reads it (§14.4): whether it opens
 -- the anonymous checkout, and the Turnstile site key the page renders.
-SELECT anonymous_checkout, turnstile_site_key, (turnstile_secret_set_at IS NOT NULL)::boolean AS secret_set
+SELECT anonymous_checkout, turnstile_site_key, (turnstile_secret_set_at IS NOT NULL)::boolean AS secret_set, allowed_origins
 FROM publishable_key
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)

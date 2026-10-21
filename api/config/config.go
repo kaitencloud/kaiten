@@ -100,6 +100,10 @@ type Billing struct {
 	// times as long. 0 asks on every request and keeps nothing.
 	EntitlementCacheTTL time.Duration `mapstructure:"entitlement_cache_ttl" validate:"gte=0"`
 	Stripe              BillingStripe `mapstructure:"stripe"`
+	// TurnstileVerifyURL is Cloudflare's token verification endpoint, which an
+	// anonymous checkout's start calls (V32-01, §14.8). Settable for tests and
+	// for an egress proxy; an air-gapped deployment cannot offer Tier 2.
+	TurnstileVerifyURL string `mapstructure:"turnstile_verify_url" validate:"omitempty,url"`
 }
 
 // BillingStripe tunes the Stripe provider.
@@ -425,6 +429,7 @@ var settings = []struct {
 	{"billing.auto_collection_grace", "KAITEN_BILLING_AUTO_COLLECTION_GRACE", "2h", false},
 	{"billing.entitlement_cache_ttl", "KAITEN_BILLING_ENTITLEMENT_CACHE_TTL", "1m", false},
 	{"billing.stripe.send_after_finalize", "KAITEN_BILLING_STRIPE_SEND_AFTER_FINALIZE", false, false},
+	{"billing.turnstile_verify_url", "KAITEN_BILLING_TURNSTILE_VERIFY_URL", "https://challenges.cloudflare.com/turnstile/v0/siteverify", false},
 }
 
 const (

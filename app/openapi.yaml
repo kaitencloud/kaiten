@@ -1367,6 +1367,98 @@ components:
         - createdAt
         - updatedAt
       type: object
+    CheckoutSessionDraft:
+      additionalProperties: false
+      properties:
+        addOns:
+          items:
+            $ref: "#/components/schemas/SubscriptionAddon"
+          maxItems: 50
+          type:
+            - array
+            - "null"
+        billingPeriod:
+          description: MONTHLY, QUARTERLY, SEMI_ANNUAL or ANNUAL, with licenseSlug
+          type: string
+        clientReferenceId:
+          description: The vendor's opaque reference, echoed on the checkout_session events
+          maxLength: 255
+          minLength: 1
+          type: string
+        dryRun:
+          description: Compute what would be due today, and write nothing
+          type: boolean
+        email:
+          description: The buyer's e-mail. It becomes the new customer's billing e-mail at completion. Required unless dryRun.
+          maxLength: 254
+          type: string
+        licenseSlug:
+          description: "A public plan's version, with billingPeriod: its default ACTIVE FLAT_FEE price of that period"
+          maxLength: 255
+          type: string
+        priceId:
+          description: A FLAT_FEE price of a public plan. Not with licenseSlug and billingPeriod.
+          type: string
+        returnUrl:
+          description: "Where the payment-method setup page sends the visitor back, with kaiten_checkout_session=<sessionId> appended: https, or http on localhost, on an origin the key allows. Required unless dryRun."
+          maxLength: 2048
+          type: string
+        trial:
+          description: false declines the licence's trial
+          type: boolean
+        turnstileToken:
+          description: "The token the Turnstile widget gave the page. Single-use: a dryRun spends one too."
+          maxLength: 2048
+          minLength: 1
+          type: string
+        voucherCode:
+          description: A code to apply; any refusal answers 422 .VoucherInvalid
+          maxLength: 64
+          type: string
+      required:
+        - turnstileToken
+      type: object
+    CheckoutSessionStart:
+      additionalProperties: false
+      properties:
+        dueToday:
+          $ref: "#/components/schemas/DueToday"
+        expiresAt:
+          description: "open only: 24 h after the start"
+          format: date-time
+          type: string
+        requiresPaymentMethod:
+          description: Whether the confirm will send the visitor to a payment-method setup page
+          type: boolean
+        sessionId:
+          description: open only
+          type: string
+        status:
+          enum:
+            - preview
+            - open
+          type: string
+        token:
+          description: "open only: the session's ksc_, returned once. Keep it in memory and sessionStorage, never in a URL."
+          type: string
+        trialEndsAt:
+          description: The end of the trial the subscription would start with; null without one
+          format: date-time
+          type:
+            - string
+            - "null"
+        trialRefusedReason:
+          description: "ALREADY_CONSUMED: a customer with this e-mail already had a trial of the family, so none is given; null otherwise"
+          type:
+            - string
+            - "null"
+      required:
+        - status
+        - dueToday
+        - trialEndsAt
+        - trialRefusedReason
+        - requiresPaymentMethod
+      type: object
     CloseBacklog:
       additionalProperties: false
       properties:
@@ -24837,6 +24929,95 @@ paths:
       security:
         - publishableKey: []
       summary: Get the public catalogue
+      tags:
+        - public
+  /public/checkout-sessions:
+    post:
+      description: "Starts a checkout for a visitor the vendor's backend does not know yet, with the publishable key and a Turnstile token. Writes one checkout session and nothing else: the customer, the instance and the subscription are created by the completion. Answers 201 status=open with the session's ksc_ token, returned once; with dryRun, 200 status=preview, writing and emitting nothing. dueToday is computed by the server. 403 .AnonymousCheckoutDisabled; 422 .TurnstileNotConfigured, .TurnstileFailed, .InvalidPriceSelection, .PriceNotPublic, .AddonNotPublic, .PriceNotFlatFee, .NotSelfServe, .ProviderCannotCapturePayment, .QuantityExceedsMax, .CurrencyMismatch, .InvalidEmail, .InvalidReturnUrl, .VoucherInvalid, .FallbackRequired; 503 .TurnstileUnavailable (Retry-After)."
+      operationId: createCheckoutSession
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckoutSessionDraft"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSessionStart"
+          description: "A preview (dryRun): nothing was written"
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSessionStart"
+          description: Created
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - publishableKey: []
+      summary: Start an anonymous checkout
       tags:
         - public
   /public/session/addons/{addonSlug}:

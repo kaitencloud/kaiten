@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const authenticateCheckoutSession = `-- name: AuthenticateCheckoutSession :one
@@ -46,4 +47,231 @@ func (q *Queries) AuthenticateCheckoutSession(ctx context.Context, lookupHash st
 		&i.AllowedOrigins,
 	)
 	return i, err
+}
+
+const getCheckoutSession = `-- name: GetCheckoutSession :one
+SELECT cs.id, cs.organization_id, cs.publishable_key_id, cs.lookup_hash, cs.status, cs.email, cs.client_reference_id, cs.license_price_id, cs.selection, cs.due_today_minor, cs.currency, cs.trial_refused_reason, cs.return_url, cs.external_setup_session_id, cs.setup_completed_at, cs.customer_id, cs.instance_id, cs.created_at, cs.expires_at, cs.completed_at, cs.abandoned_at, cs.expired_at, cs.closed_at, cs.updated_at, lp.billing_period AS price_billing_period, l.slug AS license_slug, l.id AS license_id,
+       c.slug AS customer_slug, i.slug AS instance_slug
+FROM checkout_session cs
+JOIN license_price lp
+  ON lp.id = cs.license_price_id
+ AND lp.organization_id = cs.organization_id
+JOIN license l
+  ON l.id = lp.license_id
+ AND l.organization_id = lp.organization_id
+LEFT JOIN customer c
+  ON c.id = cs.customer_id
+ AND c.organization_id = cs.organization_id
+LEFT JOIN instance i
+  ON i.id = cs.instance_id
+ AND i.organization_id = cs.organization_id
+WHERE cs.organization_id = $1
+  AND cs.id = $2
+`
+
+type GetCheckoutSessionParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+type GetCheckoutSessionRow struct {
+	ID                     uuid.UUID             `json:"id"`
+	OrganizationID         uuid.UUID             `json:"organization_id"`
+	PublishableKeyID       uuid.UUID             `json:"publishable_key_id"`
+	LookupHash             string                `json:"lookup_hash"`
+	Status                 CheckoutSessionStatus `json:"status"`
+	Email                  string                `json:"email"`
+	ClientReferenceID      *string               `json:"client_reference_id"`
+	LicensePriceID         uuid.UUID             `json:"license_price_id"`
+	Selection              []byte                `json:"selection"`
+	DueTodayMinor          int64                 `json:"due_today_minor"`
+	Currency               string                `json:"currency"`
+	TrialRefusedReason     *string               `json:"trial_refused_reason"`
+	ReturnUrl              string                `json:"return_url"`
+	ExternalSetupSessionID *string               `json:"external_setup_session_id"`
+	SetupCompletedAt       pgtype.Timestamp      `json:"setup_completed_at"`
+	CustomerID             *uuid.UUID            `json:"customer_id"`
+	InstanceID             *uuid.UUID            `json:"instance_id"`
+	CreatedAt              pgtype.Timestamp      `json:"created_at"`
+	ExpiresAt              pgtype.Timestamp      `json:"expires_at"`
+	CompletedAt            pgtype.Timestamp      `json:"completed_at"`
+	AbandonedAt            pgtype.Timestamp      `json:"abandoned_at"`
+	ExpiredAt              pgtype.Timestamp      `json:"expired_at"`
+	ClosedAt               pgtype.Timestamp      `json:"closed_at"`
+	UpdatedAt              pgtype.Timestamp      `json:"updated_at"`
+	PriceBillingPeriod     *BillingPeriod        `json:"price_billing_period"`
+	LicenseSlug            string                `json:"license_slug"`
+	LicenseID              uuid.UUID             `json:"license_id"`
+	CustomerSlug           *string               `json:"customer_slug"`
+	InstanceSlug           *string               `json:"instance_slug"`
+}
+
+// One session, with what its price says of it.
+func (q *Queries) GetCheckoutSession(ctx context.Context, arg GetCheckoutSessionParams) (GetCheckoutSessionRow, error) {
+	row := q.db.QueryRow(ctx, getCheckoutSession, arg.OrganizationID, arg.ID)
+	var i GetCheckoutSessionRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PublishableKeyID,
+		&i.LookupHash,
+		&i.Status,
+		&i.Email,
+		&i.ClientReferenceID,
+		&i.LicensePriceID,
+		&i.Selection,
+		&i.DueTodayMinor,
+		&i.Currency,
+		&i.TrialRefusedReason,
+		&i.ReturnUrl,
+		&i.ExternalSetupSessionID,
+		&i.SetupCompletedAt,
+		&i.CustomerID,
+		&i.InstanceID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.CompletedAt,
+		&i.AbandonedAt,
+		&i.ExpiredAt,
+		&i.ClosedAt,
+		&i.UpdatedAt,
+		&i.PriceBillingPeriod,
+		&i.LicenseSlug,
+		&i.LicenseID,
+		&i.CustomerSlug,
+		&i.InstanceSlug,
+	)
+	return i, err
+}
+
+const hasCheckoutFallback = `-- name: HasCheckoutFallback :one
+SELECT EXISTS (SELECT 1
+               FROM license l
+               JOIN license_family f
+                 ON f.id = l.family_id
+                AND f.organization_id = l.organization_id
+               JOIN license fallback
+                 ON fallback.family_id = f.fallback_license_family_id
+                AND fallback.organization_id = f.organization_id
+               WHERE l.organization_id = $1
+                 AND l.id = $2
+                 AND fallback.is_default
+                 AND fallback.lifecycle_state = 'PUBLISHED')::boolean AS has_fallback
+`
+
+type HasCheckoutFallbackParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+}
+
+// Whether the family of this licence version names a fallback family with a
+// default PUBLISHED version: what an anonymous checkout with an amount due
+// creates its instance on until the payment (§9.12, §14.8 rule 5).
+func (q *Queries) HasCheckoutFallback(ctx context.Context, arg HasCheckoutFallbackParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasCheckoutFallback, arg.OrganizationID, arg.LicenseID)
+	var has_fallback bool
+	err := row.Scan(&has_fallback)
+	return has_fallback, err
+}
+
+const insertCheckoutSession = `-- name: InsertCheckoutSession :one
+INSERT INTO checkout_session (organization_id, publishable_key_id, lookup_hash, email, client_reference_id,
+                              license_price_id, selection, due_today_minor, currency, trial_refused_reason,
+                              return_url, created_at, expires_at, updated_at)
+VALUES ($1, $2, $3, $4,
+        $5, $6, $7, $8,
+        $9, $10, $11,
+        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') + interval '24 hours',
+        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'))
+RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+`
+
+type InsertCheckoutSessionParams struct {
+	OrganizationID     uuid.UUID `json:"organization_id"`
+	PublishableKeyID   uuid.UUID `json:"publishable_key_id"`
+	LookupHash         string    `json:"lookup_hash"`
+	Email              string    `json:"email"`
+	ClientReferenceID  *string   `json:"client_reference_id"`
+	LicensePriceID     uuid.UUID `json:"license_price_id"`
+	Selection          []byte    `json:"selection"`
+	DueTodayMinor      int64     `json:"due_today_minor"`
+	Currency           string    `json:"currency"`
+	TrialRefusedReason *string   `json:"trial_refused_reason"`
+	ReturnUrl          string    `json:"return_url"`
+}
+
+// The one row an anonymous checkout's start writes (INV-34): OPEN for 24 h.
+func (q *Queries) InsertCheckoutSession(ctx context.Context, arg InsertCheckoutSessionParams) (CheckoutSession, error) {
+	row := q.db.QueryRow(ctx, insertCheckoutSession,
+		arg.OrganizationID,
+		arg.PublishableKeyID,
+		arg.LookupHash,
+		arg.Email,
+		arg.ClientReferenceID,
+		arg.LicensePriceID,
+		arg.Selection,
+		arg.DueTodayMinor,
+		arg.Currency,
+		arg.TrialRefusedReason,
+		arg.ReturnUrl,
+	)
+	var i CheckoutSession
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PublishableKeyID,
+		&i.LookupHash,
+		&i.Status,
+		&i.Email,
+		&i.ClientReferenceID,
+		&i.LicensePriceID,
+		&i.Selection,
+		&i.DueTodayMinor,
+		&i.Currency,
+		&i.TrialRefusedReason,
+		&i.ReturnUrl,
+		&i.ExternalSetupSessionID,
+		&i.SetupCompletedAt,
+		&i.CustomerID,
+		&i.InstanceID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.CompletedAt,
+		&i.AbandonedAt,
+		&i.ExpiredAt,
+		&i.ClosedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const trialConsumedByEmail = `-- name: TrialConsumedByEmail :one
+SELECT EXISTS (SELECT 1
+               FROM customer_trial ct
+               JOIN customer c
+                 ON c.id = ct.customer_id
+                AND c.organization_id = ct.organization_id
+               JOIN license l
+                 ON l.family_id = ct.license_family_id
+                AND l.organization_id = ct.organization_id
+               WHERE ct.organization_id = $1
+                 AND l.id = $2
+                 AND lower(c.billing_email) = lower($3::text))::boolean AS consumed
+`
+
+type TrialConsumedByEmailParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+	Email          string    `json:"email"`
+}
+
+// One trial per e-mail and family (INV-35): whether a customer of the
+// organization whose lower-cased billing e-mail is the visitor's has consumed
+// a trial of the family of this licence version.
+func (q *Queries) TrialConsumedByEmail(ctx context.Context, arg TrialConsumedByEmailParams) (bool, error) {
+	row := q.db.QueryRow(ctx, trialConsumedByEmail, arg.OrganizationID, arg.LicenseID, arg.Email)
+	var consumed bool
+	err := row.Scan(&consumed)
+	return consumed, err
 }

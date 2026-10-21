@@ -121,9 +121,14 @@ type Principal struct {
 	// CheckoutSessionID is the session a ksc_ authenticates, set if and only
 	// if Kind is KindCheckoutSession; PublishableKeyID is then the key that
 	// started it.
-	CheckoutSessionID uuid.UUID    `json:"-"`
-	Scopes            []string     `json:"scopes"`
-	Provisioning      Provisioning `json:"-"`
+	CheckoutSessionID uuid.UUID `json:"-"`
+	// ClientAddress is the visitor's address as the gateway saw it, on the
+	// public surface only, read from X-Envoy-External-Address and never from
+	// a client's own X-Forwarded-For (§14.2): Turnstile's remoteip and the
+	// per-address limits read it.
+	ClientAddress string       `json:"-"`
+	Scopes        []string     `json:"scopes"`
+	Provisioning  Provisioning `json:"-"`
 }
 
 // IsPlatform reports whether this is a platform credential. Nil-safe, because

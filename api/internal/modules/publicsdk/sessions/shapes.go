@@ -7,6 +7,7 @@ import (
 
 	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
@@ -53,6 +54,29 @@ func (SessionLine) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema
 	return nullable.Pointers(s, SessionLine{})
 }
 
+// DueToday is what a checkout bills today: the ACTIVATION it would issue, or
+// nothing during a trial (§14.4 rule 11, §14.8 rule 5).
+type DueToday struct {
+	Currency      string        `json:"currency" example:"EUR"`
+	Subtotal      int64         `json:"subtotal" doc:"Minor units"`
+	DiscountTotal int64         `json:"discountTotal" doc:"Minor units"`
+	Total         int64         `json:"total" doc:"Minor units"`
+	Lines         []SessionLine `json:"lines" nullable:"false"`
+}
+
+// LinesFrom shows invoice lines as a session does.
+func LinesFrom(lines []rating.InvoiceLine) []SessionLine {
+	out := make([]SessionLine, 0, len(lines))
+	for _, line := range lines {
+		out = append(out, SessionLine{
+			Seq: line.Seq, Type: string(line.Type), Label: line.Label, Description: line.Description,
+			Quantity: line.Quantity, UnitAmountDecimal: line.UnitAmountDecimal, Amount: line.Amount,
+			ServiceFrom: line.ServiceFrom, ServiceTo: line.ServiceTo,
+		})
+	}
+	return out
+}
+
 // InvoiceFrom shows an invoice as a session does.
 func InvoiceFrom(invoice invoices.Invoice) SessionInvoice {
 	out := SessionInvoice{
@@ -61,19 +85,12 @@ func InvoiceFrom(invoice invoices.Invoice) SessionInvoice {
 		IssuedAt: invoice.IssuedAt, DueAt: invoice.DueAt, PaidAt: invoice.PaidAt,
 		ServiceFrom: invoice.ServiceFrom, ServiceTo: invoice.ServiceTo,
 		ProviderInvoiceNumber: nil, ExternalReference: invoice.Handoff.ExternalReference,
-		HostedInvoiceURL: nil, InvoicePDFURL: nil, Lines: make([]SessionLine, 0, len(invoice.Lines)),
+		HostedInvoiceURL: nil, InvoicePDFURL: nil, Lines: LinesFrom(invoice.Lines),
 	}
 	if invoice.Provider != nil {
 		out.ProviderInvoiceNumber = invoice.Provider.InvoiceNumber
 		out.HostedInvoiceURL = invoice.Provider.HostedInvoiceURL
 		out.InvoicePDFURL = invoice.Provider.InvoicePDFURL
-	}
-	for _, line := range invoice.Lines {
-		out.Lines = append(out.Lines, SessionLine{
-			Seq: line.Seq, Type: string(line.Type), Label: line.Label, Description: line.Description,
-			Quantity: line.Quantity, UnitAmountDecimal: line.UnitAmountDecimal, Amount: line.Amount,
-			ServiceFrom: line.ServiceFrom, ServiceTo: line.ServiceTo,
-		})
 	}
 	return out
 }
