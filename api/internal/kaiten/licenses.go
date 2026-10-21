@@ -290,13 +290,13 @@ func (l Licenses) PreviewInvoice(
 	return l.uc.PreviewLicenseInvoice.Execute(bindOrganization(ctx, cl), licenseSlug, scenario)
 }
 
-// UpdateFamily lists a family in the public catalogue, or takes it out.
+// UpdateFamily changes a family's own settings (§13.3).
 func (l Licenses) UpdateFamily(
-	ctx context.Context, cl caller.OrganizationCaller, familySlug string, isPublic bool,
+	ctx context.Context, cl caller.OrganizationCaller, familySlug string, cmd updatelicensefamily.Command,
 ) (*licenseschema.LicenseFamilyView, error) {
 	if err := cl.Require(updatelicensefamily.RequiredScope); err != nil {
 		return nil, err
 	}
 
-	return l.uc.UpdateLicenseFamily.Execute(bindOrganization(ctx, cl), familySlug, isPublic)
+	return l.uc.UpdateLicenseFamily.Execute(bindOrganization(ctx, cl), familySlug, cmd)
 }

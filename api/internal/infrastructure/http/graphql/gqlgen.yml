@@ -141,6 +141,9 @@ models:
         resolver: true
       saleUnitFactor:
         resolver: true
+  TrialEndWithoutPaymentMethod:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
   LicenseFamily:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamily

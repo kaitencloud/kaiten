@@ -9,9 +9,18 @@ enum LicenseType {
 }
 
 """
+What a trial without an ACTIVE payment method becomes at its end: CANCEL it,
+or CONVERT it to ACTIVE.
+"""
+enum TrialEndWithoutPaymentMethod {
+  CANCEL
+  CONVERT
+}
+
+"""
 LicenseFamily is the product a license is a version of. It carries identity and
-nothing else: no display name, because the display name is the current version's
-own name. Renaming a version or publishing a new one never changes it, which is
+the family's own settings, no display name: the display name is the current
+version's own name. Renaming a version or publishing a new one never changes it, which is
 what makes its slug safe to put in a public pricing URL -- for as long as the
 family has a version: deleting its last version deletes the family and frees the
 slug.
@@ -21,6 +30,18 @@ type LicenseFamily {
   slug: String!
   """Whether the family's default PUBLISHED version is in the public catalogue."""
   isPublic: Boolean!
+  """
+  The FREE family an instance of this family moves to when its subscription
+  ends; null without one.
+  """
+  fallbackLicenseFamilySlug: String
+  """
+  What a trial charged automatically with a total above 0 becomes at its end
+  when the customer has no ACTIVE payment method.
+  """
+  trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
+  """How many days before a trial's end trial_will_end fires (1 to 30)."""
+  trialReminderDays: Int!
 }
 
 """
@@ -51,6 +72,18 @@ type LicenseFamilyView {
   slug: String!
   """Whether the family's default PUBLISHED version is in the public catalogue."""
   isPublic: Boolean!
+  """
+  The FREE family an instance of this family moves to when its subscription
+  ends; null without one.
+  """
+  fallbackLicenseFamilySlug: String
+  """
+  What a trial charged automatically with a total above 0 becomes at its end
+  when the customer has no ACTIVE payment method.
+  """
+  trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
+  """How many days before a trial's end trial_will_end fires (1 to 30)."""
+  trialReminderDays: Int!
 
   """
   The version this family currently serves: its default version, or its

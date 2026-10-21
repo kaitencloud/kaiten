@@ -5,7 +5,7 @@ import type {
   LicenseEntitlement,
   LicenseEntitlementWritable,
   LicenseFamilyView,
-  LicenseFamilyVisibility,
+  LicenseFamilyUpdate,
   LicensePriceChanges,
   LicenseWritable,
   NewLicensePrice,
@@ -365,7 +365,7 @@ export class LicenseAppModel {
   /** PATCH /license-families/{familySlug}: lists the family in the public catalog, or takes it out. */
   updateLicenseFamily(
     familySlug: string,
-    body: LicenseFamilyVisibility,
+    body: LicenseFamilyUpdate,
   ): LicenseFamilyView {
     this.consumeProblem('updateLicenseFamily');
     const family = this.listLicenseFamilies().find(
@@ -378,13 +378,15 @@ export class LicenseAppModel {
         `license family "${familySlug}" not found`,
       );
     }
-    if (body.isPublic) {
+    // An absent member keeps the stored value.
+    const isPublic = body.isPublic ?? family.isPublic;
+    if (isPublic) {
       this.publicFamilyIds.add(family.id);
     } else {
       this.publicFamilyIds.delete(family.id);
     }
 
-    return { ...family, isPublic: body.isPublic };
+    return { ...family, isPublic };
   }
 
   listEntitlements(): Entitlement[] {

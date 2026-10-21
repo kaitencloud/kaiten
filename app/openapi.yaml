@@ -5312,6 +5312,24 @@ components:
         - updatedAt
         - value
       type: object
+    LicenseFamilyUpdate:
+      additionalProperties: false
+      properties:
+        fallbackLicenseFamilySlug:
+          description: Another FREE family of the organization (every version of it priced FREE), whose default PUBLISHED version an instance moves to when its subscription ends. "" removes the fallback. Anything else answers 422 .InvalidFallback, an unknown family included.
+          maxLength: 255
+          type: string
+        isPublic:
+          description: List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue
+          type: boolean
+        trialEndWithoutPaymentMethod:
+          description: "CANCEL or CONVERT: what a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method. CANCEL cancels it; CONVERT makes it ACTIVE, whose first charge then fails. Any other value answers 422 .InvalidTrialEndBehavior."
+          type: string
+        trialReminderDays:
+          description: How many days before a trial's end trial_will_end fires, from 1 to 30, for the trials started after the change
+          format: int32
+          type: integer
+      type: object
     LicenseFamilyView:
       additionalProperties: false
       properties:
@@ -5325,6 +5343,11 @@ components:
         currentVersion:
           $ref: "#/components/schemas/License"
           description: "The version this read is about. By default the version the family resolves to: its default version if it has one, otherwise its highest-numbered PUBLISHED version. Under ?version=N it is the version asked for instead, whatever its lifecycle state. Absent when the family has no PUBLISHED version, which only a list or an include=versions read returns."
+        fallbackLicenseFamilySlug:
+          description: The FREE family whose default PUBLISHED version an instance of this family moves to when its subscription ends; null without one
+          type:
+            - string
+            - "null"
         id:
           description: Unique identifier for the license family
           examples:
@@ -5339,6 +5362,20 @@ components:
           examples:
             - enterprise-license
           type: string
+        trialEndWithoutPaymentMethod:
+          description: "What a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method: CANCEL (the default) or CONVERT"
+          enum:
+            - CANCEL
+            - CONVERT
+          type: string
+        trialReminderDays:
+          description: How many days before a trial's end trial_will_end fires, for the trials started after it was set. 3 by default.
+          examples:
+            - 3
+          format: int32
+          maximum: 30
+          minimum: 1
+          type: integer
         updatedAt:
           description: Timestamp when a version was last added to this family, or when the family was created. Renames, lifecycle moves and default changes update the versions' own updatedAt, not this one.
           examples:
@@ -5362,17 +5399,11 @@ components:
         - slug
         - versionCount
         - isPublic
+        - fallbackLicenseFamilySlug
+        - trialEndWithoutPaymentMethod
+        - trialReminderDays
         - createdAt
         - updatedAt
-      type: object
-    LicenseFamilyVisibility:
-      additionalProperties: false
-      properties:
-        isPublic:
-          description: List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue
-          type: boolean
-      required:
-        - isPublic
       type: object
     LicensePriceChanges:
       additionalProperties: false
@@ -22418,7 +22449,7 @@ paths:
       tags:
         - license-families
     patch:
-      description: Lists the family in the public catalogue, or takes it out. Families are private until made public.
+      description: "Changes a family's own settings: whether the public catalogue lists it (families are private until made public), its fallback family, what a trial without a payment method becomes at its end, and the trial reminder's lead. An absent member keeps the stored value. 404 .NotFound; 422 .InvalidFallback, .InvalidTrialEndBehavior, .InvalidTrialReminderDays."
       operationId: updateLicenseFamily
       parameters:
         - description: License family slug
@@ -22434,7 +22465,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LicenseFamilyVisibility"
+              $ref: "#/components/schemas/LicenseFamilyUpdate"
         required: true
       responses:
         "200":

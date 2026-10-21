@@ -140,5 +140,17 @@ func LoadLicenseFamily(ctx context.Context, familyID uuid.UUID) (*schema.License
 		return nil, err
 	}
 
-	return &schema.LicenseFamily{ID: family.ID, Slug: family.Slug, IsPublic: family.IsPublic}, nil
+	view := &schema.LicenseFamily{
+		ID: family.ID, Slug: family.Slug, IsPublic: family.IsPublic, FallbackLicenseFamilySlug: nil,
+		TrialEndWithoutPaymentMethod: string(family.TrialEndWithoutPaymentMethod), TrialReminderDays: family.TrialReminderDays,
+	}
+	if family.FallbackLicenseFamilyID != nil {
+		// The fallback is another row of the same loader, batched with the rest.
+		fallback, err := loader.Load(ctx, *family.FallbackLicenseFamilyID)()
+		if err != nil {
+			return nil, err
+		}
+		view.FallbackLicenseFamilySlug = &fallback.Slug
+	}
+	return view, nil
 }

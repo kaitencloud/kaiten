@@ -13,17 +13,21 @@ import (
 
 // Updater is the one facade method this operation calls.
 type Updater interface {
-	UpdateFamily(ctx context.Context, cl caller.OrganizationCaller, familySlug string, isPublic bool) (*schema.LicenseFamilyView, error)
+	UpdateFamily(ctx context.Context, cl caller.OrganizationCaller, familySlug string, cmd Command) (*schema.LicenseFamilyView, error)
 }
 
-// LicenseFamilyVisibility is whether a family is listed publicly.
-type LicenseFamilyVisibility struct {
-	IsPublic bool `json:"isPublic" doc:"List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue"`
+// LicenseFamilyUpdate is the family's settings to change; an absent member
+// keeps the stored value.
+type LicenseFamilyUpdate struct {
+	IsPublic                     *bool   `json:"isPublic,omitempty" doc:"List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue"`
+	FallbackLicenseFamilySlug    *string `json:"fallbackLicenseFamilySlug,omitempty" maxLength:"255" doc:"Another FREE family of the organization (every version of it priced FREE), whose default PUBLISHED version an instance moves to when its subscription ends. \"\" removes the fallback. Anything else answers 422 .InvalidFallback, an unknown family included."`
+	TrialEndWithoutPaymentMethod *string `json:"trialEndWithoutPaymentMethod,omitempty" doc:"CANCEL or CONVERT: what a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method. CANCEL cancels it; CONVERT makes it ACTIVE, whose first charge then fails. Any other value answers 422 .InvalidTrialEndBehavior."`
+	TrialReminderDays            *int32  `json:"trialReminderDays,omitempty" doc:"How many days before a trial's end trial_will_end fires, from 1 to 30, for the trials started after the change"`
 }
 
 type Request struct {
 	FamilySlug string `path:"familySlug" doc:"License family slug" example:"pro"`
-	Body       LicenseFamilyVisibility
+	Body       LicenseFamilyUpdate
 }
 
 type Response struct {
@@ -36,15 +40,20 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Method:      http.MethodPatch,
 		Path:        "/license-families/{familySlug}",
 		Summary:     "Update a license family",
-		Description: "Lists the family in the public catalogue, or takes it out. Families are private until made public.",
-		Tags:        []string{"licenses"},
-		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
+		Description: "Changes a family's own settings: whether the public catalogue lists it (families are private until made public), its fallback family, what a trial without a payment method becomes at its end, and the trial reminder's lead. An absent member keeps the stored value. " +
+			"404 .NotFound; 422 .InvalidFallback, .InvalidTrialEndBehavior, .InvalidTrialReminderDays.",
+		Tags:   []string{"licenses"},
+		Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {
 			return nil, err
 		}
-		view, err := app.UpdateFamily(ctx, cl, request.FamilySlug, request.Body.IsPublic)
+		body := request.Body
+		view, err := app.UpdateFamily(ctx, cl, request.FamilySlug, Command{
+			IsPublic: body.IsPublic, FallbackLicenseFamilySlug: body.FallbackLicenseFamilySlug,
+			TrialEndWithoutPaymentMethod: body.TrialEndWithoutPaymentMethod, TrialReminderDays: body.TrialReminderDays,
+		})
 		if err != nil {
 			return nil, err
 		}

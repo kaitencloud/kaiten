@@ -98,12 +98,19 @@ func (r *Reader) GetByID(
 func (r *Reader) view(
 	ctx context.Context, organizationID uuid.UUID, family *db.LicenseFamily, opts Options,
 ) (*schema.LicenseFamilyView, error) {
+	fallbacks, err := FallbackSlugs(ctx, r.queries, organizationID, family.FallbackLicenseFamilyID)
+	if err != nil {
+		return nil, err
+	}
 	view := &schema.LicenseFamilyView{
-		ID:        family.ID,
-		Slug:      family.Slug,
-		IsPublic:  family.IsPublic,
-		CreatedAt: family.CreatedAt.Time,
-		UpdatedAt: family.UpdatedAt.Time,
+		ID:                           family.ID,
+		Slug:                         family.Slug,
+		IsPublic:                     family.IsPublic,
+		FallbackLicenseFamilySlug:    SlugOf(fallbacks, family.FallbackLicenseFamilyID),
+		TrialEndWithoutPaymentMethod: string(family.TrialEndWithoutPaymentMethod),
+		TrialReminderDays:            family.TrialReminderDays,
+		CreatedAt:                    family.CreatedAt.Time,
+		UpdatedAt:                    family.UpdatedAt.Time,
 	}
 
 	if opts.IncludeVersions {

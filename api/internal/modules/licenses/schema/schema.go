@@ -125,9 +125,12 @@ type License struct {
 // There is no name field because a family has no name -- the display name is
 // whichever version is being shown.
 type LicenseFamily struct {
-	ID       uuid.UUID
-	Slug     string
-	IsPublic bool
+	ID                           uuid.UUID
+	Slug                         string
+	IsPublic                     bool
+	FallbackLicenseFamilySlug    *string
+	TrialEndWithoutPaymentMethod string
+	TrialReminderDays            int32
 }
 
 // LicenseFamilyView is a family together with the version it currently
@@ -154,9 +157,13 @@ type LicenseFamilyView struct {
 	CurrentVersion *License  `json:"currentVersion,omitempty" doc:"The version this read is about. By default the version the family resolves to: its default version if it has one, otherwise its highest-numbered PUBLISHED version. Under ?version=N it is the version asked for instead, whatever its lifecycle state. Absent when the family has no PUBLISHED version, which only a list or an include=versions read returns."`
 	VersionCount   int32     `json:"versionCount" example:"3" doc:"Number of versions in this family, whatever their lifecycle state"`
 	IsPublic       bool      `json:"isPublic" doc:"Whether the family's default PUBLISHED version is listed in the public catalogue. Private by default."`
-	Versions       []License `json:"versions,omitempty" nullable:"false" doc:"Every version of the family, oldest first. Only returned when explicitly requested with include=versions, and then never null: a family always has at least one version."`
-	CreatedAt      time.Time `json:"createdAt" readOnly:"true" example:"2023-10-01T12:00:00Z" doc:"Timestamp when this family was created"`
-	UpdatedAt      time.Time `json:"updatedAt" readOnly:"true" example:"2023-10-02T12:00:00Z" doc:"Timestamp when a version was last added to this family, or when the family was created. Renames, lifecycle moves and default changes update the versions' own updatedAt, not this one."`
+	// FallbackLicenseFamilySlug is null without a fallback (V31-66).
+	FallbackLicenseFamilySlug    *string   `json:"fallbackLicenseFamilySlug" nullable:"true" doc:"The FREE family whose default PUBLISHED version an instance of this family moves to when its subscription ends; null without one"`
+	TrialEndWithoutPaymentMethod string    `json:"trialEndWithoutPaymentMethod" enum:"CANCEL,CONVERT" doc:"What a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method: CANCEL (the default) or CONVERT"`
+	TrialReminderDays            int32     `json:"trialReminderDays" minimum:"1" maximum:"30" example:"3" doc:"How many days before a trial's end trial_will_end fires, for the trials started after it was set. 3 by default."`
+	Versions                     []License `json:"versions,omitempty" nullable:"false" doc:"Every version of the family, oldest first. Only returned when explicitly requested with include=versions, and then never null: a family always has at least one version."`
+	CreatedAt                    time.Time `json:"createdAt" readOnly:"true" example:"2023-10-01T12:00:00Z" doc:"Timestamp when this family was created"`
+	UpdatedAt                    time.Time `json:"updatedAt" readOnly:"true" example:"2023-10-02T12:00:00Z" doc:"Timestamp when a version was last added to this family, or when the family was created. Renames, lifecycle moves and default changes update the versions' own updatedAt, not this one."`
 }
 
 // LicensePage is a cursor-paginated page of licenses, returned by the

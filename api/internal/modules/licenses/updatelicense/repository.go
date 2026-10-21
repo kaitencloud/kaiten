@@ -136,6 +136,18 @@ func (r *CommandRepository) update(ctx context.Context, command *Command, slug s
 		}
 		return nil, familyevents.Before{}, err
 	}
+	// A family another one falls back to stays FREE (V31-66), checked under
+	// the family lock the fallback's setting share-locks.
+	if command.PricingType != "" && command.PricingType != schema.PricingTypeFree {
+		fallback, err := queries.IsFallbackOfAnotherFamily(ctx, db.IsFallbackOfAnotherFamilyParams{OrganizationID: organizationID, FamilyID: familyID})
+		if err != nil {
+			return nil, familyevents.Before{}, err
+		}
+		if fallback {
+			return nil, familyevents.Before{}, kaitenerrors.UnprocessableEntity("UpdateLicense.FallbackMustBeFree",
+				fmt.Sprintf("License %q is a version of another family's fallback, so it stays FREE: remove the fallback first", slug))
+		}
+	}
 	before, err := familyevents.Read(ctx, queries, organizationID, familyID)
 	if err != nil {
 		return nil, familyevents.Before{}, err

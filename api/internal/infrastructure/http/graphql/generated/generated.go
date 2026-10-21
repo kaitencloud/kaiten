@@ -317,18 +317,24 @@ type ComplexityRoot struct {
 	}
 
 	LicenseFamily struct {
-		ID       func(childComplexity int) int
-		IsPublic func(childComplexity int) int
-		Slug     func(childComplexity int) int
+		FallbackLicenseFamilySlug    func(childComplexity int) int
+		ID                           func(childComplexity int) int
+		IsPublic                     func(childComplexity int) int
+		Slug                         func(childComplexity int) int
+		TrialEndWithoutPaymentMethod func(childComplexity int) int
+		TrialReminderDays            func(childComplexity int) int
 	}
 
 	LicenseFamilyView struct {
-		CurrentVersion func(childComplexity int) int
-		ID             func(childComplexity int) int
-		IsPublic       func(childComplexity int) int
-		Slug           func(childComplexity int) int
-		VersionCount   func(childComplexity int) int
-		Versions       func(childComplexity int) int
+		CurrentVersion               func(childComplexity int) int
+		FallbackLicenseFamilySlug    func(childComplexity int) int
+		ID                           func(childComplexity int) int
+		IsPublic                     func(childComplexity int) int
+		Slug                         func(childComplexity int) int
+		TrialEndWithoutPaymentMethod func(childComplexity int) int
+		TrialReminderDays            func(childComplexity int) int
+		VersionCount                 func(childComplexity int) int
+		Versions                     func(childComplexity int) int
 	}
 
 	LicensePage struct {
@@ -1710,6 +1716,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.LicenseEntitlement.Value(childComplexity), true
 
+	case "LicenseFamily.fallbackLicenseFamilySlug":
+		if e.ComplexityRoot.LicenseFamily.FallbackLicenseFamilySlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseFamily.FallbackLicenseFamilySlug(childComplexity), true
 	case "LicenseFamily.id":
 		if e.ComplexityRoot.LicenseFamily.ID == nil {
 			break
@@ -1728,6 +1740,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LicenseFamily.Slug(childComplexity), true
+	case "LicenseFamily.trialEndWithoutPaymentMethod":
+		if e.ComplexityRoot.LicenseFamily.TrialEndWithoutPaymentMethod == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseFamily.TrialEndWithoutPaymentMethod(childComplexity), true
+	case "LicenseFamily.trialReminderDays":
+		if e.ComplexityRoot.LicenseFamily.TrialReminderDays == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseFamily.TrialReminderDays(childComplexity), true
 
 	case "LicenseFamilyView.currentVersion":
 		if e.ComplexityRoot.LicenseFamilyView.CurrentVersion == nil {
@@ -1735,6 +1759,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LicenseFamilyView.CurrentVersion(childComplexity), true
+	case "LicenseFamilyView.fallbackLicenseFamilySlug":
+		if e.ComplexityRoot.LicenseFamilyView.FallbackLicenseFamilySlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseFamilyView.FallbackLicenseFamilySlug(childComplexity), true
 	case "LicenseFamilyView.id":
 		if e.ComplexityRoot.LicenseFamilyView.ID == nil {
 			break
@@ -1753,6 +1783,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LicenseFamilyView.Slug(childComplexity), true
+	case "LicenseFamilyView.trialEndWithoutPaymentMethod":
+		if e.ComplexityRoot.LicenseFamilyView.TrialEndWithoutPaymentMethod == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseFamilyView.TrialEndWithoutPaymentMethod(childComplexity), true
+	case "LicenseFamilyView.trialReminderDays":
+		if e.ComplexityRoot.LicenseFamilyView.TrialReminderDays == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseFamilyView.TrialReminderDays(childComplexity), true
 	case "LicenseFamilyView.versionCount":
 		if e.ComplexityRoot.LicenseFamilyView.VersionCount == nil {
 			break
@@ -3103,6 +3145,15 @@ enum LicenseType {
 }
 
 """
+What a trial without an ACTIVE payment method becomes at its end: CANCEL it,
+or CONVERT it to ACTIVE.
+"""
+enum TrialEndWithoutPaymentMethod {
+  CANCEL
+  CONVERT
+}
+
+"""
 LicenseFamily is the product a license is a version of. It carries identity and
 nothing else: no display name, because the display name is the current version's
 own name. Renaming a version or publishing a new one never changes it, which is
@@ -3115,6 +3166,18 @@ type LicenseFamily {
   slug: String!
   """Whether the family's default PUBLISHED version is in the public catalogue."""
   isPublic: Boolean!
+  """
+  The FREE family an instance of this family moves to when its subscription
+  ends; null without one.
+  """
+  fallbackLicenseFamilySlug: String
+  """
+  What a trial charged automatically with a total above 0 becomes at its end
+  when the customer has no ACTIVE payment method.
+  """
+  trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
+  """How many days before a trial's end trial_will_end fires (1 to 30)."""
+  trialReminderDays: Int!
 }
 
 """
@@ -3145,6 +3208,18 @@ type LicenseFamilyView {
   slug: String!
   """Whether the family's default PUBLISHED version is in the public catalogue."""
   isPublic: Boolean!
+  """
+  The FREE family an instance of this family moves to when its subscription
+  ends; null without one.
+  """
+  fallbackLicenseFamilySlug: String
+  """
+  What a trial charged automatically with a total above 0 becomes at its end
+  when the customer has no ACTIVE payment method.
+  """
+  trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
+  """How many days before a trial's end trial_will_end fires (1 to 30)."""
+  trialReminderDays: Int!
 
   """
   The version this family currently serves: its default version, or its
@@ -3960,6 +4035,12 @@ func (ec *executionContext) childFields_LicenseFamily(ctx context.Context, field
 		return ec.fieldContext_LicenseFamily_slug(ctx, field)
 	case "isPublic":
 		return ec.fieldContext_LicenseFamily_isPublic(ctx, field)
+	case "fallbackLicenseFamilySlug":
+		return ec.fieldContext_LicenseFamily_fallbackLicenseFamilySlug(ctx, field)
+	case "trialEndWithoutPaymentMethod":
+		return ec.fieldContext_LicenseFamily_trialEndWithoutPaymentMethod(ctx, field)
+	case "trialReminderDays":
+		return ec.fieldContext_LicenseFamily_trialReminderDays(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LicenseFamily", field.Name)
 }
@@ -3972,6 +4053,12 @@ func (ec *executionContext) childFields_LicenseFamilyView(ctx context.Context, f
 		return ec.fieldContext_LicenseFamilyView_slug(ctx, field)
 	case "isPublic":
 		return ec.fieldContext_LicenseFamilyView_isPublic(ctx, field)
+	case "fallbackLicenseFamilySlug":
+		return ec.fieldContext_LicenseFamilyView_fallbackLicenseFamilySlug(ctx, field)
+	case "trialEndWithoutPaymentMethod":
+		return ec.fieldContext_LicenseFamilyView_trialEndWithoutPaymentMethod(ctx, field)
+	case "trialReminderDays":
+		return ec.fieldContext_LicenseFamilyView_trialReminderDays(ctx, field)
 	case "currentVersion":
 		return ec.fieldContext_LicenseFamilyView_currentVersion(ctx, field)
 	case "versionCount":
@@ -9603,6 +9690,75 @@ func (ec *executionContext) fieldContext_LicenseFamily_isPublic(_ context.Contex
 	return graphql.NewScalarFieldContext("LicenseFamily", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
+func (ec *executionContext) _LicenseFamily_fallbackLicenseFamilySlug(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamily) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseFamily_fallbackLicenseFamilySlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FallbackLicenseFamilySlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseFamily_fallbackLicenseFamilySlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseFamily", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseFamily_trialEndWithoutPaymentMethod(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamily) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseFamily_trialEndWithoutPaymentMethod(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TrialEndWithoutPaymentMethod, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNTrialEndWithoutPaymentMethod2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseFamily_trialEndWithoutPaymentMethod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseFamily", field, false, false, errors.New("field of type TrialEndWithoutPaymentMethod does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseFamily_trialReminderDays(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamily) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseFamily_trialReminderDays(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TrialReminderDays, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseFamily_trialReminderDays(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseFamily", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _LicenseFamilyView_id(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamilyView) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9670,6 +9826,75 @@ func (ec *executionContext) _LicenseFamilyView_isPublic(ctx context.Context, fie
 }
 func (ec *executionContext) fieldContext_LicenseFamilyView_isPublic(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("LicenseFamilyView", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseFamilyView_fallbackLicenseFamilySlug(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamilyView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseFamilyView_fallbackLicenseFamilySlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.FallbackLicenseFamilySlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseFamilyView_fallbackLicenseFamilySlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseFamilyView", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseFamilyView_trialEndWithoutPaymentMethod(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamilyView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseFamilyView_trialEndWithoutPaymentMethod(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TrialEndWithoutPaymentMethod, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNTrialEndWithoutPaymentMethod2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseFamilyView_trialEndWithoutPaymentMethod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseFamilyView", field, false, false, errors.New("field of type TrialEndWithoutPaymentMethod does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseFamilyView_trialReminderDays(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamilyView) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseFamilyView_trialReminderDays(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.TrialReminderDays, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseFamilyView_trialReminderDays(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseFamilyView", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _LicenseFamilyView_currentVersion(ctx context.Context, field graphql.CollectedField, obj *schema2.LicenseFamilyView) (ret graphql.Marshaler) {
@@ -15747,6 +15972,21 @@ func (ec *executionContext) _LicenseFamily(ctx context.Context, sel ast.Selectio
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "fallbackLicenseFamilySlug":
+			out.Values[i] = ec._LicenseFamily_fallbackLicenseFamilySlug(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "trialEndWithoutPaymentMethod":
+			out.Values[i] = ec._LicenseFamily_trialEndWithoutPaymentMethod(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "trialReminderDays":
+			out.Values[i] = ec._LicenseFamily_trialReminderDays(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -15792,6 +16032,21 @@ func (ec *executionContext) _LicenseFamilyView(ctx context.Context, sel ast.Sele
 			}
 		case "isPublic":
 			out.Values[i] = ec._LicenseFamilyView_isPublic(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "fallbackLicenseFamilySlug":
+			out.Values[i] = ec._LicenseFamilyView_fallbackLicenseFamilySlug(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "trialEndWithoutPaymentMethod":
+			out.Values[i] = ec._LicenseFamilyView_trialEndWithoutPaymentMethod(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "trialReminderDays":
+			out.Values[i] = ec._LicenseFamilyView_trialReminderDays(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
@@ -18218,6 +18473,22 @@ func (ec *executionContext) unmarshalNTime2timeᚐTime(ctx context.Context, v an
 func (ec *executionContext) marshalNTime2timeᚐTime(ctx context.Context, sel ast.SelectionSet, v time.Time) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalTime(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNTrialEndWithoutPaymentMethod2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNTrialEndWithoutPaymentMethod2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")

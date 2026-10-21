@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
-import type { LicenseFamilyView, LicenseFamilyVisibility } from '@/api-client';
+import type { LicenseFamilyView, LicenseFamilyUpdate } from '@/api-client';
 import {
   handleGetBillingCapabilities,
   handleUpdateLicenseFamily,
@@ -55,14 +55,14 @@ beforeEach(() => {
 const toggle = () => screen.findByRole('switch', { name: 'List Pro in the public catalog' });
 
 /** Records the visibility each change of the listing asks for. */
-function serveVisibility(answer?: (body: LicenseFamilyVisibility) => Response) {
-  const calls: Array<{ body: LicenseFamilyVisibility; familySlug: string }> = [];
+function serveVisibility(answer?: (body: LicenseFamilyUpdate) => Response) {
+  const calls: Array<{ body: LicenseFamilyUpdate; familySlug: string }> = [];
   server.use(
     handleUpdateLicenseFamily(async ({ params, request }) => {
-      const body = (await request.json()) as LicenseFamilyVisibility;
+      const body = (await request.json()) as LicenseFamilyUpdate;
       calls.push({ body, familySlug: String(params.familySlug) });
 
-      return answer?.(body) ?? HttpResponse.json(family(body.isPublic));
+      return answer?.(body) ?? HttpResponse.json(family(body.isPublic ?? false));
     }),
   );
 

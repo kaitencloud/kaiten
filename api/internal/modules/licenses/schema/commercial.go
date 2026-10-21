@@ -16,6 +16,20 @@ const maxSelfServeCtaURLLength = 2048
 // (V31-08). It also keeps trialDays × 24 h well inside a time.Duration.
 const MaxTrialDays = 365
 
+// The trial reminder's lead, in days before a trial's end (V32-07,
+// license_family_trial_reminder_days_check); a family starts at the default.
+const (
+	MinTrialReminderDays     = 1
+	MaxTrialReminderDays     = 30
+	DefaultTrialReminderDays = 3
+)
+
+// What a trial without an ACTIVE payment method becomes at its end (V31-65).
+const (
+	TrialEndCancel  = "CANCEL"
+	TrialEndConvert = "CONVERT"
+)
+
 // ValidateTrialPeriodDays refuses a trial outside 1 to MaxTrialDays days, with
 // <operation>.InvalidTrialDays.
 func ValidateTrialPeriodDays(operation string, days int32) error {
