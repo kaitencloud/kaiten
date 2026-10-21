@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -56,6 +57,14 @@ func TestPublishableKeyTurnstile(t *testing.T) {
 	require.True(t, created.TurnstileSecretConfigured)
 	require.True(t, inVault())
 	path := "/api/publishable-keys/" + created.ID.String()
+	catalogOf := func(key string) getpubliccatalog.PublicCatalogCapabilities {
+		t.Helper()
+		return commonfixture.AssertJSONResponse[getpubliccatalog.PublicCatalog](t,
+			publicGet(t, testServer, "/api/public/catalog", key, storefront), fiber.StatusOK).Capabilities
+	}
+	open := catalogOf(created.Key)
+	require.True(t, open.AnonymousCheckout, "the catalogue tells the page")
+	require.Equal(t, "0x4AAAAAAAsite", *open.TurnstileSiteKey)
 
 	require.Equal(t, "UpdatePublishableKey.TurnstileNotConfigured", problemCode(t, fiber.StatusUnprocessableEntity, "PATCH", path,
 		map[string]any{"turnstileSiteKey": ""}), "clearing a value while anonymousCheckout is on")
@@ -65,6 +74,9 @@ func TestPublishableKeyTurnstile(t *testing.T) {
 	require.False(t, closed.TurnstileSecretConfigured)
 	require.Equal(t, "0x4AAAAAAAsite", *closed.TurnstileSiteKey, "an absent member keeps the stored value")
 	require.False(t, inVault(), "a cleared secret leaves Vault")
+	shut := catalogOf(created.Key)
+	require.False(t, shut.AnonymousCheckout)
+	require.Nil(t, shut.TurnstileSiteKey, "no widget to render")
 
 	reopened := commonfixture.AssertJSONResponse[keys.PublishableKey](t, call(t, "PATCH", path,
 		map[string]any{"anonymousCheckout": true, "turnstileSecret": secret}), fiber.StatusOK)

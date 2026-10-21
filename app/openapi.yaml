@@ -8490,15 +8490,25 @@ components:
     PublicCatalogCapabilities:
       additionalProperties: false
       properties:
+        anonymousCheckout:
+          description: "Whether this publishable key starts anonymous checkouts (POST /public/checkout-sessions): on, with a Turnstile site key and secret"
+          type: boolean
         checkout:
           description: Whether a plan of the catalogue can be bought alone, through a customer session's checkout (POST /public/session/checkout)
           type: boolean
         paymentMethods:
           description: Whether the organization's billing provider captures payment methods
           type: boolean
+        turnstileSiteKey:
+          description: The Turnstile site key the page renders its widget with; null unless anonymousCheckout
+          type:
+            - string
+            - "null"
       required:
         - checkout
         - paymentMethods
+        - anonymousCheckout
+        - turnstileSiteKey
       type: object
     PublicMeter:
       additionalProperties: false

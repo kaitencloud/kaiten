@@ -3,9 +3,11 @@ package getpubliccatalog
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
@@ -34,6 +36,10 @@ type Query struct {
 	FamilySlug *string
 	// IncludeAddOns lists the add-on families too.
 	IncludeAddOns bool
+	// PublishableKeyID is the key reading the catalogue, whose anonymous
+	// checkout settings it reports; nil for the session routes, which read
+	// the catalogue for themselves.
+	PublishableKeyID *uuid.UUID
 }
 
 type UseCase struct{ deps Deps }
@@ -52,7 +58,19 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 	out := &PublicCatalog{
 		Plans:        []PublicPlan{},
 		AddOns:       []PublicAddOn{},
-		Capabilities: PublicCatalogCapabilities{Checkout: false, PaymentMethods: captures},
+		Capabilities: PublicCatalogCapabilities{Checkout: false, PaymentMethods: captures, AnonymousCheckout: false, TurnstileSiteKey: nil},
+	}
+	if query.PublishableKeyID != nil {
+		// The anonymous checkout is open only with both Turnstile values,
+		// and the page renders the widget with the site key (V32-01).
+		key, err := q.GetPublishableKeyCheckout(ctx, db.GetPublishableKeyCheckoutParams{OrganizationID: organizationID, ID: *query.PublishableKeyID})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
+		}
+		if err == nil && key.AnonymousCheckout && key.TurnstileSiteKey != nil && key.SecretSet {
+			out.Capabilities.AnonymousCheckout = true
+			out.Capabilities.TurnstileSiteKey = key.TurnstileSiteKey
+		}
 	}
 
 	plans, err := q.ListPublicPlans(ctx, db.ListPublicPlansParams{OrganizationID: organizationID, FamilySlug: query.FamilySlug})

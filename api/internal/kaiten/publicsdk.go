@@ -80,6 +80,8 @@ func (p PublicSDK) RevokePublishableKey(ctx context.Context, cl caller.Organizat
 // require: the key authorizes this read by being one. The organization is the
 // key's, passed explicitly -- there is no user to bind.
 func (p PublicSDK) GetPublicCatalog(ctx context.Context, cl caller.PublishableKeyCaller, query getpubliccatalog.Query) (*getpubliccatalog.PublicCatalog, error) {
+	keyID := cl.KeyID()
+	query.PublishableKeyID = &keyID
 	return p.uc.GetPublicCatalog.Execute(ctx, cl.OrganizationID(), query)
 }
 

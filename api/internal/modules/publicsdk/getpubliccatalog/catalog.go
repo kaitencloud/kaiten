@@ -108,4 +108,7 @@ type PublicAddOnEntitlement struct {
 type PublicCatalogCapabilities struct {
 	Checkout       bool `json:"checkout" doc:"Whether a plan of the catalogue can be bought alone, through a customer session's checkout (POST /public/session/checkout)"`
 	PaymentMethods bool `json:"paymentMethods" doc:"Whether the organization's billing provider captures payment methods"`
+	// The anonymous checkout of the key reading the catalogue (V32-01).
+	AnonymousCheckout bool    `json:"anonymousCheckout" doc:"Whether this publishable key starts anonymous checkouts (POST /public/checkout-sessions): on, with a Turnstile site key and secret"`
+	TurnstileSiteKey  *string `json:"turnstileSiteKey" nullable:"true" doc:"The Turnstile site key the page renders its widget with; null unless anonymousCheckout"`
 }

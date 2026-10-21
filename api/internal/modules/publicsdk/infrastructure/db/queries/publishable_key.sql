@@ -84,3 +84,13 @@ UPDATE publishable_key
 SET last_used_at = CURRENT_TIMESTAMP
 WHERE id = sqlc.arg(id)
   AND (last_used_at IS NULL OR last_used_at < CURRENT_TIMESTAMP - INTERVAL '1 minute');
+
+
+-- name: GetPublishableKeyCheckout :one
+-- What the catalogue says of the key that reads it (§14.4): whether it opens
+-- the anonymous checkout, and the Turnstile site key the page renders.
+SELECT anonymous_checkout, turnstile_site_key, (turnstile_secret_set_at IS NOT NULL)::boolean AS secret_set
+FROM publishable_key
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND revoked_at IS NULL;

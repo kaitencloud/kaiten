@@ -93,6 +93,34 @@ func (q *Queries) CreatePublishableKey(ctx context.Context, arg CreatePublishabl
 	return i, err
 }
 
+const getPublishableKeyCheckout = `-- name: GetPublishableKeyCheckout :one
+SELECT anonymous_checkout, turnstile_site_key, (turnstile_secret_set_at IS NOT NULL)::boolean AS secret_set
+FROM publishable_key
+WHERE organization_id = $1
+  AND id = $2
+  AND revoked_at IS NULL
+`
+
+type GetPublishableKeyCheckoutParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+type GetPublishableKeyCheckoutRow struct {
+	AnonymousCheckout bool    `json:"anonymous_checkout"`
+	TurnstileSiteKey  *string `json:"turnstile_site_key"`
+	SecretSet         bool    `json:"secret_set"`
+}
+
+// What the catalogue says of the key that reads it (§14.4): whether it opens
+// the anonymous checkout, and the Turnstile site key the page renders.
+func (q *Queries) GetPublishableKeyCheckout(ctx context.Context, arg GetPublishableKeyCheckoutParams) (GetPublishableKeyCheckoutRow, error) {
+	row := q.db.QueryRow(ctx, getPublishableKeyCheckout, arg.OrganizationID, arg.ID)
+	var i GetPublishableKeyCheckoutRow
+	err := row.Scan(&i.AnonymousCheckout, &i.TurnstileSiteKey, &i.SecretSet)
+	return i, err
+}
+
 const getPublishableKeyForUpdate = `-- name: GetPublishableKeyForUpdate :one
 SELECT id, organization_id, label, lookup_hash, key_hint, allowed_origins, last_used_at, created_at, created_by_id, updated_at, updated_by_id, revoked_at, revoked_by_id, anonymous_checkout, turnstile_site_key, turnstile_secret_set_at
 FROM publishable_key
