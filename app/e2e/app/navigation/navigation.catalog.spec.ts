@@ -13,8 +13,8 @@ import { createLicenseCatalogModel } from '../licenses/licenses.scenarios';
 // navigation, with the licenses first, on every deployment. The add-ons and the
 // vouchers join it where billing ships them (see `billing.navigation.spec.ts`).
 
-// The document of lucide that draws a license, which the catalog borrows.
-const LICENSE_ICON = /(^|\s)lucide-file-text(\s|$)/;
+// The library of lucide that draws the catalog, apart from the license it holds.
+const CATALOG_ICON = /(^|\s)lucide-square-library(\s|$)/;
 
 test.describe('the catalog of the navigation', () => {
   test.beforeEach(async ({ page }) => {
@@ -45,12 +45,12 @@ test.describe('the catalog of the navigation', () => {
     await nav.expectNoBillingEntries();
   });
 
-  test('is drawn with the icon of the license', async ({ page }) => {
+  test('is drawn with the icon of a library', async ({ page }) => {
     const nav = new BillingNavDriver(page);
 
     await nav.gotoShell();
 
-    await expect(nav.catalogIcon()).toHaveClass(LICENSE_ICON);
+    await expect(nav.catalogIcon()).toHaveClass(CATALOG_ICON);
   });
 
   test('opens by itself on a page of the catalog and marks the entry of the page', async ({
