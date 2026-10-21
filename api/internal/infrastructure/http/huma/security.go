@@ -42,6 +42,16 @@ const CustomerSessionAuth = "customerSession"
 // operation registered with RegisterSession lives under it, and only those.
 const SessionPathPrefix = PublicPathPrefix + "/session"
 
+// CheckoutSessionAuth is the scheme of an anonymous checkout session's own
+// routes: its ksc_ as a bearer token (V32-01). A fifth scheme, for the reason
+// the others are separate.
+const CheckoutSessionAuth = "checkoutSession"
+
+// CheckoutSessionsPath is the anonymous checkout's collection, inside
+// PublicPathPrefix. Its POST, the start, takes a publishable key; every path
+// below it, one session's, takes that session's ksc_ and nothing else.
+const CheckoutSessionsPath = PublicPathPrefix + "/checkout-sessions"
+
 // ScopesExtension is the vendor extension under which the Core document's
 // security scheme lists every scope an organization credential can carry
 // (scope.OrganizationScopes). The operations' own `security:` blocks cannot stand
@@ -106,6 +116,18 @@ var customerSessionScheme = &huma.SecurityScheme{
 		"A browser request must come from an origin one of the organization's publishable keys allows.",
 }
 
+// checkoutSessionScheme describes how a visitor's page authenticates to its
+// own anonymous checkout session.
+var checkoutSessionScheme = &huma.SecurityScheme{
+	Type:         "http",
+	Scheme:       "bearer",
+	BearerFormat: "ksc_",
+	Description: "An anonymous checkout session (`ksc_...`), returned once by POST /public/checkout-sessions " +
+		"and sent as `Authorization: Bearer ksc_...`. It reads and confirms that one session, at " +
+		"/public/checkout-sessions/{sessionId}, and nothing else; another session's id answers 401. " +
+		"A browser request must come from an origin of the publishable key that started the session.",
+}
+
 // ConfigureSecurity declares the bearer scheme and makes it the
 // document-level default, so a generated client is born authenticated
 // instead of every SDK re-inventing the plumbing by hand.
@@ -120,6 +142,7 @@ func ConfigureSecurity(config huma.Config) huma.Config {
 	config.Components.SecuritySchemes[BearerAuth] = bearerScheme
 	config.Components.SecuritySchemes[PublishableKeyAuth] = publishableKeyScheme
 	config.Components.SecuritySchemes[CustomerSessionAuth] = customerSessionScheme
+	config.Components.SecuritySchemes[CheckoutSessionAuth] = checkoutSessionScheme
 	config.Security = []map[string][]string{{BearerAuth: {}}}
 	return config
 }
@@ -222,9 +245,10 @@ func RegisterPublishable[I, O any](
 	op huma.Operation,
 	handler func(context.Context, *I) (*O, error),
 ) {
-	if !strings.HasPrefix(op.Path, PublicPathPrefix+"/") || strings.HasPrefix(op.Path, SessionPathPrefix+"/") {
-		panic(fmt.Sprintf("RegisterPublishable: operation %q has path %q, outside %s/ or inside %s/",
-			op.OperationID, op.Path, PublicPathPrefix, SessionPathPrefix))
+	if !strings.HasPrefix(op.Path, PublicPathPrefix+"/") || strings.HasPrefix(op.Path, SessionPathPrefix+"/") ||
+		strings.HasPrefix(op.Path, CheckoutSessionsPath+"/") {
+		panic(fmt.Sprintf("RegisterPublishable: operation %q has path %q, outside %s/, or inside %s/ or %s/",
+			op.OperationID, op.Path, PublicPathPrefix, SessionPathPrefix, CheckoutSessionsPath))
 	}
 	op.Security = []map[string][]string{{PublishableKeyAuth: {}}}
 	huma.Register(api, op, handler)
@@ -251,6 +275,26 @@ func RegisterSession[I, O any](
 		panic(fmt.Sprintf("RegisterSession: operation %q has path %q, outside %s/", op.OperationID, op.Path, SessionPathPrefix))
 	}
 	op.Security = []map[string][]string{{CustomerSessionAuth: {}}}
+	huma.Register(api, op, handler)
+}
+
+// RegisterCheckoutSession registers an operation of one anonymous checkout
+// session, which that session's ksc_ authenticates (V32-01, §14.1).
+//
+// It takes no scope, for the reason RegisterSession takes none: what bounds
+// the credential is its one session, which the authenticator matches against
+// the path's {sessionId}. It panics for a path that is not one session's,
+// below CheckoutSessionsPath: the server authenticates those with a ksc_
+// alone.
+func RegisterCheckoutSession[I, O any](
+	api huma.API,
+	op huma.Operation,
+	handler func(context.Context, *I) (*O, error),
+) {
+	if !strings.HasPrefix(op.Path, CheckoutSessionsPath+"/{sessionId}") {
+		panic(fmt.Sprintf("RegisterCheckoutSession: operation %q has path %q, not under %s/{sessionId}", op.OperationID, op.Path, CheckoutSessionsPath))
+	}
+	op.Security = []map[string][]string{{CheckoutSessionAuth: {}}}
 	huma.Register(api, op, handler)
 }
 

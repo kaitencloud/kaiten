@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
@@ -90,6 +91,12 @@ func (p PublicSDK) GetPublicCatalog(ctx context.Context, cl caller.PublishableKe
 // ValidateToken is: it runs before there is a caller to take.
 func (k *Kaiten) PublishableKeyAuthenticator() *authenticatepublishablekey.UseCase {
 	return k.modules.PublicSDK.AuthenticatePublishableKey
+}
+
+// CheckoutSessionAuthenticator is what auth.PublicMiddleware resolves a ksc_
+// with, outside the caller convention for the same reason.
+func (k *Kaiten) CheckoutSessionAuthenticator() *authenticatecheckoutsession.UseCase {
+	return k.modules.PublicSDK.AuthenticateCheckoutSession
 }
 
 // CustomerSessionAuthenticator is what auth.PublicMiddleware resolves

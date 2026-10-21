@@ -60,6 +60,14 @@ const (
 	// bounds it is its customer (and instance, when bound), in CustomerSession,
 	// and that only caller.CustomerSession accepts it.
 	KindCustomerSession Kind = "customer_session"
+
+	// KindCheckoutSession authenticates an anonymous visitor through the ksc_
+	// of the checkout session it started (V32-01), on that session's routes
+	// only. It names an organization and no actor: UserID is uuid.Nil, the
+	// completion's writes are recorded under system:kaiten (§13.12). What
+	// bounds it is its one session, in CheckoutSessionID, and that only
+	// caller.CheckoutSession accepts it.
+	KindCheckoutSession Kind = "checkout_session"
 )
 
 // ErrCodeWrongCredentialKind and ErrMsgWrongCredentialKind are the single answer
@@ -108,10 +116,14 @@ type Principal struct {
 	// if Kind is KindCustomerSession.
 	CustomerSession *CustomerSession `json:"-"`
 	// PublishableKeyID is the key that authenticated the request, set if and
-	// only if Kind is KindPublishableKey.
-	PublishableKeyID uuid.UUID    `json:"-"`
-	Scopes           []string     `json:"scopes"`
-	Provisioning     Provisioning `json:"-"`
+	// only if Kind is KindPublishableKey or KindCheckoutSession.
+	PublishableKeyID uuid.UUID `json:"-"`
+	// CheckoutSessionID is the session a ksc_ authenticates, set if and only
+	// if Kind is KindCheckoutSession; PublishableKeyID is then the key that
+	// started it.
+	CheckoutSessionID uuid.UUID    `json:"-"`
+	Scopes            []string     `json:"scopes"`
+	Provisioning      Provisioning `json:"-"`
 }
 
 // IsPlatform reports whether this is a platform credential. Nil-safe, because
@@ -138,6 +150,16 @@ func (p *Principal) HasScope(required string) bool {
 // Delegates to scope.HasAllScopes for centralized permission logic
 func (p *Principal) HasAllScopes(required []string) bool {
 	return scope.HasAllScopes(p.Scopes, required)
+}
+
+// CheckoutSession is what a checkout session's authenticator resolves (V32-01):
+// the session, its organization, the publishable key that started it and that
+// key's allowed origins. The principal keeps the ids.
+type CheckoutSession struct {
+	ID               uuid.UUID
+	OrganizationID   uuid.UUID
+	PublishableKeyID uuid.UUID
+	AllowedOrigins   []string
 }
 
 // CustomerSession is the customer, and optionally the instance, a customer

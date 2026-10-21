@@ -40,3 +40,13 @@ func TestCustomerSessionPrefixIsDisjoint(t *testing.T) {
 	}
 	require.Len(t, token.PrefixCustomerSession, len(token.PrefixOrganization))
 }
+
+// TestCheckoutSessionPrefixIsDisjoint: ksc_ joins the k-family with no prefix
+// relation to any other credential (V32-01, §14.1 rule 4).
+func TestCheckoutSessionPrefixIsDisjoint(t *testing.T) {
+	for _, other := range []string{token.PrefixOrganization, token.PrefixPlatform, token.PrefixPublishableKey, token.PrefixCustomerSession} {
+		require.False(t, strings.HasPrefix(token.PrefixCheckoutSession, other))
+		require.False(t, strings.HasPrefix(other, token.PrefixCheckoutSession))
+	}
+	require.Len(t, token.PrefixCheckoutSession, len(token.PrefixOrganization))
+}

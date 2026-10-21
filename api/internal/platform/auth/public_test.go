@@ -46,6 +46,20 @@ func (f *fakeSessions) AuthenticateCustomerSession(_ context.Context, plain stri
 	return f.session, f.organizationID, f.actor, true, nil
 }
 
+type fakeCheckouts struct {
+	session principal.CheckoutSession
+	known   string
+	calls   int
+}
+
+func (f *fakeCheckouts) AuthenticateCheckoutSession(_ context.Context, plain string) (principal.CheckoutSession, bool, error) {
+	f.calls++
+	if plain != f.known {
+		return principal.CheckoutSession{}, false, nil
+	}
+	return f.session, true, nil
+}
+
 const (
 	catalogPath = "/api/public/catalog"
 	sessionPath = "/api/public/session/invoices"
@@ -53,7 +67,12 @@ const (
 
 func newPublicApp(t *testing.T, keys *fakeKeys, sessions *fakeSessions, now func() time.Time) *fiber.App {
 	t.Helper()
-	m := NewPublic(keys, sessions)
+	return newPublicAppWithCheckouts(t, keys, sessions, &fakeCheckouts{}, now)
+}
+
+func newPublicAppWithCheckouts(t *testing.T, keys *fakeKeys, sessions *fakeSessions, checkouts *fakeCheckouts, now func() time.Time) *fiber.App {
+	t.Helper()
+	m := NewPublic(keys, sessions, checkouts)
 	if now != nil {
 		m.now = now
 	}
@@ -72,6 +91,20 @@ func newPublicApp(t *testing.T, keys *fakeKeys, sessions *fakeSessions, now func
 			return err
 		}
 		return c.SendString(cl.CustomerSlug() + "/" + cl.ActorID().String())
+	})
+	app.Get(CheckoutSessionsPath+"/:sessionId", func(c fiber.Ctx) error {
+		cl, err := caller.CheckoutSession(c.Context())
+		if err != nil {
+			return err
+		}
+		return c.SendString(cl.SessionID().String() + "/" + cl.PublishableKeyID().String())
+	})
+	app.Post(CheckoutSessionsPath, func(c fiber.Ctx) error {
+		cl, err := caller.PublishableKey(c.Context())
+		if err != nil {
+			return err
+		}
+		return c.SendString(cl.KeyID().String())
 	})
 	return app
 }
@@ -198,4 +231,68 @@ func TestPublicMiddlewareRateLimitsPerCredential(t *testing.T) {
 	now = now.Add(time.Second)
 	resp = do(t, app, catalogPath, map[string]string{PublishableKeyHeader: "pk_good"})
 	require.Equal(t, http.StatusOK, resp.StatusCode, "the bucket refills at the key's rate")
+}
+
+// TestPublicMiddlewareCheckoutSession: one checkout session's routes take its
+// ksc_ and nothing else; another session's id answers like an unknown token;
+// the start, POST on the collection, takes a publishable key (V32-01, §14.1).
+func TestPublicMiddlewareCheckoutSession(t *testing.T) {
+	keys, sessions := fixtures()
+	checkouts := &fakeCheckouts{
+		session: principal.CheckoutSession{
+			ID: uuid.New(), OrganizationID: keys.organizationID, PublishableKeyID: keys.keyID,
+			AllowedOrigins: []string{"https://www.example.com"},
+		},
+		known: "ksc_good",
+	}
+	app := newPublicAppWithCheckouts(t, keys, sessions, checkouts, nil)
+	own := CheckoutSessionsPath + "/" + checkouts.session.ID.String()
+
+	t.Run("its own ksc_ reads its own session", func(t *testing.T) {
+		resp := do(t, app, own, map[string]string{"Authorization": "Bearer ksc_good", "Origin": "https://www.example.com"})
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("another session's id, an unknown token and a missing one answer 401 alike", func(t *testing.T) {
+		for path, header := range map[string]string{
+			CheckoutSessionsPath + "/" + uuid.NewString(): "Bearer ksc_good",
+			CheckoutSessionsPath + "/not-a-uuid":          "Bearer ksc_good",
+			own + "?x=1":                                  "Bearer ksc_unknown",
+			own:                                           "",
+		} {
+			resp := do(t, app, path, map[string]string{"Authorization": header})
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode, path+" "+header)
+		}
+	})
+
+	t.Run("another credential class is refused before any lookup", func(t *testing.T) {
+		before := checkouts.calls
+		for _, headers := range []map[string]string{
+			{"Authorization": "Bearer kst_good"},
+			{"Authorization": "Bearer ksh_x"},
+			{PublishableKeyHeader: "pk_good"},
+		} {
+			resp := do(t, app, own, headers)
+			require.Equal(t, http.StatusForbidden, resp.StatusCode)
+		}
+		require.Equal(t, before, checkouts.calls)
+	})
+
+	t.Run("an origin the starting key does not allow is refused", func(t *testing.T) {
+		resp := do(t, app, own, map[string]string{"Authorization": "Bearer ksc_good", "Origin": "https://evil.example"})
+		require.Equal(t, http.StatusForbidden, resp.StatusCode)
+	})
+
+	t.Run("the start takes a publishable key", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, CheckoutSessionsPath, nil)
+		req.Header.Set(PublishableKeyHeader, "pk_good")
+		resp, err := app.Test(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		req = httptest.NewRequest(http.MethodPost, CheckoutSessionsPath, nil)
+		req.Header.Set("Authorization", "Bearer ksc_good")
+		resp, err = app.Test(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusForbidden, resp.StatusCode, "a ksc_ is no credential for the start")
+	})
 }

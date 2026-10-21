@@ -9,6 +9,7 @@ package publicsdk
 import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
@@ -51,6 +52,9 @@ type UseCases struct {
 	// AuthenticateCustomerSession backs the same authenticator, for the session
 	// routes; on no surface of its own, for the same reason.
 	AuthenticateCustomerSession *authenticatecustomersession.UseCase
+	// AuthenticateCheckoutSession resolves a ksc_ for the same authenticator,
+	// on one checkout session's routes (V32-01).
+	AuthenticateCheckoutSession *authenticatecheckoutsession.UseCase
 
 	CreateSessionCheckout *createsessioncheckout.UseCase
 	ListSessionInvoices   *listsessioninvoices.UseCase
@@ -108,6 +112,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CreateCustomerSession:       createcustomersession.NewUseCase(sessionDeps),
 		RevokeCustomerSession:       revokecustomersession.NewUseCase(sessionDeps),
 		AuthenticateCustomerSession: authenticatecustomersession.NewUseCase(sessionDeps),
+		AuthenticateCheckoutSession: authenticatecheckoutsession.NewUseCase(authenticatecheckoutsession.Deps{Uof: svc.Uof}),
 		CreatePublishableKey:        createpublishablekey.NewUseCase(deps),
 		ListPublishableKeys:         listpublishablekeys.NewUseCase(deps),
 		UpdatePublishableKey:        updatepublishablekey.NewUseCase(deps),

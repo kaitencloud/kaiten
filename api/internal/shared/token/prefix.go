@@ -36,4 +36,12 @@ const (
 	// token on /api/public/session/* and nowhere else. A k-family sibling of
 	// equal length, diverging from ksh_ and ksm_ at character 2.
 	PrefixCustomerSession = "kst_"
+
+	// PrefixCheckoutSession marks an anonymous checkout session (V32-01):
+	// minted by POST /api/public/checkout-sessions for the session it opens,
+	// presented as a bearer token on that session's two routes and nowhere
+	// else. A k-family sibling of equal length, diverging from kst_ at
+	// character 2 -- kst_anon_ was rejected because it nests under kst_, and
+	// ksa_ already prefixes service-account external ids.
+	PrefixCheckoutSession = "ksc_"
 )

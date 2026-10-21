@@ -12160,6 +12160,11 @@ components:
         - write:voucher_redemptions
         - write:vouchers
         - write:webhooks
+    checkoutSession:
+      bearerFormat: ksc_
+      description: "An anonymous checkout session (`ksc_...`), returned once by POST /public/checkout-sessions and sent as `Authorization: Bearer ksc_...`. It reads and confirms that one session, at /public/checkout-sessions/{sessionId}, and nothing else; another session's id answers 401. A browser request must come from an origin of the publishable key that started the session."
+      scheme: bearer
+      type: http
     customerSession:
       bearerFormat: kst_
       description: "A customer session (`kst_...`), minted by the vendor's backend with POST /customer-sessions and sent as `Authorization: Bearer kst_...`. It acts for one customer -- and one of its instances, when bound -- on the /public/session routes and nowhere else. A browser request must come from an origin one of the organization's publishable keys allows."

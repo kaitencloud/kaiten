@@ -99,6 +99,25 @@ func (c PublishableKeyCaller) OrganizationID() uuid.UUID { return c.organization
 // KeyID is the publishable key that authenticated the request.
 func (c PublishableKeyCaller) KeyID() uuid.UUID { return c.keyID }
 
+// CheckoutSessionCaller is an anonymous visitor, acting through the ksc_ of
+// the checkout session it started (V32-01). It carries no scopes and no actor:
+// what bounds it is that one session, which every handler reads by
+// SessionID and the organization.
+type CheckoutSessionCaller struct {
+	organizationID   uuid.UUID
+	sessionID        uuid.UUID
+	publishableKeyID uuid.UUID
+}
+
+// OrganizationID is the vendor's organization.
+func (c CheckoutSessionCaller) OrganizationID() uuid.UUID { return c.organizationID }
+
+// SessionID is the checkout session the ksc_ was minted for.
+func (c CheckoutSessionCaller) SessionID() uuid.UUID { return c.sessionID }
+
+// PublishableKeyID is the key that started the session.
+func (c CheckoutSessionCaller) PublishableKeyID() uuid.UUID { return c.publishableKeyID }
+
 // CustomerSessionCaller is a vendor's customer, acting through a customer
 // session the vendor's backend minted. Like PublishableKeyCaller it carries no
 // scopes: what bounds it is the customer it is bound to -- every query a

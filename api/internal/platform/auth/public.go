@@ -27,8 +27,14 @@ import (
 const PublishableKeyHeader = "X-Kaiten-Publishable-Key"
 
 // SessionPathPrefix is the part of the public surface a customer session
-// authenticates; the rest of /api/public takes a publishable key.
+// authenticates; the rest of /api/public takes a publishable key, except one
+// checkout session's own routes.
 const SessionPathPrefix = "/api/public/session"
+
+// CheckoutSessionsPath is the anonymous checkout's collection (V32-01): its
+// POST, the start, takes a publishable key, and every path below it -- one
+// session's -- takes that session's ksc_.
+const CheckoutSessionsPath = "/api/public/checkout-sessions"
 
 // Error codes of the public surface. One code for an unknown, malformed,
 // revoked or expired credential, so a caller learns nothing about which it was.
@@ -66,6 +72,13 @@ type CustomerSessionAuthenticator interface {
 	)
 }
 
+// CheckoutSessionAuthenticator resolves an anonymous checkout session's ksc_:
+// the session, its organization, the key that started it and that key's
+// origins. ok = false for every token that does not authenticate.
+type CheckoutSessionAuthenticator interface {
+	AuthenticateCheckoutSession(ctx context.Context, plainToken string) (session principal.CheckoutSession, ok bool, err error)
+}
+
 // PublicMiddleware authenticates the public SDK surface, /api/public: a
 // publishable key on the catalogue, a customer session on /api/public/session.
 //
@@ -81,22 +94,26 @@ type CustomerSessionAuthenticator interface {
 // route, a session on the catalogue, and an organization credential anywhere
 // here are all refused with the one wrong-credential answer.
 type PublicMiddleware struct {
-	keys     PublishableKeyAuthenticator
-	sessions CustomerSessionAuthenticator
-	now      func() time.Time
+	keys      PublishableKeyAuthenticator
+	sessions  CustomerSessionAuthenticator
+	checkouts CheckoutSessionAuthenticator
+	now       func() time.Time
 
-	keyLimits     *ratelimit.Keyed[uuid.UUID]
-	sessionLimits *ratelimit.Keyed[uuid.UUID]
+	keyLimits      *ratelimit.Keyed[uuid.UUID]
+	sessionLimits  *ratelimit.Keyed[uuid.UUID]
+	checkoutLimits *ratelimit.Keyed[uuid.UUID]
 }
 
 // NewPublic builds the public surface's authenticator.
-func NewPublic(keys PublishableKeyAuthenticator, sessions CustomerSessionAuthenticator) *PublicMiddleware {
+func NewPublic(keys PublishableKeyAuthenticator, sessions CustomerSessionAuthenticator, checkouts CheckoutSessionAuthenticator) *PublicMiddleware {
 	return &PublicMiddleware{
-		keys:          keys,
-		sessions:      sessions,
-		now:           time.Now,
-		keyLimits:     ratelimit.New[uuid.UUID](publishableKeyRate, publishableKeyBurst),
-		sessionLimits: ratelimit.New[uuid.UUID](sessionRate, sessionBurst),
+		keys:           keys,
+		sessions:       sessions,
+		checkouts:      checkouts,
+		now:            time.Now,
+		keyLimits:      ratelimit.New[uuid.UUID](publishableKeyRate, publishableKeyBurst),
+		sessionLimits:  ratelimit.New[uuid.UUID](sessionRate, sessionBurst),
+		checkoutLimits: ratelimit.New[uuid.UUID](sessionRate, sessionBurst),
 	}
 }
 
@@ -106,6 +123,12 @@ func (p *PublicMiddleware) Authorization() fiber.Handler {
 		if path == SessionPathPrefix || strings.HasPrefix(path, SessionPathPrefix+"/") {
 			err := p.session(ctx)
 			countPublicRequest(ctx, "kst", err)
+			return err
+		}
+		if rest, ok := strings.CutPrefix(path, CheckoutSessionsPath+"/"); ok {
+			sessionID, _, _ := strings.Cut(rest, "/")
+			err := p.checkoutSession(ctx, sessionID)
+			countPublicRequest(ctx, "ksc", err)
 			return err
 		}
 		err := p.publishable(ctx)
@@ -118,7 +141,7 @@ func (p *PublicMiddleware) Authorization() fiber.Handler {
 // kaiten.public.requests{credential, route, outcome}.
 var publicRequests = sync.OnceValue(func() metric.Int64Counter {
 	c, err := otel.GetMeterProvider().Meter("kaiten.public").Int64Counter("kaiten.public.requests",
-		metric.WithDescription("Requests to the public SDK surface, by credential (pk, kst), route and outcome "+
+		metric.WithDescription("Requests to the public SDK surface, by credential (pk, kst, ksc), route and outcome "+
 			"(ok, refused, unauthenticated, rate_limited, error)"), metric.WithUnit("{request}"))
 	if err != nil {
 		slog.Warn("failed to register a public surface metric", "error", err)
@@ -246,6 +269,60 @@ func (p *PublicMiddleware) session(ctx fiber.Ctx) error {
 		PublishableKeyID: uuid.Nil,
 		Scopes:           nil,
 		Provisioning:     principal.Provisioning{},
+	}))
+	return ctx.Next()
+}
+
+// checkoutSession authenticates one anonymous checkout session's route: a
+// publishable key is the wrong class there, and so is any bearer that is not
+// a ksc_; the ksc_ is resolved, and must be the one of the session the path
+// names -- another session's id answers exactly like an unknown token, so the
+// answer is no existence oracle (INV-36, §14.1 rule 3); a browser Origin must
+// be one the starting key allows; the session's rate is enforced.
+func (p *PublicMiddleware) checkoutSession(ctx fiber.Ctx, pathSessionID string) error {
+	if ctx.Get(PublishableKeyHeader) != "" {
+		return wrongCredentialClass()
+	}
+	plainToken, ok := strings.CutPrefix(ctx.Get(fiber.HeaderAuthorization), "Bearer ")
+	if !ok {
+		return invalidPublicCredential()
+	}
+	plainToken = strings.TrimSpace(plainToken)
+	if !strings.HasPrefix(plainToken, token.PrefixCheckoutSession) {
+		return wrongCredentialClass()
+	}
+	if p.checkouts == nil {
+		return invalidPublicCredential()
+	}
+
+	session, ok, err := p.checkouts.AuthenticateCheckoutSession(ctx.Context(), plainToken)
+	if err != nil {
+		return kaitenerrors.Wrap(err, kaitenerrors.KindInternal, "PublicAuth.Failed", "internal server error")
+	}
+	if !ok {
+		return invalidPublicCredential()
+	}
+	if named, err := uuid.Parse(pathSessionID); err != nil || named != session.ID {
+		return invalidPublicCredential()
+	}
+	if err := checkOrigin(ctx, session.AllowedOrigins, "this checkout session may not be used from this origin"); err != nil {
+		return err
+	}
+	if err := take(p.checkoutLimits, session.ID, p.now(), "too many requests for this checkout session"); err != nil {
+		return err
+	}
+
+	ctx.SetContext(principal.ContextWithPrincipal(ctx.Context(), &principal.Principal{
+		Token:             "",
+		Kind:              principal.KindCheckoutSession,
+		UserID:            uuid.Nil,
+		OrganizationID:    session.OrganizationID,
+		PlatformTokenID:   uuid.Nil,
+		CustomerSession:   nil,
+		PublishableKeyID:  session.PublishableKeyID,
+		CheckoutSessionID: session.ID,
+		Scopes:            nil,
+		Provisioning:      principal.Provisioning{},
 	}))
 	return ctx.Next()
 }

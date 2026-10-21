@@ -89,6 +89,28 @@ func CustomerSession(ctx context.Context) (CustomerSessionCaller, error) {
 	}, nil
 }
 
+// CheckoutSession derives a [CheckoutSessionCaller] from an authenticated
+// request. Every other credential class is refused with the shared
+// wrong-credential answer -- see [Organization].
+func CheckoutSession(ctx context.Context) (CheckoutSessionCaller, error) {
+	i, err := principalOfKind(ctx, principal.KindCheckoutSession)
+	if err != nil {
+		return CheckoutSessionCaller{}, err
+	}
+	if i.CheckoutSessionID == uuid.Nil {
+		// Unreachable from the authenticator; stated so a principal built
+		// without it fails closed.
+		return CheckoutSessionCaller{}, kaitenerrors.Forbidden(principal.ErrCodeWrongCredentialKind,
+			principal.ErrMsgWrongCredentialKind)
+	}
+
+	return CheckoutSessionCaller{
+		organizationID:   i.OrganizationID,
+		sessionID:        i.CheckoutSessionID,
+		publishableKeyID: i.PublishableKeyID,
+	}, nil
+}
+
 // Static is an [OrganizationCaller] for a driver that knows the identity at
 // construction time instead of reading it off a request — the seeder, which
 // seeds as a specific user inside a specific organization.

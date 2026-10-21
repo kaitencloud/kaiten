@@ -789,7 +789,7 @@ func (s *Server) publishableKeyAuthenticator() fiber.Handler {
 	if s.app == nil {
 		return nil
 	}
-	return auth.NewPublic(s.app.PublishableKeyAuthenticator(), s.app.CustomerSessionAuthenticator()).Authorization()
+	return auth.NewPublic(s.app.PublishableKeyAuthenticator(), s.app.CustomerSessionAuthenticator(), s.app.CheckoutSessionAuthenticator()).Authorization()
 }
 
 // IsPublicPlatformAPIPath is IsPublicAPIPath for the internal listener.
