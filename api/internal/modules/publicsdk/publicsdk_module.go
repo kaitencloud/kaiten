@@ -21,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getsessionportal"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
@@ -60,6 +61,7 @@ type UseCases struct {
 
 	CreateSessionCheckout *createsessioncheckout.UseCase
 	CreateCheckoutSession *createcheckoutsession.UseCase
+	GetCheckoutSession    *getcheckoutsession.UseCase
 	ListSessionInvoices   *listsessioninvoices.UseCase
 
 	CreateSessionPaymentMethodSession   *createsessionpaymentmethodsession.UseCase
@@ -132,6 +134,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
 			Turnstile: turnstile.NewClient(svc.Config.Billing.TurnstileVerifyURL),
 		}),
+		GetCheckoutSession:  getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation}),
 		ListSessionInvoices: listsessioninvoices.NewUseCase(from.SessionInvoices),
 
 		CreateSessionPaymentMethodSession:   createsessionpaymentmethodsession.NewUseCase(from.OpenSetup),

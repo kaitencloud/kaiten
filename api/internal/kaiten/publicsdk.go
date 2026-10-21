@@ -205,6 +205,11 @@ func (p PublicSDK) CreateCheckoutSession(ctx context.Context, cl caller.Publisha
 	}, draft)
 }
 
+// GetCheckoutSession reads the session the ksc_ authenticates.
+func (p PublicSDK) GetCheckoutSession(ctx context.Context, cl caller.CheckoutSessionCaller) (*checkout.CheckoutSession, error) {
+	return p.uc.GetCheckoutSession.Execute(ctx, cl.OrganizationID(), cl.SessionID())
+}
+
 func (p PublicSDK) CreateSessionCheckout(ctx context.Context, cl caller.CustomerSessionCaller, request createsessioncheckout.SessionCheckoutOrder) (*createsessioncheckout.SessionCheckout, error) {
 	return p.uc.CreateSessionCheckout.Execute(bindCustomerSession(ctx, cl), createsessioncheckout.Session{
 		CustomerSlug: cl.CustomerSlug(), InstanceSlug: cl.InstanceSlug(), AllowedOrigins: cl.AllowedOrigins(),

@@ -51,7 +51,9 @@ func (q *Queries) AuthenticateCheckoutSession(ctx context.Context, lookupHash st
 
 const getCheckoutSession = `-- name: GetCheckoutSession :one
 SELECT cs.id, cs.organization_id, cs.publishable_key_id, cs.lookup_hash, cs.status, cs.email, cs.client_reference_id, cs.license_price_id, cs.selection, cs.due_today_minor, cs.currency, cs.trial_refused_reason, cs.return_url, cs.external_setup_session_id, cs.setup_completed_at, cs.customer_id, cs.instance_id, cs.created_at, cs.expires_at, cs.completed_at, cs.abandoned_at, cs.expired_at, cs.closed_at, cs.updated_at, lp.billing_period AS price_billing_period, l.slug AS license_slug, l.id AS license_id,
-       c.slug AS customer_slug, i.slug AS instance_slug
+       l.pricing_type AS license_pricing_type, l.requires_payment_method AS license_requires_payment_method,
+       c.slug AS customer_slug, i.slug AS instance_slug,
+       (cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC'))::boolean AS lapsed
 FROM checkout_session cs
 JOIN license_price lp
   ON lp.id = cs.license_price_id
@@ -75,35 +77,38 @@ type GetCheckoutSessionParams struct {
 }
 
 type GetCheckoutSessionRow struct {
-	ID                     uuid.UUID             `json:"id"`
-	OrganizationID         uuid.UUID             `json:"organization_id"`
-	PublishableKeyID       uuid.UUID             `json:"publishable_key_id"`
-	LookupHash             string                `json:"lookup_hash"`
-	Status                 CheckoutSessionStatus `json:"status"`
-	Email                  string                `json:"email"`
-	ClientReferenceID      *string               `json:"client_reference_id"`
-	LicensePriceID         uuid.UUID             `json:"license_price_id"`
-	Selection              []byte                `json:"selection"`
-	DueTodayMinor          int64                 `json:"due_today_minor"`
-	Currency               string                `json:"currency"`
-	TrialRefusedReason     *string               `json:"trial_refused_reason"`
-	ReturnUrl              string                `json:"return_url"`
-	ExternalSetupSessionID *string               `json:"external_setup_session_id"`
-	SetupCompletedAt       pgtype.Timestamp      `json:"setup_completed_at"`
-	CustomerID             *uuid.UUID            `json:"customer_id"`
-	InstanceID             *uuid.UUID            `json:"instance_id"`
-	CreatedAt              pgtype.Timestamp      `json:"created_at"`
-	ExpiresAt              pgtype.Timestamp      `json:"expires_at"`
-	CompletedAt            pgtype.Timestamp      `json:"completed_at"`
-	AbandonedAt            pgtype.Timestamp      `json:"abandoned_at"`
-	ExpiredAt              pgtype.Timestamp      `json:"expired_at"`
-	ClosedAt               pgtype.Timestamp      `json:"closed_at"`
-	UpdatedAt              pgtype.Timestamp      `json:"updated_at"`
-	PriceBillingPeriod     *BillingPeriod        `json:"price_billing_period"`
-	LicenseSlug            string                `json:"license_slug"`
-	LicenseID              uuid.UUID             `json:"license_id"`
-	CustomerSlug           *string               `json:"customer_slug"`
-	InstanceSlug           *string               `json:"instance_slug"`
+	ID                           uuid.UUID             `json:"id"`
+	OrganizationID               uuid.UUID             `json:"organization_id"`
+	PublishableKeyID             uuid.UUID             `json:"publishable_key_id"`
+	LookupHash                   string                `json:"lookup_hash"`
+	Status                       CheckoutSessionStatus `json:"status"`
+	Email                        string                `json:"email"`
+	ClientReferenceID            *string               `json:"client_reference_id"`
+	LicensePriceID               uuid.UUID             `json:"license_price_id"`
+	Selection                    []byte                `json:"selection"`
+	DueTodayMinor                int64                 `json:"due_today_minor"`
+	Currency                     string                `json:"currency"`
+	TrialRefusedReason           *string               `json:"trial_refused_reason"`
+	ReturnUrl                    string                `json:"return_url"`
+	ExternalSetupSessionID       *string               `json:"external_setup_session_id"`
+	SetupCompletedAt             pgtype.Timestamp      `json:"setup_completed_at"`
+	CustomerID                   *uuid.UUID            `json:"customer_id"`
+	InstanceID                   *uuid.UUID            `json:"instance_id"`
+	CreatedAt                    pgtype.Timestamp      `json:"created_at"`
+	ExpiresAt                    pgtype.Timestamp      `json:"expires_at"`
+	CompletedAt                  pgtype.Timestamp      `json:"completed_at"`
+	AbandonedAt                  pgtype.Timestamp      `json:"abandoned_at"`
+	ExpiredAt                    pgtype.Timestamp      `json:"expired_at"`
+	ClosedAt                     pgtype.Timestamp      `json:"closed_at"`
+	UpdatedAt                    pgtype.Timestamp      `json:"updated_at"`
+	PriceBillingPeriod           *BillingPeriod        `json:"price_billing_period"`
+	LicenseSlug                  string                `json:"license_slug"`
+	LicenseID                    uuid.UUID             `json:"license_id"`
+	LicensePricingType           PricingType           `json:"license_pricing_type"`
+	LicenseRequiresPaymentMethod bool                  `json:"license_requires_payment_method"`
+	CustomerSlug                 *string               `json:"customer_slug"`
+	InstanceSlug                 *string               `json:"instance_slug"`
+	Lapsed                       bool                  `json:"lapsed"`
 }
 
 // One session, with what its price says of it.
@@ -138,8 +143,11 @@ func (q *Queries) GetCheckoutSession(ctx context.Context, arg GetCheckoutSession
 		&i.PriceBillingPeriod,
 		&i.LicenseSlug,
 		&i.LicenseID,
+		&i.LicensePricingType,
+		&i.LicenseRequiresPaymentMethod,
 		&i.CustomerSlug,
 		&i.InstanceSlug,
+		&i.Lapsed,
 	)
 	return i, err
 }

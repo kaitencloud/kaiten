@@ -1367,6 +1367,124 @@ components:
         - createdAt
         - updatedAt
       type: object
+    CheckoutPayment:
+      additionalProperties: false
+      properties:
+        hostedInvoiceUrl:
+          type:
+            - string
+            - "null"
+        status:
+          enum:
+            - paid
+            - requires_action
+            - failed
+            - processing
+            - not_required
+          type: string
+      required:
+        - status
+        - hostedInvoiceUrl
+      type: object
+    CheckoutSession:
+      additionalProperties: false
+      properties:
+        activationInvoice:
+          description: Once an ACTIVATION was issued
+          oneOf:
+            - $ref: "#/components/schemas/SessionInvoice"
+            - enum:
+                - null
+              type: "null"
+        addOns:
+          items:
+            $ref: "#/components/schemas/SessionAddonSelection"
+          type: array
+        billingPeriod:
+          type: string
+        clientReferenceId:
+          type:
+            - string
+            - "null"
+        completedAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        createdAt:
+          format: date-time
+          type: string
+        customerSlug:
+          description: Set by the completion
+          type:
+            - string
+            - "null"
+        dueToday:
+          $ref: "#/components/schemas/DueToday"
+          description: The voucher's discount shows as a line; the code itself is never echoed
+        email:
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        instanceSlug:
+          description: Set by the completion
+          type:
+            - string
+            - "null"
+        licenseSlug:
+          type: string
+        payment:
+          oneOf:
+            - $ref: "#/components/schemas/CheckoutPayment"
+            - enum:
+                - null
+              type: "null"
+        priceId:
+          type: string
+        requiresPaymentMethod:
+          type: boolean
+        sessionId:
+          type: string
+        status:
+          description: A session still OPEN after expiresAt reads ABANDONED
+          enum:
+            - OPEN
+            - AWAITING_PAYMENT
+            - COMPLETED
+            - ABANDONED
+            - EXPIRED
+          type: string
+        trialEndsAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        trialRefusedReason:
+          type:
+            - string
+            - "null"
+      required:
+        - sessionId
+        - status
+        - email
+        - clientReferenceId
+        - licenseSlug
+        - billingPeriod
+        - priceId
+        - addOns
+        - dueToday
+        - trialEndsAt
+        - trialRefusedReason
+        - requiresPaymentMethod
+        - expiresAt
+        - customerSlug
+        - instanceSlug
+        - activationInvoice
+        - payment
+        - createdAt
+        - completedAt
+      type: object
     CheckoutSessionDraft:
       additionalProperties: false
       properties:
@@ -10332,6 +10450,18 @@ components:
           minimum: 0
           type: integer
       required:
+        - quantity
+      type: object
+    SessionAddonSelection:
+      additionalProperties: false
+      properties:
+        addonSlug:
+          type: string
+        quantity:
+          format: int32
+          type: integer
+      required:
+        - addonSlug
         - quantity
       type: object
     SessionBoost:
@@ -25018,6 +25148,73 @@ paths:
       security:
         - publishableKey: []
       summary: Start an anonymous checkout
+      tags:
+        - public
+  /public/checkout-sessions/{sessionId}:
+    get:
+      description: "The session its ksc_ was minted for: its status, what it bought and what is due, and, once completed, the customer and instance created. A session still OPEN after expiresAt reads ABANDONED. The token keeps reading it for 24 h after it closed, then answers 401 PublicAuth.InvalidCredential."
+      operationId: getCheckoutSession
+      parameters:
+        - description: The session the ksc_ was minted for; another one answers 401
+          in: path
+          name: sessionId
+          required: true
+          schema:
+            description: The session the ksc_ was minted for; another one answers 401
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutSession"
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - checkoutSession: []
+      summary: Read an anonymous checkout session
       tags:
         - public
   /public/session/addons/{addonSlug}:

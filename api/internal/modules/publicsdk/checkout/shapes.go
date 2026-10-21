@@ -3,10 +3,12 @@ package checkout
 import (
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // TrialRefusedAlreadyConsumed is why a checkout went on without the
@@ -46,8 +48,8 @@ type CheckoutSessionStart struct {
 	Token                 *string           `json:"token,omitempty" doc:"open only: the session's ksc_, returned once. Keep it in memory and sessionStorage, never in a URL."`
 	ExpiresAt             *time.Time        `json:"expiresAt,omitempty" doc:"open only: 24 h after the start"`
 	DueToday              sessions.DueToday `json:"dueToday"`
-	TrialEndsAt           *time.Time        `json:"trialEndsAt" nullable:"true" doc:"The end of the trial the subscription would start with; null without one"`
-	TrialRefusedReason    *string           `json:"trialRefusedReason" nullable:"true" doc:"ALREADY_CONSUMED: a customer with this e-mail already had a trial of the family, so none is given; null otherwise"`
+	TrialEndsAt           *time.Time        `json:"trialEndsAt" doc:"The end of the trial the subscription would start with; null without one"`
+	TrialRefusedReason    *string           `json:"trialRefusedReason" doc:"ALREADY_CONSUMED: a customer with this e-mail already had a trial of the family, so none is given; null otherwise"`
 	RequiresPaymentMethod bool              `json:"requiresPaymentMethod" doc:"Whether the confirm will send the visitor to a payment-method setup page"`
 }
 
@@ -60,7 +62,7 @@ type SessionAddonSelection struct {
 // CheckoutPayment is how paying the session's ACTIVATION invoice went.
 type CheckoutPayment struct {
 	Status           string  `json:"status" enum:"paid,requires_action,failed,processing,not_required"`
-	HostedInvoiceURL *string `json:"hostedInvoiceUrl" nullable:"true"`
+	HostedInvoiceURL *string `json:"hostedInvoiceUrl"`
 }
 
 // CheckoutSession is one anonymous checkout as its ksc_ reads it (§14.8).
@@ -68,22 +70,22 @@ type CheckoutSession struct {
 	SessionID             uuid.UUID                `json:"sessionId"`
 	Status                string                   `json:"status" enum:"OPEN,AWAITING_PAYMENT,COMPLETED,ABANDONED,EXPIRED" doc:"A session still OPEN after expiresAt reads ABANDONED"`
 	Email                 string                   `json:"email"`
-	ClientReferenceID     *string                  `json:"clientReferenceId" nullable:"true"`
+	ClientReferenceID     *string                  `json:"clientReferenceId"`
 	LicenseSlug           string                   `json:"licenseSlug"`
 	BillingPeriod         string                   `json:"billingPeriod"`
 	PriceID               uuid.UUID                `json:"priceId"`
 	AddOns                []SessionAddonSelection  `json:"addOns" nullable:"false"`
 	DueToday              sessions.DueToday        `json:"dueToday" doc:"The voucher's discount shows as a line; the code itself is never echoed"`
-	TrialEndsAt           *time.Time               `json:"trialEndsAt" nullable:"true"`
-	TrialRefusedReason    *string                  `json:"trialRefusedReason" nullable:"true"`
+	TrialEndsAt           *time.Time               `json:"trialEndsAt"`
+	TrialRefusedReason    *string                  `json:"trialRefusedReason"`
 	RequiresPaymentMethod bool                     `json:"requiresPaymentMethod"`
 	ExpiresAt             time.Time                `json:"expiresAt"`
-	CustomerSlug          *string                  `json:"customerSlug" nullable:"true" doc:"Set by the completion"`
-	InstanceSlug          *string                  `json:"instanceSlug" nullable:"true" doc:"Set by the completion"`
-	ActivationInvoice     *sessions.SessionInvoice `json:"activationInvoice" nullable:"true" doc:"Once an ACTIVATION was issued"`
-	Payment               *CheckoutPayment         `json:"payment" nullable:"true"`
+	CustomerSlug          *string                  `json:"customerSlug" doc:"Set by the completion"`
+	InstanceSlug          *string                  `json:"instanceSlug" doc:"Set by the completion"`
+	ActivationInvoice     *sessions.SessionInvoice `json:"activationInvoice" doc:"Once an ACTIVATION was issued"`
+	Payment               *CheckoutPayment         `json:"payment"`
 	CreatedAt             time.Time                `json:"createdAt"`
-	CompletedAt           *time.Time               `json:"completedAt" nullable:"true"`
+	CompletedAt           *time.Time               `json:"completedAt"`
 }
 
 // Selection is the JSON a session stores of what its start priced: no
@@ -107,4 +109,18 @@ type SelectedAddon struct {
 type SelectedVoucher struct {
 	VoucherID uuid.UUID `json:"voucherId"`
 	Code      string    `json:"code"`
+}
+
+// TransformSchema publishes the shapes' absent members as null (§13.15:
+// member|null), the ones that reference another schema included.
+func (CheckoutSessionStart) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, CheckoutSessionStart{})
+}
+
+func (CheckoutSession) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, CheckoutSession{})
+}
+
+func (CheckoutPayment) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, CheckoutPayment{})
 }

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
@@ -46,6 +47,18 @@ func startCheckout(t *testing.T, key string, body map[string]any) *http.Response
 func startProblem(t *testing.T, key string, body map[string]any, status int) kaitenerrors.Problem {
 	t.Helper()
 	return commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, startCheckout(t, key, body), status)
+}
+
+// readCheckout reads a session with a ksc_, from the storefront.
+func readCheckout(t *testing.T, sessionID, ksc string) *http.Response {
+	t.Helper()
+	req := commonfixture.NewJSONRequest(t, "GET", checkoutSessionsPath+"/"+sessionID, nil)
+	req.Header.Set("Authorization", "Bearer "+ksc)
+	req.Header.Set("Origin", storefront)
+	resp, err := testServer.App.Test(req, fiber.TestConfig{Timeout: 30 * time.Second})
+	require.NoError(t, err)
+	t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
+	return resp
 }
 
 func countCheckoutSessions(t *testing.T) int {
@@ -126,4 +139,33 @@ func TestCheckoutSessionStart(t *testing.T) {
 	require.Equal(t, community.Slug, started[0]["licenseSlug"])
 	require.Equal(t, "OPEN", started[0]["status"])
 	require.Nil(t, started[0]["customerSlug"])
+
+	// The ksc_ reads its own session, and nothing else.
+	id := opened.SessionID.String()
+	resp = readCheckout(t, id, *opened.Token)
+	require.Equal(t, "no-store", resp.Header.Get("Cache-Control"))
+	read := commonfixture.AssertJSONResponse[checkout.CheckoutSession](t, resp, fiber.StatusOK)
+	require.Equal(t, checkout.StatusOpen, read.Status)
+	require.Equal(t, "Visitor@Example.com", read.Email)
+	require.Equal(t, community.Slug, read.LicenseSlug)
+	require.Equal(t, "MONTHLY", read.BillingPeriod)
+	require.Equal(t, free.ID, read.PriceID)
+	require.Empty(t, read.AddOns)
+	require.Nil(t, read.CustomerSlug)
+	require.Nil(t, read.CompletedAt)
+	require.False(t, read.RequiresPaymentMethod)
+	require.Equal(t, fiber.StatusUnauthorized, readCheckout(t, uuid.NewString(), *opened.Token).StatusCode, "another session's id")
+	require.Equal(t, fiber.StatusUnauthorized, readCheckout(t, id, "ksc_unknown").StatusCode)
+	req := commonfixture.NewJSONRequest(t, "GET", checkoutSessionsPath+"/"+id, nil)
+	req.Header.Set("X-Kaiten-Publishable-Key", key.Key)
+	wrong, err := testServer.App.Test(req, fiber.TestConfig{Timeout: 30 * time.Second})
+	require.NoError(t, err)
+	require.Equal(t, fiber.StatusForbidden, wrong.StatusCode, "a publishable key is the wrong class here")
+
+	// Past its 24 h, an OPEN session reads ABANDONED before the job marks it.
+	_, err = testServer.Dependencies.DB.Exec(t.Context(),
+		`UPDATE checkout_session SET created_at = created_at - interval '25 hours', expires_at = expires_at - interval '25 hours' WHERE id = $1`, id)
+	require.NoError(t, err)
+	lapsed := commonfixture.AssertJSONResponse[checkout.CheckoutSession](t, readCheckout(t, id, *opened.Token), fiber.StatusOK)
+	require.Equal(t, checkout.StatusAbandoned, lapsed.Status)
 }

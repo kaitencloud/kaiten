@@ -68,7 +68,9 @@ RETURNING *;
 -- name: GetCheckoutSession :one
 -- One session, with what its price says of it.
 SELECT cs.*, lp.billing_period AS price_billing_period, l.slug AS license_slug, l.id AS license_id,
-       c.slug AS customer_slug, i.slug AS instance_slug
+       l.pricing_type AS license_pricing_type, l.requires_payment_method AS license_requires_payment_method,
+       c.slug AS customer_slug, i.slug AS instance_slug,
+       (cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC'))::boolean AS lapsed
 FROM checkout_session cs
 JOIN license_price lp
   ON lp.id = cs.license_price_id
