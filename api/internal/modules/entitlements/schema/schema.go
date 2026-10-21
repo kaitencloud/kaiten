@@ -77,7 +77,7 @@ type Entitlement struct {
 	// ResetAnchor is required exactly when ResetPeriod is set, defaults to
 	// CALENDAR when omitted while enabling a reset period, and is immutable
 	// once set, for the same one-way-door reason as ResetPeriod.
-	ResetAnchor *period.ResetAnchor `json:"resetAnchor,omitempty" doc:"Phase of the periodic usage window: CALENDAR (UTC calendar-aligned) or LICENSE_START (phased off the instance's license start date). Required exactly when resetPeriod is set; defaults to CALENDAR when omitted. Immutable once set." enum:"CALENDAR,LICENSE_START" example:"CALENDAR"`
+	ResetAnchor *period.ResetAnchor `json:"resetAnchor,omitempty" doc:"Phase of the periodic usage window: CALENDAR (UTC calendar-aligned), LICENSE_START (phased off the instance's license start date) or BILLING_PERIOD (phased off the instance's live subscription's billing anchor, LICENSE_START without one; with resetPeriod MONTH or YEAR only). Required exactly when resetPeriod is set; defaults to CALENDAR when omitted. Immutable once set." enum:"CALENDAR,LICENSE_START,BILLING_PERIOD" example:"CALENDAR"`
 
 	CreatedAt time.Time `json:"createdAt" readOnly:"true" example:"2023-10-01T12:00:00Z" doc:"Timestamp when this entitlement was created"`
 	UpdatedAt time.Time `json:"updatedAt" readOnly:"true" example:"2023-10-02T12:00:00Z" doc:"Timestamp when this entitlement was last updated"`

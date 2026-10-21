@@ -33,19 +33,21 @@ func (p ResetPeriod) Valid() bool {
 }
 
 // ResetAnchor determines the phase of a periodic usage window: aligned to
-// the UTC calendar (Calendar) or phased off the instance's license start
-// date (LicenseStart).
+// the UTC calendar (Calendar), phased off the instance's license start date
+// (LicenseStart), or off its live subscription's billing anchor
+// (BillingPeriod, V32-04).
 type ResetAnchor string
 
 const (
-	Calendar     ResetAnchor = "CALENDAR"
-	LicenseStart ResetAnchor = "LICENSE_START"
+	Calendar      ResetAnchor = "CALENDAR"
+	LicenseStart  ResetAnchor = "LICENSE_START"
+	BillingPeriod ResetAnchor = "BILLING_PERIOD"
 )
 
 // Valid reports whether a is one of the supported anchors.
 func (a ResetAnchor) Valid() bool {
 	switch a {
-	case Calendar, LicenseStart:
+	case Calendar, LicenseStart, BillingPeriod:
 		return true
 	default:
 		return false
@@ -118,6 +120,12 @@ func windowContaining(t time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnc
 	case Calendar:
 		return calendarWindow(t, resetPeriod)
 	case LicenseStart:
+		return licenseStartWindow(t, resetPeriod, licenseStart)
+	case BillingPeriod:
+		// LICENSE_START's windows are BILLING_PERIOD's without a live
+		// subscription (INV-39). Following a live subscription's anchor_at
+		// comes with the report path that reads it under the pair's lock
+		// (Δ32-6.1); until then every instance gets these.
 		return licenseStartWindow(t, resetPeriod, licenseStart)
 	default:
 		return Window{}, fmt.Errorf("period: unsupported reset anchor %q", resetAnchor)

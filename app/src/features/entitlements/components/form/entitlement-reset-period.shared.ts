@@ -15,7 +15,11 @@ export const RESET_PERIOD_VALUES = [
   'YEAR',
 ] as const;
 
-export const RESET_ANCHOR_VALUES = ['CALENDAR', 'LICENSE_START'] as const;
+export const RESET_ANCHOR_VALUES = [
+  'CALENDAR',
+  'LICENSE_START',
+  'BILLING_PERIOD',
+] as const;
 
 export const resetPeriodSchema = z.enum(RESET_PERIOD_VALUES);
 export const resetAnchorSchema = z.enum(RESET_ANCHOR_VALUES);

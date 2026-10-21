@@ -1,6 +1,7 @@
 package entitlements_test
 
 import (
+	"net/http"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -11,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
+	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -167,6 +169,47 @@ func createPeriodicEntitlement(t *testing.T, slug string, resetPeriod period.Res
 	defer commonfixture.MustCloseBody(t, resp.Body)
 
 	return ptr.To(commonfixture.AssertJSONResponse[schema.Entitlement](t, resp, fiber.StatusCreated))
+}
+
+// TestEntitlement_BillingPeriodAnchor: BILLING_PERIOD is accepted with MONTH
+// or YEAR, on create and when a lifetime entitlement adopts its reset period;
+// any other cadence answers 422 .InvalidResetAnchor (V32-04).
+func TestEntitlement_BillingPeriodAnchor(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	post := func(payload any) *http.Response {
+		t.Helper()
+		resp, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "POST", "/api/entitlements", payload), fiber.TestConfig{})
+		require.NoError(t, err)
+		t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
+		return resp
+	}
+
+	created := commonfixture.AssertJSONResponse[schema.Entitlement](t, post(schema.Entitlement{
+		Name: "API calls", Type: ptr.To(schema.Number), AggregationMethod: ptr.To(schema.Sum),
+		ResetPeriod: ptr.To(period.Month), ResetAnchor: ptr.To(period.BillingPeriod),
+	}), fiber.StatusCreated)
+	require.Equal(t, period.BillingPeriod, *created.ResetAnchor)
+
+	refused := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, post(schema.Entitlement{
+		Name: "Daily calls", Type: ptr.To(schema.Number), AggregationMethod: ptr.To(schema.Sum),
+		ResetPeriod: ptr.To(period.Day), ResetAnchor: ptr.To(period.BillingPeriod),
+	}), fiber.StatusUnprocessableEntity)
+	require.Equal(t, "CreateEntitlement.InvalidResetAnchor", refused.Code)
+
+	lifetime := createNumberEntitlement(t, "adopts-billing-period")
+	put := func(resetPeriod string) *http.Response {
+		t.Helper()
+		resp, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "PUT", "/api/entitlements/"+lifetime.Slug, map[string]any{
+			"name": lifetime.Name, "description": "", "aggregationMethod": "SUM",
+			"resetPeriod": resetPeriod, "resetAnchor": "BILLING_PERIOD",
+		}), fiber.TestConfig{})
+		require.NoError(t, err)
+		t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
+		return resp
+	}
+	require.Equal(t, "UpdateEntitlement.InvalidResetAnchor",
+		commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, put("WEEK"), fiber.StatusUnprocessableEntity).Code)
+	require.Equal(t, fiber.StatusNoContent, put("YEAR").StatusCode)
 }
 
 func TestUpdateEntitlement_ResetPeriod(t *testing.T) {

@@ -203,6 +203,7 @@ func TestResetAnchor_Valid(t *testing.T) {
 	}{
 		{Calendar, true},
 		{LicenseStart, true},
+		{BillingPeriod, true},
 		{ResetAnchor(""), false},
 		{ResetAnchor("SOLSTICE"), false},
 		{ResetAnchor("calendar"), false},
@@ -213,6 +214,24 @@ func TestResetAnchor_Valid(t *testing.T) {
 				t.Errorf("ResetAnchor(%q).Valid() = %v, want %v", tc.anchor, got, tc.want)
 			}
 		})
+	}
+}
+
+// TestCurrent_BillingPeriodWithoutSubscription: BILLING_PERIOD's windows are
+// LICENSE_START's while no live subscription's anchor is read (INV-39).
+func TestCurrent_BillingPeriodWithoutSubscription(t *testing.T) {
+	now := mustParse(t, "2026-03-20T10:00:00Z")
+	licenseStart := mustParse(t, "2026-01-15T09:00:00Z")
+	want, err := Current(now, Month, LicenseStart, licenseStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := Current(now, Month, BillingPeriod, licenseStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("Current(BILLING_PERIOD) = %v, want LICENSE_START's %v", got, want)
 	}
 }
 

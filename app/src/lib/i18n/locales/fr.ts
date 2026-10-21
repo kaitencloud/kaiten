@@ -2906,6 +2906,7 @@ export default {
       ResetAnchors: {
         CALENDAR: 'Calendrier',
         LICENSE_START: 'Date de début de licence',
+        BILLING_PERIOD: 'Date de facturation',
       },
     },
     FeatureFlags: {

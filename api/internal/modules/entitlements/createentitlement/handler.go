@@ -2,6 +2,7 @@ package createentitlement
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -89,7 +90,9 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 	}
 	if err := schema.ValidateResetConfiguration(
 		request.Type, resolvedAggregationMethod, request.ResetPeriod, resolvedResetAnchor,
-	); err != nil {
+	); errors.Is(err, schema.ErrBillingPeriodCadence) {
+		return nil, kaitenerrors.UnprocessableEntity("CreateEntitlement.InvalidResetAnchor", err.Error())
+	} else if err != nil {
 		return nil, kaitenerrors.Validation("CreateEntitlement.InvalidResetConfiguration", err.Error())
 	}
 

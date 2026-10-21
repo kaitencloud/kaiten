@@ -2358,10 +2358,11 @@ components:
           minLength: 1
           type: string
         resetAnchor:
-          description: "Phase of the periodic usage window: CALENDAR (UTC calendar-aligned) or LICENSE_START (phased off the instance's license start date). Required exactly when resetPeriod is set; defaults to CALENDAR when omitted. Immutable once set."
+          description: "Phase of the periodic usage window: CALENDAR (UTC calendar-aligned), LICENSE_START (phased off the instance's license start date) or BILLING_PERIOD (phased off the instance's live subscription's billing anchor, LICENSE_START without one; with resetPeriod MONTH or YEAR only). Required exactly when resetPeriod is set; defaults to CALENDAR when omitted. Immutable once set."
           enum:
             - CALENDAR
             - LICENSE_START
+            - BILLING_PERIOD
           examples:
             - CALENDAR
           type: string
