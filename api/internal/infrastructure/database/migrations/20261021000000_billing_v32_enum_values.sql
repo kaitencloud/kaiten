@@ -98,4 +98,3 @@ ALTER TABLE "voucher_entitlement_grant"
   ADD CONSTRAINT "voucher_entitlement_grant_voucher_id_fkey" FOREIGN KEY ("voucher_id", "voucher_type", "organization_id")
     REFERENCES "voucher" ("id", "voucher_type", "organization_id") ON DELETE CASCADE ON UPDATE CASCADE;
 -- +goose StatementEnd
-

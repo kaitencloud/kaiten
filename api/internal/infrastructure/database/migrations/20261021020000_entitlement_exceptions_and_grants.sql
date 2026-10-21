@@ -254,4 +254,3 @@ ALTER TABLE "feature_flags" DROP CONSTRAINT IF EXISTS "feature_flags_id_organiza
 
 DROP TABLE IF EXISTS "instance_entitlement_exception";
 -- +goose StatementEnd
-

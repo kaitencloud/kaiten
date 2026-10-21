@@ -289,4 +289,3 @@ ALTER TABLE "publishable_key"
   DROP COLUMN IF EXISTS "turnstile_site_key",
   DROP COLUMN IF EXISTS "anonymous_checkout";
 -- +goose StatementEnd
-
