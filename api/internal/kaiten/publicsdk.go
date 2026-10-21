@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatecustomersession"
@@ -34,6 +35,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
+	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
@@ -43,12 +45,13 @@ import (
 //
 // See Customers for the naming and argument-order convention.
 type PublicSDK struct {
-	uc *publicsdk.UseCases
+	uc  *publicsdk.UseCases
+	org *organization.UseCases
 }
 
 // PublicSDK returns the public SDK surface.
 func (k *Kaiten) PublicSDK() PublicSDK {
-	return PublicSDK{uc: k.modules.PublicSDK}
+	return PublicSDK{uc: k.modules.PublicSDK, org: k.modules.Organization}
 }
 
 func (p PublicSDK) CreatePublishableKey(ctx context.Context, cl caller.OrganizationCaller, draft createpublishablekey.PublishableKeyDraft) (*keys.PublishableKeyCreated, error) {
@@ -203,6 +206,21 @@ func (p PublicSDK) CreateCheckoutSession(ctx context.Context, cl caller.Publisha
 	return p.uc.CreateCheckoutSession.Execute(ctx, createcheckoutsession.Start{
 		OrganizationID: cl.OrganizationID(), PublishableKeyID: cl.KeyID(), RemoteIP: cl.ClientAddress(),
 	}, draft)
+}
+
+// ConfirmCheckoutSession completes the session the ksc_ authenticates. No
+// vendor principal stands behind an anonymous checkout: what the completion
+// writes is system:kaiten's (§13.12).
+func (p PublicSDK) ConfirmCheckoutSession(ctx context.Context, cl caller.CheckoutSessionCaller) (*checkout.CheckoutConfirmation, error) {
+	actorID, err := p.org.SystemActor.SystemActorInOrganization(ctx, cl.OrganizationID(), platformidentity.ExternalID)
+	if err != nil {
+		return nil, err
+	}
+	ctx, err = bindSystem(ctx, actorID, cl.OrganizationID())
+	if err != nil {
+		return nil, err
+	}
+	return p.uc.ConfirmCheckoutSession.Execute(ctx, cl.OrganizationID(), cl.SessionID())
 }
 
 // GetCheckoutSession reads the session the ksc_ authenticates.

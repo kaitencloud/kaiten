@@ -102,7 +102,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 		return nil, err
 	}
 	free := plan.PricingType == "FREE"
-	if err := checkPlan(ctx, u.deps.Catalog, start.OrganizationID, catalog, plan, price, draft.AddOns, free); err != nil {
+	if err := CheckPlan(ctx, operation, u.deps.Catalog, start.OrganizationID, catalog, plan, price, draft.AddOns, free); err != nil {
 		return nil, err
 	}
 	if draft.Email != nil {
@@ -253,6 +253,18 @@ func (u *UseCase) verifyTurnstile(ctx context.Context, start Start, key db.GetPu
 	return nil
 }
 
+// FindPrice is the public plan and the ACTIVE price priceID names.
+func FindPrice(catalog *getpubliccatalog.PublicCatalog, priceID uuid.UUID) (getpubliccatalog.PublicPlan, getpubliccatalog.PublicPrice, bool) {
+	for _, plan := range catalog.Plans {
+		for _, price := range plan.Prices {
+			if price.ID == priceID.String() {
+				return plan, price, true
+			}
+		}
+	}
+	return getpubliccatalog.PublicPlan{}, getpubliccatalog.PublicPrice{}, false
+}
+
 // selectPrice is the plan and price the draft names: priceId, or licenseSlug
 // with billingPeriod for that version's default ACTIVE FLAT_FEE price of the
 // period (§14.8 rule 2).
@@ -278,24 +290,25 @@ func selectPrice(catalog *getpubliccatalog.PublicCatalog, draft checkout.Checkou
 		"this is not an ACTIVE price of a plan in the public catalogue")
 }
 
-// checkPlan applies the Tier 3 checks under this use case (§14.8 rule 2).
-func checkPlan(ctx context.Context, catalogue *getpubliccatalog.UseCase, organizationID uuid.UUID, catalog *getpubliccatalog.PublicCatalog,
+// CheckPlan applies the Tier 3 checks under op (§14.8 rule 2): the start's,
+// and the confirm's re-validation of the stored selection.
+func CheckPlan(ctx context.Context, op string, catalogue *getpubliccatalog.UseCase, organizationID uuid.UUID, catalog *getpubliccatalog.PublicCatalog,
 	plan getpubliccatalog.PublicPlan, price getpubliccatalog.PublicPrice, wanted []subscribeinstance.SubscriptionAddon, free bool,
 ) error {
 	if price.BillingModel != "FLAT_FEE" {
-		return kaitenerrors.UnprocessableEntity(operation+".PriceNotFlatFee", "a subscription is bought on a flat-fee price; metered prices come with it")
+		return kaitenerrors.UnprocessableEntity(op+".PriceNotFlatFee", "a subscription is bought on a flat-fee price; metered prices come with it")
 	}
 	if plan.PricingType == "CUSTOM" {
-		return kaitenerrors.UnprocessableEntity(operation+".NotSelfServe", "this plan is priced on request: send the visitor to its selfServeCtaUrl")
+		return kaitenerrors.UnprocessableEntity(op+".NotSelfServe", "this plan is priced on request: send the visitor to its selfServeCtaUrl")
 	}
 	for _, w := range wanted {
 		i := slices.IndexFunc(catalog.AddOns, func(a getpubliccatalog.PublicAddOn) bool { return a.AddonSlug == w.AddonSlug })
 		if i < 0 || !slices.Contains(catalog.AddOns[i].CompatibleLicenseFamilies, plan.FamilySlug) {
-			return kaitenerrors.UnprocessableEntityf(operation+".AddonNotPublic", "%q is not a public add-on that fits this plan", w.AddonSlug)
+			return kaitenerrors.UnprocessableEntityf(op+".AddonNotPublic", "%q is not a public add-on that fits this plan", w.AddonSlug)
 		}
 		addon := catalog.AddOns[i]
 		if w.Quantity < 0 || (addon.MaxQuantity != nil && w.Quantity > *addon.MaxQuantity) {
-			return kaitenerrors.UnprocessableEntityf(operation+".QuantityExceedsMax", "between 1 and the add-on's maximum of %q", w.AddonSlug)
+			return kaitenerrors.UnprocessableEntityf(op+".QuantityExceedsMax", "between 1 and the add-on's maximum of %q", w.AddonSlug)
 		}
 		for _, p := range addon.Prices {
 			if p.BillingModel != "FLAT_FEE" || p.BillingPeriod == nil || price.BillingPeriod == nil || *p.BillingPeriod != *price.BillingPeriod {
@@ -303,16 +316,16 @@ func checkPlan(ctx context.Context, catalogue *getpubliccatalog.UseCase, organiz
 			}
 			if amount, err := decimal.NewFromString(p.UnitAmountDecimal); free && (err != nil || amount.IsPositive()) {
 				// A FREE plan subscribes on NOOP, which charges nothing.
-				return kaitenerrors.UnprocessableEntityf(operation+".AddonNotPublic", "%q is not free, and this plan charges nothing", w.AddonSlug)
+				return kaitenerrors.UnprocessableEntityf(op+".AddonNotPublic", "%q is not free, and this plan charges nothing", w.AddonSlug)
 			}
 			if p.Currency != price.Currency {
-				return kaitenerrors.UnprocessableEntityf(operation+".CurrencyMismatch", "%q is not priced in %s", w.AddonSlug, price.Currency)
+				return kaitenerrors.UnprocessableEntityf(op+".CurrencyMismatch", "%q is not priced in %s", w.AddonSlug, price.Currency)
 			}
 		}
 	}
 	if plan.PricingType == "PAID" {
 		if _, captures := catalogue.CapturingProvider(ctx, organizationID); !captures {
-			return kaitenerrors.UnprocessableEntity(operation+".ProviderCannotCapturePayment",
+			return kaitenerrors.UnprocessableEntity(op+".ProviderCannotCapturePayment",
 				"no billing provider that captures payment methods is connected: a paid plan cannot be checked out")
 		}
 	}

@@ -1367,6 +1367,28 @@ components:
         - createdAt
         - updatedAt
       type: object
+    CheckoutConfirmation:
+      additionalProperties: false
+      properties:
+        session:
+          $ref: "#/components/schemas/CheckoutSession"
+        setupExpiresAt:
+          description: requires_payment_method only
+          format: date-time
+          type: string
+        setupUrl:
+          description: "requires_payment_method only: the hosted page that saves the payment method"
+          type: string
+        status:
+          enum:
+            - requires_payment_method
+            - awaiting_payment
+            - completed
+          type: string
+      required:
+        - status
+        - session
+      type: object
     CheckoutPayment:
       additionalProperties: false
       properties:
@@ -25215,6 +25237,91 @@ paths:
       security:
         - checkoutSession: []
       summary: Read an anonymous checkout session
+      tags:
+        - public
+  /public/checkout-sessions/{sessionId}/confirm:
+    post:
+      description: "Completes the session when nothing has to be captured -- a FREE plan, a trial on a plan that needs no payment method, nothing due -- creating the customer, the instance and the subscription in one transaction: status=completed. Otherwise answers status=requires_payment_method with a hosted setup page, keeps the ksc_ across its redirect, and completes on the next confirm: awaiting_payment while the first invoice is charged, completed once paid. No body. 403 .AnonymousCheckoutDisabled; 409 .SessionClosed (errors[0].value.status), .DueTodayChanged, .EntitlementLimitReached; 422 .PriceNotPublic, .AddonNotPublic, .FallbackRequired, .ProviderCannotCapturePayment, .VoucherInvalid; 503 .ProviderUnavailable (Retry-After), Entitlement.VerificationUnavailable."
+      operationId: confirmCheckoutSession
+      parameters:
+        - description: The session the ksc_ was minted for; another one answers 401
+          in: path
+          name: sessionId
+          required: true
+          schema:
+            description: The session the ksc_ was minted for; another one answers 401
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckoutConfirmation"
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+            Vary:
+              schema:
+                type: string
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - checkoutSession: []
+      summary: Confirm an anonymous checkout
       tags:
         - public
   /public/session/addons/{addonSlug}:

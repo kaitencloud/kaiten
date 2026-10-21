@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"sync"
@@ -60,6 +61,12 @@ func TestMain(m *testing.M) {
 		panic("failed to setup test database: " + err.Error())
 	}
 	fake = stripefake.Start()
+	// Every Turnstile token passes, solved on the storefront.
+	turnstile := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"success":true,"hostname":"app.acme.test"}`))
+	}))
+	defer turnstile.Close()
 
 	testServer = tests.NewTestServer(testDb, tests.TestServerOptions{
 		ConfigOverride: func(cfg *config.Config) {
@@ -72,6 +79,7 @@ func TestMain(m *testing.M) {
 			cfg.Billing.Push.MaxBackoff = 200 * time.Millisecond
 			cfg.Billing.Push.AlertAfterAttempts = 2
 			cfg.Billing.AutoCollectionGrace = 2 * time.Hour
+			cfg.Billing.TurnstileVerifyURL = turnstile.URL
 		},
 		ConnectorEntitlements: entitlements,
 		Stripe:                billingstripe.Options{BaseURL: fake.URL(), HTTPClient: fake.Client()},

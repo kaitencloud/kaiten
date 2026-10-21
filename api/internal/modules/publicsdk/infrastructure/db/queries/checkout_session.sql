@@ -86,3 +86,48 @@ LEFT JOIN instance i
  AND i.organization_id = cs.organization_id
 WHERE cs.organization_id = sqlc.arg(organization_id)
   AND cs.id = sqlc.arg(id);
+
+
+-- name: LockCheckoutSession :one
+-- The completion's first statement (§9.12 rule 4, step 1): the session row,
+-- locked, before every row the completion creates.
+SELECT *
+FROM checkout_session
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+FOR UPDATE;
+
+
+-- name: CompleteCheckoutSession :one
+-- A completion with nothing due: COMPLETED, closed, with what it created.
+UPDATE checkout_session
+SET status       = 'COMPLETED',
+    customer_id  = sqlc.arg(customer_id),
+    instance_id  = sqlc.arg(instance_id),
+    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+RETURNING *;
+
+
+-- name: RepriceCheckoutSession :exec
+-- The confirm found the trial consumed meanwhile, before any setup: the
+-- session goes on without it, at the amount recomposed (§14.8 confirm rule 1).
+UPDATE checkout_session
+SET trial_refused_reason = sqlc.narg(trial_refused_reason),
+    selection            = sqlc.arg(selection),
+    due_today_minor      = sqlc.arg(due_today_minor),
+    updated_at           = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+  AND setup_completed_at IS NULL;
+
+
+-- name: LockTrialEmail :exec
+-- One trial per e-mail and family, under concurrency (INV-35, §24 #79): the
+-- completion that may start a trial serializes on (organization, e-mail).
+SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg(organization_id)::text || ':' || lower(sqlc.arg(email)::text), 0));

@@ -169,3 +169,64 @@ func TestCheckoutSessionStart(t *testing.T) {
 	lapsed := commonfixture.AssertJSONResponse[checkout.CheckoutSession](t, readCheckout(t, id, *opened.Token), fiber.StatusOK)
 	require.Equal(t, checkout.StatusAbandoned, lapsed.Status)
 }
+
+// confirmCheckout confirms a session with its ksc_, from the storefront.
+func confirmCheckout(t *testing.T, sessionID, ksc string) *http.Response {
+	t.Helper()
+	req := commonfixture.NewJSONRequest(t, "POST", checkoutSessionsPath+"/"+sessionID+"/confirm", nil)
+	req.Header.Set("Authorization", "Bearer "+ksc)
+	req.Header.Set("Origin", storefront)
+	resp, err := testServer.App.Test(req, fiber.TestConfig{Timeout: 30 * time.Second})
+	require.NoError(t, err)
+	t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
+	return resp
+}
+
+// TestCheckoutSessionFreePlan: an anonymous checkout of a FREE plan
+// completes at its first confirm, with no provider at all: one transaction
+// creates the customer, the instance on the plan's version and a NOOP
+// subscription, and closes the session COMPLETED (§9.12 rule 8).
+func TestCheckoutSessionFreePlan(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	community := newDefaultVersion(t, "Community", "FREE")
+	makePublic(t, community.FamilySlug)
+	free := createPrice(t, community.Slug, defaultFlatFee("0", "MONTHLY"))
+	key := anonymousKey(t)
+	opened := commonfixture.AssertJSONResponse[checkout.CheckoutSessionStart](t, startCheckout(t, key.Key, map[string]any{
+		"turnstileToken": "pass:app.acme.test", "priceId": free.ID, "email": "visitor@example.com",
+		"returnUrl": storefront + "/welcome", "clientReferenceId": "lead-7",
+	}), fiber.StatusCreated)
+	id := opened.SessionID.String()
+
+	resp := confirmCheckout(t, id, *opened.Token)
+	require.Equal(t, "no-store", resp.Header.Get("Cache-Control"))
+	done := commonfixture.AssertJSONResponse[checkout.CheckoutConfirmation](t, resp, fiber.StatusOK)
+	require.Equal(t, checkout.ConfirmCompleted, done.Status)
+	require.Nil(t, done.SetupURL)
+	require.Equal(t, checkout.StatusCompleted, done.Session.Status)
+	require.NotNil(t, done.Session.CustomerSlug)
+	require.NotNil(t, done.Session.InstanceSlug)
+	require.NotNil(t, done.Session.CompletedAt)
+
+	customer := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/customers/"+*done.Session.CustomerSlug, nil), fiber.StatusOK)
+	require.Equal(t, "visitor@example.com", customer["billingEmail"], "the e-mail becomes the billing e-mail at completion")
+	instance := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/instances/"+*done.Session.InstanceSlug, nil), fiber.StatusOK)
+	require.Equal(t, community.ID.String(), instance["licenseId"], "nothing due: the plan's own version")
+	billing := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/instances/"+*done.Session.InstanceSlug+"/billing", nil), fiber.StatusOK)
+	require.Equal(t, "ACTIVE", billing["status"])
+	require.Equal(t, "NOOP", billing["providerKind"], "a FREE plan bills through no provider")
+
+	completed := outboxPayloads(t, "CHECKOUT_SESSION_COMPLETED")
+	require.Len(t, completed, 1)
+	require.Equal(t, *done.Session.CustomerSlug, completed[0]["customerSlug"])
+	require.Equal(t, *done.Session.InstanceSlug, completed[0]["instanceSlug"])
+	require.Equal(t, "lead-7", completed[0]["clientReferenceId"])
+	require.Equal(t, "COMPLETED", completed[0]["status"])
+
+	again := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, confirmCheckout(t, id, *opened.Token), fiber.StatusConflict)
+	require.Equal(t, "ConfirmCheckoutSession.SessionClosed", again.Code)
+	require.Equal(t, "COMPLETED", again.Errors[0].Value.(map[string]any)["status"])
+	read := commonfixture.AssertJSONResponse[checkout.CheckoutSession](t, readCheckout(t, id, *opened.Token), fiber.StatusOK)
+	require.Equal(t, checkout.StatusCompleted, read.Status, "the ksc_ still reads it after it closed")
+	require.Len(t, outboxPayloads(t, "CHECKOUT_SESSION_COMPLETED"), 1, "completed once")
+}

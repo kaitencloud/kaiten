@@ -136,6 +136,19 @@ func (h *UseCase) EnforceCreationLimit(ctx context.Context, orgID uuid.UUID, slu
 	return err
 }
 
+// Persist creates the customer, with a slug derived from its name, in the
+// transaction ctx carries, and enforces no creation limit: its caller, an
+// anonymous checkout's completion, enforced it before its transaction, which
+// makes no outside call (§9.12 rules 3 and 9). The slug is not retried: a
+// conflict aborts the caller's transaction anyway.
+func (h *UseCase) Persist(ctx context.Context, orgID, userID uuid.UUID, command *Command) (*schema.Customer, error) {
+	slug, err := slugutil.GenerateUnique(command.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate slug: %w", err)
+	}
+	return h.persistCustomer(ctx, orgID, userID, command, slug)
+}
+
 func (h *UseCase) recordRejectedCreation(ctx context.Context, orgID uuid.UUID, name, slug string) {
 	event := outbox.NewOutboxMessage(
 		orgID,

@@ -124,3 +124,18 @@ func (CheckoutSession) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Sc
 func (CheckoutPayment) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 	return nullable.Pointers(s, CheckoutPayment{})
 }
+
+// Confirmation statuses.
+const (
+	ConfirmRequiresPaymentMethod = "requires_payment_method"
+	ConfirmAwaitingPayment       = "awaiting_payment"
+	ConfirmCompleted             = "completed"
+)
+
+// CheckoutConfirmation is what a confirm answers (§14.8).
+type CheckoutConfirmation struct {
+	Status         string          `json:"status" enum:"requires_payment_method,awaiting_payment,completed"`
+	SetupURL       *string         `json:"setupUrl,omitempty" doc:"requires_payment_method only: the hosted page that saves the payment method"`
+	SetupExpiresAt *time.Time      `json:"setupExpiresAt,omitempty" doc:"requires_payment_method only"`
+	Session        CheckoutSession `json:"session"`
+}

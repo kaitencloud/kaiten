@@ -15,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/authenticatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/confirmcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
@@ -59,10 +60,11 @@ type UseCases struct {
 	// on one checkout session's routes (V32-01).
 	AuthenticateCheckoutSession *authenticatecheckoutsession.UseCase
 
-	CreateSessionCheckout *createsessioncheckout.UseCase
-	CreateCheckoutSession *createcheckoutsession.UseCase
-	GetCheckoutSession    *getcheckoutsession.UseCase
-	ListSessionInvoices   *listsessioninvoices.UseCase
+	CreateSessionCheckout  *createsessioncheckout.UseCase
+	CreateCheckoutSession  *createcheckoutsession.UseCase
+	GetCheckoutSession     *getcheckoutsession.UseCase
+	ConfirmCheckoutSession *confirmcheckoutsession.UseCase
+	ListSessionInvoices    *listsessioninvoices.UseCase
 
 	CreateSessionPaymentMethodSession   *createsessionpaymentmethodsession.UseCase
 	CompleteSessionPaymentMethodSession *completesessionpaymentmethodsession.UseCase
@@ -79,27 +81,32 @@ type UseCases struct {
 // is a subscribe made on a customer's behalf, and what a session lists is
 // billing's invoices. The modules that own them implement them.
 type Ports struct {
-	Subscriber      createsessioncheckout.Subscriber
-	Activation      createcheckoutsession.Activation
-	CustomerBilling createsessioncheckout.CustomerBillingReader
-	OpenSetup       createsessioncheckout.SetupSessionOpener
-	CompleteSetup   createsessioncheckout.SetupSessionCompleter
-	Invoices        createsessioncheckout.InvoiceReader
-	BillingEmails   createsessioncheckout.BillingEmailSetter
-	SessionInvoices listsessioninvoices.Invoices
-	OpenPortal      createsessionportalsession.Opener
-	Cancel          cancelsessionsubscription.Canceler
-	Reactivate      reactivatesessionsubscription.Reactivator
-	Vouchers        validatesessionvoucher.Validator
-	AddonList       setsessionaddonquantity.Lister
-	AddonAttach     setsessionaddonquantity.Attacher
-	AddonQuantity   setsessionaddonquantity.QuantitySetter
-	AddonDetach     setsessionaddonquantity.Detacher
-	Subscription    getsessionportal.SubscriptionReader
-	Checkout        getsessionportal.CheckoutChecker
-	UpcomingInvoice getsessionportal.UpcomingInvoiceReader
-	Entitlements    getsessionportal.EntitlementReader
-	Redemptions     getsessionportal.VoucherReader
+	Subscriber createsessioncheckout.Subscriber
+	Activation createcheckoutsession.Activation
+	// The completion of an anonymous checkout creates a customer and an
+	// instance, then subscribes it (§9.12).
+	CheckoutCustomers  confirmcheckoutsession.CustomerCreator
+	CheckoutInstances  confirmcheckoutsession.InstanceCreator
+	CheckoutSubscriber confirmcheckoutsession.Subscriber
+	CustomerBilling    createsessioncheckout.CustomerBillingReader
+	OpenSetup          createsessioncheckout.SetupSessionOpener
+	CompleteSetup      createsessioncheckout.SetupSessionCompleter
+	Invoices           createsessioncheckout.InvoiceReader
+	BillingEmails      createsessioncheckout.BillingEmailSetter
+	SessionInvoices    listsessioninvoices.Invoices
+	OpenPortal         createsessionportalsession.Opener
+	Cancel             cancelsessionsubscription.Canceler
+	Reactivate         reactivatesessionsubscription.Reactivator
+	Vouchers           validatesessionvoucher.Validator
+	AddonList          setsessionaddonquantity.Lister
+	AddonAttach        setsessionaddonquantity.Attacher
+	AddonQuantity      setsessionaddonquantity.QuantitySetter
+	AddonDetach        setsessionaddonquantity.Detacher
+	Subscription       getsessionportal.SubscriptionReader
+	Checkout           getsessionportal.CheckoutChecker
+	UpcomingInvoice    getsessionportal.UpcomingInvoiceReader
+	Entitlements       getsessionportal.EntitlementReader
+	Redemptions        getsessionportal.VoucherReader
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -134,7 +141,12 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
 			Turnstile: turnstile.NewClient(svc.Config.Billing.TurnstileVerifyURL),
 		}),
-		GetCheckoutSession:  getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation}),
+		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation}),
+		ConfirmCheckoutSession: confirmcheckoutsession.NewUseCase(confirmcheckoutsession.Deps{
+			UserProvider: svc.UserProvider, Uof: svc.Uof, Catalog: catalog, Activation: from.Activation,
+			Customers: from.CheckoutCustomers, Instances: from.CheckoutInstances, Subscriber: from.CheckoutSubscriber,
+			UsageReporter: svc.UsageReporter,
+		}),
 		ListSessionInvoices: listsessioninvoices.NewUseCase(from.SessionInvoices),
 
 		CreateSessionPaymentMethodSession:   createsessionpaymentmethodsession.NewUseCase(from.OpenSetup),

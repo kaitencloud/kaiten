@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
@@ -574,17 +575,57 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 			return "", err
 		}
 	}
+	// A subscribe that joins its caller's transaction makes no provider call
+	// in it (INV-03, §9.12 rule 9): the caller links the provider customer
+	// itself, in its transaction after a setup or with
+	// EnsureProviderCustomer after its commit.
+	if u.deps.Uof.InTransaction(ctx) {
+		return kind, nil
+	}
+	if err := ensureCustomer(ctx, q, conn, organizationID, customer, u.deps.ProviderTimeout); err != nil {
+		return "", err
+	}
+	return kind, nil
+}
+
+// EnsureProviderCustomer creates the provider customer of the instance's
+// customer, and links it, when the provider pushes invoices and has none
+// yet: what a subscribe that joined its caller's transaction skipped (§9.12
+// rule 5). Idempotent; outside any transaction.
+func (u *UseCase) EnsureProviderCustomer(ctx context.Context, organizationID uuid.UUID, instanceSlug, providerKind string) error {
+	q := u.deps.Queries(ctx)
+	conn, err := providers.Connect(ctx, u.deps.Providers, organizationID, db.BillingProviderKind(providerKind))
+	if err != nil {
+		return providers.APIError(operation, err)
+	}
+	if !conn.Adapter.Capabilities().PushesInvoices {
+		return nil
+	}
+	instance, err := q.GetInstanceBySlug(ctx, db.GetInstanceBySlugParams{OrganizationID: organizationID, Slug: instanceSlug})
+	if err != nil {
+		return err
+	}
+	customer, err := q.GetBillingCustomer(ctx, db.GetBillingCustomerParams{OrganizationID: organizationID, ID: instance.CustomerID})
+	if err != nil {
+		return err
+	}
+	return ensureCustomer(ctx, q, conn, organizationID, customer, u.deps.ProviderTimeout)
+}
+
+func ensureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connection, organizationID uuid.UUID,
+	customer db.GetBillingCustomerRow, timeout time.Duration,
+) error {
 	clock, err := q.BillingClock(ctx)
 	if err != nil {
-		return "", err
+		return err
 	}
 	email := ""
 	if customer.BillingEmail != nil {
 		email = *customer.BillingEmail
 	}
 	if _, err := providers.EnsureCustomer(ctx, q, conn, organizationID,
-		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, u.deps.ProviderTimeout, clock.Time.UTC()); err != nil {
-		return "", providers.APIError(operation, err)
+		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, timeout, clock.Time.UTC()); err != nil {
+		return providers.APIError(operation, err)
 	}
-	return kind, nil
+	return nil
 }

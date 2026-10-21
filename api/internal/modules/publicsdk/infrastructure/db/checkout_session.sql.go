@@ -49,6 +49,65 @@ func (q *Queries) AuthenticateCheckoutSession(ctx context.Context, lookupHash st
 	return i, err
 }
 
+const completeCheckoutSession = `-- name: CompleteCheckoutSession :one
+UPDATE checkout_session
+SET status       = 'COMPLETED',
+    customer_id  = $1,
+    instance_id  = $2,
+    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $3
+  AND id = $4
+  AND status = 'OPEN'
+RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+`
+
+type CompleteCheckoutSessionParams struct {
+	CustomerID     *uuid.UUID `json:"customer_id"`
+	InstanceID     *uuid.UUID `json:"instance_id"`
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	ID             uuid.UUID  `json:"id"`
+}
+
+// A completion with nothing due: COMPLETED, closed, with what it created.
+func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error) {
+	row := q.db.QueryRow(ctx, completeCheckoutSession,
+		arg.CustomerID,
+		arg.InstanceID,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	var i CheckoutSession
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PublishableKeyID,
+		&i.LookupHash,
+		&i.Status,
+		&i.Email,
+		&i.ClientReferenceID,
+		&i.LicensePriceID,
+		&i.Selection,
+		&i.DueTodayMinor,
+		&i.Currency,
+		&i.TrialRefusedReason,
+		&i.ReturnUrl,
+		&i.ExternalSetupSessionID,
+		&i.SetupCompletedAt,
+		&i.CustomerID,
+		&i.InstanceID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.CompletedAt,
+		&i.AbandonedAt,
+		&i.ExpiredAt,
+		&i.ClosedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getCheckoutSession = `-- name: GetCheckoutSession :one
 SELECT cs.id, cs.organization_id, cs.publishable_key_id, cs.lookup_hash, cs.status, cs.email, cs.client_reference_id, cs.license_price_id, cs.selection, cs.due_today_minor, cs.currency, cs.trial_refused_reason, cs.return_url, cs.external_setup_session_id, cs.setup_completed_at, cs.customer_id, cs.instance_id, cs.created_at, cs.expires_at, cs.completed_at, cs.abandoned_at, cs.expired_at, cs.closed_at, cs.updated_at, lp.billing_period AS price_billing_period, l.slug AS license_slug, l.id AS license_id,
        l.pricing_type AS license_pricing_type, l.requires_payment_method AS license_requires_payment_method,
@@ -252,6 +311,102 @@ func (q *Queries) InsertCheckoutSession(ctx context.Context, arg InsertCheckoutS
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const lockCheckoutSession = `-- name: LockCheckoutSession :one
+SELECT id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+FROM checkout_session
+WHERE organization_id = $1
+  AND id = $2
+FOR UPDATE
+`
+
+type LockCheckoutSessionParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+// The completion's first statement (§9.12 rule 4, step 1): the session row,
+// locked, before every row the completion creates.
+func (q *Queries) LockCheckoutSession(ctx context.Context, arg LockCheckoutSessionParams) (CheckoutSession, error) {
+	row := q.db.QueryRow(ctx, lockCheckoutSession, arg.OrganizationID, arg.ID)
+	var i CheckoutSession
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PublishableKeyID,
+		&i.LookupHash,
+		&i.Status,
+		&i.Email,
+		&i.ClientReferenceID,
+		&i.LicensePriceID,
+		&i.Selection,
+		&i.DueTodayMinor,
+		&i.Currency,
+		&i.TrialRefusedReason,
+		&i.ReturnUrl,
+		&i.ExternalSetupSessionID,
+		&i.SetupCompletedAt,
+		&i.CustomerID,
+		&i.InstanceID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.CompletedAt,
+		&i.AbandonedAt,
+		&i.ExpiredAt,
+		&i.ClosedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const lockTrialEmail = `-- name: LockTrialEmail :exec
+SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || lower($2::text), 0))
+`
+
+type LockTrialEmailParams struct {
+	OrganizationID string `json:"organization_id"`
+	Email          string `json:"email"`
+}
+
+// One trial per e-mail and family, under concurrency (INV-35, §24 #79): the
+// completion that may start a trial serializes on (organization, e-mail).
+func (q *Queries) LockTrialEmail(ctx context.Context, arg LockTrialEmailParams) error {
+	_, err := q.db.Exec(ctx, lockTrialEmail, arg.OrganizationID, arg.Email)
+	return err
+}
+
+const repriceCheckoutSession = `-- name: RepriceCheckoutSession :exec
+UPDATE checkout_session
+SET trial_refused_reason = $1,
+    selection            = $2,
+    due_today_minor      = $3,
+    updated_at           = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $4
+  AND id = $5
+  AND status = 'OPEN'
+  AND setup_completed_at IS NULL
+`
+
+type RepriceCheckoutSessionParams struct {
+	TrialRefusedReason *string   `json:"trial_refused_reason"`
+	Selection          []byte    `json:"selection"`
+	DueTodayMinor      int64     `json:"due_today_minor"`
+	OrganizationID     uuid.UUID `json:"organization_id"`
+	ID                 uuid.UUID `json:"id"`
+}
+
+// The confirm found the trial consumed meanwhile, before any setup: the
+// session goes on without it, at the amount recomposed (§14.8 confirm rule 1).
+func (q *Queries) RepriceCheckoutSession(ctx context.Context, arg RepriceCheckoutSessionParams) error {
+	_, err := q.db.Exec(ctx, repriceCheckoutSession,
+		arg.TrialRefusedReason,
+		arg.Selection,
+		arg.DueTodayMinor,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	return err
 }
 
 const trialConsumedByEmail = `-- name: TrialConsumedByEmail :one
