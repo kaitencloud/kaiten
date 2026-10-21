@@ -100,14 +100,20 @@ func assertEveryOperationDeclaresItsScope(t *testing.T, oapi *huma.OpenAPI, expe
 		require.NotEmpty(t, op.Security, "%s %s (%s) declares no security requirement", method, path, op.OperationID)
 
 		// The public SDK surface takes credentials that carry no scope -- a
-		// publishable key on /public, a customer session on /public/session --
-		// and each declares its scheme alone, on its paths and only there.
+		// publishable key on /public, a customer session on /public/session,
+		// an anonymous checkout session on /public/checkout-sessions/{sessionId}
+		// -- and each declares its scheme alone, on its paths and only there.
 		onSessionPath := strings.HasPrefix(path, kaitenhuma.SessionPathPrefix+"/")
-		onPublicPath := strings.HasPrefix(path, kaitenhuma.PublicPathPrefix+"/") && !onSessionPath
+		onCheckoutSessionPath := strings.HasPrefix(path, kaitenhuma.CheckoutSessionsPath+"/{sessionId}")
+		onPublicPath := strings.HasPrefix(path, kaitenhuma.PublicPathPrefix+"/") && !onSessionPath && !onCheckoutSessionPath
 		for _, surface := range []struct {
 			scheme string
 			on     bool
-		}{{kaitenhuma.PublishableKeyAuth, onPublicPath}, {kaitenhuma.CustomerSessionAuth, onSessionPath}} {
+		}{
+			{kaitenhuma.PublishableKeyAuth, onPublicPath},
+			{kaitenhuma.CustomerSessionAuth, onSessionPath},
+			{kaitenhuma.CheckoutSessionAuth, onCheckoutSessionPath},
+		} {
 			scopes, declared := op.Security[0][surface.scheme]
 			require.Equal(t, surface.on, declared,
 				"%s %s: the %s scheme belongs to its own public paths and only to them", method, path, surface.scheme)
@@ -117,7 +123,7 @@ func assertEveryOperationDeclaresItsScope(t *testing.T, oapi *huma.OpenAPI, expe
 				require.Empty(t, scopes, "%s %s: a public credential carries no scope to require", method, path)
 			}
 		}
-		if onPublicPath || onSessionPath {
+		if onPublicPath || onSessionPath || onCheckoutSessionPath {
 			return
 		}
 
