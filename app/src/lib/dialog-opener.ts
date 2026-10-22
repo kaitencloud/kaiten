@@ -13,8 +13,9 @@ export type Opener = {
 };
 
 // How long after a close the focus is watched, and how soon the title of the page is accepted
-// when the control that opened the dialog is nowhere to be found.
-const WATCH_MS = 800;
+// when the control that opened the dialog is nowhere to be found. The watch is long enough for a
+// slow browser to finish the navigation that closes a route dialog and draw the page again.
+const WATCH_MS = 2500;
 const TITLE_AFTER_MS = 100;
 
 const DIALOG =
@@ -56,11 +57,27 @@ function describe(element: Element | null): Opener | null {
 let lastUsed: Opener | null = null;
 let stopTracking: (() => void) | null = null;
 
+const FIELD = 'input, select, textarea, [contenteditable="true"]';
+
 function noteUse(target: EventTarget | null) {
   if (!(target instanceof Element) || target.closest(DIALOG)) {
     return;
   }
   lastUsed = describe(target.closest(CONTROL));
+}
+
+// The focus also moves without the person: the app or the browser may give it to a heading or
+// a region after a navigation. Only a control or a field the focus reaches counts as a use.
+function noteFocus(target: EventTarget | null) {
+  if (!(target instanceof Element) || target.closest(DIALOG)) {
+    return;
+  }
+  const control = target.closest(CONTROL);
+  if (control) {
+    lastUsed = describe(control);
+  } else if (target.matches(FIELD)) {
+    lastUsed = null;
+  }
 }
 
 /**
@@ -73,10 +90,11 @@ export function trackLastUsedControl(): () => void {
     return stopTracking;
   }
   const onUse = (event: Event) => noteUse(event.target);
-  document.addEventListener('focusin', onUse, true);
+  const onFocus = (event: Event) => noteFocus(event.target);
+  document.addEventListener('focusin', onFocus, true);
   document.addEventListener('pointerdown', onUse, true);
   stopTracking = () => {
-    document.removeEventListener('focusin', onUse, true);
+    document.removeEventListener('focusin', onFocus, true);
     document.removeEventListener('pointerdown', onUse, true);
     lastUsed = null;
     stopTracking = null;
@@ -90,7 +108,15 @@ export function trackLastUsedControl(): () => void {
  * focus, or else the control the person used last.
  */
 export function captureOpener(): Opener | null {
-  return describe(document.activeElement) ?? lastUsed;
+  // Only a control counts: some browsers leave the focus on whatever region was clicked, which
+  // is not what the person used to open the dialog.
+  const active = document.activeElement;
+  const control =
+    active instanceof Element
+      ? (active.closest(CONTROL) ?? (active.matches(FIELD) ? active : null))
+      : null;
+
+  return describe(control) ?? lastUsed;
 }
 
 const isUsable = (element: HTMLElement) =>
@@ -144,6 +170,10 @@ export function keepFocusAfterClose(opener: Opener | null) {
   window.addEventListener('keydown', onAct, { capture: true, once: true });
   window.addEventListener('pointerdown', onAct, { capture: true, once: true });
 
+  // The title the watch gave the focus to while the opener was missing: when the page draws
+  // the opener after all, the focus moves on to it.
+  let fallback: HTMLElement | null = null;
+
   const tick = () => {
     const elapsed = performance.now() - start;
     if (acted || elapsed > WATCH_MS) {
@@ -152,10 +182,16 @@ export function keepFocusAfterClose(opener: Opener | null) {
 
       return;
     }
-    if (isFocusLost()) {
-      (
-        findOpener(opener) ?? (elapsed > TITLE_AFTER_MS ? findTitle() : null)
-      )?.focus();
+    const onFallback = fallback !== null && document.activeElement === fallback;
+    if (isFocusLost() || onFallback) {
+      const found = findOpener(opener);
+      if (found) {
+        found.focus();
+        fallback = null;
+      } else if (!onFallback && elapsed > TITLE_AFTER_MS) {
+        fallback = findTitle();
+        fallback?.focus();
+      }
     }
     requestAnimationFrame(tick);
   };

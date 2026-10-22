@@ -132,6 +132,31 @@ describe('trackLastUsedControl', () => {
     expect(captureOpener()?.label).toBe('New Customer');
   });
 
+  it('takes a field that holds the focus as what opened the dialog', () => {
+    page('<input aria-label="Name" />');
+    (document.querySelector('input') as HTMLInputElement).focus();
+
+    expect(captureOpener()).toEqual({ href: null, label: 'Name', tag: 'INPUT' });
+  });
+
+  it('forgets it when the focus reaches a field', () => {
+    page('<button>Add</button><input aria-label="Name" />');
+    pointerDown(document.querySelector('button') as HTMLElement);
+    const input = document.querySelector('input') as HTMLInputElement;
+    input.focus();
+    input.blur();
+
+    expect(captureOpener()).toBeNull();
+  });
+
+  it('takes the control used last when what holds the focus is not a control', () => {
+    page('<a href="/customers/new">New Customer</a><main tabindex="-1">List</main>');
+    pointerDown(link('New Customer'));
+    (document.querySelector('main') as HTMLElement).focus();
+
+    expect(captureOpener()?.label).toBe('New Customer');
+  });
+
   it('prefers what holds the focus to what was used before', () => {
     page('<a href="/a">First</a><button>Second</button>');
     pointerDown(link('First'));
@@ -202,6 +227,21 @@ describe('keepFocusAfterClose', () => {
     expect(document.activeElement).toBe(document.querySelector('h1'));
   });
 
+  it('moves from the title to the opener when a slow page draws it late', () => {
+    page('<a href="/customers/new">New Customer</a>');
+    const opener = captureOpenerOf(link('New Customer'));
+    page('<main><h1>Customers</h1></main>');
+
+    keepFocusAfterClose(opener);
+    frame(200);
+    expect(document.activeElement).toBe(document.querySelector('h1'));
+
+    frame(1000);
+    page('<main><h1>Customers</h1><a href="/customers/new">New Customer</a></main>');
+    frame();
+    expect(document.activeElement).toBe(link('New Customer'));
+  });
+
   it('takes the title when it has no opener at all', () => {
     page('<main><h1>Acme Corp</h1></main>');
 
@@ -235,7 +275,7 @@ describe('keepFocusAfterClose', () => {
   it('stops watching after a moment', () => {
     page('<main></main>');
     keepFocusAfterClose(null);
-    frame(1000);
+    frame(3000);
 
     page('<main><h1>Late</h1></main>');
     frame(100);
