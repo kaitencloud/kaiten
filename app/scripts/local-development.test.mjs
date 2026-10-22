@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { localUrl, options, privateOutput, requestSummary, capture } from './local-browser.mjs';
+import { localUrl, options, privateOutput, requestSummary, capture, preflightDevtoolsPort, verifyDevtoolsSession as verifySession, devtoolsTargets, loopbackDevtoolsWebsocket } from './local-browser.mjs';
 import { configuration } from './local-dev.mjs';
+const ownedVersion = async () => ({ webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/browser/owned-browser' });
+const verifyDevtoolsSession = (context, page, port, timeout, discover) =>
+  verifySession(context, page, port, timeout, discover, ownedVersion);
 
 test('only local app URLs and bounded capture timeouts are accepted', () => {
   assert.equal(localUrl('http://127.0.0.1:3102/customers').port, '3102');
@@ -120,4 +123,163 @@ test('frontend SIGTERM closes its owned process group and removes temporary conf
     if (descendant) { try { process.kill(descendant, 'SIGKILL'); } catch {} }
     rmSync(root, { recursive: true, force: true });
   }
+});
+
+
+test('DevTools port is explicit, nonprivileged and interactive only; defaults stay unchanged', () => {
+  const url = 'http://localhost:3000';
+  assert.equal(options([url]).devtoolsPort, undefined);
+  assert.equal(options([url, '--interactive', '--devtools-port', '9222']).devtoolsPort, 9222);
+  for (const port of ['0', '1023', '65536', '-1', 'NaN', '9222.5', '9e3', '0x2406', '', ' 9222'])
+    assert.throws(() => options([url, '--interactive', '--devtools-port', port]));
+  assert.throws(() => options([url, '--devtools-port', '9222']), /requires --interactive/);
+  assert.throws(() => options([url, '--headed', '--devtools-port', '9222']), /requires --interactive/);
+  assert.throws(() => options([url, '--interactive', '--devtools-port']));
+  assert.throws(() => options([url, '--unknown']));
+});
+
+test('DevTools preflight checks both loopback families without connecting to listeners', async () => {
+  const { EventEmitter } = await import('node:events');
+  const hosts = [];
+  const factory = (errorHost) => () => {
+    const probe = new EventEmitter();
+    probe.listen = ({ host, port, exclusive }, done) => {
+      hosts.push(host);
+      assert.equal(port, 9222);
+      assert.equal(exclusive, true);
+      if (host === errorHost) probe.emit('error', { code: 'EADDRINUSE' });
+      else done();
+    };
+    probe.close = done => done?.();
+    return probe;
+  };
+  await preflightDevtoolsPort(9222, 1000, factory());
+  assert.deepEqual(hosts, ['127.0.0.1', '::1']);
+  await assert.rejects(() => preflightDevtoolsPort(9222, 1000, factory('127.0.0.1')), /unavailable/);
+  await assert.rejects(() => preflightDevtoolsPort(9222, 1000, factory('::1')), /unavailable/);
+});
+
+test('DevTools discovery must match the unique target from the owned Playwright connection', async () => {
+  let detached = 0;
+  const context = { async newCDPSession() { return {
+    async send(method) { assert.equal(method, 'Target.getTargetInfo'); return { targetInfo: { targetId: 'owned', url: 'about:blank#unique' } }; },
+    async detach() { detached++; },
+  }; } };
+  const discover = async (port, timeout) => {
+    assert.equal(port, 9222); assert.equal(timeout, 1000);
+    return [{ type: 'page', id: 'owned', url: 'about:blank#unique', webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/page/owned' }];
+  };
+  await verifyDevtoolsSession(context, {}, 9222, 1000, discover);
+  for (const targets of [[], {}, [{ type: 'page', id: 'foreign', url: 'about:blank#unique' }],
+    [{ type: 'page', id: 'owned', url: 'about:blank#foreign' }]])
+    await assert.rejects(() => verifyDevtoolsSession(context, {}, 9222, 1000, async () => targets), /not the owned/);
+  await assert.rejects(() => verifyDevtoolsSession(context, {}, 9222, 1000, async () => { throw new Error('timeout'); }), /timeout/);
+  assert.equal(detached, 6);
+  for (const endpoint of ['ws://0.0.0.0:9222/devtools/page/owned', 'ws://example.com:9222/devtools/page/owned',
+    'ws://127.0.0.1:9333/devtools/page/owned', 'wss://127.0.0.1:9222/devtools/page/owned',
+    'ws://user:secret@127.0.0.1:9222/devtools/page/owned', 'ws://127.0.0.1:9222/devtools/page/foreign',
+    'ws://127.0.0.1:9222/devtools/page/owned?token=secret', undefined])
+    await assert.rejects(() => verifyDevtoolsSession(context, {}, 9222, 1000, async () => [{
+      type: 'page', id: 'owned', url: 'about:blank#unique', webSocketDebuggerUrl: endpoint,
+    }]), /not the owned/);
+});
+
+test('interactive DevTools uses installed Chrome and removes its isolated profile on failure', async () => {
+  const parent = mkdtempSync(resolve(tmpdir(), 'local-devtools-fixture-'));
+  let profile, closed = 0, launches = 0;
+  // No browser or listener starts: inject the preflight by running a fixture copy.
+  const { copyFileSync, writeFileSync } = await import('node:fs');
+  const script = resolve(parent, 'fixture.mjs');
+  copyFileSync(new URL('./local-browser.mjs', import.meta.url), script);
+  writeFileSync(script, readFileSync(script, 'utf8').replace(
+    'await preflightDevtoolsPort(values.devtoolsPort, values.timeout);', '/* fixture: no listener */').replace(
+      'await verifyDevtoolsSession(context, page, values.devtoolsPort, values.timeout);',
+      'await verifyDevtoolsSession(context, page, values.devtoolsPort, values.timeout, async () => [{type: "page", id: "owned", url: page.url(), webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/page/owned"}], async () => ({webSocketDebuggerUrl: "ws://127.0.0.1:9222/devtools/browser/owned-browser"}));'));
+  const fixture = await import(new URL('file://' + script));
+  const chromium = { async launchPersistentContext(path, opts) {
+    profile = path; launches++;
+    assert.equal(existsSync(profile), true);
+    assert.equal(opts.channel, 'chrome'); assert.equal(opts.headless, false); assert.equal(opts.chromiumSandbox, true);
+    assert.equal(opts.timeout, 1000); assert.equal(opts.serviceWorkers, 'block');
+    assert.deepEqual(opts.args, ['--remote-debugging-port=9222', '--remote-debugging-address=127.0.0.1']);
+    return { browser: () => ({}), async close() { closed++; }, async newPage() { throw new Error('synthetic page failure'); } };
+  }, async launchServer() { assert.fail('must not launch Playwright server'); }, async connect() { assert.fail('must not attach a foreign browser'); } };
+  try {
+    await assert.rejects(() => fixture.capture({ url: 'http://localhost:3000', interactive: true,
+      devtoolsPort: 9222, output: parent, timeout: 1000 }, chromium), /synthetic page failure/);
+    assert.equal(launches, 1); assert.equal(closed, 1); assert.equal(existsSync(profile), false);
+    await assert.rejects(() => fixture.capture({ url: 'http://localhost:3000', interactive: true,
+      devtoolsPort: 9222, output: parent, timeout: 1000 }, { async launchPersistentContext(path) {
+        profile = path; throw new Error('Chrome not installed');
+      } }), /Chrome not installed/);
+    assert.equal(existsSync(profile), false);
+    const { EventEmitter } = await import('node:events');
+    const page = new EventEmitter();
+    let currentUrl, routes = 0, initialClosed = 0;
+    page.setDefaultTimeout = page.setDefaultNavigationTimeout = () => {};
+    page.url = () => currentUrl;
+    page.goto = async url => {
+      currentUrl = url;
+      if (url.startsWith('http:')) setImmediate(() => { page.closed = true; page.emit('close'); });
+      return { ok: () => true };
+    };
+    page.isClosed = () => !!page.closed;
+    page.locator = () => ({ waitFor: async () => {} });
+    const browser = new EventEmitter();
+    const context = new EventEmitter();
+    context.browser = () => browser;
+    context.close = async () => { closed++; context.emit('close'); };
+    context.newPage = async () => page;
+    context.pages = () => [page, { close: async () => { initialClosed++; } }];
+    context.newCDPSession = async () => ({ send: async () => ({ targetInfo: { targetId: 'owned', url: currentUrl } }), detach: async () => {} });
+    context.route = async (_pattern, handler) => {
+      for (const [url, allowed] of [['http://localhost:3000/api', true], ['https://provider.example', false]])
+        await handler({ request: () => ({ url: () => url }), continue: () => { assert.equal(allowed, true); routes++; },
+          abort: () => { assert.equal(allowed, false); routes++; } });
+    };
+    const result = await fixture.capture({ url: 'http://localhost:3000', interactive: true,
+      devtoolsPort: 9222, output: parent, timeout: 1000 }, { async launchPersistentContext(path) { profile = path; return context; } });
+    assert.equal(result, 0); assert.equal(closed, 2); assert.equal(routes, 2); assert.equal(initialClosed, 1);
+    assert.equal(existsSync(profile), false);
+  } finally { rmSync(parent, { recursive: true, force: true }); }
+});
+
+
+test('DevTools ownership verification is bounded even if the Playwright connection stalls', async () => {
+  await assert.rejects(() => verifyDevtoolsSession({ newCDPSession: () => new Promise(() => {}) }, {}, 9222, 20), /verification timeout/);
+});
+
+test('DevTools discovery is loopback-only, bounded and rejects invalid metadata', async () => {
+  const { EventEmitter } = await import('node:events');
+  const factory = (body, status = 200, stall = false) => (opts, respond) => {
+    assert.deepEqual(opts, { hostname: '127.0.0.1', port: 9222, path: '/json/list', agent: false });
+    const request = new EventEmitter();
+    request.destroy = error => { request.emit('error', error); request.emit('close'); };
+    queueMicrotask(() => {
+      const response = new EventEmitter();
+      response.statusCode = status; response.setEncoding = () => {};
+      respond(response);
+      if (stall === 'abort') { response.emit('aborted'); request.emit('close'); }
+      else if (!stall) { response.emit('data', body); response.emit('end'); request.emit('close'); }
+    });
+    return request;
+  };
+  assert.deepEqual(await devtoolsTargets(9222, 1000, factory('[{"id":"owned"}]')), [{ id: 'owned' }]);
+  await assert.rejects(() => devtoolsTargets(9222, 1000, factory('{}', 302)), /discovery failed/);
+  await assert.rejects(() => devtoolsTargets(9222, 1000, factory('not json')), /Invalid/);
+  await assert.rejects(() => devtoolsTargets(9222, 1000, factory('x'.repeat(65537))), /too large/);
+  await assert.rejects(() => devtoolsTargets(9222, 20, factory('', 200, true)), /discovery timeout/);
+  await assert.rejects(() => devtoolsTargets(9222, 1000, factory('', 200, 'abort')), /response aborted/);
+});
+
+
+test('MCP browser websocket discovery must stay on selected loopback port', async () => {
+  assert.equal(loopbackDevtoolsWebsocket('ws://127.0.0.1:9222/devtools/browser/owned', 9222, /^\/devtools\/browser\/[a-zA-Z0-9-]+$/), true);
+  const context = { newCDPSession: async () => ({ send: async () => ({ targetInfo: { targetId: 'owned', url: 'about:blank#unique' } }), detach: async () => {} }) };
+  const targets = async () => [{ type: 'page', id: 'owned', url: 'about:blank#unique', webSocketDebuggerUrl: 'ws://127.0.0.1:9222/devtools/page/owned' }];
+  for (const endpoint of ['ws://0.0.0.0:9222/devtools/browser/owned', 'ws://external.example:9222/devtools/browser/owned',
+    'ws://127.0.0.1:9333/devtools/browser/owned', 'ws://user:secret@127.0.0.1:9222/devtools/browser/owned',
+    'ws://127.0.0.1:9222/devtools/page/owned', undefined])
+    await assert.rejects(() => verifySession(context, {}, 9222, 1000, targets,
+      async () => ({ webSocketDebuggerUrl: endpoint })), /browser websocket/);
 });

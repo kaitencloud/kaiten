@@ -90,12 +90,111 @@ Ctrl-C; capture writes a fresh `dev/reproductions/capture-*` directory with a pr
 screenshot and bounded console/page/request failure summary. URLs omit queries;
 headers, bodies, raw console text and credentials are not saved. Inspect raw console
 locally when needed. Optional helper arguments: `--wait SELECTOR`, `--timeout MS`,
-`--output DIRECTORY`. Outbound external requests are blocked. Use synthetic actors;
+`--output DIRECTORY`. Application-page outbound external requests are blocked
+(this is not a browser-wide firewall). Use synthetic actors;
 screenshots can still contain visible private data and must not be published.
 
-Reproduce → collect before evidence → add a focused existing regression → make
-the smallest fix → rerun the regression → collect after evidence on the same
-local instance. This is not an audit/issue producer or proof by screenshot alone.
+Agents MUST reproduce with Playwright and pair **before/after screenshot visual
+analysis** with **Chrome DevTools MCP DOM/computed-style, console and network
+evidence in the same browser session**. Record the observed visual difference
+(or no difference), relevant node/style values, redacted console findings and
+bounded request method/path/status/failure metadata. Do not assume an empty
+helper failure summary proves correct DOM, styles or successful network behavior.
+Reproduce → collect both before-evidence kinds → add a focused existing regression
+→ make the smallest fix → rerun the regression → reload the same selected page
+and collect both after-evidence kinds on the same local instance. If a restart
+loses the session, re-establish and document paired evidence, not a silent claim
+of same-session continuity. This is not an audit/issue producer or proof by
+screenshot alone.
+
+### Same-session DevTools attachment (optional helper mode, required agent evidence)
+
+After separately authorized runtime operations and with Playwright and **Google
+Chrome already installed**, keep this terminal open:
+
+```sh
+task browser -- http://localhost:3000/customers --devtools-port 9222
+```
+
+`--devtools-port` requires interactive mode (provided by `task browser`), an
+explicit decimal nonprivileged port in `1024..65535`, and an unused loopback port.
+It is rejected for `task capture`, even with `--headed`. Default browser/capture
+behavior is unchanged: installed Playwright Chromium, no CDP listener. This
+optional mode uses Playwright `channel: 'chrome'`, `launchPersistentContext`, a
+fresh private temporary profile, `chromiumSandbox: true`, and loopback remote debugging; no browser
+install/download, extension or personal profile. `launchServer`'s websocket is
+Playwright's protocol, **not CDP**, so it is deliberately not used in this mode.
+
+The helper first probes both loopback address families without connecting to an
+existing listener, then checks the CDP discovery target against a unique target
+obtained from its owned Playwright connection and validates its advertised page websocket
+as `ws://127.0.0.1:<selected-port>/devtools/page/<owned-target>` before advertising
+attachment. It also validates `/json/version`'s browser websocket (which MCP
+follows from `--browser-url`) as
+`ws://127.0.0.1:<selected-port>/devtools/browser/<id>`. Neither endpoint may include
+an external host, credentials, query, fragment or alternate port. Port
+preflight is not atomic with Chrome launch; a failed ownership check is a blocker,
+never permission to attach to whoever occupies the port. Launch, navigation and
+discovery are bounded by `--timeout MS` (`1000..120000`, default `30000`); the
+interactive reproduction itself intentionally remains open until window close or
+Ctrl-C. Close is bounded to five seconds; the owned profile is removed after
+successful context close (including navigation/verification failure). If cleanup
+fails, the helper reports a blocker: close its owned Chrome window, remove its
+owned temporary profile at the exact path printed in the cleanup error locally, and do not leave MCP attached.
+Never kill an unrelated browser/process or remove a personal profile.
+
+### Manual MCP prerequisite — separately authorized, pinned, no acquisition at runtime
+
+Chrome DevTools MCP is **not a repository dependency or automatically configured**.
+Its confirmed approved version is **1.11.0**. Separately authorize acquiring
+`chrome-devtools-mcp@1.11.0` and configure your MCP client manually to use that
+already-installed `chrome-devtools-mcp` executable. Verify the separately provisioned
+executable reports version `1.11.0` with `chrome-devtools-mcp --version` before
+activation. Never use `@latest`, an unpinned `npx` launcher that may download, or
+an auto-downloading MCP config. Do not change a user profile without permission.
+
+For the approved installed executable, the manual MCP process invocation is:
+
+```sh
+CHROME_DEVTOOLS_MCP_NO_UPDATE_CHECKS=1 CHROME_DEVTOOLS_MCP_NO_CONFIG_DISCOVERY=1 \
+  chrome-devtools-mcp --browser-url=http://127.0.0.1:9222 \
+  --no-usage-statistics --no-performance-crux --redact-network-headers --no-file-navigations
+```
+
+This is activation of the separately provisioned **pinned** executable, not a
+setup/download command. Set both environment variables in the MCP client's process
+environment and all four flags in its arguments: disable usage telemetry, CrUX
+external performance lookup, update checks and user-global config discovery;
+redact network headers and prevent file navigations. Do not enable
+`--autoConnect`, extension-based attachment, a personal Chrome session, another
+browser launch or an externally bound listener. Do not silently drop unsupported
+privacy flags: report an incompatible/unavailable DevTools MCP as a blocker.
+
+Attach only after the helper prints its verified endpoint; use MCP page listing
+to select the exact `http://localhost:3000/customers` page already opened by
+Playwright, not a new page/browser. Use the attached Chrome DevTools MCP `take_screenshot` tool
+for before/after captures (save with `filePath` in a private reproduction directory)
+and **visually inspect both**; inspect the relevant DOM
+nodes and computed style properties, relevant console messages and network
+requests in that same page/session. Keep the terminal/helper open while fixing,
+running the focused regression and reloading the selected page for after evidence.
+`task capture` opens another browser and therefore does **not** supply same-session
+screenshots. Do not attach a Playwright `wsEndpoint()` as `--browser-url`;
+`http://127.0.0.1:9222` is Chrome's HTTP CDP discovery/control endpoint.
+
+The browser URL grants sensitive unauthenticated browser control, even on
+loopback. Do not publish it, tunnel it, expose it on `0.0.0.0`, use it against an
+existing listener, or store it in public artifacts. Use only synthetic local
+actors. Inspect the minimum relevant DOM/style and console/network metadata;
+no broad page/console/network dumps, headers, bodies, tokens, provider credentials
+or personal data in evidence. Screenshots remain private. Detach/stop the MCP
+process when done, close the helper's browser or press Ctrl-C, and verify cleanup.
+
+If installed Chrome, the approved MCP pin/client/tools, authorized runtime or
+same-session attachment is unavailable, report exactly what is blocked and which
+evidence/regression was and was not collected. Fixture tests do not prove live
+Chrome binding, DevTools privacy flags or screenshot/DOM correctness; do not
+claim complete reproduction or substitute screenshot-only analysis.
 
 ## Verification boundary
 

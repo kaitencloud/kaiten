@@ -347,7 +347,7 @@ tasks:
         vars: { LOCAL_AUTH: "false" }
 
   browser:
-    desc: "Interactive fresh browser: task browser -- http://localhost:3000"
+    desc: "Interactive fresh browser: task browser -- http://localhost:3000 [--devtools-port 9222]"
     cmds:
       - node app/scripts/local-browser.mjs --interactive {{.CLI_ARGS}}
 
