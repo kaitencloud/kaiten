@@ -283,6 +283,29 @@ func (q *Queries) InsertPaidInstanceAddon(ctx context.Context, arg InsertPaidIns
 	return id, err
 }
 
+const instanceCheckoutPending = `-- name: InstanceCheckoutPending :one
+SELECT EXISTS (SELECT 1
+               FROM instance_billing ib
+               WHERE ib.organization_id = $1
+                 AND ib.instance_id = $2
+                 AND (ib.status = 'INCOMPLETE' OR ib.pending_license_id IS NOT NULL))::boolean AS pending
+`
+
+type InstanceCheckoutPendingParams struct {
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	InstanceID     *uuid.UUID `json:"instance_id"`
+}
+
+// Whether the instance's subscription waits on its checkout's payment:
+// INCOMPLETE, or a free one carrying a checkout's pending columns (§9.10
+// rules 5 and 6).
+func (q *Queries) InstanceCheckoutPending(ctx context.Context, arg InstanceCheckoutPendingParams) (bool, error) {
+	row := q.db.QueryRow(ctx, instanceCheckoutPending, arg.OrganizationID, arg.InstanceID)
+	var pending bool
+	err := row.Scan(&pending)
+	return pending, err
+}
+
 const listActiveInstanceAddonsByInstances = `-- name: ListActiveInstanceAddonsByInstances :many
 SELECT ia.id, ia.instance_id, ia.addon_id, ia.quantity, ia.created_at,
        a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug

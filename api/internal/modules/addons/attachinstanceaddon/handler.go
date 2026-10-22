@@ -49,6 +49,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewI
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RefuseIncomplete(ctx, q, user.OrganizationID, instance.ID, operation); err != nil {
+			return err
+		}
 		addon, err := q.GetAddonBySlug(ctx, db.GetAddonBySlugParams{OrganizationID: user.OrganizationID, Slug: command.AddonSlug})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return kaitenerrors.NotFoundf(operation+".AddonNotFound", "add-on %q not found", command.AddonSlug)

@@ -211,6 +211,8 @@ func translate(err error) error {
 	switch reason {
 	case "BoundaryPending":
 		return rename(kaitenerrors.Conflict, "BoundaryPending")
+	case "SubscriptionIncomplete":
+		return rename(kaitenerrors.Conflict, "SubscriptionIncomplete")
 	case "Incompatible", "IncompatibleWithScheduledPlan", "NoPriceForBillingPeriod", "MeteredEntitlementConflict":
 		// It does not fit this subscription, whichever rule says so.
 		return rename(kaitenerrors.UnprocessableEntity, "Incompatible")

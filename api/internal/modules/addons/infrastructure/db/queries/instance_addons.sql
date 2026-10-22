@@ -262,3 +262,14 @@ VALUES (sqlc.arg(id), sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg
         sqlc.arg(quantity), sqlc.arg(quantity), sqlc.arg(user_id), sqlc.arg(user_id))
 ON CONFLICT DO NOTHING
 RETURNING id;
+
+
+-- name: InstanceCheckoutPending :one
+-- Whether the instance's subscription waits on its checkout's payment:
+-- INCOMPLETE, or a free one carrying a checkout's pending columns (§9.10
+-- rules 5 and 6).
+SELECT EXISTS (SELECT 1
+               FROM instance_billing ib
+               WHERE ib.organization_id = sqlc.arg(organization_id)
+                 AND ib.instance_id = sqlc.arg(instance_id)
+                 AND (ib.status = 'INCOMPLETE' OR ib.pending_license_id IS NOT NULL))::boolean AS pending;

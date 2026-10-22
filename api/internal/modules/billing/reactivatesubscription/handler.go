@@ -37,6 +37,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string) (*subscripti
 		if err != nil {
 			return err
 		}
+		if sub.Status == db.InstanceBillingStatusINCOMPLETE || sub.PendingLicenseID != nil {
+			return kaitenerrors.Conflict(operation+".SubscriptionIncomplete", "the subscription waits for its checkout's payment")
+		}
 		if sub.Status == db.InstanceBillingStatusCANCELED {
 			return kaitenerrors.Conflict(operation+".Canceled", "the subscription is canceled: subscribe it again")
 		}

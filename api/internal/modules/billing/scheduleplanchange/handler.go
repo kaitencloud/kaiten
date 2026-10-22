@@ -45,6 +45,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 			return err
 		}
 		switch {
+		case sub.Status == db.InstanceBillingStatusINCOMPLETE || sub.PendingLicenseID != nil:
+			return kaitenerrors.Conflict(operation+".SubscriptionIncomplete", "the subscription waits for its checkout's payment: change its plan once it is paid")
 		case sub.Status == db.InstanceBillingStatusTRIAL:
 			return kaitenerrors.Conflict(operation+".TrialInProgress", "a trial cannot change plan: cancel it and subscribe with the new price")
 		case !subscriptions.Live(sub.Status):

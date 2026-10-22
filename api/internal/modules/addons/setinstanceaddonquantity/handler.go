@@ -34,6 +34,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, addonSlug string, q
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RefuseIncomplete(ctx, q, user.OrganizationID, write.Instance.ID, operation); err != nil {
+			return err
+		}
 		if err := catalogue.ValidateQuantity(operation, quantity, write.Attachment.MaxQuantity); err != nil {
 			return err
 		}

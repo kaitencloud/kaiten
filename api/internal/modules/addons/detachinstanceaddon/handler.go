@@ -33,6 +33,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, addonSlug string) e
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RefuseIncomplete(ctx, q, user.OrganizationID, write.Instance.ID, operation); err != nil {
+			return err
+		}
 		if err := q.RemoveInstanceAddon(ctx, db.RemoveInstanceAddonParams{UserID: user.ID, OrganizationID: user.OrganizationID, ID: write.Attachment.ID}); err != nil {
 			return err
 		}

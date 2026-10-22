@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/incomplete"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
@@ -60,6 +62,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, mode string, reason
 		return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidReason", "reason is at most 500 characters")
 	}
 	q := u.deps.Queries(ctx)
+	if ended, ok, err := u.endIncomplete(ctx, q, user.OrganizationID, user.ID, instanceSlug, reason); ok || err != nil {
+		return ended, err
+	}
 	at, err := lifecycle.Now(ctx, q)
 	if err != nil {
 		return nil, err
@@ -162,4 +167,32 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, mode string, reason
 		return nil, err
 	}
 	return result, nil
+}
+
+// endIncomplete ends an INCOMPLETE checkout at once, whatever the mode
+// (§9.10 rule 5): its ACTIVATION voided at the provider first, its selection
+// dropped unapplied, no fallback move. ok is false for any other
+// subscription, and for one whose payment the provider reports meanwhile,
+// which the cancel then treats as the ACTIVE subscription it now is.
+func (u *UseCase) endIncomplete(ctx context.Context, q *db.Queries, organizationID, actor uuid.UUID, instanceSlug string, reason *string) (*CanceledSubscription, bool, error) {
+	instance, err := q.GetInstanceBySlug(ctx, db.GetInstanceBySlugParams{OrganizationID: organizationID, Slug: instanceSlug})
+	if err != nil {
+		return nil, false, nil // the transaction answers NotFound
+	}
+	sub, err := q.GetInstanceBilling(ctx, db.GetInstanceBillingParams{OrganizationID: organizationID, InstanceID: &instance.ID})
+	if err != nil || sub.Status != db.InstanceBillingStatusINCOMPLETE {
+		return nil, false, nil
+	}
+	ended, err := incomplete.NewEnder(u.deps).End(ctx, operation, sub, reason, actor)
+	if errors.Is(err, incomplete.ErrPaidMeanwhile) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, true, err
+	}
+	billing, err := subscriptions.Build(ctx, q, u.deps.Catalogue, ended)
+	if err != nil {
+		return nil, true, err
+	}
+	return &CanceledSubscription{InstanceBilling: *billing, FinalInvoice: nil}, true, nil
 }

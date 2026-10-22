@@ -29,6 +29,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getupcominginvoice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/incomplete"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/licensepreview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/listhandoff"
@@ -190,7 +191,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof, cfg.AutoCollectionGrace), sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
-		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, paymentmethods.NewExpiry(svc.Uof))
+		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, incomplete.NewExpiry(incomplete.NewEnder(deps)), paymentmethods.NewExpiry(svc.Uof))
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
 

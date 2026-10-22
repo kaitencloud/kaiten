@@ -108,11 +108,19 @@ type vouchers interface {
 	Pass(ctx context.Context, limit int) (int, error)
 }
 
-func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, expiry vouchers, everyDay ...daily) *sweep.Job {
+func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, expiry, incompletes vouchers, everyDay ...daily) *sweep.Job {
 	return sweep.NewPoolPass("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context) error {
 		moved, err := overdue.Pass(ctx, batchSize)
 		if moved > 0 {
 			slog.InfoContext(ctx, "subscriptions moved in or out of PAST_DUE", "moved", moved)
+		}
+		// Step (d): the INCOMPLETE checkouts never paid in their 23 h.
+		if incompletes != nil {
+			ended, incompleteErr := incompletes.Pass(ctx, batchSize)
+			if ended > 0 {
+				slog.InfoContext(ctx, "incomplete checkouts expired", "count", ended)
+			}
+			err = errors.Join(err, incompleteErr)
 		}
 		if expiry != nil {
 			expired, expiryErr := expiry.Pass(ctx, batchSize)

@@ -7,6 +7,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/config"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe/stripefake"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -14,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
+	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -128,4 +131,85 @@ func with(order map[string]any, key string, value any) map[string]any {
 	}
 	out[key] = value
 	return out
+}
+
+// declinedCheckout is the shop's instance checked out with a card the charge
+// refuses: INCOMPLETE, its ACTIVATION PAYMENT_FAILED.
+func declinedCheckout(t *testing.T, s shop) createsessioncheckout.SessionCheckout {
+	t.Helper()
+	order := map[string]any{"licensePriceId": s.monthly.ID, "returnUrl": returnURL}
+	setup := checkout(t, s, order, fiber.StatusOK)
+	saveCardOnPage(t, *setup.SetupSessionID, stripefake.CardDeclined)
+	done := checkout(t, s, with(order, "setupSessionId", *setup.SetupSessionID), fiber.StatusCreated)
+	require.Equal(t, "INCOMPLETE", done.Subscription.Status)
+	return done
+}
+
+// TestIncompleteExpiresUnpaid: billing-lifecycle step (d) ends a checkout
+// unpaid at incomplete_expires_at (§9.10 rule 4): its ACTIVATION voided at
+// Stripe first, then VOID, the subscription CANCELED INCOMPLETE_EXPIRED, the
+// licence left as it was.
+func TestIncompleteExpiresUnpaid(t *testing.T) {
+	fresh(t)
+	s := newShop(t, nil)
+	done := declinedCheckout(t, s)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(),
+		`UPDATE instance_billing SET incomplete_expires_at = (now() AT TIME ZONE 'UTC') - interval '1 minute' WHERE instance_id = $1`, s.instance.ID)
+	require.NoError(t, err)
+
+	jobs := tests.NewTestServer(testDb, tests.TestServerOptions{
+		ConfigOverride: func(cfg *config.Config) {
+			cfg.Billing.Enabled = true
+			cfg.Billing.PeriodClose.Interval, cfg.Billing.Sync.Interval, cfg.Billing.Push.Interval = -1, -1, -1
+			cfg.Billing.Lifecycle.Interval = 100 * time.Millisecond
+			cfg.Billing.InitialDelay = 20 * time.Millisecond
+		},
+		ConnectorEntitlements: entitlements,
+		Stripe:                billingstripe.Options{BaseURL: fake.URL(), HTTPClient: fake.Client()},
+	})
+	t.Cleanup(func() { require.NoError(t, jobs.Close()) })
+
+	billingPath := "/api/instances/" + s.instance.Slug + "/billing"
+	require.Eventually(t, func() bool {
+		sub := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", billingPath, nil), fiber.StatusOK)
+		return sub["status"] == "CANCELED"
+	}, 20*time.Second, 100*time.Millisecond, "step (d) ends it")
+	sub := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", billingPath, nil), fiber.StatusOK)
+	require.Equal(t, "INCOMPLETE_EXPIRED", sub["cancellationReason"])
+	voided := invoice(t, mustUUID(t, done.ActivationInvoice.ID))
+	require.Equal(t, "VOID", voided.Status)
+	require.NotEmpty(t, fake.CallsOf(stripefake.OpVoidInvoice), "voided at Stripe first")
+	held := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+s.instance.Slug, nil), fiber.StatusOK)
+	require.Equal(t, s.plan.ID, held.LicenseID, "nothing moves")
+}
+
+// TestIncompleteRefusalsAndCancel: while INCOMPLETE, what the checkout
+// bought is fixed (§9.10 rule 5): reactivate, plan changes and add-on writes
+// answer 409 .SubscriptionIncomplete; a cancel, any mode, ends it at once,
+// its ACTIVATION voided.
+func TestIncompleteRefusalsAndCancel(t *testing.T) {
+	fresh(t)
+	s := newShop(t, nil)
+	done := declinedCheckout(t, s)
+	base := "/api/instances/" + s.instance.Slug
+	commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/addons", map[string]any{
+		"name": "Extra seats", "slug": "extra-seats", "description": "per unit", "pricingType": "FREE", "isDefault": true,
+	}), fiber.StatusCreated)
+	require.Equal(t, fiber.StatusNoContent, call(t, "PUT", "/api/addons/extra-seats/compatible-license-families/"+planFamilySlug(t, s), nil).StatusCode)
+	for _, refused := range []struct {
+		method, path string
+		body         map[string]any
+	}{
+		{"POST", base + "/addons", map[string]any{"addonSlug": "extra-seats", "quantity": 1}},
+		{"POST", base + "/billing/reactivate", map[string]any{}},
+		{"PUT", base + "/billing/scheduled-change", map[string]any{"licensePriceId": s.monthly.ID}},
+	} {
+		problem := commonfixture.AssertJSONResponse[map[string]any](t, call(t, refused.method, refused.path, refused.body), fiber.StatusConflict)
+		require.Contains(t, problem["code"], ".SubscriptionIncomplete", refused.path)
+	}
+
+	canceled := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", base+"/billing/cancel",
+		map[string]any{"mode": "AT_PERIOD_END"}), fiber.StatusOK)
+	require.Equal(t, "CANCELED", canceled["status"], "at once, whatever the mode")
+	require.Equal(t, "VOID", invoice(t, mustUUID(t, done.ActivationInvoice.ID)).Status)
 }

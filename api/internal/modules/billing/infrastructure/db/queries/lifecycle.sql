@@ -182,3 +182,42 @@ RETURNING *;
 SELECT i.slug, i.license_id
 FROM instance i
 WHERE i.id = sqlc.arg(id);
+
+
+-- name: ListExpiredIncomplete :many
+-- billing-lifecycle step (d): the INCOMPLETE checkouts past their 23 h.
+SELECT ib.*
+FROM instance_billing ib
+WHERE ib.status = 'INCOMPLETE'
+  AND ib.incomplete_expires_at <= sqlc.arg(now)
+ORDER BY ib.incomplete_expires_at, ib.id
+LIMIT sqlc.arg(page_size);
+
+
+-- name: GetOpenActivation :one
+-- The ACTIVATION an INCOMPLETE subscription waits on: the newest one not
+-- settled (a void and recompose may have replaced the first).
+SELECT *
+FROM instance_invoice i
+WHERE i.instance_billing_id = sqlc.arg(instance_billing_id)
+  AND i.kind = 'ACTIVATION'
+  AND i.status IN ('DRAFT', 'PUSH_FAILED', 'PUSHED', 'PAYMENT_FAILED')
+ORDER BY i.created_at DESC, i.id DESC
+LIMIT 1;
+
+
+-- name: EndIncomplete :one
+-- An INCOMPLETE subscription ended unpaid, by its expiry or a cancel
+-- (§9.10 rules 4-5): CANCELED at once, its selection dropped unapplied.
+UPDATE instance_billing
+SET status                = 'CANCELED',
+    canceled_at           = sqlc.arg(now),
+    cancellation_reason   = sqlc.narg(reason),
+    pending_license_id    = NULL,
+    pending_selection     = NULL,
+    incomplete_expires_at = NULL,
+    updated_by_id         = sqlc.arg(user_id),
+    updated_at            = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status = 'INCOMPLETE'
+RETURNING *;

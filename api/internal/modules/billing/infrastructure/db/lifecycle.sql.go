@@ -284,6 +284,80 @@ func (q *Queries) EarliestOverdue(ctx context.Context, arg EarliestOverdueParams
 	return overdue_since, err
 }
 
+const endIncomplete = `-- name: EndIncomplete :one
+UPDATE instance_billing
+SET status                = 'CANCELED',
+    canceled_at           = $1,
+    cancellation_reason   = $2,
+    pending_license_id    = NULL,
+    pending_selection     = NULL,
+    incomplete_expires_at = NULL,
+    updated_by_id         = $3,
+    updated_at            = $1
+WHERE id = $4
+  AND status = 'INCOMPLETE'
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
+`
+
+type EndIncompleteParams struct {
+	Now    pgtype.Timestamp `json:"now"`
+	Reason *string          `json:"reason"`
+	UserID uuid.UUID        `json:"user_id"`
+	ID     uuid.UUID        `json:"id"`
+}
+
+// An INCOMPLETE subscription ended unpaid, by its expiry or a cancel
+// (§9.10 rules 4-5): CANCELED at once, its selection dropped unapplied.
+func (q *Queries) EndIncomplete(ctx context.Context, arg EndIncompleteParams) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, endIncomplete,
+		arg.Now,
+		arg.Reason,
+		arg.UserID,
+		arg.ID,
+	)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+		&i.TrialEndsAt,
+		&i.PendingLicenseID,
+		&i.PendingSelection,
+		&i.IncompleteExpiresAt,
+		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
+	)
+	return i, err
+}
+
 const getInstanceSlug = `-- name: GetInstanceSlug :one
 SELECT i.slug, i.license_id
 FROM instance i
@@ -300,6 +374,165 @@ func (q *Queries) GetInstanceSlug(ctx context.Context, id uuid.UUID) (GetInstanc
 	var i GetInstanceSlugRow
 	err := row.Scan(&i.Slug, &i.LicenseID)
 	return i, err
+}
+
+const getOpenActivation = `-- name: GetOpenActivation :one
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+FROM instance_invoice i
+WHERE i.instance_billing_id = $1
+  AND i.kind = 'ACTIVATION'
+  AND i.status IN ('DRAFT', 'PUSH_FAILED', 'PUSHED', 'PAYMENT_FAILED')
+ORDER BY i.created_at DESC, i.id DESC
+LIMIT 1
+`
+
+// The ACTIVATION an INCOMPLETE subscription waits on: the newest one not
+// settled (a void and recompose may have replaced the first).
+func (q *Queries) GetOpenActivation(ctx context.Context, instanceBillingID uuid.UUID) (InstanceInvoice, error) {
+	row := q.db.QueryRow(ctx, getOpenActivation, instanceBillingID)
+	var i InstanceInvoice
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceBillingID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.LicenseID,
+		&i.LicenseSlug,
+		&i.BillingEmail,
+		&i.Kind,
+		&i.BoundaryAt,
+		&i.ServiceFrom,
+		&i.ServiceTo,
+		&i.Currency,
+		&i.SubtotalMinor,
+		&i.DiscountTotalMinor,
+		&i.TotalMinor,
+		&i.Lines,
+		&i.Status,
+		&i.HoldReason,
+		&i.HoldDetail,
+		&i.HeldAt,
+		&i.HoldReleasedAt,
+		&i.HoldReleasedByID,
+		&i.HoldReleaseReason,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.ExternalCustomerID,
+		&i.ExternalInvoiceID,
+		&i.ProviderInvoiceNumber,
+		&i.ProviderStatus,
+		&i.HostedInvoiceUrl,
+		&i.InvoicePdfUrl,
+		&i.ProviderTotalExcludingTaxMinor,
+		&i.ReconciliationStatus,
+		&i.ReconciliationDetail,
+		&i.ReconciledAt,
+		&i.PushAttempts,
+		&i.NextPushAt,
+		&i.LastPushError,
+		&i.PushedAt,
+		&i.SyncedAt,
+		&i.IssuedAt,
+		&i.DaysUntilDue,
+		&i.DueAt,
+		&i.PaidAt,
+		&i.MarkedPaidByID,
+		&i.PaymentFailedAt,
+		&i.LastPaymentError,
+		&i.UncollectibleAt,
+		&i.VoidedAt,
+		&i.VoidedByID,
+		&i.VoidReason,
+		&i.ReplacesInvoiceID,
+		&i.HandoffStatus,
+		&i.HandoffLeaseID,
+		&i.HandoffLeasedUntil,
+		&i.HandoffClaimCount,
+		&i.HandoffAcknowledgedAt,
+		&i.HandoffAcknowledgedByID,
+		&i.ExternalReference,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.FinalizeRequested,
+	)
+	return i, err
+}
+
+const listExpiredIncomplete = `-- name: ListExpiredIncomplete :many
+SELECT ib.id, ib.organization_id, ib.instance_id, ib.customer_id, ib.instance_slug, ib.instance_name, ib.customer_slug, ib.customer_name, ib.status, ib.provider_kind, ib.collection_method, ib.days_until_due, ib.base_license_price_id, ib.billing_period, ib.currency, ib.anchor_at, ib.started_at, ib.current_period_start, ib.current_period_end, ib.cancel_at_period_end, ib.cancel_requested_at, ib.canceled_at, ib.cancellation_reason, ib.past_due_since, ib.scheduled_license_price_id, ib.scheduled_at, ib.created_at, ib.created_by_id, ib.updated_at, ib.updated_by_id, ib.trial_ends_at, ib.pending_license_id, ib.pending_selection, ib.incomplete_expires_at, ib.trial_will_end_notified_at, ib.live_ended_at, ib.trial_will_end_at
+FROM instance_billing ib
+WHERE ib.status = 'INCOMPLETE'
+  AND ib.incomplete_expires_at <= $1
+ORDER BY ib.incomplete_expires_at, ib.id
+LIMIT $2
+`
+
+type ListExpiredIncompleteParams struct {
+	Now      pgtype.Timestamp `json:"now"`
+	PageSize int32            `json:"page_size"`
+}
+
+// billing-lifecycle step (d): the INCOMPLETE checkouts past their 23 h.
+func (q *Queries) ListExpiredIncomplete(ctx context.Context, arg ListExpiredIncompleteParams) ([]InstanceBilling, error) {
+	rows, err := q.db.Query(ctx, listExpiredIncomplete, arg.Now, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InstanceBilling
+	for rows.Next() {
+		var i InstanceBilling
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.InstanceID,
+			&i.CustomerID,
+			&i.InstanceSlug,
+			&i.InstanceName,
+			&i.CustomerSlug,
+			&i.CustomerName,
+			&i.Status,
+			&i.ProviderKind,
+			&i.CollectionMethod,
+			&i.DaysUntilDue,
+			&i.BaseLicensePriceID,
+			&i.BillingPeriod,
+			&i.Currency,
+			&i.AnchorAt,
+			&i.StartedAt,
+			&i.CurrentPeriodStart,
+			&i.CurrentPeriodEnd,
+			&i.CancelAtPeriodEnd,
+			&i.CancelRequestedAt,
+			&i.CanceledAt,
+			&i.CancellationReason,
+			&i.PastDueSince,
+			&i.ScheduledLicensePriceID,
+			&i.ScheduledAt,
+			&i.CreatedAt,
+			&i.CreatedByID,
+			&i.UpdatedAt,
+			&i.UpdatedByID,
+			&i.TrialEndsAt,
+			&i.PendingLicenseID,
+			&i.PendingSelection,
+			&i.IncompleteExpiresAt,
+			&i.TrialWillEndNotifiedAt,
+			&i.LiveEndedAt,
+			&i.TrialWillEndAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listOverdueCandidates = `-- name: ListOverdueCandidates :many
