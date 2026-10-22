@@ -2,6 +2,7 @@ import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vite-plus/test';
 import { renderMetadataValue } from '../render-metadata-value';
 import type { MetadataFieldDescriptor } from '../types';
+import { useTimeZone } from '@/test-fixtures/time-zone';
 
 const field = (schema: Record<string, unknown>): MetadataFieldDescriptor => ({
   id: 'field',
@@ -63,4 +64,22 @@ describe('renderMetadataValue', () => {
   it('falls back to the raw value when a date does not parse', () => {
     expect(text({ type: 'string', format: 'date' }, 'not-a-date')).toBeTruthy();
   });
+
+  // A `YYYY-MM-DD` value is a calendar day, not a moment: it reads the same on
+  // every clock. West of UTC it was read as the evening before.
+  describe.each(['America/Los_Angeles', 'Pacific/Kiritimati', 'UTC'])(
+    'a date in %s',
+    (zone) => {
+      useTimeZone(zone);
+
+      it.each([
+        ['2026-10-20', 'Oct 20, 2026'],
+        ['2026-12-31', 'Dec 31, 2026'],
+        ['2026-10-31', 'Oct 31, 2026'],
+        ['2027-01-01', 'Jan 1, 2027'],
+      ])('reads %s as %s', (value, expected) => {
+        expect(text({ type: 'string', format: 'date' }, value)).toBe(expected);
+      });
+    },
+  );
 });
