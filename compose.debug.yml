@@ -1,0 +1,9 @@
+# Development-only overlay, selected explicitly by task debug SERVICE=api.
+# No direct Core/auth-bypass port: requests still use the same Envoy gateway.
+services:
+  api:
+    image: kaiten-local-api-debug
+    build:
+      target: debug
+    ports:
+      - "127.0.0.1:${KAITEN_DEBUG_PORT:-40000}:40000"

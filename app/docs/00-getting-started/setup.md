@@ -165,6 +165,13 @@ after a value. The variables of a deployed container are in
 [Environments](../07-deployment/environments.md). The variables of the backend
 stack (ports, database, JWT secret) are in the root `.env.example`.
 
+## Local feature-development loop
+
+[Local development](agent-development.md) uses the same root Taskfile for humans
+and agents. Explicit `task setup` prepares tools/images once; `task dev` runs the
+real prepared stack without installs/generation. Use `task browser`/`task capture`
+for private reproduction evidence, then existing Playwright scenarios/drivers.
+
 ## Check that it works
 
 - The dev account switcher lists the seeded organizations, and choosing a user
