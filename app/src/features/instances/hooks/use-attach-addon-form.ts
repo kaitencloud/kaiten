@@ -50,7 +50,10 @@ export function useAttachAddonForm({
   // The version that was sent. A refusal that says the screen is out of date (the family was
   // attached in another tab) reads the instance again, and the version is then no longer
   // offered: it stays on the field with the words of the API under it, instead of the field
-  // being emptied and asked for again, which would take the refusal away unread.
+  // being emptied and asked for again, which would take the refusal away unread. It stays
+  // listed after another version is chosen, until the next press of the button sends that one
+  // instead: the select reads the version it showed leaving its options in the update that
+  // commits the new choice as the field being emptied, and the first pick would not stick.
   const [sent, setSent] = useState<Addon | null>(null);
   const offered =
     sent && !addons.some(({ slug }) => slug === sent.slug)
@@ -60,12 +63,8 @@ export function useAttachAddonForm({
   const form = useAppForm({
     ...attachAddonFormOpts,
     listeners: {
-      onChange: ({ fieldApi }) => {
+      onChange: () => {
         setFailure(null);
-        // Another version chosen: the one that was sent is no longer on the field.
-        if (fieldApi.name === 'addonSlug') {
-          setSent(null);
-        }
       },
     },
     onSubmit: async ({ formApi, value }) => {

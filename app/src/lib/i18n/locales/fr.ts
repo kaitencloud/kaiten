@@ -1199,7 +1199,7 @@ export default {
                 Errors: {
                   addon: 'Choisissez un add-on',
                   quantity: 'Saisissez un nombre entier d’unités, au moins 1',
-                  quantityLimit: 'Saisissez 2 147 483 647 unités au plus',
+                  quantityLimit: 'Saisissez 2 147 483 647 unités au plus',
                   quantityMax: 'Cet add-on autorise moins d’unités',
                 },
               },

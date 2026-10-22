@@ -2,7 +2,9 @@ import { useTranslation } from 'react-i18next';
 import type { Addon, InstanceBilling } from '@/api-client';
 import { getAddonTitle } from '@/domains/billing';
 import { withForm } from '@/hooks/form';
+import { formatNumber } from '@/lib/format-date';
 import { attachAddonFormOpts } from '../../../../../schemas/attach-addon-form-options';
+import { getQuantityBounds } from '../../../../../utils/instance-addons.utils';
 import { AttachAddonDetails } from './attach-addon-details';
 import { AttachAddonLicenseWarning } from './attach-addon-license-warning';
 
@@ -56,7 +58,9 @@ export const AttachAddonFields = withForm({
         <form.Subscribe selector={(state) => state.values.addonSlug}>
           {(addonSlug) => {
             const selected = addons.find(({ slug }) => slug === addonSlug);
-            const max = selected?.maxQuantity;
+            // The most a version allows, which is never more than the contract carries:
+            // the hint and the stepping of the keyboard say it for a version with no maximum too.
+            const max = selected ? getQuantityBounds(selected).max : undefined;
 
             return (
               <>
@@ -72,7 +76,7 @@ export const AttachAddonFields = withForm({
                       description={
                         max === undefined
                           ? t(KEYS.quantityHint)
-                          : t(KEYS.quantityHintMax, { max })
+                          : t(KEYS.quantityHintMax, { max: formatNumber(max) })
                       }
                       label={t(KEYS.quantity)}
                       max={max}

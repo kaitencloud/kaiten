@@ -411,6 +411,20 @@ describe('the dialog that adds an add-on to an instance', () => {
       expect(bodies).toEqual([]);
     });
 
+    it('is named by the hint under the quantity, for a version with no maximum of its own', async () => {
+      server.use(handleListAddons({ body: pageOf([SEATS_V1, NO_MAXIMUM]) }));
+      renderDialog();
+
+      await choose('Extra storage · 2026');
+
+      expect(await screen.findByText('From 1 to 2,147,483,647.')).toBeInTheDocument();
+      // The keyboard does not step beyond what the contract carries.
+      const quantity = screen.getByLabelText(/Quantity/);
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '2147483647{ArrowUp}');
+      expect(quantity).toHaveValue('2,147,483,647');
+    });
+
     it('is sent at the most the contract carries', async () => {
       server.use(handleListAddons({ body: pageOf([SEATS_V1, NO_MAXIMUM]) }));
       const bodies = serveAttach();
@@ -538,11 +552,12 @@ describe('the dialog that adds an add-on to an instance', () => {
     expect(bodies).toHaveLength(1);
     expect(onClose).not.toHaveBeenCalled();
 
-    // Another version chosen: the one that is held now is not offered, nor is its refusal kept.
+    // Another version chosen: its refusal is not kept, and the choice sticks at the first pick.
     await choose('Priority support · 2026');
     expect(screen.queryByText(refusedAs)).toBeNull();
-    await userEvent.click(screen.getByRole('combobox', { name: /Add-on/ }));
-    expect(screen.queryByRole('option', { name: 'Extra storage · 2026' })).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(screen.getByRole('combobox', { name: /Add-on/ })).toHaveTextContent('Priority support · 2026');
+    expect(screen.queryByText('Choose an add-on', { selector: '[data-slot="form-message"]' })).toBeNull();
   });
 
   it('shows a refusal that is about no field above the buttons, with a way to ask again', async () => {
