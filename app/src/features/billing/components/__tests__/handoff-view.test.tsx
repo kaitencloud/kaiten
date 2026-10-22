@@ -151,8 +151,9 @@ describe('the handoff view of the invoices', () => {
       name: 'Handoff 2',
     });
     expect(waiting).toHaveAttribute('href', '/invoices?view=waiting');
+    // Each part counts its own invoices, so the second tab may come later.
     expect(
-      screen.getByRole('link', { name: 'Acknowledged 1' }),
+      await screen.findByRole('link', { name: 'Acknowledged 1' }),
     ).toHaveAttribute('href', '/invoices?view=acknowledged');
   });
 
