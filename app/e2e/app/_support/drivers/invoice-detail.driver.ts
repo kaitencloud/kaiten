@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from '@playwright/test';
-import { pickDateTime } from './date-picker.driver';
+import { pickDateTime, typeTime } from './date-picker.driver';
 
 /** What an action of the page opens, to tell which dialog the page showed. */
 export type InvoiceActionName =
@@ -270,6 +270,14 @@ export class InvoiceDetailDriver {
     await pickDateTime(
       this.dialog().getByRole('button', { name: /Paid at/ }),
       value,
+    );
+  }
+
+  /** Types a time in the mark-paid dialog without picking a day, and leaves the field. */
+  async typePaidAtTime(time: string) {
+    await typeTime(
+      this.dialog().getByRole('button', { name: /Paid at/ }),
+      time,
     );
   }
 

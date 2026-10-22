@@ -51,21 +51,30 @@ export async function pickDay(trigger: Locator, day: string) {
 }
 
 /**
- * Picks the day on the calendar of a date and time picker, then types the time
- * in its field (the digits of `10:00`, which fill the hours and then the
- * minutes) and leaves it, so that the field says what is wrong.
+ * Types the time in the field of a date and time picker (the digits of
+ * `10:00`, which fill the hours and then the minutes) and leaves it, so that the
+ * field says what is wrong. No day is picked: the one the picker holds stays.
  */
-export async function pickDateTime(trigger: Locator, value: string) {
-  const [day, time] = value.split('T');
+export async function typeTime(trigger: Locator, time: string) {
   const group = trigger.locator(
     'xpath=ancestor::*[@data-slot="date-time-picker"]',
   );
   const hours = group.getByRole('spinbutton', { name: /^(Hours|Heures)$/ });
 
-  await pickDay(trigger, day);
   await hours.click();
   await hours.pressSequentially(time.replace(':', ''));
   await group.getByRole('spinbutton', { name: 'Minutes' }).blur();
+}
+
+/**
+ * Picks the day on the calendar of a date and time picker, then types the time
+ * in its field and leaves it, so that the field says what is wrong.
+ */
+export async function pickDateTime(trigger: Locator, value: string) {
+  const [day, time] = value.split('T');
+
+  await pickDay(trigger, day);
+  await typeTime(trigger, time);
 }
 
 /**

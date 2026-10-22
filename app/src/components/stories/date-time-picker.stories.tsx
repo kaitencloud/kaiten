@@ -97,7 +97,9 @@ export const InvalidTime: Story = {
     await expect(
       await canvas.findByRole('spinbutton', { name: 'Hours' }),
     ).toHaveAttribute('aria-invalid', 'true');
-    await expect(canvas.getByText(/Enter a complete time/)).toBeVisible();
+    await expect(
+      canvas.getByText('Enter a time from 00:00 to 23:59.'),
+    ).toBeVisible();
   },
 };
 

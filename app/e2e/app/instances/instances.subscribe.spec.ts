@@ -240,6 +240,32 @@ test.describe('subscribing an instance', () => {
     });
   }
 
+  test('refuses a time typed with no day, which it used to drop at the send, and sends nothing', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const writes = recordWrites(page, SUBSCRIPTION_WRITES, ['POST']);
+    await installBillingAppMocks(page, createSubscriptionsModel());
+    await billing.goto('beta-staging');
+    await billing.openSubscribe();
+
+    await billing.typeStartAtTime('09:30');
+
+    // The time stays on the screen, and the dialog says a day is missing.
+    await expect(billing.dialog()).toContainText('Enter a valid date and time');
+    await expect(billing.confirmButton()).toBeDisabled();
+    expect(writes).toHaveLength(0);
+
+    // A day picked puts the time on it, and the subscription can be sent.
+    await billing.setStartAt('2026-09-30T09:30');
+    await expect(billing.confirmButton()).toBeEnabled();
+    await billing.confirmButton().click();
+    await expect(billing.started()).toBeVisible();
+    expect(writes[0].body).toMatchObject({
+      startAt: '2026-09-30T09:30:00.000Z',
+    });
+  });
+
   test('is told before it is asked that the payment terms are no number of days up to a year, and keeps what was typed', async ({
     page,
   }) => {

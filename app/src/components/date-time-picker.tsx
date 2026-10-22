@@ -16,6 +16,7 @@ import {
   leadingDayOfDateTimeInput,
   parseTimeOfDay,
   splitDateTimeInput,
+  timeOfTimeOnlyInput,
 } from '@/lib/date-time-input';
 import { formatDate } from '@/lib/format-date';
 import {
@@ -55,8 +56,8 @@ type DateTimePickerProps = DatePickerTriggerProps & {
 /**
  * A UTC date and time: a button that opens a calendar, and a time field beside
  * it (`TimeField`). It holds the text a `datetime-local` input held,
- * `2027-03-03T10:00`, with no zone and no seconds, and an empty text while no
- * day is chosen, so a form that read that text reads this the same. The calendar
+ * `2027-03-03T10:00`, with no zone and no seconds, and an empty text while
+ * nothing is chosen, so a form that read that text reads this the same. The calendar
  * closes with the day picked; the time is set in the field, with the keyboard or
  * from the columns of its clock.
  *
@@ -66,7 +67,10 @@ type DateTimePickerProps = DatePickerTriggerProps & {
  * (`2027-03-03T10:--`), which its own validation refuses; the field shows it,
  * marked invalid, and nothing replaces it behind the person's back. A
  * time typed to the end that is none (`24:00`) is given to the form at once, as
- * typed, and said to be wrong. The same
+ * typed, and said to be wrong. A time typed with no day is
+ * given to the form as it is, with no day (`T09:30`), which a form refuses
+ * rather than reading an empty value, so a time is never dropped without a
+ * word: the person chooses a day, or empties the time. The same
  * goes for a text a form hands in that is not a moment: it shows as it is and
  * stays until the person picks one.
  *
@@ -94,16 +98,20 @@ export function DateTimePicker({
   const parts = splitDateTimeInput(value);
   const day = parts?.day ?? leadingDayOfDateTimeInput(value);
   const held = value.trim();
+  // The time of a pair with no day (`T09:30`), which the form refuses.
+  const timeOnly = day ? '' : timeOfTimeOnlyInput(held);
   // What is in the time field and is not (yet) the time the value holds: a time
   // half filled, or one the form refuses. It belongs to the value it was typed
   // against: the form changing the value from elsewhere (a reset) drops it. With
-  // no day chosen it is the time the day picked next takes, as it is.
+  // no day chosen it is the time the day picked next takes, as it is, and the
+  // form is given it with no day (`T09:30`) to refuse until a day is picked.
   const [typed, setTyped] = useState<{ text: string; value: string } | null>(
     null,
   );
   const draft = typed && typed.value === value ? typed.text : null;
   // A value the form refuses keeps its time: it is shown, not hidden.
-  const time = draft ?? parts?.time ?? (day ? held.slice(day.length + 1) : '');
+  const time =
+    draft ?? parts?.time ?? (day ? held.slice(day.length + 1) : timeOnly);
   const normalTime = parseTimeOfDay(time);
   // The value holds a time that is none, which a time half filled does not
   // until the field is left.
@@ -112,7 +120,10 @@ export function DateTimePicker({
   // description of both controls): the picker says it itself only without one.
   const formInvalid =
     props['aria-invalid'] === true || props['aria-invalid'] === 'true';
-  const ownError = timeProblem && !formInvalid;
+  // A time and no day: said too, as the form says its own once the field is
+  // touched.
+  const dayMissing = timeOnly !== '';
+  const ownError = (timeProblem || dayMissing) && !formInvalid;
   // A time with a segment out of range (`24:00`), as against one half filled.
   const timeImpossible =
     isOutOfRange(splitTimeText(time), 'hours') ||
@@ -146,7 +157,7 @@ export function DateTimePicker({
 
   const pickDay = (picked: string) => {
     write(
-      joinDateTimeInput(picked, draft || parts?.time || MIDNIGHT),
+      joinDateTimeInput(picked, draft || parts?.time || timeOnly || MIDNIGHT),
       draft || null,
     );
   };
@@ -156,7 +167,7 @@ export function DateTimePicker({
   // field shows another. One half filled waits for the field to be left.
   const changeTime = (text: string) => {
     write(
-      day && (isTimeOfDay(text) || isFilledTime(text))
+      isTimeOfDay(text) || isFilledTime(text)
         ? joinDateTimeInput(day, text)
         : value,
       text,
@@ -165,27 +176,23 @@ export function DateTimePicker({
 
   // Called as the time field is left, or Enter is pressed in it. A time that is
   // no time is written to the value as it is, for the form to refuse, and stays
-  // in the field; one that was only emptied goes back to the time the value holds.
+  // in the field; one that was only emptied goes back to the time the value
+  // holds, or to nothing when it holds a time and no day.
   const settleTime = () => {
     if (draft === null) {
       return;
     }
     if (draft === '') {
-      write(value, null);
+      write(timeOnly ? '' : value, null);
 
       return;
     }
     if (normalTime) {
-      write(
-        day ? joinDateTimeInput(day, normalTime) : value,
-        day ? null : normalTime,
-      );
+      write(joinDateTimeInput(day, normalTime), day ? null : normalTime);
 
       return;
     }
-    if (day) {
-      write(joinDateTimeInput(day, draft), draft);
-    }
+    write(joinDateTimeInput(day, draft), draft);
   };
 
   return (
@@ -214,7 +221,7 @@ export function DateTimePicker({
           }}
           placeholder={placeholder ?? t('Common.pickDate')}
           popupRef={calendarRef}
-          text={dayText(day) ?? (held || undefined)}
+          text={dayText(day) ?? ((timeOnly ? '' : held) || undefined)}
           value={parts ? joinDateTimeInput(parts.day, parts.time) : held}
         >
           {({ close }) => (
@@ -265,9 +272,11 @@ export function DateTimePicker({
       {ownError ? (
         <p className="text-xs text-destructive-subtle-foreground" id={errorId}>
           {t(
-            timeImpossible
-              ? 'Common.datePicker.timeOutOfRange'
-              : 'Common.datePicker.timeInvalid',
+            dayMissing
+              ? 'Common.datePicker.dayMissing'
+              : timeImpossible
+                ? 'Common.datePicker.timeOutOfRange'
+                : 'Common.datePicker.timeInvalid',
           )}
         </p>
       ) : null}

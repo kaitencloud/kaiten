@@ -319,9 +319,6 @@ describe('DateTimePicker', () => {
 
     await typeTime(user, '09:15');
 
-    expect(onChange).not.toHaveBeenCalled();
-    expect(pickerValue(trigger())).toBe('');
-
     await user.click(trigger());
     await user.click(
       document.querySelector(
@@ -329,7 +326,124 @@ describe('DateTimePicker', () => {
       ) as HTMLElement,
     );
 
-    expect(onChange.mock.calls.at(-1)?.[0]).toMatch(/T09:15$/);
+    expect(onChange.mock.calls.at(-1)?.[0]).toMatch(/^\d{4}-\d{2}-\d{2}T09:15$/);
+  });
+
+  describe('a time typed before any day', () => {
+    it('is given to the form with no day, so that the form refuses the pair instead of reading no time', async () => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      const user = userEvent.setup();
+
+      await typeTime(user, '09:30');
+
+      // At once, while the field is still being typed in: a form that read an
+      // empty value here would send the pair as no time at all.
+      expect(onChange).toHaveBeenLastCalledWith('T09:30');
+      expect(pickerValue(trigger())).toBe('T09:30');
+      expect(timeText()).toBe('09:30');
+    });
+
+    it('says a day is missing, on the date button, which still reads as having none', async () => {
+      render(<Harness />);
+      const user = userEvent.setup();
+
+      await typeTime(user, '09:30');
+
+      expect(trigger()).toHaveTextContent('Pick a date');
+      expect(trigger()).toHaveAttribute('aria-invalid', 'true');
+      expect(
+        screen.getByText('Choose a day as well as the time.'),
+      ).toBeInTheDocument();
+      expect(timeGroup()).toHaveAccessibleDescription(
+        'Choose a day as well as the time.',
+      );
+    });
+
+    it('leaves the message about the pair to the form when the form shows its own', () => {
+      render(
+        <>
+          <p id="note">Enter a valid date and time</p>
+          <DateTimePicker
+            aria-describedby="note"
+            aria-invalid
+            aria-label="Ends"
+            localTimeZone="UTC"
+            onChange={vi.fn()}
+            value="T09:30"
+          />
+        </>,
+      );
+
+      expect(screen.queryByText(/Choose a day as well/)).toBeNull();
+      expect(timeGroup()).toHaveAccessibleDescription('Enter a valid date and time');
+      expect(hours()).toHaveValue('09');
+      expect(minutes()).toHaveValue('30');
+    });
+
+    it('is given as half filled, for the form to refuse, once the field is left', async () => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      const user = userEvent.setup();
+
+      await user.click(hours());
+      await user.keyboard('09');
+      await user.click(minutes());
+      await user.keyboard('{Backspace}');
+      await leave(user);
+
+      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith('T09:--'));
+    });
+
+    it('is dropped from the form when the time is emptied, since nothing is left', async () => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      const user = userEvent.setup();
+
+      await typeTime(user, '09:30');
+      await user.click(hours());
+      await user.keyboard('{Backspace}');
+      await user.click(minutes());
+      await user.keyboard('{Backspace}');
+      await leave(user);
+
+      await waitFor(() => expect(onChange).toHaveBeenLastCalledWith(''));
+      expect(pickerValue(trigger())).toBe('');
+      expect(hours()).toHaveValue('');
+      expect(screen.queryByText(/Choose a day as well/)).toBeNull();
+    });
+
+    it('is cleared with the clear button of the calendar, with the time', async () => {
+      const onChange = vi.fn();
+      render(<Harness onChange={onChange} />);
+      const user = userEvent.setup();
+
+      await typeTime(user, '09:30');
+      await clearPicker(user, trigger());
+
+      expect(onChange).toHaveBeenLastCalledWith('');
+      expect(hours()).toHaveValue('');
+      expect(minutes()).toHaveValue('');
+    });
+
+    it('is shown again when a form hands the pair in, and is kept by the day picked next', async () => {
+      const onChange = vi.fn();
+      render(<Harness initial="T09:30" onChange={onChange} />);
+
+      expect(trigger()).toHaveTextContent('Pick a date');
+      expect(hours()).toHaveValue('09');
+      expect(minutes()).toHaveValue('30');
+
+      const user = userEvent.setup();
+      await user.click(trigger());
+      await user.click(
+        document.querySelector(
+          'button[data-day]:not([data-outside])',
+        ) as HTMLElement,
+      );
+
+      expect(onChange.mock.calls.at(-1)?.[0]).toMatch(/T09:30$/);
+    });
   });
 
   it('puts a half-filled time typed before any day on the day picked next, as it is, for the form to refuse', async () => {

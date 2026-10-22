@@ -79,6 +79,18 @@ export function leadingDayOfDateTimeInput(value: string): string {
   return dateInputToCalendarDate(day) ? day : '';
 }
 
+const TIME_ONLY = /^T((?:\d{2}|--):(?:\d{2}|--))$/;
+
+/**
+ * The time of a text that holds a time and no day (`T09:30`, `T09:--`): what a
+ * picker gives a form while a time is typed and no day is chosen, so that the
+ * form refuses the pair instead of reading the time as none. Empty for any other
+ * text.
+ */
+export function timeOfTimeOnlyInput(value: string): string {
+  return TIME_ONLY.exec(value.trim())?.[1] ?? '';
+}
+
 /**
  * The two halves of a `datetime-local` text, the day (`2027-03-03`) and the time
  * (`10:00`), for the two controls that set them. Seconds are dropped, as the

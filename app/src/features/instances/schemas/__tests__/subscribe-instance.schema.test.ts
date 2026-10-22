@@ -111,8 +111,8 @@ describe('when billing starts', () => {
     });
   });
 
-  it.each(['2026-03-14T24:00', '2026-03-14T12:60', '2026-03-14T25:99', '2026-03-14T--:--'])(
-    'refuses %s, a time that does not exist, instead of reading it as another',
+  it.each(['2026-03-14T24:00', '2026-03-14T12:60', '2026-03-14T25:99', '2026-03-14T--:--', 'T09:30', 'T09:--'])(
+    'refuses %s, a time that does not exist or a time with no day, instead of reading it as another or as none',
     (startAt) => {
       expect(getSubscribeFormErrors({ ...values, startAt }, { now: NOW, period: 'MONTHLY' })).toEqual({
         startAt: 'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAt',

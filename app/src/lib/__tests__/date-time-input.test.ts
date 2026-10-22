@@ -7,6 +7,7 @@ import {
   leadingDayOfDateTimeInput,
   parseTimeOfDay,
   splitDateTimeInput,
+  timeOfTimeOnlyInput,
 } from '../date-time-input';
 import { TEST_ZONES, useTimeZone } from '@/test-fixtures/time-zone';
 
@@ -31,6 +32,9 @@ describe.each(TEST_ZONES)('in $zone', ({ zone, utcMoment }) => {
       'yesterday',
       '2027-13-45T10:00',
       '2027-03-03',
+      // A time and no day is no moment: the form refuses it.
+      'T09:30',
+      'T09:--',
       // A time that does not exist is none, not another moment: a `Date` reads
       // 24:00 as the midnight after, and a 31st of February as the 3rd of March.
       '2027-03-03T24:00',
@@ -135,5 +139,16 @@ describe.each(TEST_ZONES)('in $zone', ({ zone, utcMoment }) => {
     expect(leadingDayOfDateTimeInput('2027-02-31T10:00')).toBe('');
     expect(leadingDayOfDateTimeInput('2027-03-03')).toBe('');
     expect(leadingDayOfDateTimeInput('')).toBe('');
+  });
+
+  it('reads the time of a text that holds a time and no day', () => {
+    expect(timeOfTimeOnlyInput('T09:30')).toBe('09:30');
+    expect(timeOfTimeOnlyInput('T09:--')).toBe('09:--');
+    expect(timeOfTimeOnlyInput('T--:30')).toBe('--:30');
+    expect(timeOfTimeOnlyInput('T24:00')).toBe('24:00');
+    expect(timeOfTimeOnlyInput('2027-03-03T09:30')).toBe('');
+    expect(timeOfTimeOnlyInput('Tuesday')).toBe('');
+    expect(timeOfTimeOnlyInput('T')).toBe('');
+    expect(timeOfTimeOnlyInput('')).toBe('');
   });
 });

@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { BILLED_NOW } from '../../billing/billed-instances';
-import { pickDateTime } from './date-picker.driver';
+import { pickDateTime, typeTime } from './date-picker.driver';
 
 const escapeRegExp = (value: string) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -149,6 +149,11 @@ export class InstanceBillingDriver {
   /** Picks the start day on the calendar of the field and sets its time beside it, as the text of the field holds it (`2026-09-30T09:30`, UTC), and closes it so that the field says what is wrong. */
   async setStartAt(value: string) {
     await pickDateTime(this.startAtField(), value);
+  }
+
+  /** Types a time beside the start day without picking a day, and leaves the field. */
+  async typeStartAtTime(time: string) {
+    await typeTime(this.startAtField(), time);
   }
 
   summary(): Locator {

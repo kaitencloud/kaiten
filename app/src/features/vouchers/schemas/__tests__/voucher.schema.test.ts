@@ -310,6 +310,17 @@ describe('the third step: the code, the conditions and the limits', () => {
     ).toEqual({});
   });
 
+  it('refuses a time with no day, a time that does not exist and a half-filled one, instead of reading them as none or as another', () => {
+    for (const text of ['T09:30', 'T09:--', '2027-01-01T24:00', '2027-01-01T12:60']) {
+      expect(getStepErrors('eligibility', values({ startsAt: text }))).toEqual({
+        startsAt: 'Pages.Vouchers.Wizard.Errors.date',
+      });
+      expect(getStepErrors('eligibility', values({ expiresAt: text }))).toEqual({
+        expiresAt: 'Pages.Vouchers.Wizard.Errors.date',
+      });
+    }
+  });
+
   it('needs a maximum that is a whole number from one, or nothing', () => {
     for (const max of [0, -1, 2.5]) {
       expect(getStepErrors('eligibility', values({ maxRedemptions: max }))).toEqual({
