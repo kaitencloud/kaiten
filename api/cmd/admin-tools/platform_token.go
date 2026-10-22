@@ -38,6 +38,7 @@ the cross-credential enumeration the Platform API exists to refuse.`,
 	}
 
 	platformTokenCmd.AddCommand(buildPlatformTokenCreateCmd())
+	platformTokenCmd.AddCommand(buildLocalPlatformTokenEnsureCmd())
 	platformTokenCmd.AddCommand(buildPlatformTokenListCmd())
 	platformTokenCmd.AddCommand(buildPlatformTokenRevokeCmd())
 

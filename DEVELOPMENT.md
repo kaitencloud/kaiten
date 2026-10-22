@@ -89,14 +89,17 @@ Everything else (OTEL forwarding, ports...) is optional — see `.env.example`.
 > Always put comments on their own line. `.env.example` follows this rule — copy it as-is.
 
 ```bash
-# 2. Start everything — one command
+# 2. Explicit one-time preparation (downloads/builds, no application start)
+task setup
+# 3. Run the prepared stack and frontend
 task dev
 ```
 
-This single command builds and starts the whole backend stack in Docker
-(database, API, events pipeline), seeds it with realistic fake product data,
-generates the API and GraphQL clients of the frontend, and launches the frontend
-dev server. Once it's up:
+Setup installs/generates/builds once. `task dev` then starts the prepared Docker
+backend, local accounts and foreground frontend: no install, generation, image
+build, credential rotation or demo reseed. Use explicit `task seed` for fake
+product data. See the [shared local workflow](app/docs/00-getting-started/agent-development.md)
+for bounded readiness, debugger attach and private browser captures. Once it is ready:
 
 | Service         | URL                                                  | Default |
 | --------------- | ---------------------------------------------------- | ------- |
@@ -187,8 +190,8 @@ the frontend:
 
 | Task              | What it does                                                                                                     |
 | ----------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `task dev`        | Stack + accounts + fake product data + frontend. **Start here.**                                                 |
-| `task quickstart` | The same stack and data, without the frontend                                                                    |
+| `task dev`        | Prepared stack + local accounts + frontend. Run `task setup` once first.                                                 |
+| `task quickstart` | Prepared stack followed by explicit demo fixture population, no frontend                                                                    |
 | `task up`         | The stack with an organization and five users, no product data                                                   |
 | `task up:bare`    | Infrastructure only: the schema and the platform credential. No organization, no user: the first login creates both (JIT provisioning) |
 
@@ -202,15 +205,15 @@ the frontend:
 
 ### Frontend
 
-The frontend always runs locally (not in Docker). `task app` handles
-`nvm use`, `pnpm install`, and starting the dev server in one shot — it's
-called automatically by `task dev`. It also points the app at this stack's API,
+The frontend always runs locally (not in Docker). `task app` starts the prepared
+dev server without installation or automatic dotenv loading in local mode; it is
+called by `task dev`. It also points the app at this stack's API,
 deriving `VITE_API_URL` from `KAITEN_PORT`, which is what makes a second stack's
 frontend talk to its own backend rather than to the first one's.
 
 | Task            | Description                     |
 | --------------- | ------------------------------- |
-| `task app`      | Install deps + start dev server |
+| `task app`      | Start prepared dev server |
 | `task test:app` | Run frontend unit tests         |
 
 To work on the frontend without the Go toolchain, see the
@@ -259,14 +262,14 @@ on its own: the latter deletes `src/api-client/graphql`.
 | `task test:api` | Go tests. Flags pass through: `task test:api -- -v -run Usage`        |
 | `task test:app` | Frontend unit tests                                                   |
 | `task test:charts` | Lint and render the Helm charts                                    |
-| `task lint`     | golangci-lint and the frontend linter, both with `--fix`             |
+| `task lint`     | Read-only golangci-lint/frontend lint; explicit `task lint:fix` modifies             |
 
 ### Logs and status
 
 | Task               | Description                                            |
 | ------------------ | ------------------------------------------------------ |
 | `task ps`          | What is running                                        |
-| `task logs`        | Tail all logs, or one service: `task logs -- api`      |
+| `task logs`        | Bounded logs, or one service: `task logs -- api`; `logs:follow` explicitly follows      |
 | `task schema-docs` | Generate schema documentation                          |
 
 ---
@@ -290,7 +293,7 @@ task dev  (or task quickstart, without the frontend)
   ├── api            Go API
   ├── api-ready      one-shot: waits until the API answers through Envoy
   ├── seed-data      one-shot: the `demo` seed profile, fake product data
-  │                  (compose profile `seed`: task quickstart and task dev only)
+  │                  (compose profile `seed`: explicit task quickstart / task seed only)
   │
   ├── rabbitmq       message broker (AMQP + management UI)        ─┐
   ├── debezium       CDC: streams outbox_events table → RabbitMQ   │ events pipeline
@@ -322,7 +325,7 @@ Kubernetes Secret.
 | Profile       | Purpose                                                                                             |
 | ------------- | --------------------------------------------------------------------------------------------------- |
 | `dev`         | The 5 shared TMNT identities (Splinter, Leonardo, Donatello, Raphael, April) on the Kaiten Sushi Shop org shell, no product data (run by `task up`, `task quickstart` and `task dev`) |
-| `demo`        | The same org and identities as `dev`, plus the full B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, feature flags, usage and audit trail, all created by an `Ops Team` service account the profile adds first. The default local/demo product data: `task quickstart` and `task dev` run it. |
+| `demo`        | The same org and identities as `dev`, plus the full B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, feature flags, usage and audit trail, all created by an `Ops Team` service account the profile adds first. Explicit local/demo product data: `task quickstart` and `task seed` run it. |
 | `stress-test` | High-volume seed: multiple organizations, users, entitlements, licenses, customers, instances, etc. No task runs it. Against a running stack, run `docker compose --project-name kaiten-oss run --rm seed-data --profile stress-test` when you need load-testing volume (`kaiten-oss` is the project name `task` uses by default). |
 
 You do not run the wired ones by hand. Two of the three are a one-shot service in
@@ -334,7 +337,7 @@ You do not run the wired ones by hand. Two of the three are a one-shot service i
   `docker compose up -d` (that is, `task up:bare`) does not, which is why that
   stack has no organization and no user. The `api` service does not wait for it.
 - `demo` is the `seed-data` service, behind the `seed` profile: fake product data,
-  the slow and genuinely optional part. `task quickstart` and `task dev` run it
+  the slow and genuinely optional part. `task quickstart` and `task seed` run it
   once the stack is up. It writes through the same reporting-enabled use cases
   the API serves, which is why it waits for `api-ready` (the API answering
   through Envoy) rather than for `api`.

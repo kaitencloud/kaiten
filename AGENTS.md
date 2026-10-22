@@ -22,14 +22,24 @@ Codex; `CLAUDE.md` imports it for Claude Code. Human contributors: start with
 - Prerequisites are listed in `DEVELOPMENT.md`. Node 24 is pinned in `app/.nvmrc`;
   pnpm is pinned by the `packageManager` field of the root `package.json`.
 - Install the workspace once, from the repository root: `pnpm install`.
-- `cp .env.example .env`, then `task dev`: the whole backend stack in Docker,
-  fake product data, the generated API client and the frontend dev server.
+- Explicit `task setup` provisions dependencies/images and generates the client
+  once, preserving existing `.env`; then `task dev` runs the prepared Docker stack,
+  local accounts and frontend. `task seed` explicitly adds demo product data.
   `task up` starts the stack without the frontend; `task down` stops it;
   `task --list` shows every task.
 - `pnpm run dev:mock` in `app/`, after `pnpm run generate`: the console alone,
   with no sign-in and the whole API answered by Mock Service Worker in the page.
 - Run package scripts with `pnpm run <script>`, from the directory that owns
   them (`app/` for the console).
+
+## Local feature workshop
+
+Use [local development](app/docs/00-getting-started/agent-development.md) and the
+same root `Taskfile.yml` as humans: explicit `setup`, prepared `dev`, bounded
+`status`/`logs`, `debug`, `browser` and `capture`. No agent-only command tree.
+`dev` never installs/generates/builds or rotates credentials. Never treat mocked
+UI as backend proof. Keep captures private and use synthetic actors, not provider
+or customer credentials.
 
 ## Architecture rules (frontend)
 

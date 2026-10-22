@@ -19,6 +19,25 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg/mod \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -ldflags="-s -w" -o /go/bin/kaiten-api cmd/server/main.go
 
+# Explicit development-only target. Release scratch runtime below is unchanged.
+FROM builder AS debug-builder
+ARG DELVE_VERSION=v1.27.2
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go install github.com/go-delve/delve/cmd/dlv@${DELVE_VERSION}
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg/mod \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    go build -gcflags="all=-N -l" -o /go/bin/kaiten-api-debug ./cmd/server
+
+FROM alpine:3.22 AS debug
+WORKDIR /go/bin
+COPY --from=debug-builder /go/bin/dlv /go/bin/dlv
+COPY --from=debug-builder /go/bin/kaiten-api-debug /go/bin/kaiten-api
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
+COPY --from=builder /usr/share/zoneinfo /usr/share/zoneinfo
+USER 65532
+ENTRYPOINT ["/go/bin/dlv", "exec", "/go/bin/kaiten-api", "--headless", "--listen=0.0.0.0:40000", "--api-version=2", "--accept-multiclient", "--continue", "--"]
+
 FROM scratch
 
 ARG KAITEN_API_PORT

@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Kaiten local API (task debug)",
+      "type": "go",
+      "request": "attach",
+      "mode": "remote",
+      "host": "127.0.0.1",
+      "port": 40000,
+      "substitutePath": [
+        { "from": "${workspaceFolder}/api", "to": "/go/kaiten/api" }
+      ]
+    },
+    {
+      "name": "Kaiten local Go test (task debug:test)",
+      "type": "go",
+      "request": "attach",
+      "mode": "remote",
+      "host": "127.0.0.1",
+      "port": 40000
+    }
+  ]
+}
