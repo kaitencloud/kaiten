@@ -331,14 +331,21 @@ export class BillingProviders {
   }
 
   /** The live Stripe subscriptions of a customer. */
+  /** The live subscriptions of a customer that sit in Stripe: the ones its invoices are collected from. */
   private liveSubscriptionsOf(customerSlug: string): InstanceBilling[] {
+    return this.liveContractsOf(customerSlug).filter(
+      (subscription) => subscription.providerKind === 'STRIPE',
+    );
+  }
+
+  /** The live contracts of a customer, in whatever provider (`GetLiveSubscriptionCurrency` asks for no kind). */
+  private liveContractsOf(customerSlug: string): InstanceBilling[] {
     return this.host
       .subscriptions()
       .filter(
         (subscription) =>
           subscription.customerSlug === customerSlug &&
-          subscription.status !== 'CANCELED' &&
-          subscription.providerKind === 'STRIPE',
+          subscription.status !== 'CANCELED',
       );
   }
 
@@ -387,8 +394,9 @@ export class BillingProviders {
         'returnUrl must be an https URL (or http on localhost) of at most 2048 characters',
       );
     }
-    // The subscription's currency is the method's; without one the caller names it.
-    if (this.liveSubscriptionsOf(customerSlug).length === 0 && !body.currency) {
+    // The currency of a live contract is the method's, whatever provider holds the
+    // contract (a NoOp one too); without one the caller names it.
+    if (this.liveContractsOf(customerSlug).length === 0 && !body.currency) {
       throw new BillingProblem(
         422,
         `${operation}.CurrencyRequired`,

@@ -343,6 +343,25 @@ describe('the payment method of a customer, as the mocks serve it', () => {
     expect(again.status).toBe(200);
   });
 
+  // `GetLiveSubscriptionCurrency` asks the live contracts of the customer for a
+  // currency and names no provider: a contract on NoOp gives it as a Stripe one does.
+  it('takes the currency of a live contract on NoOp, and asks for one only where there is none', async () => {
+    // The world of dev:mock: Beta holds one contract, on NoOp, in its trial; Gamma holds none.
+    install(createDevMockConfig());
+    const bare = (customerSlug: string) =>
+      send('POST', `/customers/${customerSlug}/billing/payment-method-session`, {
+        returnUrl: `https://console.example.test/customers/${customerSlug}`,
+      });
+
+    expect((await bare('beta-industries')).status).toBe(200);
+    const none = await bare('gamma-labs');
+
+    expect(none.status).toBe(422);
+    expect((await problem(none)).code).toBe(
+      'CreatePaymentMethodSession.CurrencyRequired',
+    );
+  });
+
   it('refuses a session that is unknown, another customer\'s, or not finished on the hosted page', async () => {
     const model = createStripeBillingModel();
     model.providers.setSession('cs_test_123', {
