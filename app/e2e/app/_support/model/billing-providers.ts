@@ -330,7 +330,6 @@ export class BillingProviders {
     }
   }
 
-  /** The live Stripe subscriptions of a customer. */
   /** The live subscriptions of a customer that sit in Stripe: the ones its invoices are collected from. */
   private liveSubscriptionsOf(customerSlug: string): InstanceBilling[] {
     return this.liveContractsOf(customerSlug).filter(

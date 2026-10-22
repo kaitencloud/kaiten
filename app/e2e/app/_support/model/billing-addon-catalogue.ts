@@ -143,6 +143,13 @@ export type SerializedAddonCatalogue = {
 
 const NOW = () => new Date().toISOString();
 
+/** The slug format of the API (api/internal/shared/slugutil), in the words it refuses with. */
+const SLUG_REQUIREMENTS =
+  'must match ^[a-z0-9][a-z0-9-]*[a-z0-9]$ and be 2–100 characters';
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+const isValidSlug = (slug: string) =>
+  slug.length >= 2 && slug.length <= 100 && SLUG_PATTERN.test(slug);
+
 /**
  * The catalogue of add-ons as the Core API serves it (api/internal/modules/addons):
  * the families and their versions, what a version grants, what it is sold for and
@@ -152,13 +159,6 @@ const NOW = () => new Date().toISOString();
  * grants and its prices answer 409 `*.BillingActive`, which the catalogue learns from
  * the instances through `holders`.
  */
-/** The slug format of the API (api/internal/shared/slugutil), in the words it refuses with. */
-const SLUG_REQUIREMENTS =
-  'must match ^[a-z0-9][a-z0-9-]*[a-z0-9]$ and be 2–100 characters';
-const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
-const isValidSlug = (slug: string) =>
-  slug.length >= 2 && slug.length <= 100 && SLUG_PATTERN.test(slug);
-
 export class AddonCatalogue {
   private readonly problems = new ArmedProblems<AddonCatalogueOperation>();
   private compatibility: Record<string, string[]>;
