@@ -3,7 +3,11 @@ import { handleBillingProblem } from '@/domains/billing';
 import { downloadBlob } from '@/lib/download-blob';
 import { type UsageChunk, usageChunkFilename } from '../utils/usage-chunks';
 
-/** How far before `to` the API starts a request that names no `from`: thirty days. */
+/**
+ * How far before `to` the API starts a request that names no `from`: thirty days. This is a
+ * copy of the API's rule for the usage exports (the usage history section of the billing
+ * functional specification), which nothing here reads from the API: keep the two in step by hand.
+ */
 const DEFAULT_SPAN_MS = 30 * 24 * 60 * 60 * 1000;
 
 /** How long after the instant a refusal names the second read starts, when it has to name one. */
