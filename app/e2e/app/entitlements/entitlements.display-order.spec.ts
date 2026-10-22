@@ -29,6 +29,58 @@ test('creates an entitlement with a display order', async ({ page }) => {
   await expect(form.displayOrderField()).toHaveValue('25');
 });
 
+test('holds the first step on a display order the API would refuse', async ({
+  page,
+}) => {
+  const list = new EntitlementsListDriver(page);
+  const form = new EntitlementFormDriver(page);
+
+  await installEntitlementAppMocks(page, createEmptyEntitlementsModel());
+  await list.goto();
+  await list.openCreatePage();
+  await form.expectLoaded('create');
+  await form.fill({ name: 'Fractional Order' });
+  await expect(form.nextButton()).toBeEnabled();
+
+  for (const order of ['1.5', '2147483648']) {
+    await form.displayOrderField().fill(order);
+    await form.displayOrderField().blur();
+
+    await expect(form.nextButton()).toBeDisabled();
+  }
+
+  await form.displayOrderField().fill('7');
+  await form.displayOrderField().blur();
+  await expect(form.nextButton()).toBeEnabled();
+});
+
+test('sends the person back to the field of the first step when the stepper would go on without it', async ({
+  page,
+}) => {
+  const list = new EntitlementsListDriver(page);
+  const form = new EntitlementFormDriver(page);
+
+  await installEntitlementAppMocks(page, createEmptyEntitlementsModel());
+  await list.goto();
+  await list.openCreatePage();
+  await form.expectLoaded('create');
+  await form.fill({ name: 'Back To The Field' });
+  await form.clickNext();
+  await page.getByRole('button', { name: /Entitlement information/ }).click();
+  await form.displayOrderField().fill('1.5');
+  await form.displayOrderField().blur();
+
+  await page.getByRole('button', { name: /Type configuration/ }).click();
+
+  // The second step is not opened, the first says what is wrong and holds the focus.
+  await form.expectLoaded('create');
+  await expect(form.displayOrderField()).toHaveAttribute(
+    'aria-invalid',
+    'true',
+  );
+  await expect(form.displayOrderField()).toBeFocused();
+});
+
 test('clearing the display order field keeps the form submittable (saves 0)', async ({
   page,
 }) => {

@@ -69,7 +69,7 @@ export const InstanceFormSteps = ({
     <StepStackStep key="details">
       <StackedFormDialogCard
         loadingFields={3}
-        footer={<InstanceDetailsStepFooter form={form} />}
+        footer={<InstanceDetailsStepFooter form={form} withSlug={!instance} />}
       >
         <div className="space-y-6">
           <StepHeading>

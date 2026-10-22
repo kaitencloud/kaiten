@@ -4,6 +4,7 @@ import type { Instance } from '@/api-client';
 import { useStackedFormDialogClose } from '@/functionals/stacked-form-dialog';
 import { StepStackPrevious, useStepStack } from '@/functionals/step-stack';
 import {
+  instanceCreationDetailsFormSchema,
   instanceDetailsFormSchema,
   type InstanceFormValues,
   instanceLicenseFormSchema,
@@ -39,7 +40,14 @@ const StepStackPreviousButton = () => {
   );
 };
 
-export function InstanceDetailsStepFooter({ form }: { form: any }) {
+export function InstanceDetailsStepFooter({
+  form,
+  withSlug = false,
+}: {
+  form: any;
+  /** The slug is asked on this step: the creation form. */
+  withSlug?: boolean;
+}) {
   const { t } = useTranslation();
   // The first step has no Previous: its way out is Cancel, as in every other
   // form dialog.
@@ -56,11 +64,17 @@ export function InstanceDetailsStepFooter({ form }: { form: any }) {
         selector={(state: { values: InstanceFormValues }) => state}
       >
         {(state: { values: InstanceFormValues }) => {
-          const validationResult = instanceDetailsFormSchema.safeParse({
+          const details = {
             name: state.values.name,
             description: state.values.description,
             customerId: state.values.customerId,
-          });
+          };
+          const validationResult = withSlug
+            ? instanceCreationDetailsFormSchema.safeParse({
+                ...details,
+                slug: state.values.slug,
+              })
+            : instanceDetailsFormSchema.safeParse(details);
           return (
             <ValidatedStepNextButton
               label={t('Common.next', 'Next')}

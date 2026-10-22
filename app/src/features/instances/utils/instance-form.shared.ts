@@ -61,11 +61,20 @@ const toOptionalValue = (value: string | undefined): string | undefined => {
 
 // The slug is exposed only on the creation form (the update body does not
 // accept it). It is optional — left empty, the API generates one.
+const instanceSlugSchema = optionalField(zInstanceWritable.shape.slug.unwrap());
+
+// What the first step of the creation form asks: the details, and the slug, which the name
+// fills in as it is typed and which the person can change. Next opens the license step only
+// when all of it is valid, so that a slug the name made too long, or one typed wrong, is
+// stopped at the field and not carried to the last step.
+export const instanceCreationDetailsFormSchema =
+  instanceDetailsFormSchema.extend({ slug: instanceSlugSchema });
+
 export const instanceFormSchema = instanceDetailsFormSchema
   .merge(instanceLicenseFormSchema)
   .merge(instanceMetadataFormSchema)
   .extend({
-    slug: optionalField(zInstanceWritable.shape.slug.unwrap()),
+    slug: instanceSlugSchema,
     // An instance can be created without a zone and deployed later from the
     // instance list or its detail page, so this stays optional. It is exposed
     // on the creation form only: on an existing instance the zone changes

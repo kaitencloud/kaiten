@@ -140,7 +140,7 @@ export type LicenseFormValues = z.infer<typeof licenseFormSchema>;
 
 - `.pick()` keeps the fields the form shows; `.extend()` overrides only what differs: a message, a UI-only field, a stricter rule.
 - `zDeploymentZoneWritable.extend({...})` (`features/deployment-zones/schemas/deployment-zone.schema.ts`) extends the whole schema; `zVariant` is used as is in `features/feature-flags/variants/schemas/variant.schema.ts`.
-- A form made of several steps validates each step with a `.pick()` of one schema: `step1Schema` to `step4Schema` in `features/feature-flags/schemas/feature-flag.schema.ts`.
+- A form made of several steps validates each step with a `.pick()` of one schema: `step1Schema` to `step4Schema` in `features/feature-flags/schemas/feature-flag.schema.ts`. A step schema holds every field the step shows, including the slug the name fills in and the display order: Next is disabled until it passes, and a field left out would let its error through to the last step, where only a greyed button points at it (`entitlementIdentityStepSchema`, `instanceCreationDetailsFormSchema`). A stepper that jumps forward checks the steps it passes.
 - When the form state is not the request body, compose the schema from generated fields. The release form also carries its creation mode and component patches, so `features/releases/schemas/release.schema.ts` builds a `z.object` around `zReleaseWritable.shape.version` and its sibling fields. A plain `z.object` with no generated field is for form state the contract does not describe, such as `features/webhooks/schemas/create-webhook.schema.ts` (the webhook endpoints are called from `features/webhooks/webhooks.api.ts`, outside the OpenAPI contract).
 
 ### Messages are i18n keys

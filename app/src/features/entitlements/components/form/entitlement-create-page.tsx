@@ -4,6 +4,7 @@ import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
+import { focusFirstInvalidControl } from '@/components/form/use-submit-focus';
 import { Page } from '@/functionals/page';
 import { ProgressStepper } from '@/functionals/progress-stepper';
 import { createFormSubmitHandler } from '@/hooks/form';
@@ -14,6 +15,7 @@ import {
 import {
   type EntitlementFormValues,
   entitlementIdentityStepSchema,
+  getIdentityStepValues,
 } from './entitlement-form.shared';
 import { useEntitlementMutationForm } from './use-entitlement-mutation-form';
 
@@ -55,9 +57,25 @@ export function EntitlementCreatePage({
   ];
 
   const goToStep = (index: number) => {
-    if (index >= 0 && index <= furthestStep) {
-      setActiveStep(index);
+    if (index < 0 || index > furthestStep) {
+      return;
     }
+    // The identity can be broken after the second step was reached, and the stepper would
+    // take the person back to a step that cannot be sent, with nothing to say why: it
+    // shows what is wrong with the first step and puts the focus on it instead.
+    const identity = entitlementIdentityStepSchema.safeParse(
+      getIdentityStepValues(form.state.values),
+    );
+    if (index > activeStep && !identity.success) {
+      setActiveStep(0);
+      void form.handleSubmit();
+      requestAnimationFrame(() =>
+        focusFirstInvalidControl(document.getElementById(formId)),
+      );
+
+      return;
+    }
+    setActiveStep(index);
   };
 
   const goToTypeStep = () => {
@@ -179,13 +197,9 @@ function IdentityStepNextButton({
       selector={(state: { values: EntitlementFormValues }) => state.values}
     >
       {(values: EntitlementFormValues) => {
-        const { success } = entitlementIdentityStepSchema.safeParse({
-          name: values.name,
-          slug: values.slug,
-          description: values.description,
-          groupSlugs: values.groupSlugs,
-          icon: values.icon,
-        });
+        const { success } = entitlementIdentityStepSchema.safeParse(
+          getIdentityStepValues(values),
+        );
 
         return (
           <Button type="button" disabled={!success} onClick={onNext}>

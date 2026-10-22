@@ -361,6 +361,33 @@ describe('entitlementIdentityStepSchema slug', () => {
   });
 });
 
+// Every field of the first step is checked before Next: the display order is asked there, and a
+// value the API refuses (a fraction, more than an int32) has to hold the wizard on its field.
+describe('entitlementIdentityStepSchema display order', () => {
+  const step = {
+    description: '',
+    displayOrder: 0,
+    groupSlugs: [],
+    name: 'Test',
+    slug: '',
+    userFacing: false,
+  };
+
+  it('passes with a whole number', () => {
+    expect(entitlementIdentityStepSchema.safeParse(step).success).toBe(true);
+    expect(
+      entitlementIdentityStepSchema.safeParse({ ...step, displayOrder: 12 })
+        .success,
+    ).toBe(true);
+  });
+
+  it.each([1.5, 2147483648, Number.NaN])('fails with %s', (displayOrder) => {
+    expect(
+      entitlementIdentityStepSchema.safeParse({ ...step, displayOrder }).success,
+    ).toBe(false);
+  });
+});
+
 describe('getEntitlementFormDefaults slug', () => {
   it('starts a new entitlement with a blank slug', () => {
     expect(getEntitlementFormDefaults().slug).toBe('');

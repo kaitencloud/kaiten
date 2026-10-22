@@ -27,13 +27,18 @@ const unitLabelSchema = z
 const isLabelSet = (value?: string) => Boolean(value && value.trim() !== '');
 
 // Creating a schema for entitlement form based on the available fields
-// Step 1 of both create wizards, dialog and page, stops at the group selection.
+// Step 1 of both create wizards, dialog and page, holds every field of the identity: the
+// name, the slug, the description, the groups, the icon, whether it is shown to customers and
+// where it comes in the list. Next opens the second step only when all of them are valid; a
+// field left out here would let an error through to the end, where nothing points at it.
 export const entitlementIdentityStepSchema = zEntitlementWritable
   .pick({
     name: true,
     description: true,
     groupSlugs: true,
     icon: true,
+    userFacing: true,
+    displayOrder: true,
   })
   .extend({
     name: entitlementNameSchema,
@@ -111,6 +116,17 @@ export const entitlementFormSchema = zEntitlementWritable
   });
 
 export type EntitlementFormValues = z.infer<typeof entitlementFormSchema>;
+
+/** The values of the form that the first step asks for, as its schema reads them. */
+export const getIdentityStepValues = (values: EntitlementFormValues) => ({
+  description: values.description,
+  displayOrder: values.displayOrder,
+  groupSlugs: values.groupSlugs,
+  icon: values.icon,
+  name: values.name,
+  slug: values.slug,
+  userFacing: values.userFacing,
+});
 export type EntitlementSelectOption = {
   label: string;
   value: string;

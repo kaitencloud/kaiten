@@ -20,6 +20,7 @@ import {
   type EntitlementFormProps,
   type EntitlementFormValues,
   entitlementIdentityStepSchema,
+  getIdentityStepValues,
 } from './entitlement-form.shared';
 import { useEntitlementMutationForm } from './use-entitlement-mutation-form';
 
@@ -241,13 +242,9 @@ function EntitlementIdentityStepFooter({
         selector={(state: { values: EntitlementFormValues }) => state}
       >
         {(state: { values: EntitlementFormValues }) => {
-          const validationResult = entitlementIdentityStepSchema.safeParse({
-            name: state.values.name,
-            slug: state.values.slug,
-            description: state.values.description,
-            groupSlugs: state.values.groupSlugs,
-            icon: state.values.icon,
-          });
+          const validationResult = entitlementIdentityStepSchema.safeParse(
+            getIdentityStepValues(state.values),
+          );
           return (
             <ValidatedStepNextButton
               label={t('Common.next', 'Next')}

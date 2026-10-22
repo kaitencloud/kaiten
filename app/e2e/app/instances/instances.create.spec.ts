@@ -48,6 +48,33 @@ test.describe('instances create', () => {
     await list.expectInstanceVisible('Acme Europe');
   });
 
+  test('holds the first step on a slug the name made too long, and on one typed wrong', async ({
+    page,
+  }) => {
+    const list = new InstancesListDriver(page);
+    const form = new InstanceFormDriver(page);
+
+    await installInstanceAppMocks(page, createEmptyInstancesModel());
+    await list.goto();
+    await list.openCreateDialog();
+
+    // A name of 101 characters gives a slug the API refuses: the step says so and does not go on.
+    await form.fillDetails({ name: 'A'.repeat(101) });
+    await form.chooseCustomer('Acme Corp');
+    await expect(form.slugField()).toHaveValue('a'.repeat(101));
+    await expect(form.nextButton()).toBeDisabled();
+
+    await form.fillDetails({ name: 'Acme Europe' });
+    await expect(form.nextButton()).toBeEnabled();
+
+    for (const slug of ['-acme', 'Acme', 'acme-', 'acme_x', 'ac me']) {
+      await form.slugField().fill(slug);
+      await expect(form.nextButton()).toBeDisabled();
+    }
+    await form.slugField().fill('acme-europe');
+    await expect(form.nextButton()).toBeEnabled();
+  });
+
   test('creates an instance from the customer-scoped dialog with a locked customer', async ({
     page,
   }) => {
