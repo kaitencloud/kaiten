@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { DialogFormSkeleton } from '@/components/dialog/dialog-form-skeleton';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import { profileSchema, accessErrorMessage } from '../access-helpers';
+import { userToProfile } from '../user-management.api';
 import { useAccessMutations } from '../user-management.queries';
 import { FormFeedback } from './form-feedback';
 
@@ -20,6 +21,9 @@ export function ProfileForm({
   const { t } = useTranslation();
   const { profile } = useAccessMutations();
   const [error, setError] = useState('');
+  // What the form opened with, then what it saved: a save sends the fields that
+  // differ from it, and takes the others from the user as the API holds it.
+  const [openedValues, setOpenedValues] = useState(() => userToProfile(user));
   const form = useAppForm({
     defaultValues: { name: user.name, email: user.email ?? '' },
     validators: { onChange: profileSchema },
@@ -27,9 +31,11 @@ export function ProfileForm({
       setError('');
       try {
         await profile.mutateAsync({
-          path: { id: user.id },
-          body: value,
+          edited: value,
+          id: user.id,
+          opened: openedValues,
         });
+        setOpenedValues(value);
         form.reset(value);
         toast.success(t('Pages.Access.profileSaved'));
       } catch (cause) {
