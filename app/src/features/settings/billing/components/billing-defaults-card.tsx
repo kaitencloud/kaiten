@@ -49,6 +49,12 @@ export function BillingDefaultsCard({ settings }: BillingDefaultsCardProps) {
   const stripe = useBillingProvider('STRIPE');
   const update = useUpdateBillingSettings();
   const [failure, setFailure] = useState<unknown>(null);
+  // What the form opened with, and then what the API kept at each save: a save
+  // sends the fields that differ from it, and takes the others from the settings
+  // as the API holds them.
+  const [openedValues, setOpenedValues] = useState(() =>
+    billingSettingsToFormValues(settings),
+  );
 
   const form = useAppForm({
     defaultValues: billingSettingsToFormValues(settings),
@@ -59,10 +65,13 @@ export function BillingDefaultsCard({ settings }: BillingDefaultsCardProps) {
       setFailure(null);
       try {
         const saved = await update.mutateAsync({
-          body: billingSettingsFormValuesToBody(value),
+          edited: billingSettingsFormValuesToBody(value),
+          opened: billingSettingsFormValuesToBody(openedValues),
         });
         // The form opens again on what the API kept, so that it is not "changed".
-        formApi.reset(billingSettingsToFormValues(saved));
+        const kept = billingSettingsToFormValues(saved);
+        setOpenedValues(kept);
+        formApi.reset(kept);
       } catch (error) {
         if (
           !placeRefusalOnFields(formApi, error, BILLING_SETTINGS_REFUSAL_FIELDS)

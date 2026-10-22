@@ -431,6 +431,78 @@ describe('the defaults', () => {
     expect(bodies[0].handoffStripeInvoices).toBe(true);
   });
 
+  it('keeps the member another tab changed since the page loaded, and sends the payment terms that were typed', async () => {
+    const bodies = serveUpdates();
+    renderPage();
+    const days = await daysField();
+
+    // Another tab turned the Stripe hand-off on and moved the default to charging automatically.
+    server.use(
+      handleGetBillingSettings({
+        body: {
+          defaultCollectionMethod: 'CHARGE_AUTOMATICALLY',
+          defaultDaysUntilDue: 30,
+          handoffStripeInvoices: true,
+        },
+      }),
+    );
+    await userEvent.clear(days);
+    await userEvent.type(days, '45');
+    await userEvent.click(screen.getByRole('button', { name: 'Save the defaults' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      defaultCollectionMethod: 'CHARGE_AUTOMATICALLY',
+      defaultDaysUntilDue: 45,
+      handoffStripeInvoices: true,
+    });
+  });
+
+  it('compares a second save with what the API kept at the first', async () => {
+    const bodies = serveUpdates();
+    renderPage();
+    const days = await daysField();
+
+    await userEvent.clear(days);
+    await userEvent.type(days, '45');
+    await userEvent.click(screen.getByRole('button', { name: 'Save the defaults' }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save the defaults' })).toBeDisabled(),
+    );
+    // Back to the terms the page opened with: a change from what was saved, and sent.
+    server.use(
+      handleGetBillingSettings({ body: { ...STORED, defaultDaysUntilDue: 45 } }),
+    );
+    await userEvent.clear(days);
+    await userEvent.type(days, '30');
+    await userEvent.click(screen.getByRole('button', { name: 'Save the defaults' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies[1].defaultDaysUntilDue).toBe(30);
+  });
+
+  it('says why and writes nothing when the settings cannot be read before the save', async () => {
+    const bodies = serveUpdates();
+    renderPage();
+    const days = await daysField();
+    server.use(
+      handleGetBillingSettings(() =>
+        refusal(503, { detail: 'Billing settings are unavailable' }),
+      ),
+    );
+
+    await userEvent.clear(days);
+    await userEvent.type(days, '45');
+    await userEvent.click(screen.getByRole('button', { name: 'Save the defaults' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Billing settings are unavailable',
+    );
+    expect(bodies).toHaveLength(0);
+    expect(toast.success).not.toHaveBeenCalled();
+  });
+
   it('tells a number that is no number of days before it asks', async () => {
     const bodies = serveUpdates();
     renderPage();

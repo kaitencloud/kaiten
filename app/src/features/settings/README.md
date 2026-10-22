@@ -4,12 +4,12 @@ The settings page is the entry to what an administrator configures. It links to 
 
 ## Routes
 
-| Path | Route file | What it renders |
-| --- | --- | --- |
-| `/settings` | `app/src/routes/settings/index.tsx` | `SettingsPageContent` |
-| `/settings/metadata` | `app/src/routes/settings/metadata.tsx` | `MetadataFieldsPageContent` |
-| `/settings/billing` | `app/src/routes/settings/billing.tsx` | `BillingSettingsPageContent`. Guarded by `requireBillingCapability`: where billing is off the route explains itself (`BillingNotFound`) and the settings page does not link to it. |
-| `/settings/notifications` | `app/src/routes/settings/notifications.tsx` | The preferences page of the `notifications` feature (`app/src/features/notifications/`), which this folder does not own |
+| Path                      | Route file                                  | What it renders                                                                                                                                                                    |
+| ------------------------- | ------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/settings`               | `app/src/routes/settings/index.tsx`         | `SettingsPageContent`                                                                                                                                                              |
+| `/settings/metadata`      | `app/src/routes/settings/metadata.tsx`      | `MetadataFieldsPageContent`                                                                                                                                                        |
+| `/settings/billing`       | `app/src/routes/settings/billing.tsx`       | `BillingSettingsPageContent`. Guarded by `requireBillingCapability`: where billing is off the route explains itself (`BillingNotFound`) and the settings page does not link to it. |
+| `/settings/notifications` | `app/src/routes/settings/notifications.tsx` | The preferences page of the `notifications` feature (`app/src/features/notifications/`), which this folder does not own                                                            |
 
 `/settings` is pinned to the bottom of the side navigation, below the audit trail (`footerRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`).
 
@@ -66,7 +66,7 @@ The `/settings` page reads no server data of its own: the card that leads to the
 The billing page reads and writes as follows:
 
 - **Read.** `billingSettingsQueryOptions` (`GET /billing/settings`, from `@/domains/billing`) for the defaults, in the page, so that a refusal shows in its card with a way to ask again and the other cards stay. The providers and the retention come from `useBillingCapabilities`; the health (`billingHealthQueryOptions`, `GET /billing/health`) is read by its card and by the Stripe row of the providers card, which share the read, and only for a session that may read billing.
-- **Write.** `updateBillingSettingsMutation` (`PUT /billing/settings`), which replaces the three members together, so the form holds all three whether or not it shows them. `invalidateBillingSettingsQueries` refreshes the defaults, and the form opens again on what the API kept. "Sync now" is `syncBillingProviderMutation` (`POST /billing/sync`, answered 202 with what each provider did): it is not optimistic, says what the pass did in a toast, and `invalidateProviderSyncQueries` refreshes the invoices, the invoice pages, the subscriptions, what each customer holds in the provider and the health.
+- **Write.** `saveBillingSettingsOnFresh` (`queries/billing-settings-save.ts`: a read of `GET /billing/settings`, then `PUT /billing/settings`), which replaces the three members together, so the form holds all three whether or not it shows them. The settings are read again first and only what the form changed is put on top of them (see [forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole)), so a member saved from another tab stays; the form compares with what it opened with, then with what the API kept at each save. `invalidateBillingSettingsQueries` refreshes the defaults, and the form opens again on what the API kept. "Sync now" is `syncBillingProviderMutation` (`POST /billing/sync`, answered 202 with what each provider did): it is not optimistic, says what the pass did in a toast, and `invalidateProviderSyncQueries` refreshes the invoices, the invoice pages, the subscriptions, what each customer holds in the provider and the health.
 
 The export of the data reads and writes nothing in the cache. `downloadUsageChunk` calls `GET /usage/reports/export` for one calendar month (the API reads 31 days at most in one export), and, when the oldest month reaches before the start of the kept usage, a second read leaves `from` out for the API to move up, or names it a minute after that start when the month is longer than the API's default span, so up to a minute of the oldest usage may be left out of that file. The invoices go through `ExportInvoicesMenu` from `@/domains/billing` with no filter. The console names the files, since a browser cannot read the name the API proposes from the local stack.
 
