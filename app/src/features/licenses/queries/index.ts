@@ -17,3 +17,4 @@ export {
   planChangeInstancesQueryOptions,
 } from './plan-change-instances';
 export { previewInstancesQueryOptions } from './preview-query-options';
+export { type SaveLicenseVariables, saveLicenseOnFresh } from './license-save';

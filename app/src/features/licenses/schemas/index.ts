@@ -21,3 +21,4 @@ export {
   licenseCommercialFormSchema,
   licenseToCommercialFormValues,
 } from './license-commercial.schema';
+export { licenseToUpdateBody } from './license-update-body';

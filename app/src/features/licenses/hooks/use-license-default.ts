@@ -4,29 +4,33 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { License } from '@/api-client';
-import { updateLicenseMutation } from '@/api-client/@tanstack/react-query.gen';
 import { getApiErrorMessage } from '@/lib/errors';
-import { invalidateLicenseDetails, invalidateLicenseLists } from '../queries';
+import {
+  invalidateLicenseDetails,
+  invalidateLicenseLists,
+  saveLicenseOnFresh,
+} from '../queries';
+import { licenseToUpdateBody } from '../schemas';
 
-type DefaultLicense = Pick<
-  License,
-  'description' | 'name' | 'slug' | 'type' | 'versionName'
->;
+type DefaultLicense = Parameters<typeof licenseToUpdateBody>[0] &
+  Pick<License, 'slug'>;
 
 // Makes a version its family's default, or stops it being one. Both are an
-// update restating the version as it is, with isDefault flipped; the server
-// takes the flag from the previous default itself, so every version's page is
-// refreshed, not only this one's.
+// update restating the version, with isDefault flipped and nothing else: the
+// version is read again first, so that what changed on it since the page loaded
+// (its terms, its name) is not taken back, and neither is a default that moved
+// meanwhile. The server takes the flag from the previous default itself, so
+// every version's page is refreshed, not only this one's.
 export function useLicenseDefault(license: DefaultLicense) {
   const { t } = useTranslation();
   const { queryClient } = useRouteContext({ from: '__root__' });
 
   const mutation = useMutation({
-    ...updateLicenseMutation(),
+    mutationFn: saveLicenseOnFresh,
     onSuccess: (_data, variables) => {
       toast.success(
         t(
-          variables.body.isDefault
+          variables.edited.isDefault
             ? 'Pages.Licenses.DefaultActions.setSuccess'
             : 'Pages.Licenses.DefaultActions.unsetSuccess',
         ),
@@ -52,14 +56,9 @@ export function useLicenseDefault(license: DefaultLicense) {
         return;
       }
       mutate({
-        body: {
-          description: license.description,
-          isDefault,
-          name: license.name,
-          type: license.type,
-          versionName: license.versionName,
-        },
-        path: { licenseSlug: license.slug },
+        edited: { ...licenseToUpdateBody(license), isDefault },
+        licenseSlug: license.slug,
+        opened: licenseToUpdateBody(license),
       });
     },
     [license, mutate],

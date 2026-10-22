@@ -1,11 +1,11 @@
 import { Button } from '@/components/ui/button';
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import type { License } from '@/api-client';
-import { updateLicenseMutation } from '@/api-client/@tanstack/react-query.gen';
 import { Page } from '@/functionals/page';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import { useLicenseEntitlementsDraft } from '../../hooks/use-license-entitlements-draft';
@@ -13,12 +13,14 @@ import { useLicenseSave } from '../../hooks/use-license-save';
 import {
   entitlementsQueryOptions,
   invalidateLicenseQueries,
+  saveLicenseOnFresh,
 } from '../../queries';
 import { type LicenseFormValues, licenseFormSchema } from '../../schemas';
 import type { AddEntitlementPayload } from '../entitlements/license-entitlements-card.types';
 import {
   licenseFormValuesToLicenseInput,
   licenseFormValuesToLicenseUpdateInput,
+  licenseToFormValues,
 } from './license-form.utils';
 import {
   DraftEntitlementsSection,
@@ -60,8 +62,14 @@ export const LicenseForm = ({
   const entitlements = entitlementsData?.items ?? [];
   const { createLicenseWithGrants } = useLicenseSave(entitlements);
 
+  // The version as the form opened with it: what an update is compared with, to
+  // send only what was changed on top of the version as the API holds it now.
+  const [openedLicense] = useState(license);
+  const [openedValues] = useState(() =>
+    license ? licenseToFormValues(license) : initialLicenseFormValues,
+  );
   const updateMutation = useMutation({
-    ...updateLicenseMutation(),
+    mutationFn: saveLicenseOnFresh,
     onSuccess: async () => {
       await invalidateLicenseQueries(queryClient, license?.slug);
       toast.success(t('Pages.Licenses.Mutation.Form.updateSuccess'));
@@ -77,17 +85,7 @@ export const LicenseForm = ({
   };
 
   const form = useAppForm({
-    defaultValues: license
-      ? {
-          name: license.name,
-          description: license.description,
-          type: license.type,
-          versionName: license.versionName,
-          slug: license.slug ?? '',
-          // Unused on update: the form does not offer it there.
-          createAsDraft: false,
-        }
-      : initialLicenseFormValues,
+    defaultValues: openedValues,
     validators: {
       onChange: licenseFormSchema,
     },
@@ -98,11 +96,12 @@ export const LicenseForm = ({
             throw new Error('Missing license slug');
           }
 
+          // The same version builds both bodies, so they differ by the form only.
+          const base = openedLicense ?? license;
           await updateMutation.mutateAsync({
-            body: {
-              ...licenseFormValuesToLicenseUpdateInput(value, license),
-            },
-            path: { licenseSlug: license.slug },
+            edited: licenseFormValuesToLicenseUpdateInput(value, base),
+            licenseSlug: license.slug,
+            opened: licenseFormValuesToLicenseUpdateInput(openedValues, base),
           });
           handleNavigateSuccess();
           return;
