@@ -37,12 +37,18 @@ import type {
 // A refusal is not a warning: ENTITLEMENT_USAGE_REPORT_REJECTED and
 // CUSTOMER_CREATION_REJECTED read as rejected.
 //
+// A completed checkout is named too, since `completed` is not one of the last words that
+// read as accepted: a visitor with no account bought something, and the customer and the
+// instance exist now. Its siblings read as a plain read: a checkout started is a
+// request, and one abandoned is a visitor who left, which no one refused.
+//
 // Nor is a revocation a refusal: INSTANCE_VOUCHER_REVOKED is a person taking a
 // redemption back, PUBLISHABLE_KEY_REVOKED a person retiring a key, and
 // INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED a person ending an exception, removals
 // like a deletion, so they read as a plain read rather than as rejected from
 // their last word.
 const KNOWN_CATEGORIES = {
+  CHECKOUT_SESSION_COMPLETED: 'accepted',
   ENTITLEMENT_VALUE_GET: 'read',
   ENTITLEMENT_USAGE_REPORT_ACCEPTED: 'accepted',
   ENTITLEMENT_USAGE_REPORT_REJECTED: 'rejected',

@@ -69,6 +69,34 @@ describe('webhook events', () => {
     expect(offered).toHaveLength(Object.keys(WEBHOOK_EVENTS).length - 2);
   });
 
+  // The anonymous checkout writes three events of their own, which a vendor provisions its
+  // customers from: they are a group of their own, listed after the payments.
+  it('offers the three events of an anonymous checkout as a group of their own, after the payments', () => {
+    const groups = SUBSCRIBABLE_WEBHOOK_EVENTS.map((entry) => entry.group);
+    const checkout = SUBSCRIBABLE_WEBHOOK_EVENTS.find(
+      (entry) => entry.group === 'checkout',
+    );
+
+    expect(groups.indexOf('checkout')).toBe(groups.indexOf('payment') + 1);
+    expect(checkout?.events.map((event) => event.type).sort()).toEqual([
+      'com.kaiten.checkout_session.v1.abandoned',
+      'com.kaiten.checkout_session.v1.completed',
+      'com.kaiten.checkout_session.v1.started',
+    ]);
+    expect(
+      getWebhookEventOptionLabel(
+        'com.kaiten.checkout_session.v1.completed',
+        translatorFor(en),
+      ),
+    ).toBe('Checkouts – Checkout completed');
+    expect(
+      getWebhookEventOptionLabel(
+        'com.kaiten.checkout_session.v1.abandoned',
+        translatorFor(fr),
+      ),
+    ).toBe('Paiements en ligne – Paiement abandonné');
+  });
+
   it('reads an event by its type, with its audit-trail label', () => {
     const t = translatorFor(en);
 

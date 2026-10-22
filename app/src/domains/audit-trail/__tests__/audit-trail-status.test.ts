@@ -33,6 +33,7 @@ const ACCEPTED_EVENTS = [
   'ADDON_CREATED',
   'ADDON_ENTITLEMENT_ASSIGNED',
   'ADDON_PRICE_CREATED',
+  'CHECKOUT_SESSION_COMPLETED',
   'COMPONENT_CREATED',
   'CUSTOMER_CREATED',
   'DEPLOYMENT_ZONE_CREATED',
@@ -117,6 +118,11 @@ describe('event status', () => {
     ['PUBLISHABLE_KEY_REVOKED', 'read'],
     // So was a revoked exception.
     ['INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED', 'read'],
+    // A visitor bought, and the customer exists now; one who started or left did
+    // nothing the API refused.
+    ['CHECKOUT_SESSION_COMPLETED', 'accepted'],
+    ['CHECKOUT_SESSION_STARTED', 'read'],
+    ['CHECKOUT_SESSION_ABANDONED', 'read'],
   ])('reads %s as %s', (eventName, category) => {
     expect(getEventCategory(eventName)).toBe(category);
   });
