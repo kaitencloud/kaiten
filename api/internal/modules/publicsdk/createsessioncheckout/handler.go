@@ -295,6 +295,9 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 	if paid {
 		subscribe.ProviderKind, subscribe.CollectionMethod = providerKind, ptr(chargeAutomatically)
 		subscribe.AllowMissingPaymentMethod = !needsMethod && !methodActive
+		// An amount due today: nothing bought is given before it is paid
+		// (§9.10, V31-63).
+		subscribe.Incomplete = due.Total > 0
 	} else {
 		subscribe.ProviderKind, subscribe.CollectionMethod = "NOOP", ptr(sendInvoice)
 	}

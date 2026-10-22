@@ -246,6 +246,43 @@ func (q *Queries) InsertInstanceAddon(ctx context.Context, arg InsertInstanceAdd
 	return id, err
 }
 
+const insertPaidInstanceAddon = `-- name: InsertPaidInstanceAddon :one
+INSERT INTO instance_addon (id, organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity,
+                            created_by_id, updated_by_id)
+VALUES ($1, $2, $3, $4, $5,
+        $6, $6, $7, $7)
+ON CONFLICT DO NOTHING
+RETURNING id
+`
+
+type InsertPaidInstanceAddonParams struct {
+	ID             uuid.UUID `json:"id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+	AddonID        uuid.UUID `json:"addon_id"`
+	AddonFamilyID  uuid.UUID `json:"addon_family_id"`
+	Quantity       int32     `json:"quantity"`
+	UserID         uuid.UUID `json:"user_id"`
+}
+
+// An attachment an INCOMPLETE checkout's payment creates (§9.10 rule 3),
+// under the id its ACTIVATION line already names. Never refused: a version of
+// the family attached meanwhile leaves no row, and the payment goes on.
+func (q *Queries) InsertPaidInstanceAddon(ctx context.Context, arg InsertPaidInstanceAddonParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, insertPaidInstanceAddon,
+		arg.ID,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.AddonID,
+		arg.AddonFamilyID,
+		arg.Quantity,
+		arg.UserID,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listActiveInstanceAddonsByInstances = `-- name: ListActiveInstanceAddonsByInstances :many
 SELECT ia.id, ia.instance_id, ia.addon_id, ia.quantity, ia.created_at,
        a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug

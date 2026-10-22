@@ -27,6 +27,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/incomplete"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoiceaction"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
@@ -395,6 +396,11 @@ func (s *Syncer) mirror(ctx context.Context, q *db.Queries, row db.InstanceInvoi
 	}
 	if err := announce(invoice); err != nil {
 		return nil, fmt.Errorf("announce provider change of invoice %s: %w", row.ID, err)
+	}
+	// The payment of an INCOMPLETE checkout's ACTIVATION applies what it
+	// bought, in this same transaction (§9.10 rule 3).
+	if _, err := incomplete.Settle(ctx, s.deps, s.outbox, q, updated, now); err != nil {
+		return nil, err
 	}
 	return &updated, nil
 }

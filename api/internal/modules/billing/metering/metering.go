@@ -123,3 +123,30 @@ func Consume(ctx context.Context, source ports.DiscountSource, organizationID uu
 	}
 	return nil
 }
+
+// Without is composition without the DISCOUNT lines of one redemption: what
+// Consume must not count yet, the redemption having no row.
+func Without(composition rating.Composition, instanceVoucherID uuid.UUID) rating.Composition {
+	out := composition
+	out.Lines = make([]rating.InvoiceLine, 0, len(composition.Lines))
+	for _, line := range composition.Lines {
+		if line.Type == rating.LineDiscount && line.InstanceVoucherID != nil && *line.InstanceVoucherID == instanceVoucherID {
+			continue
+		}
+		out.Lines = append(out.Lines, line)
+	}
+	return out
+}
+
+// Only is composition with the DISCOUNT lines of one redemption alone: what
+// Consume counts once its row exists.
+func Only(composition rating.Composition, instanceVoucherID uuid.UUID) rating.Composition {
+	out := composition
+	out.Lines = nil
+	for _, line := range composition.Lines {
+		if line.Type == rating.LineDiscount && line.InstanceVoucherID != nil && *line.InstanceVoucherID == instanceVoucherID {
+			out.Lines = append(out.Lines, line)
+		}
+	}
+	return out
+}

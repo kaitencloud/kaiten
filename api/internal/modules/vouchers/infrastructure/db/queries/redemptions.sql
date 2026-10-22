@@ -230,3 +230,42 @@ JOIN user_on_organization m
  AND m.organization_id = sqlc.arg(organization_id)
  AND m.deleted_at IS NULL
 WHERE u.external_id = sqlc.arg(external_id);
+
+
+-- name: ClaimPaidRedemption :one
+-- An INCOMPLETE checkout's payment records the redemption its ACTIVATION
+-- already discounted (§9.10 rule 3): never refused (§24 #65), so the count
+-- stops at max_redemptions rather than breaking voucher_redemptions_check,
+-- and whatever the voucher's status or window became meanwhile.
+-- just_exhausted is the transition to EXHAUSTED this write made, if any.
+WITH before AS (
+  SELECT v.id, v.status
+  FROM voucher v
+  WHERE v.id = sqlc.arg(id)
+    AND v.organization_id = sqlc.arg(organization_id)
+  FOR UPDATE
+)
+UPDATE voucher v
+SET redemptions_count = CASE
+                          WHEN v.max_redemptions IS NULL OR v.redemptions_count < v.max_redemptions THEN v.redemptions_count + 1
+                          ELSE v.redemptions_count END,
+    status            = CASE
+                          WHEN v.status = 'ACTIVE' AND v.max_redemptions IS NOT NULL AND v.redemptions_count + 1 >= v.max_redemptions
+                            THEN 'EXHAUSTED'::voucher_status
+                          ELSE v.status END,
+    updated_at        = sqlc.arg(now),
+    updated_by_id     = sqlc.arg(user_id)
+FROM before
+WHERE v.id = before.id
+RETURNING v.redemptions_count, v.status, (v.status = 'EXHAUSTED' AND before.status <> 'EXHAUSTED')::boolean AS just_exhausted;
+
+
+-- name: InsertPaidInstanceVoucher :one
+-- The redemption, under the id the ACTIVATION's DISCOUNT line names. An
+-- instance that redeemed the voucher meanwhile keeps that redemption.
+INSERT INTO instance_voucher (id, organization_id, instance_id, voucher_id, redeemed_at, redeemed_by_id,
+                              effective_starts_at, effective_expires_at)
+VALUES (sqlc.arg(id), sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(voucher_id), sqlc.arg(now), sqlc.arg(user_id),
+        sqlc.arg(now), sqlc.narg(effective_expires_at))
+ON CONFLICT DO NOTHING
+RETURNING id;

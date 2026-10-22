@@ -20,10 +20,11 @@ import (
 
 // Statuses, as the API spells them.
 const (
-	StatusTrial    = "TRIAL"
-	StatusActive   = "ACTIVE"
-	StatusPastDue  = "PAST_DUE"
-	StatusCanceled = "CANCELED"
+	StatusIncomplete = "INCOMPLETE"
+	StatusTrial      = "TRIAL"
+	StatusActive     = "ACTIVE"
+	StatusPastDue    = "PAST_DUE"
+	StatusCanceled   = "CANCELED"
 )
 
 // Live reports whether a status is a subscription that bills: TRIAL, ACTIVE

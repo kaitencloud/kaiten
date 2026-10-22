@@ -2,6 +2,8 @@ package subscribeinstance
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/metering"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -108,5 +111,72 @@ func (u *UseCase) PreviewActivation(ctx context.Context, organizationID uuid.UUI
 		return nil, err
 	}
 	out.Composition = composition
+	return out, nil
+}
+
+// pendingCheckout is what an INCOMPLETE subscribe stores and bills of its
+// selection: the add-ons' charges and the voucher's discount under the ids
+// their rows take at payment, and the JSON of pending_selection.
+type pendingCheckout struct {
+	addOns   []ports.BillableAddon
+	discount *ports.Discount
+	stored   []byte
+}
+
+// pendingCheckout prices the checkout's selection without applying it
+// (§9.10 rule 1). The checkout's dry run, made just before by the same
+// request, attached and redeemed them in a rolled-back transaction, which ran
+// every rule of §10.2 and §11.4: what reaches here is what it accepted.
+func (u *UseCase) pendingCheckout(ctx context.Context, organizationID uuid.UUID, billingPeriod string, cmd Command) (*pendingCheckout, error) {
+	out := &pendingCheckout{addOns: nil, discount: nil, stored: nil}
+	selection := subscriptions.PendingSelection{LicensePriceID: nil, AddOns: []subscriptions.PendingAddon{}, Voucher: nil}
+	for _, addon := range cmd.AddOns {
+		if u.deps.Addons == nil {
+			return nil, errors.New("subscribe: no add-on source is wired")
+		}
+		preview, err := u.deps.Addons.PreviewAddon(ctx, organizationID, addon.AddonSlug, billingPeriod)
+		if err != nil {
+			return nil, err
+		}
+		if preview == nil {
+			return nil, kaitenerrors.UnprocessableEntityWithErrors(operation+".AddonInvalid", "an add-on cannot be attached",
+				&kaitenerrors.ErrorDetail{Message: "no such add-on", Location: "body.addOns", Value: map[string]any{"code": "AttachInstanceAddon.AddonNotFound"}})
+		}
+		quantity := addon.Quantity
+		if quantity == 0 {
+			quantity = 1
+		}
+		id := uuid.New()
+		selection.AddOns = append(selection.AddOns, subscriptions.PendingAddon{
+			InstanceAddonID: id, AddonID: preview.AddonID, AddonSlug: addon.AddonSlug, Quantity: quantity,
+		})
+		if preview.Flat != nil {
+			charge := *preview.Flat
+			charge.InstanceAddonID, charge.Quantity = id, quantity
+			out.addOns = append(out.addOns, charge)
+		}
+	}
+	if cmd.VoucherCode != nil {
+		if u.deps.Discounts == nil {
+			return nil, errors.New("subscribe: no discount source is wired")
+		}
+		discount, found, err := u.deps.Discounts.PreviewDiscount(ctx, organizationID, *cmd.VoucherCode)
+		if err != nil {
+			return nil, err
+		}
+		if !found || discount == nil {
+			return nil, kaitenerrors.UnprocessableEntityWithErrors(operation+".VoucherInvalid", "the voucher cannot be redeemed",
+				&kaitenerrors.ErrorDetail{Message: "not an ACTIVE PRICE voucher", Location: "body.voucherCode", Value: map[string]any{"code": "RedeemVoucher.VoucherInvalid"}})
+		}
+		id := uuid.New()
+		discount.InstanceVoucherID = id
+		out.discount = discount
+		selection.Voucher = &subscriptions.PendingVoucher{InstanceVoucherID: id, VoucherID: discount.VoucherID, Code: *cmd.VoucherCode}
+	}
+	stored, err := json.Marshal(selection)
+	if err != nil {
+		return nil, err
+	}
+	out.stored = stored
 	return out, nil
 }

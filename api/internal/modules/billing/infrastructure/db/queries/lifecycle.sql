@@ -159,3 +159,26 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
               ELSE i.due_at < sqlc.arg(now)::timestamp END)))
 ORDER BY ib.id
 LIMIT sqlc.arg(page_size);
+
+
+-- name: SettleIncomplete :one
+-- The payment of an INCOMPLETE subscription's ACTIVATION (§9.10 rule 3):
+-- ACTIVE from this instant, its P0 floor, the pending selection cleared;
+-- anchor_at and the period stay those the ACTIVATION billed.
+UPDATE instance_billing
+SET status                = 'ACTIVE',
+    started_at            = sqlc.arg(now),
+    pending_license_id    = NULL,
+    pending_selection     = NULL,
+    incomplete_expires_at = NULL,
+    updated_by_id         = sqlc.arg(user_id),
+    updated_at            = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status = 'INCOMPLETE'
+RETURNING *;
+
+
+-- name: GetInstanceSlug :one
+SELECT i.slug, i.license_id
+FROM instance i
+WHERE i.id = sqlc.arg(id);

@@ -284,6 +284,24 @@ func (q *Queries) EarliestOverdue(ctx context.Context, arg EarliestOverdueParams
 	return overdue_since, err
 }
 
+const getInstanceSlug = `-- name: GetInstanceSlug :one
+SELECT i.slug, i.license_id
+FROM instance i
+WHERE i.id = $1
+`
+
+type GetInstanceSlugRow struct {
+	Slug      string    `json:"slug"`
+	LicenseID uuid.UUID `json:"license_id"`
+}
+
+func (q *Queries) GetInstanceSlug(ctx context.Context, id uuid.UUID) (GetInstanceSlugRow, error) {
+	row := q.db.QueryRow(ctx, getInstanceSlug, id)
+	var i GetInstanceSlugRow
+	err := row.Scan(&i.Slug, &i.LicenseID)
+	return i, err
+}
+
 const listOverdueCandidates = `-- name: ListOverdueCandidates :many
 SELECT ib.id, ib.organization_id
 FROM instance_billing ib
@@ -589,6 +607,74 @@ func (q *Queries) SetScheduledChange(ctx context.Context, arg SetScheduledChange
 		arg.Now,
 		arg.ID,
 	)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+		&i.TrialEndsAt,
+		&i.PendingLicenseID,
+		&i.PendingSelection,
+		&i.IncompleteExpiresAt,
+		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
+	)
+	return i, err
+}
+
+const settleIncomplete = `-- name: SettleIncomplete :one
+UPDATE instance_billing
+SET status                = 'ACTIVE',
+    started_at            = $1,
+    pending_license_id    = NULL,
+    pending_selection     = NULL,
+    incomplete_expires_at = NULL,
+    updated_by_id         = $2,
+    updated_at            = $1
+WHERE id = $3
+  AND status = 'INCOMPLETE'
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
+`
+
+type SettleIncompleteParams struct {
+	Now    pgtype.Timestamp `json:"now"`
+	UserID uuid.UUID        `json:"user_id"`
+	ID     uuid.UUID        `json:"id"`
+}
+
+// The payment of an INCOMPLETE subscription's ACTIVATION (§9.10 rule 3):
+// ACTIVE from this instant, its P0 floor, the pending selection cleared;
+// anchor_at and the period stay those the ACTIVATION billed.
+func (q *Queries) SettleIncomplete(ctx context.Context, arg SettleIncompleteParams) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, settleIncomplete, arg.Now, arg.UserID, arg.ID)
 	var i InstanceBilling
 	err := row.Scan(
 		&i.ID,

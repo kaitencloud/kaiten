@@ -250,3 +250,15 @@ WHERE ia.organization_id = sqlc.arg(organization_id)
   AND ia.created_at < sqlc.arg(to_at)
   AND (ia.removed_at IS NULL OR ia.removed_at > sqlc.arg(from_at))
 ORDER BY ia.created_at, ia.id;
+
+
+-- name: InsertPaidInstanceAddon :one
+-- An attachment an INCOMPLETE checkout's payment creates (§9.10 rule 3),
+-- under the id its ACTIVATION line already names. Never refused: a version of
+-- the family attached meanwhile leaves no row, and the payment goes on.
+INSERT INTO instance_addon (id, organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity,
+                            created_by_id, updated_by_id)
+VALUES (sqlc.arg(id), sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(addon_id), sqlc.arg(addon_family_id),
+        sqlc.arg(quantity), sqlc.arg(quantity), sqlc.arg(user_id), sqlc.arg(user_id))
+ON CONFLICT DO NOTHING
+RETURNING id;

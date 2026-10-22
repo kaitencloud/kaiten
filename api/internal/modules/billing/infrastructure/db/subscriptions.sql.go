@@ -187,35 +187,40 @@ INSERT INTO instance_billing (organization_id, instance_id, customer_id, instanc
                               customer_slug, customer_name, status, provider_kind, collection_method,
                               days_until_due, base_license_price_id, billing_period, currency, anchor_at,
                               started_at, current_period_start, current_period_end, trial_ends_at,
+                              pending_license_id, pending_selection, incomplete_expires_at,
                               created_by_id, updated_by_id)
 VALUES ($1, $2, $3, $4,
         $5, $6, $7, $8,
         $9, $10, $11,
         $12, $13, $14, $15,
         $15, $15, $16, $17,
-        $18, $18)
+        $18, $19, $20,
+        $21, $21)
 RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 `
 
 type InsertInstanceBillingParams struct {
-	OrganizationID     uuid.UUID             `json:"organization_id"`
-	InstanceID         *uuid.UUID            `json:"instance_id"`
-	CustomerID         *uuid.UUID            `json:"customer_id"`
-	InstanceSlug       string                `json:"instance_slug"`
-	InstanceName       string                `json:"instance_name"`
-	CustomerSlug       string                `json:"customer_slug"`
-	CustomerName       string                `json:"customer_name"`
-	Status             InstanceBillingStatus `json:"status"`
-	ProviderKind       BillingProviderKind   `json:"provider_kind"`
-	CollectionMethod   *CollectionMethod     `json:"collection_method"`
-	DaysUntilDue       *int32                `json:"days_until_due"`
-	BaseLicensePriceID uuid.UUID             `json:"base_license_price_id"`
-	BillingPeriod      BillingPeriod         `json:"billing_period"`
-	Currency           string                `json:"currency"`
-	AnchorAt           pgtype.Timestamp      `json:"anchor_at"`
-	CurrentPeriodEnd   pgtype.Timestamp      `json:"current_period_end"`
-	TrialEndsAt        pgtype.Timestamp      `json:"trial_ends_at"`
-	UserID             uuid.UUID             `json:"user_id"`
+	OrganizationID      uuid.UUID             `json:"organization_id"`
+	InstanceID          *uuid.UUID            `json:"instance_id"`
+	CustomerID          *uuid.UUID            `json:"customer_id"`
+	InstanceSlug        string                `json:"instance_slug"`
+	InstanceName        string                `json:"instance_name"`
+	CustomerSlug        string                `json:"customer_slug"`
+	CustomerName        string                `json:"customer_name"`
+	Status              InstanceBillingStatus `json:"status"`
+	ProviderKind        BillingProviderKind   `json:"provider_kind"`
+	CollectionMethod    *CollectionMethod     `json:"collection_method"`
+	DaysUntilDue        *int32                `json:"days_until_due"`
+	BaseLicensePriceID  uuid.UUID             `json:"base_license_price_id"`
+	BillingPeriod       BillingPeriod         `json:"billing_period"`
+	Currency            string                `json:"currency"`
+	AnchorAt            pgtype.Timestamp      `json:"anchor_at"`
+	CurrentPeriodEnd    pgtype.Timestamp      `json:"current_period_end"`
+	TrialEndsAt         pgtype.Timestamp      `json:"trial_ends_at"`
+	PendingLicenseID    *uuid.UUID            `json:"pending_license_id"`
+	PendingSelection    []byte                `json:"pending_selection"`
+	IncompleteExpiresAt pgtype.Timestamp      `json:"incomplete_expires_at"`
+	UserID              uuid.UUID             `json:"user_id"`
 }
 
 func (q *Queries) InsertInstanceBilling(ctx context.Context, arg InsertInstanceBillingParams) (InstanceBilling, error) {
@@ -237,6 +242,9 @@ func (q *Queries) InsertInstanceBilling(ctx context.Context, arg InsertInstanceB
 		arg.AnchorAt,
 		arg.CurrentPeriodEnd,
 		arg.TrialEndsAt,
+		arg.PendingLicenseID,
+		arg.PendingSelection,
+		arg.IncompleteExpiresAt,
 		arg.UserID,
 	)
 	var i InstanceBilling
@@ -484,6 +492,9 @@ SET customer_id           = $1,
     current_period_start  = $13,
     current_period_end    = $14,
     trial_ends_at         = $15,
+    pending_license_id    = $16,
+    pending_selection     = $17,
+    incomplete_expires_at = $18,
     cancel_at_period_end  = FALSE,
     cancel_requested_at   = NULL,
     canceled_at           = NULL,
@@ -491,34 +502,37 @@ SET customer_id           = $1,
     past_due_since        = NULL,
     scheduled_license_price_id = NULL,
     scheduled_at          = NULL,
-    updated_by_id         = $16,
-    updated_at            = $17
-WHERE id = $18
-  AND organization_id = $19
+    updated_by_id         = $19,
+    updated_at            = $20
+WHERE id = $21
+  AND organization_id = $22
   AND status = 'CANCELED'
 RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
 `
 
 type ResubscribeInstanceBillingParams struct {
-	CustomerID         *uuid.UUID            `json:"customer_id"`
-	InstanceSlug       string                `json:"instance_slug"`
-	InstanceName       string                `json:"instance_name"`
-	CustomerSlug       string                `json:"customer_slug"`
-	CustomerName       string                `json:"customer_name"`
-	Status             InstanceBillingStatus `json:"status"`
-	ProviderKind       BillingProviderKind   `json:"provider_kind"`
-	CollectionMethod   *CollectionMethod     `json:"collection_method"`
-	DaysUntilDue       *int32                `json:"days_until_due"`
-	BaseLicensePriceID uuid.UUID             `json:"base_license_price_id"`
-	BillingPeriod      BillingPeriod         `json:"billing_period"`
-	Currency           string                `json:"currency"`
-	AnchorAt           pgtype.Timestamp      `json:"anchor_at"`
-	CurrentPeriodEnd   pgtype.Timestamp      `json:"current_period_end"`
-	TrialEndsAt        pgtype.Timestamp      `json:"trial_ends_at"`
-	UserID             uuid.UUID             `json:"user_id"`
-	Now                pgtype.Timestamp      `json:"now"`
-	ID                 uuid.UUID             `json:"id"`
-	OrganizationID     uuid.UUID             `json:"organization_id"`
+	CustomerID          *uuid.UUID            `json:"customer_id"`
+	InstanceSlug        string                `json:"instance_slug"`
+	InstanceName        string                `json:"instance_name"`
+	CustomerSlug        string                `json:"customer_slug"`
+	CustomerName        string                `json:"customer_name"`
+	Status              InstanceBillingStatus `json:"status"`
+	ProviderKind        BillingProviderKind   `json:"provider_kind"`
+	CollectionMethod    *CollectionMethod     `json:"collection_method"`
+	DaysUntilDue        *int32                `json:"days_until_due"`
+	BaseLicensePriceID  uuid.UUID             `json:"base_license_price_id"`
+	BillingPeriod       BillingPeriod         `json:"billing_period"`
+	Currency            string                `json:"currency"`
+	AnchorAt            pgtype.Timestamp      `json:"anchor_at"`
+	CurrentPeriodEnd    pgtype.Timestamp      `json:"current_period_end"`
+	TrialEndsAt         pgtype.Timestamp      `json:"trial_ends_at"`
+	PendingLicenseID    *uuid.UUID            `json:"pending_license_id"`
+	PendingSelection    []byte                `json:"pending_selection"`
+	IncompleteExpiresAt pgtype.Timestamp      `json:"incomplete_expires_at"`
+	UserID              uuid.UUID             `json:"user_id"`
+	Now                 pgtype.Timestamp      `json:"now"`
+	ID                  uuid.UUID             `json:"id"`
+	OrganizationID      uuid.UUID             `json:"organization_id"`
 }
 
 // A CANCELED subscription subscribed again: the same row, with a new price,
@@ -540,6 +554,9 @@ func (q *Queries) ResubscribeInstanceBilling(ctx context.Context, arg Resubscrib
 		arg.AnchorAt,
 		arg.CurrentPeriodEnd,
 		arg.TrialEndsAt,
+		arg.PendingLicenseID,
+		arg.PendingSelection,
+		arg.IncompleteExpiresAt,
 		arg.UserID,
 		arg.Now,
 		arg.ID,

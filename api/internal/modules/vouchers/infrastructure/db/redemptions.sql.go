@@ -52,6 +52,59 @@ func (q *Queries) ApplyDiscount(ctx context.Context, arg ApplyDiscountParams) (I
 	return status, err
 }
 
+const claimPaidRedemption = `-- name: ClaimPaidRedemption :one
+WITH before AS (
+  SELECT v.id, v.status
+  FROM voucher v
+  WHERE v.id = $3
+    AND v.organization_id = $4
+  FOR UPDATE
+)
+UPDATE voucher v
+SET redemptions_count = CASE
+                          WHEN v.max_redemptions IS NULL OR v.redemptions_count < v.max_redemptions THEN v.redemptions_count + 1
+                          ELSE v.redemptions_count END,
+    status            = CASE
+                          WHEN v.status = 'ACTIVE' AND v.max_redemptions IS NOT NULL AND v.redemptions_count + 1 >= v.max_redemptions
+                            THEN 'EXHAUSTED'::voucher_status
+                          ELSE v.status END,
+    updated_at        = $1,
+    updated_by_id     = $2
+FROM before
+WHERE v.id = before.id
+RETURNING v.redemptions_count, v.status, (v.status = 'EXHAUSTED' AND before.status <> 'EXHAUSTED')::boolean AS just_exhausted
+`
+
+type ClaimPaidRedemptionParams struct {
+	Now            pgtype.Timestamp `json:"now"`
+	UserID         uuid.UUID        `json:"user_id"`
+	ID             uuid.UUID        `json:"id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+}
+
+type ClaimPaidRedemptionRow struct {
+	RedemptionsCount int32         `json:"redemptions_count"`
+	Status           VoucherStatus `json:"status"`
+	JustExhausted    bool          `json:"just_exhausted"`
+}
+
+// An INCOMPLETE checkout's payment records the redemption its ACTIVATION
+// already discounted (§9.10 rule 3): never refused (§24 #65), so the count
+// stops at max_redemptions rather than breaking voucher_redemptions_check,
+// and whatever the voucher's status or window became meanwhile.
+// just_exhausted is the transition to EXHAUSTED this write made, if any.
+func (q *Queries) ClaimPaidRedemption(ctx context.Context, arg ClaimPaidRedemptionParams) (ClaimPaidRedemptionRow, error) {
+	row := q.db.QueryRow(ctx, claimPaidRedemption,
+		arg.Now,
+		arg.UserID,
+		arg.ID,
+		arg.OrganizationID,
+	)
+	var i ClaimPaidRedemptionRow
+	err := row.Scan(&i.RedemptionsCount, &i.Status, &i.JustExhausted)
+	return i, err
+}
+
 const claimRedemption = `-- name: ClaimRedemption :one
 UPDATE voucher
 SET redemptions_count = redemptions_count + 1,
@@ -331,6 +384,42 @@ type InsertInstanceVoucherParams struct {
 
 func (q *Queries) InsertInstanceVoucher(ctx context.Context, arg InsertInstanceVoucherParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, insertInstanceVoucher,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.VoucherID,
+		arg.Now,
+		arg.UserID,
+		arg.EffectiveExpiresAt,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertPaidInstanceVoucher = `-- name: InsertPaidInstanceVoucher :one
+INSERT INTO instance_voucher (id, organization_id, instance_id, voucher_id, redeemed_at, redeemed_by_id,
+                              effective_starts_at, effective_expires_at)
+VALUES ($1, $2, $3, $4, $5, $6,
+        $5, $7)
+ON CONFLICT DO NOTHING
+RETURNING id
+`
+
+type InsertPaidInstanceVoucherParams struct {
+	ID                 uuid.UUID        `json:"id"`
+	OrganizationID     uuid.UUID        `json:"organization_id"`
+	InstanceID         uuid.UUID        `json:"instance_id"`
+	VoucherID          uuid.UUID        `json:"voucher_id"`
+	Now                pgtype.Timestamp `json:"now"`
+	UserID             uuid.UUID        `json:"user_id"`
+	EffectiveExpiresAt pgtype.Timestamp `json:"effective_expires_at"`
+}
+
+// The redemption, under the id the ACTIVATION's DISCOUNT line names. An
+// instance that redeemed the voucher meanwhile keeps that redemption.
+func (q *Queries) InsertPaidInstanceVoucher(ctx context.Context, arg InsertPaidInstanceVoucherParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, insertPaidInstanceVoucher,
+		arg.ID,
 		arg.OrganizationID,
 		arg.InstanceID,
 		arg.VoucherID,

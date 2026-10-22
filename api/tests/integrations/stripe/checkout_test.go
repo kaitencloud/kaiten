@@ -213,8 +213,9 @@ func TestCheckoutReplacesAFreePlan(t *testing.T) {
 }
 
 // TestCheckoutRequiresAction: a card that needs 3-D Secure. The checkout
-// subscribes and answers requires_action with the page to confirm on; once
-// the customer has paid there, the invoice list learns it from Stripe.
+// subscribes INCOMPLETE and answers requires_action with the page to confirm
+// on; once the customer has paid there, the invoice list learns it from
+// Stripe, and the payment settles the subscription.
 func TestCheckoutRequiresAction(t *testing.T) {
 	fresh(t)
 	s := newShop(t, nil)
@@ -224,7 +225,7 @@ func TestCheckoutRequiresAction(t *testing.T) {
 	done := checkout(t, s, map[string]any{"licensePriceId": s.monthly.ID, "setupSessionId": *setup.SetupSessionID}, fiber.StatusCreated)
 	require.Equal(t, createsessioncheckout.PaymentRequiresAction, done.Payment.Status)
 	require.NotNil(t, done.Payment.HostedInvoiceURL)
-	require.Equal(t, "ACTIVE", done.Subscription.Status, "within the auto-collection grace")
+	require.Equal(t, "INCOMPLETE", done.Subscription.Status, "nothing bought is given before it is paid (§9.10)")
 
 	// The customer confirms on the hosted page. Rule 10: the next poll reads
 	// an invoice not read from Stripe for 30 seconds.
@@ -236,6 +237,9 @@ func TestCheckoutRequiresAction(t *testing.T) {
 	listed := sessionInvoices(t, s)
 	require.Len(t, listed, 1)
 	require.Equal(t, "PAID", listed[0].Status)
+	settled := commonfixture.AssertJSONResponse[map[string]any](t,
+		call(t, "GET", "/api/instances/"+s.instance.Slug+"/billing", nil), fiber.StatusOK)
+	require.Equal(t, "ACTIVE", settled["status"], "the payment, learned by the refresh, settles it")
 }
 
 // TestCheckoutTrialWithoutCard: nothing due today and no card required: the

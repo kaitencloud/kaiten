@@ -11,6 +11,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/incomplete"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
@@ -83,6 +84,11 @@ func (p *Pusher) charge(ctx context.Context, conn *provider.Connection, row db.I
 			}); err != nil {
 				return err
 			}
+		}
+		// The payment of an INCOMPLETE checkout's ACTIVATION applies what it
+		// bought, in this same transaction (§9.10 rule 3).
+		if _, err := incomplete.Settle(ctx, p.deps, p.outbox, q, updated, now); err != nil {
+			return err
 		}
 		sub, err := q.GetSubscriptionByID(ctx, row.InstanceBillingID)
 		if err != nil {

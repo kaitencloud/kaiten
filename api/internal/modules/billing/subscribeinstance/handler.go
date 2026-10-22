@@ -61,6 +61,14 @@ type Command struct {
 	// again on the same row (§9.10 rule 6, V31-68). Any other live
 	// subscription is still refused.
 	ReplaceFree bool
+	// Incomplete enters INCOMPLETE (§9.10 rule 1): a public checkout whose
+	// due-today total is above 0 subscribes without applying what it bought.
+	// The version it moves to becomes pending_license_id, its add-ons and
+	// voucher pending_selection, none attached or redeemed; the ACTIVATION
+	// bills them, and its payment applies them. Over a free live subscription
+	// the row keeps its status and carries the checkout in its pending
+	// columns (§9.10 rule 6). Ignored with a trial: nothing is due then.
+	Incomplete bool
 	// AllowMissingPaymentMethod subscribes CHARGE_AUTOMATICALLY without an
 	// ACTIVE payment method: a checkout with nothing due today and no card
 	// required (§14.4 rule 4). The first charge then fails and the
@@ -165,14 +173,21 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 					return err
 				}
 			}
-			if !free {
+			if !free || existing.PendingLicenseID != nil {
+				// A checkout already waiting on it counts as INCOMPLETE.
 				return kaitenerrors.Conflict(operation+".AlreadySubscribed", "this instance already has a live subscription")
 			}
+			// Until the payment replaces it (§9.10 rule 6, Δ32-1.9), a free
+			// subscription is replaced at once, an amount due or not.
 			if existing, err = u.cancelFree(ctx, q, existing, user.ID); err != nil {
 				return err
 			}
 		}
-		moved := cmd.MoveToLicenseID != nil && *cmd.MoveToLicenseID != instance.LicenseID
+		targetLicenseID := instance.LicenseID
+		if cmd.MoveToLicenseID != nil {
+			targetLicenseID = *cmd.MoveToLicenseID
+		}
+		moved := !cmd.Incomplete && targetLicenseID != instance.LicenseID
 		if moved {
 			if u.deps.Mover == nil {
 				return errors.New("subscribe: no instance version mover is wired")
@@ -185,7 +200,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			}
 		}
 
-		license, err := q.GetBillingLicense(ctx, db.GetBillingLicenseParams{OrganizationID: user.OrganizationID, ID: instance.LicenseID})
+		license, err := q.GetBillingLicense(ctx, db.GetBillingLicenseParams{OrganizationID: user.OrganizationID, ID: targetLicenseID})
 		if err != nil {
 			return err
 		}
@@ -200,7 +215,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		switch {
 		case base == nil:
 			return kaitenerrors.NotFoundf(operation+".PriceNotFound", "price %s not found", cmd.BasePriceID)
-		case base.LicenseID != instance.LicenseID:
+		case base.LicenseID != targetLicenseID:
 			return kaitenerrors.UnprocessableEntity(operation+".PriceNotOnInstanceLicense",
 				"basePriceId is a price of another licence version than the instance's")
 		case base.BillingModel != prices.ModelFlatFee:
@@ -268,6 +283,16 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			periodEnd = anchor.Add(time.Duration(trialDays) * 24 * time.Hour)
 			status, trialEndsAt = db.InstanceBillingStatusTRIAL, invoices.Timestamp(periodEnd)
 		}
+		// INCOMPLETE: nothing applied, the selection stored with the ids its
+		// rows take at payment, the ACTIVATION composed from it (§9.10 rule 1).
+		incomplete := cmd.Incomplete && trialDays == 0
+		var pending *pendingCheckout
+		if incomplete {
+			status = db.InstanceBillingStatusINCOMPLETE
+			if pending, err = u.pendingCheckout(ctx, user.OrganizationID, *base.BillingPeriod, cmd); err != nil {
+				return err
+			}
+		}
 
 		customer, err := q.GetBillingCustomer(ctx, db.GetBillingCustomerParams{OrganizationID: user.OrganizationID, ID: instance.CustomerID})
 		if err != nil {
@@ -278,6 +303,13 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			m := db.CollectionMethod(*cmd.CollectionMethod)
 			method = &m
 		}
+		var pendingLicenseID *uuid.UUID
+		var pendingSelection []byte
+		var incompleteExpiresAt pgtype.Timestamp
+		if pending != nil {
+			pendingLicenseID, pendingSelection = &targetLicenseID, pending.stored
+			incompleteExpiresAt = invoices.Timestamp(anchor.Add(subscriptions.IncompleteLifetime * time.Second))
+		}
 		var row db.InstanceBilling
 		if resubscribe {
 			row, err = q.ResubscribeInstanceBilling(ctx, db.ResubscribeInstanceBillingParams{
@@ -286,6 +318,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				ProviderKind: kind, CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue,
 				BaseLicensePriceID: base.ID, BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
 				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
+				PendingLicenseID: pendingLicenseID, PendingSelection: pendingSelection, IncompleteExpiresAt: incompleteExpiresAt,
 				UserID: user.ID, Now: invoices.Timestamp(now), ID: existing.ID, OrganizationID: user.OrganizationID,
 			})
 		} else {
@@ -296,6 +329,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue, BaseLicensePriceID: base.ID,
 				BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
 				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
+				PendingLicenseID: pendingLicenseID, PendingSelection: pendingSelection, IncompleteExpiresAt: incompleteExpiresAt,
 				UserID: user.ID,
 			})
 		}
@@ -309,8 +343,10 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		}
 		started = &StartedSubscription{InstanceBilling: *billing, ActivationInvoice: nil, Preview: nil}
 
-		if err := u.attachAndRedeem(ctx, instanceSlug, cmd); err != nil {
-			return err
+		if !incomplete {
+			if err := u.attachAndRedeem(ctx, instanceSlug, cmd); err != nil {
+				return err
+			}
 		}
 		if moved {
 			// The version moved to, with the add-ons bought with it, must
@@ -331,7 +367,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		// A voucher redeemed just now is dated by the clock, after now: the
 		// first invoice applies the vouchers redeemed up to after it.
 		appliedAt := now
-		if cmd.VoucherCode != nil {
+		if cmd.VoucherCode != nil && !incomplete {
 			later, err := q.BillingClock(ctx)
 			if err != nil {
 				return err
@@ -356,6 +392,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				return err
 			}
 		}
+		if pending != nil {
+			held = append(held, pending.addOns...)
+		}
 		composition, err := rating.Compose(rating.Input{
 			Kind: rating.KindActivation, Currency: money.Currency(base.Currency), LicenseName: license.Name, Base: metering.Price(*base),
 			Metered: nil, Measures: nil, Addons: metering.Addons(held, base.Currency),
@@ -370,6 +409,11 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			redeemed, err := u.deps.Discounts.Discounts(ctx, user.OrganizationID, instance.ID, appliedAt)
 			if err != nil {
 				return err
+			}
+			if pending != nil && pending.discount != nil {
+				// The voucher as a redemption made at the composition instant
+				// (§8.4 rule 2), under the id its row takes at payment.
+				redeemed = append(redeemed, *pending.discount)
 			}
 			composition, err = rating.ApplyDiscounts(composition, metering.Discounts(redeemed), money.Currency(base.Currency))
 			if err != nil {
@@ -415,7 +459,13 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			if err := invoices.AnnounceComposed(ctx, u.outbox, invoice); err != nil {
 				return err
 			}
-			if err := metering.Consume(ctx, u.deps.Discounts, user.OrganizationID, composition, appliedAt); err != nil {
+			consumed := composition
+			if pending != nil && pending.discount != nil {
+				// The pending voucher has no row before the payment, which
+				// consumes its application then (§9.10 rule 3).
+				consumed = metering.Without(composition, pending.discount.InstanceVoucherID)
+			}
+			if err := metering.Consume(ctx, u.deps.Discounts, user.OrganizationID, consumed, appliedAt); err != nil {
 				return err
 			}
 		}
@@ -451,12 +501,25 @@ func (u *UseCase) pushInline(ctx context.Context, started *StartedSubscription) 
 		return
 	}
 	u.pusher.Inline(ctx, invoice.ID, inlineWait)
-	row, err := u.deps.Queries(ctx).GetInvoiceByID(ctx, invoice.ID)
+	q := u.deps.Queries(ctx)
+	row, err := q.GetInvoiceByID(ctx, invoice.ID)
 	if err != nil {
 		return // the answer keeps the invoice as composed; the queue has it
 	}
 	summary := invoices.Summary(row)
 	started.ActivationInvoice = &summary
+	// A payment may have settled an INCOMPLETE subscription meanwhile
+	// (§9.10 rule 3): the answer shows it as it now is.
+	if started.Status != subscriptions.StatusIncomplete {
+		return
+	}
+	sub, err := q.GetSubscriptionByID(ctx, row.InstanceBillingID)
+	if err != nil {
+		return
+	}
+	if billing, err := subscriptions.Build(ctx, q, u.deps.Catalogue, sub); err == nil {
+		started.InstanceBilling = *billing
+	}
 }
 
 // pushesInline reports whether the ACTIVATION this call composes is pushed
