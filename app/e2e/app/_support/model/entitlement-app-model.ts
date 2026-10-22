@@ -47,6 +47,19 @@ export type SerializedEntitlementAppModel =
     sequence: number;
   };
 
+/**
+ * The early-warning threshold the API stores for an entitlement written from `body`:
+ * only a numeric entitlement has one, and one sent without it has 0 (the warning is
+ * off), never the value it had before.
+ */
+function warningThresholdOf(
+  body: Pick<Partial<EntitlementRecord>, 'type' | 'warningThresholdPercent'>,
+): number | undefined {
+  return body.type === 'NUMBER' || body.type === 'NUMBER_AI_CREDIT'
+    ? (body.warningThresholdPercent ?? 0)
+    : undefined;
+}
+
 export class EntitlementAppModel {
   private clock = Date.parse('2026-03-01T08:00:00.000Z');
   private entitlements: EntitlementRecord[];
@@ -151,6 +164,7 @@ export class EntitlementAppModel {
       saleUnitFactor: body.saleUnitFactor ?? undefined,
       resetPeriod: body.resetPeriod ?? undefined,
       resetAnchor: body.resetAnchor ?? undefined,
+      warningThresholdPercent: warningThresholdOf(body),
     };
     const result = parseContract(
       zEntitlement,
@@ -223,6 +237,12 @@ export class EntitlementAppModel {
       saleUnitFactor: body.saleUnitFactor ?? undefined,
       resetPeriod: body.resetPeriod ?? undefined,
       resetAnchor: body.resetAnchor ?? undefined,
+      // Replaced like the rest: a PUT without the threshold of a numeric entitlement
+      // turns the warning off, as the API stores it (0), instead of keeping the old one.
+      warningThresholdPercent: warningThresholdOf({
+        ...body,
+        type: current.type,
+      }),
     };
     const result = parseContract(
       zEntitlement,
