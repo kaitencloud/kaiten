@@ -2,7 +2,11 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Addon, AddonFamily } from '@/api-client';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert, useActionAccess } from '@/domains/billing';
+import {
+  ProblemAlert,
+  useActionAccess,
+  useLeaveRestrictedDialog,
+} from '@/domains/billing';
 import {
   StackedFormDialog,
   StackedFormDialogFooter,
@@ -127,7 +131,9 @@ export function AddonFormDialog({
 
   // The dialog is opened by a link (`?mode=configure`, `/new`) and by its address: for a
   // session that may not write add-ons the link is inert and there is no dialog to open.
-  if (!(mode === 'edit' ? update : create).allowed) {
+  const access = mode === 'edit' ? update : create;
+  useLeaveRestrictedDialog(access, onClose);
+  if (!access.allowed) {
     return null;
   }
 

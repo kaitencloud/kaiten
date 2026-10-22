@@ -12,8 +12,9 @@ import { Home, ShieldAlert } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
 interface RestrictedAccessProps {
-  // Why the API refused, in its own words: `missing required scope:
-  // read:customers`. Left out when it gave none.
+  // Why the session may not, in words: the API's own when it refused (`missing required
+  // scope: read:customers`), or the console's when the scopes of the session said so before
+  // anything was asked (`Errors.restrictedScope`). Left out when there are none.
   reason?: string;
 }
 
@@ -29,7 +30,10 @@ export function RestrictedAccess({ reason }: RestrictedAccessProps) {
         <CardHeader>
           <div className="flex items-center gap-2">
             <ShieldAlert className="size-5 text-muted-foreground" />
-            <CardTitle>{t('Errors.restricted')}</CardTitle>
+            {/* The card stands for the page: its title is the heading the page would have had. */}
+            <CardTitle aria-level={1} role="heading">
+              {t('Errors.restricted')}
+            </CardTitle>
           </div>
           <CardDescription>{t('Errors.restrictedDescription')}</CardDescription>
         </CardHeader>

@@ -81,6 +81,7 @@ export {
   useInstancesBilling,
   useLicensesWithPrices,
   useInvoiceActionAccess,
+  useLeaveRestrictedDialog,
   useInvoiceLineAddon,
   type LicenseVersionRef,
   useLicenseFamilyHeads,

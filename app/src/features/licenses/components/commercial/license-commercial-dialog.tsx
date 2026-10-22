@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   ProblemAlert,
   useActionAccess,
+  useLeaveRestrictedDialog,
   useBillingCapabilities,
 } from '@/domains/billing';
 import {
@@ -65,9 +66,11 @@ export function LicenseCommercialDialog({
 }: LicenseCommercialDialogProps) {
   const { t } = useTranslation();
   const { isEnabled } = useBillingCapabilities();
-  const { allowed } = useActionAccess('license.updateCommercialFields');
+  const access = useActionAccess('license.updateCommercialFields');
 
-  if (!isEnabled || !allowed) {
+  // Where billing is off the link is not there at all, so only a session is told.
+  useLeaveRestrictedDialog(access, onClose, isEnabled);
+  if (!isEnabled || !access.allowed) {
     return null;
   }
 

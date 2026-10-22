@@ -253,6 +253,10 @@ A dialog gives the focus back to what opened it. A route dialog is opened by a l
 
 The last control used is noted by two listeners that `main.tsx` starts once (`trackLastUsedControl`), because a click that opens a route dialog happens before the dialog exists. The control is believed until the person uses something else, however long the dialog takes to open: a dialog opened from the answer of a request to a payment provider can take seconds. A button that starts such a request is disabled while it is out, so that a second click cannot start a second one, and keeps the focus meanwhile (`focusableWhenDisabled`). A story or a test that renders a dialog without `main.tsx` has no tracking, and the dialog then remembers only what holds the focus when it opens.
 
+## A session that may not use the dialog
+
+The buttons that lead to a dialog are hidden from a session whose scopes do not cover what the dialog sends, but its address can be opened by hand. A dialog that draws nothing for such a session would leave the page behind it with a breadcrumb that ends in "New" and no word of why, so it calls `useLeaveRestrictedDialog(access, close)` (`@/domains/billing`) before it returns `null`: a toast says the session may not, and the dialog closes, which takes the address back to the page behind it. A full page form says it with `ActionGate`'s restricted state instead. Nothing is said while the token is still being read.
+
 ## Avoiding a flash
 
 | Element | Purpose |

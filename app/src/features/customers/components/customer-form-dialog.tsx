@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { Customer } from '@/api-client';
-import { useActionAccess } from '@/domains/billing';
+import { useActionAccess, useLeaveRestrictedDialog } from '@/domains/billing';
 import { StackedFormDialog } from '@/functionals/stacked-form-dialog';
 import { CustomerForm } from './customer-form';
 
@@ -24,6 +24,7 @@ export function CustomerFormDialog({
 
   // The addresses of the forms are opened by hand as well as from their buttons: a session
   // that may not write customers is not given a form that ends in a refusal.
+  useLeaveRestrictedDialog(access, () => onOpenChange(false), open);
   if (!access.allowed) {
     return null;
   }

@@ -2,7 +2,11 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert, useActionAccess } from '@/domains/billing';
+import {
+  ProblemAlert,
+  useActionAccess,
+  useLeaveRestrictedDialog,
+} from '@/domains/billing';
 import {
   StackedFormDialog,
   StackedFormDialogFooter,
@@ -67,6 +71,7 @@ export function VoucherEditDialog({
 
   // The edit is opened by a link: for a session that may not write vouchers the link is
   // inert, and for a voucher that is not published there is nothing the API takes.
+  useLeaveRestrictedDialog(update, onClose);
   if (!update.allowed || voucher.status !== 'ACTIVE') {
     return null;
   }

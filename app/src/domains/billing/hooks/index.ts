@@ -9,6 +9,7 @@ export { useBillingProvider } from './use-billing-provider';
 export { useBoundaryRetry } from './use-boundary-retry';
 export { useDeletionRefusal } from './use-deletion-refusal';
 export { useGrantedScopes } from './use-granted-scopes';
+export { useLeaveRestrictedDialog } from './use-leave-restricted-dialog';
 export {
   type InstancesBilling,
   NO_INSTANCES_BILLING,

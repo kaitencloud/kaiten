@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RestrictedAccess } from '@/components/route/restricted-access';
 import { useActionAccess } from '../hooks/use-can-perform';
 import { type BillingAction, getActionScopes } from '../logic';
@@ -27,6 +28,7 @@ export function ActionGate({
   children,
   restricted = false,
 }: ActionGateProps) {
+  const { t } = useTranslation();
   const { allowed, isPending } = useActionAccess(action);
 
   if (allowed) {
@@ -38,7 +40,9 @@ export function ActionGate({
 
   return (
     <RestrictedAccess
-      reason={`missing required scope: ${getActionScopes(action).join(', ')}`}
+      reason={t('Errors.restrictedScope', {
+        scope: getActionScopes(action).join(', '),
+      })}
     />
   );
 }

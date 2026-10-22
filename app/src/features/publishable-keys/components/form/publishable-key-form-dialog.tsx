@@ -7,6 +7,7 @@ import {
   getProblemCode,
   ProblemAlert,
   useActionAccess,
+  useLeaveRestrictedDialog,
 } from '@/domains/billing';
 import {
   StackedFormDialog,
@@ -151,6 +152,7 @@ export function PublishableKeyFormDialog({
 
   // The dialog is opened by a link: for a session that may not write the keys the link
   // is inert, and a key that was revoked has nothing the API takes.
+  useLeaveRestrictedDialog(access, onClose);
   if (!access.allowed || publishableKey?.revokedAt) {
     return null;
   }

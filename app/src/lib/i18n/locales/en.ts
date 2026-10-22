@@ -134,6 +134,8 @@ export default {
     backTo: 'Back to {{section}}',
     restricted: 'Restricted access',
     restrictedDescription: "You don't have access to this page.",
+    restrictedAction: "You don't have access to this action.",
+    restrictedScope: 'Missing required scope: {{scope}}',
     api: {
       UNKNOWN: 'An unexpected error occurred.',
       NETWORK: 'Unable to connect to the server. Please check your connection.',

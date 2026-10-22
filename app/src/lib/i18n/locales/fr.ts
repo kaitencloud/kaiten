@@ -137,6 +137,8 @@ export default {
     backTo: 'Retour à {{section}}',
     restricted: 'Accès restreint',
     restrictedDescription: "Vous n'avez pas accès à cette page.",
+    restrictedAction: "Vous n'avez pas accès à cette action.",
+    restrictedScope: 'Scope requis manquant : {{scope}}',
     api: {
       UNKNOWN: 'Une erreur inattendue est survenue.',
       NETWORK:
