@@ -4,12 +4,12 @@ import { toast } from 'sonner';
 import {
   assignAddonEntitlementMutation,
   unassignAddonEntitlementMutation,
-  updateAddonEntitlementMutation,
 } from '@/api-client/@tanstack/react-query.gen';
-import { invalidateAddonGrantQueries } from '../queries';
+import { invalidateAddonGrantQueries, saveAddonGrantOnFresh } from '../queries';
 
 /**
- * What a person does to the grants of a version: give it one, replace one, take one
+ * What a person does to the grants of a version: give it one, replace one (the grant
+ * is read again first and only what the form changed is put on top of it), take one
  * away. A billing write is never optimistic: the screen shows a grant once the API
  * has accepted it, and a refusal is read from the failure by the caller, which shows
  * it where the person is looking (the dialog, the confirmation). Each success
@@ -28,7 +28,7 @@ export function useAddonGrantMutations(addonSlug: string) {
     },
   });
   const update = useMutation({
-    ...updateAddonEntitlementMutation(),
+    mutationFn: saveAddonGrantOnFresh,
     onSuccess: async () => {
       await refresh();
       toast.success(t('Pages.Addons.Grants.Toasts.updated'));

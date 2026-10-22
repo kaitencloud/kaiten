@@ -9,6 +9,7 @@ import {
   handleDeprecateAddonPrice,
   handleDetachInstanceAddon,
   handleGetAddon,
+  handleGetAddonEntitlement,
   handleGetAddonFamily,
   handleListAddonCompatibility,
   handleListAddonEntitlements,
@@ -176,6 +177,13 @@ const sellingHandlers = (model: BillingAppModel, persist: PersistMswState) => {
         persist();
         return HttpResponse.json(grant, { status: 201 });
       }),
+    ),
+    handleGetAddonEntitlement(
+      withProblems(({ params }) =>
+        HttpResponse.json(
+          addons.getGrant(params.addonSlug, params.entitlementSlug),
+        ),
+      ),
     ),
     handleUpdateAddonEntitlement(
       withProblems(async ({ params, request }) => {

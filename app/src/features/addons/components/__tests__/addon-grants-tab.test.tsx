@@ -7,6 +7,7 @@ import type { AddonEntitlement, NewAddonGrant } from '@/api-client';
 import {
   handleAssignAddonEntitlement,
   handleGetAddon,
+  handleGetAddonEntitlement,
   handleGetBillingCapabilities,
   handleGetLicenseEntitlements,
   handleListAddonCompatibility,
@@ -417,6 +418,8 @@ describe('editing and removing a grant', () => {
   it('opens a grant on its values, and replaces it with what was changed', async () => {
     const bodies: unknown[] = [];
     server.use(
+      // The grant as the API holds it: the update reads it again before it writes.
+      handleGetAddonEntitlement(() => HttpResponse.json(seatsGrant())),
       handleUpdateAddonEntitlement(async ({ request }) => {
         bodies.push(await request.json());
 
@@ -436,6 +439,55 @@ describe('editing and removing a grant', () => {
       overrideBehavior: 'ADD',
       value: { type: 'number', value: 8 },
     });
+  });
+
+  it('keeps how the grant combines when another tab changed it, and sends the value that was typed', async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      handleGetAddonEntitlement(() =>
+        HttpResponse.json({ ...seatsGrant(), overrideBehavior: 'MAX' }),
+      ),
+      handleUpdateAddonEntitlement(async ({ request }) => {
+        bodies.push(await request.json());
+
+        return HttpResponse.json(seatsGrant());
+      }),
+    );
+    renderTab('seats');
+
+    const value = await screen.findByLabelText(/Value per unit/);
+    await userEvent.clear(value);
+    await userEvent.type(value, '8');
+    await userEvent.click(await screen.findByRole('button', { name: 'Save entitlement' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      overrideBehavior: 'MAX',
+      value: { type: 'number', value: 8 },
+    });
+  });
+
+  it('says the grant is gone when it was removed meanwhile, and writes nothing', async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      handleGetAddonEntitlement(() =>
+        refusal(404, { code: 'GetAddonEntitlement.NotFound', detail: 'The grant does not exist' }),
+      ),
+      handleUpdateAddonEntitlement(async ({ request }) => {
+        bodies.push(await request.json());
+
+        return HttpResponse.json(seatsGrant());
+      }),
+    );
+    renderTab('seats');
+
+    const value = await screen.findByLabelText(/Value per unit/);
+    await userEvent.clear(value);
+    await userEvent.type(value, '8');
+    await userEvent.click(await screen.findByRole('button', { name: 'Save entitlement' }));
+
+    expect(await screen.findByText('The grant does not exist')).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
   });
 
   it('leaves a link to a grant the version does not have, and one to a dialog that cannot open', async () => {

@@ -707,6 +707,20 @@ export class AddonCatalogue {
     return clone(this.grants[addonSlug] ?? []);
   }
 
+  /**
+   * `GET /addons/{addonSlug}/entitlements/{entitlementSlug}`: what the console reads
+   * again before it replaces a grant.
+   */
+  getGrant(addonSlug: string, entitlementSlug: string): AddonEntitlement {
+    return clone(
+      this.requireGrant(
+        addonSlug,
+        entitlementSlug,
+        'GetAddonEntitlement.NotFound',
+      ),
+    );
+  }
+
   // What a grant is checked against, as the API does: the value shape of the entitlement
   // and, for a number, the overage percentage it may carry.
   private normalizeGrant(

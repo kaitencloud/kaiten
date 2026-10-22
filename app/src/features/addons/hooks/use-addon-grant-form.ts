@@ -59,19 +59,24 @@ export function useAddonGrantForm({
 }: UseAddonGrantFormOptions) {
   const { assign, update } = useAddonGrantMutations(addonSlug);
   const [failure, setFailure] = useState<unknown>(null);
+  // What the form opened with, kept as it was: an update sends the fields that
+  // differ from it, and takes the others from the grant as the API holds it.
+  const [openedValues] = useState(() =>
+    grant ? grantToFormValues(grant) : initialAddonGrantFormValues(),
+  );
 
   const form = useAppForm({
     ...addonGrantFormOpts,
-    defaultValues: grant
-      ? grantToFormValues(grant)
-      : initialAddonGrantFormValues(),
+    defaultValues: openedValues,
     onSubmit: async ({ formApi, value }) => {
       setFailure(null);
       try {
         if (grant) {
           await update.mutateAsync({
-            body: grantFormValuesToUpdateBody(value),
-            path: { addonSlug, entitlementSlug: grant.entitlementSlug },
+            addonSlug,
+            edited: grantFormValuesToUpdateBody(value),
+            entitlementSlug: grant.entitlementSlug,
+            opened: grantFormValuesToUpdateBody(openedValues),
           });
         } else {
           await assign.mutateAsync({
