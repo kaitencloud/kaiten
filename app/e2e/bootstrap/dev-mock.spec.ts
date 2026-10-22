@@ -303,16 +303,24 @@ test('dev:mock answers every request of the publishable keys: the list with and 
   await dialog.getByRole('button', { name: 'Create key' }).click();
   await expect(dialog.getByTestId('created-key')).toHaveValue(/^pk_/);
   await dialog.getByRole('button', { name: 'Done' }).click();
-  await expect(
-    page.getByRole('row').filter({ hasText: 'Checkout' }),
-  ).toBeVisible();
-  // And one is changed, from its own address.
+  // (The staging storefront's row says "Anonymous checkout", so the new key is found by its start.)
+  await expect(page.getByRole('row', { name: /^Checkout …/ })).toBeVisible();
+  // And one is changed, from its own address: the staging storefront opens the anonymous
+  // checkout on Cloudflare's test widget, with a secret stored that the form never shows.
   await page.goto(
     '/integrations/publishable-keys/publishable-key-staging/edit',
   );
   await expect(page.getByRole('dialog').getByLabel(/^Label/)).toHaveValue(
     'Staging storefront',
   );
+  await expect(
+    page.getByRole('dialog').getByRole('switch', {
+      name: 'Allow anonymous checkout',
+    }),
+  ).toHaveAttribute('aria-checked', 'true');
+  await expect(
+    page.getByRole('dialog').getByTestId('turnstile-secret-status'),
+  ).toBeVisible();
 
   expect(errors).toEqual([]);
 });
