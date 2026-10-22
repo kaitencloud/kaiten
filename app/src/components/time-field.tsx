@@ -66,7 +66,8 @@ type TimeFieldProps = {
  * a segment and move on when no other digit could follow (`1` waits, `16` and
  * `3` move on); a pair that is out of range, the `24` of `2` then `4`, is kept
  * as it was typed and marked invalid, never replaced by another time, and the
- * same goes for `60` in the minutes. Backspace empties it, `:` and Right go to the minutes, Left back to the hours,
+ * same goes for `60` in the minutes. Hours typed into a time with no minutes
+ * give it `00` minutes. Backspace empties it, `:` and Right go to the minutes, Left back to the hours,
  * Enter ends the time (and not the form), and Alt+Down or the clock opens the
  * columns. A segment that is empty is `--`. `onChange` is called at each edit,
  * as the time input of a browser fires `input` at each digit: after the `1` of

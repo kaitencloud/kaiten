@@ -197,15 +197,51 @@ describe('TimeField segments', () => {
     await user.click(hours());
     await user.keyboard('1');
 
-    expect(held()).toBe('01:--');
+    expect(held()).toBe('01:00');
     expect(hours()).toHaveFocus();
 
     await user.click(minutes());
     await user.click(hours());
     await user.keyboard('3');
 
-    expect(held()).toBe('03:--');
+    expect(held()).toBe('03:00');
     expect(minutes()).toHaveFocus();
+  });
+
+  it('gives the same time to the hours typed alone on a fresh field and on one that was cleared', async () => {
+    const user = userEvent.setup();
+
+    // Fresh: the field holds 00:00, and the hours are typed over it.
+    const { unmount } = render(<Harness initial="00:00" />);
+    await user.click(hours());
+    await user.keyboard('10');
+    const fresh = held();
+    unmount();
+
+    // Cleared: both segments emptied with Backspace, then the same hours.
+    render(<Harness initial="00:00" />);
+    await user.click(hours());
+    await user.keyboard('{Backspace}');
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
+    expect(held()).toBe('');
+    await user.click(hours());
+    await user.keyboard('10');
+
+    expect(fresh).toBe('10:00');
+    expect(held()).toBe(fresh);
+    expect(hours()).not.toHaveAttribute('aria-invalid');
+    expect(minutes()).not.toHaveAttribute('aria-invalid');
+  });
+
+  it('leaves the minutes empty when only they were cleared and the hours are not typed again', async () => {
+    render(<Harness initial="10:30" />);
+    const user = userEvent.setup();
+
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
+
+    expect(held()).toBe('10:--');
   });
 
   it('keeps the pair as it was typed when it is out of range, as the 25 of 25 hours, and marks it invalid', async () => {
@@ -220,7 +256,7 @@ describe('TimeField segments', () => {
     expect(hours()).toHaveValue('25');
     expect(hours()).toHaveAttribute('aria-invalid', 'true');
     expect(minutes()).toHaveFocus();
-    expect(held()).toBe('25:--');
+    expect(held()).toBe('25:00');
 
     await user.keyboard('99');
 
@@ -343,11 +379,11 @@ describe('TimeField segments', () => {
     fireEvent.change(hours(), { target: { value: '1' } });
     fireEvent.change(hours(), { target: { value: '016' } });
 
-    expect(held()).toBe('16:--');
+    expect(held()).toBe('16:00');
 
     fireEvent.change(hours(), { target: { value: '' } });
 
-    expect(held()).toBe('');
+    expect(held()).toBe('--:00');
   });
 
   it('drops a pasted text, which is no digit typed', () => {

@@ -251,6 +251,33 @@ describe('DateTimePicker', () => {
     expect(trigger()).toHaveTextContent('Mar 3, 2027');
   });
 
+  it('takes the hours typed alone as a time on a fresh day and on a field that was cleared alike', async () => {
+    const user = userEvent.setup();
+
+    const fresh = vi.fn();
+    const { unmount } = render(
+      <Harness initial="2027-03-03T00:00" onChange={fresh} />,
+    );
+    await typeTime(user, '10');
+    await leave(user);
+    expect(fresh).toHaveBeenLastCalledWith('2027-03-03T10:00');
+    unmount();
+
+    const cleared = vi.fn();
+    render(<Harness initial="2027-03-03T00:00" onChange={cleared} />);
+    await user.click(hours());
+    await user.keyboard('{Backspace}');
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
+    await typeTime(user, '10');
+    await leave(user);
+
+    expect(cleared).toHaveBeenLastCalledWith('2027-03-03T10:00');
+    expect(timeText()).toBe('10:00');
+    expect(screen.queryByText(/Enter a complete time/)).toBeNull();
+    expect(minutes()).not.toHaveAttribute('aria-invalid');
+  });
+
   it('takes the time again once it is completed', async () => {
     const onChange = vi.fn();
     render(<Harness initial="2027-03-03T10:--" onChange={onChange} />);
@@ -311,8 +338,9 @@ describe('DateTimePicker', () => {
     const user = userEvent.setup();
 
     await user.click(hours());
-    await user.keyboard('0');
-    await user.keyboard('9');
+    await user.keyboard('09');
+    await user.click(minutes());
+    await user.keyboard('{Backspace}');
     await leave(user);
     await user.click(trigger());
     await user.click(

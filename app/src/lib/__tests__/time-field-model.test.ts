@@ -108,7 +108,7 @@ describe('typeDigit', () => {
 
   it('waits after a first digit another could follow', () => {
     expect(type('hours', '1')).toEqual({
-      segments: at('01', ''),
+      segments: at('01', '00'),
       pending: '1',
     });
     expect(type('hours', '0').pending).toBe('0');
@@ -118,16 +118,16 @@ describe('typeDigit', () => {
 
   it('ends the entry of the hours after a first digit that no second could follow', () => {
     expect(type('hours', '3')).toEqual({
-      segments: at('03', ''),
+      segments: at('03', '00'),
       pending: null,
     });
-    expect(type('hours', '9').segments).toEqual(at('09', ''));
+    expect(type('hours', '9').segments).toEqual(at('09', '00'));
     expect(type('minutes', '9').segments).toEqual(at('', '09'));
   });
 
   it('completes the pair with a second digit', () => {
     expect(type('hours', '16')).toEqual({
-      segments: at('16', ''),
+      segments: at('16', '00'),
       pending: null,
     });
     expect(type('hours', '23').segments.hours).toBe('23');
@@ -138,7 +138,10 @@ describe('typeDigit', () => {
   it('keeps a pair that is out of range as it was typed, and ends the entry there', () => {
     // 2 then 4 is 24 hours, not 02 with the 4 dropped: the segment shows what was
     // typed and is out of range, for the caller to refuse.
-    expect(type('hours', '24')).toEqual({ segments: at('24', ''), pending: null });
+    expect(type('hours', '24')).toEqual({
+      segments: at('24', '00'),
+      pending: null,
+    });
     expect(type('hours', '25').segments.hours).toBe('25');
     expect(type('hours', '29').segments.hours).toBe('29');
     expect(isOutOfRange(type('hours', '24').segments, 'hours')).toBe(true);
@@ -161,6 +164,15 @@ describe('typeDigit', () => {
     expect(type('hours', '1623').segments.hours).toBe('23');
     expect(type('hours', '253').segments.hours).toBe('03');
     expect(type('minutes', '5930').segments.minutes).toBe('30');
+  });
+
+  it('gives a time typed in the hours the minutes 00 when it has none, and leaves the ones it has', () => {
+    // The same `10` on a field that was cleared and on one that holds 00:00.
+    expect(type('hours', '10').segments).toEqual(at('10', '00'));
+    expect(type('hours', '10', at('00', '00')).segments).toEqual(at('10', '00'));
+    expect(type('hours', '16', at('09', '30')).segments).toEqual(at('16', '30'));
+    // The minutes are not given hours: a time with none is refused, not guessed.
+    expect(type('minutes', '30').segments).toEqual(at('', '30'));
   });
 
   it('overwrites what the segment held', () => {

@@ -144,6 +144,10 @@ export type DigitResult = {
  * the last segment, where no other would take the digit, a first digit of `6` to
  * `9` also waits for a second: `60` is a pair out of range, not `06` and then
  * `00`.
+ *
+ * Typing the hours of a time that has no minutes gives it `00` minutes, as a day
+ * picked starts the time at `00:00`: `10` on a field that was cleared gives
+ * `10:00`, as it does on a fresh one, where the minutes were already `00`.
  */
 export function typeDigit(
   segments: TimeSegments,
@@ -153,7 +157,7 @@ export function typeDigit(
 ): DigitResult {
   if (pending !== null) {
     return {
-      segments: { ...segments, [segment]: pad(Number(`${pending}${digit}`)) },
+      segments: withTyped(segments, segment, Number(`${pending}${digit}`)),
       pending: null,
     };
   }
@@ -162,9 +166,23 @@ export function typeDigit(
     segment === 'hours' && Number(digit) > Math.floor(SEGMENT_MAX.hours / 10);
 
   return {
-    segments: { ...segments, [segment]: pad(Number(digit)) },
+    segments: withTyped(segments, segment, Number(digit)),
     pending: ends ? null : digit,
   };
+}
+
+// The segments with the typed number in one, in two digits, and the minutes at
+// `00` when hours are typed and there are none.
+function withTyped(
+  segments: TimeSegments,
+  segment: TimeSegment,
+  typed: number,
+): TimeSegments {
+  const next = { ...segments, [segment]: pad(typed) };
+
+  return segment === 'hours' && next.minutes === ''
+    ? { ...next, minutes: pad(0) }
+    : next;
 }
 
 /**
