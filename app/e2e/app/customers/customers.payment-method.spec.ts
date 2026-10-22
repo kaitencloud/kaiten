@@ -333,6 +333,38 @@ test.describe('saving a payment method on the page Stripe hosts', () => {
     });
   });
 
+  test('names the currency field by its label, the value it shows, and the list it opens', async ({
+    page,
+  }) => {
+    const method = new CustomerPaymentMethodDriver(page);
+    await install(page, createStripeCustomersModels());
+
+    await method.goto('gamma-labs');
+    await method.add().click();
+
+    const dialog = method.currencyDialog();
+    await expect(dialog).toBeVisible();
+    const field = dialog.getByRole('button', {
+      name: 'Currency Pick a currency',
+    });
+    await expect(field).toBeVisible();
+    // The label is the one the field shows, tied to it.
+    await expect(dialog.getByText('Currency', { exact: true })).toHaveAttribute(
+      'for',
+      (await field.getAttribute('id')) ?? '',
+    );
+
+    await field.click();
+    await expect(
+      page.getByRole('listbox', { name: 'Search a currency' }),
+    ).toBeVisible();
+    await page.getByRole('option', { exact: true, name: 'USD' }).click();
+
+    await expect(
+      dialog.getByRole('button', { name: 'Currency USD' }),
+    ).toBeVisible();
+  });
+
   test('gives the focus back to the button that asked for the currency, however often the dialog is closed', async ({
     page,
   }) => {

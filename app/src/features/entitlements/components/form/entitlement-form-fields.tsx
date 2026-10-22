@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
+import { useFormFieldContext } from '@/components/form/form-context';
 import { NumberInput } from '@/components/ui/number-input';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -127,7 +128,7 @@ export function EntitlementIdentityFields({
             )}
           >
             {(field) => (
-              <EntitlementGroupSelector
+              <GroupsControl
                 value={field.value ?? []}
                 onChange={(groupSlugs) => {
                   field.handleChange(groupSlugs);
@@ -141,6 +142,33 @@ export function EntitlementIdentityFields({
       <UserFacingField form={form} />
       <DisplayOrderField form={form} />
     </div>
+  );
+}
+
+// The groups selector of the form, named by the label of its field and described by its help
+// and its error, as the controls of the other fields are.
+function GroupsControl({
+  onChange,
+  value,
+}: {
+  onChange: (groupSlugs: string[]) => void;
+  value: string[];
+}) {
+  const { errors, formDescriptionId, formItemId, formLabelId, formMessageId } =
+    useFormFieldContext();
+  const hasError = Boolean(errors?.length);
+
+  return (
+    <EntitlementGroupSelector
+      aria-describedby={
+        hasError ? `${formDescriptionId} ${formMessageId}` : formDescriptionId
+      }
+      aria-invalid={hasError}
+      aria-labelledby={formLabelId}
+      id={formItemId}
+      onChange={onChange}
+      value={value}
+    />
   );
 }
 

@@ -48,6 +48,13 @@ export function SelectedGroupsValue({
       ref={ref}
       {...props}
       role="combobox"
+      // A combobox is named by what the page says of it. The one that is not given a name,
+      // such as the cell of the table being edited, is named by what it asks, as its placeholder.
+      aria-label={
+        props['aria-labelledby'] || props['aria-label']
+          ? props['aria-label']
+          : t('Pages.Entitlements.Mutation.Form.Placeholders.groups')
+      }
       aria-controls={ariaControls}
       tabIndex={disabled || isInlineInteraction ? -1 : 0}
       aria-expanded={isOpen}

@@ -306,7 +306,7 @@ describe('saving a payment method', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Add a payment method' }));
 
     const dialog = await screen.findByRole('dialog', { name: 'Currency of the payment method' });
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Pick a currency' }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: /Pick a currency/ }));
     await userEvent.click(await screen.findByRole('option', { name: 'EUR' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Continue to Stripe' }));
 
@@ -380,7 +380,7 @@ describe('saving a payment method', () => {
     renderCard();
     await userEvent.click(await screen.findByRole('button', { name: 'Add a payment method' }));
     const dialog = await screen.findByRole('dialog', { name: 'Currency of the payment method' });
-    await userEvent.click(await within(dialog).findByRole('button', { name: 'Pick a currency' }));
+    await userEvent.click(await within(dialog).findByRole('button', { name: /Pick a currency/ }));
     await userEvent.click(await screen.findByRole('option', { name: 'EUR' }));
     await userEvent.click(within(dialog).getByRole('button', { name: 'Continue to Stripe' }));
 

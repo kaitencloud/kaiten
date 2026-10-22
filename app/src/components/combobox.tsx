@@ -46,6 +46,16 @@ export type ComboboxProps<TOption = unknown> = {
   clearable?: boolean;
   /** Label of the clear entry. Defaults to the shared "None" translation. */
   clearLabel?: string;
+  /**
+   * What the field asks, ahead of what the trigger shows in the name a screen reader reads: a
+   * trigger is named by its content otherwise, which is the placeholder or the value and says
+   * nothing of what the field asks. The name still holds the visible text.
+   */
+  fieldLabel?: string;
+  /** What describes the trigger and says it is invalid, for a form field to tie it to its help and its error. */
+  id?: string;
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
 };
 
 export const getComboboxTriggerClassName = ({
@@ -85,6 +95,10 @@ export const Combobox = <TOption,>({
   allowCustomValue = false,
   clearable = false,
   clearLabel,
+  fieldLabel,
+  id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
 }: ComboboxProps<TOption>) => {
   const { t } = useTranslation();
   const { isOpen, open, close } = useModal();
@@ -186,6 +200,14 @@ export const Combobox = <TOption,>({
           <Button
             variant="outline"
             disabled={disabled}
+            id={id}
+            aria-describedby={ariaDescribedBy}
+            aria-invalid={ariaInvalid}
+            aria-label={
+              fieldLabel
+                ? [fieldLabel, displayValue].filter(Boolean).join(' ')
+                : undefined
+            }
             aria-expanded={isOpen}
             aria-haspopup="listbox"
             className={getComboboxTriggerClassName({
@@ -219,7 +241,10 @@ export const Combobox = <TOption,>({
         >
           <ComboboxSearch placeholder={searchPlaceholder} />
           <ComboboxEmpty>{t('Common.noResults')}</ComboboxEmpty>
-          <ComboboxList className="p-1 empty:p-0">
+          <ComboboxList
+            aria-label={searchPlaceholder}
+            className="p-1 empty:p-0"
+          >
             {(entry: ComboboxEntry) => (
               <ComboboxItem key={`${entry.kind}:${entry.value}`} value={entry}>
                 {renderEntryIcon(entry)}

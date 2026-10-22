@@ -1,4 +1,5 @@
 import { expect, test } from '../_support/app-test';
+import { expectNoAccessibilityViolations } from '../_support/assertions/accessibility';
 import { EntitlementFormDriver } from '../_support/drivers/entitlement-form.driver';
 import { EntitlementsListDriver } from '../_support/drivers/entitlements-list.driver';
 import { installEntitlementAppMocks } from '../_support/mocks/install-entitlement-app-mocks';
@@ -27,4 +28,19 @@ test('creates an entitlement from its creation page', async ({ page }) => {
   await expect(page).toHaveURL('/catalog/entitlements/storage-reads');
   await list.goto();
   await list.expectEntitlementVisible('Storage Reads');
+});
+
+test('names the groups field by its label, so that a screen reader can say what it is', async ({
+  page,
+}) => {
+  const form = new EntitlementFormDriver(page);
+
+  await installEntitlementAppMocks(page, createEmptyEntitlementsModel());
+  await page.goto('/catalog/entitlements/new');
+  await form.expectLoaded('create');
+
+  const groups = page.getByRole('combobox', { name: 'Groups' });
+  await expect(groups).toBeVisible();
+  await expect(groups).toHaveAccessibleDescription(/group/i);
+  await expectNoAccessibilityViolations(page);
 });
