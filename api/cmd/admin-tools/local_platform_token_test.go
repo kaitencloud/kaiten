@@ -23,6 +23,7 @@ type localTokenFixture struct {
 func (f *localTokenFixture) ValidatePlatformToken(context.Context, string) (uuid.UUID, []string, bool) {
 	return f.id, nil, f.valid
 }
+
 func (f *localTokenFixture) ListPlatformTokens(context.Context) ([]identityschema.PlatformToken, error) {
 	f.listed = true
 	return f.rows, f.err
