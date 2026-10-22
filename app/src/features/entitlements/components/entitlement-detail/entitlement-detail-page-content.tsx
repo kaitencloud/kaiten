@@ -50,8 +50,9 @@ function EntitlementDetailHeader({
 
   const handleRename = async (name: string) => {
     await updateMutation.mutateAsync({
-      path: { entitlementSlug: entitlement.slug! },
-      body: entitlementToUpdateBody(entitlement, { name }),
+      edited: entitlementToUpdateBody(entitlement, { name }),
+      entitlementSlug: entitlement.slug!,
+      opened: entitlementToUpdateBody(entitlement),
     });
   };
 

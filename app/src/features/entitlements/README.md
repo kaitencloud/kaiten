@@ -4,13 +4,13 @@ An entitlement is something a license can grant: a capability, a numeric allowan
 
 ## Routes
 
-| URL | Route file | Renders |
-| --- | --- | --- |
-| `/catalog/entitlements` | `app/src/routes/catalog/entitlements/index.tsx` | `EntitlementsPageContent`: the table |
-| `/catalog/entitlements/new` | `app/src/routes/catalog/entitlements/new/index.tsx` | `EntitlementCreatePage` |
-| `/catalog/entitlements/$entitlementSlug` | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx` | `EntitlementDetailOverviewTab` |
-| `/catalog/entitlements/$entitlementSlug/usage` | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx` | `EntitlementDetailUsageTab` |
-| `/catalog/entitlements/$entitlementSlug/customers` and `.../licenses` | `customers.tsx`, `licenses.tsx` in the same folder | Redirect to `.../usage` |
+| URL                                                                   | Route file                                                       | Renders                              |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------ |
+| `/catalog/entitlements`                                               | `app/src/routes/catalog/entitlements/index.tsx`                  | `EntitlementsPageContent`: the table |
+| `/catalog/entitlements/new`                                           | `app/src/routes/catalog/entitlements/new/index.tsx`              | `EntitlementCreatePage`              |
+| `/catalog/entitlements/$entitlementSlug`                              | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx` | `EntitlementDetailOverviewTab`       |
+| `/catalog/entitlements/$entitlementSlug/usage`                        | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx` | `EntitlementDetailUsageTab`          |
+| `/catalog/entitlements/$entitlementSlug/customers` and `.../licenses` | `customers.tsx`, `licenses.tsx` in the same folder               | Redirect to `.../usage`              |
 
 The entitlements are the second entry of the Catalog section of the side navigation (`catalogSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`), listed on every deployment.
 
@@ -44,14 +44,14 @@ business labels/URLs while the functional owns fixed/scrolling regions.
 
 The lists of entitlements and groups come from helpers of `app/src/lib/api/all-pages-query-options.ts` that fetch every page of a generated `list*` operation. The generated operations and query keys are used as they are.
 
-| What | Operation | Where |
-| --- | --- | --- |
-| Entitlements | `listEntitlements` (all pages), `getEntitlement` | `queries/entitlements-query-options.ts`: `entitlementsQueryOptions`, `entitlementQueryOptions(slug)` |
-| Groups | `listEntitlementGroups` (all pages) | `queries/entitlement-groups-query-options.ts`: `entitlementGroupsQueryOptions` |
-| Create, update | `createEntitlement`, `updateEntitlement` (a PUT that replaces the whole entitlement) | `useEntitlementFormMutations` |
-| Delete | `deleteEntitlement` | `EntitlementTableActions`, with `optimisticDeleteCallbacks` on `listEntitlementsQueryKey()` |
-| Create a group | `createEntitlementGroup` | `useEntitlementGroupFormMutations`, called by the group selector |
-| Usage of the detail page | `getEntitlementsUsageMetrics` (`GET /instances/{instanceSlug}/entitlements/usage`), one call per instance whose license grants the entitlement | `components/entitlement-detail/use-entitlement-detail-data.ts` |
+| What                     | Operation                                                                                                                                      | Where                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Entitlements             | `listEntitlements` (all pages), `getEntitlement`                                                                                               | `queries/entitlements-query-options.ts`: `entitlementsQueryOptions`, `entitlementQueryOptions(slug)` |
+| Groups                   | `listEntitlementGroups` (all pages)                                                                                                            | `queries/entitlement-groups-query-options.ts`: `entitlementGroupsQueryOptions`                       |
+| Create, update           | `createEntitlement`, `updateEntitlement` (a PUT that replaces the whole entitlement)                                                           | `useEntitlementFormMutations`                                                                        |
+| Delete                   | `deleteEntitlement`                                                                                                                            | `EntitlementTableActions`, with `optimisticDeleteCallbacks` on `listEntitlementsQueryKey()`          |
+| Create a group           | `createEntitlementGroup`                                                                                                                       | `useEntitlementGroupFormMutations`, called by the group selector                                     |
+| Usage of the detail page | `getEntitlementsUsageMetrics` (`GET /instances/{instanceSlug}/entitlements/usage`), one call per instance whose license grants the entitlement | `components/entitlement-detail/use-entitlement-detail-data.ts`                                       |
 
 The detail page also reads all the licenses, instances and customers, and the entitlements of each license (`allLicensesOptions`, `allInstancesOptions`, `allCustomersOptions`, `allLicenseEntitlementsOptions`). It derives everything it shows from them in the browser: the linked licenses, the impacted instances and customers, the usage rows, the saturation buckets and the rankings. The logic is in `components/entitlement-detail/entitlement-detail-context-*.ts`, which the unit tests cover.
 
@@ -113,13 +113,13 @@ The table shows the shared `DataTable` empty row ("No results") and keeps the cr
 
 Routes import the following from `@/features/entitlements` (the root `index.ts`):
 
-| Export | Imported by |
-| --- | --- |
-| `EntitlementsPageContent`, `entitlementsQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/catalog/entitlements/index.tsx`, `app/src/routes/catalog/entitlements/route.tsx` |
-| `EntitlementCreatePage` | `app/src/routes/catalog/entitlements/new/index.tsx` |
-| `EntitlementDetailPageContent`, `EntitlementFormDialog`, `entitlementQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` |
-| `EntitlementDetailOverviewTab` | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx` |
-| `EntitlementDetailUsageTab` | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx` |
+| Export                                                                                                              | Imported by                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `EntitlementsPageContent`, `entitlementsQueryOptions`, `entitlementGroupsQueryOptions`                              | `app/src/routes/catalog/entitlements/index.tsx`, `app/src/routes/catalog/entitlements/route.tsx` |
+| `EntitlementCreatePage`                                                                                             | `app/src/routes/catalog/entitlements/new/index.tsx`                                              |
+| `EntitlementDetailPageContent`, `EntitlementFormDialog`, `entitlementQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx`                                 |
+| `EntitlementDetailOverviewTab`                                                                                      | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx`                                 |
+| `EntitlementDetailUsageTab`                                                                                         | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx`                                 |
 
 The licenses feature does not import this one; it declares its own `entitlementsQueryOptions` over the same generated operation.
 

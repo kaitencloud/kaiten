@@ -4,8 +4,8 @@ import {
   createEntitlementMutation,
   getEntitlementQueryKey,
   listEntitlementsQueryKey,
-  updateEntitlementMutation,
 } from '@/api-client/@tanstack/react-query.gen';
+import { saveEntitlementOnFresh } from '../queries/entitlement-save';
 
 export function useEntitlementFormMutations() {
   const queryClient = useQueryClient();
@@ -37,15 +37,15 @@ export function useEntitlementFormMutations() {
   });
 
   const updateMutation = useMutation({
-    ...updateEntitlementMutation(),
+    mutationFn: saveEntitlementOnFresh,
     onSuccess: async (_response, variables) => {
-      const { path } = variables;
+      const { entitlementSlug } = variables;
 
       await Promise.all([
         invalidateEntitlements(),
         queryClient.invalidateQueries({
           queryKey: getEntitlementQueryKey({
-            path: { entitlementSlug: path.entitlementSlug },
+            path: { entitlementSlug },
           }),
         }),
         queryClient.invalidateQueries({

@@ -6,3 +6,7 @@ export {
   entitlementQueryOptions,
   entitlementsQueryOptions,
 } from './entitlements-query-options';
+export {
+  type SaveEntitlementVariables,
+  saveEntitlementOnFresh,
+} from './entitlement-save';
