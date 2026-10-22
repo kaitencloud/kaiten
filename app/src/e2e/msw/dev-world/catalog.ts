@@ -9,6 +9,7 @@ import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync';
 import {
   buildCustomer,
   buildLicense,
+  SYSTEM_USER,
   TEST_USER,
 } from '../../../../e2e/app/_support/fixtures';
 import { daysAgo, minutesAgo } from './dates';
@@ -65,12 +66,18 @@ export const createCustomers = (): Customer[] => [
     }),
     integrations: attioLink('attio-company-globex', minutesAgo(95)),
   },
-  buildCustomer({
-    createdAt: daysAgo(4),
-    id: 'customer-gamma',
-    name: 'Gamma Labs',
-    slug: 'gamma-labs',
-  }),
+  // Bought through an anonymous checkout, which no person of the vendor did: the API
+  // records Kaiten itself as the actor, and the console says "Kaiten (system)".
+  {
+    ...buildCustomer({
+      createdAt: daysAgo(4),
+      id: 'customer-gamma',
+      name: 'Gamma Labs',
+      slug: 'gamma-labs',
+    }),
+    createdBy: SYSTEM_USER,
+    updatedBy: SYSTEM_USER,
+  },
 ];
 
 const buildEntitlement = (

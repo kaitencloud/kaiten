@@ -5,6 +5,11 @@ import i18n from 'i18next';
  * `system:kaiten`, and the id its row is pinned to. It is the actor of what no person
  * of the organization did: the jobs of billing, and the writes of an anonymous checkout,
  * which no principal of the vendor initiates.
+ *
+ * The API names the actor by external id where it can, and by id where it only has the
+ * row; the console cannot tell which it will be given, so it knows both. The id is the
+ * one the platform-identity migration pins (`platformidentity.ID` in the API), so it
+ * does not change.
  */
 const SYSTEM_ACTOR_IDS: ReadonlySet<string> = new Set([
   'system:kaiten',

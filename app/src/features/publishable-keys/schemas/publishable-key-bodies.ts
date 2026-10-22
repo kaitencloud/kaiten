@@ -3,9 +3,12 @@ import { parseOrigins } from '../utils/origins';
 import type { PublishableKeyFormValues } from './publishable-key.schema';
 
 /**
- * The body that issues a key. The anonymous checkout and the Turnstile members are in it
- * only when the person gave them: a key that is only for the catalog sends the label and
- * the origins, as it always did.
+ * The body that issues a key. The site key and the secret are trimmed on purpose, as the
+ * form validates them: a Turnstile value holds no whitespace, and a stray space or line
+ * break that rides in on a copy from the Cloudflare dashboard would make a secret that
+ * never verifies. A blank one is none. The anonymous checkout and the Turnstile members
+ * are in the body only when the person gave them: a key that is only for the catalog
+ * sends the label and the origins, as it always did.
  */
 export function publishableKeyFormValuesToCreateBody(
   values: PublishableKeyFormValues,
