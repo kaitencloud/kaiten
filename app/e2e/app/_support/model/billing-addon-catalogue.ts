@@ -152,6 +152,13 @@ const NOW = () => new Date().toISOString();
  * grants and its prices answer 409 `*.BillingActive`, which the catalogue learns from
  * the instances through `holders`.
  */
+/** The slug format of the API (api/internal/shared/slugutil), in the words it refuses with. */
+const SLUG_REQUIREMENTS =
+  'must match ^[a-z0-9][a-z0-9-]*[a-z0-9]$ and be 2–100 characters';
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]*[a-z0-9]$/;
+const isValidSlug = (slug: string) =>
+  slug.length >= 2 && slug.length <= 100 && SLUG_PATTERN.test(slug);
+
 export class AddonCatalogue {
   private readonly problems = new ArmedProblems<AddonCatalogueOperation>();
   private compatibility: Record<string, string[]>;
@@ -492,14 +499,11 @@ export class AddonCatalogue {
   /** `POST /addons`: the first version of a new family, or the next one of the family named. */
   createVersion(body: NewAddon): Addon {
     this.problems.consume('createAddon');
-    if (
-      body.slug !== undefined &&
-      !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(body.slug)
-    ) {
+    if (body.slug !== undefined && !isValidSlug(body.slug)) {
       this.refuse(
         422,
         'CreateAddon.InvalidSlug',
-        `"${body.slug}" is not a valid slug`,
+        `Slug "${body.slug}" is invalid: ${SLUG_REQUIREMENTS}`,
       );
     }
     this.checkMaxQuantity('CreateAddon', body.maxQuantity);

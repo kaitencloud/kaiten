@@ -142,6 +142,38 @@ describe('the add-on catalogue, as the mocks serve it', () => {
     ).toBe(404);
   });
 
+  // The slug format of the API (api/internal/shared/slugutil): two to a hundred
+  // characters, lowercase letters, digits and hyphens, none at either end. A single
+  // letter and a hundred and one are refused, a double hyphen is not, and the words
+  // of the refusal are the API's.
+  it('judges a slug as the API does', async () => {
+    const make = (slug: string) =>
+      send('POST', '/addons', {
+        description: '',
+        name: 'Slug check',
+        pricingType: 'PAID',
+        slug,
+      });
+    const refused = ['Extra Seats!', 'a', '-abc', 'abc-', 'é-pack', 'a'.repeat(101)];
+
+    for (const slug of refused) {
+      const response = await make(slug);
+      const problem = await refusal(response);
+
+      expect(response.status, slug).toBe(422);
+      expect(problem.code, slug).toBe('CreateAddon.InvalidSlug');
+      expect(problem.detail, slug).toBe(
+        `Slug "${slug}" is invalid: must match ^[a-z0-9][a-z0-9-]*[a-z0-9]$ and be 2–100 characters`,
+      );
+    }
+    for (const slug of ['ab', 'a--b', `a${'-'.repeat(98)}b`, 'a'.repeat(100)]) {
+      const response = await make(slug);
+
+      expect(response.status, slug).toBe(201);
+      expect(await json<Addon>(response), slug).toMatchObject({ slug });
+    }
+  });
+
   it('moves a version along its lifecycle, and refuses the moves the API refuses', async () => {
     const published = await json<Addon>(await send('POST', '/addons/extra-seats-v2/publish'));
     const again = await send('POST', '/addons/extra-seats-v2/publish');
