@@ -67,15 +67,20 @@ A header with an editable title, from a detail page:
 ## `EditableTitle`
 
 A title that turns into an input when clicked. It saves on Enter or blur and
-cancels on Escape.
+cancels on Escape; after Enter or Escape the focus goes back to the title, unless
+the person has moved it elsewhere meanwhile.
+
+The title is the button, so the button, and the heading it stands in, is named by
+the title (`Acme Corp`) and described by `label` (`Edit name`), which is also the
+`title` attribute of the button and the name of the input.
 
 | Prop | Meaning |
 | --- | --- |
 | `value` | The persisted value |
 | `onSave(value)` | Persists the new value; it should throw on failure. A failure shows an error toast and restores the old value |
-| `label` | Accessible label of the edit button and the input |
+| `label` | What the button does: its description and its tooltip, and the name of the input. The name of the button is the title |
 | `minLength` | Minimum trimmed length to save. Default 1 |
-| `disabled` | Read-only |
+| `disabled` | Not editable: the title is drawn as plain text, with no button (a session that may not rename) |
 | `className`, `textClassName` | Styling; `textClassName` applies to the label and the input |
 
 Use it inside a `Page.Title` or `Page.IconHeading` title slot so it inherits the
