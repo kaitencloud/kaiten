@@ -1,4 +1,4 @@
-import type { UseMutateFunction } from '@tanstack/react-query';
+import type { UseMutateAsyncFunction } from '@tanstack/react-query';
 import { useCallback, useRef } from 'react';
 
 /**
@@ -34,13 +34,18 @@ export function useSingleFlight<Args extends unknown[]>(
 }
 
 /**
- * The same guard for a mutation that is fired with `mutate`: a second call made
+ * The same guard for a mutation, fired as `mutate` does it: a second call made
  * while the first is out is dropped, and the guard is released when the
  * mutation settles, whatever it answers. The refusal stays the mutation's own
  * (`onError`, `error`).
+ *
+ * It takes `mutateAsync` and releases from the promise, not from a callback given
+ * to `mutate`: TanStack Query drops the callbacks of a call when the same mutation
+ * is fired again or reset, which would leave the guard taken for good and the
+ * button dead. The promise settles however the mutation is used meanwhile.
  */
 export function useSingleFlightMutate<TData, TError, TVariables, TContext>(
-  mutate: UseMutateFunction<TData, TError, TVariables, TContext>,
+  mutateAsync: UseMutateAsyncFunction<TData, TError, TVariables, TContext>,
 ): (variables: TVariables) => void {
   const running = useRef(false);
 
@@ -50,12 +55,14 @@ export function useSingleFlightMutate<TData, TError, TVariables, TContext>(
         return;
       }
       running.current = true;
-      mutate(variables, {
-        onSettled: () => {
+      mutateAsync(variables)
+        .catch(() => {
+          // The mutation reports its failure itself (`onError`, `error`).
+        })
+        .finally(() => {
           running.current = false;
-        },
-      });
+        });
     },
-    [mutate],
+    [mutateAsync],
   );
 }

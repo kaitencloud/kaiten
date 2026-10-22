@@ -49,7 +49,7 @@ export function UsageHistoryDrawer({
   const history = useUsageHistory(instanceSlug, entitlementSlug, range);
   const exportHistory = useExportUsageHistory();
   // Two clicks of the same frame would save the file twice: the button is disabled a frame late.
-  const exportOnce = useSingleFlightMutate(exportHistory.mutate);
+  const exportOnce = useSingleFlightMutate(exportHistory.mutateAsync);
 
   return (
     <Sheet onOpenChange={(open) => !open && onClose()} open>

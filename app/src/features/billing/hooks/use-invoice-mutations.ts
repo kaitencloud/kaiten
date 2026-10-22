@@ -17,6 +17,7 @@ import {
   handleBillingProblem,
   invalidateInvoiceQueries,
 } from '@/domains/billing';
+import { useSingleFlightMutate } from '@/hooks/use-single-flight';
 
 /** How long a refusal that offers to ask again stays: long enough to be read, and acted on. */
 const REFUSAL_TOAST_MS = 15_000;
@@ -51,7 +52,9 @@ type InvoiceMutationsOptions = {
  *
  * Neither has a dialog to show a refusal in, so it is a toast in the API's words. A
  * provider that cannot be reached changed nothing: the toast says so and offers to ask
- * again, and the invoice stays what it was.
+ * again, and the invoice stays what it was. `pushOnce` and `syncOnce` send one request
+ * however often they are pressed, the Retry of that toast included: the buttons use them
+ * rather than `mutate`.
  */
 export function useInvoiceMutations(
   invoiceId: string,
@@ -155,7 +158,7 @@ export function useInvoiceMutations(
   const retryPush = useMutation({
     ...retryInvoicePushMutation(),
     onError: (error, variables) =>
-      tellRefusal(error, () => retryPush.mutate(variables)),
+      tellRefusal(error, () => pushOnce(variables)),
     onSuccess: async (invoice) => {
       await refresh();
       toast.success(
@@ -171,7 +174,7 @@ export function useInvoiceMutations(
   const sync = useMutation({
     ...syncInvoiceMutation(),
     onError: (error, variables) =>
-      tellRefusal(error, () => sync.mutate(variables)),
+      tellRefusal(error, () => syncOnce(variables)),
     onSuccess: async (invoice) => {
       await refresh();
       toast.success(
@@ -183,13 +186,20 @@ export function useInvoiceMutations(
       );
     },
   });
+  // A button waits on `isPending` as it was painted, a frame after the click: these answer a
+  // second press of the same frame with nothing, the first request being out. The button and
+  // the Retry of the toast press the same one.
+  const pushOnce = useSingleFlightMutate(retryPush.mutateAsync);
+  const syncOnce = useSingleFlightMutate(sync.mutateAsync);
 
   return {
     markPaid,
+    pushOnce,
     recompose,
     releaseHold,
     retryPush,
     sync,
+    syncOnce,
     voidInvoice,
     writeOff,
   };

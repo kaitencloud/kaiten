@@ -47,7 +47,7 @@ export function UsageExport() {
   const months = data?.usageHistoryRetentionMonths;
   const exporting = useExportUsageChunk();
   // Two clicks of the same frame would save the month twice: the buttons are disabled a frame late.
-  const exportOnce = useSingleFlightMutate(exporting.mutate);
+  const exportOnce = useSingleFlightMutate(exporting.mutateAsync);
   const chunks = getUsageChunks(months ?? DEFAULT_CHUNK_MONTHS);
   const format = monthFormat(i18n.language);
 

@@ -63,9 +63,9 @@ export function usePaymentMethod(customerSlug: string) {
 
   // A button waits on `isPending` as it was painted, a frame after the click; each of
   // these answers a second click of the same frame with nothing, the first being out.
-  const openPortalOnce = useSingleFlightMutate(openPortal.mutate);
-  const retrySetupOnce = useSingleFlightMutate(startSetup.mutate);
-  const checkAgainOnce = useSingleFlightMutate(complete.mutate);
+  const openPortalOnce = useSingleFlightMutate(openPortal.mutateAsync);
+  const retrySetupOnce = useSingleFlightMutate(startSetup.mutateAsync);
+  const checkAgainOnce = useSingleFlightMutate(complete.mutateAsync);
   const startSetupOnce = useSingleFlight((currency?: string) =>
     startSetup.mutateAsync({
       body: { currency, returnUrl: getCustomerReturnUrl(customerSlug) },

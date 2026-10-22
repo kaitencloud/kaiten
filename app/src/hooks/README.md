@@ -16,6 +16,6 @@ or a popup handing the focus back, is not a leave.
 
 `use-single-flight.ts` lets an action that is not a form submit run once at a
 time: `useSingleFlight` for a promise, `useSingleFlightMutate` for a mutation
-fired with `mutate`. A button guarded by `disabled={isPending}` alone sends two
+fired with `mutate`, which it takes as `mutateAsync` so that the guard follows the promise and not a callback the query library may drop. A button guarded by `disabled={isPending}` alone sends two
 requests for two clicks of the same frame, since the pending state is painted a
 frame after the click; the guard is a ref, set before the request starts.

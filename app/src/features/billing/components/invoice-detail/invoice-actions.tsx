@@ -7,7 +7,6 @@ import {
   useBillingCapabilities,
   useInvoiceActionAccess,
 } from '@/domains/billing';
-import { useSingleFlightMutate } from '@/hooks/use-single-flight';
 import { type PushPhase, useInvoiceMutations } from '../../hooks';
 import { InvoiceActionButtons } from './invoice-action-buttons';
 import { MarkPaidDialog } from './mark-paid-dialog';
@@ -55,18 +54,17 @@ export function InvoiceActions({
   pushPhase = 'idle',
 }: InvoiceActionsProps) {
   const { capabilities } = useBillingCapabilities();
-  const { retryPush, sync } = useInvoiceMutations(invoice.id, {
-    onPushRequested,
-  });
+  const { pushOnce, retryPush, sync, syncOnce } = useInvoiceMutations(
+    invoice.id,
+    {
+      onPushRequested,
+    },
+  );
   const [dialog, setDialog] = useState<OpenDialog>(null);
   // The instance the API said was deleted: by its slug, so that another invoice
   // of the same page is not taken for one whose instance is gone.
   const [deletedInstance, setDeletedInstance] = useState<string | null>(null);
   const canPerform = useInvoiceActionAccess();
-  // The button waits on the mutation as it was painted, a frame after the click: the
-  // guard is what makes a second click of the same frame find the request already out.
-  const pushOnce = useSingleFlightMutate(retryPush.mutate);
-  const syncOnce = useSingleFlightMutate(sync.mutate);
 
   const states = getInvoiceActions(invoice, {
     instanceDeleted: deletedInstance === invoice.instanceSlug,

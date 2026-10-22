@@ -292,6 +292,36 @@ describe('pushing an invoice again', () => {
     await waitFor(() => expect(asked).toBe(2));
     await waitFor(() => expect(onPushRequested).toHaveBeenCalledTimes(1));
   });
+
+  it('sends one request however often the Retry of that toast is pressed before the first is painted', async () => {
+    let asked = 0;
+    server.use(
+      handleRetryInvoicePush(async () => {
+        asked += 1;
+        if (asked === 1) {
+          return refusal(503, {
+            code: 'RetryInvoicePush.ProviderUnavailable',
+            detail: 'the payment provider could not be reached',
+          });
+        }
+        await new Promise((resolve) => setTimeout(resolve, 60));
+
+        return HttpResponse.json(stripe(), { status: 202 });
+      }),
+    );
+    const onPushRequested = vi.fn();
+    await renderActions(inReview(), { onPushRequested });
+    await userEvent.click(await action('Finalize in Stripe'));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    const [, options] = toast.error.mock.calls[0];
+
+    // Two presses of the same frame, as a double click makes them.
+    options.action.onClick();
+    options.action.onClick();
+
+    await waitFor(() => expect(onPushRequested).toHaveBeenCalledTimes(1));
+    expect(asked).toBe(2);
+  });
 });
 
 describe('a Stripe that cannot be reached, and says when to ask again', () => {
