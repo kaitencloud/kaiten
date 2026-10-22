@@ -2654,7 +2654,9 @@ export default {
             resetPeriodLocked:
               'The reset cadence is fixed once set: stored usage would become impossible to interpret if it changed.',
             resetAnchor:
-              "Calendar windows start on UTC calendar boundaries. License start windows are phased off each instance's own license start date.",
+              "Calendar windows start on UTC calendar boundaries. License start windows are phased off each instance's own license start date. Billing date windows are phased off the billing anchor of the instance's subscription, and off the license start date for an instance without one. They need a monthly or yearly cadence.",
+            resetAnchorLocked:
+              'The alignment is fixed with the cadence once set: usage already counted belongs to windows that another alignment would cut differently.',
             resetPeriodLatest:
               'The Latest aggregation keeps only the most recent value, so it cannot be combined with a reset period.',
           },
@@ -2688,6 +2690,12 @@ export default {
             saleUnitFactor: 'The conversion factor must be greater than 0',
             unitLabelTooLong: 'Unit labels must be at most 100 characters',
             displayOrder: 'Enter a whole number',
+            resetAnchorCadence:
+              'The billing date needs a monthly or yearly cadence. Choose another alignment or another cadence.',
+          },
+          Hints: {
+            resetAnchorBillingPeriod:
+              'Its windows follow the billing date of an instance with a live subscription, and the license start date otherwise. When the billing date changes, for instance when a trial converts, a customer subscribes again or a subscription is canceled, the current window closes early and the usage counts from zero in the next one.',
           },
           Steps: {
             identity: 'Entitlement information',
@@ -2880,6 +2888,7 @@ export default {
         CALENDAR: 'Calendar',
         LICENSE_START: 'License start date',
         BILLING_PERIOD: 'Billing date',
+        billingPeriodUnavailable: 'Billing date (monthly or yearly only)',
       },
     },
     FeatureFlags: {

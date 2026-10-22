@@ -2687,7 +2687,9 @@ export default {
             resetPeriodLocked:
               "La cadence est figée une fois posée : l'usage déjà stocké deviendrait ininterprétable si elle changeait.",
             resetAnchor:
-              'Les fenêtres calendaires commencent sur les frontières du calendrier UTC. Les fenêtres « début de licence » sont calées sur la date de début de licence propre à chaque instance.',
+              "Les fenêtres calendaires commencent sur les frontières du calendrier UTC. Les fenêtres « début de licence » sont calées sur la date de début de licence propre à chaque instance. Les fenêtres « date de facturation » sont calées sur l'ancre de facturation de l'abonnement de l'instance, et sur la date de début de licence pour une instance sans abonnement. Elles demandent une cadence mensuelle ou annuelle.",
+            resetAnchorLocked:
+              "L'alignement est figé avec la cadence une fois posé : l'usage déjà compté appartient à des fenêtres qu'un autre alignement découperait autrement.",
             resetPeriodLatest:
               "L'agrégation « Dernier » ne conserve que la valeur la plus récente : elle ne peut pas être combinée à une remise à zéro périodique.",
           },
@@ -2722,6 +2724,12 @@ export default {
             unitLabelTooLong:
               "Les libellés d'unité sont limités à 100 caractères",
             displayOrder: 'Saisissez un nombre entier',
+            resetAnchorCadence:
+              'La date de facturation demande une cadence mensuelle ou annuelle. Choisissez un autre alignement ou une autre cadence.',
+          },
+          Hints: {
+            resetAnchorBillingPeriod:
+              "Ses fenêtres suivent la date de facturation d'une instance qui a un abonnement en cours, et la date de début de licence sinon. Quand la date de facturation change, par exemple à la conversion d'un essai, à un nouvel abonnement ou à une annulation, la fenêtre en cours se termine plus tôt et l'usage repart de zéro dans la suivante.",
           },
           Steps: {
             identity: 'Informations du droit',
@@ -2916,6 +2924,7 @@ export default {
         CALENDAR: 'Calendrier',
         LICENSE_START: 'Date de début de licence',
         BILLING_PERIOD: 'Date de facturation',
+        billingPeriodUnavailable: 'Date de facturation (mensuelle ou annuelle)',
       },
     },
     FeatureFlags: {

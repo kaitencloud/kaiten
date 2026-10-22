@@ -110,6 +110,10 @@ export function setProblemFieldError(
  */
 export function clearProblemFieldError(form: AnyFormApi, field: string) {
   shownRefusals.get(form)?.get(field)?.();
+  // A field that is not on screen has no state to take it off.
+  if (!form.getFieldMeta(field)) {
+    return;
+  }
   form.setFieldMeta(field, (meta) => ({
     ...meta,
     errorMap: { ...meta.errorMap, onServer: undefined },

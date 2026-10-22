@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { EntitlementWritable, Entitlement } from '@/api-client';
+import { handleBillingProblem, setProblemFieldError } from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
 import { getApiErrorMessage } from '@/lib/errors';
 import { useEntitlementFormMutations } from '../../hooks';
@@ -14,6 +15,16 @@ import {
 } from './entitlement-form.shared';
 import { resolveResetFields } from './entitlement-reset-period.shared';
 import { toOptionalSlug } from './entitlement-slug.shared';
+
+// The refusals of the API that are about one field of the form, by their code:
+// the API names the field in prose, in `detail`, and does not locate it. Each is
+// shown on its field, where the person is looking, and with the API's own words.
+const FIELD_BY_CODE: Record<string, 'resetAnchor' | 'resetPeriod'> = {
+  'CreateEntitlement.InvalidResetAnchor': 'resetAnchor',
+  'UpdateEntitlement.ImmutableResetAnchor': 'resetAnchor',
+  'UpdateEntitlement.ImmutableResetPeriod': 'resetPeriod',
+  'UpdateEntitlement.InvalidResetAnchor': 'resetAnchor',
+};
 
 /**
  * The body a form sends for its values. `entitlement` is the one the form edits:
@@ -63,7 +74,7 @@ export const useEntitlementMutationForm = (
     validators: {
       onChange: entitlementFormSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ formApi, value }) => {
       try {
         const body = entitlementFormValuesToBody(value, openedEntitlement);
 
@@ -97,6 +108,14 @@ export const useEntitlementMutationForm = (
 
         navigate({ to: '/catalog/entitlements' });
       } catch (error) {
+        const problem = handleBillingProblem(error);
+        const field = FIELD_BY_CODE[problem.code ?? ''];
+        // A field that is not on screen has nowhere to show the refusal.
+        if (field && problem.detail && formApi.getFieldMeta(field)) {
+          setProblemFieldError(formApi, field, problem.detail);
+
+          return;
+        }
         toast.error(getApiErrorMessage(error));
       }
     },

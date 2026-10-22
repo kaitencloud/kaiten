@@ -21,6 +21,16 @@ export const RESET_ANCHOR_VALUES = [
   'BILLING_PERIOD',
 ] as const;
 
+/**
+ * The cadences a window aligned on the billing date can have: it is phased off
+ * the subscription's billing anchor, which a shorter window would cut in the
+ * middle. The API answers 422 `.InvalidResetAnchor` to any other.
+ */
+export const BILLING_PERIOD_CADENCES = ['MONTH', 'YEAR'] as const;
+
+export const isBillingPeriodCadence = (period: string | undefined): boolean =>
+  BILLING_PERIOD_CADENCES.some((cadence) => cadence === period);
+
 export const resetPeriodSchema = z.enum(RESET_PERIOD_VALUES);
 export const resetAnchorSchema = z.enum(RESET_ANCHOR_VALUES);
 
@@ -94,3 +104,20 @@ export const resolveResetFields = (
  */
 export const hasImmutableResetPeriod = (entitlement?: Entitlement): boolean =>
   Boolean(entitlement?.resetPeriod);
+
+/**
+ * Whether the pair the form would send asks for the billing date on a cadence
+ * that cannot follow it. The form refuses it on the anchor, and the API refuses
+ * it the same way for a client that did not.
+ */
+export const hasBillingPeriodOnWrongCadence = (
+  values: ResetFieldsSource,
+): boolean => {
+  const { resetAnchor, resetPeriod } = resolveResetFields(values);
+
+  return (
+    resetAnchor === 'BILLING_PERIOD' &&
+    resetPeriod !== undefined &&
+    !isBillingPeriodCadence(resetPeriod)
+  );
+};

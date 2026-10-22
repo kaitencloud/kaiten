@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Entitlement } from '@/api-client';
 import { zEntitlementWritable } from '@/api-client/zod.gen';
 import {
+  hasBillingPeriodOnWrongCadence,
   RESET_PERIOD_NONE,
   resetAnchorSchema,
   resetPeriodSchema,
@@ -85,6 +86,14 @@ export const entitlementFormSchema = zEntitlementWritable
     resetAnchor: resetAnchorSchema,
   })
   .superRefine((values, ctx) => {
+    if (hasBillingPeriodOnWrongCadence(values)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resetAnchor'],
+        message: 'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
+      });
+    }
+
     const baseSingular = isLabelSet(values.unitSingular);
     const basePlural = isLabelSet(values.unitPlural);
     const saleFlags = [

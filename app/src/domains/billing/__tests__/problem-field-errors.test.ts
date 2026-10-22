@@ -1,5 +1,5 @@
 import type { AnyFormApi } from '@tanstack/react-form';
-import { describe, expect, it } from 'vite-plus/test';
+import { describe, expect, it, vi } from 'vite-plus/test';
 import {
   clearProblemFieldError,
   setProblemFieldError,
@@ -123,5 +123,17 @@ describe('taking a refusal off a field', () => {
     clearProblemFieldError(form, 'code');
 
     expect(shown()).toBeUndefined();
+  });
+
+  // The state of a field starts with the field: one that is not drawn has none to change.
+  it('does nothing for a field that is not on the screen', () => {
+    const setFieldMeta = vi.fn();
+    const form = {
+      getFieldMeta: () => undefined,
+      setFieldMeta,
+    } as unknown as AnyFormApi;
+
+    expect(() => clearProblemFieldError(form, 'code')).not.toThrow();
+    expect(setFieldMeta).not.toHaveBeenCalled();
   });
 });

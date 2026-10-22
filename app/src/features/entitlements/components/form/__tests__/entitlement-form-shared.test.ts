@@ -316,6 +316,72 @@ describe('entitlementFormSchema displayOrder', () => {
   });
 });
 
+describe('entitlementFormSchema reset anchor', () => {
+  const validBase = { ...initialEntitlementFormValues, name: 'Test' };
+  const anchorIssues = (overrides: Record<string, unknown>) => {
+    const result = entitlementFormSchema.safeParse({
+      ...validBase,
+      ...overrides,
+    });
+
+    return result.success
+      ? []
+      : result.error.issues.filter((issue) => issue.path[0] === 'resetAnchor');
+  };
+
+  it.each(['MONTH', 'YEAR'])(
+    'accepts the billing date on a %s cadence',
+    (resetPeriod) => {
+      expect(
+        anchorIssues({ resetAnchor: 'BILLING_PERIOD', resetPeriod }),
+      ).toEqual([]);
+    },
+  );
+
+  it.each(['HOUR', 'DAY', 'WEEK'])(
+    'refuses the billing date on a %s cadence, on the anchor',
+    (resetPeriod) => {
+      expect(
+        anchorIssues({ resetAnchor: 'BILLING_PERIOD', resetPeriod }).map(
+          (issue) => issue.message,
+        ),
+      ).toEqual([
+        'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
+      ]);
+    },
+  );
+
+  it('lets the other alignments follow any cadence', () => {
+    expect(
+      anchorIssues({ resetAnchor: 'LICENSE_START', resetPeriod: 'DAY' }),
+    ).toEqual([]);
+    expect(
+      anchorIssues({ resetAnchor: 'CALENDAR', resetPeriod: 'HOUR' }),
+    ).toEqual([]);
+  });
+
+  // The anchor is out of sight, and the pair is not sent: nothing to refuse.
+  it('does not refuse a billing date that the form does not send', () => {
+    expect(
+      anchorIssues({ resetAnchor: 'BILLING_PERIOD', resetPeriod: 'NONE' }),
+    ).toEqual([]);
+    expect(
+      anchorIssues({
+        aggregationMethod: 'LATEST',
+        resetAnchor: 'BILLING_PERIOD',
+        resetPeriod: 'DAY',
+      }),
+    ).toEqual([]);
+    expect(
+      anchorIssues({
+        resetAnchor: 'BILLING_PERIOD',
+        resetPeriod: 'DAY',
+        type: 'BOOLEAN',
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe('entitlementFormSchema slug', () => {
   const validBase = { ...initialEntitlementFormValues, name: 'Test' };
 

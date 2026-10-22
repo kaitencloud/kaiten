@@ -4,9 +4,12 @@ import { zEntitlement } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { BillingProblem } from './billing-problem';
 import { ErrorInjector } from './error-injector';
+import type { ArmedProblem } from './license-pricing';
 
 type EntitlementRecord = Entitlement;
 type EntitlementErrorOp = 'create' | 'update' | 'delete';
+/** What the model arms to fail with a problem document: the writes that carry fields. */
+type EntitlementProblemOp = 'create' | 'update';
 
 const clone = <T>(value: T): T => structuredClone(value);
 
@@ -42,6 +45,7 @@ export type EntitlementAppModelSeed = {
 
 export type SerializedEntitlementAppModel =
   Required<EntitlementAppModelSeed> & {
+    armedProblems?: Array<[EntitlementProblemOp, ArmedProblem]>;
     clock: number;
     pendingErrors: Array<[EntitlementErrorOp, number]>;
     sequence: number;
@@ -60,11 +64,34 @@ function warningThresholdOf(
     : undefined;
 }
 
+/**
+ * The refusal of the billing date on a cadence it cannot follow, as the API
+ * words it: a 422 on the anchor, the same for a create and for the update of an
+ * entitlement that adopts a reset.
+ */
+function refuseBillingPeriodCadence(
+  operation: 'CreateEntitlement' | 'UpdateEntitlement',
+  body: Pick<Partial<EntitlementRecord>, 'resetAnchor' | 'resetPeriod'>,
+) {
+  if (
+    body.resetAnchor === 'BILLING_PERIOD' &&
+    body.resetPeriod !== 'MONTH' &&
+    body.resetPeriod !== 'YEAR'
+  ) {
+    throw new BillingProblem(
+      422,
+      `${operation}.InvalidResetAnchor`,
+      'resetAnchor BILLING_PERIOD takes resetPeriod MONTH or YEAR',
+    );
+  }
+}
+
 export class EntitlementAppModel {
   private clock = Date.parse('2026-03-01T08:00:00.000Z');
   private entitlements: EntitlementRecord[];
   private references: Record<string, EntitlementReferences>;
   private sequence: number;
+  private readonly armed = new Map<EntitlementProblemOp, ArmedProblem>();
   private readonly errors = new ErrorInjector<EntitlementErrorOp>();
 
   static fromSerialized(state: SerializedEntitlementAppModel) {
@@ -75,11 +102,15 @@ export class EntitlementAppModel {
     model.clock = state.clock;
     model.sequence = state.sequence;
     model.errors.restore(state.pendingErrors);
+    for (const [operation, problem] of state.armedProblems ?? []) {
+      model.armed.set(operation, problem);
+    }
     return model;
   }
 
   serializeForMsw(): SerializedEntitlementAppModel {
     return {
+      armedProblems: [...this.armed.entries()],
       clock: this.clock,
       entitlements: clone(this.entitlements),
       pendingErrors: this.errors.snapshot(),
@@ -116,6 +147,19 @@ export class EntitlementAppModel {
     this.errors.setNextError(op, status);
   }
 
+  /** Arm the next write to fail with a problem document: its code, its detail and its status. One-shot. */
+  setNextProblem(op: EntitlementProblemOp, problem: ArmedProblem) {
+    this.armed.set(op, problem);
+  }
+
+  private consumeProblem(op: EntitlementProblemOp) {
+    const problem = this.armed.get(op);
+    if (problem) {
+      this.armed.delete(op);
+      throw new BillingProblem(problem.status, problem.code, problem.detail);
+    }
+  }
+
   /** @deprecated Use `setNextError('create', status)` instead. */
   setNextCreateError(status: number) {
     this.setNextError('create', status);
@@ -131,6 +175,7 @@ export class EntitlementAppModel {
 
   createEntitlement(body: Partial<EntitlementRecord>): EntitlementRecord {
     this.errors.consume('create');
+    this.consumeProblem('create');
 
     // Like the API, a slug sent by the caller is kept as it is and a taken one
     // is a conflict. Without one the slug comes from the name; the API also
@@ -143,6 +188,8 @@ export class EntitlementAppModel {
         { httpStatus: 409 },
       );
     }
+
+    refuseBillingPeriodCadence('CreateEntitlement', body);
 
     const timestamp = this.nextTimestamp();
     const entitlement: EntitlementRecord = {
@@ -183,6 +230,7 @@ export class EntitlementAppModel {
     body: Partial<EntitlementRecord>,
   ): EntitlementRecord {
     this.errors.consume('update');
+    this.consumeProblem('update');
     const index = this.entitlements.findIndex((e) => e.slug === slug);
 
     if (index < 0) {
@@ -208,15 +256,20 @@ export class EntitlementAppModel {
     // not a reset to null. Modelled here so the e2e suite actually catches a
     // partial-edit path that forgets to carry the pair.
     if (current.resetPeriod && body.resetPeriod !== current.resetPeriod) {
-      throw new Error(
-        'UpdateEntitlement.ImmutableResetPeriod: resetPeriod is immutable once configured and cannot be changed or removed',
+      throw new BillingProblem(
+        400,
+        'UpdateEntitlement.ImmutableResetPeriod',
+        'resetPeriod is immutable once configured and cannot be changed or removed',
       );
     }
     if (current.resetAnchor && body.resetAnchor !== current.resetAnchor) {
-      throw new Error(
-        'UpdateEntitlement.ImmutableResetAnchor: resetAnchor is immutable once configured and cannot be changed or removed',
+      throw new BillingProblem(
+        400,
+        'UpdateEntitlement.ImmutableResetAnchor',
+        'resetAnchor is immutable once configured and cannot be changed or removed',
       );
     }
+    refuseBillingPeriodCadence('UpdateEntitlement', body);
 
     const updated: EntitlementRecord = {
       ...current,
