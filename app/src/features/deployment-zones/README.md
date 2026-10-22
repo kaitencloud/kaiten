@@ -6,15 +6,15 @@ A deployment zone is one place where a customer runs a release: a target the org
 
 The layout route `app/src/routes/releases/route.tsx` preloads the releases and the zones for every URL below.
 
-| URL | Route file | What it renders |
-| --- | --- | --- |
-| `/releases/deployment-zones` | `app/src/routes/releases/deployment-zones/route.tsx` | A layout: `DeploymentZonesPageContent` around an `<Outlet />` that receives the three dialogs below. The loader preloads the releases, the zones and the release overview. |
-| `/releases/deployment-zones/new` | `app/src/routes/releases/deployment-zones/new/index.tsx` | `DeploymentZoneFormDialog`, over the list |
-| `/releases/deployment-zones/$zoneSlug/edit` | `app/src/routes/releases/deployment-zones/$zoneSlug/edit.tsx` | `DeploymentZoneFormDialog` on the zone, over the list |
-| `/releases/deployment-zones/$zoneSlug/deploy` | `app/src/routes/releases/deployment-zones/$zoneSlug/deploy.tsx` | `DeployReleaseDialog`, over the list |
-| `/releases/deployment-zones/$zoneSlug` | `app/src/routes/releases/deployment-zones_/$zoneSlug/route.tsx` and `index.tsx` in the same folder | `DeploymentZoneDetailPageContent` and, in it, `DeploymentZoneDetailOverviewTab` |
-| `/releases/deployment-zones/$zoneSlug/peers` | `app/src/routes/releases/deployment-zones_/$zoneSlug/peers.tsx` | `DeploymentZoneDetailPeersTab` |
-| `/releases/$releaseSlug/deploy` | `app/src/routes/releases/$releaseSlug/deploy.tsx` | `DeployToZoneDialog`, over the detail page of the release |
+| URL                                           | Route file                                                                                         | What it renders                                                                                                                                                            |
+| --------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/releases/deployment-zones`                  | `app/src/routes/releases/deployment-zones/route.tsx`                                               | A layout: `DeploymentZonesPageContent` around an `<Outlet />` that receives the three dialogs below. The loader preloads the releases, the zones and the release overview. |
+| `/releases/deployment-zones/new`              | `app/src/routes/releases/deployment-zones/new/index.tsx`                                           | `DeploymentZoneFormDialog`, over the list                                                                                                                                  |
+| `/releases/deployment-zones/$zoneSlug/edit`   | `app/src/routes/releases/deployment-zones/$zoneSlug/edit.tsx`                                      | `DeploymentZoneFormDialog` on the zone, over the list                                                                                                                      |
+| `/releases/deployment-zones/$zoneSlug/deploy` | `app/src/routes/releases/deployment-zones/$zoneSlug/deploy.tsx`                                    | `DeployReleaseDialog`, over the list                                                                                                                                       |
+| `/releases/deployment-zones/$zoneSlug`        | `app/src/routes/releases/deployment-zones_/$zoneSlug/route.tsx` and `index.tsx` in the same folder | `DeploymentZoneDetailPageContent` and, in it, `DeploymentZoneDetailOverviewTab`                                                                                            |
+| `/releases/deployment-zones/$zoneSlug/peers`  | `app/src/routes/releases/deployment-zones_/$zoneSlug/peers.tsx`                                    | `DeploymentZoneDetailPeersTab`                                                                                                                                             |
+| `/releases/$releaseSlug/deploy`               | `app/src/routes/releases/$releaseSlug/deploy.tsx`                                                  | `DeployToZoneDialog`, over the detail page of the release                                                                                                                  |
 
 - **Two folders for one URL space.** The trailing underscore of `deployment-zones_` takes the detail routes out of the list layout, so the detail page does not render inside the list page. The `edit` and `deploy` routes stay inside it: opened from the detail page, they show their dialog over the list, and closing or saving navigates to `/releases/deployment-zones`.
 - **Unknown slug.** The `edit` and `deploy` routes look the zone up in the cached list and throw `notFound()` when the slug is not there. The detail route ensures the zone by its slug in `beforeLoad` and sets the breadcrumb title to its name.
@@ -44,13 +44,13 @@ app/src/features/deployment-zones/
 
 ## Data
 
-| Query | Source | Used for |
-| --- | --- | --- |
-| `deploymentZonesQueryOptions` | REST `GET /deployment-zones`, every page (`allDeploymentZonesOptions()` in `app/src/lib/api/all-pages-query-options.ts`) | the list, the dialogs, the detail page and every route that needs the zones |
-| `deploymentZoneQueryOptions(slug)` | generated `getDeploymentZoneBySlugOptions`, `GET /deployment-zones/{deploymentZoneSlug}` | the detail route |
-| `releaseManagementOverviewQueryOptions` | GraphQL `GetReleaseManagementOverview`, exported by `@/domains/release-management` | the releases and instances of each zone, and two stats cards |
-| `allReleasesOptions()` | REST `GET /releases`, every page. `features/releases` exports the same options as `releasesQueryOptions`, which the deploy route reads. | the current release of each zone, the release picker |
-| `metadataFieldsActiveQueryOptions('DEPLOYMENT_ZONE')` | GraphQL, through `@/domains/metadata-fields` | the typed metadata columns, filters and form fields |
+| Query                                                 | Source                                                                                                                                  | Used for                                                                    |
+| ----------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| `deploymentZonesQueryOptions`                         | REST `GET /deployment-zones`, every page (`allDeploymentZonesOptions()` in `app/src/lib/api/all-pages-query-options.ts`)                | the list, the dialogs, the detail page and every route that needs the zones |
+| `deploymentZoneQueryOptions(slug)`                    | generated `getDeploymentZoneBySlugOptions`, `GET /deployment-zones/{deploymentZoneSlug}`                                                | the detail route                                                            |
+| `releaseManagementOverviewQueryOptions`               | GraphQL `GetReleaseManagementOverview`, exported by `@/domains/release-management`                                                      | the releases and instances of each zone, and two stats cards                |
+| `allReleasesOptions()`                                | REST `GET /releases`, every page. `features/releases` exports the same options as `releasesQueryOptions`, which the deploy route reads. | the current release of each zone, the release picker                        |
+| `metadataFieldsActiveQueryOptions('DEPLOYMENT_ZONE')` | GraphQL, through `@/domains/metadata-fields`                                                                                            | the typed metadata columns, filters and form fields                         |
 
 The metadata fields are read with `useQuery`, not `useSuspenseQuery`: a failed or refused request reads as "no field declared", and the table and the form fall back to raw JSON.
 
@@ -58,8 +58,8 @@ The metadata fields are read with `useQuery`, not `useSuspenseQuery`: a failed o
 
 Writes:
 
-- `createDeploymentZoneMutation` and `updateDeploymentZoneMutation`, called by `useDeploymentZoneForm`.
-- `updateDeploymentZoneMutation` again, called by `useDeployReleaseMutation`: a deployment is an update of the zone.
+- `createDeploymentZoneMutation`, called by `useDeploymentZoneForm`, and `saveDeploymentZoneOnFresh` (`queries/deployment-zone-save.ts`), which updates a zone: the PUT replaces the zone as a whole, so the zone is read again and only what the form changed is put on top of it (see [forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole)).
+- `saveDeploymentZoneOnFresh` again, called by `useDeployReleaseMutation`: a deployment is an update of the zone that changes its release alone.
 - `deleteDeploymentZoneMutation`, wrapped by `useDeleteDeploymentZoneMutation`.
 
 Each of these writes invalidates `listDeploymentZonesQueryKey()` and `releaseManagementOverviewBaseQueryKey`; the list options keep the key of the generated first-page options, so one invalidation reaches every screen. Create, edit and deploy await the invalidation before the dialog closes. None of them invalidates the zone's own detail query, so a cached detail is refetched only once it is older than the 30-second `staleTime` of the query client (`app/src/main.tsx`). See [query key invalidation](../../../docs/02-conventions/query-key-invalidation.md).

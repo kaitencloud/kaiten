@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useDeployReleaseMutation } from '../../hooks/use-deploy-release-mutation';
+import { deploymentZoneToUpdateBody } from '../../utils/deployment-zone-update-body';
 import type { DeploymentZone, DeployToZoneDialogProps } from '../../types';
 
 /**
@@ -73,15 +74,12 @@ function DeployToZoneForm({
       return;
     }
 
+    // The zone is read again and only the release is put on top of it.
+    const opened = deploymentZoneToUpdateBody(selectedZone);
     await updateMutation.mutateAsync({
-      path: { deploymentZoneSlug: selectedZone.slug },
-      body: {
-        name: selectedZone.name,
-        type: selectedZone.type,
-        description: selectedZone.description,
-        metadata: selectedZone.metadata,
-        releaseId: release.id,
-      },
+      deploymentZoneSlug: selectedZone.slug,
+      edited: { ...opened, releaseId: release.id },
+      opened,
     });
   };
 

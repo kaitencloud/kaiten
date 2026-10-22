@@ -3,12 +3,10 @@ import { useRouteContext } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
-import {
-  listDeploymentZonesQueryKey,
-  updateDeploymentZoneMutation,
-} from '@/api-client/@tanstack/react-query.gen';
+import { listDeploymentZonesQueryKey } from '@/api-client/@tanstack/react-query.gen';
 import { releaseManagementOverviewBaseQueryKey } from '@/domains/release-management';
 import { logger } from '@/lib/logger';
+import { saveDeploymentZoneOnFresh } from '../queries/deployment-zone-save';
 
 type UseDeployReleaseMutationOptions = {
   onSuccess?: () => void;
@@ -21,7 +19,7 @@ export function useDeployReleaseMutation({
   const { queryClient } = useRouteContext({ from: '__root__' });
 
   return useMutation({
-    ...updateDeploymentZoneMutation(),
+    mutationFn: saveDeploymentZoneOnFresh,
     onSuccess: async (_deploymentZone, variables) => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -32,9 +30,9 @@ export function useDeployReleaseMutation({
         }),
       ]);
       logger.track('release_deployed', {
-        deploymentZoneName: variables.body.name,
-        deploymentZoneSlug: variables.path.deploymentZoneSlug,
-        releaseId: variables.body.releaseId ?? null,
+        deploymentZoneName: variables.edited.name,
+        deploymentZoneSlug: variables.deploymentZoneSlug,
+        releaseId: variables.edited.releaseId ?? null,
       });
       toast.success(t('Features.Releases.Success.releaseDeployed'));
       onSuccess?.();
