@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { createDevMockConfig } from '@/e2e/msw/dev-world';
+import { createMockHandlers, undeclaredApiRequest } from '@/e2e/msw/handlers';
+import { server } from './msw-server';
 
 // The records of `pnpm run dev:mock` (src/e2e/msw/dev-world), tested here
 // rather than beside them: the unit project leaves out every e2e/ folder.
@@ -666,5 +668,43 @@ describe('dev world', () => {
     expect(data.customers).toHaveLength(customerIds.size);
     expect(data.instances).toHaveLength(instanceSlugs.size);
     expect(data.licenses).toHaveLength(licenseIds.size);
+  });
+});
+
+// The API works out where the kept usage begins on every request, from its clock, to
+// the millisecond: the start a refusal names is behind the next request, and a `from`
+// set to it is refused again. A start that stayed put hid it from dev:mock.
+describe('dev world, where the kept usage begins', () => {
+  const exportFrom = async (from: string) => {
+    const response = await fetch(
+      `http://api.test/api/usage/reports/export?format=csv&from=${from}&to=${new Date().toISOString()}`,
+    );
+
+    return {
+      body: (await response.json().catch(() => ({}))) as {
+        code?: string;
+        errors?: Array<{ value?: string }>;
+      },
+      status: response.status,
+    };
+  };
+
+  it('refuses a from set to the start it named, as the start has moved on', async () => {
+    server.use(
+      ...createMockHandlers(createDevMockConfig(), 'off', undefined, true),
+      undeclaredApiRequest,
+    );
+
+    const first = await exportFrom('2000-01-01T00:00:00.000Z');
+    const named = first.body.errors?.[0]?.value ?? '';
+    const second = await exportFrom(named);
+
+    expect(first.status).toBe(422);
+    expect(first.body.code).toBe('ExportUsageReports.OutsideRetention');
+    expect(second.status).toBe(422);
+    expect(second.body.code).toBe('ExportUsageReports.OutsideRetention');
+    expect(Date.parse(second.body.errors?.[0]?.value ?? '')).toBeGreaterThan(
+      Date.parse(named),
+    );
   });
 });

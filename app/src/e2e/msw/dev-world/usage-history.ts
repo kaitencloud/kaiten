@@ -80,3 +80,9 @@ export const createUsageReports = (): Record<
 
 /** Where the usage that is kept begins: the stack keeps 18 months. */
 export const createRetentionStart = (): string => daysAgo(18 * 30);
+
+/**
+ * How far the start of the kept usage moves on between two requests: the 14 ms
+ * observed on the stack between a refusal that names it and the next request.
+ */
+export const RETENTION_SLIDE_MS = 14;

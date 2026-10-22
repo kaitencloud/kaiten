@@ -35,7 +35,11 @@ import {
   createBillingBlocks,
   createBillingSubscriptions,
 } from './subscriptions';
-import { createRetentionStart, createUsageReports } from './usage-history';
+import {
+  createRetentionStart,
+  createUsageReports,
+  RETENTION_SLIDE_MS,
+} from './usage-history';
 import {
   createStripeInvoices,
   createStripeProviders,
@@ -228,6 +232,9 @@ export function createDevMockConfig({
     retentionStart: createRetentionStart(),
     usageReports: createUsageReports(),
   });
+  // The API works out where the kept usage begins on each request, from its clock, so a
+  // `from` set to the start it named is already behind it: this world moves on too.
+  instances.usageHistory.slideRetentionStart(RETENTION_SLIDE_MS);
 
   const billing = new BillingAppModel({
     addonCatalogue,
