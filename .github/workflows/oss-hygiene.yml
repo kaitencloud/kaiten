@@ -86,7 +86,7 @@ jobs:
           fi
 
       - name: Build-artifact guard fixtures
-        run: python3 -m unittest discover -s scripts/tests -p test_oss_hygiene.py -v
+        run: sh scripts/tests/test-oss-hygiene.sh
 
       - name: No committed build artifacts
         run: |
