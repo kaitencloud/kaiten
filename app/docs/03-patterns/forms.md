@@ -100,6 +100,7 @@ Every field takes `label` and, optionally, `description`, `required` and `classN
 | `SelectField` | `select-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue` (defaults to the option itself), `isOptionDisabled(option)` (an option that is listed and cannot be chosen: its label says why), `placeholder`, `disabled` |
 | `ComboboxField` | `combobox-field.tsx` | `string` | `options`, `getOptionLabel`, `getOptionValue`, `searchPlaceholder`, `placeholder`, `allowCustomValue`, `clearable`, `clearLabel`, `disabled` |
 | `CheckboxField` | `checkbox-field.tsx` | `boolean` | `disabled`. The label sits beside the box. |
+| `SwitchField` | `switch-field.tsx` | `boolean` | `disabled`. For a setting that takes effect and reads "on" or "off", where `CheckboxField` is for agreeing to something: the label sits above the switch and the description below. A switch is not a form control that `disabled` applies to, so a disabled one says so by `aria-disabled`, and the description it points to says why it cannot be turned on. |
 | `DatePickerField` | `date-picker-field.tsx` | `Date \| undefined`, or an ISO string with `useISOString` | `placeholder`, `disabled` |
 | `DateRangePickerField` | `date-range-picker-field.tsx` | `DateRange \| undefined` (from `react-day-picker`) | the props of `DateRangePicker` in `components/date-range-picker.tsx` |
 | `JsonField` | `json-field.tsx` | `string`, the JSON text | `placeholder` and the props of the CodeMirror editor. Lints the JSON; an empty value is not flagged. |

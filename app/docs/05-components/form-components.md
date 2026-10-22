@@ -15,6 +15,7 @@ Each field is a file of `app/src/components/form/fields/`, registered in `fieldC
 | `field.SelectField` | `select-field.tsx` | `Select` |
 | `field.ComboboxField` | `combobox-field.tsx` | `Combobox` |
 | `field.CheckboxField` | `checkbox-field.tsx` | `Checkbox` |
+| `field.SwitchField` | `switch-field.tsx` | `Switch`, with the label above it |
 | `field.DateTimeField` | `date-time-field.tsx` | `DateTimePicker`; the value is the text a `datetime-local` input holds (`2027-03-03T10:00`, no zone, empty when nothing is chosen), so a form says which zone it is read in and converts it itself; the picker shows the same moment on the clock of the browser when that is not UTC. The label names the pair of controls as a group, and the date button too: a test finds the button by its role and name (`getByRole('button', { name })`), not by `getByLabel`, which finds both |
 | `field.DatePickerField` | `date-picker-field.tsx` | `DatePicker` |
 | `field.DateRangePickerField` | `date-range-picker-field.tsx` | `DateRangePicker` |

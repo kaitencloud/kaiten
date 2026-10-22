@@ -10,6 +10,7 @@ import JsonField from '@/components/form/fields/lazy-json-field';
 import MoneyField from '@/components/form/fields/money-field';
 import NumberField from '@/components/form/fields/number-field';
 import SelectField from '@/components/form/fields/select-field';
+import SwitchField from '@/components/form/fields/switch-field';
 import TextAreaField from '@/components/form/fields/textarea-field';
 import TextField from '@/components/form/fields/text-field';
 import SubmitButton from '@/components/form/submit-button';
@@ -31,6 +32,7 @@ export const { useAppForm, withForm, withFieldGroup } = createFormHook({
     MoneyField,
     NumberField,
     SelectField,
+    SwitchField,
     ComboboxField,
     DateRangePickerField,
     DatePickerField,
