@@ -381,6 +381,49 @@ describe('DateTimePicker', () => {
       expect(minutes()).toHaveValue('30');
     });
 
+    it('marks only the date button invalid when the time is right and the day is the one missing, even when the form flags the field', () => {
+      render(
+        <>
+          <label htmlFor="starts" id="starts-label">
+            Starts (UTC)
+          </label>
+          <DateTimePicker
+            aria-invalid
+            groupLabelledBy="starts-label"
+            id="starts"
+            localTimeZone="UTC"
+            onChange={vi.fn()}
+            value="T09:30"
+          />
+        </>,
+      );
+
+      expect(trigger()).toHaveAttribute('aria-invalid', 'true');
+      expect(hours()).not.toHaveAttribute('aria-invalid');
+      expect(minutes()).not.toHaveAttribute('aria-invalid');
+    });
+
+    it('still marks the time invalid when it is wrong as well as the day missing', () => {
+      render(
+        <>
+          <label htmlFor="starts" id="starts-label">
+            Starts (UTC)
+          </label>
+          <DateTimePicker
+            aria-invalid
+            groupLabelledBy="starts-label"
+            id="starts"
+            localTimeZone="UTC"
+            onChange={vi.fn()}
+            value="T24:00"
+          />
+        </>,
+      );
+
+      expect(trigger()).toHaveAttribute('aria-invalid', 'true');
+      expect(hours()).toHaveAttribute('aria-invalid', 'true');
+    });
+
     it('is given as half filled, for the form to refuse, once the field is left', async () => {
       const onChange = vi.fn();
       render(<Harness onChange={onChange} />);

@@ -124,6 +124,9 @@ export function DateTimePicker({
   // touched.
   const dayMissing = timeOnly !== '';
   const ownError = (timeProblem || dayMissing) && !formInvalid;
+  // A time that is right and has no day: the day is what is wrong, so the date
+  // button says so and the time field does not, whatever the form flags.
+  const dayOnlyMissing = dayMissing && normalTime !== null;
   // A time with a segment out of range (`24:00`), as against one half filled.
   const timeImpossible =
     isOutOfRange(splitTimeText(time), 'hours') ||
@@ -244,7 +247,9 @@ export function DateTimePicker({
               .filter(Boolean)
               .join(' ') || undefined
           }
-          aria-invalid={formInvalid || timeProblem || undefined}
+          aria-invalid={
+            (formInvalid && !dayOnlyMissing) || timeProblem || undefined
+          }
           aria-label={
             localHint
               ? t('Common.datePicker.timeUtcWithLocal')
