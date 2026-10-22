@@ -17,6 +17,8 @@ type LicenseEntitlementsHeaderProps = {
   cardDescriptionSummary: string;
   hasAvailableEntitlements: boolean;
   onOpenAddDialog: () => void;
+  /** No add and no reset: the grants cannot be changed. */
+  readOnly?: boolean;
   resetAction?: LicenseEntitlementsCardResetAction;
 };
 
@@ -74,6 +76,7 @@ export function LicenseEntitlementsHeader({
   cardDescriptionSummary,
   hasAvailableEntitlements,
   onOpenAddDialog,
+  readOnly = false,
   resetAction,
 }: LicenseEntitlementsHeaderProps) {
   const { t } = useTranslation();
@@ -119,7 +122,7 @@ export function LicenseEntitlementsHeader({
       </TableCard.HeaderLeading>
 
       <TableCard.HeaderActions>
-        {resetAction ? (
+        {!readOnly && resetAction ? (
           <Button
             type="button"
             variant="outline"
@@ -132,12 +135,14 @@ export function LicenseEntitlementsHeader({
             {resetAction.label ?? t('Pages.Licenses.Entitlements.resetButton')}
           </Button>
         ) : null}
-        <AddEntitlementButton
-          disabled={!hasAvailableEntitlements}
-          disabledHint={t('Pages.Licenses.Entitlements.allAttachedHint')}
-          label={addButtonLabel ?? t('Pages.Licenses.Entitlements.addButton')}
-          onClick={onOpenAddDialog}
-        />
+        {readOnly ? null : (
+          <AddEntitlementButton
+            disabled={!hasAvailableEntitlements}
+            disabledHint={t('Pages.Licenses.Entitlements.allAttachedHint')}
+            label={addButtonLabel ?? t('Pages.Licenses.Entitlements.addButton')}
+            onClick={onOpenAddDialog}
+          />
+        )}
       </TableCard.HeaderActions>
     </TableCard.Header>
   );

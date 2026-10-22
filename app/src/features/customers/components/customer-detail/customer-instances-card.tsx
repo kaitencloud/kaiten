@@ -1,5 +1,9 @@
 import { GradientButton } from '@/components/gradient-button';
-import { InstanceBillingCell, type InstancesBilling } from '@/domains/billing';
+import {
+  InstanceBillingCell,
+  type InstancesBilling,
+  useCanPerform,
+} from '@/domains/billing';
 import {
   InstanceLifecycleStageBadge,
   InstanceStatusBadge,
@@ -30,6 +34,7 @@ export const CustomerInstancesCard = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const router = useRouter();
+  const mayCreate = useCanPerform('instances.create');
   const InstanceIcon = dataModelIcons.instance;
 
   const getInstancePath = (instance: InstanceRow) =>
@@ -129,16 +134,19 @@ export const CustomerInstancesCard = ({
           </TableCard.HeaderHeading>
         </TableCard.HeaderLeading>
 
+        {/* A session that may not write instances is offered no way to make one. */}
         <TableCard.HeaderActions>
-          <GradientButton
-            label={t('Pages.Customers.Instances.Mutation.titleNew')}
-            onClick={() => {
-              navigate({
-                to: '/customers/$customerSlug/instances/new',
-                params: { customerSlug },
-              });
-            }}
-          />
+          {mayCreate ? (
+            <GradientButton
+              label={t('Pages.Customers.Instances.Mutation.titleNew')}
+              onClick={() => {
+                navigate({
+                  to: '/customers/$customerSlug/instances/new',
+                  params: { customerSlug },
+                });
+              }}
+            />
+          ) : null}
         </TableCard.HeaderActions>
       </TableCard.Header>
       <TableCard.Table

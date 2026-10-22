@@ -116,6 +116,8 @@ export const createColumns = (
   showExtraMetadata: boolean,
   // The Billing column is there only when the subscriptions can be read.
   billing?: InstancesBilling,
+  // The Actions column is there only when the session may do one of them.
+  withActions = true,
 ): ColumnDef<InstanceRow>[] => {
   const baseColumns: ColumnDef<InstanceRow>[] = [
     {
@@ -213,11 +215,13 @@ export const createColumns = (
     }
   }
 
-  baseColumns.push(
-    createActionsColumn<InstanceRow>((instance: InstanceRow) => (
-      <InstanceTableActions instance={instance} />
-    )),
-  );
+  if (withActions) {
+    baseColumns.push(
+      createActionsColumn<InstanceRow>((instance: InstanceRow) => (
+        <InstanceTableActions instance={instance} />
+      )),
+    );
+  }
 
   return baseColumns;
 };

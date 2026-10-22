@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeftRight, Rocket } from 'lucide-react';
 import type { ComponentProps } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCanPerform } from '@/domains/billing';
 import { TableActionButton } from '@/functionals/table';
 import { useModal } from '@/hooks/use-modal';
 import { getInstanceDeploymentMode } from '../../utils/instance-deployment.utils';
@@ -26,9 +27,13 @@ const useDeploymentAction = (deploymentZoneId?: string | null) => {
   const { t } = useTranslation();
   const { isOpen, open, close } = useModal();
   const mode = getInstanceDeploymentMode(deploymentZoneId);
+  // Deploying and migrating are an update of the instance: a session that may not write
+  // instances is offered neither.
+  const mayDeploy = useCanPerform('instance.update');
 
   return {
     close,
+    mayDeploy,
     Icon: mode === 'migrate' ? ArrowLeftRight : Rocket,
     isOpen,
     label:
@@ -46,8 +51,12 @@ export const InstanceDeploymentButton = ({
   size = 'sm',
   variant = 'outline',
 }: InstanceDeploymentButtonProps) => {
-  const { close, Icon, isOpen, label, open } =
+  const { close, Icon, isOpen, label, mayDeploy, open } =
     useDeploymentAction(deploymentZoneId);
+
+  if (!mayDeploy) {
+    return null;
+  }
 
   return (
     <>
@@ -71,8 +80,12 @@ export const InstanceDeploymentTableAction = ({
   instanceName,
   instanceSlug,
 }: InstanceDeploymentActionProps) => {
-  const { close, Icon, isOpen, label, open } =
+  const { close, Icon, isOpen, label, mayDeploy, open } =
     useDeploymentAction(deploymentZoneId);
+
+  if (!mayDeploy) {
+    return null;
+  }
 
   return (
     <>

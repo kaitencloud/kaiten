@@ -3,7 +3,11 @@ import { useRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GradientButton } from '@/components/gradient-button';
-import { type InstancesBilling, useCanPerform } from '@/domains/billing';
+import {
+  type InstancesBilling,
+  useActionAccess,
+  useCanPerform,
+} from '@/domains/billing';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import {
   type FilterFieldDefinition,
@@ -39,6 +43,11 @@ const NO_METADATA_FIELDS: MetadataFieldDescriptor[] = [];
 export const InstancesTable = ({ billing, instances }: InstancesTableProps) => {
   const { t } = useTranslation();
   const mayCreate = useCanPerform('instances.create');
+  const deploy = useActionAccess('instance.update');
+  const deletion = useActionAccess('instances.delete');
+  // The column of actions is there until the token says the session may do none of them:
+  // drawn once the scopes are known it would rebuild the columns under whatever is open.
+  const withActions = deploy.isPending || deploy.allowed || deletion.allowed;
   const router = useRouter();
 
   // Soft-fetch the active MetadataField list. As on the DZ page, a
@@ -68,8 +77,9 @@ export const InstancesTable = ({ billing, instances }: InstancesTableProps) => {
   );
 
   const columns = useMemo(
-    () => createColumns(t, metadataFields, showExtraMetadata, billing),
-    [t, metadataFields, showExtraMetadata, billing],
+    () =>
+      createColumns(t, metadataFields, showExtraMetadata, billing, withActions),
+    [t, metadataFields, showExtraMetadata, billing, withActions],
   );
 
   const customerOptions = useMemo(() => {

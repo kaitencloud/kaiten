@@ -1,8 +1,9 @@
 import { Star } from 'lucide-react';
+import type { TFunction } from 'i18next';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
-import { useBillingCapabilities } from '@/domains/billing';
+import { useActionAccess, useBillingCapabilities } from '@/domains/billing';
 import { type ColumnDef, dataTableSortableHeader } from '@/functionals/table';
 import { capitalizeFromUpperCase } from '@/lib/utils';
 import type { LicenseWithInstances } from '../types';
@@ -31,6 +32,17 @@ const getLicenseTypeBadgeVariant = (type: LicenseWithInstances['type']) => {
 const rightHeader = (title: string) => () => (
   <div className="text-right">{title}</div>
 );
+
+const actionsColumn = (t: TFunction): ColumnDef<LicenseWithInstances> => ({
+  id: 'actions',
+  enableSorting: false,
+  header: rightHeader(t('Pages.Licenses.VersionsTable.Columns.actions')),
+  cell: ({ row }) => (
+    <div className="text-right">
+      <LicenseVersionsTableActions license={row.original} />
+    </div>
+  ),
+});
 
 function TypeCell({ type }: { type: LicenseWithInstances['type'] }) {
   const { t } = useTranslation();
@@ -76,6 +88,11 @@ export function useLicenseVersionsColumns() {
   // version would read "Custom", which says nothing.
   const { isEnabled: hasBilling } = useBillingCapabilities();
   const unknownVersionLabel = t('Pages.Licenses.List.unknownVersion');
+  // Every action of a row, its lifecycle, its default and the removal of a draft, is a write of
+  // the licenses: a session that may not write is given no column of empty cells (until the
+  // token says so, the column stays, so that the columns are not rebuilt under what is open).
+  const write = useActionAccess('license.update');
+  const withActions = write.isPending || write.allowed;
 
   return useMemo<ColumnDef<LicenseWithInstances>[]>(
     () => [
@@ -145,17 +162,8 @@ export function useLicenseVersionsColumns() {
       },
       // Present whatever the family's size: even a lone version can be
       // published, archived or unarchived.
-      {
-        id: 'actions',
-        enableSorting: false,
-        header: rightHeader(t('Pages.Licenses.VersionsTable.Columns.actions')),
-        cell: ({ row }) => (
-          <div className="text-right">
-            <LicenseVersionsTableActions license={row.original} />
-          </div>
-        ),
-      },
+      ...(withActions ? [actionsColumn(t)] : []),
     ],
-    [hasBilling, t, unknownVersionLabel],
+    [hasBilling, t, unknownVersionLabel, withActions],
   );
 }

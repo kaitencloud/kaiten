@@ -81,7 +81,8 @@ app/src/domains/billing/
 │                     # how a license version is sold (LicensePriceSummaryText), and the frame of
 │                     # the warning that a grant of an add-on or a voucher would lower what a
 │                     # license grants (LicenseGrantWarning)
-├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session
+├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
+│                     # useLeaveRestrictedDialog, what a dialog does for a session that may not
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the eight actions on an invoice;
 │                     # useAlertFocus, which puts the focus on a refusal or a confirmation; useDeletionRefusal,
@@ -330,10 +331,16 @@ page holds, or an export the API streams.
   the claim, and a wrong reading costs one refused action. The controls that lead to
   a form are hidden the same way, and so is the form: the address of a dialog or a
   page that writes can be opened by hand, so a route wraps it in `ActionGate`, which
-  draws nothing for a dialog and the restricted state for a page. The catalogue of the
+  draws nothing for a dialog and the restricted state for a page (a card titled
+  "Restricted access", the heading of the page, that names the missing scope in the
+  language of the interface). A dialog that is opened from its address by a session that
+  may not use it says so in a toast and closes, which takes the address back to the page
+  behind it (`useLeaveRestrictedDialog`). The catalogue of the
   licenses, the customers and the instances follow the same actions
   (`license.create`, `customers.update`, `instances.delete` and the others of
-  `BILLING_ACTIONS`).
+  `BILLING_ACTIONS`), down to the Actions column of their tables, which is not drawn when
+  no row has an action to offer, and the grants of a license, which a session that may not
+  write the licenses reads without add, edit or remove.
 - **A subscription that lives takes add-ons.** `isSubscriptionLive` says whether a
   subscription is in a trial, active or past due: the states in which an add-on can be
   attached to an instance and is billed from the next boundary. An instance nobody
@@ -687,7 +694,7 @@ reads it is tested with the price picker, in `features/vouchers/hooks/__tests__/
 
 ## Public API
 
-`index.ts` exports the components, `useCanPerform` and `useActionAccess`, the logic,
+`index.ts` exports the components, `useCanPerform`, `useActionAccess` and `useLeaveRestrictedDialog`, the logic,
 the queries and the types above. Features and routes import it as `@/domains/billing`. The domain
 imports `@/domains/customer-management` for the instance invalidation, and no
 feature.

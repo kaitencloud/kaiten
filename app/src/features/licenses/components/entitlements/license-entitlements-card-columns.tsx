@@ -37,6 +37,8 @@ type UseEntitlementColumnsOptions = {
   onSaveEditedCell: (input?: string) => Promise<boolean>;
   onStartEditThreshold: (entitlement: EditableLicenseEntitlement) => void;
   onStartEditOveragePercent: (entitlement: EditableLicenseEntitlement) => void;
+  /** The grants are shown and cannot be changed: no inline edit, no removal. */
+  readOnly?: boolean;
   savingEntitlementIds: ReadonlySet<string>;
   setEditingValue: (value: string) => void;
   // The edit-in-progress state is read from the store rather than passed as
@@ -53,6 +55,7 @@ export function useEntitlementColumns({
   onSaveEditedCell,
   onStartEditThreshold,
   onStartEditOveragePercent,
+  readOnly = false,
   savingEntitlementIds,
   setEditingValue,
   store,
@@ -97,7 +100,7 @@ export function useEntitlementColumns({
       Boolean(entitlement.entitlementId) &&
       savingEntitlementIds.has(entitlement.entitlementId as string);
 
-    return [
+    const columns: ColumnDef<EditableLicenseEntitlement>[] = [
       {
         accessorKey: 'entitlementName',
         header: t('Pages.Licenses.Entitlements.Columns.entitlement'),
@@ -163,7 +166,7 @@ export function useEntitlementColumns({
             );
           }
 
-          if (entitlement.entitlementType === 'NUMBER') {
+          if (!readOnly && entitlement.entitlementType === 'NUMBER') {
             return (
               <button
                 type="button"
@@ -211,6 +214,7 @@ export function useEntitlementColumns({
 
           // Only a capped NUMBER grant has an overage to configure.
           const isEditable =
+            !readOnly &&
             Boolean(entitlement.entitlementId) &&
             entitlement.entitlementType === 'NUMBER' &&
             !isUnlimitedThreshold(entitlement.threshold);
@@ -306,6 +310,10 @@ export function useEntitlementColumns({
         },
       },
     ];
+
+    return readOnly
+      ? columns.filter((column) => column.id !== 'actions')
+      : columns;
   }, [
     closeEdit,
     editingEntitlementId,
@@ -322,6 +330,7 @@ export function useEntitlementColumns({
     overageNeedsLimitHint,
     overagePercentLabel,
     overagePercentPlaceholder,
+    readOnly,
     savingEntitlementIds,
     setEditingValue,
     t,

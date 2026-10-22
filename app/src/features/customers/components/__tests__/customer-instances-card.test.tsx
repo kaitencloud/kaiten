@@ -1,7 +1,11 @@
-import { render, screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { InstancesBilling } from '@/domains/billing';
+import {
+  renderWithClient,
+  sessionToken,
+} from '@/test-fixtures/billing-test-support';
 import { CustomerInstancesCard } from '../customer-detail/customer-instances-card';
 
 vi.mock('@tanstack/react-router', () => ({
@@ -15,6 +19,9 @@ vi.mock('@tanstack/react-router', () => ({
     }),
   }),
 }));
+
+const getAuthToken = vi.hoisted(() => vi.fn());
+vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -54,8 +61,46 @@ const billing = (overrides: Partial<InstancesBilling> = {}): InstancesBilling =>
 const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
 
 describe('CustomerInstancesCard', () => {
+  beforeEach(() => {
+    getAuthToken.mockResolvedValue(
+      sessionToken(['read:customers', 'read:instances', 'write:instances']),
+    );
+  });
+
+  it('offers New Instance to a session that may write instances', async () => {
+    renderWithClient(
+      <CustomerInstancesCard customerSlug="acme" instances={instances} />,
+    );
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Pages.Customers.Instances.Mutation.titleNew',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('offers a session that may only read no way to make an instance', async () => {
+    getAuthToken.mockResolvedValue(
+      sessionToken(['read:customers', 'read:instances']),
+    );
+    renderWithClient(
+      <CustomerInstancesCard customerSlug="acme" instances={instances} />,
+    );
+
+    // The token has been read, and the button is still not there.
+    await waitFor(() => expect(getAuthToken).toHaveBeenCalled());
+    await screen.findByText('Acme Production');
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('button', {
+          name: 'Pages.Customers.Instances.Mutation.titleNew',
+        }),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
   it('has no Billing column when it is given no billing', () => {
-    render(<CustomerInstancesCard customerSlug="acme" instances={instances} />);
+    renderWithClient(<CustomerInstancesCard customerSlug="acme" instances={instances} />);
 
     expect(
       screen.queryByText('Pages.Customers.Detail.instances.columns.billing'),
@@ -63,7 +108,7 @@ describe('CustomerInstancesCard', () => {
   });
 
   it('has none when billing cannot be read', () => {
-    render(
+    renderWithClient(
       <CustomerInstancesCard
         billing={billing({ available: false })}
         customerSlug="acme"
@@ -77,7 +122,7 @@ describe('CustomerInstancesCard', () => {
   });
 
   it("shows the state of each instance's subscription, and a dash for one never billed", () => {
-    render(
+    renderWithClient(
       <CustomerInstancesCard
         billing={billing()}
         customerSlug="acme"

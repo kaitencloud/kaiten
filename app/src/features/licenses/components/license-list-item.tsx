@@ -25,6 +25,39 @@ type LicenseListItemProps = {
   group: LicenseGroup;
 };
 
+// The link to a new version of the family, or the same button disabled when there is no version
+// to start from.
+function NewVersionAction({ licenseSlug }: { licenseSlug?: string }) {
+  const { t } = useTranslation();
+
+  if (!licenseSlug) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        <CirclePlus className="size-4" />
+        {t('Pages.Licenses.Version.newVersionButton')}
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      nativeButton={false}
+      role="link"
+      render={
+        <Link
+          to="/catalog/licenses/versions/$licenseSlug"
+          params={{ licenseSlug }}
+        >
+          <CirclePlus className="size-4" />
+          {t('Pages.Licenses.Version.newVersionButton')}
+        </Link>
+      }
+    />
+  );
+}
+
 export const LicenseListItem = ({ group }: LicenseListItemProps) => {
   const { t } = useTranslation();
   const { isEnabled: hasBilling } = useBillingCapabilities();
@@ -78,28 +111,9 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
         </ActionAccordionTrigger>
         <ActionAccordionActions>
           <LicenseFamilyPublicToggle group={group} />
-          {!mayCreateVersion ? null : newVersionLicenseSlug ? (
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              role="link"
-              render={
-                <Link
-                  to="/catalog/licenses/versions/$licenseSlug"
-                  params={{ licenseSlug: newVersionLicenseSlug }}
-                >
-                  <CirclePlus className="size-4" />
-                  {t('Pages.Licenses.Version.newVersionButton')}
-                </Link>
-              }
-            />
-          ) : (
-            <Button variant="outline" size="sm" disabled>
-              <CirclePlus className="size-4" />
-              {t('Pages.Licenses.Version.newVersionButton')}
-            </Button>
-          )}
+          {mayCreateVersion ? (
+            <NewVersionAction licenseSlug={newVersionLicenseSlug} />
+          ) : null}
         </ActionAccordionActions>
       </ActionAccordionHeader>
       <ActionAccordionContent className="pb-6">

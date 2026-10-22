@@ -2,6 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCanPerform } from '@/domains/billing';
 import { licenseQueryOptions } from '../../queries';
 import { LicenseEntitlementsCard } from '../entitlements/license-entitlements-card';
 import { LicenseCommercialCard } from '../commercial';
@@ -24,6 +25,8 @@ export function LicenseOverviewTab({ licenseSlug }: LicenseOverviewTabProps) {
   const [frozen, setFrozen] = useState<unknown>(null);
   const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
   const grants = useLicenseGrants({ licenseSlug, onFrozen: setFrozen });
+  // The grants are written with the license: a session that may not write only reads them.
+  const mayWrite = useCanPerform('license.update');
 
   return (
     <div className="space-y-6">
@@ -42,6 +45,7 @@ export function LicenseOverviewTab({ licenseSlug }: LicenseOverviewTabProps) {
         onClickEntitlement={grants.onClickEntitlement}
         onUpdateEntitlementGrant={grants.onUpdateEntitlementGrant}
         onDeleteEntitlement={grants.onDeleteEntitlement}
+        readOnly={!mayWrite}
       />
 
       {frozen ? (

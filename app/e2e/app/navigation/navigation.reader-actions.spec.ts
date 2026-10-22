@@ -1,4 +1,4 @@
-import { expect, test } from '../_support/app-test';
+import { expect, expectToast, test } from '../_support/app-test';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
@@ -40,6 +40,25 @@ test.describe('a session that may only read', () => {
     await expect(
       page.getByRole('button', { name: /^(Publish|Archive|Unarchive)$/ }),
     ).toHaveCount(0);
+    // No row has an action: there is no column of empty cells under a header that says so.
+    await expect(
+      page.getByRole('columnheader', { name: 'Actions' }),
+    ).toHaveCount(0);
+  });
+
+  test('is shown the grants of a draft license and may not change them', async ({
+    page,
+  }) => {
+    await installBillingAppMocks(page, createBillingStackModel());
+    await installLicenseAppMocks(page, createPricedCatalogModel());
+
+    await page.goto('/catalog/licenses/pro-v4');
+
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expect(
+      page.getByRole('button', { name: /^(Remove|Add entitlement)/ }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('button', { name: /^Remove / })).toHaveCount(0);
   });
 
   test('is told it may not when it opens the address of a license form', async ({
@@ -55,8 +74,14 @@ test.describe('a session that may only read', () => {
     ]) {
       await page.goto(address);
 
-      await expect(page.getByText('Restricted access')).toBeVisible();
-      await expect(page.getByText(/write:licenses/)).toBeVisible();
+      // The card stands for the page: its title is the heading of the page, and the scope it
+      // names is written by the console in the language of the interface.
+      await expect(
+        page.getByRole('heading', { level: 1, name: 'Restricted access' }),
+      ).toBeVisible();
+      await expect(
+        page.getByText('Missing required scope: write:licenses'),
+      ).toBeVisible();
     }
   });
 
@@ -84,12 +109,23 @@ test.describe('a session that may only read', () => {
       0,
     );
 
-    for (const address of [
-      '/customers/new',
-      '/customers/acme-corp?mode=configure',
+    // The Instances card of a customer has no New Instance either.
+    await expect(
+      page.getByRole('button', { name: 'New Instance' }),
+    ).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'New Instance' })).toHaveCount(
+      0,
+    );
+
+    // The address of a dialog does not open one: the person is told, and taken back to the page.
+    for (const [address, back] of [
+      ['/customers/new', '/customers'],
+      ['/customers/acme-corp?mode=configure', '/customers/acme-corp'],
     ]) {
       await page.goto(address);
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+      await expectToast(page, "You don't have access to this action.");
+      await expect(page).toHaveURL(back);
       await expect(page.getByRole('dialog')).toHaveCount(0);
     }
   });
@@ -107,6 +143,11 @@ test.describe('a session that may only read', () => {
       0,
     );
     await expect(page.getByRole('button', { name: /^Delete/ })).toHaveCount(0);
+    // Deploying is an update of the instance, and the row has no other action left.
+    await expect(page.getByRole('button', { name: 'Deploy' })).toHaveCount(0);
+    await expect(
+      page.getByRole('columnheader', { name: 'Actions' }),
+    ).toHaveCount(0);
 
     await page.goto('/customers/instances/acme-production');
     await expect(
@@ -119,13 +160,21 @@ test.describe('a session that may only read', () => {
       page.getByRole('link', { name: 'Edit', exact: true }),
     ).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Delete' })).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: /Deploy|Migrate/ }),
+    ).toHaveCount(0);
 
-    for (const address of [
-      '/customers/instances/new',
-      '/customers/instances/acme-production?mode=configure',
+    for (const [address, back] of [
+      ['/customers/instances/new', '/customers/instances'],
+      [
+        '/customers/instances/acme-production?mode=configure',
+        '/customers/instances/acme-production',
+      ],
     ]) {
       await page.goto(address);
-      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+
+      await expectToast(page, "You don't have access to this action.");
+      await expect(page).toHaveURL(back);
       await expect(page.getByRole('dialog')).toHaveCount(0);
     }
   });
@@ -135,7 +184,8 @@ test.describe('a session that may only read', () => {
 
     await page.goto('/catalog/addons/new');
 
-    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await expectToast(page, "You don't have access to this action.");
+    await expect(page).toHaveURL('/catalog/addons');
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 
