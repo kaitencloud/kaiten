@@ -9,6 +9,12 @@
  * separator is dropped, and every other flag goes to `vp dev` as typed.
  *
  * Run with: `pnpm run dev:mock [-- --port 3200 --strictPort]`
+ *
+ * Stopping: Ctrl-C reaches the script, `vp` and the Vite server together (they
+ * share the terminal's process group), and the script hands a SIGINT on to `vp`
+ * for the case where it came from `kill`. A SIGTERM sent to the script alone is
+ * not carried further: `vp` is a wrapper, and the signal would stop it and
+ * leave the server it started listening, as it does for `vp dev` run by hand.
  */
 import { spawn } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
@@ -36,9 +42,8 @@ function run() {
   const child = spawn('vp', devMockArgs(process.argv.slice(2)), {
     stdio: 'inherit',
   });
-  const forward = (signal: NodeJS.Signals) => child.kill(signal);
-  process.on('SIGINT', forward);
-  process.on('SIGTERM', forward);
+  // From a terminal `vp` has the Ctrl-C already; from `kill -INT` it has not.
+  process.on('SIGINT', () => child.kill('SIGINT'));
   child.on('exit', (code, signal) => {
     process.exit(code ?? (signal ? 1 : 0));
   });
@@ -48,6 +53,9 @@ function run() {
   });
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
   run();
 }
