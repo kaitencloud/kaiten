@@ -8,6 +8,7 @@ export default {
     moveUp: 'Move up',
     moveDown: 'Move down',
     reorder: 'Reorder',
+    systemActor: 'Kaiten (system)',
     cancel: 'Cancel',
     confirm: 'Confirm',
     undo: 'Undo',

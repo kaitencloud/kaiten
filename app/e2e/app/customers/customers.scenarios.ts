@@ -1,6 +1,6 @@
 import { faker } from '@faker-js/faker';
 import type { GetInstancesWithRelationsQuery } from '@/api-client/graphql/graphql';
-import { buildCustomer } from '../_support/fixtures';
+import { buildCustomer, SYSTEM_USER } from '../_support/fixtures';
 import { BillingAppModel } from '../_support/model/billing-app-model';
 import {
   billingCapabilitiesProfiles,
@@ -139,6 +139,32 @@ export function createCustomersListModel() {
       }),
     ],
   });
+}
+
+/**
+ * A customer an anonymous checkout created, and one a person did: the checkout has no
+ * principal of the vendor behind it, so the API records Kaiten itself (`system:kaiten`,
+ * the platform user, named Kaiten) as the actor of its writes.
+ */
+export function createAnonymousCheckoutCustomerModel() {
+  const bought = {
+    ...buildCustomer({
+      billingEmail: 'buyer@checkout.example',
+      createdAt: '2026-10-20T09:00:00.000Z',
+      id: 'customer-bought',
+      name: 'Bought Online',
+      slug: 'bought-online',
+    }),
+    createdBy: SYSTEM_USER,
+    updatedBy: SYSTEM_USER,
+  };
+  const signed = buildCustomer({
+    id: 'customer-signed',
+    name: 'Signed By Sales',
+    slug: 'signed-by-sales',
+  });
+
+  return new CustomerAppModel({ customers: [bought, signed], instances: [] });
 }
 
 export function createFuzzCustomersReadModel(seed: number) {

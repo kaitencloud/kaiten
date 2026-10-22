@@ -50,6 +50,7 @@ import {
   createVouchersNotShippedBillingModel,
 } from '../vouchers/vouchers.scenarios';
 import {
+  createAnonymousCheckoutCustomerModel,
   createBillingCustomersModel,
   createCustomersListModel,
   createStripeCustomersModels,
@@ -253,6 +254,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['billing/createDeletedInstanceModel', createDeletedInstanceModel],
   ['billing/createMismatchedTotalsModel', createMismatchedTotalsModel],
   ['customers/createCustomersListModel', createCustomersListModel],
+  [
+    'customers/createAnonymousCheckoutCustomerModel',
+    createAnonymousCheckoutCustomerModel,
+  ],
   ['customers/createEditableCustomerModel', createEditableCustomerModel],
   ['customers/createDeletableCustomerModel', createDeletableCustomerModel],
   ['customers/createEmptyCustomersModel', createEmptyCustomersModel],

@@ -196,7 +196,7 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 | `errors/` | `ApiError`, `handleApiError`, `getApiErrorMessage`, error codes |
 | `i18n/` | i18next configuration and the `en` and `fr` locales |
 | `settings/` | Settings persisted in `localStorage` through TanStack DB |
-| `detail/`, `navigation/` | Helpers for detail pages and breadcrumbs |
+| `detail/`, `navigation/` | Helpers for detail pages and breadcrumbs. `getAuditDisplayName` (`detail/audit.ts`) names who created or last changed a record, and reads the platform user (`system:kaiten`, the actor of what no person of the organization did, such as the customer an anonymous checkout creates) as "Kaiten (system)" |
 | `feature-flags.ts` | Evaluation of the flags the app gates its own features on, through OpenFeature and its OFREP web provider |
 | `external-id.ts` | Browser-side derivation of an organization id, which has to match the server's (`api/pkg/externalid`) |
 | `optimistic-mutations.ts`, `monaco-workers.ts` | Callbacks for optimistic deletes and invalidation on success; Monaco worker configuration |

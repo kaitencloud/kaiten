@@ -2,7 +2,10 @@ import { expect, test } from '../_support/app-test';
 import { CustomerDetailDriver } from '../_support/drivers/customer-detail.driver';
 import { CustomersListDriver } from '../_support/drivers/customers-list.driver';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
-import { createCustomersListModel } from './customers.scenarios';
+import {
+  createAnonymousCheckoutCustomerModel,
+  createCustomersListModel,
+} from './customers.scenarios';
 
 test.describe('customers read', () => {
   test('renders the customers list and filters by search text', async ({
@@ -40,5 +43,28 @@ test.describe('customers read', () => {
     await expect(page.getByText('acme.com', { exact: true })).toBeVisible();
     await detail.expectInstanceVisible('Acme Production');
     await detail.expectInstanceVisible('Acme Legacy');
+  });
+
+  // The checkout of a visitor with no account has no principal of the vendor behind it: the
+  // API records Kaiten itself as the actor, and the card says so in words, not by an id.
+  test('names Kaiten, not an id, as who created a customer an anonymous checkout bought', async ({
+    page,
+  }) => {
+    const detail = new CustomerDetailDriver(page);
+
+    await installCustomerAppMocks(page, createAnonymousCheckoutCustomerModel());
+    await detail.goto('bought-online');
+    await detail.expectLoaded('Bought Online');
+
+    const card = page.locator('body');
+    await expect(card.getByText('by Kaiten (system)')).toHaveCount(2);
+    await expect(card).not.toContainText(
+      '00000000-0000-0000-0000-000000000001',
+    );
+
+    await detail.goto('signed-by-sales');
+    await detail.expectLoaded('Signed By Sales');
+    await expect(card.getByText('by E2E Tester')).toHaveCount(2);
+    await expect(card).not.toContainText('Kaiten (system)');
   });
 });

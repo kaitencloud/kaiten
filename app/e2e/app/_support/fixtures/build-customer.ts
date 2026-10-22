@@ -6,6 +6,16 @@ export const TEST_USER = {
 } as const;
 
 /**
+ * The platform user as the API serves it: `system:kaiten`, the actor of what no person
+ * of the organization did, such as the customer an anonymous checkout creates. Its row
+ * is pinned to this id and named Kaiten.
+ */
+export const SYSTEM_USER = {
+  id: '00000000-0000-0000-0000-000000000001',
+  name: 'Kaiten',
+} as const;
+
+/**
  * Build a minimal Customer fixture for use in scenario factories.
  * Only `id`, `name`, and `slug` are required — all other fields have sensible defaults.
  */
