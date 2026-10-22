@@ -391,6 +391,58 @@ describe('the dialog that adds an add-on to an instance', () => {
     expect(bodies).toEqual([]);
   });
 
+  describe('a quantity of more units than the contract carries', () => {
+    const NO_MAXIMUM: Addon = { ...STORAGE_V1, maxQuantity: undefined };
+
+    it('is refused under the quantity, in words, before anything is sent: the API would answer about its own structures', async () => {
+      server.use(handleListAddons({ body: pageOf([SEATS_V1, NO_MAXIMUM]) }));
+      const bodies = serveAttach();
+      renderDialog();
+      await choose('Extra storage · 2026');
+      const quantity = await screen.findByLabelText(/Quantity/);
+
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '2147483648');
+      await userEvent.tab();
+
+      expect(await screen.findByText('Enter at most 2,147,483,647 units')).toBeInTheDocument();
+      expect(screen.queryByRole('alert')).toBeNull();
+      await userEvent.click(await submit());
+      expect(bodies).toEqual([]);
+    });
+
+    it('is sent at the most the contract carries', async () => {
+      server.use(handleListAddons({ body: pageOf([SEATS_V1, NO_MAXIMUM]) }));
+      const bodies = serveAttach();
+      const { onClose } = renderDialog();
+      await choose('Extra storage · 2026');
+      const quantity = await screen.findByLabelText(/Quantity/);
+
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '2147483647');
+      await userEvent.click(await submit());
+
+      await waitFor(() => expect(onClose).toHaveBeenCalled());
+      expect(bodies).toEqual([{ addonSlug: 'extra-storage-v1', quantity: 2_147_483_647 }]);
+    });
+
+    it('is told by the maximum of the version when it has one, which says more', async () => {
+      const bodies = serveAttach();
+      renderDialog();
+      await choose('Extra storage · 2026');
+      const quantity = await screen.findByLabelText(/Quantity/);
+
+      await userEvent.clear(quantity);
+      await userEvent.type(quantity, '2147483648');
+      await userEvent.tab();
+
+      expect(await screen.findByText('This add-on allows fewer units')).toBeInTheDocument();
+      expect(screen.queryByText('Enter at most 2,147,483,647 units')).toBeNull();
+      await userEvent.click(await submit());
+      expect(bodies).toEqual([]);
+    });
+  });
+
   it('asks for a version before it asks the API', async () => {
     const bodies = serveAttach();
     renderDialog();

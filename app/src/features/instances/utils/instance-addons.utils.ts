@@ -32,12 +32,21 @@ export function joinHeldAddons(
   }));
 }
 
-/** The bounds of a quantity: at least one unit, and at most what the version allows when it says. */
+/** The most units the contract carries: a quantity is an `int32`. */
+export const MAX_ADDON_QUANTITY = 2_147_483_647;
+
+/**
+ * The bounds of a quantity: at least one unit, and at most what the version allows when it
+ * says, which is never more than the contract carries.
+ */
 export function getQuantityBounds(addon: { maxQuantity?: number | null }): {
-  max: number | undefined;
+  max: number;
   min: 1;
 } {
-  return { max: addon.maxQuantity ?? undefined, min: 1 };
+  return {
+    max: Math.min(addon.maxQuantity ?? MAX_ADDON_QUANTITY, MAX_ADDON_QUANTITY),
+    min: 1,
+  };
 }
 
 /** Whether a quantity may go up by one, or down by one without leaving the bounds. */
@@ -49,15 +58,17 @@ export function getQuantitySteps(
 
   return {
     canDecrease: quantity > min,
-    canIncrease: max === undefined || quantity < max,
+    canIncrease: quantity < max,
   };
 }
 
 /**
  * Why a quantity is out of bounds, or nothing. A quantity the field could not read
- * is `NaN`: it is a quantity the person has not given yet.
+ * is `NaN`: it is a quantity the person has not given yet. `max` is the most the
+ * version allows; `limit` is more units than the contract carries, for a version that
+ * allows more than that, or says nothing.
  */
-export type QuantityProblem = 'max' | 'min';
+export type QuantityProblem = 'limit' | 'max' | 'min';
 
 export function getQuantityProblem(
   quantity: number,
@@ -67,8 +78,13 @@ export function getQuantityProblem(
   if (!Number.isInteger(quantity) || quantity < min) {
     return 'min';
   }
+  if (quantity <= max) {
+    return undefined;
+  }
 
-  return max !== undefined && quantity > max ? 'max' : undefined;
+  return addon.maxQuantity != null && addon.maxQuantity < MAX_ADDON_QUANTITY
+    ? 'max'
+    : 'limit';
 }
 
 /** The flat fee a held add-on bills for each unit, once its instance is billed. */

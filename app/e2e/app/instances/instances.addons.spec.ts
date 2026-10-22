@@ -412,6 +412,27 @@ test.describe('adding an add-on to an instance', () => {
     expect(writes).toEqual([]);
   });
 
+  test('refuses more units than the contract carries under the quantity, for a version that sets no maximum, before the API is asked', async ({
+    page,
+  }) => {
+    const billing = new InstanceBillingDriver(page);
+    const addons = new InstanceAddonsDriver(page);
+    const writes = recordWrites(page, ADDON_WRITES);
+    await installAddonsWorld(page);
+    await billing.goto('initech-trial');
+    await addons.openAttach();
+    await addons.chooseAddon(TOKENS);
+
+    await addons.attachQuantityField().fill('2147483648');
+    await addons.attachQuantityField().blur();
+
+    await expect(addons.dialog()).toContainText(
+      'Enter at most 2,147,483,647 units',
+    );
+    await expect(addons.attachButton()).toBeDisabled();
+    expect(writes).toEqual([]);
+  });
+
   test('shows a refusal on the field it is about: a version with no price for the period of the subscription', async ({
     page,
   }) => {

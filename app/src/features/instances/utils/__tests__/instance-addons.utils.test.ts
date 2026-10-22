@@ -77,11 +77,11 @@ describe('the add-ons an instance holds', () => {
 });
 
 describe('the quantity of an add-on', () => {
-  it('is at least one, and at most what the version allows when it says', () => {
+  it('is at least one, and at most what the version allows when it says, or what the contract carries', () => {
     expect(getQuantityBounds(seats)).toEqual({ max: 3, min: 1 });
-    expect(getQuantityBounds(storage)).toEqual({ max: undefined, min: 1 });
+    expect(getQuantityBounds(storage)).toEqual({ max: 2_147_483_647, min: 1 });
     expect(getQuantityBounds({ maxQuantity: null })).toEqual({
-      max: undefined,
+      max: 2_147_483_647,
       min: 1,
     });
   });
@@ -100,6 +100,7 @@ describe('the quantity of an add-on', () => {
       canIncrease: false,
     });
     expect(getQuantitySteps(500, storage).canIncrease).toBe(true);
+    expect(getQuantitySteps(2_147_483_647, storage).canIncrease).toBe(false);
   });
 
   it('is refused when it is not a whole number of units from one to the most', () => {
@@ -111,6 +112,13 @@ describe('the quantity of an add-on', () => {
     expect(getQuantityProblem(1.5, seats)).toBe('min');
     expect(getQuantityProblem(Number.NaN, seats)).toBe('min');
     expect(getQuantityProblem(10_000, storage)).toBeUndefined();
+  });
+
+  it('is refused above what the contract carries, for a version that says no maximum', () => {
+    expect(getQuantityProblem(2_147_483_647, storage)).toBeUndefined();
+    expect(getQuantityProblem(2_147_483_648, storage)).toBe('limit');
+    // The version's own maximum is the one to say when it is lower.
+    expect(getQuantityProblem(2_147_483_648, seats)).toBe('max');
   });
 });
 

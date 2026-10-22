@@ -1,7 +1,10 @@
 import { z } from 'zod';
 import type { Addon, NewInstanceAddon } from '@/api-client';
 import { zNewInstanceAddon } from '@/api-client/zod.gen';
-import { getQuantityProblem } from '../utils/instance-addons.utils';
+import {
+  getQuantityProblem,
+  MAX_ADDON_QUANTITY,
+} from '../utils/instance-addons.utils';
 
 const ADDON_ERROR_KEY =
   'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Errors.addon';
@@ -9,11 +12,15 @@ const QUANTITY_ERROR_KEY =
   'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Errors.quantity';
 const QUANTITY_MAX_ERROR_KEY =
   'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Errors.quantityMax';
+const QUANTITY_LIMIT_ERROR_KEY =
+  'Pages.Customers.Instances.Detail.Billing.Addons.Attach.Errors.quantityLimit';
 
 /**
  * What the dialog that attaches an add-on edits: which version, and how many units.
  * An empty number reads as `NaN`, as it does in every number field of the console,
- * and is a quantity the person has not given.
+ * and is a quantity the person has not given. A quantity is an `int32` in the contract,
+ * so more units than that is refused here, under the field, whatever the version allows:
+ * the API would answer with a message about its own structures, located on the body.
  */
 export const attachAddonFormSchema = zNewInstanceAddon
   .pick({ addonSlug: true })
@@ -23,8 +30,14 @@ export const attachAddonFormSchema = zNewInstanceAddon
       (quantity) =>
         typeof quantity === 'number' &&
         Number.isInteger(quantity) &&
-        quantity >= 1,
-      { error: QUANTITY_ERROR_KEY },
+        quantity >= 1 &&
+        quantity <= MAX_ADDON_QUANTITY,
+      {
+        error: ({ input }) =>
+          typeof input === 'number' && input > MAX_ADDON_QUANTITY
+            ? QUANTITY_LIMIT_ERROR_KEY
+            : QUANTITY_ERROR_KEY,
+      },
     ),
   });
 
@@ -60,8 +73,9 @@ export function getAttachAddonFormErrors(
       }
     }
   }
+  // The most a version allows says more than the most the contract carries.
   if (
-    !errors.quantity &&
+    (!errors.quantity || errors.quantity === QUANTITY_LIMIT_ERROR_KEY) &&
     addon &&
     getQuantityProblem(values.quantity, addon) === 'max'
   ) {

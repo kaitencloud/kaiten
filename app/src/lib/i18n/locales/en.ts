@@ -1179,6 +1179,7 @@ export default {
                 Errors: {
                   addon: 'Choose an add-on',
                   quantity: 'Enter a whole number of units, at least 1',
+                  quantityLimit: 'Enter at most 2,147,483,647 units',
                   quantityMax: 'This add-on allows fewer units',
                 },
               },
