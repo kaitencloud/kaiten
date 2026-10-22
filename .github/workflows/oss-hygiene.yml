@@ -95,7 +95,7 @@ jobs:
           hits=$(git ls-files -- api | while read -r f; do
             # The opening pattern parenthesis avoids a Bash 3.2 $(...) parser bug.
             case "$f" in (*.go|*.md|*.sql|*.yaml|*.yml|*.json|*.txt|*.tmpl) continue ;; esac
-            if [ -f "$f" ] && file --mime-type -b "$f" | grep -q 'application/x-\(executable\|mach-binary\|sharedlib\)'; then
+            if [ -f "$f" ] && file --mime-type -b "$f" | grep -q 'application/x-\(executable\|pie-executable\|mach-binary\|sharedlib\)'; then
               echo "$f"
             fi
           done)
