@@ -47,6 +47,14 @@ function genericMessage(
   return t(`Errors.api.${code}`);
 }
 
+const textOf = (value: unknown) =>
+  typeof value === 'string' && value.trim() !== '' ? value : undefined;
+
+// What a problem says of itself: a sentence it wrote, not a number or an empty string that a
+// JSON body of a gateway (`{ "status": 502 }`) happens to carry under the same names.
+const problemText = (problem: { detail?: unknown; title?: unknown }) =>
+  textOf(problem.detail) ?? textOf(problem.title);
+
 /**
  * Map an `ApiError`, from either client, to AppError.
  *
@@ -78,7 +86,7 @@ export function mapApiError(
     return {
       code,
       status,
-      message: data.detail ?? data.title ?? genericMessage(code, t),
+      message: problemText(data) ?? genericMessage(code, t),
       details: data.errors ?? undefined,
       originalError: error,
     };

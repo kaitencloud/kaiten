@@ -93,6 +93,25 @@ describe('getApiErrorMessage', () => {
     );
   });
 
+  it('does not print a JSON body of a gateway that has the names of a problem and no sentence', () => {
+    const generic = 'The server encountered an error. Please try again later.';
+
+    expect(getApiErrorMessage(apiError(502, { status: 502 }))).toBe(generic);
+    expect(getApiErrorMessage(apiError(500, { status: 'error' }))).toBe(generic);
+    expect(getApiErrorMessage(apiError(500, { detail: 42, title: null }))).toBe(
+      generic,
+    );
+    expect(getApiErrorMessage(apiError(500, { detail: '  ', title: '' }))).toBe(
+      generic,
+    );
+  });
+
+  it('prints the title of a problem that has no detail', () => {
+    expect(
+      getApiErrorMessage(apiError(500, { status: 500, title: 'Boom' })),
+    ).toBe('Boom');
+  });
+
   it('says it in the language of the interface', async () => {
     await i18n.changeLanguage('fr');
     try {
