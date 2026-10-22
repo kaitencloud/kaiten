@@ -125,9 +125,13 @@ SELECT min(CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
                           ELSE i.issued_at + (sqlc.arg(now)::timestamp - sqlc.arg(auto_collection_before)::timestamp) END
                 ELSE i.due_at END)::timestamp AS overdue_since
 FROM instance_invoice i
+JOIN instance_billing ib ON ib.id = i.instance_billing_id
 WHERE i.instance_billing_id = sqlc.arg(instance_billing_id)
   AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
   AND i.total_minor > 0
+  -- A checkout's ACTIVATION waiting for its payment is never overdue (§9.10
+  -- rules 5 and 6): the free subscription it waits over goes on as it was.
+  AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
   AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
@@ -144,6 +148,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
+            AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
@@ -153,6 +158,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
+            AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
@@ -185,10 +191,11 @@ WHERE i.id = sqlc.arg(id);
 
 
 -- name: ListExpiredIncomplete :many
--- billing-lifecycle step (d): the INCOMPLETE checkouts past their 23 h.
+-- billing-lifecycle step (d): the checkouts past their 23 h, INCOMPLETE or
+-- waiting over a free live subscription (§9.10 rules 4 and 6).
 SELECT ib.*
 FROM instance_billing ib
-WHERE ib.status = 'INCOMPLETE'
+WHERE ib.incomplete_expires_at IS NOT NULL
   AND ib.incomplete_expires_at <= sqlc.arg(now)
 ORDER BY ib.incomplete_expires_at, ib.id
 LIMIT sqlc.arg(page_size);
@@ -220,4 +227,19 @@ SET status                = 'CANCELED',
     updated_at            = sqlc.arg(now)
 WHERE id = sqlc.arg(id)
   AND status = 'INCOMPLETE'
+RETURNING *;
+
+
+-- name: ClearPendingCheckout :one
+-- A checkout that waited over a free live subscription ended unpaid (§9.10
+-- rule 6): the free subscription goes on as it was.
+UPDATE instance_billing
+SET pending_license_id    = NULL,
+    pending_selection     = NULL,
+    incomplete_expires_at = NULL,
+    updated_by_id         = sqlc.arg(user_id),
+    updated_at            = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status <> 'INCOMPLETE'
+  AND pending_license_id IS NOT NULL
 RETURNING *;

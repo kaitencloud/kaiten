@@ -96,10 +96,7 @@ type StartedSubscription struct {
 }
 
 // BillingStarted is the payload of INSTANCE_BILLING_STARTED.
-type BillingStarted struct {
-	subscriptions.InstanceBilling
-	Resubscribed bool `json:"resubscribed" doc:"Set when a CANCELED subscription was subscribed again"`
-}
+type BillingStarted = subscriptions.BillingStarted
 
 // Pusher pushes, and charges, one invoice right after the subscribe commits
 // (§12.4 rule 6).
@@ -159,6 +156,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		}
 		existing, err := q.LockInstanceBilling(ctx, db.LockInstanceBillingParams{OrganizationID: user.OrganizationID, InstanceID: &instance.ID})
 		resubscribe := err == nil
+		waitingOnFree := false
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
@@ -177,9 +175,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				// A checkout already waiting on it counts as INCOMPLETE.
 				return kaitenerrors.Conflict(operation+".AlreadySubscribed", "this instance already has a live subscription")
 			}
-			// Until the payment replaces it (§9.10 rule 6, Δ32-1.9), a free
-			// subscription is replaced at once, an amount due or not.
-			if existing, err = u.cancelFree(ctx, q, existing, user.ID); err != nil {
+			if cmd.Incomplete {
+				// With an amount due the free subscription stays live, with its
+				// licence and periods, and carries the checkout in its pending
+				// columns until the ACTIVATION is paid, whose transaction
+				// replaces it (§9.10 rule 6). Decided below, once the trial is
+				// known: with one, nothing is due.
+				waitingOnFree = true
+			} else if existing, err = u.cancelFree(ctx, q, existing, user.ID); err != nil {
 				return err
 			}
 		}
@@ -286,6 +289,13 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		// INCOMPLETE: nothing applied, the selection stored with the ids its
 		// rows take at payment, the ACTIVATION composed from it (§9.10 rule 1).
 		incomplete := cmd.Incomplete && trialDays == 0
+		if waitingOnFree && !incomplete {
+			// A trial: nothing is due, so the free subscription is replaced now.
+			if existing, err = u.cancelFree(ctx, q, existing, user.ID); err != nil {
+				return err
+			}
+			waitingOnFree = false
+		}
 		var pending *pendingCheckout
 		if incomplete {
 			status = db.InstanceBillingStatusINCOMPLETE
@@ -311,7 +321,27 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			incompleteExpiresAt = invoices.Timestamp(anchor.Add(subscriptions.IncompleteLifetime * time.Second))
 		}
 		var row db.InstanceBilling
-		if resubscribe {
+		var shown *db.InstanceBilling // the row as the answer shows it, when not row
+		if waitingOnFree {
+			// The free row keeps its status and price; the checkout waits in
+			// its pending columns, the price the payment makes the base named
+			// in the selection.
+			if pending, err = u.withPrice(pending, base.ID); err != nil {
+				return err
+			}
+			free, err := q.SetPendingCheckout(ctx, db.SetPendingCheckoutParams{
+				PendingLicenseID: &targetLicenseID, PendingSelection: pending.stored, IncompleteExpiresAt: incompleteExpiresAt,
+				UserID: user.ID, Now: invoices.Timestamp(now), ID: existing.ID,
+			})
+			if err != nil {
+				return err
+			}
+			// The ACTIVATION is composed as the checkout's subscription would
+			// be: its provider, terms and currency, on the free row.
+			row, shown = free, &free
+			row.ProviderKind, row.CollectionMethod, row.DaysUntilDue = kind, method, cmd.DaysUntilDue
+			row.Currency, row.BaseLicensePriceID = base.Currency, base.ID
+		} else if resubscribe {
 			row, err = q.ResubscribeInstanceBilling(ctx, db.ResubscribeInstanceBillingParams{
 				CustomerID: &customer.ID, InstanceSlug: instance.Slug, InstanceName: instance.Name,
 				CustomerSlug: customer.Slug, CustomerName: customer.Name, Status: status,
@@ -337,7 +367,11 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			return err
 		}
 
-		billing, err := subscriptions.Build(ctx, q, u.deps.Catalogue, row)
+		shownRow := row
+		if shown != nil {
+			shownRow = *shown
+		}
+		billing, err := subscriptions.Build(ctx, q, u.deps.Catalogue, shownRow)
 		if err != nil {
 			return err
 		}
@@ -473,6 +507,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			return errDryRun
 		}
 
+		if waitingOnFree {
+			return nil // the payment starts the subscription, and announces it
+		}
 		return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 			user.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
 			BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil))
@@ -508,11 +545,8 @@ func (u *UseCase) pushInline(ctx context.Context, started *StartedSubscription) 
 	}
 	summary := invoices.Summary(row)
 	started.ActivationInvoice = &summary
-	// A payment may have settled an INCOMPLETE subscription meanwhile
-	// (§9.10 rule 3): the answer shows it as it now is.
-	if started.Status != subscriptions.StatusIncomplete {
-		return
-	}
+	// A payment may have settled the checkout meanwhile (§9.10 rules 3 and
+	// 6): the answer shows the subscription as it now is.
 	sub, err := q.GetSubscriptionByID(ctx, row.InstanceBillingID)
 	if err != nil {
 		return

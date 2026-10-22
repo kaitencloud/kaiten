@@ -6,7 +6,11 @@ package incomplete
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
@@ -19,13 +23,16 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 )
 
-// Settle applies what an INCOMPLETE checkout bought, in the transaction that
-// records its ACTIVATION PAID (§9.10 rule 3): the instance moves to the
-// pending version, under the freeze's escape; the selected add-ons are
-// attached and the voucher redeemed under the ids the ACTIVATION's lines
-// name, never refused; the subscription becomes ACTIVE from now, its P0
-// floor, the pending columns cleared. Anything else is left to the caller:
-// it answers false for an invoice that is not such an ACTIVATION.
+// Settle applies what a checkout with an amount due bought, in the
+// transaction that records its ACTIVATION PAID (§9.10 rules 3 and 6). An
+// INCOMPLETE subscription becomes ACTIVE from now, its P0 floor. A free live
+// subscription carrying the checkout in its pending columns is replaced:
+// canceled with no invoice, then subscribed ACTIVE on the price the checkout
+// bought, with the anchor and the period its ACTIVATION billed. Either way the
+// instance moves to the pending version, under the freeze's escape, and the
+// add-ons and the voucher are applied under the ids the ACTIVATION's lines
+// name, never refused. It answers false for an invoice that is not such an
+// ACTIVATION.
 func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository, q *db.Queries, invoice db.InstanceInvoice, now time.Time) (bool, error) {
 	if invoice.Kind != db.InvoiceKindACTIVATION || invoice.Status != db.InvoiceStatusPAID {
 		return false, nil
@@ -34,7 +41,7 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 	if err != nil {
 		return false, err
 	}
-	if sub.Status != db.InstanceBillingStatusINCOMPLETE || sub.PendingLicenseID == nil || sub.InstanceID == nil {
+	if sub.PendingLicenseID == nil || sub.InstanceID == nil {
 		return false, nil
 	}
 	var selection subscriptions.PendingSelection
@@ -49,41 +56,31 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 	if err != nil {
 		return false, err
 	}
-	if instance.LicenseID != *sub.PendingLicenseID {
+	pendingLicenseID := *sub.PendingLicenseID
+
+	if sub.Status != db.InstanceBillingStatusINCOMPLETE {
+		if selection.LicensePriceID == nil || !subscriptions.Live(sub.Status) {
+			return false, nil
+		}
+		if err := replaceFree(ctx, deps, box, q, sub, *selection.LicensePriceID, invoice, actor, now); err != nil {
+			return false, err
+		}
+	}
+	if instance.LicenseID != pendingLicenseID {
 		if err := q.AllowPlanChange(ctx); err != nil {
 			return false, err
 		}
 		if err := q.MoveInstanceToLicense(ctx, db.MoveInstanceToLicenseParams{
-			LicenseID: *sub.PendingLicenseID, Now: invoices.Timestamp(now), ID: *sub.InstanceID,
+			LicenseID: pendingLicenseID, Now: invoices.Timestamp(now), ID: *sub.InstanceID,
 		}); err != nil {
 			return false, err
 		}
 	}
-	for _, addon := range selection.AddOns {
-		if deps.Attacher == nil {
-			break
-		}
-		if err := deps.Attacher.AttachPaid(ctx, sub.OrganizationID, actor, instance.Slug, addon.InstanceAddonID, addon.AddonSlug, addon.Quantity); err != nil {
-			return false, err
-		}
+	if err := apply(ctx, deps, sub, instance.Slug, selection, invoice, actor, now); err != nil {
+		return false, err
 	}
-	if v := selection.Voucher; v != nil && deps.Redeemer != nil {
-		written, err := deps.Redeemer.RedeemPaid(ctx, sub.OrganizationID, actor, instance.Slug, v.InstanceVoucherID, v.Code)
-		if err != nil {
-			return false, err
-		}
-		if written {
-			// The application the ACTIVATION's DISCOUNT line made counts now
-			// that its redemption exists.
-			paid, err := invoices.FromRow(invoice)
-			if err != nil {
-				return false, err
-			}
-			composition := rating.Composition{Lines: paid.Lines, Subtotal: 0, DiscountTotal: 0, Total: 0, CurrencySkipped: 0}
-			if err := metering.Consume(ctx, deps.Discounts, sub.OrganizationID, metering.Only(composition, v.InstanceVoucherID), now); err != nil {
-				return false, err
-			}
-		}
+	if sub.Status != db.InstanceBillingStatusINCOMPLETE {
+		return true, nil // replaceFree announced the start
 	}
 	settled, err := q.SettleIncomplete(ctx, db.SettleIncompleteParams{Now: invoices.Timestamp(now), UserID: actor, ID: sub.ID})
 	if err != nil {
@@ -95,4 +92,91 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 			InstanceBillingID: settled.ID, InstanceSlug: settled.InstanceSlug,
 			From: string(sub.Status), To: string(settled.Status), Reason: "SETTLED",
 		}, nil))
+}
+
+// apply attaches the selected add-ons and redeems the voucher, under their
+// pending ids, and counts the DISCOUNT line's application.
+func apply(ctx context.Context, deps access.Deps, sub db.InstanceBilling, instanceSlug string, selection subscriptions.PendingSelection,
+	invoice db.InstanceInvoice, actor uuid.UUID, now time.Time,
+) error {
+	for _, addon := range selection.AddOns {
+		if deps.Attacher == nil {
+			break
+		}
+		if err := deps.Attacher.AttachPaid(ctx, sub.OrganizationID, actor, instanceSlug, addon.InstanceAddonID, addon.AddonSlug, addon.Quantity); err != nil {
+			return err
+		}
+	}
+	v := selection.Voucher
+	if v == nil || deps.Redeemer == nil {
+		return nil
+	}
+	written, err := deps.Redeemer.RedeemPaid(ctx, sub.OrganizationID, actor, instanceSlug, v.InstanceVoucherID, v.Code)
+	if err != nil || !written {
+		return err
+	}
+	// The application the ACTIVATION's DISCOUNT line made counts now that
+	// its redemption exists.
+	paid, err := invoices.FromRow(invoice)
+	if err != nil {
+		return err
+	}
+	composition := rating.Composition{Lines: paid.Lines, Subtotal: 0, DiscountTotal: 0, Total: 0, CurrencySkipped: 0}
+	return metering.Consume(ctx, deps.Discounts, sub.OrganizationID, metering.Only(composition, v.InstanceVoucherID), now)
+}
+
+// replaceFree replaces the free subscription a paid checkout waited on
+// (§9.10 rule 6): canceled with no invoice and no fallback move, then the
+// same row subscribed ACTIVE on the bought price, from the anchor and for the
+// period the ACTIVATION billed, through its provider, P0 from now.
+func replaceFree(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository, q *db.Queries, sub db.InstanceBilling,
+	priceID uuid.UUID, invoice db.InstanceInvoice, actor uuid.UUID, now time.Time,
+) error {
+	// The pending columns go first: a CANCELED row holds none
+	// (instance_billing_incomplete_check).
+	if _, err := q.ClearPendingCheckout(ctx, db.ClearPendingCheckoutParams{UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID}); err != nil {
+		return err
+	}
+	canceled, err := q.CancelSubscription(ctx, db.CancelSubscriptionParams{
+		CanceledAt: invoices.Timestamp(now), Reason: nil, UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
+	})
+	if err != nil {
+		return err
+	}
+	if err := lifecycle.AnnouncePlanChangeDropped(ctx, box, sub); err != nil {
+		return err
+	}
+	if err := lifecycle.AnnounceCanceled(ctx, q, box, deps.Catalogue, canceled, "IMMEDIATE", nil); err != nil {
+		return err
+	}
+	base, err := deps.Catalogue.Price(ctx, sub.OrganizationID, priceID)
+	if err != nil {
+		return err
+	}
+	if base == nil || base.BillingPeriod == nil {
+		return errors.New("incomplete: the price a paid checkout bought is gone")
+	}
+	method := invoice.CollectionMethod
+	row, err := q.ResubscribeInstanceBilling(ctx, db.ResubscribeInstanceBillingParams{
+		CustomerID: sub.CustomerID, InstanceSlug: sub.InstanceSlug, InstanceName: sub.InstanceName,
+		CustomerSlug: sub.CustomerSlug, CustomerName: sub.CustomerName, Status: db.InstanceBillingStatusACTIVE,
+		ProviderKind: invoice.ProviderKind, CollectionMethod: &method, DaysUntilDue: nil,
+		BaseLicensePriceID: base.ID, BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
+		AnchorAt: invoice.BoundaryAt, CurrentPeriodEnd: invoice.ServiceTo, TrialEndsAt: pgtype.Timestamp{},
+		PendingLicenseID: nil, PendingSelection: nil, IncompleteExpiresAt: pgtype.Timestamp{},
+		UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID, OrganizationID: sub.OrganizationID,
+	})
+	if err != nil {
+		return err
+	}
+	if row, err = q.SetSubscriptionStartedAt(ctx, db.SetSubscriptionStartedAtParams{StartedAt: invoices.Timestamp(now), ID: row.ID}); err != nil {
+		return err
+	}
+	billing, err := subscriptions.Build(ctx, q, deps.Catalogue, row)
+	if err != nil {
+		return err
+	}
+	return box.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+		sub.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
+		subscriptions.BillingStarted{InstanceBilling: *billing, Resubscribed: true}, nil))
 }

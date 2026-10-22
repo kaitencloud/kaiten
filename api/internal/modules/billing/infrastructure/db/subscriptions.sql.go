@@ -604,3 +604,138 @@ func (q *Queries) ResubscribeInstanceBilling(ctx context.Context, arg Resubscrib
 	)
 	return i, err
 }
+
+const setPendingCheckout = `-- name: SetPendingCheckout :one
+UPDATE instance_billing
+SET pending_license_id    = $1,
+    pending_selection     = $2,
+    incomplete_expires_at = $3,
+    updated_by_id         = $4,
+    updated_at            = $5
+WHERE id = $6
+  AND status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+  AND pending_license_id IS NULL
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
+`
+
+type SetPendingCheckoutParams struct {
+	PendingLicenseID    *uuid.UUID       `json:"pending_license_id"`
+	PendingSelection    []byte           `json:"pending_selection"`
+	IncompleteExpiresAt pgtype.Timestamp `json:"incomplete_expires_at"`
+	UserID              uuid.UUID        `json:"user_id"`
+	Now                 pgtype.Timestamp `json:"now"`
+	ID                  uuid.UUID        `json:"id"`
+}
+
+// A checkout with an amount due over a free live subscription (§9.10 rule
+// 6): the row keeps its status, price and periods, and carries the checkout
+// until its ACTIVATION is paid.
+func (q *Queries) SetPendingCheckout(ctx context.Context, arg SetPendingCheckoutParams) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, setPendingCheckout,
+		arg.PendingLicenseID,
+		arg.PendingSelection,
+		arg.IncompleteExpiresAt,
+		arg.UserID,
+		arg.Now,
+		arg.ID,
+	)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+		&i.TrialEndsAt,
+		&i.PendingLicenseID,
+		&i.PendingSelection,
+		&i.IncompleteExpiresAt,
+		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
+	)
+	return i, err
+}
+
+const setSubscriptionStartedAt = `-- name: SetSubscriptionStartedAt :one
+UPDATE instance_billing
+SET started_at = $1
+WHERE id = $2
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
+`
+
+type SetSubscriptionStartedAtParams struct {
+	StartedAt pgtype.Timestamp `json:"started_at"`
+	ID        uuid.UUID        `json:"id"`
+}
+
+// The P0 floor of a subscription its payment started (§9.10 rules 3 and 6).
+func (q *Queries) SetSubscriptionStartedAt(ctx context.Context, arg SetSubscriptionStartedAtParams) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, setSubscriptionStartedAt, arg.StartedAt, arg.ID)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+		&i.TrialEndsAt,
+		&i.PendingLicenseID,
+		&i.PendingSelection,
+		&i.IncompleteExpiresAt,
+		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
+	)
+	return i, err
+}

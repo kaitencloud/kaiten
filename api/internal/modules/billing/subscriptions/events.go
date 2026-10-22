@@ -26,6 +26,12 @@ type CancellationChange struct {
 	EffectiveAt time.Time `json:"effectiveAt" doc:"The boundary the cancellation takes effect at"`
 }
 
+// BillingStarted is the payload of INSTANCE_BILLING_STARTED.
+type BillingStarted struct {
+	InstanceBilling
+	Resubscribed bool `json:"resubscribed" doc:"Set when a CANCELED subscription was subscribed again"`
+}
+
 // Cancellation is the payload of INSTANCE_BILLING_CANCELED.
 type Cancellation struct {
 	InstanceBilling

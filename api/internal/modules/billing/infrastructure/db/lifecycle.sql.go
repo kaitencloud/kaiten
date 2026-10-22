@@ -179,6 +179,72 @@ func (q *Queries) CancelSubscription(ctx context.Context, arg CancelSubscription
 	return i, err
 }
 
+const clearPendingCheckout = `-- name: ClearPendingCheckout :one
+UPDATE instance_billing
+SET pending_license_id    = NULL,
+    pending_selection     = NULL,
+    incomplete_expires_at = NULL,
+    updated_by_id         = $1,
+    updated_at            = $2
+WHERE id = $3
+  AND status <> 'INCOMPLETE'
+  AND pending_license_id IS NOT NULL
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
+`
+
+type ClearPendingCheckoutParams struct {
+	UserID uuid.UUID        `json:"user_id"`
+	Now    pgtype.Timestamp `json:"now"`
+	ID     uuid.UUID        `json:"id"`
+}
+
+// A checkout that waited over a free live subscription ended unpaid (§9.10
+// rule 6): the free subscription goes on as it was.
+func (q *Queries) ClearPendingCheckout(ctx context.Context, arg ClearPendingCheckoutParams) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, clearPendingCheckout, arg.UserID, arg.Now, arg.ID)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+		&i.TrialEndsAt,
+		&i.PendingLicenseID,
+		&i.PendingSelection,
+		&i.IncompleteExpiresAt,
+		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
+	)
+	return i, err
+}
+
 const convertTrial = `-- name: ConvertTrial :one
 UPDATE instance_billing
 SET status               = 'ACTIVE',
@@ -258,9 +324,13 @@ SELECT min(CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
                           ELSE i.issued_at + ($1::timestamp - $2::timestamp) END
                 ELSE i.due_at END)::timestamp AS overdue_since
 FROM instance_invoice i
+JOIN instance_billing ib ON ib.id = i.instance_billing_id
 WHERE i.instance_billing_id = $3
   AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
   AND i.total_minor > 0
+  -- A checkout's ACTIVATION waiting for its payment is never overdue (§9.10
+  -- rules 5 and 6): the free subscription it waits over goes on as it was.
+  AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
   AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $2::timestamp
@@ -465,7 +535,7 @@ func (q *Queries) GetOpenActivation(ctx context.Context, instanceBillingID uuid.
 const listExpiredIncomplete = `-- name: ListExpiredIncomplete :many
 SELECT ib.id, ib.organization_id, ib.instance_id, ib.customer_id, ib.instance_slug, ib.instance_name, ib.customer_slug, ib.customer_name, ib.status, ib.provider_kind, ib.collection_method, ib.days_until_due, ib.base_license_price_id, ib.billing_period, ib.currency, ib.anchor_at, ib.started_at, ib.current_period_start, ib.current_period_end, ib.cancel_at_period_end, ib.cancel_requested_at, ib.canceled_at, ib.cancellation_reason, ib.past_due_since, ib.scheduled_license_price_id, ib.scheduled_at, ib.created_at, ib.created_by_id, ib.updated_at, ib.updated_by_id, ib.trial_ends_at, ib.pending_license_id, ib.pending_selection, ib.incomplete_expires_at, ib.trial_will_end_notified_at, ib.live_ended_at, ib.trial_will_end_at
 FROM instance_billing ib
-WHERE ib.status = 'INCOMPLETE'
+WHERE ib.incomplete_expires_at IS NOT NULL
   AND ib.incomplete_expires_at <= $1
 ORDER BY ib.incomplete_expires_at, ib.id
 LIMIT $2
@@ -476,7 +546,8 @@ type ListExpiredIncompleteParams struct {
 	PageSize int32            `json:"page_size"`
 }
 
-// billing-lifecycle step (d): the INCOMPLETE checkouts past their 23 h.
+// billing-lifecycle step (d): the checkouts past their 23 h, INCOMPLETE or
+// waiting over a free live subscription (§9.10 rules 4 and 6).
 func (q *Queries) ListExpiredIncomplete(ctx context.Context, arg ListExpiredIncompleteParams) ([]InstanceBilling, error) {
 	rows, err := q.db.Query(ctx, listExpiredIncomplete, arg.Now, arg.PageSize)
 	if err != nil {
@@ -543,6 +614,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
+            AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $1::timestamp
@@ -552,6 +624,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
           WHERE i.instance_billing_id = ib.id
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
+            AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $1::timestamp

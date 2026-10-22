@@ -180,3 +180,20 @@ func (u *UseCase) pendingCheckout(ctx context.Context, organizationID uuid.UUID,
 	out.stored = stored
 	return out, nil
 }
+
+// withPrice names, in a checkout waiting over a free subscription, the price
+// its payment makes the base (§9.10 rule 6): the row's own base is the free
+// one until then.
+func (u *UseCase) withPrice(pending *pendingCheckout, priceID uuid.UUID) (*pendingCheckout, error) {
+	var selection subscriptions.PendingSelection
+	if err := json.Unmarshal(pending.stored, &selection); err != nil {
+		return nil, err
+	}
+	selection.LicensePriceID = &priceID
+	stored, err := json.Marshal(selection)
+	if err != nil {
+		return nil, err
+	}
+	pending.stored = stored
+	return pending, nil
+}

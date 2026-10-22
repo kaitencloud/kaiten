@@ -200,6 +200,10 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) (
 		return err
 	}
 	terms := subscriptions.Terms(sub, defaults)
+	// The invoice's own method stands: a checkout waiting over a free
+	// subscription charges its ACTIVATION while the row still sends the free
+	// one's (§9.10 rule 6).
+	terms.CollectionMethod = string(row.CollectionMethod)
 	normalized, lines, err := providers.Normalize(row, customerID, &terms.DaysUntilDue)
 	if err != nil {
 		return err

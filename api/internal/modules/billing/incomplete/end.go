@@ -86,6 +86,14 @@ func (e *Ender) End(ctx context.Context, operation string, sub db.InstanceBillin
 				return err
 			}
 		}
+		if sub.Status != db.InstanceBillingStatusINCOMPLETE {
+			// Over a free subscription, which goes on as it was (§9.10 rule 6).
+			ended, err = q.ClearPendingCheckout(ctx, db.ClearPendingCheckoutParams{UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID})
+			if errors.Is(err, pgx.ErrNoRows) {
+				return ErrPaidMeanwhile
+			}
+			return err
+		}
 		ended, err = q.EndIncomplete(ctx, db.EndIncompleteParams{Now: invoices.Timestamp(now), Reason: reason, UserID: actor, ID: sub.ID})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return ErrPaidMeanwhile // settled or ended by another caller meanwhile

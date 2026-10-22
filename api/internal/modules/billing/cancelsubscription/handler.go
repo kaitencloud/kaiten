@@ -180,7 +180,7 @@ func (u *UseCase) endIncomplete(ctx context.Context, q *db.Queries, organization
 		return nil, false, nil // the transaction answers NotFound
 	}
 	sub, err := q.GetInstanceBilling(ctx, db.GetInstanceBillingParams{OrganizationID: organizationID, InstanceID: &instance.ID})
-	if err != nil || sub.Status != db.InstanceBillingStatusINCOMPLETE {
+	if err != nil || (sub.Status != db.InstanceBillingStatusINCOMPLETE && sub.PendingLicenseID == nil) {
 		return nil, false, nil
 	}
 	ended, err := incomplete.NewEnder(u.deps).End(ctx, operation, sub, reason, actor)

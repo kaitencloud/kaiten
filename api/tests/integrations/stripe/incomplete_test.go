@@ -213,3 +213,60 @@ func TestIncompleteRefusalsAndCancel(t *testing.T) {
 	require.Equal(t, "CANCELED", canceled["status"], "at once, whatever the mode")
 	require.Equal(t, "VOID", invoice(t, mustUUID(t, done.ActivationInvoice.ID)).Status)
 }
+
+// TestCheckoutWaitsOverAFreePlan: with an amount due, a checkout over a free
+// live subscription leaves it live until the ACTIVATION is paid (§9.10 rule
+// 6, the v3.2 ruling on V31-68). A refused charge keeps the free plan as it
+// was, the checkout in its pending columns; a second checkout is refused.
+// Paid, the free subscription is replaced on the same row: ACTIVE on the
+// price bought, the version moved.
+func TestCheckoutWaitsOverAFreePlan(t *testing.T) {
+	fresh(t)
+	s := newShop(t, nil)
+	starter := commonfixture.AssertJSONResponse[licenseschema.License](t, call(t, "POST", "/api/licenses", map[string]any{
+		"name": "Starter", "description": "d", "type": "PAID", "isDefault": true,
+		"lifecycleState": licenseschema.Published, "pricingType": "FREE",
+	}), fiber.StatusCreated)
+	free := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/licenses/"+starter.Slug+"/prices", map[string]any{
+		"billingModel": "FLAT_FEE", "billingPeriod": "MONTHLY", "currency": "EUR", "unitAmountDecimal": "0", "isDefault": true,
+	}), fiber.StatusCreated)
+	instance := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "POST", "/api/instances", map[string]any{
+		"name": "Acme starter", "description": "d", "customerId": s.customer.ID, "licenseId": starter.ID,
+		"startLicenseDate": time.Now().UTC().Add(-24 * time.Hour), "endLicenseDate": time.Now().UTC().AddDate(1, 0, 0),
+		"metadata": map[string]any{},
+	}), fiber.StatusCreated)
+	billingPath := "/api/instances/" + instance.Slug + "/billing"
+	before := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", billingPath,
+		map[string]any{"basePriceId": free["id"], "startAt": time.Now().UTC().Add(-time.Hour)}), fiber.StatusCreated)
+	session := commonfixture.AssertJSONResponse[createcustomersession.CreatedCustomerSession](t, call(t, "POST", "/api/customer-sessions",
+		map[string]any{"customerSlug": s.customer.Slug, "instanceSlug": instance.Slug}), fiber.StatusCreated)
+	onStarter := shop{plan: s.plan, monthly: s.monthly, customer: s.customer, instance: instance, token: session.Token}
+
+	order := map[string]any{"licensePriceId": s.monthly.ID, "returnUrl": returnURL}
+	setup := checkout(t, onStarter, order, fiber.StatusOK)
+	saveCardOnPage(t, *setup.SetupSessionID, stripefake.CardDeclined)
+	done := checkout(t, onStarter, with(order, "setupSessionId", *setup.SetupSessionID), fiber.StatusCreated)
+	require.Equal(t, createsessioncheckout.PaymentFailed, done.Payment.Status)
+	waiting := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", billingPath, nil), fiber.StatusOK)
+	require.Equal(t, "ACTIVE", waiting["status"], "the free plan goes on")
+	require.Equal(t, free["id"], waiting["basePrice"].(map[string]any)["id"])
+	held := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+instance.Slug, nil), fiber.StatusOK)
+	require.Equal(t, starter.ID, held.LicenseID)
+	again := commonfixture.AssertJSONResponse[map[string]any](t, asCustomer(t, onStarter, "POST", checkoutPath, order), fiber.StatusConflict)
+	require.Equal(t, "CreateSessionCheckout.AlreadySubscribed", again["code"], "a checkout already waits on it")
+
+	activation := invoice(t, mustUUID(t, done.ActivationInvoice.ID))
+	require.Equal(t, "STRIPE", activation.ProviderKind)
+	fake.Pay(stripefake.DefaultAccount, deref(activation.Provider.ExternalInvoiceID))
+	require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/billing/sync", nil).StatusCode)
+	require.Eventually(t, func() bool {
+		sub := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", billingPath, nil), fiber.StatusOK)
+		return sub["providerKind"] == "STRIPE"
+	}, 20*time.Second, 100*time.Millisecond, "the payment replaces the free plan")
+	after := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", billingPath, nil), fiber.StatusOK)
+	require.Equal(t, before["id"], after["id"], "the same row")
+	require.Equal(t, "ACTIVE", after["status"])
+	require.Equal(t, s.monthly.ID.String(), after["basePrice"].(map[string]any)["id"])
+	moved := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+instance.Slug, nil), fiber.StatusOK)
+	require.Equal(t, s.plan.ID, moved.LicenseID)
+}

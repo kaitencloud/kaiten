@@ -140,3 +140,27 @@ SELECT ib.instance_id::uuid AS instance_id, ib.status, ib.provider_kind, ib.curr
 FROM instance_billing ib
 WHERE ib.organization_id = sqlc.arg(organization_id)
   AND ib.instance_id = ANY (sqlc.arg(instance_ids)::uuid[]);
+
+
+-- name: SetPendingCheckout :one
+-- A checkout with an amount due over a free live subscription (§9.10 rule
+-- 6): the row keeps its status, price and periods, and carries the checkout
+-- until its ACTIVATION is paid.
+UPDATE instance_billing
+SET pending_license_id    = sqlc.arg(pending_license_id),
+    pending_selection     = sqlc.arg(pending_selection),
+    incomplete_expires_at = sqlc.arg(incomplete_expires_at),
+    updated_by_id         = sqlc.arg(user_id),
+    updated_at            = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+  AND pending_license_id IS NULL
+RETURNING *;
+
+
+-- name: SetSubscriptionStartedAt :one
+-- The P0 floor of a subscription its payment started (§9.10 rules 3 and 6).
+UPDATE instance_billing
+SET started_at = sqlc.arg(started_at)
+WHERE id = sqlc.arg(id)
+RETURNING *;
