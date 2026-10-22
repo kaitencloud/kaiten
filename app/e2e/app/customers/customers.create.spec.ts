@@ -37,3 +37,37 @@ test('creates a customer from the list dialog', async ({ page }) => {
     list.customerRow('Orbit Labs').getByText('orbit.dev', { exact: true }),
   ).toBeVisible();
 });
+
+test('puts the focus on the title of the customer it just created', async ({
+  page,
+}) => {
+  const list = new CustomersListDriver(page);
+  const form = new CustomerFormDriver(page);
+
+  await installCustomerAppMocks(page, createEmptyCustomersModel());
+  await list.goto();
+  await list.openCreateDialog();
+  await form.fill({ name: 'Orbit Labs' });
+  await form.createButton().click();
+
+  // The link that opened the dialog is not on this page: the focus does not fall to the page.
+  await expect(page).toHaveURL('/customers/orbit-labs');
+  await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+});
+
+test('gives the focus back to the New Customer link when the dialog is dismissed', async ({
+  page,
+}) => {
+  const list = new CustomersListDriver(page);
+
+  await installCustomerAppMocks(page, createEmptyCustomersModel());
+  await list.goto();
+  await list.createLink().focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByRole('dialog')).toBeVisible();
+
+  await page.keyboard.press('Escape');
+
+  await expect(page).toHaveURL('/customers');
+  await expect(list.createLink()).toBeFocused();
+});

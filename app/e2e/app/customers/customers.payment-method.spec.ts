@@ -333,6 +333,36 @@ test.describe('saving a payment method on the page Stripe hosts', () => {
     });
   });
 
+  test('gives the focus back to the button that asked for the currency, however often the dialog is closed', async ({
+    page,
+  }) => {
+    const method = new CustomerPaymentMethodDriver(page);
+    await install(page, createStripeCustomersModels());
+
+    await method.goto('gamma-labs');
+    // Twelve times: the button greys out while the first request is out, which drops the
+    // focus before the dialog opens, and not every time at the same moment.
+    for (const closing of Array.from({ length: 6 }, () => [
+      'Escape',
+      'Cancel',
+    ]).flat()) {
+      await method.add().click();
+      await expect(method.currencyDialog()).toBeVisible();
+
+      if (closing === 'Escape') {
+        await page.keyboard.press('Escape');
+      } else {
+        await method
+          .currencyDialog()
+          .getByRole('button', { name: 'Cancel' })
+          .click();
+      }
+
+      await expect(method.currencyDialog()).toHaveCount(0);
+      await expect(method.add()).toBeFocused();
+    }
+  });
+
   test('shows a Stripe that cannot be reached as nothing changed, and goes on when it is asked again', async ({
     page,
   }) => {

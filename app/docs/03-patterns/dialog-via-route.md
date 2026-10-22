@@ -247,6 +247,10 @@ function CustomerDetailRouteLayout() {
 
 A nested entity can open from a search parameter of its tab in the same way, in a drawer: the Prices tab of a license version opens the drawer of a price from `?price=new` and `?price=<id>`. The tab reads the parameter, so a link can open it and the back button closes it; a link that cannot open it (an unknown id, a published version) is replaced by the tab, once what decides it is known.
 
+## Where the focus goes when the dialog closes
+
+A dialog gives the focus back to what opened it. A route dialog is opened by a link, and the navigation that opens or closes it draws the page again, so the link it remembers is often gone and the focus would fall to `<body>`. `DialogContent` (`components/ui/dialog.tsx`, with `components/ui/use-dialog-final-focus.ts`) therefore notes the control the person used last, a link or a button, and watches the focus for a moment after the dialog closes: when it is lost, it goes to the control that looks like the one that was used (same address and same name), and to the title of the page (`h1`) when there is none, as after a create that leads to the new page or an action whose button is gone. A person who pressed a key or clicked since keeps the focus where they put it. A dialog that passes its own `finalFocus` keeps it.
+
 ## Avoiding a flash
 
 | Element | Purpose |

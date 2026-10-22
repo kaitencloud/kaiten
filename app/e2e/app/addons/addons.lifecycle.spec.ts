@@ -95,6 +95,39 @@ test.describe('making an add-on', () => {
     await expect(page).toHaveURL('/catalog/addons/extra-projects');
   });
 
+  test('gives the focus back to the New add-on link when the dialog is dismissed', async ({
+    page,
+  }) => {
+    const list = new AddonsListDriver(page);
+    await installAddonsWorld(page, createEmptyAddonsBillingModel());
+
+    await list.goto();
+    await list.newAddon().focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    await page.keyboard.press('Escape');
+
+    await expect(page).toHaveURL('/catalog/addons');
+    await expect(list.newAddon()).toBeFocused();
+  });
+
+  test('puts the focus on the title of the add-on it just made', async ({
+    page,
+  }) => {
+    const list = new AddonsListDriver(page);
+    const form = new AddonFormDriver(page);
+    await installAddonsWorld(page, createEmptyAddonsBillingModel());
+
+    await list.goto();
+    await list.newAddon().click();
+    await form.fill({ name: 'Extra projects' });
+    await form.submit();
+
+    await expect(page).toHaveURL('/catalog/addons/extra-projects');
+    await expect(page.getByRole('heading', { level: 1 })).toBeFocused();
+  });
+
   test('sends the slug and the version name that were typed, and a version put on sale at once', async ({
     page,
   }) => {

@@ -592,6 +592,22 @@ test.describe('writing an invoice off', () => {
     await invoice.expectActions([]);
   });
 
+  test('puts the focus on the title of the invoice once the action that was used is gone', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-m1');
+    await invoice.action('Write off').click();
+    await invoice.reason().fill('customer bankrupt');
+    await invoice.confirm('Write off').click();
+
+    await expect(invoice.statusBadge()).toHaveText('Written off');
+    await expect(invoice.action('Write off')).toHaveCount(0);
+    await expect(invoice.title()).toBeFocused();
+  });
+
   test('is not confirmed for a reason of spaces alone', async ({ page }) => {
     const invoice = new InvoiceDetailDriver(page);
     await installBillingAppMocks(page, createInvoicesModel());
