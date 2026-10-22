@@ -7,8 +7,7 @@
 // `x-kaiten-scopes` extension listing every scope an organization credential can
 // hold. The API builds that list from pkg/scope (scope.OrganizationScopes) -- the
 // one place a scope can come from, since a token is minted only with scopes
-// pkg/scope accepts -- minus the modules only the Platform API enforces (`users`,
-// `memberships`), which a service account's ksh_ token can never reach.
+// pkg/scope accepts -- minus the modules only the Platform API enforces (`memberships`), which a service account's ksh_ token can never reach.
 //
 // It used to be read off the operations' `security:` blocks instead. Those name
 // only what the Core API itself enforces, and the outbound webhooks service

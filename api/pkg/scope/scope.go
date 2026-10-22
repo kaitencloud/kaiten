@@ -18,21 +18,11 @@ const (
 	Components      Module = "components"
 	Customers       Module = "customers"
 	DeploymentZones Module = "deployment_zones"
-	// MetadataFields gates the typed-metadata schema CRUD.
-	//
-	// SECURITY NOTE: the spec calls this gate "organization admin
-	// only", but Kaiten has no first-class role concept today — so this is
-	// enforced purely at the SCOPE level. Whoever holds `write:metadata_fields`
-	// can mutate the schema, regardless of which end-user owns the token.
-	// In practice this means "admin only" reduces to a token-attribution
-	// policy: don't grant this scope to non-admin tokens.
-	// TODO(roles): once a role concept lands, the facade method for each
-	// metadata-fields write should require an org-admin role alongside the scope,
-	// as defense in depth — the scope check stays for API-token callers. It goes
-	// there rather than in a middleware so a non-HTTP driver cannot miss it.
+	// MetadataFields gates the typed metadata schema CRUD.
 	MetadataFields Module = "metadata_fields"
 	Releases       Module = "releases"
 	Users          Module = "users"
+	Profile        Module = "profile"
 	Organizations  Module = "organizations"
 	Tokens         Module = "tokens"
 	// Webhooks gates outbound webhook subscriptions. No Core operation enforces
@@ -46,20 +36,7 @@ const (
 	// privilege from delete:organizations (whole org) or delete:users
 	// (the user account itself).
 	Memberships Module = "memberships"
-	// Notifications gates a person's own notification feed and preferences.
-	//
-	// Every operation under it reads or writes only the caller's own rows, so it
-	// is narrower than the other modules here: holding it grants nothing about
-	// anybody else's data. It is still a scope rather than "any authenticated
-	// caller", because the scope claim is how this API decides what a credential
-	// may do, and an API token minted for a robot should not carry a human's
-	// unread state by default.
-	//
-	// DEPLOYMENT NOTE: the `scopes` claim of an end-user JWT is produced by the
-	// identity provider's template, so read:notifications
-	// and write:notifications have to be added there before a signed-in user can
-	// reach the feed -- otherwise the endpoints answer 403 and the bell stays
-	// empty with nothing in the logs to explain it.
+	// Notifications gates a person's own feed; human grants are resolved from storage.
 	Notifications Module = "notifications"
 )
 
@@ -75,6 +52,7 @@ var allModules = []Module{
 	MetadataFields,
 	Releases,
 	Users,
+	Profile,
 	Organizations,
 	Tokens,
 	Webhooks,
@@ -170,11 +148,10 @@ func AllScopes() []string {
 	return scopes
 }
 
-// platformOnlyModules are the modules an organization credential can never use:
-// only Platform API operations enforce them, and that surface answers a `ksm_`
-// platform token alone. A service-account token granted one of them would carry a
-// right that nothing it can reach ever checks.
-var platformOnlyModules = []Module{Users, Memberships}
+// platformOnlyModules lists rights reserved to the internal Platform API.
+// Membership deletion belongs exclusively to the Platform API. Human user
+// management is published on Core and additionally requires a stored admin role.
+var platformOnlyModules = []Module{Memberships}
 
 // OrganizationModules returns the modules an organization credential -- a user's
 // JWT, or a service account's `ksh_` token -- can be granted, in declaration

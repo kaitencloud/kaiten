@@ -662,6 +662,11 @@ func TestEveryRegistrarPassesItsOwnPackagesRequiredScope(t *testing.T) {
 					return true
 				}
 
+				// Introspection declares authentication, deliberately no permission.
+				if name == "RegisterAuthorizationIntrospection" {
+					return true
+				}
+
 				// Register*(api, operation, scope, handler): the scope sits one past the
 				// operation, whichever registrar this is.
 				scopeArg := opArg + 1

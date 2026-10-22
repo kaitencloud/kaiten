@@ -332,7 +332,6 @@ func runTokens(outPath, context string) error {
 			claims := jwtutil.DevClaims(
 				user.ExternalID, user.Email, user.Name,
 				target.Org.ExternalID, target.Org.Name,
-				[]string{"read:*", "write:*"},
 			)
 			token, err := jwtutil.SignHS256([]byte(secret), claims)
 			if err != nil {

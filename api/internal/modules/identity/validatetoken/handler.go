@@ -158,7 +158,7 @@ func generateOrganizationJWT(data *TokenData) (string, error) {
 	claims := jwt.MapClaims{
 		"sub":                    data.SubjectExternalID,
 		"kaiten_external_org_id": data.OrganizationExternalID,
-		"scopes":                 data.Scopes,
+		"kaiten_token_id":        data.TokenID.String(),
 		"iat":                    now.Unix(),
 		"exp":                    clampedExpiry(now, data.ExpiresAt).Unix(),
 	}

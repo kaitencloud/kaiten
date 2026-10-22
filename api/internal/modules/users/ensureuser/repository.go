@@ -37,7 +37,7 @@ func NewCommandRepository(repository *db.Queries) *CommandRepository {
 // ON CONFLICT branch.
 func (r *CommandRepository) EnsureUser(
 	ctx context.Context, identity claims,
-) (uuid.UUID, *time.Time, error) {
+) (uuid.UUID, *time.Time, db.UserType, error) {
 	result, err := r.repository.EnsureUser(ctx, db.EnsureUserParams{
 		ID:         externalid.DeriveUserID(identity.subject),
 		ExternalID: identity.subject,
@@ -51,13 +51,13 @@ func (r *CommandRepository) EnsureUser(
 			// Verbatim the code and message JIT provisioning has always answered this
 			// with, including the quoted address: it reaches an HTTP client on the
 			// first-login path.
-			return uuid.Nil, nil, kaitenerrors.Conflict(
+			return uuid.Nil, nil, "", kaitenerrors.Conflict(
 				"Auth.EmailAlreadyProvisioned",
 				fmt.Sprintf("Email %q is already provisioned for a different identity", identity.email),
 			)
 		}
-		return uuid.Nil, nil, fmt.Errorf("ensure user: %w", err)
+		return uuid.Nil, nil, "", fmt.Errorf("ensure user: %w", err)
 	}
 
-	return result.ID, pgtime.PgTimeStampToTimePtr(result.DeletedAt), nil
+	return result.ID, pgtime.PgTimeStampToTimePtr(result.DeletedAt), result.Type, nil
 }

@@ -12,6 +12,20 @@ lives in PostgreSQL, accessed through sqlc. Code is organised as
 Prerequisites, the local stack and the pull request checklist are in the
 [DEVELOPMENT.md](../DEVELOPMENT.md) and [CONTRIBUTING.md](../CONTRIBUTING.md).
 
+Human user management and provider-independent authorization are documented in
+[users/README.md](internal/modules/users/README.md).
+
+`GET /api/authorization` introspects the authenticated organization caller's
+current stored grants, for humans and service tokens alike. It runs after the
+normal authentication/JIT/grant-resolution pipeline and requires no permission,
+so callers can observe an empty grant set after revocation. Its explicit DTO
+contains only `kind`, `userId`, `organizationId`, `externalOrganizationId`,
+`subject` and `scopes`; credentials and token identifiers are never returned.
+Responses set `Cache-Control: no-store`. Consumers must resolve on each request
+and fail closed if Core rejects the caller or cannot answer. This endpoint is
+registered with a fixed auth-only registrar, not an empty scope requirement;
+it performs no domain operation and is not the human-only `/me` profile API.
+
 ## Layout
 
 | Path | Holds |

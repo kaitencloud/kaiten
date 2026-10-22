@@ -266,9 +266,10 @@ func TestEveryHumaOperationDeclaresAScope(t *testing.T) {
 // to both walks, so TestCoreAndPlatformRegistrarsPartitionThePaths asserts every
 // name in it still exists.
 var registrarOperationArg = map[string]int{
-	"RegisterScoped":                  1,
-	"RegisterPlatform":                1,
-	"RegisterPlatformForOrganization": 1,
+	"RegisterScoped":                     1,
+	"RegisterAuthorizationIntrospection": 1,
+	"RegisterPlatform":                   1,
+	"RegisterPlatformForOrganization":    1,
 }
 
 // Fails when an operation is registered with the wrong registrar for the path it
@@ -325,7 +326,7 @@ func TestCoreAndPlatformRegistrarsPartitionThePaths(t *testing.T) {
 				if !isRegistrar {
 					return true
 				}
-				wantPlatform := name != "RegisterScoped"
+				wantPlatform := name != "RegisterScoped" && name != "RegisterAuthorizationIntrospection"
 
 				// Register*(api, operation, scope, handler).
 				if len(call.Args) <= opArg {
@@ -381,9 +382,10 @@ func TestCoreAndPlatformRegistrarsPartitionThePaths(t *testing.T) {
 // registrarOperationArg: a registrar in one map and not the other is a surface
 // with no credential class at all.
 var callerConstructorForRegistrar = map[string]string{
-	"RegisterScoped":                  "Organization",
-	"RegisterPlatform":                "Platform",
-	"RegisterPlatformForOrganization": "Platform",
+	"RegisterScoped":                     "Organization",
+	"RegisterAuthorizationIntrospection": "Organization",
+	"RegisterPlatform":                   "Platform",
+	"RegisterPlatformForOrganization":    "Platform",
 }
 
 // Fails when a registered operation's handler does not open by resolving a
@@ -440,6 +442,9 @@ func TestEveryRegisteredOperationResolvesItsCaller(t *testing.T) {
 
 				// Register*(api, operation, scope, handler): the handler is last.
 				handlerArg := opArg + 2
+				if name == "RegisterAuthorizationIntrospection" {
+					handlerArg = opArg + 1
+				}
 				if len(call.Args) <= handlerArg {
 					return true
 				}

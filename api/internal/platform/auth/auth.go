@@ -19,6 +19,7 @@ package auth
 import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -95,6 +96,9 @@ func parseJWTClaims(tokenString string) (jwt.MapClaims, error) {
 		return nil, kaitenerrors.Unauthorized("Auth.InvalidClaims", "Invalid JWT claims")
 	}
 
+	if _, present := claims["kaiten_token_id"]; present && token.Method.Alg() != "none" {
+		return nil, kaitenerrors.Unauthorized("Auth.InvalidToken", "Provider JWTs cannot identify an internal token")
+	}
 	return claims, nil
 }
 
@@ -109,7 +113,6 @@ func parseJWTClaims(tokenString string) (jwt.MapClaims, error) {
 func organizationIdentityFromClaims(claims jwt.MapClaims, tokenString string) (*principal.Principal, error) {
 	subject, subjectOk := claims["sub"].(string)
 	externalOrgID, orgOk := claims["kaiten_external_org_id"].(string)
-	scopesInterface, scopeOk := claims["scopes"].([]any)
 
 	if !subjectOk || subject == "" {
 		return nil, kaitenerrors.Unauthorized("Auth.MissingClaims", "Missing required JWT claims (sub)")
@@ -117,19 +120,20 @@ func organizationIdentityFromClaims(claims jwt.MapClaims, tokenString string) (*
 	if !orgOk || externalOrgID == "" {
 		return nil, kaitenerrors.Unauthorized("Auth.MissingClaims", "Missing required JWT claims (kaiten_external_org_id)")
 	}
-	if !scopeOk {
-		return nil, kaitenerrors.Unauthorized("Auth.MissingClaims", "Missing required JWT claims (scopes)")
-	}
 
-	scopes, err := convertScopes(scopesInterface)
-	if err != nil {
-		return nil, err
+	var tokenID uuid.UUID
+	if value, present := claims["kaiten_token_id"]; present {
+		raw, ok := value.(string)
+		var err error
+		tokenID, err = uuid.Parse(raw)
+		if !ok || err != nil || tokenID == uuid.Nil {
+			return nil, kaitenerrors.Unauthorized("Auth.InvalidToken", "Invalid internal credential identity")
+		}
 	}
-
 	return &principal.Principal{
-		Token:  tokenString,
-		Kind:   principal.KindOrganization,
-		Scopes: scopes,
+		OrganizationTokenID: tokenID,
+		Token:               tokenString,
+		Kind:                principal.KindOrganization,
 		Provisioning: principal.Provisioning{
 			Subject:                subject,
 			Email:                  claimString(claims, "email"),
@@ -143,16 +147,4 @@ func organizationIdentityFromClaims(claims jwt.MapClaims, tokenString string) (*
 func claimString(claims jwt.MapClaims, key string) string {
 	value, _ := claims[key].(string)
 	return value
-}
-
-func convertScopes(scopesInterface []any) ([]string, error) {
-	scopes := make([]string, 0, len(scopesInterface))
-	for _, scope := range scopesInterface {
-		scopeStr, ok := scope.(string)
-		if !ok {
-			return nil, kaitenerrors.Unauthorized("Auth.InvalidScopes", "Scopes must be an array of strings")
-		}
-		scopes = append(scopes, scopeStr)
-	}
-	return scopes, nil
 }

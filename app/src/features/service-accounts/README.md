@@ -2,6 +2,10 @@
 
 A service account is a non-human identity that holds API tokens, for automation and SDKs. This feature lists the service accounts with their tokens, creates a service account, creates a token with the scopes the user picks from a table, shows the token's value once, and revokes tokens. A token carries scopes of the form `read:<resource>` and `write:<resource>`.
 
+The scope picker excludes human-only user-management and own-profile scopes.
+Core additionally requires the stored administrator role for user management and
+rejects token delegation beyond the creator's current permissions.
+
 ## Routes
 
 | Path | Route file | What it renders |

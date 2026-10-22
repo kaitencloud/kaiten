@@ -87,9 +87,12 @@ type Principal struct {
 	// and only if Kind is KindPlatform. It arrives in the signed platform JWT, so
 	// it is not client-controllable, and it is what links a minted organization
 	// token back to its parent for cascade revocation and audit attribution.
-	PlatformTokenID uuid.UUID    `json:"-"`
-	Scopes          []string     `json:"scopes"`
-	Provisioning    Provisioning `json:"-"`
+	PlatformTokenID uuid.UUID `json:"-"`
+	// OrganizationTokenID identifies a proxy-exchanged machine credential. Its
+	// permissions are loaded from storage on every Core request.
+	OrganizationTokenID uuid.UUID    `json:"-"`
+	Scopes              []string     `json:"scopes"`
+	Provisioning        Provisioning `json:"-"`
 }
 
 // IsPlatform reports whether this is a platform credential. Nil-safe, because

@@ -7,6 +7,8 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/modules/identity/resolvetokenauthorization"
+	"github.com/kaitencloud/kaiten/api/internal/modules/users/resolveauthorization"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
 
@@ -143,4 +145,10 @@ func (k *Kaiten) OnStop(fn func()) {
 // Safe to call on an application that started nothing.
 func (k *Kaiten) Close() {
 	k.workers.StopAll()
+}
+
+// AuthorizationResolvers are authentication-path ports: they resolve grants
+// before a caller exists and cannot be used to mutate assignments.
+func (k *Kaiten) AuthorizationResolvers() (*resolveauthorization.UseCase, *resolvetokenauthorization.UseCase) {
+	return k.modules.Users.ResolveAuthorization, k.modules.Identity.ResolveTokenAuthorization
 }
