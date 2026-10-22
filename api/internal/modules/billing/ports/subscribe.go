@@ -40,3 +40,13 @@ type InstanceVersionMover interface {
 	// instance accepts now, in the caller's transaction.
 	OverQuota(ctx context.Context, instanceSlug string) ([]string, error)
 }
+
+// CheckoutFollower moves the anonymous checkout session an INCOMPLETE
+// subscription came from along with it, inside the caller's transaction,
+// after the subscription's rows (§9.12 rule 5): COMPLETED when its ACTIVATION
+// is paid, EXPIRED when it ends unpaid. A subscription no session waits on is
+// left alone. Implemented by the public SDK module.
+type CheckoutFollower interface {
+	Paid(ctx context.Context, organizationID, instanceID uuid.UUID) error
+	Ended(ctx context.Context, organizationID, instanceID uuid.UUID) error
+}

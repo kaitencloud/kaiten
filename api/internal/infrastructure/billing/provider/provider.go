@@ -161,6 +161,9 @@ type Adapter interface {
 	// SetDefaultPaymentMethod makes a payment method attached to the
 	// customer the one charged, and returns it.
 	SetDefaultPaymentMethod(ctx context.Context, ref Ref, externalCustomerID, externalPaymentMethodID string) (PaymentMethod, error)
+	// StampCustomer writes Kaiten's ids on a provider customer Kaiten did not
+	// create: the one an anonymous checkout's setup made (§12.9 step 3.4).
+	StampCustomer(ctx context.Context, ref Ref, externalCustomerID string, metadata map[string]string, idempotencyKey string) error
 }
 
 // PaymentMethod is a saved payment method as Kaiten shows it: labels only,
@@ -357,6 +360,16 @@ type SetupSession struct {
 	Currency           string
 	ReturnURL          string
 	Metadata           map[string]string
+
+	// The members below are the anonymous checkout's (§12.9); Tier 3 leaves
+	// them empty. With CustomerCreation, ExternalCustomerID is empty and the
+	// provider creates the customer, with CustomerEmail, when the page is
+	// completed. ReturnURL is then used as it is, with no session id added.
+	CustomerCreation bool
+	CustomerEmail    string
+	// ExpiresAt is when the page closes; zero is the provider's default.
+	ExpiresAt      time.Time
+	IdempotencyKey string
 }
 
 // SetupSessionLink is a hosted setup page.
@@ -368,7 +381,12 @@ type SetupSessionLink struct {
 
 // SetupSessionResult is a setup session's outcome.
 type SetupSessionResult struct {
-	Complete                bool
+	Complete bool
+	// Expired is a page that closed without being completed; URL and
+	// ExpiresAt are the page's while it is open.
+	Expired                 bool
+	URL                     string
+	ExpiresAt               time.Time
 	ExternalCustomerID      string
 	ExternalPaymentMethodID string
 	// Metadata is what the session was created with (Kaiten's customer id).

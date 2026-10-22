@@ -4,10 +4,13 @@
 // in one transaction under system:kaiten -- once nothing stands between the
 // visitor and the plan.
 //
-// Built so far: the completions that need no payment method, a FREE plan
-// (§9.12 rule 8) and a trial on a licence that requires none (rule 7). A
-// session that needs a payment method answers 503 .ProviderUnavailable until
-// the setup without a provider customer exists (Δ32-3.3).
+// A FREE plan (§9.12 rule 8), a trial on a licence that requires no payment
+// method (rule 7) and anything else with nothing to capture complete at once.
+// Otherwise the confirm opens a hosted setup page with no provider customer
+// (§12.9 step 1) and answers requires_payment_method; the confirm after it
+// completes, adopting the provider customer the page created. With an amount
+// due, the session waits for its ACTIVATION's payment (AWAITING_PAYMENT),
+// whose transaction completes it.
 package confirmcheckoutsession
 
 import (
@@ -15,6 +18,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,12 +28,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/checkoutsetup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkoutprogress"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsession"
@@ -56,6 +62,16 @@ type (
 	Subscriber interface {
 		Execute(ctx context.Context, instanceSlug string, cmd subscribeinstance.Command) (*subscribeinstance.StartedSubscription, error)
 		EnsureProviderCustomer(ctx context.Context, organizationID uuid.UUID, instanceSlug, providerKind string) error
+		PushInline(ctx context.Context, started *subscribeinstance.StartedSubscription)
+	}
+	// Setup is the provider side of the checkout (§12.9).
+	Setup interface {
+		Open(ctx context.Context, organizationID uuid.UUID, operation string, req checkoutsetup.Request) (checkoutsetup.Page, error)
+		Read(ctx context.Context, organizationID uuid.UUID, operation string, checkoutSessionID uuid.UUID, setupSessionID string) (checkoutsetup.Setup, error)
+		Adopt(ctx context.Context, organizationID uuid.UUID, operation string, setup checkoutsetup.Setup) (checkoutsetup.Adopted, error)
+		Link(ctx context.Context, organizationID, customerID uuid.UUID, customerSlug string, adopted checkoutsetup.Adopted) error
+		Stamp(ctx context.Context, organizationID, checkoutSessionID, customerID uuid.UUID, adopted checkoutsetup.Adopted)
+		getcheckoutsession.Payments
 	}
 )
 
@@ -68,6 +84,7 @@ type Deps struct {
 	Customers     CustomerCreator
 	Instances     InstanceCreator
 	Subscriber    Subscriber
+	Setup         Setup
 	UsageReporter services.UsageReporter
 }
 
@@ -104,6 +121,11 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	}
 	if err != nil {
 		return nil, err
+	}
+	if row.Status == db.CheckoutSessionStatusAWAITINGPAYMENT {
+		// Completed already, the session waits for its payment: answered as
+		// it now is.
+		return u.answer(ctx, organizationID, sessionID, nil)
 	}
 	if err := closed(row); err != nil {
 		return nil, err
@@ -151,6 +173,11 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			return nil, err
 		}
 		if consumed {
+			if row.ExternalSetupSessionID != nil {
+				// After a setup the visitor may have given a card for the
+				// amount shown: it is never charged another one.
+				return nil, dueTodayChanged()
+			}
 			if err := u.dropTrial(ctx, q, row, selection, addOns); err != nil {
 				return nil, err
 			}
@@ -166,13 +193,43 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	if err != nil {
 		return nil, err
 	}
-	if preview.Composition.Total != row.DueTodayMinor && row.SetupCompletedAt.Valid {
-		return nil, kaitenerrors.Conflict(operation+".DueTodayChanged", "what is due today changed since the start: start again to see the new amount")
+	due := preview.Composition.Total
+	// With an amount due the instance starts on the fallback family's free
+	// version, and the payment moves it to the one bought (§9.12 rule 4
+	// step 3). Checked before any setup, so no card is asked for in vain.
+	instanceLicenseID := licenseID
+	if due > 0 {
+		fallback, err := q.GetCheckoutFallbackLicense(ctx, db.GetCheckoutFallbackLicenseParams{OrganizationID: organizationID, LicenseID: licenseID})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, kaitenerrors.UnprocessableEntity(operation+".FallbackRequired",
+				"this plan names no free fallback plan to start on until the payment")
+		}
+		if err != nil {
+			return nil, err
+		}
+		instanceLicenseID = fallback
 	}
-	requiresMethod := !free && (preview.Composition.Total > 0 || plan.RequiresPaymentMethod)
+	requiresMethod := !free && (due > 0 || plan.RequiresPaymentMethod)
+	var adopted *checkoutsetup.Adopted
 	if requiresMethod {
-		return nil, kaitenerrors.Unavailable(operation+".ProviderUnavailable",
-			"saving a payment method for an anonymous checkout is not available yet: try again later").WithRetryAfter(30 * time.Second)
+		setup, page, err := u.setup(ctx, q, row)
+		if err != nil {
+			return nil, err
+		}
+		if page != nil {
+			return u.answer(ctx, organizationID, sessionID, page)
+		}
+		// What is charged is what the start showed (§9.12 rule 3, §24 #81).
+		if due != row.DueTodayMinor {
+			return nil, dueTodayChanged()
+		}
+		found, err := u.deps.Setup.Adopt(ctx, organizationID, operation, setup)
+		if err != nil {
+			return nil, err
+		}
+		adopted = &found
+	} else if due != row.DueTodayMinor {
+		return nil, dueTodayChanged()
 	}
 
 	// The creation limits, enforced before the transaction and compensated
@@ -186,6 +243,13 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		return nil, err
 	}
 	providerKind, _ := u.deps.Catalog.CapturingProvider(ctx, organizationID)
+	if adopted != nil {
+		providerKind = adopted.ProviderKind
+	}
+	var (
+		started    *subscribeinstance.StartedSubscription
+		customerID uuid.UUID
+	)
 	instanceSlug := ""
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(u.deps.Uof.DBTX(ctx))
@@ -205,6 +269,10 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 				return err
 			}
 			if consumed {
+				if adopted != nil {
+					// The amount changes, and the card is captured already.
+					return dueTodayChanged()
+				}
 				return errTrialTaken
 			}
 		}
@@ -213,59 +281,156 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		if err != nil {
 			return err
 		}
+		customerID = customer.ID
 		now := time.Now().UTC()
 		instance, err := u.deps.Instances.Persist(ctx, organizationID, user.ID, &createinstance.Command{
-			Name: email, Description: "", CustomerID: customer.ID, LicenseID: licenseID,
+			Name: email, Description: "", CustomerID: customer.ID, LicenseID: instanceLicenseID,
 			StartLicenseDate: now, EndLicenseDate: now.Add(licenceHorizon), Metadata: map[string]interface{}{},
 		})
 		if err != nil {
 			return err
 		}
 		instanceSlug = instance.Slug
+		if adopted != nil {
+			if err := u.deps.Setup.Link(ctx, organizationID, customer.ID, customer.Slug, *adopted); err != nil {
+				return err
+			}
+		}
 		cmd := subscribeinstance.Command{
 			BasePriceID: row.LicensePriceID, ProviderKind: "NOOP", CollectionMethod: ptr("SEND_INVOICE"),
-			TrialDays: trialDays, AddOns: addOns, AllowMissingPaymentMethod: true,
+			TrialDays: trialDays, AddOns: addOns, AllowMissingPaymentMethod: adopted == nil,
 		}
 		if !free && providerKind != "" {
 			cmd.ProviderKind, cmd.CollectionMethod = providerKind, ptr("CHARGE_AUTOMATICALLY")
 		}
-		if _, err := u.deps.Subscriber.Execute(ctx, instance.Slug, cmd); err != nil {
+		if due > 0 {
+			cmd.Incomplete, cmd.MoveToLicenseID, cmd.CallerPushes = true, &licenseID, true
+		}
+		if started, err = u.deps.Subscriber.Execute(ctx, instance.Slug, cmd); err != nil {
 			return err
 		}
-		done, err := q.CompleteCheckoutSession(ctx, db.CompleteCheckoutSessionParams{
+		if due > 0 {
+			_, err := q.AwaitCheckoutPayment(ctx, db.AwaitCheckoutPaymentParams{
+				CustomerID: &customer.ID, InstanceID: &instance.ID, OrganizationID: organizationID, ID: sessionID,
+			})
+			return err
+		}
+		if _, err := q.CompleteCheckoutSession(ctx, db.CompleteCheckoutSessionParams{
 			CustomerID: &customer.ID, InstanceID: &instance.ID, OrganizationID: organizationID, ID: sessionID,
-		})
+		}); err != nil {
+			return err
+		}
+		done, err := q.GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
 		if err != nil {
 			return err
 		}
 		return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(organizationID,
-			events.CheckoutSessionCompleted.Name, events.CheckoutSessionCompleted.Type, checkout.SessionEvent{
-				SessionID: done.ID, Email: done.Email, ClientReferenceID: done.ClientReferenceID, LicenseSlug: plan.LicenseSlug,
-				BillingPeriod: string(deref(row.PriceBillingPeriod)), CustomerSlug: &customer.Slug, InstanceSlug: &instance.Slug,
-				Status: checkout.StatusCompleted,
-			}, nil))
+			events.CheckoutSessionCompleted.Name, events.CheckoutSessionCompleted.Type,
+			checkoutprogress.Event(done, checkout.StatusCompleted), nil))
 	})
 	if err != nil {
 		compensate()
 		return nil, err
 	}
-	// Without a setup, on a provider that pushes invoices, the provider
-	// customer is created now, outside the transaction that created the
-	// Kaiten one (§9.12 rule 5). A failure undoes nothing.
-	if instanceSlug != "" && !free && providerKind != "" {
-		if err := u.deps.Subscriber.EnsureProviderCustomer(ctx, organizationID, instanceSlug, providerKind); err != nil {
-			slog.WarnContext(ctx, "anonymous checkout: the provider customer will be ensured later", "session_id", sessionID, "error", err)
+	if instanceSlug != "" {
+		switch {
+		case adopted != nil:
+			// The provider customer the page created carries the Kaiten ids
+			// from now on (§12.9 step 3.4).
+			u.deps.Setup.Stamp(ctx, organizationID, sessionID, customerID, *adopted)
+		case !free && providerKind != "":
+			// Without a setup, on a provider that pushes invoices, the
+			// provider customer is created now, outside the transaction that
+			// created the Kaiten one (§9.12 rule 5). A failure undoes nothing.
+			if err := u.deps.Subscriber.EnsureProviderCustomer(ctx, organizationID, instanceSlug, providerKind); err != nil {
+				slog.WarnContext(ctx, "anonymous checkout: the provider customer will be ensured later", "session_id", sessionID, "error", err)
+			}
+		}
+		if started != nil && due > 0 {
+			// Its payment, when it is immediate, completes the session.
+			u.deps.Subscriber.PushInline(ctx, started)
 		}
 	}
-	final, err := q.GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
+	return u.answer(ctx, organizationID, sessionID, nil)
+}
+
+// setup runs the setup page of a session that needs a payment method (§12.9
+// steps 1 and 3.1): opened when there is none, or a replacement when it
+// expired, and answered as a page while the visitor has not completed it.
+// Once completed, the setup is returned for the completion.
+func (u *UseCase) setup(ctx context.Context, q *db.Queries, row db.GetCheckoutSessionRow) (checkoutsetup.Setup, *checkoutsetup.Page, error) {
+	replaces := ""
+	if row.ExternalSetupSessionID != nil {
+		setup, err := u.deps.Setup.Read(ctx, row.OrganizationID, operation, row.ID, *row.ExternalSetupSessionID)
+		if err != nil {
+			return checkoutsetup.Setup{}, nil, err
+		}
+		switch {
+		case setup.Complete:
+			if !row.SetupCompletedAt.Valid {
+				if err := q.MarkCheckoutSetupCompleted(ctx, db.MarkCheckoutSetupCompletedParams{OrganizationID: row.OrganizationID, ID: row.ID}); err != nil {
+					return checkoutsetup.Setup{}, nil, err
+				}
+			}
+			return setup, nil, nil
+		case !setup.Expired:
+			return setup, &setup.Page, nil
+		}
+		replaces = *row.ExternalSetupSessionID
+	}
+	page, err := u.deps.Setup.Open(ctx, row.OrganizationID, operation, checkoutsetup.Request{
+		CheckoutSessionID: row.ID, Email: row.Email, Currency: row.Currency, ReturnURL: returnURL(row.ReturnUrl, row.ID),
+		ExpiresAt: row.ExpiresAt.Time.UTC(), Replaces: replaces,
+	})
+	if err != nil {
+		return checkoutsetup.Setup{}, nil, err
+	}
+	// Stored before the page is handed out (INV-03).
+	if err := q.SetCheckoutSetupSession(ctx, db.SetCheckoutSetupSessionParams{
+		ExternalSetupSessionID: &page.SessionID, OrganizationID: row.OrganizationID, ID: row.ID,
+	}); err != nil {
+		return checkoutsetup.Setup{}, nil, err
+	}
+	return checkoutsetup.Setup{}, &page, nil
+}
+
+// answer is the session as it now reads, with the setup page to send the
+// visitor to when there is one.
+func (u *UseCase) answer(ctx context.Context, organizationID, sessionID uuid.UUID, page *checkoutsetup.Page) (*checkout.CheckoutConfirmation, error) {
+	final, err := db.New(u.deps.Uof.DBTX(ctx)).GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
 	if err != nil {
 		return nil, err
 	}
-	session, err := getcheckoutsession.Read(ctx, u.deps.Activation, final)
+	session, err := getcheckoutsession.Read(ctx, u.deps.Activation, u.deps.Setup, final)
 	if err != nil {
 		return nil, err
 	}
-	return &checkout.CheckoutConfirmation{Status: checkout.ConfirmCompleted, SetupURL: nil, SetupExpiresAt: nil, Session: *session}, nil
+	out := &checkout.CheckoutConfirmation{Status: checkout.ConfirmCompleted, SetupURL: nil, SetupExpiresAt: nil, Session: *session}
+	switch {
+	case page != nil:
+		expires := page.ExpiresAt
+		out.Status, out.SetupURL, out.SetupExpiresAt = checkout.ConfirmRequiresPaymentMethod, &page.URL, &expires
+	case final.Status == db.CheckoutSessionStatusAWAITINGPAYMENT:
+		out.Status = checkout.ConfirmAwaitingPayment
+	}
+	return out, nil
+}
+
+// returnURL is where the provider sends the visitor back: the session's
+// returnUrl, naming the session, which nothing trusts (§12.9 step 1).
+func returnURL(raw string, sessionID uuid.UUID) string {
+	parsed, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+	query := parsed.Query()
+	query.Set("kaiten_checkout_session", sessionID.String())
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func dueTodayChanged() error {
+	return kaitenerrors.Conflict(operation+".DueTodayChanged", "what is due today changed since the start: start again to see the new amount")
 }
 
 // closed refuses a session that can no longer be confirmed (§14.8 confirm
@@ -278,9 +443,6 @@ func closed(row db.GetCheckoutSessionRow) error {
 	switch status {
 	case checkout.StatusOpen:
 		return nil
-	case checkout.StatusAwaitingPayment:
-		// Answered as it now is by the payment's path (Δ32-3.3).
-		return kaitenerrors.Conflict(operation+".SessionClosed", "this session waits for its payment")
 	}
 	return kaitenerrors.ConflictWithErrors(operation+".SessionClosed", "this checkout session is closed: start a new one",
 		&kaitenerrors.ErrorDetail{Message: "the session's status", Location: "path.sessionId", Value: map[string]any{"status": status}})
@@ -327,11 +489,3 @@ func (u *UseCase) enforceLimits(ctx context.Context, organizationID uuid.UUID) (
 }
 
 func ptr[T any](v T) *T { return &v }
-
-func deref[T any](v *T) T {
-	var zero T
-	if v == nil {
-		return zero
-	}
-	return *v
-}

@@ -89,6 +89,11 @@ func (Adapter) CreateSetupSession(context.Context, provider.Ref, provider.SetupS
 	return provider.SetupSessionLink{}, provider.ErrUnsupported
 }
 
+// StampCustomer implements provider.Adapter.
+func (Adapter) StampCustomer(context.Context, provider.Ref, string, map[string]string, string) error {
+	return provider.ErrUnsupported
+}
+
 // GetSetupSession implements provider.Adapter.
 func (Adapter) GetSetupSession(context.Context, provider.Ref, string) (provider.SetupSessionResult, error) {
 	return provider.SetupSessionResult{}, provider.ErrUnsupported

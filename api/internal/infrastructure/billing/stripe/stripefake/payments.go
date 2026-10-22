@@ -3,6 +3,7 @@ package stripefake
 import (
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -39,6 +40,7 @@ type checkoutSession struct {
 	Object     string            `json:"object"`
 	Mode       string            `json:"mode"`
 	Customer   string            `json:"customer"`
+	Email      string            `json:"customer_email,omitempty"`
 	Currency   string            `json:"currency,omitempty"`
 	Status     string            `json:"status"`
 	URL        string            `json:"url"`
@@ -113,6 +115,42 @@ func (f *Fake) SetCardOutcome(accountID, paymentMethodID, outcome string) {
 	}
 }
 
+// CustomerOf is a customer's e-mail and metadata in Stripe.
+func (f *Fake) CustomerOf(accountID, customerID string) (email string, metadata map[string]string, ok bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	c, found := f.acct(accountID).customers[customerID]
+	if !found {
+		return "", nil, false
+	}
+	out := map[string]string{}
+	for k, v := range c.Metadata {
+		out[k] = v
+	}
+	return c.Email, out, true
+}
+
+// ExpireSetupSession closes an open setup page unused, as Stripe does at its
+// expires_at.
+func (f *Fake) ExpireSetupSession(accountID, sessionID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if session, ok := f.acct(accountID).pay().sessions[sessionID]; ok && session.Status == "open" {
+		session.Status = "expired"
+	}
+}
+
+// SetupSessionOf is a setup session's customer, e-mail and form as created.
+func (f *Fake) SetupSessionOf(accountID, sessionID string) (customerID, email string, form url.Values, ok bool) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	session, found := f.acct(accountID).pay().sessions[sessionID]
+	if !found {
+		return "", "", nil, false
+	}
+	return session.Customer, session.Email, session.form, true
+}
+
 // DefaultPaymentMethod is the customer's default payment method in Stripe.
 func (f *Fake) DefaultPaymentMethod(accountID, customerID string) string {
 	f.mu.Lock()
@@ -122,8 +160,9 @@ func (f *Fake) DefaultPaymentMethod(accountID, customerID string) string {
 
 // CompleteSetupSession is the customer finishing a hosted setup page: a card
 // is saved on the session's customer (not as its default: Stripe's setup mode
-// does not set one) and checkout.session.completed is emitted. It returns the
-// card's id.
+// does not set one) and checkout.session.completed is emitted. A session
+// created with customer_creation=always has no customer until then: Stripe
+// creates it, with the session's e-mail. It returns the card's id.
 func (f *Fake) CompleteSetupSession(accountID, sessionID, brand, last4 string, expMonth, expYear int) string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -131,6 +170,14 @@ func (f *Fake) CompleteSetupSession(accountID, sessionID, brand, last4 string, e
 	session, ok := a.pay().sessions[sessionID]
 	if !ok {
 		return ""
+	}
+	if session.Customer == "" {
+		c := &customer{
+			ID: f.next("cus"), Object: "customer", Email: session.Email, Name: "", Metadata: map[string]string{},
+			Created: f.clock().Unix(),
+		}
+		a.customers[c.ID] = c
+		session.Customer = c.ID
 	}
 	pmID := f.attach(a, session.Customer, brand, last4, expMonth, expYear, CardSucceeds, false)
 	session.Status = "complete"
@@ -220,13 +267,31 @@ func (f *Fake) handlePayment(a *account, op, id string, form url.Values) (int, [
 		if form.Get("mode") != "setup" {
 			return invalid("mode", "this fake only knows setup sessions")
 		}
-		c, ok := a.customers[form.Get("customer")]
-		if !ok || c.Deleted {
-			return missing("customer", form.Get("customer"))
+		customerID := ""
+		switch {
+		case form.Get("customer_creation") == "always":
+			// Stripe accepts customer_update only with customer.
+			if form.Get("customer") != "" || form.Get("customer_update[address]") != "" || form.Get("customer_update[name]") != "" {
+				return invalid("customer_creation", "customer_creation cannot be used with customer or customer_update.")
+			}
+		default:
+			c, ok := a.customers[form.Get("customer")]
+			if !ok || c.Deleted {
+				return missing("customer", form.Get("customer"))
+			}
+			customerID = c.ID
+		}
+		expiresAt := now.Add(24 * time.Hour).Unix()
+		if raw := form.Get("expires_at"); raw != "" {
+			at, err := strconv.ParseInt(raw, 10, 64)
+			if err != nil || at < now.Add(30*time.Minute).Unix() || at > now.Add(24*time.Hour).Unix() {
+				return invalid("expires_at", "expires_at must be between 30 minutes and 24 hours from now.")
+			}
+			expiresAt = at
 		}
 		session := &checkoutSession{
-			ID: f.next("cs"), Object: "checkout.session", Mode: "setup", Customer: c.ID, Currency: form.Get("currency"),
-			Status: "open", ExpiresAt: now.Add(24 * time.Hour).Unix(), SuccessURL: form.Get("success_url"),
+			ID: f.next("cs"), Object: "checkout.session", Mode: "setup", Customer: customerID, Email: form.Get("customer_email"),
+			Currency: form.Get("currency"), Status: "open", ExpiresAt: expiresAt, SuccessURL: form.Get("success_url"),
 			CancelURL: form.Get("cancel_url"), Metadata: metadata(form), form: form,
 		}
 		session.URL = "https://checkout.stripe.test/c/" + session.ID
@@ -238,9 +303,16 @@ func (f *Fake) handlePayment(a *account, op, id string, form url.Values) (int, [
 		if !ok {
 			return missing("checkout.session", id)
 		}
+		if session.Status == "open" && now.Unix() >= session.ExpiresAt {
+			session.Status = "expired"
+		}
+		var sessionCustomer any
+		if session.Customer != "" {
+			sessionCustomer = session.Customer
+		}
 		out := map[string]any{}
 		for k, v := range map[string]any{
-			"id": session.ID, "object": session.Object, "mode": session.Mode, "customer": session.Customer,
+			"id": session.ID, "object": session.Object, "mode": session.Mode, "customer": sessionCustomer,
 			"status": session.Status, "url": session.URL, "expires_at": session.ExpiresAt, "metadata": session.Metadata,
 		} {
 			out[k] = v

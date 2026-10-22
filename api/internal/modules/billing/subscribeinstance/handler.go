@@ -74,6 +74,11 @@ type Command struct {
 	// required (§14.4 rule 4). The first charge then fails and the
 	// subscription goes PAST_DUE (§9.2 rule 4) unless a card is added first.
 	AllowMissingPaymentMethod bool
+	// CallerPushes is a caller whose transaction the subscribe joins and
+	// which pushes the ACTIVATION itself once it commits, with PushInline:
+	// the invoice is leased to that push from its composition, as when the
+	// commit is the subscribe's own (§9.12 rule 5).
+	CallerPushes bool
 	// DryRun composes the subscription and its ACTIVATION invoice, then rolls
 	// everything back: what a checkout preview shows is what it would bill.
 	DryRun bool
@@ -467,7 +472,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				Terms: terms, Hold: nil, ReplacesInvoiceID: nil,
 				Pushes: pushes, PushLeasedUntil: nil, Now: now,
 			}
-			if ownsCommit && u.pushesInline(cmd, pushes, terms.CollectionMethod, composition.Total) {
+			if (ownsCommit || cmd.CallerPushes) && u.pushesInline(cmd, pushes, terms.CollectionMethod, composition.Total) {
 				// Leased to the push this call makes once it commits.
 				leasedUntil := now.Add(pushing.InlineLease)
 				draft.PushLeasedUntil = &leasedUntil
@@ -524,6 +529,13 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		u.pushInline(ctx, started)
 	}
 	return started, nil
+}
+
+// PushInline is the push a caller that set CallerPushes makes once its
+// transaction committed: the ACTIVATION pushed and charged, and the answer
+// refreshed from what was persisted.
+func (u *UseCase) PushInline(ctx context.Context, started *StartedSubscription) {
+	u.pushInline(ctx, started)
 }
 
 // pushInline pushes and charges an ACTIVATION charged automatically, right

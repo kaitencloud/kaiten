@@ -36,6 +36,9 @@ type Deps struct {
 	Attacher ports.AddonAttacher
 	Redeemer ports.VoucherRedeemer
 	Mover    ports.InstanceVersionMover
+	// Checkouts follows an INCOMPLETE subscription's anonymous checkout
+	// session to its payment or its end (§9.12 rule 5). Nil: none followed.
+	Checkouts ports.CheckoutFollower
 	// Providers resolves the payment providers invoices are issued through.
 	Providers provider.Registry
 	// ProviderTimeout bounds one call to a provider.

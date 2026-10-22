@@ -49,6 +49,64 @@ func (q *Queries) AuthenticateCheckoutSession(ctx context.Context, lookupHash st
 	return i, err
 }
 
+const awaitCheckoutPayment = `-- name: AwaitCheckoutPayment :one
+UPDATE checkout_session
+SET status      = 'AWAITING_PAYMENT',
+    customer_id = $1,
+    instance_id = $2,
+    updated_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $3
+  AND id = $4
+  AND status = 'OPEN'
+RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+`
+
+type AwaitCheckoutPaymentParams struct {
+	CustomerID     *uuid.UUID `json:"customer_id"`
+	InstanceID     *uuid.UUID `json:"instance_id"`
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	ID             uuid.UUID  `json:"id"`
+}
+
+// A completion with an amount due (§9.12 rule 4 step 6): AWAITING_PAYMENT,
+// with what it created, until the ACTIVATION is paid or the subscription ends.
+func (q *Queries) AwaitCheckoutPayment(ctx context.Context, arg AwaitCheckoutPaymentParams) (CheckoutSession, error) {
+	row := q.db.QueryRow(ctx, awaitCheckoutPayment,
+		arg.CustomerID,
+		arg.InstanceID,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	var i CheckoutSession
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.PublishableKeyID,
+		&i.LookupHash,
+		&i.Status,
+		&i.Email,
+		&i.ClientReferenceID,
+		&i.LicensePriceID,
+		&i.Selection,
+		&i.DueTodayMinor,
+		&i.Currency,
+		&i.TrialRefusedReason,
+		&i.ReturnUrl,
+		&i.ExternalSetupSessionID,
+		&i.SetupCompletedAt,
+		&i.CustomerID,
+		&i.InstanceID,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.CompletedAt,
+		&i.AbandonedAt,
+		&i.ExpiredAt,
+		&i.ClosedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const completeCheckoutSession = `-- name: CompleteCheckoutSession :one
 UPDATE checkout_session
 SET status       = 'COMPLETED',
@@ -106,6 +164,59 @@ func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheck
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const expireCheckoutSession = `-- name: ExpireCheckoutSession :exec
+UPDATE checkout_session
+SET status     = 'EXPIRED',
+    expired_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $1
+  AND id = $2
+  AND status = 'AWAITING_PAYMENT'
+`
+
+type ExpireCheckoutSessionParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+// Its INCOMPLETE subscription expired or was canceled unpaid: EXPIRED,
+// closed; the customer and the instance remain.
+func (q *Queries) ExpireCheckoutSession(ctx context.Context, arg ExpireCheckoutSessionParams) error {
+	_, err := q.db.Exec(ctx, expireCheckoutSession, arg.OrganizationID, arg.ID)
+	return err
+}
+
+const getCheckoutFallbackLicense = `-- name: GetCheckoutFallbackLicense :one
+SELECT fallback.id
+FROM license l
+JOIN license_family f
+  ON f.id = l.family_id
+ AND f.organization_id = l.organization_id
+JOIN license fallback
+  ON fallback.family_id = f.fallback_license_family_id
+ AND fallback.organization_id = f.organization_id
+WHERE l.organization_id = $1
+  AND l.id = $2
+  AND fallback.is_default
+  AND fallback.lifecycle_state = 'PUBLISHED'
+`
+
+type GetCheckoutFallbackLicenseParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+}
+
+// The default PUBLISHED version of the fallback family the family of this
+// licence version names: the free plan a completion with an amount due
+// creates the instance on, until the payment (§9.12 rule 4 step 3).
+func (q *Queries) GetCheckoutFallbackLicense(ctx context.Context, arg GetCheckoutFallbackLicenseParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getCheckoutFallbackLicense, arg.OrganizationID, arg.LicenseID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getCheckoutSession = `-- name: GetCheckoutSession :one
@@ -313,6 +424,29 @@ func (q *Queries) InsertCheckoutSession(ctx context.Context, arg InsertCheckoutS
 	return i, err
 }
 
+const lockAwaitingCheckoutSession = `-- name: LockAwaitingCheckoutSession :one
+SELECT cs.id
+FROM checkout_session cs
+WHERE cs.organization_id = $1
+  AND cs.instance_id = $2
+  AND cs.status = 'AWAITING_PAYMENT'
+FOR UPDATE
+`
+
+type LockAwaitingCheckoutSessionParams struct {
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	InstanceID     *uuid.UUID `json:"instance_id"`
+}
+
+// The session an INCOMPLETE subscription's instance came from, still waiting
+// on its payment, locked after the subscription's rows (§9.12 rule 5).
+func (q *Queries) LockAwaitingCheckoutSession(ctx context.Context, arg LockAwaitingCheckoutSessionParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockAwaitingCheckoutSession, arg.OrganizationID, arg.InstanceID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const lockCheckoutSession = `-- name: LockCheckoutSession :one
 SELECT id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
 FROM checkout_session
@@ -376,6 +510,50 @@ func (q *Queries) LockTrialEmail(ctx context.Context, arg LockTrialEmailParams) 
 	return err
 }
 
+const markCheckoutSetupCompleted = `-- name: MarkCheckoutSetupCompleted :exec
+UPDATE checkout_session
+SET setup_completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at         = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $1
+  AND id = $2
+  AND status = 'OPEN'
+  AND setup_completed_at IS NULL
+`
+
+type MarkCheckoutSetupCompletedParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+// The provider reported the setup complete (§12.9 step 3.1): from then on the
+// completion is retried until it succeeds or step (f) gives up.
+func (q *Queries) MarkCheckoutSetupCompleted(ctx context.Context, arg MarkCheckoutSetupCompletedParams) error {
+	_, err := q.db.Exec(ctx, markCheckoutSetupCompleted, arg.OrganizationID, arg.ID)
+	return err
+}
+
+const payCheckoutSession = `-- name: PayCheckoutSession :exec
+UPDATE checkout_session
+SET status       = 'COMPLETED',
+    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $1
+  AND id = $2
+  AND status = 'AWAITING_PAYMENT'
+`
+
+type PayCheckoutSessionParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+// Its ACTIVATION paid: COMPLETED, closed.
+func (q *Queries) PayCheckoutSession(ctx context.Context, arg PayCheckoutSessionParams) error {
+	_, err := q.db.Exec(ctx, payCheckoutSession, arg.OrganizationID, arg.ID)
+	return err
+}
+
 const repriceCheckoutSession = `-- name: RepriceCheckoutSession :exec
 UPDATE checkout_session
 SET trial_refused_reason = $1,
@@ -406,6 +584,28 @@ func (q *Queries) RepriceCheckoutSession(ctx context.Context, arg RepriceCheckou
 		arg.OrganizationID,
 		arg.ID,
 	)
+	return err
+}
+
+const setCheckoutSetupSession = `-- name: SetCheckoutSetupSession :exec
+UPDATE checkout_session
+SET external_setup_session_id = $1,
+    updated_at                = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $2
+  AND id = $3
+  AND status = 'OPEN'
+`
+
+type SetCheckoutSetupSessionParams struct {
+	ExternalSetupSessionID *string   `json:"external_setup_session_id"`
+	OrganizationID         uuid.UUID `json:"organization_id"`
+	ID                     uuid.UUID `json:"id"`
+}
+
+// The provider's setup session a confirm opened, stored before its URL is
+// answered (§12.9 step 1, INV-03); a replacement takes the expired one's place.
+func (q *Queries) SetCheckoutSetupSession(ctx context.Context, arg SetCheckoutSetupSessionParams) error {
+	_, err := q.db.Exec(ctx, setCheckoutSetupSession, arg.ExternalSetupSessionID, arg.OrganizationID, arg.ID)
 	return err
 }
 

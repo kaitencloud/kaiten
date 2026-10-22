@@ -86,12 +86,22 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 	if err != nil {
 		return false, err
 	}
-	return true, box.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+	if err := box.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 		sub.OrganizationID, events.InstanceBillingStatusChanged.Name, events.InstanceBillingStatusChanged.Type,
 		subscriptions.StatusChange{
 			InstanceBillingID: settled.ID, InstanceSlug: settled.InstanceSlug,
 			From: string(sub.Status), To: string(settled.Status), Reason: "SETTLED",
-		}, nil))
+		}, nil)); err != nil {
+		return false, err
+	}
+	// The anonymous checkout it came from, last: its lock follows the
+	// subscription's rows (§9.12 rule 5).
+	if deps.Checkouts != nil {
+		if err := deps.Checkouts.Paid(ctx, sub.OrganizationID, *sub.InstanceID); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 // apply attaches the selected add-ons and redeems the voucher, under their

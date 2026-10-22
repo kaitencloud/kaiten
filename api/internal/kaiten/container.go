@@ -31,6 +31,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkoutprogress"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers"
@@ -191,6 +192,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Redeemer:  voucherModule.RedeemVoucher,
 		Mover:     instanceModule.UpdateInstance,
 		Expiry:    voucherModule.Expiry,
+		Checkouts: checkoutprogress.New(svc.Uof),
 	})
 	customerModule := customers.NewUseCases(svc)
 
@@ -220,6 +222,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 			CheckoutCustomers:  customerModule.CreateCustomer,
 			CheckoutInstances:  instanceModule.CreateInstance,
 			CheckoutSubscriber: billingModule.SubscribeInstance,
+			CheckoutSetup:      billingModule.CheckoutSetup,
 			CustomerBilling:    billingModule.GetCustomerBilling,
 			OpenSetup:          billingModule.CreatePaymentMethodSession,
 			CompleteSetup:      billingModule.CompletePaymentMethodSession,

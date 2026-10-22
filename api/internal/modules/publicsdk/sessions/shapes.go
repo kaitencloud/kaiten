@@ -158,3 +158,35 @@ func SubscriptionFrom(billing subscriptions.InstanceBilling) SessionSubscription
 	}
 	return out
 }
+
+// Payment statuses of an ACTIVATION invoice (§14.4 rule 9).
+const (
+	PaymentPaid           = "paid"
+	PaymentRequiresAction = "requires_action"
+	PaymentFailed         = "failed"
+	PaymentProcessing     = "processing"
+	PaymentNotRequired    = "not_required"
+)
+
+// PaymentOf is how paying an ACTIVATION went, from the invoice as persisted,
+// and where the customer pays or authenticates it.
+func PaymentOf(invoice invoices.Invoice) (status string, hostedInvoiceURL *string) {
+	var lastError *string
+	if invoice.Provider != nil {
+		hostedInvoiceURL, lastError = invoice.Provider.HostedInvoiceURL, invoice.Provider.LastPaymentError
+	}
+	switch {
+	case invoice.Total <= 0:
+		return PaymentNotRequired, nil
+	case invoice.Status == "PAID":
+		return PaymentPaid, hostedInvoiceURL
+	case invoice.Status == "PAYMENT_FAILED" && lastError != nil && *lastError == "authentication_required":
+		return PaymentRequiresAction, hostedInvoiceURL
+	case invoice.Status == "PAYMENT_FAILED":
+		return PaymentFailed, hostedInvoiceURL
+	default:
+		// DRAFT or PUSH_FAILED: the push did not finish in time; PUSHED: the
+		// charge has no answer yet. The queue carries on either way.
+		return PaymentProcessing, hostedInvoiceURL
+	}
+}

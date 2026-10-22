@@ -88,6 +88,7 @@ type Ports struct {
 	CheckoutCustomers  confirmcheckoutsession.CustomerCreator
 	CheckoutInstances  confirmcheckoutsession.InstanceCreator
 	CheckoutSubscriber confirmcheckoutsession.Subscriber
+	CheckoutSetup      confirmcheckoutsession.Setup
 	CustomerBilling    createsessioncheckout.CustomerBillingReader
 	OpenSetup          createsessioncheckout.SetupSessionOpener
 	CompleteSetup      createsessioncheckout.SetupSessionCompleter
@@ -141,11 +142,11 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
 			Turnstile: turnstile.NewClient(svc.Config.Billing.TurnstileVerifyURL),
 		}),
-		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation}),
+		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation, Payments: from.CheckoutSetup}),
 		ConfirmCheckoutSession: confirmcheckoutsession.NewUseCase(confirmcheckoutsession.Deps{
 			UserProvider: svc.UserProvider, Uof: svc.Uof, Catalog: catalog, Activation: from.Activation,
 			Customers: from.CheckoutCustomers, Instances: from.CheckoutInstances, Subscriber: from.CheckoutSubscriber,
-			UsageReporter: svc.UsageReporter,
+			Setup: from.CheckoutSetup, UsageReporter: svc.UsageReporter,
 		}),
 		ListSessionInvoices: listsessioninvoices.NewUseCase(from.SessionInvoices),
 

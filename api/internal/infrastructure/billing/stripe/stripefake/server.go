@@ -351,6 +351,12 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		if name := form.Get("name"); name != "" {
 			c.Name = name
 		}
+		for k, v := range metadata(form) {
+			if c.Metadata == nil {
+				c.Metadata = map[string]string{}
+			}
+			c.Metadata[k] = v
+		}
 		if status, body, refused := f.updateDefault(a, c.ID, form); refused {
 			return status, body
 		}

@@ -40,6 +40,7 @@ func TestStripeSpike(t *testing.T) {
 	t.Run("§12.4 rule 4: what days_until_due counts from", s.dueDateSemantics)
 	t.Run("§12.5: days_until_due = 0", s.zeroDaysUntilDue)
 	t.Run("§12.5 spike 1: tax ids and customer updates in a setup session", s.setupSessionOptions)
+	t.Run("§12.9: a setup session that creates its customer (§24 #73)", s.setupSessionCreatingItsCustomer)
 	t.Run("§8.5 rule 6: the currencies Kaiten refuses", s.refusedCurrencies)
 }
 
@@ -464,6 +465,43 @@ func (s *spike) setupSessionOptions(t *testing.T) {
 		t.Errorf("the session does not collect tax ids: %+v", session.TaxIDCollection)
 	}
 	s.finding(t, "the adapter's setup session is accepted with tax_id_collection and customer_update (§12.5)")
+}
+
+// setupSessionCreatingItsCustomer is the anonymous checkout's page: no
+// customer, customer_creation=always with tax_id_collection, and an
+// expires_at shorter than Stripe's default. That the customer Checkout
+// creates carries the e-mail, the address and the tax id collected needs the
+// page completed in a browser, which this run cannot do.
+func (s *spike) setupSessionCreatingItsCustomer(t *testing.T) {
+	ref := s.ref(Settings{AutomaticTax: false, TaxBehavior: TaxExclusive, AutoFinalize: true})
+	expiresAt := time.Now().Add(2 * time.Hour).Truncate(time.Second)
+	link, err := s.adapter.CreateSetupSession(context.Background(), ref, provider.SetupSession{
+		Currency: "EUR", ReturnURL: "https://sandbox.kaiten.test/pricing?kaiten_checkout_session=" + uuid.NewString(),
+		Metadata:         map[string]string{"kaiten_checkout_session_id": uuid.NewString()},
+		CustomerCreation: true, CustomerEmail: "sandbox+" + uuid.NewString()[:8] + "@kaiten.test",
+		ExpiresAt: expiresAt, IdempotencyKey: ref.OrganizationID.String() + ":checkout:" + uuid.NewString() + ":setup",
+	})
+	if err != nil {
+		s.finding(t, "a setup session with customer_creation=always and tax_id_collection but no customer is refused: %v", err)
+		t.Errorf("CreateSetupSession: %v", err)
+		return
+	}
+	session, err := s.sc.V1CheckoutSessions.Retrieve(context.Background(), link.SessionID, nil)
+	if err != nil {
+		t.Fatalf("read the session: %v", err)
+	}
+	if session.Customer != nil {
+		t.Errorf("the session has a customer before it is completed: %s", session.Customer.ID)
+	}
+	if session.TaxIDCollection == nil || !session.TaxIDCollection.Enabled {
+		t.Errorf("the session does not collect tax ids: %+v", session.TaxIDCollection)
+	}
+	if got := time.Unix(session.ExpiresAt, 0); !got.Equal(expiresAt) {
+		s.finding(t, "expires_at is not honoured: asked %s, got %s", expiresAt.UTC(), got.UTC())
+		t.Errorf("expires_at: asked %s, got %s", expiresAt, got)
+		return
+	}
+	s.finding(t, "a setup session with customer_creation=always and tax_id_collection but no customer is accepted, and its expires_at honoured (§12.9)")
 }
 
 func (s *spike) refusedCurrencies(t *testing.T) {

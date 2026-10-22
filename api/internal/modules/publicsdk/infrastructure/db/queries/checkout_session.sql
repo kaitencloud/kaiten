@@ -51,6 +51,24 @@ SELECT EXISTS (SELECT 1
                  AND fallback.lifecycle_state = 'PUBLISHED')::boolean AS has_fallback;
 
 
+-- name: GetCheckoutFallbackLicense :one
+-- The default PUBLISHED version of the fallback family the family of this
+-- licence version names: the free plan a completion with an amount due
+-- creates the instance on, until the payment (§9.12 rule 4 step 3).
+SELECT fallback.id
+FROM license l
+JOIN license_family f
+  ON f.id = l.family_id
+ AND f.organization_id = l.organization_id
+JOIN license fallback
+  ON fallback.family_id = f.fallback_license_family_id
+ AND fallback.organization_id = f.organization_id
+WHERE l.organization_id = sqlc.arg(organization_id)
+  AND l.id = sqlc.arg(license_id)
+  AND fallback.is_default
+  AND fallback.lifecycle_state = 'PUBLISHED';
+
+
 -- name: InsertCheckoutSession :one
 -- The one row an anonymous checkout's start writes (INV-34): OPEN for 24 h.
 INSERT INTO checkout_session (organization_id, publishable_key_id, lookup_hash, email, client_reference_id,
@@ -131,3 +149,76 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- One trial per e-mail and family, under concurrency (INV-35, §24 #79): the
 -- completion that may start a trial serializes on (organization, e-mail).
 SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg(organization_id)::text || ':' || lower(sqlc.arg(email)::text), 0));
+
+
+-- name: SetCheckoutSetupSession :exec
+-- The provider's setup session a confirm opened, stored before its URL is
+-- answered (§12.9 step 1, INV-03); a replacement takes the expired one's place.
+UPDATE checkout_session
+SET external_setup_session_id = sqlc.arg(external_setup_session_id),
+    updated_at                = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN';
+
+
+-- name: MarkCheckoutSetupCompleted :exec
+-- The provider reported the setup complete (§12.9 step 3.1): from then on the
+-- completion is retried until it succeeds or step (f) gives up.
+UPDATE checkout_session
+SET setup_completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at         = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+  AND setup_completed_at IS NULL;
+
+
+-- name: AwaitCheckoutPayment :one
+-- A completion with an amount due (§9.12 rule 4 step 6): AWAITING_PAYMENT,
+-- with what it created, until the ACTIVATION is paid or the subscription ends.
+UPDATE checkout_session
+SET status      = 'AWAITING_PAYMENT',
+    customer_id = sqlc.arg(customer_id),
+    instance_id = sqlc.arg(instance_id),
+    updated_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+RETURNING *;
+
+
+-- name: LockAwaitingCheckoutSession :one
+-- The session an INCOMPLETE subscription's instance came from, still waiting
+-- on its payment, locked after the subscription's rows (§9.12 rule 5).
+SELECT cs.id
+FROM checkout_session cs
+WHERE cs.organization_id = sqlc.arg(organization_id)
+  AND cs.instance_id = sqlc.arg(instance_id)
+  AND cs.status = 'AWAITING_PAYMENT'
+FOR UPDATE;
+
+
+-- name: PayCheckoutSession :exec
+-- Its ACTIVATION paid: COMPLETED, closed.
+UPDATE checkout_session
+SET status       = 'COMPLETED',
+    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'AWAITING_PAYMENT';
+
+
+-- name: ExpireCheckoutSession :exec
+-- Its INCOMPLETE subscription expired or was canceled unpaid: EXPIRED,
+-- closed; the customer and the instance remain.
+UPDATE checkout_session
+SET status     = 'EXPIRED',
+    expired_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'AWAITING_PAYMENT';

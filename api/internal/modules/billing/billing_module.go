@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ackhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelplanchange"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelsubscription"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/checkoutsetup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/claimhandoff"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closebillingperiods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
@@ -67,6 +68,7 @@ type Ports struct {
 	Redeemer  ports.VoucherRedeemer
 	Mover     ports.InstanceVersionMover
 	Expiry    ports.VoucherExpiry
+	Checkouts ports.CheckoutFollower
 }
 
 type UseCases struct {
@@ -111,6 +113,8 @@ type UseCases struct {
 	CompletePaymentMethodSession *completepaymentmethodsession.UseCase
 	CreatePortalSession          *createportalsession.UseCase
 	DetachPaymentMethod          *detachpaymentmethod.UseCase
+	// CheckoutSetup is the provider side of an anonymous checkout (§12.9).
+	CheckoutSetup *checkoutsetup.UseCase
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -125,6 +129,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Attacher:        from.Attacher,
 		Redeemer:        from.Redeemer,
 		Mover:           from.Mover,
+		Checkouts:       from.Checkouts,
 		Providers:       svc.BillingProviders,
 		ProviderTimeout: svc.Config.Billing.Provider.Timeout,
 
@@ -175,6 +180,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CompletePaymentMethodSession: completepaymentmethodsession.NewUseCase(deps),
 		CreatePortalSession:          createportalsession.NewUseCase(deps),
 		DetachPaymentMethod:          detachpaymentmethod.NewUseCase(deps),
+		CheckoutSetup:                checkoutsetup.NewUseCase(deps),
 	}
 
 	// The billing jobs run only where billing is on and background work runs.

@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
@@ -20,10 +21,16 @@ import (
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
+// Payments reads the ACTIVATION of the instance a completion created.
+type Payments interface {
+	Activation(ctx context.Context, organizationID, instanceID uuid.UUID) (*invoices.Invoice, error)
+}
+
 // Deps is what the read needs.
 type Deps struct {
 	Uof        *uow.UnitOfWork
 	Activation createcheckoutsession.Activation
+	Payments   Payments
 }
 
 type UseCase struct{ deps Deps }
@@ -41,14 +48,14 @@ func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UU
 	if err != nil {
 		return nil, err
 	}
-	return Read(ctx, u.deps.Activation, row)
+	return Read(ctx, u.deps.Activation, u.deps.Payments, row)
 }
 
 // Read shows a session row as the API returns it: an OPEN session past its
 // expiry reads ABANDONED before billing-lifecycle step (f) marks it, and
 // dueToday is priced again from the stored selection, the prices of a
 // published version being immutable (D-46).
-func Read(ctx context.Context, activation createcheckoutsession.Activation, row db.GetCheckoutSessionRow) (*checkout.CheckoutSession, error) {
+func Read(ctx context.Context, activation createcheckoutsession.Activation, payments Payments, row db.GetCheckoutSessionRow) (*checkout.CheckoutSession, error) {
 	var selection checkout.Selection
 	if err := json.Unmarshal(row.Selection, &selection); err != nil {
 		return nil, err
@@ -96,5 +103,17 @@ func Read(ctx context.Context, activation createcheckoutsession.Activation, row 
 	}
 	free := row.LicensePricingType == db.PricingTypeFREE
 	out.RequiresPaymentMethod = !free && (out.DueToday.Total > 0 || row.LicenseRequiresPaymentMethod)
+	// Once completed, the payment of the ACTIVATION it issued, if any.
+	if row.InstanceID != nil && payments != nil {
+		invoice, err := payments.Activation(ctx, row.OrganizationID, *row.InstanceID)
+		if err != nil {
+			return nil, err
+		}
+		if invoice != nil {
+			shown := sessions.InvoiceFrom(*invoice)
+			status, hosted := sessions.PaymentOf(*invoice)
+			out.ActivationInvoice, out.Payment = &shown, &checkout.CheckoutPayment{Status: status, HostedInvoiceURL: hosted}
+		}
+	}
 	return out, nil
 }

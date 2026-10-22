@@ -163,3 +163,55 @@ func TestCapabilitiesIncludeAutomaticCollection(t *testing.T) {
 	require.True(t, capabilities.PaymentMethodCapture)
 	require.True(t, capabilities.BillingPortal)
 }
+
+// TestSetupSessionCreatingItsCustomer: the anonymous checkout's page (§12.9)
+// sends customer_creation=always and customer_email in place of customer and
+// customer_update, its return URL as it is, its expiry and its key; Stripe
+// creates the customer when the page is completed, and the stamp writes the
+// Kaiten ids on it.
+func TestSetupSessionCreatingItsCustomer(t *testing.T) {
+	f := newFixture(t, stripe.Settings{})
+	expiresAt := f.fake.Now().Add(2 * time.Hour).Truncate(time.Second)
+	link, err := f.adapter.CreateSetupSession(f.ctx, f.ref, provider.SetupSession{
+		Currency: "EUR", ReturnURL: "https://shop.acme.test/pricing?kaiten_checkout_session=cs1",
+		Metadata:         map[string]string{"kaiten_checkout_session_id": "cs1"},
+		CustomerCreation: true, CustomerEmail: "founder@startup.test", ExpiresAt: expiresAt, IdempotencyKey: "org:checkout:cs1:setup",
+	})
+	require.NoError(t, err)
+	require.Equal(t, expiresAt.UTC(), link.ExpiresAt)
+	create := f.fake.CallsOf(stripefake.OpCreateCheckoutSession)[0]
+	require.Equal(t, "always", create.Form.Get("customer_creation"))
+	require.Equal(t, "founder@startup.test", create.Form.Get("customer_email"))
+	require.Empty(t, create.Form.Get("customer"))
+	require.Empty(t, create.Form.Get("customer_update[address]"))
+	require.Equal(t, "true", create.Form.Get("tax_id_collection[enabled]"))
+	require.Equal(t, "https://shop.acme.test/pricing?kaiten_checkout_session=cs1", create.Form.Get("success_url"))
+	require.Equal(t, "org:checkout:cs1:setup", create.IdempotencyKey)
+
+	open, err := f.adapter.GetSetupSession(f.ctx, f.ref, link.SessionID)
+	require.NoError(t, err)
+	require.False(t, open.Complete)
+	require.False(t, open.Expired)
+	require.Equal(t, link.URL, open.URL)
+	require.Empty(t, open.ExternalCustomerID)
+
+	pmID := f.fake.CompleteSetupSession(stripefake.DefaultAccount, link.SessionID, "visa", "4242", 12, 2030)
+	done, err := f.adapter.GetSetupSession(f.ctx, f.ref, link.SessionID)
+	require.NoError(t, err)
+	require.True(t, done.Complete)
+	require.Equal(t, pmID, done.ExternalPaymentMethodID)
+	require.NotEmpty(t, done.ExternalCustomerID, "the customer Checkout created")
+	email, _, ok := f.fake.CustomerOf(stripefake.DefaultAccount, done.ExternalCustomerID)
+	require.True(t, ok)
+	require.Equal(t, "founder@startup.test", email)
+
+	require.NoError(t, f.adapter.StampCustomer(f.ctx, f.ref, done.ExternalCustomerID,
+		map[string]string{"kaiten_customer_id": "c1"}, "org:checkout:cs1:customer"))
+	_, metadata, _ := f.fake.CustomerOf(stripefake.DefaultAccount, done.ExternalCustomerID)
+	require.Equal(t, "c1", metadata["kaiten_customer_id"])
+
+	f.fake.ExpireSetupSession(stripefake.DefaultAccount, link.SessionID)
+	still, err := f.adapter.GetSetupSession(f.ctx, f.ref, link.SessionID)
+	require.NoError(t, err)
+	require.True(t, still.Complete, "a completed page never expires")
+}

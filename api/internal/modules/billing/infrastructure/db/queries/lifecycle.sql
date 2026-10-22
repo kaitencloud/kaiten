@@ -243,3 +243,17 @@ WHERE id = sqlc.arg(id)
   AND status <> 'INCOMPLETE'
   AND pending_license_id IS NOT NULL
 RETURNING *;
+
+
+-- name: GetLatestInstanceActivation :one
+-- The newest ACTIVATION of an instance's subscription, settled or not: what
+-- an anonymous checkout session reads of its payment (§14.8).
+SELECT i.*
+FROM instance_invoice i
+JOIN instance_billing ib
+  ON ib.id = i.instance_billing_id
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.instance_id = sqlc.arg(instance_id)
+  AND i.kind = 'ACTIVATION'
+ORDER BY i.created_at DESC, i.id DESC
+LIMIT 1;

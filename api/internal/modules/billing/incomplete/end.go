@@ -101,7 +101,15 @@ func (e *Ender) End(ctx context.Context, operation string, sub db.InstanceBillin
 		if err != nil {
 			return err
 		}
-		return lifecycle.AnnounceCanceled(ctx, q, e.box, e.deps.Catalogue, ended, "IMMEDIATE", nil)
+		if err := lifecycle.AnnounceCanceled(ctx, q, e.box, e.deps.Catalogue, ended, "IMMEDIATE", nil); err != nil {
+			return err
+		}
+		// Expired or canceled, the anonymous checkout it came from ends
+		// EXPIRED with it (§9.12 rule 5).
+		if e.deps.Checkouts != nil && ended.InstanceID != nil {
+			return e.deps.Checkouts.Ended(ctx, ended.OrganizationID, *ended.InstanceID)
+		}
+		return nil
 	})
 	return ended, err
 }

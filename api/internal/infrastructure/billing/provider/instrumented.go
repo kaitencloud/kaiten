@@ -169,6 +169,13 @@ func (a instrumented) GetSetupSession(ctx context.Context, ref Ref, sessionID st
 	return out, err
 }
 
+func (a instrumented) StampCustomer(ctx context.Context, ref Ref, externalCustomerID string, metadata map[string]string, idempotencyKey string) error {
+	start := time.Now()
+	err := a.Adapter.StampCustomer(ctx, ref, externalCustomerID, metadata, idempotencyKey)
+	a.observe(ctx, "stamp_customer", start, err)
+	return err
+}
+
 func (a instrumented) CreateBillingPortalSession(ctx context.Context, ref Ref, externalCustomerID, returnURL string) (string, error) {
 	start := time.Now()
 	out, err := a.Adapter.CreateBillingPortalSession(ctx, ref, externalCustomerID, returnURL)

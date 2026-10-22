@@ -54,17 +54,16 @@ const (
 
 // Payment statuses (§14.4 rule 9).
 const (
-	PaymentPaid           = "paid"
-	PaymentRequiresAction = "requires_action"
-	PaymentFailed         = "failed"
-	PaymentProcessing     = "processing"
-	PaymentNotRequired    = "not_required"
+	PaymentPaid           = sessions.PaymentPaid
+	PaymentRequiresAction = sessions.PaymentRequiresAction
+	PaymentFailed         = sessions.PaymentFailed
+	PaymentProcessing     = sessions.PaymentProcessing
+	PaymentNotRequired    = sessions.PaymentNotRequired
 )
 
 const (
 	sendInvoice         = "SEND_INVOICE"
 	chargeAutomatically = "CHARGE_AUTOMATICALLY"
-	authRequired        = "authentication_required"
 )
 
 // Session is the customer session a checkout runs for, as the facade hands
@@ -379,24 +378,8 @@ func activeMethod(billing *getcustomerbilling.CustomerBilling, kind string) bool
 
 // paymentOf derives the payment's status from the invoice as persisted.
 func paymentOf(invoice invoices.Invoice) *Payment {
-	var hosted, lastError *string
-	if invoice.Provider != nil {
-		hosted, lastError = invoice.Provider.HostedInvoiceURL, invoice.Provider.LastPaymentError
-	}
-	switch {
-	case invoice.Total <= 0:
-		return &Payment{Status: PaymentNotRequired, HostedInvoiceURL: nil}
-	case invoice.Status == "PAID":
-		return &Payment{Status: PaymentPaid, HostedInvoiceURL: hosted}
-	case invoice.Status == "PAYMENT_FAILED" && lastError != nil && *lastError == authRequired:
-		return &Payment{Status: PaymentRequiresAction, HostedInvoiceURL: hosted}
-	case invoice.Status == "PAYMENT_FAILED":
-		return &Payment{Status: PaymentFailed, HostedInvoiceURL: hosted}
-	default:
-		// DRAFT or PUSH_FAILED: the push did not finish in time; PUSHED: the
-		// charge has no answer yet. The queue carries on either way.
-		return &Payment{Status: PaymentProcessing, HostedInvoiceURL: hosted}
-	}
+	status, hosted := sessions.PaymentOf(invoice)
+	return &Payment{Status: status, HostedInvoiceURL: hosted}
 }
 
 // translate answers what the operations a checkout runs refuse as the

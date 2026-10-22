@@ -97,7 +97,9 @@ func (a *Adapter) Pay(ctx context.Context, ref provider.Ref, externalInvoiceID s
 // CreateSetupSession implements provider.Adapter: a Stripe Checkout Session
 // in setup mode, which saves a payment method on the customer. The redirect
 // back carries the session id; the session is checked server-side, never
-// trusted from the redirect.
+// trusted from the redirect. With CustomerCreation there is no customer yet:
+// Checkout creates it (customer_creation=always), with the e-mail given, and
+// the return URL is the caller's as it is (§12.9 step 1).
 func (a *Adapter) CreateSetupSession(ctx context.Context, ref provider.Ref, session provider.SetupSession) (provider.SetupSessionLink, error) {
 	sc, _, err := a.connect(ref)
 	if err != nil {
@@ -105,7 +107,6 @@ func (a *Adapter) CreateSetupSession(ctx context.Context, ref provider.Ref, sess
 	}
 	params := &stripego.CheckoutSessionCreateParams{
 		Mode:                     stripego.String("setup"),
-		Customer:                 stripego.String(session.ExternalCustomerID),
 		Currency:                 stripego.String(strings.ToLower(session.Currency)),
 		SuccessURL:               stripego.String(withSessionID(session.ReturnURL)),
 		CancelURL:                stripego.String(session.ReturnURL),
@@ -113,16 +114,48 @@ func (a *Adapter) CreateSetupSession(ctx context.Context, ref provider.Ref, sess
 		// The customer's tax id, address and name, which automatic tax and the
 		// invoices need, are saved on the Stripe customer (§12.5).
 		TaxIDCollection: &stripego.CheckoutSessionCreateTaxIDCollectionParams{Enabled: stripego.Bool(true)},
-		CustomerUpdate: &stripego.CheckoutSessionCreateCustomerUpdateParams{
+		Metadata:        session.Metadata,
+	}
+	if session.CustomerCreation {
+		// customer_update is accepted only with customer: what is collected is
+		// saved on the customer Checkout creates.
+		params.CustomerCreation = stripego.String("always")
+		params.CustomerEmail = stripego.String(session.CustomerEmail)
+		params.SuccessURL = stripego.String(session.ReturnURL)
+	} else {
+		params.Customer = stripego.String(session.ExternalCustomerID)
+		params.CustomerUpdate = &stripego.CheckoutSessionCreateCustomerUpdateParams{
 			Address: stripego.String("auto"), Name: stripego.String("auto"),
-		},
-		Metadata: session.Metadata,
+		}
+	}
+	if !session.ExpiresAt.IsZero() {
+		params.ExpiresAt = stripego.Int64(session.ExpiresAt.Unix())
+	}
+	if session.IdempotencyKey != "" {
+		params.SetIdempotencyKey(session.IdempotencyKey)
 	}
 	created, err := sc.V1CheckoutSessions.Create(ctx, params)
 	if err != nil {
 		return provider.SetupSessionLink{}, classify(err, objectCustomer)
 	}
 	return provider.SetupSessionLink{URL: created.URL, SessionID: created.ID, ExpiresAt: time.Unix(created.ExpiresAt, 0).UTC()}, nil
+}
+
+// StampCustomer implements provider.Adapter: the metadata is merged into the
+// customer's.
+func (a *Adapter) StampCustomer(ctx context.Context, ref provider.Ref, externalCustomerID string, metadata map[string]string, idempotencyKey string) error {
+	sc, _, err := a.connect(ref)
+	if err != nil {
+		return err
+	}
+	params := &stripego.CustomerUpdateParams{Metadata: metadata}
+	if idempotencyKey != "" {
+		params.SetIdempotencyKey(idempotencyKey)
+	}
+	if _, err := sc.V1Customers.Update(ctx, externalCustomerID, params); err != nil {
+		return classify(err, objectCustomer)
+	}
+	return nil
 }
 
 // withSessionID appends Stripe's session placeholder to the return URL.
@@ -146,7 +179,10 @@ func (a *Adapter) GetSetupSession(ctx context.Context, ref provider.Ref, session
 	if err != nil {
 		return provider.SetupSessionResult{}, classify(err, objectInvoice)
 	}
-	out := provider.SetupSessionResult{Metadata: session.Metadata}
+	out := provider.SetupSessionResult{
+		Metadata: session.Metadata, Expired: session.Status == stripego.CheckoutSessionStatusExpired,
+		URL: session.URL, ExpiresAt: time.Unix(session.ExpiresAt, 0).UTC(),
+	}
 	if session.Customer != nil {
 		out.ExternalCustomerID = session.Customer.ID
 	}
