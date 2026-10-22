@@ -30,6 +30,7 @@ export type InstanceUsageHistorySeed = {
 
 export type SerializedInstanceUsageHistory = {
   armedProblems: Array<[UsageHistoryProblemOperation, ArmedBillingProblem]>;
+  retentionDriftMs?: number;
   retentionStart: string | null;
   usageReports: Record<string, Record<string, UsageReport[]>>;
 };
@@ -92,6 +93,7 @@ type ReportRow = {
 export class InstanceUsageHistory {
   private readonly problems = new ArmedProblems<UsageHistoryProblemOperation>();
   private retentionStart: string | null;
+  private retentionDriftMs = 0;
   private usageReports: Record<string, Record<string, UsageReport[]>>;
 
   constructor(
@@ -132,6 +134,7 @@ export class InstanceUsageHistory {
     for (const [operation, problem] of state.armedProblems) {
       model.problems.arm(operation, problem);
     }
+    model.retentionDriftMs = state.retentionDriftMs ?? 0;
 
     return model;
   }
@@ -139,6 +142,7 @@ export class InstanceUsageHistory {
   serialize(): SerializedInstanceUsageHistory {
     return {
       armedProblems: this.problems.serialize(),
+      retentionDriftMs: this.retentionDriftMs,
       retentionStart: this.retentionStart,
       usageReports: clone(this.usageReports),
     };
@@ -155,6 +159,16 @@ export class InstanceUsageHistory {
   /** Moves the start of the history: the usage before it is no longer kept. */
   setRetentionStart(start: string | null) {
     this.retentionStart = start;
+  }
+
+  /**
+   * Makes the start of the history move on by `ms` each time a request is checked against
+   * it, as the Core API's does: it computes the start from its clock on every request, so the
+   * instant a refusal names is already behind it when the next request arrives, and a `from`
+   * set to that instant is refused again. A fixed start hides it.
+   */
+  slideRetentionStart(ms: number) {
+    this.retentionDriftMs = ms;
   }
 
   /** Where the usage the organization keeps begins, as an instant; none when it keeps it all. */
@@ -224,6 +238,9 @@ export class InstanceUsageHistory {
     const now = this.now();
     const retention =
       this.retentionStart === null ? null : Date.parse(this.retentionStart);
+    if (retention !== null && this.retentionDriftMs > 0) {
+      this.retentionStart = instant(retention + this.retentionDriftMs);
+    }
     const end = to === undefined ? now : Date.parse(to);
     let start: number;
     if (from !== undefined) {

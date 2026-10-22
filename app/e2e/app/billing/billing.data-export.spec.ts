@@ -95,7 +95,10 @@ test.describe('the export of the data of the organization', () => {
     page,
   }) => {
     const settings = new BillingSettingsDriver(page);
-    await installInstanceAppMocks(page, createBilledInstancesModel());
+    const instances = createBilledInstancesModel();
+    // As the API: where the kept usage begins moves on with each request it checks.
+    instances.usageHistory.slideRetentionStart(14);
+    await installInstanceAppMocks(page, instances);
     const exports = recordWrites(page, ORGANIZATION_EXPORTS, ['GET']);
     await installBillingAppMocks(page, createSubscriptionsModel());
 
@@ -105,9 +108,11 @@ test.describe('the export of the data of the organization', () => {
     const file = await download;
 
     // The retention is told in months and not to the day: the month begins before it.
+    // The second read leaves `from` out, which the API moves up to where it keeps usage.
     expect(exports).toHaveLength(2);
     expect(searchOf(exports[0]).get('from')).toBe('2025-04-01T00:00:00.000Z');
-    expect(searchOf(exports[1]).get('from')).toBe('2025-04-07T12:00:00.000Z');
+    expect(searchOf(exports[1]).has('from')).toBe(false);
+    expect(searchOf(exports[1]).get('to')).toBe('2025-05-01T00:00:00.000Z');
     expect(file.suggestedFilename()).toBe('usage-2025-04-20261007T120000Z.csv');
     const lines = (await readFile((await file.path()) ?? '', 'utf8'))
       .trim()

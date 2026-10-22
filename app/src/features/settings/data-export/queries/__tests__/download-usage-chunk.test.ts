@@ -72,10 +72,10 @@ describe('saving a month of usage', () => {
   });
 
   it('reads the oldest month from where the kept usage begins, when the month begins before it', async () => {
-    const asked: string[] = [];
+    const asked: Array<string | null> = [];
     server.use(
       handleExportOrganizationUsageReports(({ request }) => {
-        const from = new URL(request.url).searchParams.get('from') ?? '';
+        const from = new URL(request.url).searchParams.get('from');
         asked.push(from);
 
         return from === MARCH.from
@@ -88,11 +88,62 @@ describe('saving a month of usage', () => {
 
     await downloadUsageChunk(MARCH, NOW);
 
-    expect(asked).toEqual([MARCH.from, '2027-03-09T22:14:07Z']);
+    // The second read leaves `from` out: the API moves a `from` it defaults up to where the
+    // kept usage begins, and never refuses it for that.
+    expect(asked).toEqual([MARCH.from, null]);
     expect(downloadBlob).toHaveBeenCalledTimes(2);
     await expect(downloadBlob.mock.results[1].value).resolves.toMatchObject({
       content: 'report_seq\n41\n',
     });
+  });
+
+  it('reads the oldest month although the API computes where the kept usage begins on every request', async () => {
+    // As the API does: the kept usage begins at its clock, which has moved on when the
+    // second read arrives, so an explicit `from` that the first refusal named is refused again.
+    let clock = Date.parse('2027-03-09T22:14:07.121Z');
+    const asked: Array<string | null> = [];
+    server.use(
+      handleExportOrganizationUsageReports(({ request }) => {
+        const from = new URL(request.url).searchParams.get('from');
+        asked.push(from);
+        clock += 14;
+        if (from !== null && Date.parse(from) < clock) {
+          return outsideRetention(new Date(clock).toISOString());
+        }
+
+        return new HttpResponse('report_seq\n41\n', {
+          headers: { 'Content-Type': 'text/csv' },
+        });
+      }),
+    );
+
+    await downloadUsageChunk(MARCH, NOW);
+
+    expect(asked).toEqual([MARCH.from, null]);
+    await expect(downloadBlob.mock.results[1].value).resolves.toMatchObject({
+      content: 'report_seq\n41\n',
+    });
+  });
+
+  it('starts a minute after where the kept usage begins when it begins in the first day of a month the default would cut short', async () => {
+    // Thirty days before the end of March is the 2nd: leaving `from` out would drop the 1st.
+    const asked: Array<string | null> = [];
+    server.use(
+      handleExportOrganizationUsageReports(({ request }) => {
+        const from = new URL(request.url).searchParams.get('from');
+        asked.push(from);
+
+        return from === MARCH.from
+          ? outsideRetention('2027-03-01T12:00:00.000Z')
+          : new HttpResponse('report_seq\n41\n', {
+              headers: { 'Content-Type': 'text/csv' },
+            });
+      }),
+    );
+
+    await downloadUsageChunk(MARCH, NOW);
+
+    expect(asked).toEqual([MARCH.from, '2027-03-01T12:01:00.000Z']);
   });
 
   it('does not ask a second time for a month that ends before the kept usage begins: the refusal says so', async () => {
