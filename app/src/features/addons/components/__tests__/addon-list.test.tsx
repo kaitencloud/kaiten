@@ -8,6 +8,7 @@ import {
   handleArchiveAddon,
   handleDeleteAddon,
   handleDeprecateAddonPrice,
+  handleGetAddon,
   handleGetBillingCapabilities,
   handleListAddonEntitlements,
   handleListAddonFamilies,
@@ -262,6 +263,18 @@ describe('the lifecycle of a version', () => {
 });
 
 describe('the default version of a family', () => {
+  // The versions as the API holds them: moving the default reads one again first.
+  let stored: Record<string, Addon>;
+
+  beforeEach(() => {
+    stored = Object.fromEntries(
+      [SEATS_V1, SEATS_DRAFT, SEATS_PUBLISHED_PLAIN].map((addon) => [addon.slug, addon]),
+    );
+    server.use(
+      handleGetAddon(({ params }) => HttpResponse.json(stored[String(params.addonSlug)])),
+    );
+  });
+
   it('moves onto a published version by restating it as it stands with only the flag changed', async () => {
     const bodies: AddonChanges[] = [];
     server.use(
@@ -284,6 +297,75 @@ describe('the default version of a family', () => {
       versionName: '2028',
     });
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Default version updated'));
+  });
+
+  it('keeps what another tab edited on the version, and takes the flag it was asked for', async () => {
+    const bodies: AddonChanges[] = [];
+    server.use(
+      handleUpdateAddon(async ({ request }) => {
+        bodies.push((await request.json()) as AddonChanges);
+
+        return HttpResponse.json({ ...SEATS_PUBLISHED_PLAIN, isDefault: true });
+      }),
+    );
+    renderList();
+    const set = await within(await rowOf('2028')).findByRole('button', { name: 'Set as default' });
+
+    stored['extra-seats-plain'] = {
+      ...SEATS_PUBLISHED_PLAIN,
+      description: 'Edited in another tab',
+      maxQuantity: 25,
+      name: 'Extra seats plus',
+    };
+    await userEvent.click(set);
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      description: 'Edited in another tab',
+      isDefault: true,
+      maxQuantity: 25,
+      name: 'Extra seats plus',
+      versionName: '2028',
+    });
+  });
+
+  it('takes the default off on top of the name another tab gave the version', async () => {
+    const bodies: AddonChanges[] = [];
+    server.use(
+      handleUpdateAddon(async ({ request }) => {
+        bodies.push((await request.json()) as AddonChanges);
+
+        return HttpResponse.json({ ...SEATS_V1, isDefault: false });
+      }),
+    );
+    renderList();
+    const unset = await within(await rowOf('2026')).findByRole('button', { name: 'Unset default' });
+
+    // Another tab renamed this version after the page loaded.
+    stored['extra-seats'] = { ...SEATS_V1, isDefault: false, name: 'Extra seats (renamed)' };
+    await userEvent.click(unset);
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({ isDefault: false, name: 'Extra seats (renamed)' });
+  });
+
+  it('writes nothing and says why when the version was deleted meanwhile', async () => {
+    const bodies: AddonChanges[] = [];
+    server.use(
+      handleGetAddon(() => refusal(404, { code: 'GetAddon.NotFound', detail: 'The add-on does not exist' })),
+      handleUpdateAddon(async ({ request }) => {
+        bodies.push((await request.json()) as AddonChanges);
+
+        return HttpResponse.json(SEATS_PUBLISHED_PLAIN);
+      }),
+    );
+    renderList();
+
+    await userEvent.click(await within(await rowOf('2028')).findByRole('button', { name: 'Set as default' }));
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('The add-on does not exist'));
+    expect(bodies).toHaveLength(0);
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('is withheld from a draft, which the button says on hover: only a published version can be the default', async () => {

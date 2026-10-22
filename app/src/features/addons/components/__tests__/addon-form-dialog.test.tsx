@@ -6,6 +6,7 @@ import { server } from '@/__tests__/msw-server';
 import type { Addon, AddonChanges, NewAddon } from '@/api-client';
 import {
   handleCreateAddon,
+  handleGetAddon,
   handleGetBillingCapabilities,
   handleGetInstances,
   handleUpdateAddon,
@@ -31,7 +32,11 @@ vi.mock('@tanstack/react-router', async () =>
 
 useBillingTexts();
 
+// The version as the API holds it: an update reads it again before it writes.
+let stored: Addon;
+
 beforeEach(() => {
+  stored = SEATS_V1;
   toast.error.mockReset();
   toast.success.mockReset();
   getAuthToken.mockResolvedValue(
@@ -39,6 +44,7 @@ beforeEach(() => {
   );
   server.use(
     handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }),
+    handleGetAddon(() => HttpResponse.json(stored)),
   );
 });
 
@@ -267,6 +273,58 @@ describe('editing a version', () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(2));
 
     expect(bodies.map((body) => body.maxQuantity)).toEqual([20, undefined]);
+  });
+
+  it('keeps the default where another tab put it and the description it saved, and applies the name that was typed', async () => {
+    const bodies: AddonChanges[] = [];
+    server.use(
+      handleUpdateAddon(async ({ request }) => {
+        bodies.push((await request.json()) as AddonChanges);
+
+        return HttpResponse.json(stored);
+      }),
+    );
+    const { onSaved } = renderDialog({ addon: SEATS_V1 });
+    const name = await nameField();
+
+    // Another tab made another version the default and rewrote the description.
+    stored = { ...stored, description: 'Edited in another tab', isDefault: false };
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Extra seats pro');
+    await userEvent.click(await edit());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual({
+      description: 'Edited in another tab',
+      isDefault: false,
+      maxQuantity: 10,
+      name: 'Extra seats pro',
+      versionName: '2026',
+    });
+    await waitFor(() => expect(onSaved).toHaveBeenCalled());
+  });
+
+  it('says the version is gone when it was deleted meanwhile, and writes nothing', async () => {
+    const bodies: AddonChanges[] = [];
+    server.use(
+      handleGetAddon(() =>
+        refusal(404, { code: 'GetAddon.NotFound', detail: 'The add-on does not exist' }),
+      ),
+      handleUpdateAddon(async ({ request }) => {
+        bodies.push((await request.json()) as AddonChanges);
+
+        return HttpResponse.json(SEATS_V1);
+      }),
+    );
+    const { onSaved } = renderDialog({ addon: SEATS_V1 });
+    const description = await screen.findByLabelText(/Description/);
+
+    await userEvent.type(description, ' and more');
+    await userEvent.click(await edit());
+
+    expect(await screen.findByText('The add-on does not exist')).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
+    expect(onSaved).not.toHaveBeenCalled();
   });
 
   it('is not opened for a session that may not write add-ons', async () => {

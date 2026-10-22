@@ -3,13 +3,10 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Addon } from '@/api-client';
-import {
-  createAddonMutation,
-  updateAddonMutation,
-} from '@/api-client/@tanstack/react-query.gen';
+import { createAddonMutation } from '@/api-client/@tanstack/react-query.gen';
 import { handleBillingProblem, setProblemFieldError } from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
-import { invalidateAddonQueries } from '../queries';
+import { invalidateAddonQueries, saveAddonOnFresh } from '../queries';
 import {
   addonFormValuesToCreateBody,
   addonFormValuesToUpdateBody,
@@ -45,6 +42,11 @@ type UseAddonFormOptions = {
  * and a refusal leaves the form as it was typed, on its field when it is about one
  * and above the buttons otherwise.
  *
+ * The update restates the version, so it reads the version again and puts what
+ * the form changed on top of it: the default moved to another version of the
+ * family, or a description edited from another tab, since the form opened stay as
+ * they are.
+ *
  * The most an instance can hold may be lowered under what an instance holds already:
  * the API lets it be and the instances keep the quantities they hold, so the form
  * sends the change as it is and asks nobody.
@@ -65,8 +67,14 @@ export function useAddonForm({
       toast.success(t('Pages.Addons.Form.Toasts.created'));
     },
   });
+  // The version and the form as they were when the form opened: what the save
+  // compares the form with, to tell what was changed from what was not.
+  const [openedAddon] = useState(addon);
+  const [openedValues] = useState(() =>
+    addon ? addonToFormValues(addon) : initialAddonFormValues(base),
+  );
   const update = useMutation({
-    ...updateAddonMutation(),
+    mutationFn: saveAddonOnFresh,
     onSuccess: async () => {
       await invalidateAddonQueries(queryClient, addon?.slug);
       toast.success(t('Pages.Addons.Form.Toasts.updated'));
@@ -75,17 +83,18 @@ export function useAddonForm({
 
   const form = useAppForm({
     ...addonFormOpts,
-    defaultValues: addon
-      ? addonToFormValues(addon)
-      : initialAddonFormValues(base),
+    defaultValues: openedValues,
     onSubmit: async ({ formApi, value }) => {
       setFailure(null);
       try {
         if (addon) {
+          // The same version builds both bodies, so they differ by the form only.
+          const snapshot = openedAddon ?? addon;
           onSaved(
             await update.mutateAsync({
-              body: addonFormValuesToUpdateBody(value, addon),
-              path: { addonSlug: addon.slug },
+              addonSlug: addon.slug,
+              edited: addonFormValuesToUpdateBody(value, snapshot),
+              opened: addonFormValuesToUpdateBody(openedValues, snapshot),
             }),
           );
 
