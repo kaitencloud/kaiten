@@ -102,6 +102,27 @@ describe('mergeChangedFields', () => {
     ).toEqual(['c']);
   });
 
+  it('replaces a nested object or an array whole when the form changed any part of it', () => {
+    type WithMetadata = { metadata: Record<string, string>; name: string };
+    const openedMetadata: WithMetadata = {
+      metadata: { region: 'eu' },
+      name: 'Standard',
+    };
+    // Another tab added a key and renamed; the form changed another key.
+    const fresh: WithMetadata = {
+      metadata: { region: 'eu', tier: 'gold' },
+      name: 'Renamed elsewhere',
+    };
+    const edited: WithMetadata = {
+      metadata: { region: 'us' },
+      name: 'Standard',
+    };
+
+    expect(
+      mergeChangedFields({ edited, fresh, opened: openedMetadata }),
+    ).toEqual({ metadata: { region: 'us' }, name: 'Renamed elsewhere' });
+  });
+
   it('does not mutate its inputs', () => {
     const fresh: Body = { ...opened, name: 'Elsewhere' };
     const edited: Body = { ...opened, trialDays: 14 };

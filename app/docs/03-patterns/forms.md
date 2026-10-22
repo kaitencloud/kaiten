@@ -232,7 +232,7 @@ The rule lives in one helper, `app/src/lib/api/fresh-write.ts`:
 
 | Export | What it does |
 | --- | --- |
-| `mergeChangedFields({ edited, fresh, opened })` | Pure. Starts from `fresh`, the object as the API holds it now, restated as a body, and puts on top of it each member of `edited` that differs from `opened`. A member the form did not change keeps the value it has now. Members are compared structurally, and an absent member equals a `null`. |
+| `mergeChangedFields({ edited, fresh, opened })` | Pure. Starts from `fresh`, the object as the API holds it now, restated as a body, and puts on top of it each member of `edited` that differs from `opened`. A member the form did not change keeps the value it has now. Members are compared structurally, and an absent member equals a `null`. The merge works member by member at the top level: a member that is an object or an array (a metadata map, a list of slugs, the value of a grant) is replaced whole when the form changed any part of it, so a key another tab added to the same map is lost. |
 | `writeOnFresh({ read, restate, opened, edited, write })` | Reads the object (`read`), restates it as a body (`restate`), merges, and writes the result (`write`). It resolves to what `write` resolves to. |
 | `FRESH_READ_OPTIONS` | `{ cache: 'no-store' }`, spread into the generated `GET` so that the read comes from the API and from no cache, the browser's included. |
 
@@ -279,7 +279,8 @@ export function saveLicenseOnFresh({ edited, licenseSlug, opened }: SaveLicenseV
 Rules for a form that uses it:
 
 - **Keep what the form opened with.** Take a snapshot of the object and of the values with `useState(() => ...)` and give the snapshot to `defaultValues`. Do not rebuild them from props at each render: a refetch while the form is open would move the baseline under the person's edits, and what they did not touch would count as changed.
-- **A form that stays open after a save** (a settings card, a profile form) moves its baseline to what the API kept, as it resets its values. One that closes needs nothing.
+- **A form that stays open after a save** (a settings card, a profile form, a hook such as `useSetBillingEmail`) moves its baseline to what the API kept, as it resets its values, and gives that baseline to `defaultValues` so that a refetch resets the values and the baseline together. One that closes needs nothing.
+- **A form reused for another object must be keyed by that object.** The snapshot is taken once, when the component mounts: a long-lived dialog that is shown again for another object without a `key` would keep both the baseline and the displayed values of the previous one.
 - **A cache that is written is given what the write answered or sent.** Most updates invalidate with the generated query keys, as after any write. Where a cache is written instead (the feature flags, the groups of entitlements), a `PUT` that answers `204` resolves, in `write`, to the body that was sent: that is the merged body, not the form's.
 - **A deleted object.** The read refuses with a `404` and the write is not sent: the `PUT` of a deleted object must never be able to create it again. The refusal reaches the form as a refusal of the update would, in the API's words, through `getApiErrorMessage` or the form's `ProblemAlert`.
 - **Tests.** Cover the helper with a unit test of the merge, and each form with two tests that serve the object through the mock API: one where the object changed on the server between the opening and the save, which proves that the other change survives and the form's is applied; one where the object was deleted meanwhile, which proves that the save says so and writes nothing.
@@ -289,9 +290,10 @@ The writes that use the helper are the `save*OnFresh` functions: `saveCustomerOn
 A `PUT` that stays as it was, and why:
 
 - **No object read from a cache.** The compatibility of an add-on with a license family (`PUT .../compatibility/{familySlug}`) is an idempotent fact, the notification preferences (`PUT /notification-preferences`) send the changes alone, and a scheduled plan change (`PUT .../billing/scheduled-change`) creates a resource from a chosen price.
-- **A secret the API never gives back.** The connector settings (Stripe, Attio) are written whole from the form, and there is nothing to read again.
+- **A secret the API never gives back.** The connector settings (Stripe, Attio) are written whole from the form, and so is their activation (`activateConnector`); there is nothing to read again.
+- **No console caller yet.** `updateCustomerIntegration`, `updateInstanceIntegration`, `updateServiceAccount` and `putUserAuthorization` are not called by the console. The rule applies to them when one does.
 - **No read by key.** A role (`PUT /roles/{slug}`) has no `GET` of its own, only the list: a read would be the whole list, and a role missing from it would have to be inferred.
-- **The baseline moves too often, or is not in the caller's hands.** The draft of a voucher in its wizard is saved at each step and again on publication, so its baseline changes with every answer. The inline threshold of a license grant (`PUT .../licenses/{slug}/entitlements/{slug}`) receives two numbers from its cell and not the row it was opened on. Both want their own design.
+- **The baseline moves too often, or is not in the caller's hands.** The draft of a voucher in its wizard is saved at each step and again on publication, so its baseline changes with every answer; the wizard owns the whole draft as form state and sends every member from it, and what remains is another tab editing the same draft; the wizard's own `saved` object is the only baseline it has. The inline threshold of a license grant (`PUT .../licenses/{slug}/entitlements/{slug}`) receives two numbers from its cell and not the row it was opened on. Both want their own design.
 
 ## Large forms
 
