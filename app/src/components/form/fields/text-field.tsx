@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Input } from '@/components/ui/input';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
@@ -10,6 +11,9 @@ type TextFieldProps = {
   description?: string;
   disabled?: boolean;
   onChange?: (value: string) => void;
+  type?: ComponentProps<'input'>['type'];
+  autoComplete?: string;
+  inputMode?: ComponentProps<'input'>['inputMode'];
 };
 
 const TextField = ({
@@ -20,6 +24,9 @@ const TextField = ({
   description,
   disabled,
   onChange,
+  type,
+  autoComplete,
+  inputMode,
 }: TextFieldProps) => {
   return (
     <FormField<string>
@@ -32,6 +39,9 @@ const TextField = ({
       {(field) => (
         <FormControl>
           <Input
+            type={type}
+            autoComplete={autoComplete}
+            inputMode={inputMode}
             placeholder={placeholder}
             value={field.value}
             onChange={(e) => {

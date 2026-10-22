@@ -99,8 +99,8 @@ func TestDeleteUser(t *testing.T) {
 		require.NoError(t, err)
 		defer commonfixture.MustCloseBody(t, resp.Body)
 
-		require.Equal(t, fiber.StatusNotFound, resp.StatusCode,
-			"delete-user is still reachable on the Core API")
+		require.Equal(t, fiber.StatusMethodNotAllowed, resp.StatusCode,
+			"Core user management must not expose global deletion")
 
 		var deletedAt *string
 		err = testDb.DbPool.QueryRow(t.Context(), `SELECT deleted_at::text FROM "user" WHERE id = $1`, userID).Scan(&deletedAt)

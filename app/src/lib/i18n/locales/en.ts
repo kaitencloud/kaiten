@@ -2799,6 +2799,163 @@ export default {
         description: 'The audit trail could not be loaded right now.',
       },
     },
+    Access: {
+      readOnlyAccess:
+        'Read-only: you need Users write access and sufficient permissions to edit this user or role.',
+      grantAdministrator: 'Grant administrator access',
+      grantAdministratorDescription:
+        'Add another administrator who can manage users and roles independently. Your own administrator access is kept.',
+      singleAdministrator: 'Only one administrator',
+      singleAdministratorDescription:
+        'Avoid a single point of failure: open another enabled user and grant Administrator access. All administrators can appoint others.',
+
+      requestFailed: 'Unable to save changes',
+      fullAdministrator: 'Full administrator access',
+      effectiveAccess: 'Effective resource access',
+      inherited: 'From roles',
+      direct: 'Direct grant',
+      noResourceAccess: 'No resource access granted',
+      rolesAdded: 'Roles added',
+      rolesRemoved: 'Roles removed',
+      directScopesChanged:
+        'Direct scopes: {{added}} added, {{removed}} removed',
+      discard: 'Discard changes',
+      discardDescription:
+        'Unsaved profile or access changes will be lost. Saved changes are kept.',
+      roleSaveImpact: 'Changes affect {{count}} assigned users',
+
+      errors: {
+        LastAdministrator:
+          'The last administrator cannot be disabled or lose the Administrator role. Assign another administrator first.',
+        RoleInUse:
+          'This role is still assigned to users. Remove those assignments before deleting it.',
+        BuiltInRole: 'Built-in roles cannot be edited or deleted.',
+        InvalidAuthorization:
+          'The role or scope selection is invalid. Refresh and review the available access.',
+      },
+      title: 'Users & roles',
+      subtitle:
+        'Manage people, group scopes into roles, and control organization access.',
+      cardDescription:
+        'Manage user profiles, reusable roles and access to your organization.',
+      manageAccess: 'Manage users & roles',
+      users: 'Users',
+      roles: 'Roles',
+      user: 'User',
+      role: 'Role',
+      you: 'You',
+      name: 'Name',
+      email: 'Email',
+      description: 'Description',
+      identity: 'Identity provider ID',
+      status: 'Status',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      allStatuses: 'All statuses',
+      searchUsers: 'Search users',
+      searchRoles: 'Search roles',
+      manage: 'Manage',
+      edit: 'Edit',
+      view: 'View',
+      manageNamedUser: 'Manage {{name}}',
+      manageNamedRole: 'Manage role {{name}}',
+      noRoles: 'No roles assigned',
+      scopeCount: '{{count}} scopes',
+      effectiveScopes: '{{count}} effective scopes from roles and overrides',
+      overrides: 'Direct scopes',
+      scopeOverrides: 'Advanced: direct scope overrides',
+      overridesExplanation:
+        'Direct scopes add to assigned roles. None removes only the direct grant; it does not revoke access inherited from a role.',
+      assignedUsers: 'Assigned users',
+      access: 'Access',
+      administrator: 'Administrator',
+      builtIn: 'Built-in',
+      adminExplanation:
+        'Users read access lets you view users and roles. Users write access lets you manage them. Roles group scopes, and you can only delegate access you already hold.',
+      accessDenied: 'User directory access required',
+      accessDeniedDescription:
+        'Your current access was checked with Kaiten Core. Ask someone with Users write access to manage users or assign roles.',
+      loading: 'Checking access and loading users…',
+      notFound:
+        'This user or role no longer exists. Refresh the list and try again.',
+      resourceAccess: 'Access to {{resource}}',
+      profile: 'Profile',
+      saveProfile: 'Save profile',
+      profileSaved: 'Profile saved',
+      userEditorDescription:
+        'Name and email are shared across organizations. Roles and access apply only to this organization.',
+      selfProtection:
+        'You cannot disable your own account. The last administrator must always retain access.',
+      enableAccount: 'Account enabled',
+      saveAccess: 'Save access',
+      saving: 'Saving…',
+      accessSaved: 'Access updated',
+      confirm: 'Confirm',
+      confirmAccess: 'Update user access?',
+      confirmEnable: 'Re-enable this user?',
+      confirmDisable: 'Disable this user?',
+      accessImpact:
+        'Access for {{name}} will change immediately. Existing sessions use the updated authorization.',
+      disableImpact:
+        '{{name}} will lose access immediately, including existing sessions. Their profile and assigned roles are retained; you can re-enable them later.',
+      disableUser: 'Disable user',
+      enableUser: 'Re-enable user',
+      discardChanges: 'Discard unsaved changes?',
+      createRole: 'Create role',
+      editRole: 'Role details',
+      roleEditorDescription:
+        'A role is a named, reusable group of resource scopes. Assign it to users from their access editor.',
+      slug: 'Role identifier',
+      slugExplanation:
+        'Lowercase letters, numbers and hyphens. Cannot be changed after creation.',
+      permissions: 'Resource scopes',
+      rolePermissionsExplanation:
+        'Read & write includes read. Changes apply immediately to every user assigned this role.',
+      builtInExplanation:
+        'Built-in roles are managed by Kaiten and cannot be edited or deleted.',
+      deleteRoleExplanation:
+        '{{count}} users assigned. A role can only be deleted when no users are assigned.',
+      deleteRole: 'Delete role',
+      confirmDeleteRole: 'Delete this role?',
+      deleteRoleImpact:
+        'The role {{name}} will be permanently deleted. This cannot be undone.',
+      roleSaved: 'Role saved',
+      roleDeleted: 'Role deleted',
+      levels: {
+        none: 'None',
+        read: 'Read',
+        write: 'Read & write',
+      },
+      validation: {
+        name: 'Enter a name.',
+        email: 'Enter a valid email address.',
+        slug: 'Use lowercase letters, numbers and hyphens.',
+      },
+      resources: {
+        components: 'Components',
+        customers: 'Customers',
+        deployment_zones: 'Deployment zones',
+        entitlements: 'Entitlements',
+        feature_flags: 'Feature flags',
+        instances: 'Instances',
+        licenses: 'Licenses',
+        metadata_fields: 'Metadata fields',
+        notifications: 'Notifications',
+        organizations: 'Organizations',
+        profile: 'Profile',
+        releases: 'Releases',
+        tokens: 'Tokens',
+        users: 'Users',
+        webhooks: 'Webhooks',
+      },
+      local: {
+        checking: 'Checking access',
+        unavailable: 'Access unavailable',
+        administrator: 'Administrator',
+        member: 'Member',
+        description: 'Current access verified by Kaiten Core',
+      },
+    },
     Settings: {
       title: 'Settings',
       subtitle:

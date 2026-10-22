@@ -32,6 +32,7 @@ func TestHandler_ValidateToken(t *testing.T) {
 	t.Run("WhenPlainPAT_ReturnUnsignedJWT", func(t *testing.T) {
 		repo := &stubRepository{
 			tokenData: &TokenData{
+				TokenID:                uuid.New(),
 				SubjectID:              uuid.New(),
 				OrganizationID:         uuid.New(),
 				Scopes:                 []string{"write:entitlements"},
@@ -55,6 +56,8 @@ func TestHandler_ValidateToken(t *testing.T) {
 		require.Nil(t, claims["kaiten_user_id"])
 		require.Nil(t, claims["kaiten_org_id"])
 		require.Nil(t, claims["org_id"])
+		require.NotContains(t, claims, "scopes")
+		require.Equal(t, repo.tokenData.TokenID.String(), claims["kaiten_token_id"])
 	})
 
 	t.Run("WhenNonPATToken_ReturnUnauthorized", func(t *testing.T) {
@@ -99,6 +102,7 @@ func TestHandler_JWTExpiryIsClampedToTheCredential(t *testing.T) {
 			now := time.Now()
 
 			data := &TokenData{
+				TokenID:                uuid.New(),
 				SubjectID:              uuid.New(),
 				OrganizationID:         uuid.New(),
 				Scopes:                 []string{"read:customers"},
@@ -170,6 +174,7 @@ func TestHandler_CacheRespectsCredentialExpiry(t *testing.T) {
 // trust boundary, and signing it here would be a separate change.
 func TestHandler_OrganizationCredentialStaysUnsigned(t *testing.T) {
 	data := &TokenData{
+		TokenID:                uuid.New(),
 		SubjectID:              uuid.New(),
 		OrganizationID:         uuid.New(),
 		Scopes:                 []string{"read:customers"},

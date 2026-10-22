@@ -36,9 +36,9 @@ describe('service-account scope vocabulary', () => {
   // AVAILABLE_RESOURCES used to be a hand-written mirror of the backend's scopes
   // and drifted both ways; then it was read off the Core operations, which left
   // out webhooks, enforced by the webhooks service on the same tokens.
-  it('offers every scope an organization credential can carry', () => {
+  it('offers machine scopes but not human-only administration or profile', () => {
     expect(AVAILABLE_RESOURCES.map((r) => r.id)).toEqual([
-      ...API_SCOPE_RESOURCES,
+      ...API_SCOPE_RESOURCES.filter((id) => id !== 'users' && id !== 'profile'),
     ]);
     expect(API_SCOPES).toContain('write:webhooks');
   });

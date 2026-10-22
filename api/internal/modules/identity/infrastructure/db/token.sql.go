@@ -134,7 +134,8 @@ func (q *Queries) CreateToken(ctx context.Context, arg CreateTokenParams) (Creat
 }
 
 const getActiveTokenByLookupHash = `-- name: GetActiveTokenByLookupHash :one
-SELECT t.hash,
+SELECT t.id,
+       t.hash,
        t.service_account_id,
        t.organization_id,
        t.scopes,
@@ -152,6 +153,7 @@ WHERE t.lookup_hash = $1
 `
 
 type GetActiveTokenByLookupHashRow struct {
+	ID                       uuid.UUID        `json:"id"`
 	Hash                     string           `json:"hash"`
 	ServiceAccountID         uuid.UUID        `json:"service_account_id"`
 	OrganizationID           uuid.UUID        `json:"organization_id"`
@@ -177,6 +179,7 @@ func (q *Queries) GetActiveTokenByLookupHash(ctx context.Context, lookupHash str
 	row := q.db.QueryRow(ctx, getActiveTokenByLookupHash, lookupHash)
 	var i GetActiveTokenByLookupHashRow
 	err := row.Scan(
+		&i.ID,
 		&i.Hash,
 		&i.ServiceAccountID,
 		&i.OrganizationID,
@@ -553,6 +556,40 @@ func (q *Queries) ListTokensForServiceAccounts(ctx context.Context, arg ListToke
 		return nil, err
 	}
 	return items, nil
+}
+
+const resolveOrganizationTokenAuthorization = `-- name: ResolveOrganizationTokenAuthorization :one
+SELECT t.service_account_id AS user_id, t.organization_id, t.scopes
+FROM token t
+JOIN "user" u ON u.id = t.service_account_id
+JOIN organization o ON o.id = t.organization_id
+JOIN user_on_organization m ON m.user_id = u.id AND m.organization_id = o.id
+WHERE t.id = $1
+  AND u.external_id = $2
+  AND o.external_id = $3
+  AND t.kind = 'organization' AND t.revoked_date IS NULL
+  AND (t.expires_at IS NULL OR t.expires_at > now())
+  AND u.type = 'machine' AND u.deleted_at IS NULL AND m.deleted_at IS NULL
+`
+
+type ResolveOrganizationTokenAuthorizationParams struct {
+	TokenID                uuid.UUID `json:"token_id"`
+	Subject                string    `json:"subject"`
+	ExternalOrganizationID string    `json:"external_organization_id"`
+}
+
+type ResolveOrganizationTokenAuthorizationRow struct {
+	UserID         uuid.UUID `json:"user_id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Scopes         []string  `json:"scopes"`
+}
+
+// Internal token identity is not a grant: always fetch live stored permissions.
+func (q *Queries) ResolveOrganizationTokenAuthorization(ctx context.Context, arg ResolveOrganizationTokenAuthorizationParams) (ResolveOrganizationTokenAuthorizationRow, error) {
+	row := q.db.QueryRow(ctx, resolveOrganizationTokenAuthorization, arg.TokenID, arg.Subject, arg.ExternalOrganizationID)
+	var i ResolveOrganizationTokenAuthorizationRow
+	err := row.Scan(&i.UserID, &i.OrganizationID, &i.Scopes)
+	return i, err
 }
 
 const revokeToken = `-- name: RevokeToken :one

@@ -65,9 +65,13 @@ const ensureUser = `-- name: EnsureUser :one
 INSERT INTO "user" (id, external_id, email, name)
 VALUES ($1, $2, $3::text, $4)
 ON CONFLICT (external_id) DO UPDATE
-  SET email = COALESCE(NULLIF($5::text, ''), "user".email),
-      name  = COALESCE(NULLIF($6::text, ''), "user".name)
-RETURNING id, deleted_at
+  SET email = CASE WHEN "user".type <> 'human' OR EXISTS (SELECT 1 FROM user_managed_profile p WHERE p.user_id = "user".id)
+                   THEN "user".email
+                   ELSE COALESCE(NULLIF($5::text, ''), "user".email) END,
+      name = CASE WHEN EXISTS (SELECT 1 FROM user_managed_profile p WHERE p.user_id = "user".id)
+                  THEN "user".name
+                  ELSE COALESCE(NULLIF($6::text, ''), "user".name) END
+RETURNING id, deleted_at, type, external_id
 `
 
 type EnsureUserParams struct {
@@ -80,8 +84,10 @@ type EnsureUserParams struct {
 }
 
 type EnsureUserRow struct {
-	ID        uuid.UUID        `json:"id"`
-	DeletedAt pgtype.Timestamp `json:"deleted_at"`
+	ID         uuid.UUID        `json:"id"`
+	DeletedAt  pgtype.Timestamp `json:"deleted_at"`
+	Type       UserType         `json:"type"`
+	ExternalID string           `json:"external_id"`
 }
 
 // The upsert JIT provisioning performs on the authentication path, keyed on the
@@ -99,7 +105,8 @@ type EnsureUserRow struct {
 // sends neither claim still produces a valid row. email_claim and name_claim are
 // the raw claims: empty means "the provider said nothing", which leaves the stored
 // value alone -- so those fallbacks are one-time defaults and cannot overwrite what
-// a human later set. The ::text casts are load-bearing, exactly as in
+// a human later set. Managed profiles ignore both claims entirely. The ::text
+// casts are load-bearing, exactly as in
 // EnsureOrganization: without them sqlc cannot infer a type through the nested
 // COALESCE/NULLIF, nor through a nullable column, and emits interface{}.
 //
@@ -116,7 +123,12 @@ func (q *Queries) EnsureUser(ctx context.Context, arg EnsureUserParams) (EnsureU
 		arg.NameClaim,
 	)
 	var i EnsureUserRow
-	err := row.Scan(&i.ID, &i.DeletedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.DeletedAt,
+		&i.Type,
+		&i.ExternalID,
+	)
 	return i, err
 }
 
@@ -246,6 +258,16 @@ func (q *Queries) ListLiveUsersByExternalIDPrefix(ctx context.Context, arg ListL
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockUserIdentityByExternalID = `-- name: LockUserIdentityByExternalID :exec
+SELECT id FROM "user" WHERE external_id = $1 FOR UPDATE
+`
+
+// Serializes global profile ownership with JIT before its upsert snapshot.
+func (q *Queries) LockUserIdentityByExternalID(ctx context.Context, externalID string) error {
+	_, err := q.db.Exec(ctx, lockUserIdentityByExternalID, externalID)
+	return err
 }
 
 const updateUserEmail = `-- name: UpdateUserEmail :exec

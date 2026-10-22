@@ -36,6 +36,7 @@ import { Route as ReleasesComponentsRouteRouteImport } from './routes/releases/c
 import { Route as ReleasesDeploymentZonesRouteRouteImport } from './routes/releases/deployment-zones/route'
 import { Route as ReleasesDeploymentsRouteRouteImport } from './routes/releases/deployments/route'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as CustomersCustomerSlugIndexRouteImport } from './routes/customers/$customerSlug/index'
@@ -230,6 +231,11 @@ const ReleasesDeploymentsRouteRoute =
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsAccessRoute = SettingsAccessRouteImport.update({
+  id: '/settings/access',
+  path: '/settings/access',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsMetadataRoute = SettingsMetadataRouteImport.update({
@@ -550,6 +556,7 @@ export interface FileRoutesByFullPath {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/settings/access': typeof SettingsAccessRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
@@ -619,6 +626,7 @@ export interface FileRoutesByTo {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/settings/access': typeof SettingsAccessRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail': typeof AuditTrailIndexRoute
@@ -698,6 +706,7 @@ export interface FileRoutesById {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/settings/access': typeof SettingsAccessRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
@@ -780,6 +789,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/settings/access'
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail/'
@@ -849,6 +859,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/settings/access'
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail'
@@ -927,6 +938,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/settings/access'
     | '/settings/metadata'
     | '/settings/notifications'
     | '/audit-trail/'
@@ -1001,6 +1013,7 @@ export interface RootRouteChildren {
   IntegrationsConnectorsRouteRoute: typeof IntegrationsConnectorsRouteRouteWithChildren
   IntegrationsServiceAccountsRouteRoute: typeof IntegrationsServiceAccountsRouteRouteWithChildren
   IntegrationsWebhooksRouteRoute: typeof IntegrationsWebhooksRouteRouteWithChildren
+  SettingsAccessRoute: typeof SettingsAccessRoute
   SettingsMetadataRoute: typeof SettingsMetadataRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
   AuditTrailIndexRoute: typeof AuditTrailIndexRoute
@@ -1207,6 +1220,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/access': {
+      id: '/settings/access'
+      path: '/settings/access'
+      fullPath: '/settings/access'
+      preLoaderRoute: typeof SettingsAccessRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/metadata': {
@@ -1903,6 +1923,7 @@ const rootRouteChildren: RootRouteChildren = {
   IntegrationsServiceAccountsRouteRoute:
     IntegrationsServiceAccountsRouteRouteWithChildren,
   IntegrationsWebhooksRouteRoute: IntegrationsWebhooksRouteRouteWithChildren,
+  SettingsAccessRoute: SettingsAccessRoute,
   SettingsMetadataRoute: SettingsMetadataRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
   AuditTrailIndexRoute: AuditTrailIndexRoute,

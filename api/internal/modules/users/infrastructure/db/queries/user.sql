@@ -19,7 +19,8 @@ RETURNING *;
 -- sends neither claim still produces a valid row. email_claim and name_claim are
 -- the raw claims: empty means "the provider said nothing", which leaves the stored
 -- value alone -- so those fallbacks are one-time defaults and cannot overwrite what
--- a human later set. The ::text casts are load-bearing, exactly as in
+-- a human later set. Managed profiles ignore both claims entirely. The ::text
+-- casts are load-bearing, exactly as in
 -- EnsureOrganization: without them sqlc cannot infer a type through the nested
 -- COALESCE/NULLIF, nor through a nullable column, and emits interface{}.
 --
@@ -29,9 +30,13 @@ RETURNING *;
 INSERT INTO "user" (id, external_id, email, name)
 VALUES (sqlc.arg(id), sqlc.arg(external_id), sqlc.arg(email)::text, sqlc.arg(name))
 ON CONFLICT (external_id) DO UPDATE
-  SET email = COALESCE(NULLIF(sqlc.arg(email_claim)::text, ''), "user".email),
-      name  = COALESCE(NULLIF(sqlc.arg(name_claim)::text, ''), "user".name)
-RETURNING id, deleted_at;
+  SET email = CASE WHEN "user".type <> 'human' OR EXISTS (SELECT 1 FROM user_managed_profile p WHERE p.user_id = "user".id)
+                   THEN "user".email
+                   ELSE COALESCE(NULLIF(sqlc.arg(email_claim)::text, ''), "user".email) END,
+      name = CASE WHEN EXISTS (SELECT 1 FROM user_managed_profile p WHERE p.user_id = "user".id)
+                  THEN "user".name
+                  ELSE COALESCE(NULLIF(sqlc.arg(name_claim)::text, ''), "user".name) END
+RETURNING id, deleted_at, type, external_id;
 
 -- name: UpdateUserEmail :exec
 UPDATE "user"
@@ -94,3 +99,7 @@ SET deleted_at = now()
 WHERE id = sqlc.arg(id)
   AND deleted_at IS NULL
 RETURNING id;
+
+-- name: LockUserIdentityByExternalID :exec
+-- Serializes global profile ownership with JIT before its upsert snapshot.
+SELECT id FROM "user" WHERE external_id = sqlc.arg(external_id) FOR UPDATE;

@@ -7,7 +7,7 @@
 // resolving the token that carried them, which is strictly before any credential
 // this deployment issued exists. Reachable only through kaiten.InProcess.
 //
-// Two writes, one transaction, in this order: the user, then the membership. The
+// User, membership and first-human administrator bootstrap are one transaction. The
 // order is not incidental -- the membership references the user, and a refusal at
 // either step rolls the other back, so a login that is refused leaves neither a
 // user nor a membership behind. It emits no event, for the reason
@@ -77,13 +77,27 @@ func NewUseCase(deps Deps) *UseCase {
 // would be a type with a single field's worth of purpose.
 func (h *UseCase) Execute(ctx context.Context, cmd *Command) (uuid.UUID, error) {
 	identity := newClaims(cmd)
+	if identity.subject == "" {
+		return uuid.Nil, kaitenerrors.Validation("Auth.SubjectRequired", "User subject is required")
+	}
 
 	var userID uuid.UUID
 	var joined bool
 	err := h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		repo := NewCommandRepository(db.New(h.deps.Uof.DBTX(ctx)))
+		queries := db.New(h.deps.Uof.DBTX(ctx))
+		// Lock before the identity write, matching management's lock order. NO KEY
+		// UPDATE does not conflict with the membership FK's KEY SHARE lock.
+		if _, err := queries.LockUserAuthorizationOrganization(ctx, cmd.OrganizationID); err != nil {
+			return err
+		}
+		// Separate statement: refresh the upsert snapshot after a concurrent global
+		// profile edit so administrator-managed values cannot be overwritten.
+		if err := queries.LockUserIdentityByExternalID(ctx, identity.subject); err != nil {
+			return err
+		}
+		repo := NewCommandRepository(queries)
 
-		id, deletedAt, err := repo.EnsureUser(ctx, identity)
+		id, deletedAt, userType, err := repo.EnsureUser(ctx, identity)
 		if err != nil {
 			return err
 		}
@@ -94,12 +108,32 @@ func (h *UseCase) Execute(ctx context.Context, cmd *Command) (uuid.UUID, error) 
 			return kaitenerrors.Forbidden("Auth.UserDeleted", "User has been deleted")
 		}
 
+		if userType != db.UserTypeHuman || strings.HasPrefix(identity.subject, "system:") {
+			return kaitenerrors.Forbidden("Auth.HumanUserRequired", "Human sign-in cannot resolve a machine or system identity")
+		}
+
 		// Joins this same transaction: see uow.UnitOfWork.Transact's doc comment on
 		// composing another module's public Execute. The refusal it can return for a
 		// removed membership therefore rolls back the user row this just wrote, which
 		// is what keeps a refused login from provisioning anything.
 		created, err := h.deps.Membership.Execute(ctx, id, cmd.OrganizationID)
 		if err != nil {
+			return err
+		}
+
+		member, err := queries.GetOrganizationUser(ctx, db.GetOrganizationUserParams{
+			UserID: id, OrganizationID: cmd.OrganizationID,
+		})
+		if err != nil {
+			return err
+		}
+		if !member.Enabled {
+			return kaitenerrors.Forbidden("Auth.UserDisabled", "User access to the organization is disabled")
+		}
+
+		if _, err := queries.BootstrapUserAdministrator(ctx, db.BootstrapUserAdministratorParams{
+			UserID: id, OrganizationID: cmd.OrganizationID,
+		}); err != nil {
 			return err
 		}
 

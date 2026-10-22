@@ -19,8 +19,10 @@ export const API_SCOPE_RESOURCES = [
   'metadata_fields',
   'notifications',
   'organizations',
+  'profile',
   'releases',
   'tokens',
+  'users',
   'webhooks',
 ] as const;
 
@@ -41,8 +43,10 @@ export const API_SCOPES = [
   'read:metadata_fields',
   'read:notifications',
   'read:organizations',
+  'read:profile',
   'read:releases',
   'read:tokens',
+  'read:users',
   'read:webhooks',
   'write:components',
   'write:customers',
@@ -54,8 +58,10 @@ export const API_SCOPES = [
   'write:metadata_fields',
   'write:notifications',
   'write:organizations',
+  'write:profile',
   'write:releases',
   'write:tokens',
+  'write:users',
   'write:webhooks',
 ] as const;
 

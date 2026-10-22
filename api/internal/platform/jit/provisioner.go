@@ -80,7 +80,7 @@ func (p *Provisioner) Check(ctx context.Context, identity *principal.Principal) 
 		return fmt.Errorf("resolve jit identity: external organization id is empty")
 	}
 
-	cacheKey := identity.Provisioning.Subject + ":" + identity.Provisioning.ExternalOrganizationID
+	cacheKey := provisionCacheKey{strings.TrimSpace(identity.Provisioning.Subject), strings.TrimSpace(identity.Provisioning.ExternalOrganizationID)}
 	if entry, ok := p.cache.Get(cacheKey); ok {
 		identity.UserID = entry.userID
 		identity.OrganizationID = entry.organizationID
@@ -126,6 +126,8 @@ func (p *Provisioner) Check(ctx context.Context, identity *principal.Principal) 
 	return nil
 }
 
+type provisionCacheKey struct{ subject, organization string }
+
 type provisionCacheEntry struct {
 	userID         uuid.UUID
 	organizationID uuid.UUID
@@ -134,7 +136,7 @@ type provisionCacheEntry struct {
 
 type provisionCache struct {
 	mu            sync.Mutex
-	entries       map[string]provisionCacheEntry
+	entries       map[provisionCacheKey]provisionCacheEntry
 	ttl           time.Duration
 	sweepInterval time.Duration
 	nextSweep     time.Time
@@ -143,14 +145,14 @@ type provisionCache struct {
 
 func newProvisionCache(ttl, sweepInterval time.Duration) *provisionCache {
 	return &provisionCache{
-		entries:       make(map[string]provisionCacheEntry),
+		entries:       make(map[provisionCacheKey]provisionCacheEntry),
 		ttl:           ttl,
 		sweepInterval: sweepInterval,
 		now:           time.Now,
 	}
 }
 
-func (c *provisionCache) Get(key string) (provisionCacheEntry, bool) {
+func (c *provisionCache) Get(key provisionCacheKey) (provisionCacheEntry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -164,7 +166,7 @@ func (c *provisionCache) Get(key string) (provisionCacheEntry, bool) {
 	return entry, true
 }
 
-func (c *provisionCache) Put(key string, userID, organizationID uuid.UUID) {
+func (c *provisionCache) Put(key provisionCacheKey, userID, organizationID uuid.UUID) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 

@@ -595,6 +595,8 @@ func (s *Server) setupCoreRoutes() (apiGroup, daprGroup fiber.Router) {
 	// this middleware runs while the request's own principal is still being resolved,
 	// so there is no credential yet to authorize with.
 	apiGroup.Use(jit.NewMiddleware(jit.NewProvisioner(s.app.InProcess())))
+	usersAuthorization, tokenAuthorization := s.app.AuthorizationResolvers()
+	apiGroup.Use(auth.ResolveAuthorization(usersAuthorization, tokenAuthorization))
 
 	// CORS is owned entirely by the reverse proxy in front of this service
 	// (Envoy) — see docker/envoy/kaiten*.yaml.tmpl. An app-level policy

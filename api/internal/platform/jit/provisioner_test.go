@@ -53,14 +53,14 @@ func TestProvisionCacheExpiresEntries(t *testing.T) {
 	cache.now = func() time.Time { return now }
 
 	userID, organizationID := uuid.New(), uuid.New()
-	cache.Put("identity", userID, organizationID)
-	entry, ok := cache.Get("identity")
+	cache.Put(provisionCacheKey{"identity", "organization"}, userID, organizationID)
+	entry, ok := cache.Get(provisionCacheKey{"identity", "organization"})
 	require.True(t, ok)
 	require.Equal(t, userID, entry.userID)
 	require.Equal(t, organizationID, entry.organizationID)
 
 	now = now.Add(time.Minute)
-	_, ok = cache.Get("identity")
+	_, ok = cache.Get(provisionCacheKey{"identity", "organization"})
 	require.False(t, ok)
 	require.Empty(t, cache.entries)
 }

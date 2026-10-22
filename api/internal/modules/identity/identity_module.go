@@ -17,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/listorganizationtokens"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/listplatformtokens"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/mintorganizationtoken"
+	"github.com/kaitencloud/kaiten/api/internal/modules/identity/resolvetokenauthorization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/revokeorganizationtoken"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/revokeplatformtoken"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/tokencache"
@@ -49,8 +50,9 @@ type UseCases struct {
 	// Both appear on no surface of their own: authentication precedes a caller, so
 	// neither can go through the facade. See internal/kaiten's doc for that
 	// exception, which now covers two use cases instead of one.
-	ValidateToken         validatetoken.UseCase
-	ValidatePlatformToken validateplatformtoken.UseCase
+	ResolveTokenAuthorization *resolvetokenauthorization.UseCase
+	ValidateToken             validatetoken.UseCase
+	ValidatePlatformToken     validateplatformtoken.UseCase
 
 	// GetPlatformCredential, MintOrganizationToken and RevokeOrganizationToken are
 	// published on the Platform API only. They are kept in this same struct because
@@ -174,7 +176,8 @@ func NewUseCases(svc services.Container) *UseCases {
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
-		ValidateToken: validatetoken.NewUseCase(queries, cache),
+		ResolveTokenAuthorization: resolvetokenauthorization.NewUseCase(queries),
+		ValidateToken:             validatetoken.NewUseCase(queries, cache),
 		// The same cache instance, and that is the whole reason this is wired here
 		// rather than assembled next to the middleware that calls it: revocation
 		// evicts by lookup hash from THIS cache (see RevokePlatformToken below) and
