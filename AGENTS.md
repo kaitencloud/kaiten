@@ -39,7 +39,15 @@ same root `Taskfile.yml` as humans: explicit `setup`, prepared `dev`, bounded
 `status`/`logs`, `debug`, `browser` and `capture`. No agent-only command tree.
 `dev` never installs/generates/builds or rotates credentials. Never treat mocked
 UI as backend proof. Keep captures private and use synthetic actors, not provider
-or customer credentials.
+or customer credentials. During Playwright local reproduction, agents MUST pair
+before/after screenshot visual analysis with Chrome DevTools MCP DOM/computed-style,
+console and network evidence from the **same browser session**. Use the optional
+`task browser -- <loopback-url> --devtools-port 9222` attachment workflow in the
+local-development guide; never attach a personal browser or treat `task capture`
+(a separate session) as same-session evidence. Add/rerun a focused regression.
+If installed Chrome or separately authorized pinned DevTools MCP is unavailable,
+report the blocker and incomplete evidence honestly; do not install/start tools
+without authorization or substitute screenshot-only verification.
 
 ## Architecture rules (frontend)
 
