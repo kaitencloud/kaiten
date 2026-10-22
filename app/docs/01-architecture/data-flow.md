@@ -78,6 +78,13 @@ const createMutation = useMutation({
 });
 ```
 
+A `PUT` that replaces an object as a whole does not send the object the form read
+when it opened: it reads the object again and sends only what the form changed
+(`writeOnFresh` in `@/lib/api/fresh-write`), so that a change made meanwhile in
+another tab is not overwritten. It narrows the race and does not remove it: until
+the API checks a version, the last writer wins. See
+[forms](../03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole).
+
 Deleting from a list can be optimistic: `optimisticDeleteCallbacks`
 (`@/lib/optimistic-mutations`) removes the row from the cache, restores it if the
 request fails, and invalidates the list when the mutation settles.

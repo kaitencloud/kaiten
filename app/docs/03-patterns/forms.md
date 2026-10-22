@@ -184,17 +184,22 @@ One form component serves both modes. The optional entity prop selects the mode:
 
 ```tsx
 // app/src/features/customers/components/customer-form.tsx (abridged)
+// What the form opened with is kept as it was: see "Updating an object the API
+// replaces as a whole" below.
+const [openedValues] = useState(() =>
+  customer ? customerToFormValues(customer) : initialCustomerFormValues,
+);
+
 const form = useAppForm({
-  defaultValues: customer
-    ? customerToFormValues(customer)
-    : initialCustomerFormValues,
+  defaultValues: openedValues,
   validators: { onChange: customerFormSchema },
   onSubmit: async ({ value }) => {
     try {
       const savedCustomer = customer
         ? ((await updateMutation.mutateAsync({
-            path: { customerSlug: customer.slug! },
-            body: customerFormValuesToUpdateBody(value),
+            customerSlug: customer.slug!,
+            edited: customerFormValuesToUpdateBody(value),
+            opened: customerFormValuesToUpdateBody(openedValues),
           })) ?? customer)
         : await createMutation.mutateAsync({
             body: customerFormValuesToCreateBody(value),
@@ -216,6 +221,77 @@ The form values and the request body are different shapes: the values keep an em
 - **Success.** `toast.success(t('<key>'))`, from the mutation's `onSuccess` or from `onSubmit`.
 - **Cache.** After a successful mutation, invalidate the affected queries with the generated query key functions. See [query key invalidation](../02-conventions/query-key-invalidation.md).
 - **Navigation.** A page form navigates with `useRouter` (`features/licenses/components/forms/license-form.tsx`) or `useNavigate` (`features/customers/components/customer-form.tsx`). A form shown in a dialog takes one of two shapes. Either it takes `onSuccess` and `onCancel` callbacks and a wrapper closes the dialog: `CustomerForm` inside `CustomerFormDialog` (`features/customers/components/customer-form-dialog.tsx`); `CustomerForm` navigates to the list when a callback is absent. Or it receives `onOpenChange` and calls it with `false` after a successful submit, as the example above does. See [dialog via route](./dialog-via-route.md).
+
+## Updating an object the API replaces as a whole
+
+Most `PUT` operations of the API replace the object: they require its required members (`PUT /customers/{slug}` requires the name, `PUT /licenses/{slug}` and `PUT /addons/{slug}` the name, the description and `isDefault`) and clear or reset the optional ones left out. A form that sends the object it read when it opened therefore also sends back, unasked, every member somebody else changed since: a rename made in another tab, a default moved to another version of a family. The API has no version check, so nothing refuses the write and nobody is told.
+
+The rule: **a full `PUT` re-reads the object first and sends only what the form changed.** It narrows the race to the time between that read and the write; it does not remove it. Until the API checks a version, a console update is last-writer-wins.
+
+The rule lives in one helper, `app/src/lib/api/fresh-write.ts`:
+
+| Export | What it does |
+| --- | --- |
+| `mergeChangedFields({ edited, fresh, opened })` | Pure. Starts from `fresh`, the object as the API holds it now, restated as a body, and puts on top of it each member of `edited` that differs from `opened`. A member the form did not change keeps the value it has now. Members are compared structurally, and an absent member equals a `null`. |
+| `writeOnFresh({ read, restate, opened, edited, write })` | Reads the object (`read`), restates it as a body (`restate`), merges, and writes the result (`write`). It resolves to what `write` resolves to. |
+| `FRESH_READ_OPTIONS` | `{ cache: 'no-store' }`, spread into the generated `GET` so that the read comes from the API and from no cache, the browser's included. |
+
+The body of each entity is built twice, by the same function, from the same object: once from what the form opened with (`opened`) and once from what it holds now (`edited`). They differ by what the person changed and by nothing else, which is what makes the comparison sound. A third function, `restate`, builds the same body from the object just read. Because all three are the same shape, a member the form does not carry (a default flag, a slug that never changes) is the same in `opened` and `edited` and so is taken from the fresh read.
+
+Each entity has one `save<Entity>OnFresh` that wires the helper to its generated `GET` and `PUT`, next to the entity's other queries (`queries/` of the feature or the domain), and a `<entity>ToUpdateBody` that restates an object as a body. A hook then uses it as the `mutationFn`:
+
+```tsx
+// app/src/features/licenses/components/commercial/use-license-commercial-form.ts (abridged)
+const [opened] = useState(() => ({
+  license,
+  values: licenseToCommercialFormValues(license),
+}));
+const update = useMutation({
+  mutationFn: saveLicenseOnFresh,
+  onSuccess: async () => { /* invalidate, as for any write */ },
+});
+
+const form = useAppForm({
+  defaultValues: opened.values,
+  onSubmit: async ({ value }) => {
+    await update.mutateAsync({
+      edited: commercialFormValuesToUpdateBody(value, opened.license),
+      licenseSlug: license.slug ?? license.id,
+      opened: commercialFormValuesToUpdateBody(opened.values, opened.license),
+    });
+  },
+});
+```
+
+```ts
+// app/src/features/licenses/queries/license-save.ts (abridged)
+export function saveLicenseOnFresh({ edited, licenseSlug, opened }: SaveLicenseVariables) {
+  return writeOnFresh({
+    edited,
+    opened,
+    read: async () => (await getLicense({ ...FRESH_READ_OPTIONS, path: { licenseSlug }, throwOnError: true })).data,
+    restate: licenseToUpdateBody,
+    write: async (body) => (await updateLicense({ body, path: { licenseSlug }, throwOnError: true })).data,
+  });
+}
+```
+
+Rules for a form that uses it:
+
+- **Keep what the form opened with.** Take a snapshot of the object and of the values with `useState(() => ...)` and give the snapshot to `defaultValues`. Do not rebuild them from props at each render: a refetch while the form is open would move the baseline under the person's edits, and what they did not touch would count as changed.
+- **A form that stays open after a save** (a settings card, a profile form) moves its baseline to what the API kept, as it resets its values. One that closes needs nothing.
+- **A cache that is written is given what the write answered or sent.** Most updates invalidate with the generated query keys, as after any write. Where a cache is written instead (the feature flags, the groups of entitlements), a `PUT` that answers `204` resolves, in `write`, to the body that was sent: that is the merged body, not the form's.
+- **A deleted object.** The read refuses with a `404` and the write is not sent: the `PUT` of a deleted object must never be able to create it again. The refusal reaches the form as a refusal of the update would, in the API's words, through `getApiErrorMessage` or the form's `ProblemAlert`.
+- **Tests.** Cover the helper with a unit test of the merge, and each form with two tests that serve the object through the mock API: one where the object changed on the server between the opening and the save, which proves that the other change survives and the form's is applied; one where the object was deleted meanwhile, which proves that the save says so and writes nothing.
+
+The writes that use the helper are the `save*OnFresh` functions: `saveCustomerOnFresh`, `saveLicenseOnFresh`, `saveAddonOnFresh`, `saveAddonGrantOnFresh`, `saveFeatureFlagOnFresh`, `saveVoucherOnFresh`, `saveInstanceOnFresh`, `saveDeploymentZoneOnFresh`, `saveEntitlementOnFresh`, `saveEntitlementGroupOnFresh`, `saveComponentOnFresh`, `saveBillingSettingsOnFresh` and `saveProfileOnFresh`.
+
+A `PUT` that stays as it was, and why:
+
+- **No object read from a cache.** The compatibility of an add-on with a license family (`PUT .../compatibility/{familySlug}`) is an idempotent fact, the notification preferences (`PUT /notification-preferences`) send the changes alone, and a scheduled plan change (`PUT .../billing/scheduled-change`) creates a resource from a chosen price.
+- **A secret the API never gives back.** The connector settings (Stripe, Attio) are written whole from the form, and there is nothing to read again.
+- **No read by key.** A role (`PUT /roles/{slug}`) has no `GET` of its own, only the list: a read would be the whole list, and a role missing from it would have to be inferred.
+- **The baseline moves too often, or is not in the caller's hands.** The draft of a voucher in its wizard is saved at each step and again on publication, so its baseline changes with every answer. The inline threshold of a license grant (`PUT .../licenses/{slug}/entitlements/{slug}`) receives two numbers from its cell and not the row it was opened on. Both want their own design.
 
 ## Large forms
 
