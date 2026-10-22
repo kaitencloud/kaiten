@@ -14,6 +14,10 @@ import { isForbiddenError, isNotFoundError } from '@/lib/errors';
  *   `VITE_KAITEN_WEBHOOKS=true` says that a saas-api answers behind it (the
  *   Playwright app suite sets it; `dev:mock` and a dev server over the
  *   open-source stack do not).
+ *
+ * `VITE_KAITEN_WEBHOOKS` is read from `import.meta.env` here rather than through
+ * `@/env`: it is a build switch for dev and e2e builds, not a deployment setting
+ * that a container fills in at start-up.
  */
 export function webhooksCanBeServed(): boolean {
   return (

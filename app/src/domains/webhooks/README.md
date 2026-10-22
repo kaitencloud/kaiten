@@ -19,20 +19,25 @@ counted by saas-api on delivery, and going over the allowance is recorded,
 never enforced, so it changes nothing here. So the console asks the routes themselves, with
 `GET /webhooks` (`getWebhooksServed`, `webhooks-served.ts`):
 
-| `GET /webhooks` answers | Meaning | `getWebhooksServed` |
-| --- | --- | --- |
-| 2xx | served | `true` |
-| 404 | nothing serves the path: a self-hosted deployment has no saas-api | `false` |
-| 403 | refused: the licence grants 0 webhook events, or none (`Webhooks.NotEntitled`), or the caller has no `read:webhooks` | `false` |
-| anything else (503 `Webhooks.EntitlementVerificationUnavailable`, a network error) | no answer | throws |
+| `GET /webhooks` answers                                                            | Meaning                                                                                                              | `getWebhooksServed` |
+| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| 2xx                                                                                | served                                                                                                               | `true`              |
+| 404                                                                                | nothing serves the path: a self-hosted deployment has no saas-api                                                    | `false`             |
+| 403                                                                                | refused: the licence grants 0 webhook events, or none (`Webhooks.NotEntitled`), or the caller has no `read:webhooks` | `false`             |
+| anything else (503 `Webhooks.EntitlementVerificationUnavailable`, a network error) | no answer                                                                                                            | throws              |
 
-No platform flag decides it, and no console setting says whether webhooks are
-on. The console only declines to ask where nothing can answer
-(`webhooksCanBeServed`): a build with no `VITE_KAITEN_PLATFORM_API_URL` is
-self-hosted, has no saas-api, and `getWebhooksServed` returns `false` without
-sending the request, so that no page carries a 404 for it. A dev server or an e2e
-build, which cannot tell, sets `VITE_KAITEN_WEBHOOKS=true` to ask (the Playwright
-app suite does; `dev:mock` does not). The call is written by
+The platform's feature flags do not decide it, and no console setting says
+whether webhooks are on. What the console does read is the build: it only
+declines to ask where nothing can answer (`webhooksCanBeServed`). A build with no
+`VITE_KAITEN_PLATFORM_API_URL` is self-hosted, has no saas-api, and
+`getWebhooksServed` returns `false` without sending the request, so that no page
+carries a 404 for it. A dev server or an e2e build, which cannot tell, sets
+`VITE_KAITEN_WEBHOOKS=true` to ask: the Playwright app suite does, and so must any
+other suite that builds the console with the e2e mocks and shows the webhooks pages
+(the console screenshots of the workspace repo); `dev:mock` does not. On Kaiten
+Cloud the nav entry needs the answer, so the call is still made on the pages that
+carry the nav; the query caches it for five minutes, so it is at most one request
+every five minutes and not one per page. The call is written by
 hand, on the shared `client`, because `app/openapi.yaml` does not describe the
 webhooks paths (see the feature's [Data](../../features/webhooks/README.md#data)).
 
