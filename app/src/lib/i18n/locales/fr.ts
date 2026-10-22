@@ -2852,6 +2852,13 @@ export default {
       },
     },
     Access: {
+      grantAdministrator: 'Accorder les accès administrateur',
+      grantAdministratorDescription:
+        'Ajoutez un autre administrateur qui pourra gérer les utilisateurs et les rôles de façon autonome. Vos propres accès administrateur sont conservés.',
+      singleAdministrator: 'Un seul administrateur',
+      singleAdministratorDescription:
+        'Évitez un point de défaillance unique : ouvrez un autre utilisateur actif et accordez-lui les accès Administrateur. Tous les administrateurs peuvent en nommer d’autres.',
+
       requestFailed: 'Impossible d’enregistrer les modifications',
       fullAdministrator: 'Accès administrateur complet',
       effectiveAccess: 'Accès effectifs aux ressources',

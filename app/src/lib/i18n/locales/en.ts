@@ -2800,6 +2800,13 @@ export default {
       },
     },
     Access: {
+      grantAdministrator: 'Grant administrator access',
+      grantAdministratorDescription:
+        'Add another administrator who can manage users and roles independently. Your own administrator access is kept.',
+      singleAdministrator: 'Only one administrator',
+      singleAdministratorDescription:
+        'Avoid a single point of failure: open another enabled user and grant Administrator access. All administrators can appoint others.',
+
       requestFailed: 'Unable to save changes',
       fullAdministrator: 'Full administrator access',
       effectiveAccess: 'Effective resource access',

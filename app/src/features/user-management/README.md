@@ -38,3 +38,13 @@ administrator authority is described as full access rather than one wildcard
 scope. Error summaries receive focus, lazy form fields reserve loading space,
 and editor motion honors reduced-motion preferences. Permission controls keep
 compact desktop sizing while increasing coarse-pointer targets.
+
+## Administrator continuity
+
+The first administrator can assign the built-in Administrator role to any other
+enabled human member. Every delegated administrator can manage users and roles,
+appoint further administrators and manage the original administrator. Bootstrap
+only chooses the first administrator; it does not reserve exclusive authority.
+The last-administrator guard refuses removing the final enabled administrator,
+not adding another one. The console warns when only one administrator remains
+and offers Grant administrator access in another user's access editor.

@@ -125,6 +125,28 @@ function UserAccessForm({
             {t('Pages.Access.adminExplanation')}
           </p>
         </div>
+        {user.id !== currentId &&
+          user.authorization.enabled &&
+          !user.authorization.roles.includes('administrator') && (
+            <div className="rounded-md border bg-primary-subtle/30 p-3 space-y-2">
+              <p className="text-sm">
+                {t('Pages.Access.grantAdministratorDescription')}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={pending}
+                onClick={() => {
+                  form.setFieldValue('roles', [
+                    ...new Set([...form.state.values.roles, 'administrator']),
+                  ]);
+                  setConfirm(true);
+                }}
+              >
+                {t('Pages.Access.grantAdministrator')}
+              </Button>
+            </div>
+          )}
         {user.id === currentId && (
           <p className="text-xs text-muted-foreground">
             {t('Pages.Access.selfProtection')}

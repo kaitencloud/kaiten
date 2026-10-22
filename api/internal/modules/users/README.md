@@ -112,3 +112,13 @@ management policy are separate ports. Future policies may add actions/resources
 behind those boundaries while preserving server-side stored authorization.
 **There is no RLS in OSS, and none is implemented here.** Future row-level security
 belongs exclusively to the SaaS API and Enterprise version, not OSS Core.
+
+## Administrator continuity
+
+The first administrator can assign the built-in Administrator role to any other
+enabled human member. Every delegated administrator can manage users and roles,
+appoint further administrators and manage the original administrator. Bootstrap
+only chooses the first administrator; it does not reserve exclusive authority.
+The last-administrator guard refuses removing the final enabled administrator,
+not adding another one. The console warns when only one administrator remains
+and offers Grant administrator access in another user's access editor.

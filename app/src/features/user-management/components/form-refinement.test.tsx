@@ -59,6 +59,16 @@ describe('form refinement safety and clarity', () => {
   expect(screen.getByText('support',{exact:true})).toBeVisible();
   expect(screen.getByText('Changes affect 2 assigned users')).toBeVisible();
  });
+ it('lets the initial administrator grant full management to another user', async () => {
+  const user=userEvent.setup();mutation.mutateAsync.mockClear();
+  const adminRole:Role={slug:'administrator',name:'Administrator',description:'Manage users and roles',permissions:['write:*'],builtIn:true,isAdministrator:true};
+  wrap(<UserEditor user={member} roles={[adminRole,...roles]} currentId="initial-admin" available={['read:customers']} onClose={()=>{}} />);
+  await screen.findByRole('textbox',{name:'Name'});
+  await user.click(screen.getByRole('button',{name:'Grant administrator access'}));
+  expect(await screen.findByRole('alertdialog')).toBeVisible();
+  await user.click(screen.getByRole('alertdialog').querySelector('button[data-variant="default"]')!);
+  await waitFor(()=>expect(mutation.mutateAsync).toHaveBeenCalledWith({path:{id:member.id},body:{roles:['support','administrator'],permissions:[]}}));
+ });
  it('keeps unsaved profile edits after saving access', async () => {
   const user=userEvent.setup(),close=vi.fn();mutation.mutateAsync.mockClear();
   wrap(<UserEditor user={member} roles={roles} available={['read:customers']} onClose={close} />);

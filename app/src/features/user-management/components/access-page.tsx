@@ -111,6 +111,23 @@ export function AccessPage({
             <p className="rounded-md border bg-muted/30 px-4 py-3 text-xs text-muted-foreground">
               {t('Pages.Access.adminExplanation')}
             </p>
+            {allUsers.filter(
+              (user) =>
+                user.authorization.enabled &&
+                user.authorization.roles.includes('administrator'),
+            ).length === 1 && (
+              <div
+                role="status"
+                className="rounded-md border bg-warning-subtle p-3 text-sm text-warning-subtle-foreground"
+              >
+                <p className="font-semibold">
+                  {t('Pages.Access.singleAdministrator')}
+                </p>
+                <p className="mt-1">
+                  {t('Pages.Access.singleAdministratorDescription')}
+                </p>
+              </div>
+            )}
             <Tabs value={search.tab} onValueChange={changeTab}>
               <TabsList variant="line" aria-label={t('Pages.Access.title')}>
                 <TabsTrigger value="users">
