@@ -9791,7 +9791,7 @@ paths:
         - deploymentZones
   /roles:
     get:
-      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      description: Requires a live human member with stored read:users (write:users implies read). Lists immutable built-in templates and current organization roles.
       operationId: ListRoles
       responses:
         "200":
@@ -9853,7 +9853,7 @@ paths:
       tags:
         - users
     post:
-      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
       operationId: CreateRole
       requestBody:
         content:
@@ -9918,7 +9918,7 @@ paths:
         - users
   /roles/{slug}:
     delete:
-      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
       operationId: DeleteRole
       parameters:
         - in: path
@@ -9978,7 +9978,7 @@ paths:
       tags:
         - users
     put:
-      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
       operationId: UpdateRole
       parameters:
         - in: path
@@ -10554,7 +10554,7 @@ paths:
         - service-accounts
   /users:
     get:
-      description: Administrator role required in the current organization; provider authorization claims are ignored.
+      description: Requires a live human member with stored read:users (write:users implies read). Provider authorization claims are ignored.
       operationId: ListUsers
       parameters:
         - explode: false
@@ -10628,7 +10628,7 @@ paths:
         - users
   /users/{id}:
     get:
-      description: Administrator role required in the current organization; provider authorization claims are ignored.
+      description: Requires a live human member with stored read:users (write:users implies read). Provider authorization claims are ignored.
       operationId: GetUser
       parameters:
         - in: path
@@ -10693,7 +10693,7 @@ paths:
       tags:
         - users
     put:
-      description: Administrator role required. Profile name and email are global across memberships and become locally managed.
+      description: Requires a live human member with stored write:users who covers the target's current authority. Profile name and email are global across memberships and become locally managed.
       operationId: UpdateUser
       parameters:
         - in: path
@@ -10761,7 +10761,7 @@ paths:
         - users
   /users/{id}/assignments:
     patch:
-      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
       operationId: SetUserAssignments
       parameters:
         - in: path
@@ -10833,7 +10833,7 @@ paths:
         - users
   /users/{id}/authorization:
     put:
-      description: Administrator role required in the current organization; provider authorization claims are ignored.
+      description: Requires a live human member with stored write:users who covers current and proposed target authority. The last enabled administrator is protected. Provider authorization claims are ignored.
       operationId: PutUserAuthorization
       parameters:
         - in: path
@@ -10905,7 +10905,7 @@ paths:
         - users
   /users/{id}/enabled:
     patch:
-      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
       operationId: SetUserEnabled
       parameters:
         - in: path

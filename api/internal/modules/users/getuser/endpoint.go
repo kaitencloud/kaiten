@@ -23,7 +23,7 @@ type Response struct{ Body schema.ManagedUser }
 func RegisterEndpoint(api huma.API, app Application) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
 		OperationID: "GetUser", Method: http.MethodGet, Path: "/users/{id}", Summary: "Get a human user",
-		Description: "Administrator role required in the current organization; provider authorization claims are ignored.",
+		Description: "Requires a live human member with stored read:users (write:users implies read). Provider authorization claims are ignored.",
 		Tags:        []string{"users"}, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

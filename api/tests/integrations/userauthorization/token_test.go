@@ -25,7 +25,7 @@ func TestMachineAuthorizationIsResolvedFromStorage(t *testing.T) {
 	require.NoError(t, err)
 	_, err = database.DbPool.Exec(t.Context(), `INSERT INTO user_on_organization(user_id,organization_id) VALUES($1,$2)`, userID, orgID)
 	require.NoError(t, err)
-	_, err = database.DbPool.Exec(t.Context(), `INSERT INTO token(id,hash,lookup_hash,created_by,service_account_id,organization_id,scopes,name,slug) VALUES($1::uuid,'hash',$1::uuid::text,$2,$3,$4,ARRAY['read:components'],'Token',$1::uuid::text)`, tokenID, database.DefaultData.UserID, userID, orgID)
+	_, err = database.DbPool.Exec(t.Context(), `INSERT INTO token(id,hash,lookup_hash,created_by,service_account_id,organization_id,scopes,name,slug) VALUES($1::uuid,'hash',$1::uuid::text,$2,$3,$4,ARRAY['write:*'],'Token',$1::uuid::text)`, tokenID, database.DefaultData.UserID, userID, orgID)
 	require.NoError(t, err)
 	var org string
 	require.NoError(t, database.DbPool.QueryRow(t.Context(), `SELECT external_id FROM organization WHERE id=$1`, orgID).Scan(&org))
@@ -50,6 +50,8 @@ func TestMachineAuthorizationIsResolvedFromStorage(t *testing.T) {
 	}
 	request(credential, "/components", 200)
 	request(credential, "/users", 403)
+	request(credential, "/roles", 403)
+	request(credential, "/users/"+database.DefaultData.UserID.String(), 403)
 	request(sign(subject, org, jwt.SigningMethodHS256), "/components", 401)
 	request(sign("other-subject", org, jwt.SigningMethodNone), "/components", 401)
 	request(sign(subject, "other-org", jwt.SigningMethodNone), "/components", 401)

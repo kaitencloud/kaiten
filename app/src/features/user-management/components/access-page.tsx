@@ -6,7 +6,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Page } from '@/functionals/page';
-import { isAdministrator, useCurrentAccess } from '@/domains/access-management';
+import {
+  hasAccessScope,
+  canDelegateScopes,
+  useCurrentAccess,
+} from '@/domains/access-management';
 import { isForbiddenError, getApiErrorMessage } from '@/lib/errors';
 import { allUsersOptions, rolesOptions } from '../user-management.queries';
 import { filterUsers, type AccessSearch } from '../access-helpers';
@@ -23,22 +27,51 @@ export function AccessPage({
 }) {
   const { t } = useTranslation();
   const me = useCurrentAccess();
-  const administrator = isAdministrator(me.data);
-  const users = useQuery({ ...allUsersOptions(), enabled: administrator });
-  const roles = useQuery({ ...rolesOptions(), enabled: administrator });
+  const grants = me.data?.scopes ?? [];
+  const canRead = hasAccessScope(grants, 'read:users');
+  const canWrite = hasAccessScope(grants, 'write:users');
+  const users = useQuery({ ...allUsersOptions(), enabled: canRead });
+  const roles = useQuery({ ...rolesOptions(), enabled: canRead });
   const denied =
-    (me.isSuccess && !administrator) ||
+    (me.isSuccess && !canRead) ||
     isForbiddenError(me.error) ||
     isForbiddenError(users.error) ||
     isForbiddenError(roles.error);
   const error = me.error ?? users.error ?? roles.error;
   const loading =
-    me.isPending || (administrator && (users.isPending || roles.isPending));
+    me.isPending || (canRead && (users.isPending || roles.isPending));
   const allUsers = users.data?.items ?? [];
   const allRoles = roles.data ?? [];
   const selectedUser = allUsers.find((user) => user.id === search.manageUser);
   const selectedRole = allRoles.find((role) => role.slug === search.manageRole);
-  const creatingRole = search.createRole === true;
+  const creatingRole = search.createRole === true && canWrite;
+  const editableRole =
+    !selectedRole ||
+    (canDelegateScopes(grants, selectedRole.permissions) &&
+      allUsers
+        .filter((user) => user.authorization.roles.includes(selectedRole.slug))
+        .every((user) =>
+          canDelegateScopes(grants, [
+            ...user.authorization.permissions,
+            ...allRoles
+              .filter((role) => user.authorization.roles.includes(role.slug))
+              .flatMap((role) => role.permissions),
+          ]),
+        ));
+  const targetScopes = selectedUser
+    ? [
+        ...selectedUser.authorization.permissions,
+        ...allRoles
+          .filter((role) =>
+            selectedUser.authorization.roles.includes(role.slug),
+          )
+          .flatMap((role) => role.permissions),
+      ]
+    : [];
+  const editableUser = canWrite && canDelegateScopes(grants, targetScopes);
+  const grantablePermissions = (me.data?.availablePermissions ?? []).filter(
+    (permission) => hasAccessScope(grants, permission),
+  );
   function closeEditor() {
     onSearchChange({
       ...search,
@@ -60,7 +93,7 @@ export function AccessPage({
   }
   function retry() {
     void me.refetch();
-    if (administrator) {
+    if (canRead) {
       void users.refetch();
       void roles.refetch();
     }
@@ -199,7 +232,7 @@ export function AccessPage({
                       </option>
                     </select>
                   </div>
-                ) : (
+                ) : canWrite ? (
                   <Button
                     onClick={() =>
                       onSearchChange({
@@ -212,13 +245,14 @@ export function AccessPage({
                     <Plus className="size-4" aria-hidden />
                     {t('Pages.Access.createRole')}
                   </Button>
-                )}
+                ) : null}
               </div>
               <TabsContent value="users">
                 <UsersTable
                   users={filterUsers(allUsers, search)}
                   roles={allRoles}
                   currentId={me.data?.user.id}
+                  canWrite={canWrite}
                   onManage={(id) =>
                     onSearchChange({ ...search, manageUser: id })
                   }
@@ -232,6 +266,7 @@ export function AccessPage({
                       .includes(search.q?.toLocaleLowerCase() ?? ''),
                   )}
                   users={allUsers}
+                  canWrite={canWrite}
                   onManage={(slug) =>
                     onSearchChange({
                       ...search,
@@ -260,6 +295,9 @@ export function AccessPage({
                 user={selectedUser}
                 roles={allRoles}
                 available={me.data?.availablePermissions ?? []}
+                grantablePermissions={grantablePermissions}
+                actorScopes={grants}
+                canWrite={editableUser}
                 currentId={me.data?.user.id}
                 onClose={closeEditor}
               />
@@ -269,6 +307,8 @@ export function AccessPage({
                 key={creatingRole ? 'create-role' : search.manageRole}
                 role={selectedRole}
                 available={me.data?.availablePermissions ?? []}
+                grantablePermissions={grantablePermissions}
+                canWrite={canWrite && editableRole}
                 assignedCount={
                   allUsers.filter((user) =>
                     user.authorization.roles.includes(selectedRole?.slug ?? ''),

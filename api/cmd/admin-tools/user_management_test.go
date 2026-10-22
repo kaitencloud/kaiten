@@ -189,14 +189,16 @@ func TestUserManagementCLI(t *testing.T) {
 
 	t.Run("stored policy denies static scopes missing and disabled actors", func(t *testing.T) {
 		require.NoError(t, assignment(member, "viewer", "write:users", true).Err)
+		for _, command := range [][]string{{"list"}, {"get", "--external-id", actor}} {
+			result := runAdminTools(t, dsn, append([]string{"user", "--organization-external-id", orgExternalID, "--actor-external-id", member}, command...)...)
+			require.NoError(t, result.Err)
+		}
 		for _, command := range [][]string{
-			{"list"},
-			{"get", "--external-id", actor},
 			{"update", "--external-id", actor, "--name", "Unauthorized", "--email", "unauthorized@example.com"},
 			{"grant", "--external-id", member, "--roles", "administrator", "--scopes", "", "--enabled", "--yes"},
 		} {
 			result := runAdminTools(t, dsn, append([]string{"user", "--organization-external-id", orgExternalID, "--actor-external-id", member}, command...)...)
-			require.ErrorContains(t, result.Err, "administrator role")
+			require.ErrorContains(t, result.Err, "permissions not held")
 			require.Empty(t, result.Stdout)
 		}
 		disabled, _ := provision()
@@ -212,7 +214,7 @@ func TestUserManagementCLI(t *testing.T) {
 	t.Run("tenant isolation invalid cursor and unknown targets", func(t *testing.T) {
 		otherOrg := ensureOrganizationForTest(t, dsn)
 		result := runAdminTools(t, dsn, "user", "get", "--organization-external-id", otherOrg, "--actor-external-id", actor, "--external-id", member)
-		require.ErrorContains(t, result.Err, "administrator role")
+		require.ErrorContains(t, result.Err, "stored user-management permission")
 		require.Empty(t, result.Stdout)
 		result = runAdminTools(t, dsn, args("get", "--external-id", "no-such-user")...)
 		require.ErrorContains(t, result.Err, "does not exist")

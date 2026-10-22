@@ -22,7 +22,7 @@ type (
 func RegisterEndpoint(api huma.API, app Application) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
 		OperationID: "CreateRole", Method: http.MethodPost, Path: "/roles", Summary: "Create a custom organization role",
-		Description:   "Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.",
+		Description:   "Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.",
 		DefaultStatus: http.StatusCreated,
 		Tags:          []string{"users"}, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

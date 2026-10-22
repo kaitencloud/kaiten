@@ -69,6 +69,19 @@ describe('form refinement safety and clarity', () => {
   await user.click(screen.getByRole('alertdialog').querySelector('button[data-variant="default"]')!);
   await waitFor(()=>expect(mutation.mutateAsync).toHaveBeenCalledWith({path:{id:member.id},body:{roles:['support','administrator'],permissions:[]}}));
  });
+ it('shows a read-only profile to a directory reader', async () => {
+  wrap(<UserEditor user={member} roles={roles} available={['read:customers']} canWrite={false} actorScopes={['read:users']} onClose={()=>{}} />);
+  expect(await screen.findByText('alex@example.com')).toBeVisible();
+  expect(screen.queryByRole('button',{name:'Save access'})).not.toBeInTheDocument();
+  expect(screen.queryByRole('button',{name:'Save profile'})).not.toBeInTheDocument();
+ });
+ it('disables Administrator assignment for limited scope managers', async () => {
+  const administrator:Role={slug:'administrator',name:'Administrator',description:'Full access',permissions:['write:*'],builtIn:true,isAdministrator:true};
+  wrap(<UserEditor user={member} roles={[administrator,...roles]} available={['read:customers']} actorScopes={['write:users','read:customers']} canWrite onClose={()=>{}} />);
+  await screen.findByRole('textbox',{name:'Name'});
+  expect(screen.getByRole('checkbox',{name:/Administrator/})).toBeDisabled();
+  expect(screen.queryByRole('button',{name:'Grant administrator access'})).not.toBeInTheDocument();
+ });
  it('keeps unsaved profile edits after saving access', async () => {
   const user=userEvent.setup(),close=vi.fn();mutation.mutateAsync.mockClear();
   wrap(<UserEditor user={member} roles={roles} available={['read:customers']} onClose={close} />);

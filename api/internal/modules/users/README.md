@@ -30,9 +30,12 @@ active human can read their own `/api/me` profile and effective permissions.
 `administrator`, `viewer`, and `editor` are immutable built-in templates; custom
 roles group organization permissions under stable organization-owned slugs.
 Explicit permissions use Core's organization scope vocabulary. User
-management additionally requires the **stored administrator role**: granting
-`write:users`, including through an editor role or service token, cannot promote
-someone or access the directory. Assignments and enablement belong to membership.
+management uses fresh stored human permissions: `read:users` permits the user
+and role directories, and `write:users` permits management (and implies read).
+Direct permissions and custom or built-in roles all participate. No additional
+administrator role is required. Service tokens, machines and system identities
+cannot manage humans, even with users scopes. Assignments and enablement belong
+to membership.
 
 Permissions and active-user/membership checks are loaded on **every request**, even
 when JIT identity resolution is cached. REST, GraphQL and OFREP use the same
@@ -44,22 +47,22 @@ already-running requests/streams are not retroactively canceled.
 | Method | Path (under `/api`) | Purpose |
 | --- | --- | --- |
 | GET | `/me` | Current human profile, roles, effective scopes and vocabulary |
-| GET | `/users` | Administrator directory; `limit` and opaque `cursor` pagination |
-| GET | `/users/{id}` | Administrator reads a human member |
-| PUT | `/users/{id}` | Administrator replaces global display name/email |
+| GET | `/users` | Human directory (`read:users`); `limit` and opaque `cursor` pagination |
+| GET | `/users/{id}` | Read a human member (`read:users`) |
+| PUT | `/users/{id}` | Replace global display name/email (`write:users`, attenuated) |
 | PUT | `/users/{id}/authorization` | Replace `enabled`, `roles`, `permissions` |
 | PATCH | `/users/{id}/assignments` | Replace roles/direct scopes while preserving enabled |
 | PATCH | `/users/{id}/enabled` | Atomically set enablement, preserving latest assignments |
-| GET | `/roles` | Administrator reads built-in and current-organization custom roles |
+| GET | `/roles` | Read built-in and organization custom roles (`read:users`) |
 | POST | `/roles` | Create custom `{slug,name,description,permissions}`; returns 201 |
 | PUT | `/roles/{slug}` | Replace `{name,description,permissions}`; slug stays immutable |
 | DELETE | `/roles/{slug}` | Delete an unassigned custom role; returns 204 |
 
 `/me` returns `{user,organizationId,scopes,availableRoles,availablePermissions}`.
 `availableRoles` and `/roles` return `Role` objects:
-`{slug,name,description,permissions,builtIn,isAdministrator}`. Administrator UI
-capability comes from enabled stored `administrator` assignment, never
-`write:users`. `/users` returns `{items,nextCursor?,hasMore}`.
+`{slug,name,description,permissions,builtIn,isAdministrator}`. Directory and management UI
+capabilities come from effective `read:users` and `write:users` respectively; the
+server remains authoritative for delegation checks. `/users` returns `{items,nextCursor?,hasMore}`.
 
 Custom-role permissions and direct user permissions accept only
 `scope.OrganizationScopes()` (explicit read/write scopes, no wildcard or
@@ -69,23 +72,41 @@ every request; role edits immediately change access with the same credential.
 Unknown/corrupt stored assignments fail closed. Derived role permissions are
 never written back as direct user permissions.
 
-Role and assignment mutations share the organization lock and recheck stored
-administrator capability after waiting. Deleting even a disabled user's assigned
+Role, assignment, enablement and profile mutations share the organization lock
+and recheck the actor's fresh stored `write:users` grants after waiting. Deleting even a disabled user's assigned
 role is refused with `409 Users.RoleInUse`; unassign before deletion. Built-in
 mutations return `409 Users.BuiltInRole`, duplicate slugs
 `409 Users.RoleAlreadyExists`, missing roles `404 Users.RoleNotFound`, invalid
 role payloads `400 Users.InvalidRole`, and unknown assignments
-`400 Users.InvalidAuthorization`. No role permission can create administrator
-capability. Credentialed `kaiten.Users` facade methods expose the same policies to
+`400 Users.InvalidAuthorization`. Only the protected built-in administrator grants `write:*`; custom
+roles accept explicit organization permissions only. Credentialed `kaiten.Users` facade methods expose the same policies to
 CLI adapters without transport types; no recovery bypass is added.
 
-Profile name/email are global across memberships. An administrator editing them
+All management is attenuated: the caller must cover the target's **current and
+proposed effective resource authority**, including roles and direct permissions.
+`write:X` covers `read:X`; assigning or managing the administrator role requires
+an exact held `write:*`, not the union of all explicit scopes. A limited manager
+cannot demote, disable or edit a stronger user. Disabled users retain their role
+and direct-permission boundary: re-enabling them or clearing their assignments
+must not bypass delegation. Profile editing also checks current target authority.
+
+Custom-role creation checks proposed permissions. Updating checks **old and new**
+permissions, including metadata-only edits and shrinking a broad role. Role edits
+also check each assigned human's current and proposed authority, including disabled
+or removed members with retained assignments. Deleting
+checks old permissions even when the role is unassigned. This prevents laundering
+retained privileges; edits change every assigned user's grants dynamically.
+Missing stored permission answers `403 Users.MissingPermission`; authority beyond
+the caller's grants answers `403 Users.CannotDelegate`. Invalid stored actor
+assignments and revoked/disabled/non-human actors fail closed.
+
+Profile name/email are global across memberships. An authorized human editing them
 changes how the same identity appears in other organizations. Once edited locally,
 future provider profile claims do not overwrite them. External identity, account
 type and membership cannot be rewritten by these endpoints. Disablement blocks
-only the current organization's access; administrators can re-enable that member.
+only the current organization's access; authorized managers can re-enable that member within their authority boundary.
 
-Management writes serialize on the organization, recheck the acting administrator
+Management writes serialize on the organization, recheck the acting human grants
 inside the transaction and refuse disabling/demoting its last active administrator
 with `409 Users.LastAdministrator`. No global user delete is exposed on Core.
 The privileged Platform deletion APIs and direct database operators remain recovery

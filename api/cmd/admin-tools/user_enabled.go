@@ -15,7 +15,7 @@ func buildUserEnabledCmd(enabled bool) *cobra.Command {
 	}
 	cmd := &cobra.Command{
 		Use: verb, Short: verb + " a human member in one organization",
-		Long: verb + " a human member's organization access without changing their latest roles or permissions. This does not delete the global user or remove memberships. Requires an enabled stored administrator and --yes; the last enabled administrator cannot be disabled.",
+		Long: verb + " a human member's organization access without changing their latest roles or permissions. This does not delete the global user or remove memberships. Requires a live human with stored write:users covering the target's authority and --yes; the last enabled administrator cannot be disabled.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if err := o.validate(); err != nil {

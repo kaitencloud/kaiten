@@ -16,7 +16,7 @@ import (
 func buildRoleCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "role", Aliases: []string{"roles"}, Short: "Manage organization-owned scope-group roles",
-		Long: "Manage custom roles as an enabled stored organization administrator. Role slugs are immutable assignment identifiers. Built-in roles, including administrator, cannot be edited or deleted; custom roles never confer administrator status. Scope-group changes immediately affect every member assigned the role.",
+		Long: "Manage custom roles as a live human with stored user-management scopes. Role slugs are immutable assignment identifiers. Built-in roles, including administrator, cannot be edited or deleted; custom roles never confer administrator status. Scope-group changes immediately affect every member assigned the role.",
 	}
 	cmd.AddCommand(buildRoleListCmd(), buildRoleWriteCmd(false), buildRoleWriteCmd(true), buildRoleDeleteCmd())
 	return cmd

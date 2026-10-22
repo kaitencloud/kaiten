@@ -1,6 +1,6 @@
 // Package storage owns validated, serialized users authorization writes. It
 // authenticates no credentials and exposes no endpoint; drivers must supply a
-// trusted actor and organization, and still enforce operation scopes.
+// trusted human actor and organization. Stored operation scopes are resolved freshly.
 package storage
 
 import (
@@ -14,14 +14,16 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/schema"
+	"github.com/kaitencloud/kaiten/api/pkg/scope"
 )
 
 var (
-	ErrInvalidAuthorization  = errors.New("invalid stored or requested authorization")
-	ErrBuiltInRole           = errors.New("built-in roles are immutable")
-	ErrRoleInUse             = errors.New("role is assigned to users")
-	ErrAdministratorRequired = errors.New("enabled organization administrator required")
-	ErrLastAdministrator     = errors.New("cannot remove or disable the last organization administrator")
+	ErrInvalidAuthorization = errors.New("invalid stored or requested authorization")
+	ErrBuiltInRole          = errors.New("built-in roles are immutable")
+	ErrRoleInUse            = errors.New("role is assigned to users")
+	ErrMissingPermission    = errors.New("missing required stored user-management permission")
+	ErrCannotDelegate       = errors.New("cannot manage or delegate permissions not held")
+	ErrLastAdministrator    = errors.New("cannot remove or disable the last organization administrator")
 )
 
 type Store struct{ uof *uow.UnitOfWork }
@@ -45,22 +47,33 @@ func (s *Store) Resolve(ctx context.Context, organizationID, userID uuid.UUID) (
 }
 
 // ReplaceAuthorization replaces all assignment state; Enabled must be explicit.
-// The acting administrator is rechecked inside the lock, so revoked administrators
-// cannot race another administrator's management request. Never call the raw SQL
+// The actor's stored grants are rechecked inside the lock, so revocation cannot
+// race another management request. Never call the raw SQL
 // replacement from a driver: it deliberately lacks this transactional policy.
 func (s *Store) ReplaceAuthorization(ctx context.Context, organizationID, actorID, userID uuid.UUID, assignment schema.UserAuthorization) (schema.UserAuthorization, error) {
 	var result schema.UserAuthorization
 	err := s.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(s.uof.DBTX(ctx))
-		if err := s.lockAdministrator(ctx, q, organizationID, actorID); err != nil {
+		grants, err := s.lockManager(ctx, q, organizationID, actorID)
+		if err != nil {
 			return err
 		}
 		if err := s.validateAssignment(ctx, organizationID, assignment); err != nil {
 			return err
 		}
-		// Get, not Resolve: administrators must be able to re-enable a member.
+		// Get, not Resolve: managers must be able to re-enable a member.
 		current, err := q.GetOrganizationUser(ctx, db.GetOrganizationUserParams{OrganizationID: organizationID, UserID: userID})
 		if err != nil {
+			return err
+		}
+		roles, err := s.Roles(ctx, organizationID)
+		if err != nil {
+			return err
+		}
+		if err := requireAssignmentAuthority(grants, schema.UserAuthorization{Enabled: current.Enabled, Roles: current.Roles, Permissions: current.Permissions}, roles); err != nil {
+			return err
+		}
+		if err := requireAssignmentAuthority(grants, assignment, roles); err != nil {
 			return err
 		}
 		if current.Enabled && slices.Contains(current.Roles, schema.RoleAdministrator) && !assignment.IsAdministrator() {
@@ -90,10 +103,21 @@ func (s *Store) UpdateProfile(ctx context.Context, organizationID, actorID, user
 	var result db.UpdateOrganizationUserProfileRow
 	err := s.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(s.uof.DBTX(ctx))
-		if err := s.lockAdministrator(ctx, q, organizationID, actorID); err != nil {
+		grants, err := s.lockManager(ctx, q, organizationID, actorID)
+		if err != nil {
 			return err
 		}
-		var err error
+		current, err := q.GetOrganizationUser(ctx, db.GetOrganizationUserParams{OrganizationID: organizationID, UserID: userID})
+		if err != nil {
+			return err
+		}
+		roles, err := s.Roles(ctx, organizationID)
+		if err != nil {
+			return err
+		}
+		if err := requireAssignmentAuthority(grants, schema.UserAuthorization{Enabled: current.Enabled, Roles: current.Roles, Permissions: current.Permissions}, roles); err != nil {
+			return err
+		}
 		result, err = q.UpdateOrganizationUserProfile(ctx, db.UpdateOrganizationUserProfileParams{
 			OrganizationID: organizationID, UserID: userID, Name: name, Email: email,
 		})
@@ -102,19 +126,43 @@ func (s *Store) UpdateProfile(ctx context.Context, organizationID, actorID, user
 	return result, err
 }
 
-func (s *Store) lockAdministrator(ctx context.Context, q *db.Queries, organizationID, actorID uuid.UUID) error {
-	if _, err := q.LockUserAuthorizationOrganization(ctx, organizationID); err != nil {
-		return err
-	}
-	actor, err := s.Resolve(ctx, organizationID, actorID)
+// RequirePermission never trusts an adapter's static scopes, JWT or warm grants.
+// ResolveGrants also enforces live human membership and valid stored definitions.
+func (s *Store) RequirePermission(ctx context.Context, organizationID, actorID uuid.UUID, required string) ([]string, error) {
+	grants, err := s.ResolveGrants(ctx, organizationID, actorID)
 	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, ErrInvalidAuthorization) {
-		return ErrAdministratorRequired
+		return nil, ErrMissingPermission
 	}
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if !actor.IsAdministrator() || actor.Validate() != nil {
-		return ErrAdministratorRequired
+	if !scope.HasScope(grants, required) {
+		return nil, ErrMissingPermission
+	}
+	return grants, nil
+}
+
+func (s *Store) lockManager(ctx context.Context, q *db.Queries, organizationID, actorID uuid.UUID) ([]string, error) {
+	if _, err := q.LockUserAuthorizationOrganization(ctx, organizationID); err != nil {
+		return nil, err
+	}
+	// Separate statement after waiting: READ COMMITTED sees any revoked grants.
+	return s.RequirePermission(ctx, organizationID, actorID, scope.Write(scope.Users))
+}
+
+func requireAuthority(grants, permissions []string) error {
+	if !scope.HasAllScopes(grants, permissions) {
+		return ErrCannotDelegate
 	}
 	return nil
+}
+
+func requireAssignmentAuthority(grants []string, assignment schema.UserAuthorization, roles []schema.Role) error {
+	if err := validateAssignment(assignment, roles); err != nil {
+		return err
+	}
+	// Disabled assignments retain authority. Check it even while disabled, so
+	// removing high privileges or restoring access cannot bypass attenuation.
+	assignment.Enabled = true
+	return requireAuthority(grants, assignment.EffectiveScopes(roles...))
 }

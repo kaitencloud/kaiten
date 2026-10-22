@@ -74,7 +74,8 @@ func (s *Store) CreateRole(ctx context.Context, orgID, actorID uuid.UUID, input 
 	var result schema.Role
 	err := s.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(s.uof.DBTX(ctx))
-		if err := s.lockAdministrator(ctx, q, orgID, actorID); err != nil {
+		grants, err := s.lockManager(ctx, q, orgID, actorID)
+		if err != nil {
 			return err
 		}
 		if slices.Contains(schema.BuiltInRoles(), input.Slug) {
@@ -85,6 +86,9 @@ func (s *Store) CreateRole(ctx context.Context, orgID, actorID uuid.UUID, input 
 		}
 		if err := input.Validate(); err != nil {
 			return fmt.Errorf("%w: %s", ErrInvalidAuthorization, err)
+		}
+		if err := requireAuthority(grants, input.Permissions); err != nil {
+			return err
 		}
 		row, err := q.CreateOrganizationRole(ctx, db.CreateOrganizationRoleParams{OrganizationID: orgID, Slug: input.Slug, Name: input.Name, Description: input.Description, Permissions: append([]string{}, input.Permissions...)})
 		result = schema.Role{Slug: row.Slug, Name: row.Name, Description: row.Description, Permissions: append([]string{}, row.Permissions...)}
@@ -97,7 +101,8 @@ func (s *Store) UpdateRole(ctx context.Context, orgID, actorID uuid.UUID, slug s
 	var result schema.Role
 	err := s.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(s.uof.DBTX(ctx))
-		if err := s.lockAdministrator(ctx, q, orgID, actorID); err != nil {
+		grants, err := s.lockManager(ctx, q, orgID, actorID)
+		if err != nil {
 			return err
 		}
 		if slices.Contains(schema.BuiltInRoles(), slug) {
@@ -105,6 +110,32 @@ func (s *Store) UpdateRole(ctx context.Context, orgID, actorID uuid.UUID, slug s
 		}
 		if err := input.Validate(); err != nil {
 			return fmt.Errorf("%w: %s", ErrInvalidAuthorization, err)
+		}
+		if err := s.requireRoleAuthority(ctx, orgID, slug, grants); err != nil {
+			return err
+		}
+		if err := requireAuthority(grants, input.Permissions); err != nil {
+			return err
+		}
+		roles, err := s.Roles(ctx, orgID)
+		if err != nil {
+			return err
+		}
+		proposed := append([]schema.Role{}, roles...)
+		index := slices.IndexFunc(proposed, func(role schema.Role) bool { return role.Slug == slug })
+		proposed[index].Permissions = input.Permissions
+		assignees, err := q.ListRoleUserAuthorizations(ctx, db.ListRoleUserAuthorizationsParams{OrganizationID: orgID, Slug: slug})
+		if err != nil {
+			return err
+		}
+		for _, assignee := range assignees {
+			assignment := schema.UserAuthorization{Enabled: assignee.Enabled, Roles: assignee.Roles, Permissions: assignee.Permissions}
+			if err := requireAssignmentAuthority(grants, assignment, roles); err != nil {
+				return err
+			}
+			if err := requireAssignmentAuthority(grants, assignment, proposed); err != nil {
+				return err
+			}
 		}
 		row, err := q.UpdateOrganizationRole(ctx, db.UpdateOrganizationRoleParams{OrganizationID: orgID, Slug: slug, Name: input.Name, Description: input.Description, Permissions: append([]string{}, input.Permissions...)})
 		result = schema.Role{Slug: row.Slug, Name: row.Name, Description: row.Description, Permissions: append([]string{}, row.Permissions...)}
@@ -116,11 +147,15 @@ func (s *Store) UpdateRole(ctx context.Context, orgID, actorID uuid.UUID, slug s
 func (s *Store) DeleteRole(ctx context.Context, orgID, actorID uuid.UUID, slug string) error {
 	return s.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(s.uof.DBTX(ctx))
-		if err := s.lockAdministrator(ctx, q, orgID, actorID); err != nil {
+		grants, err := s.lockManager(ctx, q, orgID, actorID)
+		if err != nil {
 			return err
 		}
 		if slices.Contains(schema.BuiltInRoles(), slug) {
 			return ErrBuiltInRole
+		}
+		if err := s.requireRoleAuthority(ctx, orgID, slug, grants); err != nil {
+			return err
 		}
 		assigned, err := q.OrganizationRoleAssigned(ctx, db.OrganizationRoleAssignedParams{OrganizationID: orgID, Slug: slug})
 		if err != nil {
@@ -146,7 +181,7 @@ func (s *Store) SetEnabled(ctx context.Context, orgID, actorID, userID uuid.UUID
 	var result schema.UserAuthorization
 	err := s.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(s.uof.DBTX(ctx))
-		if err := s.lockAdministrator(ctx, q, orgID, actorID); err != nil {
+		if _, err := s.lockManager(ctx, q, orgID, actorID); err != nil {
 			return err
 		}
 		row, err := q.GetOrganizationUser(ctx, db.GetOrganizationUserParams{OrganizationID: orgID, UserID: userID})
@@ -160,12 +195,12 @@ func (s *Store) SetEnabled(ctx context.Context, orgID, actorID, userID uuid.UUID
 }
 
 // SetAssignments reads enablement only after the shared lock. A role edit cannot
-// silently undo another administrator's concurrent disablement.
+// silently undo another manager's concurrent disablement.
 func (s *Store) SetAssignments(ctx context.Context, orgID, actorID, userID uuid.UUID, input schema.UserRoleAssignments) (schema.UserAuthorization, error) {
 	var result schema.UserAuthorization
 	err := s.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(s.uof.DBTX(ctx))
-		if err := s.lockAdministrator(ctx, q, orgID, actorID); err != nil {
+		if _, err := s.lockManager(ctx, q, orgID, actorID); err != nil {
 			return err
 		}
 		row, err := q.GetOrganizationUser(ctx, db.GetOrganizationUserParams{OrganizationID: orgID, UserID: userID})
@@ -176,4 +211,18 @@ func (s *Store) SetAssignments(ctx context.Context, orgID, actorID, userID uuid.
 		return err
 	})
 	return result, err
+}
+
+// A role editor must cover retained permissions too, even for metadata-only
+// updates or deletion. Otherwise a limited manager could launder a broader role.
+func (s *Store) requireRoleAuthority(ctx context.Context, orgID uuid.UUID, slug string, grants []string) error {
+	roles, err := s.Roles(ctx, orgID)
+	if err != nil {
+		return err
+	}
+	index := slices.IndexFunc(roles, func(role schema.Role) bool { return role.Slug == slug })
+	if index < 0 {
+		return pgx.ErrNoRows
+	}
+	return requireAuthority(grants, roles[index].Permissions)
 }

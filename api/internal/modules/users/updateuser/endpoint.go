@@ -23,7 +23,7 @@ type Request struct {
 func RegisterEndpoint(api huma.API, app Application) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
 		OperationID: "UpdateUser", Method: http.MethodPut, Path: "/users/{id}", Summary: "Update a human profile",
-		Description: "Administrator role required. Profile name and email are global across memberships and become locally managed.",
+		Description: "Requires a live human member with stored write:users who covers the target's current authority. Profile name and email are global across memberships and become locally managed.",
 		Tags:        []string{"users"}, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 		DefaultStatus: http.StatusNoContent,
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {

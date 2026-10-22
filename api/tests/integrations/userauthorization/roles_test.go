@@ -38,7 +38,7 @@ func TestCustomRolesStoredPolicy(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, scope.HasScope(grants, scope.Read(scope.Licenses)))
 	_, err = store.ReplaceAuthorization(t.Context(), org, member, member, schema.UserAuthorization{Enabled: true, Roles: []string{schema.RoleAdministrator}})
-	require.ErrorIs(t, err, storage.ErrAdministratorRequired)
+	require.ErrorIs(t, err, storage.ErrCannotDelegate)
 	require.ErrorIs(t, store.DeleteRole(t.Context(), org, admin, role.Slug), storage.ErrRoleInUse)
 	_, err = store.UpdateRole(t.Context(), org, admin, role.Slug, schema.RoleDefinition{Name: "License reader", Permissions: []string{scope.Read(scope.Licenses)}})
 	require.NoError(t, err)
@@ -71,6 +71,8 @@ func TestCustomRolesStoredPolicy(t *testing.T) {
 	require.NoError(t, err)
 	_, err = store.ResolveGrants(t.Context(), org, member)
 	require.ErrorIs(t, err, storage.ErrInvalidAuthorization)
+	_, err = testDB.DbPool.Exec(t.Context(), `UPDATE user_organization_authorization SET roles='{}' WHERE organization_id=$1 AND user_id=$2`, org, member)
+	require.NoError(t, err)
 	// Race role deletion and assignment: the org lock means either assignment
 	// succeeds + deletion conflicts, or deletion succeeds + assignment rejects.
 	_, err = store.CreateRole(t.Context(), org, admin, schema.CreateRole{Slug: "race", RoleDefinition: schema.RoleDefinition{Name: "Race"}})

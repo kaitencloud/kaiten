@@ -25,18 +25,22 @@ export function RoleEditor({
   available,
   assignedCount,
   onClose,
+  canWrite = true,
+  grantablePermissions = available,
 }: {
   role?: Role;
   available: string[];
   assignedCount: number;
   onClose: () => void;
+  canWrite?: boolean;
+  grantablePermissions?: string[];
 }) {
   const { t } = useTranslation();
   const mutations = useAccessMutations();
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [discard, setDiscard] = useState(false);
-  const readOnly = role?.builtIn ?? false;
+  const readOnly = Boolean(role?.builtIn) || !canWrite;
   const pending = mutations.role.isPending || mutations.deleteRole.isPending;
   const form = useAppForm({
     defaultValues: {
@@ -104,7 +108,11 @@ export function RoleEditor({
                 <FormFeedback error={!confirmDelete ? error : ''} />
                 {readOnly && (
                   <p className="rounded-md bg-muted p-3 text-sm">
-                    {t('Pages.Access.builtInExplanation')}
+                    {t(
+                      role?.builtIn
+                        ? 'Pages.Access.builtInExplanation'
+                        : 'Pages.Access.readOnlyAccess',
+                    )}
                   </p>
                 )}
                 <div className="space-y-4">
@@ -165,7 +173,7 @@ export function RoleEditor({
                     {(field) => (
                       <PermissionMatrix
                         permissions={field.state.value}
-                        available={available}
+                        available={readOnly ? available : grantablePermissions}
                         disabled={readOnly || pending}
                         onChange={field.handleChange}
                       />

@@ -1,4 +1,4 @@
-// Package management implements administrator-only human user management.
+// Package management implements scope-authorized human user management.
 package management
 
 import (
@@ -28,24 +28,17 @@ func NewUseCase(uof *uow.UnitOfWork) *UseCase {
 	return &UseCase{queries: db.New(uof.Ambient()), store: storage.New(uof)}
 }
 
-func (u *UseCase) administrator(ctx context.Context, orgID, actorID uuid.UUID) error {
-	a, err := u.store.Resolve(ctx, orgID, actorID)
-	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, storage.ErrInvalidAuthorization) {
-		return managementError(storage.ErrAdministratorRequired)
-	}
-	if err != nil {
-		return err
-	}
-	if !a.IsAdministrator() || a.Validate() != nil {
-		return managementError(storage.ErrAdministratorRequired)
-	}
-	return nil
+func (u *UseCase) requirePermission(ctx context.Context, orgID, actorID uuid.UUID, permission string) error {
+	_, err := u.store.RequirePermission(ctx, orgID, actorID, permission)
+	return managementError(err)
 }
 
 func managementError(err error) error {
 	switch {
-	case errors.Is(err, storage.ErrAdministratorRequired):
-		return apierrors.Forbidden("Users.AdministratorRequired", "An administrator role is required")
+	case errors.Is(err, storage.ErrMissingPermission):
+		return apierrors.Forbidden("Users.MissingPermission", "Missing required stored user-management permission")
+	case errors.Is(err, storage.ErrCannotDelegate):
+		return apierrors.Forbidden("Users.CannotDelegate", "Cannot manage or delegate permissions not held")
 	case errors.Is(err, storage.ErrInvalidAuthorization):
 		return apierrors.Validation("Users.InvalidAuthorization", err.Error())
 	case errors.Is(err, storage.ErrLastAdministrator):
@@ -64,7 +57,7 @@ func user(row db.GetOrganizationUserRow) schema.ManagedUser {
 }
 
 func (u *UseCase) Get(ctx context.Context, orgID, actorID, userID uuid.UUID) (schema.ManagedUser, error) {
-	if err := u.administrator(ctx, orgID, actorID); err != nil {
+	if err := u.requirePermission(ctx, orgID, actorID, scope.Read(scope.Users)); err != nil {
 		return schema.ManagedUser{}, err
 	}
 	row, err := u.queries.GetOrganizationUser(ctx, db.GetOrganizationUserParams{OrganizationID: orgID, UserID: userID})
@@ -88,7 +81,7 @@ func (u *UseCase) Me(ctx context.Context, orgID, actorID uuid.UUID) (schema.Me, 
 }
 
 func (u *UseCase) List(ctx context.Context, orgID, actorID uuid.UUID, limit int32, cursor *string) (pagination.Page[schema.ManagedUser], error) {
-	if err := u.administrator(ctx, orgID, actorID); err != nil {
+	if err := u.requirePermission(ctx, orgID, actorID, scope.Read(scope.Users)); err != nil {
 		return pagination.Page[schema.ManagedUser]{}, err
 	}
 	var cursorID *uuid.UUID
@@ -112,7 +105,7 @@ func (u *UseCase) List(ctx context.Context, orgID, actorID uuid.UUID, limit int3
 }
 
 func (u *UseCase) Replace(ctx context.Context, orgID, actorID, userID uuid.UUID, assignment schema.UserAuthorization) (schema.UserAuthorization, error) {
-	if err := u.administrator(ctx, orgID, actorID); err != nil {
+	if err := u.requirePermission(ctx, orgID, actorID, scope.Write(scope.Users)); err != nil {
 		return schema.UserAuthorization{}, err
 	}
 	if err := assignment.Validate(); err != nil {
@@ -123,7 +116,7 @@ func (u *UseCase) Replace(ctx context.Context, orgID, actorID, userID uuid.UUID,
 }
 
 func (u *UseCase) Update(ctx context.Context, orgID, actorID, userID uuid.UUID, profile schema.Profile) error {
-	if err := u.administrator(ctx, orgID, actorID); err != nil {
+	if err := u.requirePermission(ctx, orgID, actorID, scope.Write(scope.Users)); err != nil {
 		return err
 	}
 	profile.Name, profile.Email = strings.TrimSpace(profile.Name), strings.TrimSpace(profile.Email)

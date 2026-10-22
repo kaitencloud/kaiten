@@ -87,6 +87,8 @@ func TestRoleCLI(t *testing.T) {
 	require.False(t, role.IsAdministrator)
 	result = runAdminTools(t, dsn, "user", "grant", "--organization-external-id", orgExternalID, "--actor-external-id", actor, "--external-id", member, "--roles", "support", "--permissions", "", "--enabled", "--yes")
 	require.NoError(t, result.Err)
+	result = runAdminTools(t, dsn, "role", "list", "--organization-external-id", orgExternalID, "--actor-external-id", member)
+	require.NoError(t, result.Err, "custom role read:users allows role directory access")
 	result = runAdminTools(t, dsn, args("delete", "--slug", "support", "--yes")...)
 	require.Error(t, result.Err, "assigned role deletion must be refused")
 	require.Empty(t, result.Stdout)
@@ -112,12 +114,12 @@ func TestRoleCLI(t *testing.T) {
 		{"delete", "--slug", "support", "--yes"},
 	} {
 		result = runAdminTools(t, dsn, append([]string{"role", "--organization-external-id", orgExternalID, "--actor-external-id", member}, command...)...)
-		require.ErrorContains(t, result.Err, "administrator role")
+		require.ErrorContains(t, result.Err, "stored user-management permission")
 		require.Empty(t, result.Stdout)
 	}
 	otherOrg := ensureOrganizationForTest(t, dsn)
 	result = runAdminTools(t, dsn, "role", "list", "--organization-external-id", otherOrg, "--actor-external-id", actor)
-	require.ErrorContains(t, result.Err, "administrator role")
+	require.ErrorContains(t, result.Err, "stored user-management permission")
 	require.Empty(t, result.Stdout)
 	result = runAdminTools(t, dsn, "user", "authorization", "--organization-external-id", orgExternalID, "--actor-external-id", actor, "--external-id", member, "--roles", "", "--permissions", "", "--enabled", "--yes")
 	require.NoError(t, result.Err)

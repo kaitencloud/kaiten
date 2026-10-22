@@ -30,7 +30,7 @@ func TestAuthorization(t *testing.T) {
 	}
 	explicit := UserAuthorization{Enabled: true, Permissions: scope.OrganizationScopes()}
 	require.NoError(t, explicit.Validate())
-	require.False(t, explicit.IsAdministrator(), "no explicit permission grants administrator management")
+	require.False(t, explicit.IsAdministrator(), "explicit users permission is not administrator status")
 }
 
 func TestCustomRoleExpansion(t *testing.T) {

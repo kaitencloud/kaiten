@@ -26,7 +26,7 @@ type Response struct {
 func RegisterEndpoint(api huma.API, app Application) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
 		OperationID: "ListUsers", Method: http.MethodGet, Path: "/users", Summary: "List human users",
-		Description: "Administrator role required in the current organization; provider authorization claims are ignored.",
+		Description: "Requires a live human member with stored read:users (write:users implies read). Provider authorization claims are ignored.",
 		Tags:        []string{"users"}, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

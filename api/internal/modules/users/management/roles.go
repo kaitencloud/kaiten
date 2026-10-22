@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/infrastructure/storage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users/schema"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/scope"
 )
 
 func roleError(err error) error {
@@ -30,7 +31,7 @@ func roleError(err error) error {
 }
 
 func (u *UseCase) ListRoles(ctx context.Context, orgID, actorID uuid.UUID) ([]schema.Role, error) {
-	if err := u.administrator(ctx, orgID, actorID); err != nil {
+	if err := u.requirePermission(ctx, orgID, actorID, scope.Read(scope.Users)); err != nil {
 		return nil, err
 	}
 	return u.store.Roles(ctx, orgID)

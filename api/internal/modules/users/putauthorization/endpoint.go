@@ -24,7 +24,7 @@ type Response struct{ Body schema.UserAuthorization }
 func RegisterEndpoint(api huma.API, app Application) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
 		OperationID: "PutUserAuthorization", Method: http.MethodPut, Path: "/users/{id}/authorization", Summary: "Replace user roles, permissions and enabled state",
-		Description: "Administrator role required in the current organization; provider authorization claims are ignored.",
+		Description: "Requires a live human member with stored write:users who covers current and proposed target authority. The last enabled administrator is protected. Provider authorization claims are ignored.",
 		Tags:        []string{"users"}, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

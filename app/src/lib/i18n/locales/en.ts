@@ -2800,6 +2800,8 @@ export default {
       },
     },
     Access: {
+      readOnlyAccess:
+        'Read-only: you need Users write access and sufficient permissions to edit this user or role.',
       grantAdministrator: 'Grant administrator access',
       grantAdministratorDescription:
         'Add another administrator who can manage users and roles independently. Your own administrator access is kept.',
@@ -2869,10 +2871,10 @@ export default {
       administrator: 'Administrator',
       builtIn: 'Built-in',
       adminExplanation:
-        'Only the built-in Administrator role can manage users and roles. Custom roles group resource scopes; even Users read & write does not grant administrator capability.',
-      accessDenied: 'Administrator access required',
+        'Users read access lets you view users and roles. Users write access lets you manage them. Roles group scopes, and you can only delegate access you already hold.',
+      accessDenied: 'User directory access required',
       accessDeniedDescription:
-        'Your current access was checked with Kaiten Core. Ask an organization administrator to manage users or assign roles.',
+        'Your current access was checked with Kaiten Core. Ask someone with Users write access to manage users or assign roles.',
       loading: 'Checking access and loading users…',
       notFound:
         'This user or role no longer exists. Refresh the list and try again.',

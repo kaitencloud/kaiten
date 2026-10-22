@@ -21,7 +21,7 @@ type Response struct{}
 func RegisterEndpoint(api huma.API, app Application) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
 		OperationID: "DeleteRole", Method: http.MethodDelete, Path: "/roles/{slug}", Summary: "Delete an unassigned custom organization role",
-		Description:   "Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.",
+		Description:   "Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.",
 		DefaultStatus: http.StatusNoContent,
 		Tags:          []string{"users"}, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

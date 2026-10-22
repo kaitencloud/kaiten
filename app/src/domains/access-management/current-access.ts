@@ -23,3 +23,16 @@ export function isAdministrator(
     me.user.authorization.roles.includes('administrator'),
   );
 }
+
+// Display capability mirrors Core's scope vocabulary, never provider claims.
+export function hasAccessScope(scopes: string[], required: string) {
+  if (scopes.includes(required) || scopes.includes('write:*')) return true;
+  if (required.startsWith('read:'))
+    return (
+      scopes.includes('read:*') || scopes.includes(`write:${required.slice(5)}`)
+    );
+  return false;
+}
+export function canDelegateScopes(scopes: string[], grants: string[]) {
+  return grants.every((grant) => hasAccessScope(scopes, grant));
+}

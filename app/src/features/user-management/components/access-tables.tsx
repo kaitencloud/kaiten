@@ -46,10 +46,12 @@ export function UsersTable({
   roles,
   currentId,
   onManage,
+  canWrite = true,
 }: {
   users: ManagedUser[];
   roles: Role[];
   currentId?: string;
+  canWrite?: boolean;
   onManage: (id: string) => void;
 }) {
   const { t } = useTranslation();
@@ -116,7 +118,7 @@ export function UsersTable({
             name: row.original.name,
           })}
         >
-          {t('Pages.Access.manage')}
+          {t(canWrite ? 'Pages.Access.manage' : 'Pages.Access.view')}
         </Button>
       ),
     },
@@ -136,9 +138,11 @@ export function RolesTable({
   roles,
   users,
   onManage,
+  canWrite = true,
 }: {
   roles: Role[];
   users: ManagedUser[];
+  canWrite?: boolean;
   onManage: (slug: string) => void;
 }) {
   const { t } = useTranslation();
@@ -194,7 +198,11 @@ export function RolesTable({
             name: row.original.name,
           })}
         >
-          {t(row.original.builtIn ? 'Pages.Access.view' : 'Pages.Access.edit')}
+          {t(
+            row.original.builtIn || !canWrite
+              ? 'Pages.Access.view'
+              : 'Pages.Access.edit',
+          )}
         </Button>
       ),
     },

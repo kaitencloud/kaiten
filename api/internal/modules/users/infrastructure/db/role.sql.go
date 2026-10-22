@@ -104,6 +104,48 @@ func (q *Queries) ListOrganizationRoles(ctx context.Context, organizationID uuid
 	return items, nil
 }
 
+const listRoleUserAuthorizations = `-- name: ListRoleUserAuthorizations :many
+SELECT a.enabled, a.roles, a.permissions
+FROM user_organization_authorization a
+JOIN "user" u ON u.id = a.user_id
+WHERE a.organization_id = $1
+  AND $2::text = ANY(a.roles)
+  AND u.type = 'human' AND u.external_id NOT LIKE 'system:%'
+`
+
+type ListRoleUserAuthorizationsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type ListRoleUserAuthorizationsRow struct {
+	Enabled     bool     `json:"enabled"`
+	Roles       []string `json:"roles"`
+	Permissions []string `json:"permissions"`
+}
+
+// Disabled and removed members retain assignments; role edits affect authority
+// on restoration as well. Exclude non-human identities from human management.
+func (q *Queries) ListRoleUserAuthorizations(ctx context.Context, arg ListRoleUserAuthorizationsParams) ([]ListRoleUserAuthorizationsRow, error) {
+	rows, err := q.db.Query(ctx, listRoleUserAuthorizations, arg.OrganizationID, arg.Slug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRoleUserAuthorizationsRow
+	for rows.Next() {
+		var i ListRoleUserAuthorizationsRow
+		if err := rows.Scan(&i.Enabled, &i.Roles, &i.Permissions); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const organizationRoleAssigned = `-- name: OrganizationRoleAssigned :one
 SELECT EXISTS(SELECT 1 FROM user_organization_authorization
 WHERE organization_id=$1 AND $2::text = ANY(roles))::boolean

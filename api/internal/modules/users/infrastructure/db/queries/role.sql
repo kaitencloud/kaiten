@@ -19,3 +19,13 @@ WHERE organization_id=sqlc.arg(organization_id) AND sqlc.arg(slug)::text = ANY(r
 
 -- name: DeleteOrganizationRole :execrows
 DELETE FROM user_organization_role WHERE organization_id=sqlc.arg(organization_id) AND slug=sqlc.arg(slug);
+
+-- name: ListRoleUserAuthorizations :many
+-- Disabled and removed members retain assignments; role edits affect authority
+-- on restoration as well. Exclude non-human identities from human management.
+SELECT a.enabled, a.roles, a.permissions
+FROM user_organization_authorization a
+JOIN "user" u ON u.id = a.user_id
+WHERE a.organization_id = sqlc.arg(organization_id)
+  AND sqlc.arg(slug)::text = ANY(a.roles)
+  AND u.type = 'human' AND u.external_id NOT LIKE 'system:%';

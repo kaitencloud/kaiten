@@ -150,7 +150,7 @@ func AllScopes() []string {
 
 // platformOnlyModules lists rights reserved to the internal Platform API.
 // Membership deletion belongs exclusively to the Platform API. Human user
-// management is published on Core and additionally requires a stored admin role.
+// management is published on Core for humans with fresh stored users scopes.
 var platformOnlyModules = []Module{Memberships}
 
 // OrganizationModules returns the modules an organization credential -- a user's

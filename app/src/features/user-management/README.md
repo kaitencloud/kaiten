@@ -4,9 +4,12 @@
 Users and Roles tabs, filters and editors are URL-backed (`tab`, `q`, `status`,
 `manageUser`, `manageRole`, `createRole`) so navigation and browser back keep context.
 
-Only Core's enabled stored Administrator role unlocks management. No JWT claims
-are read, and broad scopes alone never grant administrator capability. Non-admins
-see an explanation; loading, request failures and missing editor targets are explicit.
+Core's current stored scopes control this console: `read:users` opens the directory
+and read-only details; `write:users` enables management. Both can come from custom
+role groups. No JWT claims are read. Editing and delegation require the caller
+to hold the target's current and requested authority; higher-privilege targets
+and unowned grants are read-only/unavailable. The protected Administrator role
+still grants full access. Loading, errors and missing editor targets are explicit.
 
 Users have locally managed global name/email, assigned named roles, additive direct
 scopes and separate organization enablement. The role matrix shows None/Read/Read &

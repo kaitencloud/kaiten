@@ -9,11 +9,12 @@ Use only a database you are authorized to administer.
 Every user-management and role-management command requires:
 
 - Exactly one of `--organization-external-id` or `--organization-id` (UUID).
-- `--actor-external-id`, identifying an **enabled, stored administrator in that
-  organization**. Operation scopes supplied by the local adapter do not bypass
-  this policy; write operations recheck the administrator under the organization
-  lock. `write:users` alone, custom roles, machines and `system:kaiten` do not
-  qualify. Revoked, deleted, disabled and other-tenant actors are refused.
+- `--actor-external-id`, identifying an **enabled human member in that organization**
+  with fresh stored `read:users` for directory reads or `write:users` for writes.
+  Direct permissions and custom/built-in roles qualify; no additional administrator
+  role is required. Adapter-supplied operation scopes cannot bypass stored policy.
+  Writes recheck grants after the organization lock. Machines, service tokens,
+  `system:kaiten`, revoked, deleted, disabled and other-tenant actors are refused.
 - `--external-id` for commands targeting a user, or `--slug` for a role.
 
 Plain tables are the default; `--json` writes the API-shaped payload to stdout,
@@ -60,10 +61,17 @@ kaiten-admin-tools role delete --organization-external-id org_example --actor-ex
 - Permissions are only `scope.OrganizationScopes()`; arbitrary/wildcard/platform
   deletion grants are refused. The module resolves custom role existence in the
   current organization. Duplicate CSV entries are normalized by this adapter.
-- `administrator` confers the administrator policy independently of scopes.
+- `administrator` is the protected built-in all-permissions role (`write:*`).
   Built-in roles cannot be edited or deleted, and custom roles cannot confer
   administrator status. Editing a custom scope group affects **all assigned
   users immediately**. Assigned-role deletion is refused.
+- Management requires coverage of both the target's current and proposed role/direct
+  authority. A lesser manager cannot demote, disable, restore or edit a stronger
+  human, even when clearing assignments or when the target is disabled. Assigning
+  administrator requires exact held `write:*`, not all explicit permissions.
+  Custom-role creation checks new permissions; updates check old and new
+  permissions (including metadata-only edits), and deletion checks old permissions.
+  Refusals are `403 Users.MissingPermission` or `403 Users.CannotDelegate`.
 - The last enabled, live human administrator cannot be demoted or disabled by
   these management commands. Disable changes authorization in **one tenant**;
   it neither deletes the global user nor removes their memberships.
@@ -73,7 +81,9 @@ kaiten-admin-tools role delete --organization-external-id org_example --actor-ex
 - These commands do not invent a recovery administrator. Existing installations
   use the authorization migration's active-human backfill; empty installations
   use the one-time first-human bootstrap. If neither leaves an administrator in
-  the tenant, management refuses access and does not reopen bootstrap. Existing
+  the tenant, qualified scope holders can still manage within their authority;
+  nobody can appoint an administrator without held `write:*`. Bootstrap does not
+  reopen. Existing
   direct database-operator authority and Platform operations remain separate:
   `user delete` and `organization membership delete` are destructive operator
   overrides, not role grants, and can remove an administrator. Do not use them

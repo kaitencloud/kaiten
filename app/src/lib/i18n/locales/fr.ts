@@ -2852,6 +2852,8 @@ export default {
       },
     },
     Access: {
+      readOnlyAccess:
+        'Lecture seule : l’écriture des utilisateurs et des permissions suffisantes sont nécessaires pour modifier cet utilisateur ou ce rôle.',
       grantAdministrator: 'Accorder les accès administrateur',
       grantAdministratorDescription:
         'Ajoutez un autre administrateur qui pourra gérer les utilisateurs et les rôles de façon autonome. Vos propres accès administrateur sont conservés.',
@@ -2924,10 +2926,10 @@ export default {
       administrator: 'Administrateur',
       builtIn: 'Prédéfini',
       adminExplanation:
-        'Seul le rôle prédéfini Administrateur permet de gérer les utilisateurs et les rôles. Les rôles personnalisés regroupent des permissions ; même la lecture et l’écriture des utilisateurs ne confèrent pas ce pouvoir.',
-      accessDenied: 'Accès administrateur requis',
+        'La lecture des utilisateurs permet de consulter les utilisateurs et les rôles. L’écriture permet de les gérer. Les rôles regroupent des permissions ; vous ne pouvez déléguer que les accès que vous possédez.',
+      accessDenied: 'Accès à l’annuaire requis',
       accessDeniedDescription:
-        'Vos accès actuels ont été vérifiés par Kaiten Core. Demandez à un administrateur de gérer les utilisateurs ou d’attribuer des rôles.',
+        'Vos accès actuels ont été vérifiés par Kaiten Core. Demandez à une personne disposant de l’écriture des utilisateurs de les gérer ou d’attribuer des rôles.',
       loading: 'Vérification des accès et chargement des utilisateurs…',
       notFound:
         'Cet utilisateur ou ce rôle n’existe plus. Actualisez la liste et réessayez.',

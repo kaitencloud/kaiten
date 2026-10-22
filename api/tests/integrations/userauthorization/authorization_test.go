@@ -186,7 +186,7 @@ func TestStoredAuthorization(t *testing.T) {
 			require.NoError(t, err)
 			if !actual.IsAdministrator() {
 				_, err = store.ReplaceAuthorization(t.Context(), org, id, id, admin)
-				require.ErrorIs(t, err, storage.ErrAdministratorRequired)
+				require.ErrorIs(t, err, storage.ErrMissingPermission)
 			} else {
 				_, err = store.ReplaceAuthorization(t.Context(), org, id, id, schema.UserAuthorization{Enabled: false, Roles: admin.Roles})
 				require.ErrorIs(t, err, storage.ErrLastAdministrator)

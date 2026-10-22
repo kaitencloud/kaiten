@@ -21,8 +21,8 @@ import (
 )
 
 // userContext names a tenant and a real acting human. Static supplies only the
-// adapter's operation scopes; Users still checks the actor's stored, enabled
-// administrator role (and rechecks it under the organization lock on writes).
+// adapter's operation scopes; Users still freshly checks the human actor's stored
+// users scopes (and rechecks grants under the organization lock on writes).
 // Database access is not an implicit recovery grant on this command surface.
 type userContext struct {
 	organizationExternalID string
@@ -34,7 +34,7 @@ type userContext struct {
 func (o *userContext) flags(cmd *cobra.Command) {
 	cmd.Flags().StringVar(&o.organizationExternalID, "organization-external-id", "", "Organization external id (or use --organization-id)")
 	cmd.Flags().StringVar(&o.organizationID, "organization-id", "", "Organization UUID (or use --organization-external-id)")
-	cmd.Flags().StringVar(&o.actorExternalID, "actor-external-id", "", "Acting enabled organization administrator's external id (required)")
+	cmd.Flags().StringVar(&o.actorExternalID, "actor-external-id", "", "Acting enabled human member's external id (requires stored users permission)")
 	cmd.Flags().BoolVar(&o.json, "json", false, "Print JSON instead of a plain table")
 	mustCompleteFlag(cmd, "organization-external-id", completeOrganizationExternalIDs)
 	mustCompleteFlag(cmd, "actor-external-id", completeUserExternalIDs)
@@ -75,7 +75,7 @@ func (o *userContext) open(ctx context.Context, scopes ...string) (*kaiten.Kaite
 	actorID, err := app.InProcess().ResolveUser(ctx, o.actorExternalID)
 	if err != nil {
 		cleanup()
-		return nil, caller.OrganizationCaller{}, nil, fmt.Errorf("resolve acting administrator: %w", err)
+		return nil, caller.OrganizationCaller{}, nil, fmt.Errorf("resolve acting human: %w", err)
 	}
 	return app, caller.Static(actorID, orgID, scopes), cleanup, nil
 }
