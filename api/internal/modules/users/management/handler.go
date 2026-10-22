@@ -30,7 +30,7 @@ func NewUseCase(uof *uow.UnitOfWork) *UseCase {
 
 func (u *UseCase) administrator(ctx context.Context, orgID, actorID uuid.UUID) error {
 	a, err := u.store.Resolve(ctx, orgID, actorID)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, storage.ErrInvalidAuthorization) {
 		return managementError(storage.ErrAdministratorRequired)
 	}
 	if err != nil {
@@ -46,6 +46,8 @@ func managementError(err error) error {
 	switch {
 	case errors.Is(err, storage.ErrAdministratorRequired):
 		return apierrors.Forbidden("Users.AdministratorRequired", "An administrator role is required")
+	case errors.Is(err, storage.ErrInvalidAuthorization):
+		return apierrors.Validation("Users.InvalidAuthorization", err.Error())
 	case errors.Is(err, storage.ErrLastAdministrator):
 		return apierrors.Conflict("Users.LastAdministrator", "The last administrator cannot be demoted or disabled")
 	case errors.Is(err, pgx.ErrNoRows):
@@ -78,7 +80,11 @@ func (u *UseCase) Me(ctx context.Context, orgID, actorID uuid.UUID) (schema.Me, 
 	if err != nil {
 		return schema.Me{}, managementError(err)
 	}
-	return schema.Me{User: user(row), OrganizationID: orgID, Scopes: a.EffectiveScopes(), AvailableRoles: schema.BuiltInRoles(), AvailablePermissions: scope.OrganizationScopes()}, nil
+	roles, err := u.store.Roles(ctx, orgID)
+	if err != nil {
+		return schema.Me{}, err
+	}
+	return schema.Me{User: user(row), OrganizationID: orgID, Scopes: a.EffectiveScopes(roles...), AvailableRoles: roles, AvailablePermissions: scope.OrganizationScopes()}, nil
 }
 
 func (u *UseCase) List(ctx context.Context, orgID, actorID uuid.UUID, limit int32, cursor *string) (pagination.Page[schema.ManagedUser], error) {

@@ -34,6 +34,19 @@ contract is dead weight to delete, and an entry that gained an SDK mapping
 after all is a contradiction to resolve.
 */
 var consoleAuthoringOperations = map[string]string{
+	"SetUserAssignments":   "human administrator role/direct-scope editor preserving enablement",
+	"ListRoles":            "human administrator role directory for console and operational CLI",
+	"CreateRole":           "human administrator scope-group authoring",
+	"UpdateRole":           "human administrator scope-group authoring",
+	"DeleteRole":           "human administrator scope-group lifecycle",
+	"SetUserEnabled":       "human administrator membership access lifecycle",
+	"GetAuthorization":     "request-time identity/grant introspection consumed by SaaS middleware, not product automation",
+	"GetMe":                "signed-in human profile and access; machine SDK clients have no human profile",
+	"ListUsers":            "administrator-only human directory managed by the console and operational CLI",
+	"GetUser":              "administrator-only human member profile",
+	"UpdateUser":           "administrator-managed human identity, not machine account automation",
+	"PutUserAuthorization": "administrator-only human role assignments, never service-token permissions",
+
 	// The notification feed, its read state and its preference matrix. Every
 	// one of them addresses the signed-in person's own rows -- an unread count
 	// and a set of choices about what to be told -- and a machine client holding

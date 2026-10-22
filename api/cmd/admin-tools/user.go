@@ -16,6 +16,12 @@ func buildUserCmd() *cobra.Command {
 	}
 
 	userCmd.AddCommand(buildUserDeleteCmd())
+	userCmd.AddCommand(buildUserListCmd())
+	userCmd.AddCommand(buildUserGetCmd())
+	userCmd.AddCommand(buildUserUpdateCmd())
+	userCmd.AddCommand(buildUserAuthorizationCmd())
+	userCmd.AddCommand(buildUserEnabledCmd(true))
+	userCmd.AddCommand(buildUserEnabledCmd(false))
 
 	return userCmd
 }

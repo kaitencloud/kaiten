@@ -57,6 +57,7 @@ matching how the server and seeder binaries are wired in every environment
 	rootCmd.AddCommand(buildMigrateCmd())
 	rootCmd.AddCommand(buildOrganizationCmd())
 	rootCmd.AddCommand(buildUserCmd())
+	rootCmd.AddCommand(buildRoleCmd())
 	rootCmd.AddCommand(buildPlatformTokenCmd())
 	rootCmd.AddCommand(buildServiceTokenCmd())
 

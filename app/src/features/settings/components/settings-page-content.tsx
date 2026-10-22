@@ -10,6 +10,7 @@ import {
   DatabaseZap,
   Settings2,
   SlidersHorizontal,
+  ShieldCheck,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -63,6 +64,14 @@ function OrganizationSettingsSection() {
       <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {t('Pages.Settings.groups.organization')}
       </h2>
+      <SettingsLinkCard
+        icon={ShieldCheck}
+        title={t('Pages.Access.title')}
+        description={t('Pages.Access.cardDescription')}
+        buttonLabel={t('Pages.Access.manageAccess')}
+        to="/settings/access"
+        search={{ tab: 'users' }}
+      />
       <SettingsLinkCard
         icon={DatabaseZap}
         title={t('Pages.Settings.Metadata.title', 'Metadata fields')}

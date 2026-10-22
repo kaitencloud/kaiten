@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,8 @@ func TestAuthorization(t *testing.T) {
 	for _, permission := range []string{"write:*", "delete:users", "not-a-scope", " write:licenses"} {
 		require.Error(t, (UserAuthorization{Permissions: []string{permission}}).Validate())
 	}
-	require.Error(t, (UserAuthorization{Roles: []string{"admin"}}).Validate())
+	require.NoError(t, (UserAuthorization{Roles: []string{"custom-role"}}).Validate())
+	require.Empty(t, (UserAuthorization{Enabled: true, Roles: []string{"unknown"}}).EffectiveScopes())
 	for _, role := range []string{RoleViewer, RoleEditor} {
 		assignment := UserAuthorization{Enabled: true, Roles: []string{role}}
 		require.False(t, assignment.IsAdministrator())
@@ -29,4 +31,22 @@ func TestAuthorization(t *testing.T) {
 	explicit := UserAuthorization{Enabled: true, Permissions: scope.OrganizationScopes()}
 	require.NoError(t, explicit.Validate())
 	require.False(t, explicit.IsAdministrator(), "no explicit permission grants administrator management")
+}
+
+func TestCustomRoleExpansion(t *testing.T) {
+	role := Role{Slug: "custom", Name: "Custom", Permissions: []string{scope.Write(scope.Licenses), scope.Write(scope.Users)}}
+	a := UserAuthorization{Enabled: true, Roles: []string{role.Slug}, Permissions: []string{scope.Read(scope.Components)}}
+	require.Empty(t, a.EffectiveScopes())
+	grants := a.EffectiveScopes(role)
+	require.False(t, a.IsAdministrator())
+	require.True(t, scope.HasScope(grants, scope.Read(scope.Licenses)))
+	require.True(t, scope.HasScope(grants, scope.Read(scope.Components)))
+	require.False(t, scope.HasScope(grants, scope.Write(scope.Components)))
+	role.Permissions = []string{scope.WriteAll()}
+	require.Empty(t, a.EffectiveScopes(role))
+	role.Permissions = []string{scope.Write(scope.Users)}
+	role.IsAdministrator = true
+	require.Empty(t, a.EffectiveScopes(role))
+	require.NoError(t, (RoleDefinition{Name: strings.Repeat("界", 200), Description: strings.Repeat("界", 1000)}).Validate())
+	require.Error(t, (RoleDefinition{Name: strings.Repeat("界", 201)}).Validate())
 }

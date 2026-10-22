@@ -17,6 +17,9 @@ import (
 )
 
 var (
+	ErrInvalidAuthorization  = errors.New("invalid stored or requested authorization")
+	ErrBuiltInRole           = errors.New("built-in roles are immutable")
+	ErrRoleInUse             = errors.New("role is assigned to users")
 	ErrAdministratorRequired = errors.New("enabled organization administrator required")
 	ErrLastAdministrator     = errors.New("cannot remove or disable the last organization administrator")
 )
@@ -31,7 +34,14 @@ func (s *Store) Resolve(ctx context.Context, organizationID, userID uuid.UUID) (
 	row, err := db.New(s.uof.DBTX(ctx)).ResolveUserAuthorization(ctx, db.ResolveUserAuthorizationParams{
 		OrganizationID: organizationID, UserID: userID,
 	})
-	return schema.UserAuthorization{Enabled: row.Enabled, Roles: row.Roles, Permissions: row.Permissions}, err
+	if err != nil {
+		return schema.UserAuthorization{}, err
+	}
+	assignment := schema.UserAuthorization{Enabled: row.Enabled, Roles: row.Roles, Permissions: row.Permissions}
+	if err := s.validateAssignment(ctx, organizationID, assignment); err != nil {
+		return schema.UserAuthorization{}, err
+	}
+	return assignment, nil
 }
 
 // ReplaceAuthorization replaces all assignment state; Enabled must be explicit.
@@ -45,7 +55,7 @@ func (s *Store) ReplaceAuthorization(ctx context.Context, organizationID, actorI
 		if err := s.lockAdministrator(ctx, q, organizationID, actorID); err != nil {
 			return err
 		}
-		if err := assignment.Validate(); err != nil {
+		if err := s.validateAssignment(ctx, organizationID, assignment); err != nil {
 			return err
 		}
 		// Get, not Resolve: administrators must be able to re-enable a member.
@@ -97,7 +107,7 @@ func (s *Store) lockAdministrator(ctx context.Context, q *db.Queries, organizati
 		return err
 	}
 	actor, err := s.Resolve(ctx, organizationID, actorID)
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(err, pgx.ErrNoRows) || errors.Is(err, ErrInvalidAuthorization) {
 		return ErrAdministratorRequired
 	}
 	if err != nil {

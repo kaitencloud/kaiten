@@ -26,6 +26,17 @@ type Me struct {
 	User                 ManagedUser `json:"user"`
 	OrganizationID       uuid.UUID   `json:"organizationId"`
 	Scopes               []string    `json:"scopes" nullable:"false"`
-	AvailableRoles       []string    `json:"availableRoles" nullable:"false"`
+	AvailableRoles       []Role      `json:"availableRoles" nullable:"false"`
 	AvailablePermissions []string    `json:"availablePermissions" nullable:"false"`
+}
+
+// UserEnablement changes access without replacing role assignments.
+type UserEnablement struct {
+	Enabled bool `json:"enabled"`
+}
+
+// UserRoleAssignments changes roles and direct scopes while preserving enablement.
+type UserRoleAssignments struct {
+	Roles       []string `json:"roles" nullable:"false"`
+	Permissions []string `json:"permissions" nullable:"false"`
 }

@@ -8,27 +8,27 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
-	"github.com/kaitencloud/kaiten/api/internal/modules/users/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/users/infrastructure/storage"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 type Reader interface {
-	Resolve(context.Context, uuid.UUID, uuid.UUID) (schema.UserAuthorization, error)
+	ResolveGrants(context.Context, uuid.UUID, uuid.UUID) ([]string, error)
 }
 type UseCase struct{ reader Reader }
 
 func NewUseCase(reader Reader) *UseCase { return &UseCase{reader: reader} }
 
 func (u *UseCase) Resolve(ctx context.Context, orgID, userID uuid.UUID) ([]string, error) {
-	assignment, err := u.reader.Resolve(ctx, orgID, userID)
+	grants, err := u.reader.ResolveGrants(ctx, orgID, userID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, apierrors.Forbidden("Auth.UserAccessDenied", "User is not an active member of the organization")
+	}
+	if errors.Is(err, storage.ErrInvalidAuthorization) {
+		return nil, apierrors.Forbidden("Auth.InvalidAssignments", "Stored authorization is invalid")
 	}
 	if err != nil {
 		return nil, err
 	}
-	if err := assignment.Validate(); err != nil {
-		return nil, apierrors.Forbidden("Auth.InvalidAssignments", "Stored authorization is invalid")
-	}
-	return assignment.EffectiveScopes(), nil
+	return grants, nil
 }

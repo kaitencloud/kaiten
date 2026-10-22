@@ -8,7 +8,8 @@ unsigned internal tokens must never be accepted directly from untrusted clients.
 
 ## Bootstrap and assignments
 
-The first successful human sign-in wins a **deployment-wide** bootstrap election
+On an empty deployment, the first successful human sign-in wins a
+**deployment-wide** bootstrap election
 and becomes administrator **in the organization they signed into**. This preserves
 Core's existing organization boundary; it does not grant cross-organization
 Platform authority. A unique singleton row and its role grant commit in the same
@@ -16,10 +17,19 @@ transaction as the user and membership. Concurrent sign-ins elect one winner;
 failed transactions, disabled members, machines and system identities cannot win.
 The marker survives deletion of the winner or organization and never reboots.
 
-Later JIT users (and existing users on upgrade) receive no resource permissions
-until assigned locally. Every active human can read their own `/api/me` profile
-and effective permissions. Roles are built-ins: `administrator`, `viewer`, and
-`editor`. Explicit permissions use Core's organization scope vocabulary. User
+The first authorization migration (`20261022000000`) backfills **every existing
+live human membership** as administrator once, excluding machines, system
+identities, deleted users and removed memberships. If any eligible membership
+exists it permanently claims the deployment latch. Repeated migration startup
+never regrants a demoted user. Empty deployments leave the latch unclaimed.
+This migration is amended in the unmerged authorization PR: databases that
+already applied an earlier version will not replay it automatically.
+
+Later JIT users receive no resource permissions until assigned locally. Every
+active human can read their own `/api/me` profile and effective permissions.
+`administrator`, `viewer`, and `editor` are immutable built-in templates; custom
+roles group organization permissions under stable organization-owned slugs.
+Explicit permissions use Core's organization scope vocabulary. User
 management additionally requires the **stored administrator role**: granting
 `write:users`, including through an editor role or service token, cannot promote
 someone or access the directory. Assignments and enablement belong to membership.
@@ -38,6 +48,36 @@ already-running requests/streams are not retroactively canceled.
 | GET | `/users/{id}` | Administrator reads a human member |
 | PUT | `/users/{id}` | Administrator replaces global display name/email |
 | PUT | `/users/{id}/authorization` | Replace `enabled`, `roles`, `permissions` |
+| PATCH | `/users/{id}/assignments` | Replace roles/direct scopes while preserving enabled |
+| PATCH | `/users/{id}/enabled` | Atomically set enablement, preserving latest assignments |
+| GET | `/roles` | Administrator reads built-in and current-organization custom roles |
+| POST | `/roles` | Create custom `{slug,name,description,permissions}`; returns 201 |
+| PUT | `/roles/{slug}` | Replace `{name,description,permissions}`; slug stays immutable |
+| DELETE | `/roles/{slug}` | Delete an unassigned custom role; returns 204 |
+
+`/me` returns `{user,organizationId,scopes,availableRoles,availablePermissions}`.
+`availableRoles` and `/roles` return `Role` objects:
+`{slug,name,description,permissions,builtIn,isAdministrator}`. Administrator UI
+capability comes from enabled stored `administrator` assignment, never
+`write:users`. `/users` returns `{items,nextCursor?,hasMore}`.
+
+Custom-role permissions and direct user permissions accept only
+`scope.OrganizationScopes()` (explicit read/write scopes, no wildcard or
+Platform delete scopes). `write:X` implies `read:X`. Assignments name role slugs
+and must resolve in the current organization. Definitions are expanded freshly
+every request; role edits immediately change access with the same credential.
+Unknown/corrupt stored assignments fail closed. Derived role permissions are
+never written back as direct user permissions.
+
+Role and assignment mutations share the organization lock and recheck stored
+administrator capability after waiting. Deleting even a disabled user's assigned
+role is refused with `409 Users.RoleInUse`; unassign before deletion. Built-in
+mutations return `409 Users.BuiltInRole`, duplicate slugs
+`409 Users.RoleAlreadyExists`, missing roles `404 Users.RoleNotFound`, invalid
+role payloads `400 Users.InvalidRole`, and unknown assignments
+`400 Users.InvalidAuthorization`. No role permission can create administrator
+capability. Credentialed `kaiten.Users` facade methods expose the same policies to
+CLI adapters without transport types; no recovery bypass is added.
 
 Profile name/email are global across memberships. An administrator editing them
 changes how the same identity appears in other organizations. Once edited locally,

@@ -342,6 +342,31 @@ components:
         - entitled
         - activated
       type: object
+    CreateRole:
+      additionalProperties: false
+      properties:
+        description:
+          maxLength: 1000
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        permissions:
+          items:
+            type: string
+          type: array
+        slug:
+          maxLength: 64
+          minLength: 1
+          pattern: ^[a-z][a-z0-9]*(-[a-z0-9]+)*$
+          type: string
+      required:
+        - slug
+        - name
+        - description
+        - permissions
+      type: object
     Customer:
       additionalProperties: false
       properties:
@@ -2073,7 +2098,7 @@ components:
           type: array
         availableRoles:
           items:
-            type: string
+            $ref: "#/components/schemas/Role"
           type: array
         organizationId:
           type: string
@@ -2863,6 +2888,50 @@ components:
       required:
         - value
       type: object
+    Role:
+      additionalProperties: false
+      properties:
+        builtIn:
+          type: boolean
+        description:
+          type: string
+        isAdministrator:
+          type: boolean
+        name:
+          type: string
+        permissions:
+          items:
+            type: string
+          type: array
+        slug:
+          type: string
+      required:
+        - slug
+        - name
+        - description
+        - permissions
+        - builtIn
+        - isAdministrator
+      type: object
+    RoleDefinition:
+      additionalProperties: false
+      properties:
+        description:
+          maxLength: 1000
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        permissions:
+          items:
+            type: string
+          type: array
+      required:
+        - name
+        - description
+        - permissions
+      type: object
     RolloutDate:
       additionalProperties: false
       properties:
@@ -3312,6 +3381,29 @@ components:
           type: array
       required:
         - enabled
+        - roles
+        - permissions
+      type: object
+    UserEnablement:
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+      type: object
+    UserRoleAssignments:
+      additionalProperties: false
+      properties:
+        permissions:
+          items:
+            type: string
+          type: array
+        roles:
+          items:
+            type: string
+          type: array
+      required:
         - roles
         - permissions
       type: object
@@ -9697,6 +9789,264 @@ paths:
       summary: Get a release by slug
       tags:
         - deploymentZones
+  /roles:
+    get:
+      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      operationId: ListRoles
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Role"
+                type:
+                  - array
+                  - "null"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:users
+      summary: List organization roles
+      tags:
+        - users
+    post:
+      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      operationId: CreateRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRole"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Create a custom organization role
+      tags:
+        - users
+  /roles/{slug}:
+    delete:
+      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      operationId: DeleteRole
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Delete an unassigned custom organization role
+      tags:
+        - users
+    put:
+      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      operationId: UpdateRole
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleDefinition"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Replace a custom organization role
+      tags:
+        - users
   /service-accounts:
     get:
       description: Returns a cursor-paginated page of service accounts (machine users) for the current organization.
@@ -10409,6 +10759,78 @@ paths:
       summary: Update a human profile
       tags:
         - users
+  /users/{id}/assignments:
+    patch:
+      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      operationId: SetUserAssignments
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRoleAssignments"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthorization"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Set user roles and direct scopes atomically
+      tags:
+        - users
   /users/{id}/authorization:
     put:
       description: Administrator role required in the current organization; provider authorization claims are ignored.
@@ -10479,6 +10901,78 @@ paths:
         - bearerAuth:
             - write:users
       summary: Replace user roles, permissions and enabled state
+      tags:
+        - users
+  /users/{id}/enabled:
+    patch:
+      description: Stored administrator capability required in the current organization. Built-in roles are immutable; custom roles group organization scopes.
+      operationId: SetUserEnabled
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserEnablement"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthorization"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Set user enabled state atomically
       tags:
         - users
   /v1/notification-preferences:
