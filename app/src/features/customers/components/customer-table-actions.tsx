@@ -3,7 +3,7 @@ import { useRouteContext } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { deleteCustomerMutation } from '@/api-client/@tanstack/react-query.gen';
-import { useDeletionRefusal } from '@/domains/billing';
+import { useCanPerform, useDeletionRefusal } from '@/domains/billing';
 import {
   TableActions,
   TableDeleteDialog,
@@ -23,6 +23,7 @@ export const CustomerTableActions = ({
   const { queryClient } = useRouteContext({ from: '__root__' });
   // A customer that bills cannot be deleted: the dialog says what to settle first.
   const deletion = useDeletionRefusal(customer.slug);
+  const mayDelete = useCanPerform('customers.delete');
 
   const deleteMutation = useMutation({
     ...deleteCustomerMutation(),
@@ -42,6 +43,10 @@ export const CustomerTableActions = ({
       path: { customerSlug: customer.slug! },
     });
   };
+
+  if (!mayDelete) {
+    return null;
+  }
 
   return (
     <TableActions>

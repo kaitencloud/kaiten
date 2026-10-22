@@ -1,3 +1,4 @@
+export { ActionGate } from './action-gate';
 export { BillingActionDialog } from './billing-action-dialog';
 export { BillingNotFound } from './billing-not-found';
 export { BoundaryClosingNotice } from './boundary-closing-notice';

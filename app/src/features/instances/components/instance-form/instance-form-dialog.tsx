@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { Instance } from '@/api-client';
+import { useActionAccess } from '@/domains/billing';
 import { StackedFormDialog } from '@/functionals/stacked-form-dialog';
 import { InstanceForm, type LockedCustomer } from './instance-form';
 
@@ -19,6 +20,15 @@ export function InstanceFormDialog({
   onSuccess,
 }: InstanceFormDialogProps) {
   const { t } = useTranslation();
+  const access = useActionAccess(
+    instance ? 'instance.update' : 'instances.create',
+  );
+
+  // The addresses of the forms are opened by hand as well as from their buttons: a session
+  // that may not write instances is not given a form that ends in a refusal.
+  if (!access.allowed) {
+    return null;
+  }
 
   return (
     <StackedFormDialog

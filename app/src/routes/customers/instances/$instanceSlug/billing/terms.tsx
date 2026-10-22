@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { ActionGate } from '@/domains/billing';
 import { PaymentTermsDialog } from '@/features/instances';
 
 export const Route = createFileRoute(
@@ -13,13 +14,15 @@ function PaymentTermsRoute() {
   const { instanceSlug } = Route.useParams();
 
   return (
-    <PaymentTermsDialog
-      onClose={() => {
-        void navigate({
-          params: { instanceSlug },
-          to: '/customers/instances/$instanceSlug/billing',
-        });
-      }}
-    />
+    <ActionGate action="subscription.updateTerms">
+      <PaymentTermsDialog
+        onClose={() => {
+          void navigate({
+            params: { instanceSlug },
+            to: '/customers/instances/$instanceSlug/billing',
+          });
+        }}
+      />
+    </ActionGate>
   );
 }

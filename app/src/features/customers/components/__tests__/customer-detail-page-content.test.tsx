@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HttpResponse } from 'msw/http';
 import { server } from '@/__tests__/msw-server';
 import { handleDeleteCustomer, handleGetCustomer } from '@/api-client/msw.gen';
+import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { customerQueryOptions } from '../../queries/customer-query-options';
 import userEvent from '@testing-library/user-event';
@@ -154,6 +155,8 @@ describe('CustomerDetailPageContent', () => {
         name: 'Other customer instance', slug: 'instance-other', startLicenseDate: '2026-01-01T00:00:00.000Z' },
     ];
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    // The token says nothing of scopes: every action is offered.
+    queryClient.setQueryData(grantedScopesQueryKey, null);
     server.use(handleGetCustomer(() => {
       detailReads++;
       return deleted ? new HttpResponse(null, { status: 404 }) : HttpResponse.json(customer);
@@ -225,8 +228,8 @@ describe('CustomerDetailPageContent', () => {
     expect(editLink).toHaveAttribute('data-to', '/customers/$customerSlug');
 
     expect(
-      screen.getByRole('button', { name: 'Edit name' }),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Acme Corp' }),
+    ).toHaveAccessibleDescription('Edit name');
 
     // No inline edit on the details card anymore.
     expect(

@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { ActionGate } from '@/domains/billing';
 import { SchedulePlanChangeDialog } from '@/features/instances';
 
 export const Route = createFileRoute(
@@ -13,13 +14,15 @@ function SchedulePlanChangeRoute() {
   const { instanceSlug } = Route.useParams();
 
   return (
-    <SchedulePlanChangeDialog
-      onClose={() => {
-        void navigate({
-          params: { instanceSlug },
-          to: '/customers/instances/$instanceSlug/billing',
-        });
-      }}
-    />
+    <ActionGate action="subscription.schedulePlanChange">
+      <SchedulePlanChangeDialog
+        onClose={() => {
+          void navigate({
+            params: { instanceSlug },
+            to: '/customers/instances/$instanceSlug/billing',
+          });
+        }}
+      />
+    </ActionGate>
   );
 }

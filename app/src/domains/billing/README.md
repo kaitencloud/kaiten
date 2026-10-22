@@ -327,7 +327,13 @@ page holds, or an export the API streams.
   at odds with `lib/feature-flags.ts`, which takes the identity of the user from
   the token table and not from its claims: that rule is about who the user is, so
   that it cannot drift when a claim is renamed, whereas the scopes exist only in
-  the claim, and a wrong reading costs one refused action.
+  the claim, and a wrong reading costs one refused action. The controls that lead to
+  a form are hidden the same way, and so is the form: the address of a dialog or a
+  page that writes can be opened by hand, so a route wraps it in `ActionGate`, which
+  draws nothing for a dialog and the restricted state for a page. The catalogue of the
+  licenses, the customers and the instances follow the same actions
+  (`license.create`, `customers.update`, `instances.delete` and the others of
+  `BILLING_ACTIONS`).
 - **A subscription that lives takes add-ons.** `isSubscriptionLive` says whether a
   subscription is in a trial, active or past due: the states in which an add-on can be
   attached to an instance and is billed from the next boundary. An instance nobody

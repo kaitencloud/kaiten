@@ -121,12 +121,13 @@ export function AddonFormDialog({
 }: AddonFormDialogProps) {
   const { t } = useTranslation();
   const update = useActionAccess('addons.update');
+  const create = useActionAccess('addons.create');
   const mode: AddonFormMode = addon ? 'edit' : family ? 'version' : 'family';
   const text = getDialogText(t, mode, { addon, family });
 
-  // The edit is opened by a link (`?mode=configure`): for a session that may not
-  // write add-ons the link is inert and there is no dialog to open.
-  if (mode === 'edit' && !update.allowed) {
+  // The dialog is opened by a link (`?mode=configure`, `/new`) and by its address: for a
+  // session that may not write add-ons the link is inert and there is no dialog to open.
+  if (!(mode === 'edit' ? update : create).allowed) {
     return null;
   }
 

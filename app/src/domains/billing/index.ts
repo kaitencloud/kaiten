@@ -2,6 +2,7 @@
 // scopes of its actions, how money, periods and statuses read, and how a refusal
 // is shown. The screens stay in their features; see README.md.
 export {
+  ActionGate,
   BillingActionDialog,
   BillingNotFound,
   BillingRouteError,

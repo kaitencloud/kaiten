@@ -1,3 +1,4 @@
+import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -98,6 +99,8 @@ describe('LicenseVersionsTableActions', () => {
     queryClient = new QueryClient({
       defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
     });
+    // The token says nothing of scopes: every action is offered.
+    queryClient.setQueryData(grantedScopesQueryKey, null);
     calls = serveLicenseWrites();
   });
 

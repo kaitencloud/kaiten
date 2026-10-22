@@ -137,28 +137,33 @@ export const EditableTitle = ({
     );
   }
 
+  // A title that cannot be edited is a title: a button that says it is unavailable would
+  // read in a heading as the name of an action, and not as the name of the page.
+  if (disabled) {
+    return <span className={cn(textClassName, className)}>{value}</span>;
+  }
+
   return (
     <button
       type="button"
       onClick={startEdit}
-      disabled={disabled}
-      aria-label={label}
-      title={disabled ? undefined : label}
+      title={label}
+      // The name of the button, and of the heading it stands in, is the title; what the button
+      // does is its description.
+      {...{ 'aria-description': label }}
       className={cn(
-        'group/editable-title -mx-2 inline-flex items-center gap-2 rounded-md px-2 py-0.5 text-left transition-colors hover:bg-foreground/10 disabled:pointer-events-none',
+        'group/editable-title -mx-2 inline-flex items-center gap-2 rounded-md px-2 py-0.5 text-left transition-colors hover:bg-foreground/10',
         textClassName,
         className,
       )}
     >
       <span>{value}</span>
-      {!disabled && (
-        <Pencil
-          // Faint at rest, so the title reads as editable before anyone hovers
-          // it; full on hover and keyboard focus.
-          className="size-4 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover/editable-title:opacity-100 group-focus-visible/editable-title:opacity-100"
-          aria-hidden
-        />
-      )}
+      <Pencil
+        // Faint at rest, so the title reads as editable before anyone hovers
+        // it; full on hover and keyboard focus.
+        className="size-4 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover/editable-title:opacity-100 group-focus-visible/editable-title:opacity-100"
+        aria-hidden
+      />
     </button>
   );
 };

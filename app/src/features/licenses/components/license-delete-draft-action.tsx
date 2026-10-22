@@ -2,6 +2,7 @@ import type { License } from '@/api-client';
 import {
   type RowActionAppearance,
   useBillingCapabilities,
+  useCanPerform,
   VersionDraftDeleteAction,
 } from '@/domains/billing';
 import { useDeleteLicenseDraft } from '../hooks/use-delete-license-draft';
@@ -24,6 +25,7 @@ export function LicenseDeleteDraftAction({
 }: LicenseDeleteDraftActionProps) {
   // A draft is deleted with its prices, which only exist where billing is on.
   const { isEnabled: hasBilling } = useBillingCapabilities();
+  const allowed = useCanPerform('license.delete');
   const { deleteDraft, isPending } = useDeleteLicenseDraft(onDeleted);
 
   return (
@@ -39,7 +41,7 @@ export function LicenseDeleteDraftAction({
         title: DELETE_DRAFT_KEYS.title,
       }}
       name={license.name}
-      offered={getLicenseLifecycleState(license) === 'DRAFT'}
+      offered={allowed && getLicenseLifecycleState(license) === 'DRAFT'}
       onDelete={(licenseSlug) => deleteDraft({ licenseSlug })}
       slug={license.slug}
       version={license.version}

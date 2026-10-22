@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
+import { ActionGate } from '@/domains/billing';
 import {
   entitlementsQueryOptions,
   LicenseVersionForm,
@@ -22,9 +23,11 @@ function NewLicenseVersionRoute() {
   const { data: licenses } = useSuspenseQuery(licensesQueryOptions);
   const { data: families } = useSuspenseQuery(licenseFamiliesQueryOptions);
   return (
-    <LicenseVersionForm
-      availableFamilies={families?.items ?? []}
-      availableLicenses={licenses?.items ?? []}
-    />
+    <ActionGate action="license.createVersion" restricted>
+      <LicenseVersionForm
+        availableFamilies={families?.items ?? []}
+        availableLicenses={licenses?.items ?? []}
+      />
+    </ActionGate>
   );
 }

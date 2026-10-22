@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { ActionGate } from '@/domains/billing';
 import { entitlementsQueryOptions, LicenseForm } from '@/features/licenses';
 
 export const Route = createFileRoute('/catalog/licenses/new/')({
@@ -9,5 +10,9 @@ export const Route = createFileRoute('/catalog/licenses/new/')({
 });
 
 function NewLicenseRoute() {
-  return <LicenseForm />;
+  return (
+    <ActionGate action="license.create" restricted>
+      <LicenseForm />
+    </ActionGate>
+  );
 }

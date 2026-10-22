@@ -13,6 +13,7 @@ import {
 import {
   LicensePriceSummaryText,
   useBillingCapabilities,
+  useCanPerform,
   useLicensesWithPrices,
 } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
@@ -27,6 +28,7 @@ type LicenseListItemProps = {
 export const LicenseListItem = ({ group }: LicenseListItemProps) => {
   const { t } = useTranslation();
   const { isEnabled: hasBilling } = useBillingCapabilities();
+  const mayCreateVersion = useCanPerform('license.createVersion');
   // How the version the family is shown under is sold: read apart from the licenses,
   // for all of them at once, and only where billing is on.
   const { data: catalogue } = useLicensesWithPrices();
@@ -76,7 +78,7 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
         </ActionAccordionTrigger>
         <ActionAccordionActions>
           <LicenseFamilyPublicToggle group={group} />
-          {newVersionLicenseSlug ? (
+          {!mayCreateVersion ? null : newVersionLicenseSlug ? (
             <Button
               variant="outline"
               size="sm"

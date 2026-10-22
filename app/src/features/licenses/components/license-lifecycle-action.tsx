@@ -3,11 +3,23 @@ import type { License } from '@/api-client';
 import {
   type RowActionAppearance,
   useBillingCapabilities,
+  useCanPerform,
   VersionLifecycleAction,
 } from '@/domains/billing';
 import { useLicenseLifecycleTransition } from '../hooks/use-license-lifecycle-transition';
 import { LIFECYCLE_ACTION_KEYS } from '../utils/license-lifecycle-keys';
-import { isLifecycleTransitionBlocked } from '../utils/license-lifecycle.utils';
+import {
+  isLifecycleTransitionBlocked,
+  type LicenseLifecycleTransition,
+} from '../utils/license-lifecycle.utils';
+
+// The scope of each transition is the contract's, and the three happen to share
+// one, but each is its own operation, so each is asked for by its own name.
+const TRANSITION_ACTIONS = {
+  archive: 'license.archive',
+  publish: 'license.publish',
+  unarchive: 'license.unarchive',
+} as const satisfies Record<LicenseLifecycleTransition, string>;
 
 type LicenseLifecycleActionProps = {
   appearance: RowActionAppearance;
@@ -41,10 +53,12 @@ export function LicenseLifecycleAction({
 }: LicenseLifecycleActionProps) {
   const { isPending, run, transition } = useLicenseLifecycleTransition(license);
   const { isEnabled: hasBilling } = useBillingCapabilities();
+  const allowed = useCanPerform(TRANSITION_ACTIONS[transition]);
 
   return (
     <VersionLifecycleAction
       appearance={appearance}
+      available={allowed}
       blocked={isLifecycleTransitionBlocked(license)}
       blockedKey="Pages.Licenses.LifecycleActions.archiveDefaultUnavailable"
       isPending={isPending}

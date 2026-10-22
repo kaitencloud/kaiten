@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { requireBillingCapability } from '@/domains/billing';
+import { ActionGate, requireBillingCapability } from '@/domains/billing';
 import { RedeemVoucherDialog } from '@/features/instances';
 
 export const Route = createFileRoute(
@@ -19,13 +19,15 @@ function RedeemVoucherRoute() {
   const { instanceSlug } = Route.useParams();
 
   return (
-    <RedeemVoucherDialog
-      onClose={() => {
-        void navigate({
-          params: { instanceSlug },
-          to: '/customers/instances/$instanceSlug/billing',
-        });
-      }}
-    />
+    <ActionGate action="instance.vouchers.redeem">
+      <RedeemVoucherDialog
+        onClose={() => {
+          void navigate({
+            params: { instanceSlug },
+            to: '/customers/instances/$instanceSlug/billing',
+          });
+        }}
+      />
+    </ActionGate>
   );
 }

@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { requireBillingCapability } from '@/domains/billing';
+import { ActionGate, requireBillingCapability } from '@/domains/billing';
 import { AttachAddonDialog } from '@/features/instances';
 
 export const Route = createFileRoute(
@@ -19,13 +19,15 @@ function AttachAddonRoute() {
   const { instanceSlug } = Route.useParams();
 
   return (
-    <AttachAddonDialog
-      onClose={() => {
-        void navigate({
-          params: { instanceSlug },
-          to: '/customers/instances/$instanceSlug/billing',
-        });
-      }}
-    />
+    <ActionGate action="instance.addons.attach">
+      <AttachAddonDialog
+        onClose={() => {
+          void navigate({
+            params: { instanceSlug },
+            to: '/customers/instances/$instanceSlug/billing',
+          });
+        }}
+      />
+    </ActionGate>
   );
 }

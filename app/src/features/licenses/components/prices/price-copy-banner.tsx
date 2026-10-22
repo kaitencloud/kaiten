@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import type { Entitlement, Price } from '@/api-client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert, getPriceLabel } from '@/domains/billing';
+import { ProblemAlert, getPriceLabel, useCanPerform } from '@/domains/billing';
 import { useLicensePriceCopy } from '../../hooks/use-license-price-copy';
 import { licenseQueryOptions, licensePricesQueryOptions } from '../../queries';
 import {
@@ -92,6 +92,8 @@ export function PriceCopyBanner({
       t,
     );
 
+  const mayCopy = useCanPerform('licensePrices.create');
+
   async function resume() {
     setFailure(null);
     setIsCopying(true);
@@ -132,17 +134,19 @@ export function PriceCopyBanner({
           />
         </div>
         {failure ? <ProblemAlert error={failure} /> : null}
-        <div>
-          <Button
-            disabled={isCopying}
-            onClick={resume}
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            {t('Pages.Licenses.PriceCopy.resume')}
-          </Button>
-        </div>
+        {mayCopy ? (
+          <div>
+            <Button
+              disabled={isCopying}
+              onClick={resume}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {t('Pages.Licenses.PriceCopy.resume')}
+            </Button>
+          </div>
+        ) : null}
       </AlertDescription>
     </Alert>
   );

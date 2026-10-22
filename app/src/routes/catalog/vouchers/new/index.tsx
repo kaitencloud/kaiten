@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
-import { BillingRouteError } from '@/domains/billing';
+import { ActionGate, BillingRouteError } from '@/domains/billing';
 import { loadVoucherWizard, VoucherWizardPage } from '@/features/vouchers';
 import i18n from '@/lib/i18n/config';
 
@@ -29,5 +29,9 @@ function NewVoucherRoute() {
 
   // A new wizard for each discount a boost is made for: following "add a boost" from the
   // page that published one must not keep the state of the voucher just made.
-  return <VoucherWizardPage boostFor={boostFor} key={boostFor?.id ?? 'new'} />;
+  return (
+    <ActionGate action="vouchers.create" restricted>
+      <VoucherWizardPage boostFor={boostFor} key={boostFor?.id ?? 'new'} />
+    </ActionGate>
+  );
 }

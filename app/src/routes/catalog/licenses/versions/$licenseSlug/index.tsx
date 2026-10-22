@@ -2,6 +2,7 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+import { ActionGate } from '@/domains/billing';
 import {
   entitlementsQueryOptions,
   LicenseVersionForm,
@@ -66,11 +67,13 @@ function NewLicenseVersionForLicenseRoute() {
   }
 
   return (
-    <LicenseVersionForm
-      availableFamilies={families?.items ?? []}
-      availableLicenses={licenses?.items ?? []}
-      selectedLicenseSlug={licenseSlug}
-      startAsDraft={draft}
-    />
+    <ActionGate action="license.createVersion" restricted>
+      <LicenseVersionForm
+        availableFamilies={families?.items ?? []}
+        availableLicenses={licenses?.items ?? []}
+        selectedLicenseSlug={licenseSlug}
+        startAsDraft={draft}
+      />
+    </ActionGate>
   );
 }

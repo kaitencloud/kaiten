@@ -3,7 +3,7 @@ import { useRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GradientButton } from '@/components/gradient-button';
-import type { InstancesBilling } from '@/domains/billing';
+import { type InstancesBilling, useCanPerform } from '@/domains/billing';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import {
   type FilterFieldDefinition,
@@ -38,6 +38,7 @@ const NO_METADATA_FIELDS: MetadataFieldDescriptor[] = [];
 
 export const InstancesTable = ({ billing, instances }: InstancesTableProps) => {
   const { t } = useTranslation();
+  const mayCreate = useCanPerform('instances.create');
   const router = useRouter();
 
   // Soft-fetch the active MetadataField list. As on the DZ page, a
@@ -195,10 +196,12 @@ export const InstancesTable = ({ billing, instances }: InstancesTableProps) => {
         <FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Search filterId="name" />
           <FilterTableLayout.Actions>
-            <GradientButton
-              to="/customers/instances/new"
-              label={t('Pages.Customers.Instances.Mutation.titleNew')}
-            />
+            {mayCreate ? (
+              <GradientButton
+                to="/customers/instances/new"
+                label={t('Pages.Customers.Instances.Mutation.titleNew')}
+              />
+            ) : null}
           </FilterTableLayout.Actions>
         </FilterTableLayout.ToolbarRow>
         <FilterTableLayout.Filters />

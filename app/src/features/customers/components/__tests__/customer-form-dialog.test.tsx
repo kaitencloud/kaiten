@@ -1,7 +1,19 @@
-import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { render as renderUi, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vite-plus/test';
+import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { CustomerFormDialog } from '../customer-form-dialog';
+
+// The token says nothing of scopes: every action is offered.
+function render(ui: React.ReactElement) {
+  const queryClient = new QueryClient();
+  queryClient.setQueryData(grantedScopesQueryKey, null);
+
+  return renderUi(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
 
 const mockCustomerForm = vi.fn();
 const mockStackedFormDialog = vi.fn();

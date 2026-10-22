@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { ActionGate } from '@/domains/billing';
 import { SubscribeInstanceDialog } from '@/features/instances';
 
 export const Route = createFileRoute(
@@ -13,13 +14,15 @@ function SubscribeInstanceRoute() {
   const { instanceSlug } = Route.useParams();
 
   return (
-    <SubscribeInstanceDialog
-      onClose={() => {
-        void navigate({
-          params: { instanceSlug },
-          to: '/customers/instances/$instanceSlug/billing',
-        });
-      }}
-    />
+    <ActionGate action="subscription.subscribe">
+      <SubscribeInstanceDialog
+        onClose={() => {
+          void navigate({
+            params: { instanceSlug },
+            to: '/customers/instances/$instanceSlug/billing',
+          });
+        }}
+      />
+    </ActionGate>
   );
 }

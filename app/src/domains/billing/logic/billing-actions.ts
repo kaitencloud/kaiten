@@ -29,6 +29,21 @@ export const BILLING_ACTIONS = {
   'license.updateCommercialFields': 'updateLicense',
   // A new version, which is what changes a version that can no longer change.
   'license.createVersion': 'createLicense',
+  // The license catalogue: a new license, a version's default flag, its lifecycle and its
+  // removal (scopes of the licenses).
+  'license.create': 'createLicense',
+  'license.update': 'updateLicense',
+  'license.publish': 'publishLicense',
+  'license.archive': 'archiveLicense',
+  'license.unarchive': 'unarchiveLicense',
+  'license.delete': 'deleteLicense',
+  // The customers and the instances, which the catalogue of the licenses and the billing
+  // screens stand next to (scopes of the customers and of the instances).
+  'customers.create': 'createCustomer',
+  'customers.update': 'updateCustomer',
+  'customers.delete': 'deleteCustomer',
+  'instances.create': 'createInstance',
+  'instances.delete': 'deleteInstance',
   // An instance's subscription.
   'subscription.read': 'getInstanceBilling',
   'subscription.subscribe': 'subscribeInstance',

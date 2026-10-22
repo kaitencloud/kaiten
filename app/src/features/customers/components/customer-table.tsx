@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCanPerform } from '@/domains/billing';
 import { IntegrationSyncBadge } from '@/domains/crm-sync';
 import { GradientButton } from '@/components/gradient-button';
 import {
@@ -50,6 +51,7 @@ function CustomerLicenseTypesCell({
 
 export const CustomersTable = ({ customers }: CustomersTableProps) => {
   const { t } = useTranslation();
+  const mayCreate = useCanPerform('customers.create');
   const router = useRouter();
   const columns = useMemo<ColumnDef<Customer>[]>(
     () => [
@@ -184,10 +186,12 @@ export const CustomersTable = ({ customers }: CustomersTableProps) => {
         <FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Search filterId="name" />
           <FilterTableLayout.Actions>
-            <GradientButton
-              to="/customers/new"
-              label={t('Pages.Customers.Mutation.titleNew')}
-            />
+            {mayCreate ? (
+              <GradientButton
+                to="/customers/new"
+                label={t('Pages.Customers.Mutation.titleNew')}
+              />
+            ) : null}
           </FilterTableLayout.Actions>
         </FilterTableLayout.ToolbarRow>
         <FilterTableLayout.Filters />
