@@ -7,7 +7,12 @@ import {
   createPublishableKeyMutation,
   updatePublishableKeyMutation,
 } from '@/api-client/@tanstack/react-query.gen';
-import { getProblemCode, placeRefusalOnFields } from '@/domains/billing';
+import {
+  clearProblemFieldError,
+  getProblemCode,
+  placeRefusalOnFields,
+  setProblemFieldError,
+} from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
 import { invalidatePublishableKeyQueries } from '../queries';
 import {
@@ -29,11 +34,32 @@ const REFUSAL_FIELDS = {
     'UpdatePublishableKey.InvalidLabel': 'label',
     'UpdatePublishableKey.InvalidOrigin': 'origins',
     'UpdatePublishableKey.TooManyOrigins': 'origins',
+    // The key would open the anonymous checkout without a site key and a secret: the
+    // switch is what the refusal is about, whichever of the two is missing.
+    'CreatePublishableKey.TurnstileNotConfigured': 'anonymousCheckout',
+    'UpdatePublishableKey.TurnstileNotConfigured': 'anonymousCheckout',
+  },
+  // The schema of the site key and of the secret answers a plain 422 that names the
+  // member and no code.
+  byLocation: {
+    turnstileSecret: 'turnstileSecret',
+    turnstileSiteKey: 'turnstileSiteKey',
   },
 } as const;
 
 /** The refusal of a change to a key that was revoked in the meantime. */
 export const REVOKED_REFUSAL = 'UpdatePublishableKey.Revoked';
+
+/** The refusals of a secret on a deployment that has no Vault to store it in. */
+const VAULT_REFUSALS = new Set([
+  'CreatePublishableKey.VaultNotConfigured',
+  'UpdatePublishableKey.VaultNotConfigured',
+]);
+
+// The fields whose change takes back the refusal of the switch: it is about what they
+// say together. The choice made on a stored secret does the same from its buttons, which
+// change a value no field is drawn for.
+const TURNSTILE_FIELDS = new Set(['turnstileSecret', 'turnstileSiteKey']);
 
 type UsePublishableKeyFormOptions = {
   /** Called once the API issued the key, with the only copy of it there will be. */
@@ -52,7 +78,13 @@ type UsePublishableKeyFormOptions = {
  * The key comes back once, in the answer to the creation, and goes to `onCreated` and
  * nowhere else. The mutation is dropped as soon as nothing observes it (`gcTime: 0`),
  * so that the key does not stay in the cache of the mutations, and it is never put in a
- * toast, a log, the address or the storage of the browser.
+ * toast, a log, the address or the storage of the browser. The same goes for the change
+ * of a key, which carries the Turnstile secret the person typed: a secret is written and
+ * never read, so nothing keeps it once the request is answered.
+ *
+ * A change is a PATCH: it states the label and the origins, and the rest only when the
+ * person changed it, so that an absent member keeps what the API stores (the secret,
+ * above all, which the form never holds).
  */
 export function usePublishableKeyForm({
   onCreated,
@@ -63,20 +95,31 @@ export function usePublishableKeyForm({
   const queryClient = useQueryClient();
   const [failure, setFailure] = useState<unknown>(null);
   const create = useMutation({ ...createPublishableKeyMutation(), gcTime: 0 });
-  const update = useMutation(updatePublishableKeyMutation());
+  const update = useMutation({ ...updatePublishableKeyMutation(), gcTime: 0 });
+  // What the form opened with, kept as it was: the change is told against it.
+  const [openedValues] = useState(() =>
+    publishableKey
+      ? publishableKeyToFormValues(publishableKey)
+      : initialPublishableKeyFormValues,
+  );
 
   const form = useAppForm({
     ...publishableKeyFormOpts,
-    defaultValues: publishableKey
-      ? publishableKeyToFormValues(publishableKey)
-      : initialPublishableKeyFormValues,
-    listeners: { onChange: () => setFailure(null) },
+    defaultValues: openedValues,
+    listeners: {
+      onChange: ({ fieldApi, formApi }) => {
+        setFailure(null);
+        if (TURNSTILE_FIELDS.has(fieldApi.name)) {
+          clearProblemFieldError(formApi, 'anonymousCheckout');
+        }
+      },
+    },
     onSubmit: async ({ formApi, value }) => {
       setFailure(null);
       try {
         if (publishableKey) {
           const saved = await update.mutateAsync({
-            body: publishableKeyFormValuesToUpdateBody(value),
+            body: publishableKeyFormValuesToUpdateBody(value, openedValues),
             path: { keyId: publishableKey.id },
           });
           await invalidatePublishableKeyQueries(queryClient);
@@ -99,7 +142,17 @@ export function usePublishableKeyForm({
         if (getProblemCode(error) === REVOKED_REFUSAL) {
           void invalidatePublishableKeyQueries(queryClient);
         }
-        if (!placeRefusalOnFields(formApi, error, REFUSAL_FIELDS)) {
+        if (
+          VAULT_REFUSALS.has(getProblemCode(error) ?? '') &&
+          formApi.state.values.turnstileSecretAction === 'set'
+        ) {
+          // Said plainly, in the console's words: the deployment cannot store a secret.
+          setProblemFieldError(
+            formApi,
+            'turnstileSecret',
+            'Pages.Integrations.PublishableKeys.Form.Errors.vaultNotConfigured',
+          );
+        } else if (!placeRefusalOnFields(formApi, error, REFUSAL_FIELDS)) {
           setFailure(error);
         }
       }

@@ -3283,7 +3283,7 @@ export default {
         subtitle: 'The keys a web page reads your public catalog with',
         Intro: {
           purpose:
-            'A publishable key lets a web page read your public catalog: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret, and it reads nothing else.',
+            'A publishable key lets a web page read your public catalog: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret. It reads nothing else, and starts anonymous checkouts only if you allow it to.',
           listing:
             'What the catalog lists is decided by the Public catalog switch of each license and add-on:',
           licenses: 'Licenses',
@@ -3308,6 +3308,7 @@ export default {
           Status: {
             live: 'Live',
             revoked: 'Revoked',
+            anonymousCheckout: 'Anonymous checkout',
           },
           Actions: {
             edit: 'Edit {{label}}',
@@ -3352,7 +3353,7 @@ export default {
         Edit: {
           title: 'Edit {{label}}',
           description:
-            'Change what the key is for and the origins that may send it. The key itself does not change.',
+            'Change what the key is for, the origins that may send it and whether it opens the anonymous checkout. The key itself does not change.',
           save: 'Save',
           saved: '{{label}} saved',
           revoked:
@@ -3362,16 +3363,41 @@ export default {
           Labels: {
             label: 'Label',
             origins: 'Allowed origins',
+            anonymousCheckout: 'Allow anonymous checkout',
+            turnstileSiteKey: 'Turnstile site key',
+            turnstileSecret: 'Turnstile secret',
           },
           Placeholders: {
             label: 'Marketing site',
             origins: 'https://www.example.com',
+            turnstileSiteKey: '0x4AAAAAAA…',
           },
           Descriptions: {
             label:
               'What the key is for, to tell your keys apart (up to 100 characters).',
             origins:
               'One origin per line, at most {{max}}: https://host, or http://localhost, with a port if there is one. No path. Leave it empty to allow no browser origin.',
+            anonymousCheckout:
+              'Once on, every visitor of this key’s origins can start a checkout and create a customer. It needs a site key and a secret.',
+            turnstileSiteKey:
+              'The public key of your Turnstile widget: letters, digits, hyphens and underscores. The page draws the widget with it.',
+            turnstileSecret:
+              'The secret of the same widget. Kaiten stores it in Vault and never shows it again.',
+            vaultMissing:
+              'Anonymous checkout needs a configured Vault: this deployment cannot store a Turnstile secret.',
+          },
+          Anonymous: {
+            title: 'Anonymous checkout',
+            description:
+              'Lets a visitor with no account buy from your page. Cloudflare Turnstile guards it, on the site key and the secret of a widget registered for the origins above.',
+          },
+          Secret: {
+            stored: 'A secret is stored for this key. It is never shown.',
+            removing: 'The secret will be removed when you save.',
+            replace: 'Replace',
+            remove: 'Remove',
+            undo: 'Keep the secret',
+            keep: 'Keep the current secret',
           },
           rejected: 'Not an origin: {{origins}}',
           Errors: {
@@ -3380,6 +3406,15 @@ export default {
             origins:
               'Each origin is https://host[:port], or http://localhost[:port], with no path, query or fragment',
             tooManyOrigins: 'That is too many origins for one key',
+            turnstileSiteKey:
+              'A site key is 1 to 255 letters, digits, hyphens or underscores',
+            turnstileSecretTooLong: 'That secret is too long',
+            turnstileSecretRequired:
+              'Enter the new secret, or keep the current one',
+            turnstileRequired:
+              'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
+            vaultNotConfigured:
+              'This deployment has no Vault, so it cannot store a Turnstile secret. Configure a Vault, or leave anonymous checkout off.',
           },
         },
         Revoke: {

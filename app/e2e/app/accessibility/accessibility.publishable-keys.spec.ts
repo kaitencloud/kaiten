@@ -9,6 +9,7 @@ import {
 import { PublishableKeysDriver } from '../_support/drivers/publishable-keys.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import {
+  createAnonymousCheckoutBillingModel,
   createEmptyPublishableKeysBillingModel,
   createPublishableKeysBillingModel,
 } from '../integrations/integrations.scenarios';
@@ -176,6 +177,96 @@ test.describe('accessibility of the dialogs of the publishable keys', () => {
       keys.row('Storefront').getByRole('button', { name: 'Show fewer' }),
     ).toHaveAttribute('aria-expanded', 'true');
     await expect(keys.row('Storefront')).toContainText('https://s4.acme.test');
+  });
+});
+
+test.describe('accessibility of the anonymous checkout of a publishable key', () => {
+  test.beforeEach(async ({ page }) => {
+    await installBillingAppMocks(page, createAnonymousCheckoutBillingModel());
+  });
+
+  test('the list, with the badge of a key that opens it, has no violation', async ({
+    page,
+  }) => {
+    const keys = new PublishableKeysDriver(page);
+    await keys.goto();
+    await expect(keys.anonymousBadge('Checkout page')).toBeVisible();
+
+    await expectAccessibleInBothThemes(page);
+  });
+
+  test('the form of a key that opens it has no violation, names its switch and says what it does', async ({
+    page,
+  }) => {
+    const keys = new PublishableKeysDriver(page);
+    await keys.goto();
+    await keys.editLink('Checkout page').click();
+    await expect(keys.anonymousCheckout()).toBeVisible();
+
+    await expect(keys.anonymousCheckout()).toHaveAccessibleName(
+      'Allow anonymous checkout',
+    );
+    await expect(keys.anonymousCheckout()).toHaveAccessibleDescription(
+      /every visitor of this key’s origins can start a checkout/,
+    );
+    await expect(
+      keys.dialog().getByRole('group', { name: 'Turnstile secret' }),
+    ).toBeVisible();
+    await expectAccessibleInBothThemes(page);
+    await expectDialogAccessible(page, keys.dialog());
+  });
+
+  test('the form that replaces the secret has no violation, and the focus follows the button that was pressed', async ({
+    page,
+  }) => {
+    const keys = new PublishableKeysDriver(page);
+    await keys.goto();
+    await keys.editLink('Checkout page').click();
+
+    await keys.replaceSecret().click();
+
+    await expect(keys.secretField()).toBeFocused();
+    await expect(keys.secretField()).toHaveAccessibleName(/Turnstile secret/);
+    await expectAccessibleInBothThemes(page);
+  });
+
+  test('the form that removes it says why it cannot be saved, to whoever reads it, and has no violation', async ({
+    page,
+  }) => {
+    const keys = new PublishableKeysDriver(page);
+    await keys.goto();
+    await keys.editLink('Checkout page').click();
+
+    await keys.removeSecret().click();
+
+    await expect(keys.anonymousCheckout()).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    await expect(keys.anonymousCheckout()).toHaveAccessibleDescription(
+      /needs a site key and a secret/,
+    );
+    await expectAccessibleInBothThemes(page);
+  });
+});
+
+test.describe('accessibility of the form of a key on a deployment with no Vault', () => {
+  test('disables the secret, says why to whoever reads it, and has no violation', async ({
+    page,
+  }) => {
+    await installBillingAppMocks(
+      page,
+      createAnonymousCheckoutBillingModel('vaultMissing'),
+    );
+    const keys = new PublishableKeysDriver(page);
+    await keys.goto();
+    await keys.newKey().click();
+    await expect(keys.secretField()).toBeDisabled();
+
+    await expect(keys.secretField()).toHaveAccessibleDescription(
+      /Anonymous checkout needs a configured Vault/,
+    );
+    await expectAccessibleInBothThemes(page);
   });
 });
 

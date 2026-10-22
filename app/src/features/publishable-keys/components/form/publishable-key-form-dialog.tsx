@@ -134,9 +134,9 @@ function getDialogWords(
  * The dialog a publishable key is issued or changed in, which the URL opens. Issuing one
  * ends on the key itself, once, with a way to copy it and the warning that it will not be
  * shown again; closing the dialog from there is leaving it for good, which a dismissal
- * before the key was copied confirms. Changing a key edits
- * its label and its origins and nothing else, and is not offered for a key that was
- * revoked, which the API refuses to change.
+ * before the key was copied confirms. Changing a key edits its label, its origins and
+ * its anonymous checkout (the switch, the Turnstile site key and secret), and is not
+ * offered for a key that was revoked, which the API refuses to change.
  */
 export function PublishableKeyFormDialog({
   onClose,

@@ -3330,7 +3330,7 @@ export default {
           'Les clés avec lesquelles une page web lit votre catalogue public',
         Intro: {
           purpose:
-            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret, et elle ne lit rien d’autre.',
+            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret. Elle ne lit rien d’autre, et ne démarre de paiements anonymes que si vous l’y autorisez.',
           listing:
             'Ce que le catalogue liste est décidé par l’interrupteur « Catalogue public » de chaque licence et de chaque add-on :',
           licenses: 'Licences',
@@ -3355,6 +3355,7 @@ export default {
           Status: {
             live: 'Active',
             revoked: 'Révoquée',
+            anonymousCheckout: 'Paiement anonyme',
           },
           Actions: {
             edit: 'Modifier {{label}}',
@@ -3401,7 +3402,7 @@ export default {
         Edit: {
           title: 'Modifier {{label}}',
           description:
-            'Changez à quoi sert la clé et les origines qui peuvent l’envoyer. La clé elle-même ne change pas.',
+            'Changez à quoi sert la clé, les origines qui peuvent l’envoyer et si elle ouvre le paiement anonyme. La clé elle-même ne change pas.',
           save: 'Enregistrer',
           saved: '{{label}} enregistrée',
           revoked:
@@ -3411,16 +3412,42 @@ export default {
           Labels: {
             label: 'Libellé',
             origins: 'Origines autorisées',
+            anonymousCheckout: 'Autoriser le paiement anonyme',
+            turnstileSiteKey: 'Clé de site Turnstile',
+            turnstileSecret: 'Secret Turnstile',
           },
           Placeholders: {
             label: 'Site marketing',
             origins: 'https://www.example.com',
+            turnstileSiteKey: '0x4AAAAAAA…',
           },
           Descriptions: {
             label:
               'À quoi sert la clé, pour distinguer vos clés (100 caractères au plus).',
             origins:
               'Une origine par ligne, {{max}} au plus : https://hôte, ou http://localhost, avec un port s’il y en a un. Sans chemin. Laissez vide pour n’autoriser aucune origine de navigateur.',
+            anonymousCheckout:
+              'Une fois activé, tout visiteur des origines de cette clé peut démarrer un paiement et créer un client. Il faut une clé de site et un secret.',
+            turnstileSiteKey:
+              'La clé publique de votre widget Turnstile : lettres, chiffres, tirets et tirets bas. La page dessine le widget avec elle.',
+            turnstileSecret:
+              'Le secret du même widget. Kaiten le stocke dans Vault et ne l’affiche plus jamais.',
+            vaultMissing:
+              'Le paiement anonyme nécessite un Vault configuré : ce déploiement ne peut pas stocker de secret Turnstile.',
+          },
+          Anonymous: {
+            title: 'Paiement anonyme',
+            description:
+              'Permet à un visiteur sans compte d’acheter depuis votre page. Cloudflare Turnstile le protège, avec la clé de site et le secret d’un widget enregistré pour les origines ci-dessus.',
+          },
+          Secret: {
+            stored:
+              'Un secret est stocké pour cette clé. Il n’est jamais affiché.',
+            removing: 'Le secret sera retiré à l’enregistrement.',
+            replace: 'Remplacer',
+            remove: 'Retirer',
+            undo: 'Garder le secret',
+            keep: 'Garder le secret actuel',
           },
           rejected: 'Pas une origine : {{origins}}',
           Errors: {
@@ -3429,6 +3456,15 @@ export default {
             origins:
               'Chaque origine est https://hôte[:port], ou http://localhost[:port], sans chemin, paramètres ni fragment',
             tooManyOrigins: 'C’est trop d’origines pour une seule clé',
+            turnstileSiteKey:
+              'Une clé de site compte de 1 à 255 lettres, chiffres, tirets ou tirets bas',
+            turnstileSecretTooLong: 'Ce secret est trop long',
+            turnstileSecretRequired:
+              'Saisissez le nouveau secret, ou gardez l’actuel',
+            turnstileRequired:
+              'Le paiement anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
+            vaultNotConfigured:
+              'Ce déploiement n’a pas de Vault : il ne peut pas stocker de secret Turnstile. Configurez un Vault, ou laissez le paiement anonyme désactivé.',
           },
         },
         Revoke: {

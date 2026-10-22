@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { HttpResponse } from 'msw';
 import { Suspense } from 'react';
-import { expect, screen, userEvent, within } from 'storybook/test';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
 import type { PublishableKey } from '@/api-client';
 import {
   handleCreatePublishableKey,
@@ -64,8 +64,22 @@ const LEGACY = buildPublishableKey({
   revokedAt: '2026-08-15T12:00:00Z',
 });
 
-const serve = (keys: PublishableKey[]) => [
-  handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
+// A key that opens the anonymous checkout: Cloudflare's published test site key, and a
+// secret stored for it. Only whether a secret is stored is ever known to the console.
+const CHECKOUT = buildPublishableKey({
+  allowedOrigins: ['https://checkout.acme.test'],
+  anonymousCheckout: true,
+  createdAt: '2026-09-20T12:00:00Z',
+  id: 'pk-checkout',
+  keyHint: 'k7Lm',
+  label: 'Checkout page',
+});
+
+const serve = (
+  keys: PublishableKey[],
+  capabilities = billingCapabilitiesProfiles.stack(),
+) => [
+  handleGetBillingCapabilities({ body: capabilities }),
   handleListPublishableKeys(({ request }) => {
     const includeRevoked =
       new URL(request.url).searchParams.get('includeRevoked') === 'true';
@@ -106,6 +120,20 @@ export const Keys: Story = {
       canvas.getByRole('button', { name: 'Show 1 more' }),
     ).toBeVisible();
     await expect(canvas.queryByText('Legacy checkout')).toBeNull();
+  },
+};
+
+// A live key that opens the anonymous checkout says so beside its state; the list shows
+// neither its site key nor its secret.
+export const WithAnonymousCheckout: Story = {
+  parameters: { msw: { handlers: serve([PRICING, CHECKOUT, LEGACY]) } },
+  render: () => page(true),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    await expect(await canvas.findByText('Checkout page')).toBeVisible();
+    await expect(canvas.getAllByText('Anonymous checkout')).toHaveLength(1);
+    await expect(canvas.queryByText('1x00000000000000000000AA')).toBeNull();
   },
 };
 
@@ -161,6 +189,60 @@ export const IssueAKey: Story = {
       'Not an origin: http://shop.acme.test',
     );
     await expect(screen.getByRole('button', { name: 'Create key' })).toBeDisabled();
+  },
+};
+
+// Issuing a key that opens the anonymous checkout: the switch waits for a Turnstile site key
+// and a secret, which is typed in a password field and never shown again.
+export const IssueWithAnonymousCheckout: Story = {
+  parameters: { msw: { handlers: serve([PRICING]) } },
+  render: () => (
+    <StorybookRouter>
+      <PublishableKeyFormDialog onClose={() => {}} />
+    </StorybookRouter>
+  ),
+  play: async () => {
+    const checkout = await screen.findByRole('switch', {
+      name: 'Allow anonymous checkout',
+    });
+    await expect(checkout).toHaveAttribute('aria-disabled', 'true');
+
+    await userEvent.type(
+      await screen.findByLabelText(/^Turnstile site key/),
+      '1x00000000000000000000AA',
+    );
+    const secret = await screen.findByLabelText(/^Turnstile secret/);
+    await expect(secret).toHaveAttribute('type', 'password');
+    await userEvent.type(secret, '1x0000000000000000000000000000000AA');
+
+    await expect(checkout).not.toHaveAttribute('aria-disabled', 'true');
+  },
+};
+
+// A deployment with no Vault cannot store the secret: the field is disabled and says why,
+// so the checkout stays off. A key for the catalog is still issued.
+export const IssueWithoutVault: Story = {
+  parameters: {
+    msw: {
+      handlers: serve([PRICING], billingCapabilitiesProfiles.stackWithStripe('vaultMissing')),
+    },
+  },
+  render: () => (
+    <StorybookRouter>
+      <PublishableKeyFormDialog onClose={() => {}} />
+    </StorybookRouter>
+  ),
+  play: async () => {
+    // The capabilities say there is no Vault once they are read.
+    await waitFor(async () =>
+      expect(await screen.findByLabelText(/^Turnstile secret/)).toBeDisabled(),
+    );
+    await expect(
+      screen.getByText(/Anonymous checkout needs a configured Vault/),
+    ).toBeInTheDocument();
+    await expect(
+      screen.getByRole('switch', { name: 'Allow anonymous checkout' }),
+    ).toHaveAttribute('aria-disabled', 'true');
   },
 };
 
@@ -228,6 +310,45 @@ export const EditAKey: Story = {
     await expect(await screen.findByLabelText(/^Label/)).toHaveValue('pricing');
     await expect(screen.getByLabelText(/^Allowed origins/)).toHaveValue(
       'https://shop.acme.test',
+    );
+  },
+};
+
+// Changing a key that opens the anonymous checkout: the secret is never read back, so the
+// form says only that one is stored, and offers to replace it or remove it.
+export const EditAnonymousCheckout: Story = {
+  parameters: {
+    msw: {
+      handlers: [
+        ...serve([CHECKOUT]),
+        handleUpdatePublishableKey(() => HttpResponse.json(CHECKOUT)),
+      ],
+    },
+  },
+  render: () => (
+    <StorybookRouter>
+      <PublishableKeyFormDialog onClose={() => {}} publishableKey={CHECKOUT} />
+    </StorybookRouter>
+  ),
+  play: async () => {
+    await expect(
+      await screen.findByRole('switch', { name: 'Allow anonymous checkout' }),
+    ).toHaveAttribute('aria-checked', 'true');
+    await expect(screen.getByLabelText(/^Turnstile site key/)).toHaveValue(
+      '1x00000000000000000000AA',
+    );
+    await expect(screen.getByTestId('turnstile-secret-status')).toHaveTextContent(
+      'A secret is stored for this key.',
+    );
+
+    // A secret removed under a switch that is on cannot be saved, and says why.
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await waitFor(async () =>
+      expect(
+        await screen.findByText(
+          'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
+        ),
+      ).toBeVisible(),
     );
   },
 };

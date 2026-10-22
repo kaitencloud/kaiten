@@ -2,8 +2,11 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { useBillingTexts } from '@/test-fixtures/billing-test-support';
+import { buildPublishableKey } from '../../../../../e2e/app/_support/fixtures';
 import { PublishableKeysPageContent } from '..';
 import {
+  LEGACY,
+  PRICING,
   READ_ONLY_SCOPES,
   renderScreen,
   serveKeys,
@@ -50,6 +53,44 @@ describe('the list of publishable keys', () => {
     expect(within(row('Renderer')).getByText('Never used')).toBeVisible();
     expect(screen.queryByText(/Legacy checkout/)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/pk_/);
+  });
+
+  it('marks the live keys that open the anonymous checkout, and no others', async () => {
+    const open = buildPublishableKey({
+      anonymousCheckout: true,
+      createdAt: '2026-09-20T12:00:00Z',
+      id: 'pk-checkout',
+      keyHint: 'k7Lm',
+      label: 'storefront checkout',
+    });
+    // A revoked key opens nothing, whatever it was set to.
+    const revoked = buildPublishableKey({
+      anonymousCheckout: true,
+      id: 'pk-closed',
+      keyHint: 'r1Ev',
+      label: 'closed one',
+      revokedAt: '2026-08-15T12:00:00Z',
+    });
+    serveKeys([PRICING, open, revoked, LEGACY]);
+    page(true);
+
+    expect(
+      await screen.findByRole('row', { name: /storefront checkout/ }),
+    ).toBeVisible();
+    const badge = within(row('storefront checkout')).getByTestId(
+      'anonymous-checkout-badge',
+    );
+    expect(badge).toHaveTextContent('Anonymous checkout');
+    expect(within(row('storefront checkout')).getByText('Live')).toBeVisible();
+    expect(
+      within(row('pricing')).queryByTestId('anonymous-checkout-badge'),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row('closed one')).queryByTestId('anonymous-checkout-badge'),
+    ).not.toBeInTheDocument();
+    expect(within(row('closed one')).getByText('Revoked')).toBeVisible();
+    // Neither the secret nor the site key is a column: the list says only that the key opens it.
+    expect(document.body.textContent).not.toContain('1x00000000000000000000AA');
   });
 
   it('says in a few words what a key is for, and leads to the switches that decide what it lists', async () => {

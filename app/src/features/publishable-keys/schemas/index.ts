@@ -1,9 +1,11 @@
 export {
+  publishableKeyFormValuesToCreateBody,
+  publishableKeyFormValuesToUpdateBody,
+} from './publishable-key-bodies';
+export {
   initialPublishableKeyFormValues,
   type PublishableKeyFormValues,
   publishableKeyFormSchema,
-  publishableKeyFormValuesToCreateBody,
-  publishableKeyFormValuesToUpdateBody,
   publishableKeyToFormValues,
 } from './publishable-key.schema';
 export { publishableKeyFormOpts } from './publishable-key-form-options';

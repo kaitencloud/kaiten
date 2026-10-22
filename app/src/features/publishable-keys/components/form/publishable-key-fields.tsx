@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { withForm } from '@/hooks/form';
 import { MAX_ORIGINS, parseOrigins } from '../../utils/origins';
 import { publishableKeyFormOpts } from '../../schemas';
+import { AnonymousCheckoutFields } from './anonymous-checkout-fields';
 
 /** What the origins field refuses, entry by entry: the field says it in general, this names them. */
 function RejectedOrigins({ rejected }: { rejected: readonly string[] }) {
@@ -24,9 +25,10 @@ function RejectedOrigins({ rejected }: { rejected: readonly string[] }) {
 }
 
 /**
- * What a publishable key holds: what it is for, and the origins a page may send it from,
- * one to a line. The origins field names the entries it refuses, since a list pasted from
- * a page of settings is long and "an origin is wrong" says nothing about which.
+ * What a publishable key holds: what it is for, the origins a page may send it from,
+ * one to a line, and whether it opens the anonymous checkout. The origins field names the
+ * entries it refuses, since a list pasted from a page of settings is long and "an origin
+ * is wrong" says nothing about which.
  */
 export const PublishableKeyFields = withForm({
   ...publishableKeyFormOpts,
@@ -76,6 +78,7 @@ export const PublishableKeyFields = withForm({
             {(rejected) => <RejectedOrigins rejected={rejected} />}
           </form.Subscribe>
         </div>
+        <AnonymousCheckoutFields form={form} />
       </div>
     );
   },

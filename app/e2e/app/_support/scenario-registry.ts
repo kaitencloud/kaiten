@@ -90,6 +90,7 @@ import {
   createTypedMetadataInstanceModel,
 } from '../instances/instances.scenarios';
 import {
+  createAnonymousCheckoutBillingModel,
   createEmptyPublishableKeysBillingModel,
   createPublishableKeysBillingModel,
   createSdkServiceAccount,
@@ -303,6 +304,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createCustomerScopedInstanceModel,
   ],
   ['integrations/createSdkServiceAccount', createSdkServiceAccount],
+  [
+    'integrations/createAnonymousCheckoutBillingModel',
+    createAnonymousCheckoutBillingModel,
+  ],
   [
     'integrations/createPublishableKeysBillingModel',
     createPublishableKeysBillingModel,

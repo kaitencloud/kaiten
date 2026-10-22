@@ -3,7 +3,10 @@ import { zServiceAccount } from '@/api-client/zod.gen';
 import { parseContract } from '../_support/contracts/openapi-contract';
 import { buildPublishableKey } from '../_support/fixtures';
 import { BillingAppModel } from '../_support/model/billing-app-model';
-import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
+import {
+  billingCapabilitiesProfiles,
+  type StripeStanding,
+} from '../_support/model/billing-capabilities';
 
 /** The service account a token is created for, with no token yet. */
 export function createSdkServiceAccount(): ServiceAccount {
@@ -74,5 +77,33 @@ export function createPublishableKeysBillingModel() {
 export function createEmptyPublishableKeysBillingModel() {
   return new BillingAppModel({
     capabilities: billingCapabilitiesProfiles.stack(),
+  });
+}
+
+/**
+ * A key that opens the anonymous checkout, with a Turnstile site key and a secret stored
+ * (only whether one is stored is known to the API), beside the keys above. Cloudflare's
+ * published test key stands for the site key: never a real widget's.
+ */
+export const CHECKOUT_KEY: PublishableKey = buildPublishableKey({
+  allowedOrigins: ['https://checkout.acme.test'],
+  anonymousCheckout: true,
+  createdAt: '2026-09-20T12:00:00Z',
+  id: 'pk-checkout',
+  keyHint: 'k7Lm',
+  label: 'Checkout page',
+});
+
+/**
+ * Billing on, the keys above and the one that opens the anonymous checkout, on a
+ * deployment where Stripe stands as asked: `vaultMissing` is a deployment with no Vault,
+ * which cannot store a Turnstile secret.
+ */
+export function createAnonymousCheckoutBillingModel(
+  stripe: StripeStanding = 'connected',
+) {
+  return new BillingAppModel({
+    capabilities: billingCapabilitiesProfiles.stackWithStripe(stripe),
+    publishableKeys: { keys: [...PUBLISHABLE_KEYS, CHECKOUT_KEY] },
   });
 }

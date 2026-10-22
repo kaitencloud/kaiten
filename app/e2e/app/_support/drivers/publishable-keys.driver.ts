@@ -98,6 +98,44 @@ export class PublishableKeysDriver {
     return this.dialog().getByTestId('rejected-origins');
   }
 
+  // --- The anonymous checkout --------------------------------------------------------
+
+  /** The switch that opens the anonymous checkout to the key, in either language. */
+  anonymousCheckout(): Locator {
+    return this.dialog().getByRole('switch', {
+      name: /^(Allow anonymous checkout|Autoriser le paiement anonyme)$/,
+    });
+  }
+
+  siteKeyField(): Locator {
+    return this.dialog().getByLabel(
+      /^(Turnstile site key|Clé de site Turnstile)/,
+    );
+  }
+
+  /** The password field the secret is typed in: absent while a stored secret is kept or removed. */
+  secretField(): Locator {
+    return this.dialog().locator('input[type="password"]');
+  }
+
+  /** What the form says of the secret that is stored, without the secret. */
+  secretStatus(): Locator {
+    return this.dialog().getByTestId('turnstile-secret-status');
+  }
+
+  replaceSecret(): Locator {
+    return this.dialog().getByRole('button', { name: /^(Replace|Remplacer)$/ });
+  }
+
+  removeSecret(): Locator {
+    return this.dialog().getByRole('button', { name: /^(Remove|Retirer)$/ });
+  }
+
+  /** The badge that says a live key opens the anonymous checkout, in the row of a key. */
+  anonymousBadge(label: string): Locator {
+    return this.row(label).getByTestId('anonymous-checkout-badge');
+  }
+
   // --- The key, once -----------------------------------------------------------------
 
   /** The field the key is read in, once, after it was issued. */

@@ -412,7 +412,9 @@ page holds, or an export the API streams.
   (`requireBillingCapability(…, 'publicSurface')`, and the same feature in the entry of
   the side navigation). The API answers that member `true` wherever billing exists, so
   the gate closes on `enabled`, and on the scope; `publicSurface.enabled` is the same
-  flag as `enabled` and is not read.
+  flag as `enabled` and is not read. Its form reads the Stripe entry for one more thing:
+  whether the deployment has a Vault to store a Turnstile secret in (`VAULT_NOT_CONFIGURED`),
+  since the API has no member of its own for it.
   Nothing is offered where billing is off, but `listedStanding` reads the entry
   whether it is on or not: the tile of the connectors says that the plan leaves Stripe
   out, or that it needs a Vault, where billing is off for that very reason.
