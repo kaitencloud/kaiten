@@ -1,4 +1,5 @@
 import { expect, expectToast, recordWrites, test } from '../_support/app-test';
+import { delayRequests } from '../_support/assertions/requests';
 import { CustomerPaymentMethodDriver } from '../_support/drivers/customer-payment-method.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
@@ -389,6 +390,32 @@ test.describe('saving a payment method on the page Stripe hosts', () => {
           .getByRole('button', { name: 'Cancel' })
           .click();
       }
+
+      await expect(method.currencyDialog()).toHaveCount(0);
+      await expect(method.add()).toBeFocused();
+    }
+  });
+
+  test('gives the focus back to the button that asked for the currency when Stripe is slow to answer, whether it was opened with the mouse or the keyboard', async ({
+    page,
+  }) => {
+    const method = new CustomerPaymentMethodDriver(page);
+    await install(page, createStripeCustomersModels());
+    // The dialog opens from the answer of Stripe, seconds after the click: the button is
+    // greyed out all that time, and the control that was used is not forgotten meanwhile.
+    await delayRequests(page, { ms: 2500, pathname: SESSIONS });
+
+    await method.goto('gamma-labs');
+    for (const opening of ['mouse', 'keyboard']) {
+      if (opening === 'mouse') {
+        await method.add().click();
+      } else {
+        await method.add().focus();
+        await page.keyboard.press('Enter');
+      }
+      await expect(method.currencyDialog()).toBeVisible({ timeout: 10_000 });
+
+      await page.keyboard.press('Escape');
 
       await expect(method.currencyDialog()).toHaveCount(0);
       await expect(method.add()).toBeFocused();

@@ -20,6 +20,7 @@ import { NotFound } from './components/route/not-found';
 import { RoutePending } from './components/route/route-pending';
 import { ThemeProvider } from './components/theme-provider';
 import { TooltipProvider } from './components/ui/tooltip';
+import { trackLastUsedControl } from './lib/dialog-opener';
 import { subscribeFeatureFlagRefresh } from './lib/feature-flags';
 import { syncSessionCookie } from './lib/local-auth';
 import reportWebVitals from './report-web-vitals';
@@ -136,6 +137,10 @@ async function bootstrapApp() {
   if (useLocalAuth) {
     syncSessionCookie();
   }
+
+  // A dialog gives the focus back to the control that opened it, which a route dialog's link
+  // is not any more once the page was drawn again: noted from the first click on.
+  trackLastUsedControl();
 
   await prepareE2EMockServiceWorker();
   await prepareApiDevMocks();

@@ -123,7 +123,11 @@ export function PaymentMethodCard({
         {write.allowed ? (
           <div className="flex flex-wrap items-center gap-2">
             <Button
+              // Disabled while the request is out, so that a second click cannot ask Stripe for a
+              // second session; the button keeps the focus meanwhile, so that the dialog
+              // that may open from the answer gives it back to this button.
               disabled={actions.setup.isPending}
+              focusableWhenDisabled
               onClick={() => void addOrReplace()}
               size="sm"
               type="button"
