@@ -99,6 +99,7 @@ export function BillingDefaultsCard({ settings }: BillingDefaultsCardProps) {
             />
             {failure ? (
               <ProblemAlert
+                autoFocus
                 error={failure}
                 onRetry={() => void form.handleSubmit()}
               />

@@ -85,6 +85,7 @@ export function AddonPriceDrawer({
               <AddonPriceAmountSection form={form} source={source} />
               {failure ? (
                 <ProblemAlert
+                  autoFocus
                   error={failure}
                   onRetry={() => void form.handleSubmit()}
                 />

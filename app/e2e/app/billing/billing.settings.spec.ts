@@ -200,6 +200,25 @@ test.describe('the billing settings', () => {
     await expect(alert).toHaveCount(0);
   });
 
+  test('give the focus to a refusal that is about no field', async ({
+    page,
+  }) => {
+    const settings = new BillingSettingsDriver(page);
+    const model = createSubscriptionsModel();
+    model.subscriptions.armProblem('updateBillingSettings', {
+      code: 'Billing.EntitlementCheckUnavailable',
+      detail: 'The billing entitlement could not be checked',
+      status: 503,
+    });
+    await installBillingAppMocks(page, model);
+
+    await settings.goto();
+    await settings.daysField().fill('60');
+    await settings.saveButton().click();
+
+    await expect(settings.defaults().getByRole('alert')).toBeFocused();
+  });
+
   test('show a refusal to read them, with a way to ask again, and keep the other cards', async ({
     page,
   }) => {

@@ -686,6 +686,49 @@ test.describe('the review and the publication', () => {
     ]);
   });
 
+  test('gives the focus to the refusal of the publication, which the greyed button had dropped', async ({
+    page,
+  }) => {
+    const wizard = new VoucherWizardDriver(page);
+    const model = createVouchersBillingModel();
+    model.vouchers.armProblem('publishVoucher', {
+      code: 'PublishVoucher.Refused',
+      detail: 'Publishing is closed for now.',
+      status: 409,
+    });
+    await installVouchersWorld(page, model);
+    await wizard.goto();
+    await wizard.startAs('Discount', 'Refused');
+    await wizard.percentageField().fill('8');
+    await wizard.next().click();
+    await wizard.next().click();
+
+    await wizard.publishButton().click();
+
+    const alert = page.getByRole('alert').filter({
+      hasText: 'Publishing is closed for now.',
+    });
+    await expect(alert).toBeFocused();
+  });
+
+  test('gives the focus to the field that stops a step, when Next is asked with nothing to go on', async ({
+    page,
+  }) => {
+    const wizard = new VoucherWizardDriver(page);
+    await installVouchersWorld(page);
+    await wizard.goto();
+    await wizard.startAs('Discount', 'Free');
+    await wizard.discountType('A fixed amount').click();
+    await wizard.chooseCurrency('USD');
+    await wizard.amountField().fill('0');
+
+    await wizard.next().click();
+
+    await wizard.expectStep('Offer');
+    await expect(wizard.amountField()).toHaveAttribute('aria-invalid', 'true');
+    await expect(wizard.amountField()).toBeFocused();
+  });
+
   test('goes back to the first step that has something to fix when a step it left was broken since', async ({
     page,
   }) => {

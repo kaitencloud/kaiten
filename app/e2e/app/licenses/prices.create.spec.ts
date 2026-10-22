@@ -102,6 +102,28 @@ test.describe('adding a price', () => {
     await drawer.expectClosed();
   });
 
+  test('gives the focus to the refusal of the API, which the greyed button had dropped', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const drawer = new LicensePriceDrawerDriver(page);
+    const model = createPricedCatalogModel();
+    model.setNextProblem('createPrice', {
+      code: 'CreateLicensePrice.DefaultConflict',
+      detail: 'another price is already the default for this billing period',
+      status: 409,
+    });
+    await installLicenseAppMocks(page, model);
+
+    await prices.goto('pro-v4', 'Pro');
+    await prices.addPrice().click();
+    await drawer.amount().fill('49.00');
+    await drawer.submit('Create price').click();
+
+    await expect(drawer.problem()).toContainText('another price is already');
+    await expect(drawer.problem()).toBeFocused();
+  });
+
   test('takes the currency of the version once it has a price, and puts the next price after the last', async ({
     page,
   }) => {

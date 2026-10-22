@@ -1,8 +1,9 @@
 import { useStore } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
+import { focusFirstInvalidControl } from '@/components/form/use-submit-focus';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProblemAlert } from '@/domains/billing';
 import { Page } from '@/functionals/page';
@@ -75,6 +76,19 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
     withPrices: choosesPrices,
   });
   const stepName = VOUCHER_STEPS[wizard.step];
+  const formElement = useRef<HTMLFormElement>(null);
+  // A step that is refused, here or by the API, leaves the keyboard on the button that asked:
+  // the focus goes to the first field that says what is wrong, once the step has drawn it.
+  useEffect(() => {
+    if (wizard.attention === 0) {
+      return undefined;
+    }
+    const frame = requestAnimationFrame(() =>
+      focusFirstInvalidControl(formElement.current),
+    );
+
+    return () => cancelAnimationFrame(frame);
+  }, [wizard.attention]);
   const steps = VOUCHER_STEPS.map((id) => ({
     id,
     label: t(STEP_LABEL_KEYS[id]),
@@ -118,6 +132,7 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
       className="flex h-full min-h-0 flex-col overflow-hidden"
       noValidate
       onSubmit={onSubmit}
+      ref={formElement}
     >
       <form.AppForm>
         <Page className="h-full min-h-0 flex-1 overflow-hidden">
@@ -156,7 +171,11 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
               </Card>
               {wizard.failure ? (
                 <div className="mt-4 space-y-2">
-                  <ProblemAlert error={wizard.failure} onRetry={wizard.retry} />
+                  <ProblemAlert
+                    autoFocus
+                    error={wizard.failure}
+                    onRetry={wizard.retry}
+                  />
                   {wizard.saved ? (
                     <p className="text-sm text-muted-foreground">
                       {t('Pages.Vouchers.Wizard.draftKept')}

@@ -80,6 +80,8 @@ export function useVoucherForm({
   const [saved, setSaved] = useState<Voucher | null>(draft ?? null);
   const [published, setPublished] = useState<Voucher | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
+  // Counts the times the wizard stopped on a step with something to fix, for the page to focus it.
+  const [attention, setAttention] = useState(0);
   const intent = useRef<VoucherSubmitIntent>('publish');
   // The field the API refused something about: a refusal that is about several fields
   // together (a short code that nothing bounds) is fixed by changing another, so it is
@@ -135,6 +137,7 @@ export function useVoucherForm({
           setProblemFieldError(formApi, target.field, target.message);
           refused.current = target.field;
           moveTo(VOUCHER_STEPS.indexOf(target.step));
+          setAttention((count) => count + 1);
         } else {
           setFailure(error);
         }
@@ -160,6 +163,7 @@ export function useVoucherForm({
       for (const [at, name] of VOUCHER_STEPS.entries()) {
         if (name !== 'review' && showErrors(name, value)) {
           moveTo(at);
+          setAttention((count) => count + 1);
 
           return;
         }
@@ -195,7 +199,12 @@ export function useVoucherForm({
   function next() {
     const name = VOUCHER_STEPS[stepRef.current];
 
-    if (name === 'review' || showErrors(name, form.state.values)) {
+    if (name === 'review') {
+      return;
+    }
+    if (showErrors(name, form.state.values)) {
+      setAttention((count) => count + 1);
+
       return;
     }
     moveTo(stepRef.current + 1);
@@ -215,6 +224,7 @@ export function useVoucherForm({
 
       if (name !== 'review' && showErrors(name, form.state.values)) {
         moveTo(at);
+        setAttention((count) => count + 1);
 
         return;
       }
@@ -246,6 +256,7 @@ export function useVoucherForm({
   const submitting = useStore(form.store, (state) => state.isSubmitting);
 
   return {
+    attention,
     failure,
     form,
     furthest,

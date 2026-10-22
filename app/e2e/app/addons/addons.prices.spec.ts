@@ -344,6 +344,28 @@ test.describe('adding a price', () => {
     await expect(prices.drawer()).toHaveCount(0);
   });
 
+  test('gives the focus to the refusal of the API, which the greyed button had dropped', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    const model = createAddonsBillingModel();
+    model.addons.armProblem('createAddonPrice', {
+      code: 'CreateAddonPrice.DefaultConflict',
+      detail: 'another price is already the default for this billing period',
+      status: 409,
+    });
+    await installAddonsWorld(page, model);
+    await prices.goto('extra-seats-v2', 'Extra seats');
+
+    await prices.addPrice().click();
+    await prices.amountField().fill('13.00');
+    await prices.createButton().click();
+
+    const alert = prices.drawer().getByRole('alert');
+    await expect(alert).toContainText('another price is already');
+    await expect(alert).toBeFocused();
+  });
+
   test('closes with Cancel, and leaves the tab as it was', async ({ page }) => {
     const prices = new AddonPricesDriver(page);
     const writes = recordWrites(page, PRICE_WRITES);

@@ -24,7 +24,7 @@ function focusTargetOf(element: HTMLElement) {
 }
 
 /** The control of the first field the form shows an error on, in document order. */
-function findFirstInvalidControl(form: HTMLFormElement | null) {
+function findFirstInvalidControl(form: ParentNode | null) {
   for (const element of form?.querySelectorAll<HTMLElement>(
     '[aria-invalid="true"]',
   ) ?? []) {
@@ -35,6 +35,18 @@ function findFirstInvalidControl(form: HTMLFormElement | null) {
   }
 
   return null;
+}
+
+/**
+ * Puts the focus on the first control that shows an error, in the form or the part of the page
+ * given; whether there was one. For a flow that refuses a step without submitting the form
+ * (a wizard's Next), where `SubmitButton` has nothing to do.
+ */
+export function focusFirstInvalidControl(root: ParentNode | null): boolean {
+  const control = findFirstInvalidControl(root);
+  control?.focus();
+
+  return control !== null;
 }
 
 /** Whether the person has been left with no place to type: nothing holds the focus. */
