@@ -10,3 +10,4 @@ export {
   vouchersQueryOptions,
 } from './voucher-query-options';
 export { loadVoucherWizard } from './voucher-wizard-loader';
+export { type SaveVoucherVariables, saveVoucherOnFresh } from './voucher-save';

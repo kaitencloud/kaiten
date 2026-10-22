@@ -362,6 +362,14 @@ describe('revoking a redemption from the page of a voucher', () => {
 });
 
 describe('changing a published voucher', () => {
+  // The voucher as the API holds it: the update reads it again before it writes.
+  let stored: Voucher;
+
+  beforeEach(() => {
+    stored = WELCOME;
+    server.use(handleGetVoucher(() => HttpResponse.json(stored)));
+  });
+
   const renderDialog = (voucher: Voucher = WELCOME) => {
     const onClose = vi.fn();
     renderScreen(<VoucherEditDialog onClose={onClose} voucher={voucher} />);
@@ -410,6 +418,61 @@ describe('changing a published voucher', () => {
     });
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(toast.success).toHaveBeenCalledWith('Voucher saved');
+  });
+
+  it('keeps the description and the end another tab saved, and sends the name that was typed', async () => {
+    const bodies: VoucherDraft[] = [];
+    server.use(
+      handleUpdateVoucher(async ({ request }) => {
+        bodies.push((await request.json()) as VoucherDraft);
+
+        return HttpResponse.json(WELCOME);
+      }),
+    );
+    const { onClose } = renderDialog();
+    const name = await screen.findByLabelText(/^Name/);
+
+    stored = {
+      ...WELCOME,
+      description: 'Edited in another tab',
+      expiresAt: '2999-12-31T23:59:59.000Z',
+      maxRedemptions: 250,
+    };
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Welcome spring 2027');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toMatchObject({
+      description: 'Edited in another tab',
+      expiresAt: '2999-12-31T23:59:59.000Z',
+      maxRedemptions: 250,
+      name: 'Welcome spring 2027',
+    });
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
+  it('says the voucher is gone when it was deleted meanwhile, and writes nothing', async () => {
+    const bodies: VoucherDraft[] = [];
+    server.use(
+      handleGetVoucher(() =>
+        refusal(404, { code: 'GetVoucher.NotFound', detail: 'The voucher does not exist' }),
+      ),
+      handleUpdateVoucher(async ({ request }) => {
+        bodies.push((await request.json()) as VoucherDraft);
+
+        return HttpResponse.json(WELCOME);
+      }),
+    );
+    const { onClose } = renderDialog();
+    const name = await screen.findByLabelText(/^Name/);
+
+    await userEvent.type(name, ' 2027');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('The voucher does not exist')).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('refuses before it is asked a maximum under the redemptions already made', async () => {
