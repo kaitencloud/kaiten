@@ -95,6 +95,28 @@ describe('a family in the list of licenses', () => {
     expect(screen.queryByRole('switch')).toBeNull();
   });
 
+  it('offers the settings of the family, named after it, where billing is on', async () => {
+    renderItem(group());
+
+    expect(await screen.findByRole('link', { name: 'Settings of Pro' })).toHaveAttribute(
+      'data-family-settings',
+      'pro',
+    );
+  });
+
+  it('offers no settings where billing is off, or for a family the API did not list', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.disabled() }));
+    const { unmount } = renderItem(group());
+    await screen.findByRole('link', { name: /New Version/ });
+    expect(screen.queryByRole('link', { name: /Settings of/ })).toBeNull();
+    unmount();
+
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
+    renderItem(group({ familySlug: undefined }));
+    await screen.findByRole('link', { name: /New Version/ });
+    expect(screen.queryByRole('link', { name: /Settings of/ })).toBeNull();
+  });
+
   it('keeps the way to a new version beside the switch', async () => {
     renderItem(group());
 

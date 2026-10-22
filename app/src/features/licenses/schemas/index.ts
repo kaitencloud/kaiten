@@ -22,3 +22,11 @@ export {
   licenseToCommercialFormValues,
 } from './license-commercial.schema';
 export { licenseToUpdateBody } from './license-update-body';
+export type { LicenseFamilySettingsFormValues } from './license-family-settings.schema';
+export {
+  familyToSettingsFormValues,
+  LICENSE_FAMILY_REFUSAL_FIELDS,
+  licenseFamilySettingsFormSchema,
+  NO_FALLBACK,
+  settingsFormValuesToUpdateBody,
+} from './license-family-settings.schema';

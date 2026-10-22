@@ -1,5 +1,6 @@
 export { LicenseCommercialDialog } from './commercial';
 export { LicenseEntitlementsCard } from './entitlements';
+export { LicenseFamilySettingsDialog } from './family-settings';
 export { LicenseForm, LicenseVersionForm } from './forms';
 export { LicenseList } from './license-list';
 export { LicenseListItem } from './license-list-item';

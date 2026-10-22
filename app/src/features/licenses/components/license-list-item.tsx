@@ -18,6 +18,7 @@ import {
 } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { LicenseGroup } from '../types';
+import { LicenseFamilySettingsLink } from './family-settings';
 import { LicenseFamilyPublicToggle } from './license-family-public-toggle';
 import { LicenseVersionsTable } from './license-versions-table';
 
@@ -111,6 +112,7 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
         </ActionAccordionTrigger>
         <ActionAccordionActions>
           <LicenseFamilyPublicToggle group={group} />
+          <LicenseFamilySettingsLink group={group} />
           {mayCreateVersion ? (
             <NewVersionAction licenseSlug={newVersionLicenseSlug} />
           ) : null}

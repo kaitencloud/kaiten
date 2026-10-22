@@ -1627,6 +1627,38 @@ export default {
         listed: 'La licence est listée dans le catalogue public',
         unlisted: 'La licence n’est plus listée dans le catalogue public',
       },
+      FamilySettings: {
+        link: 'Réglages',
+        linkLabel: 'Réglages de {{name}}',
+        dialogTitle: 'Réglages de la licence',
+        dialogDescription:
+          'Ce que fait {{name}} quand un abonnement à cette licence se termine ou qu’un essai va se terminer. Ils valent pour toutes les versions de la licence.',
+        save: 'Enregistrer les réglages',
+        noFallback: 'Aucun repli',
+        Labels: {
+          fallback: 'À la fin d’un abonnement, se replier sur',
+          trialEnd: 'Un essai qui se termine sans moyen de paiement',
+          trialReminder: 'Rappel d’essai (jours avant la fin)',
+        },
+        Descriptions: {
+          fallback:
+            'Une autre licence de l’organisation dont toutes les versions sont gratuites. Quand un abonnement à cette licence se termine, l’instance passe à la version publiée par défaut de cette licence.',
+          trialEnd:
+            'Ce que devient, à sa fin, un essai prélevé automatiquement pour un total supérieur à 0 quand le client n’a aucun moyen de paiement actif. « L’annuler » annule l’abonnement. « Le convertir » le rend actif, et son premier prélèvement échoue alors.',
+          trialReminder:
+            'Combien de jours avant la fin d’un essai il annonce sa fin, de 1 à 30. Un essai qui n’est pas plus long que cela l’annonce tout de suite. Le réglage vaut pour les essais qui commencent après le changement : un essai déjà en cours garde l’avance avec laquelle il a commencé.',
+        },
+        TrialEnd: {
+          CANCEL: 'L’annuler',
+          CONVERT: 'Le convertir en abonnement actif',
+        },
+        Errors: {
+          trialReminderDays: 'Saisissez un nombre entier de jours de 1 à 30',
+        },
+        Toasts: {
+          updated: 'Les réglages de la licence sont enregistrés',
+        },
+      },
       Freeze: {
         billed: {
           title: 'Cette version est facturée',

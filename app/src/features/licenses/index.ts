@@ -1,6 +1,7 @@
 export {
   LicenseCommercialDialog,
   LicenseDetailPage,
+  LicenseFamilySettingsDialog,
   LicenseForm,
   LicenseOverviewTab,
   LicensePricesTab,

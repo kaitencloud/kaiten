@@ -15,7 +15,11 @@ import type {
 import { zEntitlement, zLicense } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { ErrorInjector } from './error-injector';
-import { listLicenseFamilyViews } from './license-families';
+import {
+  DEFAULT_FAMILY_SETTINGS,
+  type FamilySettings,
+  listLicenseFamilyViews,
+} from './license-families';
 import type { PreviewWorld } from './license-invoice-preview';
 import {
   type ArmedProblem,
@@ -91,6 +95,8 @@ export type LicenseAppModelSeed = PricingSeed & {
   licenses?: License[];
   /** The families listed in the public catalog, by id; the others are private. */
   publicFamilyIds?: string[];
+  /** The settings of the families that changed them, by id; the others have the API's defaults. */
+  familySettings?: Record<string, Partial<FamilySettings>>;
 };
 
 export type SerializedLicenseAppModel = {
@@ -100,6 +106,8 @@ export type SerializedLicenseAppModel = {
   licenses: License[];
   pendingErrors: Array<[LicenseErrorOp, number]>;
   pricing: SerializedPricing;
+  /** The settings of the families that changed them; a state stored before they could be has none. */
+  familySettings?: Record<string, FamilySettings>;
   /** The families listed in the public catalog; a state stored before they could be has none. */
   publicFamilyIds?: string[];
   sequence: number;
@@ -190,6 +198,7 @@ export class LicenseAppModel {
   private entitlements: Entitlement[];
   private licenses: LicenseRecord[];
   private pricing: LicensePricing;
+  private familySettings: Map<string, FamilySettings>;
   private publicFamilyIds: Set<string>;
   private sequence: number;
   private readonly armed = new Map<LicenseProblemOperation, ArmedProblem>();
@@ -199,6 +208,7 @@ export class LicenseAppModel {
     const model = new LicenseAppModel({
       entitlements: state.entitlements,
       licenses: state.licenses,
+      familySettings: state.familySettings,
       publicFamilyIds: state.publicFamilyIds,
     });
     model.clock = state.clock;
@@ -221,6 +231,7 @@ export class LicenseAppModel {
       entitlements: clone(this.entitlements),
       licenses: clone(this.licenses),
       pendingErrors: this.errors.snapshot(),
+      familySettings: Object.fromEntries(this.familySettings),
       pricing: this.pricing.serialize(),
       publicFamilyIds: [...this.publicFamilyIds],
       sequence: this.sequence,
@@ -240,6 +251,12 @@ export class LicenseAppModel {
     );
     this.sequence = this.licenses.length + 1;
     this.publicFamilyIds = new Set(seed.publicFamilyIds ?? []);
+    this.familySettings = new Map(
+      Object.entries(seed.familySettings ?? {}).map(([familyId, settings]) => [
+        familyId,
+        { ...DEFAULT_FAMILY_SETTINGS, ...settings },
+      ]),
+    );
     this.pricing = new LicensePricing(this.pricingHost(), {
       billedVersions: seed.billedVersions,
       grants: seed.grants,
@@ -359,24 +376,77 @@ export class LicenseAppModel {
 
   /** GET /license-families: each family and the version it resolves to. */
   listLicenseFamilies(): LicenseFamilyView[] {
-    return listLicenseFamilyViews(this.licenses, this.publicFamilyIds);
+    return listLicenseFamilyViews(
+      this.licenses,
+      this.publicFamilyIds,
+      this.familySettings,
+    );
   }
 
-  /** PATCH /license-families/{familySlug}: lists the family in the public catalog, or takes it out. */
+  /**
+   * PATCH /license-families/{familySlug}: changes the settings of the family that the
+   * body names and keeps the others, as the API does: whether it is listed in the public
+   * catalog, the FREE family it falls back to ("" takes it away), what a trial without a
+   * payment method becomes, and the lead of the trial reminder. It refuses a value the
+   * API refuses, with the same code.
+   */
   updateLicenseFamily(
     familySlug: string,
     body: LicenseFamilyUpdate,
   ): LicenseFamilyView {
     this.consumeProblem('updateLicenseFamily');
-    const family = this.listLicenseFamilies().find(
-      (candidate) => candidate.slug === familySlug,
-    );
+    const behavior = body.trialEndWithoutPaymentMethod;
+    if (
+      behavior !== undefined &&
+      behavior !== 'CANCEL' &&
+      behavior !== 'CONVERT'
+    ) {
+      throw new LicenseProblem(
+        422,
+        'UpdateLicenseFamily.InvalidTrialEndBehavior',
+        'trialEndWithoutPaymentMethod is CANCEL or CONVERT',
+      );
+    }
+    const days = body.trialReminderDays;
+    if (
+      days !== undefined &&
+      (!Number.isInteger(days) || days < 1 || days > 30)
+    ) {
+      throw new LicenseProblem(
+        422,
+        'UpdateLicenseFamily.InvalidTrialReminderDays',
+        'trialReminderDays is between 1 and 30',
+      );
+    }
+    const families = this.listLicenseFamilies();
+    const family = families.find((candidate) => candidate.slug === familySlug);
     if (!family) {
       throw new LicenseProblem(
         404,
         'UpdateLicenseFamily.NotFound',
         `license family "${familySlug}" not found`,
       );
+    }
+    const fallback = body.fallbackLicenseFamilySlug;
+    if (fallback !== undefined && fallback !== '') {
+      // The same answer for the family itself, a family that is not free and none
+      // of the organization: the code is no existence oracle.
+      const target = families.find((candidate) => candidate.slug === fallback);
+      const versions = this.licenses.filter(
+        (license) => (license.familyId ?? license.id) === target?.id,
+      );
+      if (
+        !target ||
+        target.id === family.id ||
+        versions.length === 0 ||
+        versions.some((license) => license.pricingType !== 'FREE')
+      ) {
+        throw new LicenseProblem(
+          422,
+          'UpdateLicenseFamily.InvalidFallback',
+          'fallbackLicenseFamilySlug names another FREE family of the organization: every version of it priced FREE',
+        );
+      }
     }
     // An absent member keeps the stored value.
     const isPublic = body.isPublic ?? family.isPublic;
@@ -385,8 +455,23 @@ export class LicenseAppModel {
     } else {
       this.publicFamilyIds.delete(family.id);
     }
+    this.familySettings.set(family.id, {
+      fallbackLicenseFamilySlug:
+        fallback === undefined
+          ? family.fallbackLicenseFamilySlug
+          : fallback === ''
+            ? null
+            : fallback,
+      trialEndWithoutPaymentMethod:
+        behavior ?? family.trialEndWithoutPaymentMethod,
+      trialReminderDays: days ?? family.trialReminderDays,
+    });
 
-    return { ...family, isPublic };
+    return (
+      this.listLicenseFamilies().find(
+        (candidate) => candidate.id === family.id,
+      ) ?? family
+    );
   }
 
   listEntitlements(): Entitlement[] {

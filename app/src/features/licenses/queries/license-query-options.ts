@@ -3,6 +3,7 @@ import { queryOptions } from '@tanstack/react-query';
 import { getInstances, getLicenses } from '@/api-client';
 import {
   getLicenseEntitlementsQueryKey,
+  getLicenseFamilyQueryKey,
   getLicenseOptions,
   getLicenseQueryKey,
   getLicensesQueryKey,
@@ -87,6 +88,21 @@ export async function invalidateLicenseLists(queryClient: QueryClient) {
     queryClient.invalidateQueries({ queryKey: catalogPricesBaseQueryKey }),
     queryClient.invalidateQueries({
       queryKey: listLicenseFamiliesQueryKey(),
+    }),
+  ]);
+}
+
+// The families, after a change of one family's own settings (its public listing, its
+// fallback, what its trials become, the lead of their reminder): the list that
+// carries them, and the family itself. The versions do not change.
+export async function invalidateLicenseFamilies(
+  queryClient: QueryClient,
+  familySlug: string,
+) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: listLicenseFamiliesQueryKey() }),
+    queryClient.invalidateQueries({
+      queryKey: getLicenseFamilyQueryKey({ path: { familySlug } }),
     }),
   ]);
 }

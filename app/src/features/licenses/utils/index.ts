@@ -39,3 +39,8 @@ export {
   normalizeLicenseFamilyName,
   sortLicensesByVersionDesc,
 } from './license-list.utils';
+export type { FallbackOption } from './license-family-settings.utils';
+export {
+  getFallbackOptions,
+  getFamilyName,
+} from './license-family-settings.utils';

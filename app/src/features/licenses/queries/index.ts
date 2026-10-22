@@ -1,6 +1,7 @@
 export {
   entitlementsQueryOptions,
   invalidateLicenseDetails,
+  invalidateLicenseFamilies,
   invalidateLicenseLists,
   invalidateLicenseQueries,
   licenseEntitlementsQueryOptions,

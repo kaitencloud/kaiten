@@ -409,3 +409,38 @@ test('dev:mock answers the prices of the licenses in one document, for the list 
   expect(prices).toEqual([]);
   expect(errors).toEqual([]);
 });
+
+test('dev:mock serves the settings of a family and an entitlement on the billing date', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+
+  // Starter falls back to the free Trial license and reminds of a trial's end five days before.
+  await page.goto('/catalog/licenses');
+  await page.getByRole('link', { name: 'Settings of Starter' }).click();
+  const dialog = page.getByRole('dialog');
+  await expect(
+    dialog.getByRole('combobox', { name: /When a subscription ends/ }),
+  ).toContainText('Trial');
+  await expect(
+    dialog.getByRole('textbox', { name: /^Trial reminder/ }),
+  ).toHaveValue('5');
+
+  // The reports an organization exports are counted per billing period, which is read-only.
+  await page.goto('/catalog/entitlements/report-exports?mode=configure');
+  await page.getByRole('button', { name: 'Next', exact: true }).click();
+  await expect(
+    page.locator('[data-field-name="resetAnchor"]').getByRole('combobox'),
+  ).toContainText('Billing date');
+  await expect(
+    page.getByTestId('reset-anchor-billing-period-hint'),
+  ).toBeVisible();
+
+  expect(errors).toEqual([]);
+});

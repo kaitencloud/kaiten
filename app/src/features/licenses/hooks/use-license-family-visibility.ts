@@ -1,12 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
-import {
-  getLicenseFamilyQueryKey,
-  listLicenseFamiliesQueryKey,
-  updateLicenseFamilyMutation,
-} from '@/api-client/@tanstack/react-query.gen';
+import { updateLicenseFamilyMutation } from '@/api-client/@tanstack/react-query.gen';
 import { getApiErrorMessage } from '@/lib/errors';
+import { invalidateLicenseFamilies } from '../queries';
 
 /**
  * Lists a family of licenses in the public catalog, or takes it out. The listing
@@ -25,16 +22,7 @@ export function useLicenseFamilyVisibility() {
       toast.error(getApiErrorMessage(error));
     },
     onSuccess: async (family, { path }) => {
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: listLicenseFamiliesQueryKey(),
-        }),
-        queryClient.invalidateQueries({
-          queryKey: getLicenseFamilyQueryKey({
-            path: { familySlug: path.familySlug },
-          }),
-        }),
-      ]);
+      await invalidateLicenseFamilies(queryClient, path.familySlug);
       toast.success(
         t(
           family.isPublic

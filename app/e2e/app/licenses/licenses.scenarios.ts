@@ -477,3 +477,49 @@ export function createPricedFamiliesModel() {
     },
   });
 }
+
+// --- Settings of a family -------------------------------------------------
+
+const familyVersionOf = (
+  slug: string,
+  name: string,
+  pricingType: 'FREE' | 'PAID',
+) => ({
+  ...buildLicense({
+    description: `${name}, version 1`,
+    familyId: `family-${slug}`,
+    id: `license-${slug}-v1`,
+    isDefault: true,
+    lifecycleState: 'PUBLISHED',
+    name,
+    slug,
+    type: pricingType === 'FREE' ? 'COMMUNITY' : 'PAID',
+  }),
+  pricingType,
+  requiresPaymentMethod: false,
+});
+
+/**
+ * Four families to fall back to and from: Pro, sold, with the defaults of the API;
+ * Enterprise, sold, which falls back to Community, converts a trial that ends without
+ * a payment method and reminds of its end a week before; and two free ones, Community
+ * and Basic, which a family can fall back to. Pro and Enterprise are the ones that
+ * cannot be fallen back to: they are paid.
+ */
+export function createFamilySettingsCatalogModel() {
+  return new LicenseAppModel({
+    familySettings: {
+      'family-enterprise': {
+        fallbackLicenseFamilySlug: 'community',
+        trialEndWithoutPaymentMethod: 'CONVERT',
+        trialReminderDays: 7,
+      },
+    },
+    licenses: [
+      familyVersionOf('basic', 'Basic', 'FREE'),
+      familyVersionOf('community', 'Community', 'FREE'),
+      familyVersionOf('enterprise', 'Enterprise', 'PAID'),
+      familyVersionOf('pro', 'Pro', 'PAID'),
+    ],
+  });
+}

@@ -303,6 +303,14 @@ export function createDevMockConfig({
     licenses: new LicenseAppModel({
       billedVersions: BILLED_LICENSE_SLUGS,
       entitlements: world.entitlements,
+      // Starter, sold self-serve with a trial, falls back to the free Trial license when
+      // a subscription ends, and reminds of the end of a trial five days before.
+      familySettings: {
+        'family-starter': {
+          fallbackLicenseFamilySlug: 'trial',
+          trialReminderDays: 5,
+        },
+      },
       grants: world.licenseEntitlements,
       licenses: world.licenses,
       prices: world.licensePrices,

@@ -71,6 +71,9 @@ export const BILLING_ACTIONS = {
   'licenses.list': 'getLicenses',
   // Listing a family of licenses in the public catalog.
   'licenseFamily.setPublic': 'updateLicenseFamily',
+  // The settings of a family that act on its subscriptions: its fallback, what its trials
+  // become without a payment method, and the lead of their reminder.
+  'licenseFamily.updateSettings': 'updateLicenseFamily',
   // The families a license is sold in, and what a version of one grants: what the
   // screens of the add-ons read to say which licenses an add-on fits.
   'licenseFamilies.list': 'listLicenseFamilies',
