@@ -67,6 +67,7 @@ import {
   createReferencedLastEntitlementModel,
   createUnitEntitlementModel,
   createIconedEntitlementModel,
+  createThresholdEntitlementModel,
 } from '../entitlements/entitlements.scenarios';
 import {
   createEditableFeatureFlagModel,
@@ -180,6 +181,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],
   ['entitlements/createUnitEntitlementModel', createUnitEntitlementModel],
   ['entitlements/createIconedEntitlementModel', createIconedEntitlementModel],
+  [
+    'entitlements/createThresholdEntitlementModel',
+    createThresholdEntitlementModel,
+  ],
   [
     'licenses/createNumberedLicenseFamilyModel',
     createNumberedLicenseFamilyModel,

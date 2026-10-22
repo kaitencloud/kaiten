@@ -18,6 +18,7 @@ const buildEntitlement = ({
   saleUnitFactor,
   resetPeriod,
   resetAnchor,
+  warningThresholdPercent,
 }: {
   aggregationMethod?: string;
   createdAt?: string;
@@ -35,6 +36,7 @@ const buildEntitlement = ({
   saleUnitFactor?: number;
   resetPeriod?: Entitlement['resetPeriod'];
   resetAnchor?: Entitlement['resetAnchor'];
+  warningThresholdPercent?: number;
 }): Entitlement => ({
   aggregationMethod: aggregationMethod as Entitlement['aggregationMethod'],
   createdAt,
@@ -52,6 +54,7 @@ const buildEntitlement = ({
   saleUnitFactor,
   resetPeriod,
   resetAnchor,
+  warningThresholdPercent,
 });
 
 /** Empty model — for create tests */
@@ -112,6 +115,22 @@ export function createUnitEntitlementModel() {
         saleUnitSingular: 'pack',
         saleUnitPlural: 'packs',
         saleUnitFactor: 3,
+      }),
+    ],
+  });
+}
+
+/** Single NUMBER entitlement with an early-warning threshold — for the edit round-trip of that threshold */
+export function createThresholdEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        description: 'API calls included in the plan',
+        id: 'entitlement-api-calls',
+        name: 'API Calls',
+        slug: 'api-calls',
+        type: 'NUMBER',
+        warningThresholdPercent: 80,
       }),
     ],
   });
