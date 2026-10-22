@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -113,6 +113,32 @@ describe('exporting the usage before an organization is deleted', () => {
     expect(
       within(months()[0]).getByRole('button', { name: /Export the usage of/ }),
     ).toBeEnabled();
+  });
+
+  it('saves one file when the button of a month is pressed twice in the same frame', async () => {
+    const asked: URLSearchParams[] = [];
+    server.use(
+      handleExportOrganizationUsageReports(async ({ request }) => {
+        asked.push(new URL(request.url).searchParams);
+        await delay(150);
+
+        return new HttpResponse('report_seq\n1\n');
+      }),
+    );
+    renderWithClient(<ExportDataCard />);
+    await waitFor(() => expect(months()).toHaveLength(19));
+    const button = within(months()[0]).getByRole('button', {
+      name: /Export the usage of/,
+    });
+
+    // The button is disabled a frame after the click: both clicks land before.
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalled());
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(asked).toHaveLength(1);
+    expect(downloadBlob).toHaveBeenCalledTimes(1);
   });
 
   it('asks for one file at a time: the others wait for the one that is on its way', async () => {

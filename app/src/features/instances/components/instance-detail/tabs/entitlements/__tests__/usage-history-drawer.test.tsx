@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
 import { useState } from 'react';
@@ -414,6 +414,33 @@ describe('the export of the usage history', () => {
     expect(exported[0].searchParams.get('format')).toBe('csv');
     expect(exported[0].searchParams.get('from')).toBe('2027-03-01T00:00:00.000Z');
     expect(exported[0].searchParams.get('to')).toBe('2027-03-31T00:00:00.000Z');
+  });
+
+  it('saves one file when the button is pressed twice in the same frame', async () => {
+    serveHistory({ items: [report(1)] });
+    const exported: URL[] = [];
+    server.use(
+      handleExportUsageReports(async ({ request }) => {
+        exported.push(new URL(request.url));
+        await delay(150);
+
+        return new HttpResponse('report_seq\n1\n', {
+          headers: { 'Content-Type': 'text/csv' },
+        });
+      }),
+    );
+    renderDrawer();
+    await screen.findByRole('table');
+    const button = screen.getByRole('button', { name: 'Export CSV' });
+
+    // The button is disabled a frame after the click: both clicks land before.
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await waitFor(() => expect(downloadBlob).toHaveBeenCalled());
+    await waitFor(() => expect(button).toBeEnabled());
+    expect(exported).toHaveLength(1);
+    expect(downloadBlob).toHaveBeenCalledTimes(1);
   });
 
   it('shows the refusal of the API as it was written, and leaves the drawer as it was', async () => {

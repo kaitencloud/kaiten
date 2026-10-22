@@ -202,11 +202,7 @@ export function PaymentMethodCard({
               </p>
               <Button
                 disabled={actions.complete.isPending}
-                onClick={() => {
-                  if (actions.complete.variables) {
-                    actions.complete.mutate(actions.complete.variables);
-                  }
-                }}
+                onClick={actions.checkAgain}
                 size="sm"
                 type="button"
                 variant="outline"

@@ -1,6 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse } from 'msw';
+import { delay, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Invoice } from '@/api-client';
@@ -551,5 +551,76 @@ describe('watching a push', () => {
     await userEvent.click(await action('Retry push'));
 
     await waitFor(() => expect(toast.success).toHaveBeenCalled());
+  });
+});
+
+describe('two clicks in the same frame', () => {
+  // The button is disabled a frame after the click: both clicks land before.
+  const twice = (button: HTMLElement) => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  };
+
+  it('ask for one push again, not for two', async () => {
+    const asked: string[] = [];
+    server.use(
+      handleRetryInvoicePush(async ({ params }) => {
+        asked.push(params.invoiceId);
+        await delay(150);
+
+        return HttpResponse.json(queued(), { status: 202 });
+      }),
+    );
+    const onPushRequested = vi.fn();
+    await renderActions(failed(), { onPushRequested });
+
+    twice(await action('Retry push'));
+
+    await waitFor(() => expect(onPushRequested).toHaveBeenCalledTimes(1));
+    expect(asked).toEqual(['inv-1']);
+    expect(toast.success).toHaveBeenCalledTimes(1);
+  });
+
+  it('ask Stripe for one reading of the invoice, not for two', async () => {
+    const asked: string[] = [];
+    server.use(
+      handleSyncInvoice(async ({ params }) => {
+        asked.push(params.invoiceId);
+        await delay(150);
+
+        return HttpResponse.json(stripe());
+      }),
+    );
+    await renderActions(stripe());
+
+    const read = await action('Read from Stripe');
+    fireEvent.click(read);
+    fireEvent.click(read);
+    fireEvent.click(read);
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Invoice read from Stripe'),
+    );
+    expect(asked).toEqual(['inv-1']);
+    expect(toast.success).toHaveBeenCalledTimes(1);
+  });
+
+  it('may be asked again once the first request was answered', async () => {
+    const asked: string[] = [];
+    server.use(
+      handleSyncInvoice(({ params }) => {
+        asked.push(params.invoiceId);
+
+        return HttpResponse.json(stripe());
+      }),
+    );
+    await renderActions(stripe());
+
+    fireEvent.click(await action('Read from Stripe'));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledTimes(1));
+    await waitFor(async () => expect(await action('Read from Stripe')).toBeEnabled());
+    fireEvent.click(await action('Read from Stripe'));
+
+    await waitFor(() => expect(asked).toEqual(['inv-1', 'inv-1']));
   });
 });

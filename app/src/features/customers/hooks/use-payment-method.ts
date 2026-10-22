@@ -11,6 +11,10 @@ import {
   handleBillingProblem,
   invalidateCustomerBillingQueries,
 } from '@/domains/billing';
+import {
+  useSingleFlight,
+  useSingleFlightMutate,
+} from '@/hooks/use-single-flight';
 import { getCustomerReturnUrl, leaveToProvider } from '../utils/provider-pages';
 
 /**
@@ -57,14 +61,31 @@ export function usePaymentMethod(customerSlug: string) {
     },
   });
 
+  // A button waits on `isPending` as it was painted, a frame after the click; each of
+  // these answers a second click of the same frame with nothing, the first being out.
+  const openPortalOnce = useSingleFlightMutate(openPortal.mutate);
+  const retrySetupOnce = useSingleFlightMutate(startSetup.mutate);
+  const checkAgainOnce = useSingleFlightMutate(complete.mutate);
+  const startSetupOnce = useSingleFlight((currency?: string) =>
+    startSetup.mutateAsync({
+      body: { currency, returnUrl: getCustomerReturnUrl(customerSlug) },
+      path: { customerSlug },
+    }),
+  );
+
   return {
+    checkAgain: () => {
+      if (complete.variables) {
+        checkAgainOnce(complete.variables);
+      }
+    },
     complete,
     detach,
     portal: {
       error: openPortal.error,
       isPending: openPortal.isPending,
       open: () =>
-        openPortal.mutate({
+        openPortalOnce({
           body: { returnUrl: getCustomerReturnUrl(customerSlug) },
           path: { customerSlug },
         }),
@@ -75,15 +96,15 @@ export function usePaymentMethod(customerSlug: string) {
       /** Asks again for the page that was refused, in the currency it was asked in. */
       retry: () => {
         if (startSetup.variables) {
-          startSetup.mutate(startSetup.variables);
+          retrySetupOnce(startSetup.variables);
         }
       },
-      /** `currency` is for a customer with no live subscription to take it from. */
-      start: (currency?: string) =>
-        startSetup.mutateAsync({
-          body: { currency, returnUrl: getCustomerReturnUrl(customerSlug) },
-          path: { customerSlug },
-        }),
+      /**
+       * `currency` is for a customer with no live subscription to take it from. A
+       * second call while the first is out is dropped: it resolves at once, the
+       * first one being the one that sends the person to Stripe or is refused.
+       */
+      start: startSetupOnce,
     },
   };
 }

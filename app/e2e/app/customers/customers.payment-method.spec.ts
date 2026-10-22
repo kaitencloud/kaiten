@@ -1,5 +1,8 @@
 import { expect, expectToast, recordWrites, test } from '../_support/app-test';
-import { delayRequests } from '../_support/assertions/requests';
+import {
+  delayRequests,
+  pressTwiceInOneFrame,
+} from '../_support/assertions/requests';
 import { CustomerPaymentMethodDriver } from '../_support/drivers/customer-payment-method.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installCustomerAppMocks } from '../_support/mocks/install-customer-app-mocks';
@@ -554,5 +557,44 @@ test.describe('removing the payment method', () => {
     await method.removeDialog().getByRole('button', { name: 'Cancel' }).click();
     // Nothing was removed.
     await expect(method.summary()).toContainText('Visa ending in 4242');
+  });
+});
+
+test.describe('pressing a button of the card twice in the same frame', () => {
+  test('asks for one page of Stripe, so that the refusal of the first request is the one the person reads', async ({
+    page,
+  }) => {
+    const method = new CustomerPaymentMethodDriver(page);
+    const sessions = recordWrites(page, SESSIONS, ['POST']);
+    const models = createStripeCustomersModels();
+    models.billing.providers.armProblem('createPaymentMethodSession', {
+      code: 'CreatePaymentMethodSession.ProviderUnavailable',
+      detail: 'the payment provider could not be reached',
+      status: 503,
+    });
+    await install(page, models);
+    await delayRequests(page, { ms: 800, pathname: SESSIONS });
+
+    await method.goto('beta-industries');
+    await pressTwiceInOneFrame(method.add());
+
+    await expect(method.card().getByRole('alert')).toContainText(
+      'The payment provider could not be reached. Nothing was changed.',
+    );
+    expect(sessions).toHaveLength(1);
+    await expect(page).toHaveURL(/\/customers\/beta-industries$/);
+  });
+
+  test('opens one portal session', async ({ page }) => {
+    const method = new CustomerPaymentMethodDriver(page);
+    const portals = recordWrites(page, PORTALS, ['POST']);
+    await install(page, createStripeCustomersModels());
+    await delayRequests(page, { ms: 800, pathname: PORTALS });
+
+    await method.goto('acme-corp');
+    await pressTwiceInOneFrame(method.portal());
+
+    await page.waitForURL('https://billing.stripe.com/p/session/bps_cus_acme');
+    expect(portals).toHaveLength(1);
   });
 });

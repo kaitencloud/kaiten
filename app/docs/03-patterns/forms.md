@@ -176,6 +176,8 @@ A disabled button cannot hold the keyboard focus, so a person who sends a form w
 - `form="<id>"` associates the button with a `<form>` element it is not inside in the DOM, such as a dialog footer rendered through a portal: `features/customers/components/customer-form.tsx`.
 - A flow that needs more than this builds its own button on `form.Subscribe`: `FinalSubmitButton` in `features/feature-flags/components/feature-flag-form/create-stepper.tsx` also explains, in a tooltip, why it is disabled.
 
+A button that is not a form's submit, such as "Retry push", "Disconnect" or an export, runs a mutation on `onClick`. Keep `disabled={isPending}` on it for what the person sees, and put the request behind `useSingleFlight` or `useSingleFlightMutate` (`@/hooks/use-single-flight`): `isPending` reaches the screen a frame after the click, so two clicks of the same frame (a `dblclick()` of Playwright, a fast trackpad) would both send the request. The guard is a ref set before the request starts and released when it settles. A form needs none: `handleSubmit` already ignores a submit while one runs.
+
 ## Create and edit
 
 One form component serves both modes. The optional entity prop selects the mode: it sets the default values and picks the mutation. A request addresses the entity by its slug (`path: { customerSlug }`).

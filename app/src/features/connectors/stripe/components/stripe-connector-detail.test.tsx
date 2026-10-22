@@ -1,5 +1,6 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { delay } from 'msw';
 import { HttpResponse } from 'msw/http';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
@@ -432,6 +433,34 @@ describe('disconnecting Stripe', () => {
       expect(toast.success).toHaveBeenCalledWith('Stripe disconnected.'),
     );
     await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+  });
+
+  it('sends one request, and says it once, when the confirmation is pressed twice in the same frame', async () => {
+    standing('connected');
+    const disconnected: string[] = [];
+    server.use(
+      handleDeactivateConnector(async ({ params }) => {
+        disconnected.push(params.connectorName);
+        await delay(150);
+
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderWithClient(<StripeConnectorDetail stripeSettings={stored()} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Disconnect' }));
+    const dialog = await screen.findByRole('alertdialog');
+    const confirm = within(dialog).getByRole('button', { name: 'Disconnect' });
+
+    // The button is disabled a frame after the click: both clicks land before.
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    await waitFor(() =>
+      expect(toast.success).toHaveBeenCalledWith('Stripe disconnected.'),
+    );
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(disconnected).toEqual([STRIPE_CONNECTOR_NAME]);
+    expect(toast.success).toHaveBeenCalledTimes(1);
   });
 
   it('stays open while billing still uses Stripe, and counts what holds it', async () => {

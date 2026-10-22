@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { billingCapabilitiesQueryOptions } from '@/domains/billing';
+import { useSingleFlightMutate } from '@/hooks/use-single-flight';
 import { cn } from '@/lib/utils';
 import { useExportUsageChunk } from '../hooks/use-export-usage-chunk';
 import {
@@ -45,6 +46,8 @@ export function UsageExport() {
   const { data } = useQuery(billingCapabilitiesQueryOptions);
   const months = data?.usageHistoryRetentionMonths;
   const exporting = useExportUsageChunk();
+  // Two clicks of the same frame would save the month twice: the buttons are disabled a frame late.
+  const exportOnce = useSingleFlightMutate(exporting.mutate);
   const chunks = getUsageChunks(months ?? DEFAULT_CHUNK_MONTHS);
   const format = monthFormat(i18n.language);
 
@@ -64,7 +67,7 @@ export function UsageExport() {
             month,
           })}
           disabled={exporting.isPending}
-          onClick={() => exporting.mutate(chunk)}
+          onClick={() => exportOnce(chunk)}
           size="sm"
           type="button"
           variant="outline"

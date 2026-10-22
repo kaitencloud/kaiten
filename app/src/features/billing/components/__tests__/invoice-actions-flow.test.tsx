@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { HttpResponse } from 'msw';
+import { delay, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Invoice } from '@/api-client';
@@ -494,5 +494,35 @@ describe('when someone else got there first', () => {
         'only a MANUAL invoice can be marked paid',
       ),
     ).toBeInTheDocument();
+  });
+});
+
+describe('two clicks in the same frame on the confirmation of a recompose', () => {
+  it('asks the API for one replacement, not for a second one it would refuse', async () => {
+    const asked: string[] = [];
+    server.use(
+      handleRecomposeInvoice(async ({ params }) => {
+        asked.push(params.invoiceId);
+        await delay(150);
+
+        return HttpResponse.json(
+          invoiceWith({ id: 'inv-2', status: 'DRAFT' }),
+          { status: 201 },
+        );
+      }),
+    );
+    await renderActions(voided());
+    await userEvent.click(
+      buttonNamed(await screen.findByTestId('invoice-actions'), 'Recompose'),
+    );
+    const confirm = buttonNamed(await screen.findByRole('alertdialog'), 'Recompose');
+
+    // The button is disabled a frame after the click: both clicks land before.
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    await waitFor(() => expect(navigate).toHaveBeenCalledTimes(1));
+    expect(asked).toEqual(['inv-1']);
+    expect(toast.success).toHaveBeenCalledTimes(1);
   });
 });

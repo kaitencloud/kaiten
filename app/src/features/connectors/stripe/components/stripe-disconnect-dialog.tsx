@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { ProblemAlert } from '@/domains/billing';
+import { useSingleFlight } from '@/hooks/use-single-flight';
 import { useStripeConnector } from '../hooks';
 import { readStripeRouting } from '../utils/stripe-refusals';
 
@@ -66,7 +67,10 @@ export function StripeDisconnectDialog() {
   const [failure, setFailure] = useState<unknown>(null);
   const routing = failure ? readStripeRouting(failure) : undefined;
 
-  async function disconnect() {
+  // One request per confirmation: the button waits on the mutation as it was painted, a
+  // frame after the click, so a second click of the same frame would send a second
+  // DELETE and say the connector was disconnected twice.
+  const disconnect = useSingleFlight(async () => {
     setFailure(null);
     try {
       await connector.disconnect();
@@ -77,7 +81,7 @@ export function StripeDisconnectDialog() {
     } catch (error) {
       setFailure(error);
     }
-  }
+  });
 
   function changeOpen(next: boolean) {
     setOpen(next);

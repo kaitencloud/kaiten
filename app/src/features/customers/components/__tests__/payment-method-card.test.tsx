@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
@@ -701,5 +701,111 @@ describe('coming back from the page Stripe hosts', () => {
     await method();
     expect(asked).toEqual([]);
     expect(onSetupHandled).not.toHaveBeenCalled();
+  });
+});
+
+describe('two clicks in the same frame', () => {
+  // A button waits on the state of its request as it was painted, a frame after the
+  // click: the second of two clicks made before that frame is a second request.
+  const twice = (button: HTMLElement) => {
+    fireEvent.click(button);
+    fireEvent.click(button);
+  };
+
+  it('asks for one page Stripe hosts, whichever way the answer goes', async () => {
+    let asked = 0;
+    server.use(
+      handleCreatePaymentMethodSession(async () => {
+        asked += 1;
+        await delay(150);
+
+        return HttpResponse.json({
+          expiresAt: '2027-03-10T13:00:00.000Z',
+          sessionId: 'cs_1',
+          url: 'https://checkout.stripe.test/c/setup/cs_1',
+        });
+      }),
+    );
+    renderCard();
+
+    twice(await screen.findByRole('button', { name: 'Replace' }));
+
+    await waitFor(() => expect(leave).toHaveBeenCalledTimes(1));
+    expect(asked).toBe(1);
+  });
+
+  it('shows the refusal of the first request, which a second request must not answer over', async () => {
+    let asked = 0;
+    server.use(
+      handleCreatePaymentMethodSession(async () => {
+        asked += 1;
+        await delay(150);
+
+        return asked === 1
+          ? refusal(503, {
+              code: 'CreatePaymentMethodSession.ProviderUnavailable',
+              detail: 'the payment provider could not be reached',
+            })
+          : HttpResponse.json({
+              expiresAt: '2027-03-10T13:00:00.000Z',
+              sessionId: 'cs_2',
+              url: 'https://checkout.stripe.test/c/setup/cs_2',
+            });
+      }),
+    );
+    renderCard();
+
+    twice(await screen.findByRole('button', { name: 'Replace' }));
+
+    expect(
+      await screen.findByText('the payment provider could not be reached'),
+    ).toBeInTheDocument();
+    expect(asked).toBe(1);
+    expect(leave).not.toHaveBeenCalled();
+  });
+
+  it('opens one portal session', async () => {
+    let asked = 0;
+    server.use(
+      handleCreatePortalSession(async () => {
+        asked += 1;
+        await delay(150);
+
+        return HttpResponse.json({ url: 'https://billing.stripe.test/p/session/bps_1' });
+      }),
+    );
+    renderCard();
+
+    twice(await screen.findByRole('button', { name: 'Manage in Stripe' }));
+
+    await waitFor(() => expect(leave).toHaveBeenCalledTimes(1));
+    expect(asked).toBe(1);
+  });
+
+  it('asks the API to check the session with Stripe once more, not twice', async () => {
+    let asked = 0;
+    server.use(
+      handleCompletePaymentMethodSession(async () => {
+        asked += 1;
+        if (asked === 1) {
+          return refusal(409, {
+            code: 'CompletePaymentMethodSession.SessionNotComplete',
+            detail: 'the customer has not finished saving a payment method on that page',
+          });
+        }
+        await delay(150);
+
+        return HttpResponse.json({ paymentMethod: VISA });
+      }),
+    );
+    renderCard({ setupSessionId: 'cs_9' });
+    const failed = await screen.findByTestId('payment-method-setup-failed');
+
+    twice(within(failed).getByRole('button', { name: 'Check again' }));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('payment-method-setup-failed')).toBeNull(),
+    );
+    expect(asked).toBe(2);
   });
 });

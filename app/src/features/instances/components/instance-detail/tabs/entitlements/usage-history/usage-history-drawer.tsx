@@ -6,6 +6,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
+import { useSingleFlightMutate } from '@/hooks/use-single-flight';
 import { useExportUsageHistory } from '../../../../../hooks/use-export-usage-history';
 import { useUsageHistory } from '../../../../../hooks/use-usage-history';
 import type { UsageHistoryRange } from '../../../../../queries';
@@ -47,6 +48,8 @@ export function UsageHistoryDrawer({
   const { t } = useTranslation();
   const history = useUsageHistory(instanceSlug, entitlementSlug, range);
   const exportHistory = useExportUsageHistory();
+  // Two clicks of the same frame would save the file twice: the button is disabled a frame late.
+  const exportOnce = useSingleFlightMutate(exportHistory.mutate);
 
   return (
     <Sheet onOpenChange={(open) => !open && onClose()} open>
@@ -73,7 +76,7 @@ export function UsageHistoryDrawer({
             isExporting={exportHistory.isPending}
             onChange={onRangeChange}
             onExport={() =>
-              exportHistory.mutate({ entitlementSlug, instanceSlug, range })
+              exportOnce({ entitlementSlug, instanceSlug, range })
             }
             range={range}
           />

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { ProblemAlert, readRecomposeRefusal } from '@/domains/billing';
+import { useSingleFlight } from '@/hooks/use-single-flight';
 import { useInvoiceMutations } from '../../hooks';
 
 type RecomposeDialogProps = {
@@ -44,7 +45,9 @@ export function RecomposeDialog({
   const [failure, setFailure] = useState<unknown>(null);
   const isVoid = invoice.status === 'VOID';
 
-  async function confirm() {
+  // One request per confirmation: a second click of the same frame would ask again for a
+  // replacement the first one is making, and be refused for it.
+  const confirm = useSingleFlight(async () => {
     setFailure(null);
     try {
       await recompose.mutateAsync({ path: { invoiceId: invoice.id } });
@@ -70,7 +73,7 @@ export function RecomposeDialog({
       }
       setFailure(error);
     }
-  }
+  });
 
   return (
     <AlertDialog onOpenChange={(open) => !open && onClose()} open>

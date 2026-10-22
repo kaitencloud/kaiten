@@ -1,5 +1,9 @@
 import type { Page } from '@playwright/test';
 import { expect, expectToast, recordWrites, test } from '../_support/app-test';
+import {
+  delayRequests,
+  pressTwiceInOneFrame,
+} from '../_support/assertions/requests';
 import { StripeConnectorDriver } from '../_support/drivers/stripe-connector.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installConnectorAppMocks } from '../_support/mocks/install-connector-app-mocks';
@@ -531,5 +535,33 @@ test.describe('disconnecting Stripe', () => {
     await expect(
       stripe.saveButton('Connect Stripe with the stored key'),
     ).toBeEnabled();
+  });
+
+  test('sends one request, and says it once, when the confirmation is pressed twice in the same frame', async ({
+    page,
+  }) => {
+    const stripe = new StripeConnectorDriver(page);
+    const writes = recordWrites(page, DEACTIVATION, ['DELETE']);
+    await install(
+      page,
+      createStripeConnectorModels({
+        standing: 'connected',
+        withoutRouting: true,
+      }),
+    );
+    await delayRequests(page, {
+      methods: ['DELETE'],
+      ms: 800,
+      pathname: DEACTIVATION,
+    });
+
+    await stripe.goto();
+    await stripe.openDisconnect();
+    await pressTwiceInOneFrame(stripe.confirmDisconnect());
+
+    await expectToast(page, 'Stripe disconnected.');
+    await expect(stripe.disconnectDialog()).toHaveCount(0);
+    expect(writes).toHaveLength(1);
+    await expect(page.getByText('Stripe disconnected.')).toHaveCount(1);
   });
 });

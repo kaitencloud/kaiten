@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 
 export type RecordedWrite = {
   /** The JSON body the page sent; `null` when the request had none. */
@@ -121,4 +121,18 @@ export async function delayRequests(
     },
     { allowed: [...methods], delay: ms, source: pathname.source },
   );
+}
+
+/**
+ * Presses a control twice in the same task, so before the page has painted anything
+ * the first press caused. A real `dblclick()` of the browser leaves a task between
+ * the two presses, in which the state of a request is already published: this is the
+ * worst a fast hand or a trackpad can do, and what a button guarded by its painted
+ * `disabled` alone does not survive.
+ */
+export async function pressTwiceInOneFrame(control: Locator) {
+  await control.evaluate((element) => {
+    (element as HTMLElement).click();
+    (element as HTMLElement).click();
+  });
 }
