@@ -57,7 +57,7 @@ The list rows have the GraphQL shape (`Customer` in `app/src/features/customers/
 
 - **Payment method.** `customerBillingQueryOptions(customerSlug)` (`@/domains/billing`, `GET /customers/{customerSlug}/billing`), read by the payment method card where Stripe is connected and the session may read billing. It answers `providers: []` for a customer that has never been to Stripe, and `paymentMethod: null` for one with no card, though the contract declares the member always there (`getStripePaymentMethod` reads both).
 
-Writes use the generated `createCustomerMutation`, `updateCustomerMutation` and `deleteCustomerMutation`, and, for the payment method, `createPaymentMethodSessionMutation`, `completePaymentMethodSessionMutation`, `createPortalSessionMutation` and `detachPaymentMethodMutation` (`usePaymentMethod`). None is optimistic.
+Writes use the generated `createCustomerMutation` and `deleteCustomerMutation`; every update of a customer (the form and the rename in the header) goes through `saveCustomerOnFresh` of `@/domains/customer-management`, which reads the customer again and puts only what the form changed on top of it (see [forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole)). For the payment method it uses `createPaymentMethodSessionMutation`, `completePaymentMethodSessionMutation`, `createPortalSessionMutation` and `detachPaymentMethodMutation` (`usePaymentMethod`). None is optimistic.
 
 Invalidation goes through `@/domains/customer-management`:
 
