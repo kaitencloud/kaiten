@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
@@ -41,6 +41,11 @@ export const CustomerForm = ({
   const formId = useId();
   const { createMutation, updateMutation } = useCustomerFormMutations(customer);
   const { isBillingEnabled } = useCustomerBilling();
+  // What the form opened with, kept as it was: an update sends the fields that
+  // differ from it, and takes the others from the customer as the API holds it.
+  const [openedValues] = useState(() =>
+    customer ? customerToFormValues(customer) : initialCustomerFormValues,
+  );
 
   function backToList() {
     navigate({ to: '/customers' });
@@ -65,9 +70,7 @@ export const CustomerForm = ({
   }
 
   const form = useAppForm({
-    defaultValues: customer
-      ? customerToFormValues(customer)
-      : initialCustomerFormValues,
+    defaultValues: openedValues,
     validators: {
       onChange: customerFormSchema,
     },
@@ -77,8 +80,9 @@ export const CustomerForm = ({
         // stands in, since only its slug is needed downstream.
         const savedCustomer = customer
           ? ((await updateMutation.mutateAsync({
-              path: { customerSlug: customer.slug! },
-              body: customerFormValuesToUpdateBody(value),
+              customerSlug: customer.slug!,
+              edited: customerFormValuesToUpdateBody(value),
+              opened: customerFormValuesToUpdateBody(openedValues),
             })) ?? customer)
           : await createMutation.mutateAsync({
               body: customerFormValuesToCreateBody(value),

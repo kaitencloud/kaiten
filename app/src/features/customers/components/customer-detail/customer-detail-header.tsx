@@ -34,12 +34,11 @@ export const CustomerDetailHeader = ({
   const mayDelete = useCanPerform('customers.delete');
 
   const handleRename = async (name: string) => {
+    const values = customerToFormValues(customer);
     await updateMutation.mutateAsync({
-      path: { customerSlug: customer.slug! },
-      body: customerFormValuesToUpdateBody({
-        ...customerToFormValues(customer),
-        name,
-      }),
+      customerSlug: customer.slug!,
+      edited: customerFormValuesToUpdateBody({ ...values, name }),
+      opened: customerFormValuesToUpdateBody(values),
     });
   };
 

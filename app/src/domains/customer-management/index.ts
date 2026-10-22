@@ -7,6 +7,7 @@ export {
   BILLING_EMAIL_MAX_LENGTH,
   billingEmailSchema,
   customerBillingEmailToUpdateBody,
+  customerToUpdateBody,
   DEFAULT_INSTANCE_STATUS,
   getInstanceStatusFilterOptions,
   getInstanceStatusLabel,
@@ -19,12 +20,14 @@ export {
   LIFECYCLE_STAGE_DEFAULTS,
 } from './logic';
 export type { InstanceStatus, DefaultLifecycleStage } from './logic';
+export type { SaveCustomerVariables } from './queries';
 export {
   forgetDeletedCustomerQueries,
   invalidateCustomerQueries,
   forgetDeletedInstanceQueries,
   invalidateInstanceQueries,
   invalidateInstancesListQueries,
+  saveCustomerOnFresh,
   GET_CUSTOMERS_WITH_INSTANCES,
   customersWithInstancesBaseQueryKey,
   customersWithInstancesQueryOptions,

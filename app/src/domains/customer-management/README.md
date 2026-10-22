@@ -12,3 +12,9 @@ builds the update that sets it alone, so that the customers screens and the dial
 that subscribes an instance (`features/instances`) agree on what a valid address is
 and on how it is sent: the update restates the customer, an empty string removes the
 address, and leaving the member out keeps it.
+
+Every update of a customer goes through `saveCustomerOnFresh`: the PUT takes the
+customer as a whole, so the customer is read again first and only what the form
+changed (`edited` against `opened`, both built from `customerToUpdateBody` or the
+form's own body) is applied on top of it. See
+[forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole).

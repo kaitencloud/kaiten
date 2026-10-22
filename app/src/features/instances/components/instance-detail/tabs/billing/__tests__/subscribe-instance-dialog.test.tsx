@@ -8,6 +8,7 @@ import type { NewSubscription, StartedSubscription } from '@/api-client';
 import {
   handleGetBillingCapabilities,
   handleGetBillingSettings,
+  handleGetCustomer,
   handleGetInstanceBilling,
   handleListLicensePrices,
   handleSubscribeInstance,
@@ -507,8 +508,13 @@ describe('what cannot be subscribed to', () => {
 });
 
 describe('the billing e-mail of the customer', () => {
+  // The customer as the API holds it: the update reads it again before it writes.
+  let stored: ReturnType<typeof customer> & { createdAt: string; updatedAt: string };
+
   beforeEach(() => {
     detail.current = { ...detail.current, customer: customer(undefined) };
+    stored = { ...customer(undefined), createdAt: '', updatedAt: '' };
+    server.use(handleGetCustomer(() => HttpResponse.json(stored)));
   });
 
   it('is asked for beside the subscription when the customer has none, and not when it has one', async () => {
@@ -549,6 +555,55 @@ describe('the billing e-mail of the customer', () => {
     });
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Billing e-mail saved'));
     expect(bodies).toHaveLength(0);
+  });
+
+  it('keeps a change made to the customer meanwhile, in another tab, and sends only the address', async () => {
+    const updates: unknown[] = [];
+    server.use(
+      handleUpdateCustomer(async ({ request }) => {
+        updates.push(await request.json());
+
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderDialog();
+    const field = await screen.findByLabelText('Billing e-mail');
+
+    // Another tab renames the customer and changes its domain after the dialog opened.
+    stored = { ...stored, domain: 'globex.example', name: 'Globex (renamed)' };
+    await userEvent.type(field, 'ap@globex.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Save e-mail' }));
+
+    await waitFor(() => expect(updates).toHaveLength(1));
+    expect(updates[0]).toEqual({
+      billingEmail: 'ap@globex.com',
+      domain: 'globex.example',
+      externalCustomerId: 'hs-1',
+      name: 'Globex (renamed)',
+    });
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Billing e-mail saved'));
+  });
+
+  it('says the customer is gone when it was deleted meanwhile, and writes nothing', async () => {
+    const updates: unknown[] = [];
+    server.use(
+      handleGetCustomer(() =>
+        refusal(404, { code: 'GetCustomer.NotFound', detail: 'The customer does not exist' }),
+      ),
+      handleUpdateCustomer(async ({ request }) => {
+        updates.push(await request.json());
+
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderDialog();
+
+    await userEvent.type(await screen.findByLabelText('Billing e-mail'), 'ap@globex.com');
+    await userEvent.click(screen.getByRole('button', { name: 'Save e-mail' }));
+
+    expect(await screen.findByText('The customer does not exist')).toBeInTheDocument();
+    expect(updates).toHaveLength(0);
+    expect(toast.success).not.toHaveBeenCalled();
   });
 
   it('does not subscribe when Enter is pressed in its field: it sets the address and nothing else', async () => {

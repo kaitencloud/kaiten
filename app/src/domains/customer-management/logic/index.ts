@@ -18,5 +18,6 @@ export {
   BILLING_EMAIL_MAX_LENGTH,
   billingEmailSchema,
   customerBillingEmailToUpdateBody,
+  customerToUpdateBody,
   isValidBillingEmail,
 } from './customer-billing-email';

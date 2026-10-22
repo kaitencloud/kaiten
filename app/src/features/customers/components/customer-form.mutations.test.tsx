@@ -7,6 +7,7 @@ import { server } from '@/__tests__/msw-server';
 import type { Customer } from '@/api-client';
 import {
   handleCreateCustomer,
+  handleGetCustomer,
   handleUpdateCustomer,
 } from '@/api-client/msw.gen';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync';
@@ -33,7 +34,10 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn() },
 }));
 
-vi.mock('@/domains/customer-management/queries', () => ({
+vi.mock('@/domains/customer-management/queries', async (importOriginal) => ({
+  ...(await importOriginal<
+    typeof import('@/domains/customer-management/queries')
+  >()),
   invalidateCustomerQueries: invalidateCustomerQueriesMock,
 }));
 
@@ -104,6 +108,7 @@ describe('useCustomerFormMutations', () => {
   it('uses the existing entity state after a 204 customer update', async () => {
     const updates: Array<{ customerSlug: string; body: unknown }> = [];
     server.use(
+      handleGetCustomer(() => HttpResponse.json(baseCustomer)),
       handleUpdateCustomer(async ({ params, request }) => {
         updates.push({
           customerSlug: params.customerSlug,
@@ -129,13 +134,18 @@ describe('useCustomerFormMutations', () => {
 
     await act(async () => {
       await result.current.updateMutation.mutateAsync({
-        path: { customerSlug: 'acme' },
-        body: { name: 'Acme updated' },
+        customerSlug: 'acme',
+        edited: { name: 'Acme updated' },
+        opened: { name: 'Acme' },
       });
     });
 
+    // The customer is read again; only the name the form changed is applied.
     expect(updates).toEqual([
-      { customerSlug: 'acme', body: { name: 'Acme updated' } },
+      {
+        customerSlug: 'acme',
+        body: { billingEmail: '', name: 'Acme updated' },
+      },
     ]);
     expect(invalidateCustomerQueriesMock).toHaveBeenCalledWith(
       queryClient,

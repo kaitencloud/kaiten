@@ -41,20 +41,42 @@ export const billingEmailSchema = z
     BILLING_EMAIL_ERROR_KEYS.invalid,
   );
 
+type RestatedCustomer = Pick<
+  Customer,
+  'billingEmail' | 'domain' | 'externalCustomerId' | 'name'
+>;
+
 /**
- * The body of an update that sets only the billing e-mail of `customer`. The PUT
- * restates the customer, so its name, its external id and its domain are sent as
- * they are; the slug is left out, as the update never takes a new one. An empty
- * address removes the e-mail, which the API reads as "remove" and not as "keep".
+ * The update that restates a customer as it stands. The PUT takes the customer
+ * as a whole, so its name, its external id, its domain and its billing e-mail are
+ * sent as they are; the slug is left out, as the update never takes a new one,
+ * and so are the integrations, which it does not set. A member the customer has
+ * not is left out, except the address, which is an empty string: the API reads
+ * that as "remove" and not as "keep", and there is nothing to remove.
+ */
+export function customerToUpdateBody(
+  customer: Partial<RestatedCustomer> & Pick<Customer, 'name'>,
+): CustomerWritable {
+  return {
+    billingEmail: customer.billingEmail ?? '',
+    domain: customer.domain || undefined,
+    externalCustomerId: customer.externalCustomerId || undefined,
+    name: customer.name,
+  };
+}
+
+/**
+ * The body of an update that sets only the billing e-mail of `customer`: the
+ * customer as it stands (`customerToUpdateBody`) with the address replaced. An
+ * empty address removes the e-mail, which the API reads as "remove" and not as
+ * "keep".
  */
 export function customerBillingEmailToUpdateBody(
-  customer: Pick<Customer, 'domain' | 'externalCustomerId' | 'name'>,
+  customer: Partial<RestatedCustomer> & Pick<Customer, 'name'>,
   billingEmail: string,
 ): CustomerWritable {
   return {
+    ...customerToUpdateBody(customer),
     billingEmail: billingEmail.trim(),
-    domain: customer.domain,
-    externalCustomerId: customer.externalCustomerId ?? undefined,
-    name: customer.name,
   };
 }

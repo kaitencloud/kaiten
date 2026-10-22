@@ -5,6 +5,7 @@ import {
   BILLING_EMAIL_MAX_LENGTH,
   billingEmailSchema,
   customerBillingEmailToUpdateBody,
+  customerToUpdateBody,
   isValidBillingEmail,
 } from '../customer-billing-email';
 
@@ -107,5 +108,35 @@ describe('customerBillingEmailToUpdateBody', () => {
       externalCustomerId: undefined,
       name: 'Acme',
     });
+  });
+});
+
+describe('customerToUpdateBody', () => {
+  it('restates the customer as it stands, with no slug and no integrations', () => {
+    expect(
+      customerToUpdateBody({
+        billingEmail: 'ap@acme.com',
+        domain: 'acme.com',
+        externalCustomerId: 'hs-1',
+        name: 'Acme',
+      }),
+    ).toEqual({
+      billingEmail: 'ap@acme.com',
+      domain: 'acme.com',
+      externalCustomerId: 'hs-1',
+      name: 'Acme',
+    });
+  });
+
+  it('leaves out what the customer has not, and sends an empty address for none', () => {
+    const body = customerToUpdateBody({
+      domain: '',
+      externalCustomerId: null,
+      name: 'Acme',
+    });
+
+    expect(body).toEqual({ billingEmail: '', name: 'Acme' });
+    expect(body.domain).toBeUndefined();
+    expect(body.externalCustomerId).toBeUndefined();
   });
 });
