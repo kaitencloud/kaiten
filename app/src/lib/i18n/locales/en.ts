@@ -2800,6 +2800,21 @@ export default {
       },
     },
     Access: {
+      requestFailed: 'Unable to save changes',
+      fullAdministrator: 'Full administrator access',
+      effectiveAccess: 'Effective resource access',
+      inherited: 'From roles',
+      direct: 'Direct grant',
+      noResourceAccess: 'No resource access granted',
+      rolesAdded: 'Roles added',
+      rolesRemoved: 'Roles removed',
+      directScopesChanged:
+        'Direct scopes: {{added}} added, {{removed}} removed',
+      discard: 'Discard changes',
+      discardDescription:
+        'Unsaved profile or access changes will be lost. Saved changes are kept.',
+      roleSaveImpact: 'Changes affect {{count}} assigned users',
+
       errors: {
         LastAdministrator:
           'The last administrator cannot be disabled or lose the Administrator role. Assign another administrator first.',

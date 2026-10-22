@@ -2852,6 +2852,22 @@ export default {
       },
     },
     Access: {
+      requestFailed: 'Impossible d’enregistrer les modifications',
+      fullAdministrator: 'Accès administrateur complet',
+      effectiveAccess: 'Accès effectifs aux ressources',
+      inherited: 'Via les rôles',
+      direct: 'Permission directe',
+      noResourceAccess: 'Aucun accès aux ressources accordé',
+      rolesAdded: 'Rôles ajoutés',
+      rolesRemoved: 'Rôles retirés',
+      directScopesChanged:
+        'Permissions directes : {{added}} ajoutées, {{removed}} retirées',
+      discard: 'Abandonner les modifications',
+      discardDescription:
+        'Les modifications non enregistrées du profil ou des accès seront perdues. Les modifications enregistrées sont conservées.',
+      roleSaveImpact:
+        'Les modifications concernent {{count}} utilisateurs associés',
+
       errors: {
         LastAdministrator:
           'Le dernier administrateur ne peut être désactivé ni perdre son rôle. Attribuez d’abord ce rôle à un autre utilisateur.',

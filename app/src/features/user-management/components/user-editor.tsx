@@ -1,4 +1,5 @@
-import { Suspense, useState } from 'react';
+import { useStore } from '@tanstack/react-store';
+import { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { ManagedUser } from '@/api-client';
@@ -14,103 +15,28 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
-import {
-  profileSchema,
-  effectivePermissions,
-  accessErrorMessage,
-} from '../access-helpers';
+import { accessErrorMessage } from '../access-helpers';
 import { useAccessMutations } from '../user-management.queries';
 import type { Role } from '../user-management.api';
 import { PermissionMatrix } from './permission-matrix';
 import { AccessConfirmation } from './access-confirmation';
 import { UserStatus } from './user-status';
-
-function ProfileForm({ user }: { user: ManagedUser }) {
-  const { t } = useTranslation();
-  const { profile } = useAccessMutations();
-  const [error, setError] = useState('');
-  const form = useAppForm({
-    defaultValues: { name: user.name, email: user.email ?? '' },
-    validators: { onChange: profileSchema },
-    onSubmit: async ({ value }) => {
-      setError('');
-      try {
-        await profile.mutateAsync({
-          path: { id: user.id },
-          body: value,
-        });
-        toast.success(t('Pages.Access.profileSaved'));
-      } catch (cause) {
-        setError(accessErrorMessage(cause, t));
-      }
-    },
-  });
-  return (
-    <form
-      onSubmit={createFormSubmitHandler(form.handleSubmit)}
-      className="space-y-4"
-    >
-      <form.AppForm>
-        <Suspense fallback={null}>
-          <h3 className="text-sm font-semibold">{t('Pages.Access.profile')}</h3>
-          <form.AppField name="name">
-            {(field) => (
-              <field.TextField
-                label={t('Pages.Access.name')}
-                required
-                disabled={profile.isPending}
-              />
-            )}
-          </form.AppField>
-          <form.AppField name="email">
-            {(field) => (
-              <field.TextField
-                label={t('Pages.Access.email')}
-                disabled={profile.isPending}
-              />
-            )}
-          </form.AppField>
-          {error && (
-            <p
-              role="alert"
-              className="text-sm text-destructive-subtle-foreground"
-            >
-              {error}
-            </p>
-          )}
-          <form.Subscribe selector={(state) => state.canSubmit}>
-            {(canSubmit) => (
-              <Button
-                type="submit"
-                variant="outline"
-                disabled={!canSubmit || profile.isPending}
-              >
-                {t(
-                  profile.isPending
-                    ? 'Pages.Access.saving'
-                    : 'Pages.Access.saveProfile',
-                )}
-              </Button>
-            )}
-          </form.Subscribe>
-        </Suspense>
-      </form.AppForm>
-    </form>
-  );
-}
+import { AccessSummary } from './access-summary';
+import { ProfileForm } from './profile-form';
+import { useIsMutating } from '@tanstack/react-query';
 
 function UserAccessForm({
   user,
   roles,
   available,
   currentId,
-  onClose,
+  onStateChange,
 }: {
   user: ManagedUser;
   roles: Role[];
   available: string[];
   currentId?: string;
-  onClose: () => void;
+  onStateChange: (dirty: boolean, pending: boolean) => void;
 }) {
   const { t } = useTranslation();
   const { authorization } = useAccessMutations();
@@ -127,6 +53,10 @@ function UserAccessForm({
     },
   });
   const pending = authorization.isPending;
+  const dirty = useStore(form.store, (state) => state.isDirty);
+  useEffect(() => {
+    onStateChange(dirty, pending);
+  }, [dirty, pending, onStateChange]);
   async function save() {
     setError('');
     try {
@@ -137,8 +67,9 @@ function UserAccessForm({
           permissions: form.state.values.permissions,
         },
       });
+      form.reset({ ...form.state.values });
+      setConfirm(false);
       toast.success(t('Pages.Access.accessSaved'));
-      onClose();
     } catch (cause) {
       setError(accessErrorMessage(cause, t));
     }
@@ -170,9 +101,11 @@ function UserAccessForm({
                 {role.description}
               </span>
               <span className="mt-1 block text-xs text-muted-foreground">
-                {t('Pages.Access.scopeCount', {
-                  count: role.permissions.length,
-                })}
+                {role.isAdministrator
+                  ? t('Pages.Access.fullAdministrator')
+                  : t('Pages.Access.scopeCount', {
+                      count: role.permissions.length,
+                    })}
               </span>
             </span>
           </Label>
@@ -224,15 +157,12 @@ function UserAccessForm({
         <form.Subscribe selector={(state) => state.values}>
           {(values) => (
             <>
-              <p className="text-xs text-muted-foreground">
-                {t('Pages.Access.effectiveScopes', {
-                  count: effectivePermissions(
-                    values.roles,
-                    values.permissions,
-                    roles,
-                  ).length,
-                })}
-              </p>
+              <AccessSummary
+                slugs={values.roles}
+                permissions={values.permissions}
+                roles={roles}
+                available={available}
+              />
               <Button type="submit" disabled={pending}>
                 {t(pending ? 'Pages.Access.saving' : 'Pages.Access.saveAccess')}
               </Button>
@@ -240,22 +170,52 @@ function UserAccessForm({
                 open={confirm}
                 pending={pending}
                 error={error}
-                title={t(
-                  values.enabled === user.authorization.enabled
-                    ? 'Pages.Access.confirmAccess'
-                    : values.enabled
-                      ? 'Pages.Access.confirmEnable'
-                      : 'Pages.Access.confirmDisable',
-                )}
-                description={t(
-                  values.enabled
-                    ? 'Pages.Access.accessImpact'
-                    : 'Pages.Access.disableImpact',
-                  { name: user.name },
-                )}
+                confirmLabel={t('Pages.Access.saveAccess')}
+                title={t('Pages.Access.confirmAccess')}
+                description={t('Pages.Access.accessImpact', {
+                  name: user.name,
+                })}
                 onCancel={() => setConfirm(false)}
                 onConfirm={() => void save()}
-              />
+              >
+                <div className="text-sm space-y-2">
+                  <p>
+                    {t('Pages.Access.rolesAdded')}:{' '}
+                    {values.roles
+                      .filter(
+                        (slug) => !user.authorization.roles.includes(slug),
+                      )
+                      .map(
+                        (slug) =>
+                          roles.find((role) => role.slug === slug)?.name ??
+                          slug,
+                      )
+                      .join(', ') || t('Pages.Access.levels.none')}
+                  </p>
+                  <p>
+                    {t('Pages.Access.rolesRemoved')}:{' '}
+                    {user.authorization.roles
+                      .filter((slug) => !values.roles.includes(slug))
+                      .map(
+                        (slug) =>
+                          roles.find((role) => role.slug === slug)?.name ??
+                          slug,
+                      )
+                      .join(', ') || t('Pages.Access.levels.none')}
+                  </p>
+                  <p>
+                    {t('Pages.Access.directScopesChanged', {
+                      added: values.permissions.filter(
+                        (scope) =>
+                          !user.authorization.permissions.includes(scope),
+                      ).length,
+                      removed: user.authorization.permissions.filter(
+                        (scope) => !values.permissions.includes(scope),
+                      ).length,
+                    })}
+                  </p>
+                </div>
+              </AccessConfirmation>
             </>
           )}
         </form.Subscribe>
@@ -278,13 +238,39 @@ export function UserEditor({
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-
+  const [profileState, setProfileState] = useState({
+    dirty: false,
+    pending: false,
+  });
+  const [accessState, setAccessState] = useState({
+    dirty: false,
+    pending: false,
+  });
+  const [discard, setDiscard] = useState(false);
+  const profileChange = useCallback(
+    (dirty: boolean, pending: boolean) => setProfileState({ dirty, pending }),
+    [],
+  );
+  const accessChange = useCallback(
+    (dirty: boolean, pending: boolean) => setAccessState({ dirty, pending }),
+    [],
+  );
+  const inFlight = useIsMutating({ mutationKey: ['access-management'] });
+  const pending = profileState.pending || accessState.pending || inFlight > 0;
   function close() {
+    if (pending) return;
+    if (profileState.dirty || accessState.dirty) {
+      setDiscard(true);
+      return;
+    }
     onClose();
   }
   return (
     <Sheet open onOpenChange={(open) => !open && close()}>
-      <SheetContent className="w-full sm:max-w-xl" showCloseButton={false}>
+      <SheetContent
+        className="w-full sm:max-w-xl motion-reduce:animate-none motion-reduce:transition-none"
+        showCloseButton={false}
+      >
         <SheetHeader className="border-b p-6">
           <SheetTitle>{user.name}</SheetTitle>
           <SheetDescription>
@@ -298,21 +284,31 @@ export function UserEditor({
             </span>
             <span className="break-all font-mono">{user.externalId}</span>
           </div>
-          <ProfileForm user={user} />
+          <ProfileForm user={user} onStateChange={profileChange} />
           <UserStatus user={user} currentId={currentId} />
           <UserAccessForm
             user={user}
             roles={roles}
             available={available}
             currentId={currentId}
-            onClose={onClose}
+            onStateChange={accessChange}
           />
         </div>
         <div className="border-t px-6 py-4">
-          <Button variant="outline" onClick={close}>
+          <Button variant="outline" disabled={pending} onClick={close}>
             {t('Common.close')}
           </Button>
         </div>
+        <AccessConfirmation
+          open={discard}
+          pending={pending}
+          title={t('Pages.Access.discardChanges')}
+          description={t('Pages.Access.discardDescription')}
+          confirmLabel={t('Pages.Access.discard')}
+          destructive
+          onCancel={() => setDiscard(false)}
+          onConfirm={onClose}
+        />
       </SheetContent>
     </Sheet>
   );

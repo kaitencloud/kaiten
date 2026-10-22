@@ -17,6 +17,8 @@ import { useAccessMutations } from '../user-management.queries';
 import type { Role } from '../user-management.api';
 import { PermissionMatrix } from './permission-matrix';
 import { AccessConfirmation } from './access-confirmation';
+import { DialogFormSkeleton } from '@/components/dialog/dialog-form-skeleton';
+import { FormFeedback } from './form-feedback';
 
 export function RoleEditor({
   role,
@@ -33,6 +35,7 @@ export function RoleEditor({
   const mutations = useAccessMutations();
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [discard, setDiscard] = useState(false);
   const readOnly = role?.builtIn ?? false;
   const pending = mutations.role.isPending || mutations.deleteRole.isPending;
   const form = useAppForm({
@@ -57,8 +60,10 @@ export function RoleEditor({
   });
   function close() {
     if (pending) return;
-    if (form.state.isDirty && !window.confirm(t('Pages.Access.discardChanges')))
+    if (form.state.isDirty) {
+      setDiscard(true);
       return;
+    }
     onClose();
   }
   async function remove() {
@@ -76,7 +81,7 @@ export function RoleEditor({
     <Dialog open onOpenChange={(open) => !open && close()}>
       <DialogContent
         variant="form"
-        className="sm:max-w-2xl"
+        className="sm:max-w-2xl motion-reduce:animate-none motion-reduce:transition-none"
         showCloseButton={!pending}
       >
         <DialogHeader>
@@ -92,14 +97,17 @@ export function RoleEditor({
           className="flex min-h-0 flex-1 flex-col"
         >
           <form.AppForm>
-            <Suspense fallback={null}>
+            <Suspense
+              fallback={<DialogFormSkeleton fields={3} className="p-6" />}
+            >
               <DialogBody className="space-y-4">
+                <FormFeedback error={!confirmDelete ? error : ''} />
                 {readOnly && (
                   <p className="rounded-md bg-muted p-3 text-sm">
                     {t('Pages.Access.builtInExplanation')}
                   </p>
                 )}
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-4">
                   <form.AppField name="name">
                     {(field) => (
                       <field.TextField
@@ -109,16 +117,30 @@ export function RoleEditor({
                       />
                     )}
                   </form.AppField>
-                  <form.AppField name="slug">
-                    {(field) => (
-                      <field.TextField
-                        label={t('Pages.Access.slug')}
-                        required
-                        disabled={Boolean(role) || pending}
-                        description={t('Pages.Access.slugExplanation')}
-                      />
-                    )}
-                  </form.AppField>
+                  {role ? (
+                    <div className="rounded-md bg-muted/50 px-3 py-2">
+                      <p className="text-xs text-muted-foreground">
+                        {t('Pages.Access.slug')}
+                      </p>
+                      <p className="mt-1 font-mono text-sm break-all">
+                        {role.slug}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {t('Pages.Access.slugExplanation')}
+                      </p>
+                    </div>
+                  ) : (
+                    <form.AppField name="slug">
+                      {(field) => (
+                        <field.TextField
+                          label={t('Pages.Access.slug')}
+                          required
+                          disabled={pending}
+                          description={t('Pages.Access.slugExplanation')}
+                        />
+                      )}
+                    </form.AppField>
+                  )}
                 </div>
                 <form.AppField name="description">
                   {(field) => (
@@ -168,16 +190,13 @@ export function RoleEditor({
                     </Button>
                   </div>
                 )}
-                {error && !confirmDelete && (
-                  <p
-                    role="alert"
-                    className="text-sm text-destructive-subtle-foreground"
-                  >
-                    {error}
-                  </p>
-                )}
               </DialogBody>
               <DialogFooter>
+                {role && !readOnly && (
+                  <p className="mr-auto text-xs text-muted-foreground">
+                    {t('Pages.Access.roleSaveImpact', { count: assignedCount })}
+                  </p>
+                )}
                 <Button
                   type="button"
                   variant="outline"
@@ -200,6 +219,8 @@ export function RoleEditor({
           </form.AppForm>
         </form>
         <AccessConfirmation
+          destructive
+          confirmLabel={t('Pages.Access.deleteRole')}
           open={confirmDelete}
           pending={pending}
           error={error}
@@ -207,6 +228,16 @@ export function RoleEditor({
           description={t('Pages.Access.deleteRoleImpact', { name: role?.name })}
           onCancel={() => setConfirmDelete(false)}
           onConfirm={() => void remove()}
+        />
+        <AccessConfirmation
+          open={discard}
+          pending={pending}
+          title={t('Pages.Access.discardChanges')}
+          description={t('Pages.Access.discardDescription')}
+          confirmLabel={t('Pages.Access.discard')}
+          destructive
+          onCancel={() => setDiscard(false)}
+          onConfirm={onClose}
         />
       </DialogContent>
     </Dialog>

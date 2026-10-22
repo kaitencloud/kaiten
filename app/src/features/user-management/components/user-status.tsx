@@ -57,6 +57,12 @@ export function UserStatus({
       </div>
       <AccessConfirmation
         open={confirm}
+        destructive={user.authorization.enabled}
+        confirmLabel={t(
+          user.authorization.enabled
+            ? 'Pages.Access.disableUser'
+            : 'Pages.Access.enableUser',
+        )}
         pending={enabled.isPending}
         error={error}
         title={t(

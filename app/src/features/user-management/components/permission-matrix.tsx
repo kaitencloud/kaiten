@@ -30,7 +30,7 @@ export function PermissionMatrix({
           key={option}
           value={option}
           disabled={disabled || !offered}
-          className="px-3 text-xs"
+          className={`px-3 text-xs pointer-coarse:min-h-11 pointer-coarse:min-w-11 ${option === 'none' ? 'data-pressed:bg-foreground/10' : option === 'read' ? 'data-pressed:bg-primary/20' : 'data-pressed:bg-primary data-pressed:text-primary-foreground'}`}
         >
           {t(`Pages.Access.levels.${option}`)}
         </ToggleGroupItem>

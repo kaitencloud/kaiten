@@ -22,3 +22,19 @@ not a role label inferred from the development token file.
 
 Tests cover route normalization, permission inheritance/matrix transformations,
 contract validation, filtering, conflict explanations and query invalidation.
+
+## Form refinements
+
+Role details show the immutable identifier below Name as read-only metadata; new
+roles use an aligned full-width identifier input. User profile email is explicitly
+required and uses email keyboard/autocomplete semantics. Editors protect dirty
+changes on Close, Escape and backdrop dismissal, and wait for access mutations
+to finish. Saving access leaves the drawer open and preserves unsaved profile
+changes. Confirmation labels name their action and distinguish deletion from
+ordinary access updates; role/direct-scope changes are summarized before saving.
+
+Effective access is shown by resource, including role/direct provenance;
+administrator authority is described as full access rather than one wildcard
+scope. Error summaries receive focus, lazy form fields reserve loading space,
+and editor motion honors reduced-motion preferences. Permission controls keep
+compact desktop sizing while increasing coarse-pointer targets.

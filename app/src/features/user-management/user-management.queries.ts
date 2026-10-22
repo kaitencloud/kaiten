@@ -34,13 +34,13 @@ export function useAccessMutations() {
   const client = useQueryClient();
   const onSettled = () => refreshAccessQueries(client);
   return {
-    profile: useMutation({ mutationFn: (options: Pick<UpdateUserData, 'body' | 'path'>) => updateUser({ ...options, throwOnError: true }), onSettled }),
-    authorization: useMutation({ mutationFn: (options: Pick<SetUserAssignmentsData, 'body' | 'path'>) => setUserAssignments({ ...options, throwOnError: true }), onSettled }),
-    enabled: useMutation({ mutationFn: setUserEnabled, onSettled }),
-    role: useMutation({
+    profile: useMutation({ mutationKey: ['access-management', 'profile'], mutationFn: (options: Pick<UpdateUserData, 'body' | 'path'>) => updateUser({ ...options, throwOnError: true }), onSettled }),
+    authorization: useMutation({ mutationKey: ['access-management', 'assignments'], mutationFn: (options: Pick<SetUserAssignmentsData, 'body' | 'path'>) => setUserAssignments({ ...options, throwOnError: true }), onSettled }),
+    enabled: useMutation({ mutationKey: ['access-management', 'enabled'], mutationFn: setUserEnabled, onSettled }),
+    role: useMutation({ mutationKey: ['access-management', 'role'],
       mutationFn: ({ body, slug }: { body: RoleInput; slug?: string }) => saveRole(body, slug),
       onSettled,
     }),
-    deleteRole: useMutation({ mutationFn: deleteRole, onSettled }),
+    deleteRole: useMutation({ mutationKey: ['access-management', 'delete-role'], mutationFn: deleteRole, onSettled }),
   };
 }
