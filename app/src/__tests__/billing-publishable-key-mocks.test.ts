@@ -216,3 +216,149 @@ describe('the publishable keys, as the mocks serve them', () => {
     expect((await refusal(missing)).code).toBe('RevokePublishableKey.NotFound');
   });
 });
+
+describe('the Turnstile settings of a key, as the mocks serve them', () => {
+  const SITE_KEY = '1x00000000000000000000AA';
+  const SECRET = '1x0000000000000000000000000000000AA';
+
+  it('lists the key of the world that opens the anonymous checkout, with whether a secret is stored and never the secret', async () => {
+    const live = await items<PublishableKey>(
+      await send('GET', '/publishable-keys'),
+    );
+    const staging = live.find(({ id }) => id === 'publishable-key-staging');
+
+    expect(staging).toMatchObject({
+      anonymousCheckout: true,
+      turnstileSecretConfigured: true,
+      turnstileSiteKey: expect.any(String),
+    });
+    expect(
+      live
+        .filter(({ id }) => id !== 'publishable-key-staging')
+        .every(
+          (key) =>
+            !key.anonymousCheckout &&
+            key.turnstileSiteKey === null &&
+            !key.turnstileSecretConfigured,
+        ),
+    ).toBe(true);
+    expect(JSON.stringify(live)).not.toMatch(/turnstileSecret"/);
+  });
+
+  it('opens the anonymous checkout of a new key only with a site key and a secret', async () => {
+    const without = await send('POST', '/publishable-keys', {
+      allowedOrigins: [],
+      anonymousCheckout: true,
+      label: 'storefront',
+      turnstileSiteKey: SITE_KEY,
+    });
+    const created = await createKey({
+      allowedOrigins: [],
+      anonymousCheckout: true,
+      label: 'storefront',
+      turnstileSecret: SECRET,
+      turnstileSiteKey: SITE_KEY,
+    });
+    const listed = await items<PublishableKey>(
+      await send('GET', '/publishable-keys'),
+    );
+
+    expect(without.status).toBe(422);
+    expect((await refusal(without)).code).toBe(
+      'CreatePublishableKey.TurnstileNotConfigured',
+    );
+    expect(created).toMatchObject({
+      anonymousCheckout: true,
+      turnstileSecretConfigured: true,
+      turnstileSiteKey: SITE_KEY,
+    });
+    expect(JSON.stringify(created)).not.toContain(SECRET);
+    expect(JSON.stringify(listed)).not.toContain(SECRET);
+  });
+
+  it('keeps what a change leaves out, clears a value sent empty, and refuses to leave the checkout open without one', async () => {
+    const renamed = await json<PublishableKey>(
+      await send('PATCH', '/publishable-keys/publishable-key-staging', {
+        label: 'Staging checkout',
+      }),
+    );
+    const withoutSecret = await send(
+      'PATCH',
+      '/publishable-keys/publishable-key-staging',
+      { turnstileSecret: '' },
+    );
+    const withoutSiteKey = await send(
+      'PATCH',
+      '/publishable-keys/publishable-key-staging',
+      { turnstileSiteKey: '' },
+    );
+    const closed = await json<PublishableKey>(
+      await send('PATCH', '/publishable-keys/publishable-key-staging', {
+        anonymousCheckout: false,
+        turnstileSecret: '',
+        turnstileSiteKey: '',
+      }),
+    );
+    const reopened = await send(
+      'PATCH',
+      '/publishable-keys/publishable-key-staging',
+      { anonymousCheckout: true },
+    );
+
+    expect(renamed).toMatchObject({
+      anonymousCheckout: true,
+      label: 'Staging checkout',
+      turnstileSecretConfigured: true,
+    });
+    expect(renamed.turnstileSiteKey).not.toBeNull();
+    for (const refused of [withoutSecret, withoutSiteKey, reopened]) {
+      expect(refused.status).toBe(422);
+      expect((await refusal(refused)).code).toBe(
+        'UpdatePublishableKey.TurnstileNotConfigured',
+      );
+    }
+    expect(closed).toMatchObject({
+      anonymousCheckout: false,
+      turnstileSecretConfigured: false,
+      turnstileSiteKey: null,
+    });
+  });
+
+  it('refuses a secret on a deployment with no Vault, before anything else of the Turnstile rule, and still takes a key for the catalog', async () => {
+    server.use(
+      ...createMockHandlers(
+        createDevMockConfig({ stripe: 'vaultMissing' }),
+        'off',
+        undefined,
+        true,
+      ),
+    );
+
+    const created = await send('POST', '/publishable-keys', {
+      allowedOrigins: [],
+      anonymousCheckout: true,
+      label: 'storefront',
+      turnstileSecret: SECRET,
+    });
+    const changed = await send(
+      'PATCH',
+      '/publishable-keys/publishable-key-pricing',
+      { turnstileSecret: SECRET },
+    );
+    const plain = await send('POST', '/publishable-keys', {
+      allowedOrigins: [],
+      label: 'catalog only',
+    });
+
+    expect(created.status).toBe(422);
+    expect((await refusal(created)).code).toBe(
+      'CreatePublishableKey.VaultNotConfigured',
+    );
+    expect(changed.status).toBe(422);
+    expect((await refusal(changed)).code).toBe(
+      'UpdatePublishableKey.VaultNotConfigured',
+    );
+    expect(plain.status).toBe(201);
+  });
+});
+

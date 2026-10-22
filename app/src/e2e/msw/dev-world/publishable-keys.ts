@@ -5,7 +5,8 @@ import { daysAgo, minutesAgo } from './dates';
 /**
  * The publishable keys of the vendor, in every state the page shows: the pricing page
  * that reads the catalogue from two origins and was used minutes ago, a staging page on
- * localhost that was never used, a server-side renderer with no browser origin at all,
+ * localhost that was never used and opens the anonymous checkout (on Cloudflare's test
+ * widget, with a secret stored), a server-side renderer with no browser origin at all,
  * and two keys that were revoked, one of them a docs site retired a month ago. The keys
  * themselves are not in the world: the API keeps their digest, and shows the last four
  * characters.
@@ -29,6 +30,7 @@ export function createPublishableKeys(): BillingPublishableKeysSeed {
           'http://localhost:5173',
           'https://staging.example.com',
         ],
+        anonymousCheckout: true,
         createdAt: daysAgo(21),
         id: 'publishable-key-staging',
         keyHint: 'b4Tz',

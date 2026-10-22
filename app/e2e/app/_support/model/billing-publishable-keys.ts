@@ -108,6 +108,13 @@ function normalizeOrigins(operation: string, origins: string[]): string[] {
   return kept;
 }
 
+/** The refusal of a Turnstile secret on a deployment that has no Vault to store it in. */
+const vaultNotConfigured = (operation: string) =>
+  unprocessable(
+    `${operation}.VaultNotConfigured`,
+    'The Turnstile secret is stored in Vault, and this deployment has none configured: set VAULT_ADDR',
+  );
+
 const notFound = (operation: string, id: string) =>
   new BillingProblem(
     404,
@@ -115,7 +122,7 @@ const notFound = (operation: string, id: string) =>
     `publishable key ${id} not found`,
   );
 
-/** A key that offers anonymous checkout holds a Turnstile site key and secret (§13.12). */
+/** A key that offers anonymous checkout holds a Turnstile site key and secret. */
 function requireTurnstile(
   operation: string,
   anonymousCheckout: boolean,
@@ -144,6 +151,7 @@ export class BillingPublishableKeys {
   private keys: Editable<PublishableKey>[];
   private sequence = 1;
   private clock: () => number = () => Date.now();
+  private vaultConfigured: () => boolean = () => true;
 
   constructor(seed: BillingPublishableKeysSeed = {}) {
     this.keys = parseContract(
@@ -176,6 +184,16 @@ export class BillingPublishableKeys {
   /** Arm the next call of an operation to fail with a problem document. One-shot. */
   armProblem(operation: PublishableKeyOperation, problem: ArmedBillingProblem) {
     this.problems.arm(operation, problem);
+  }
+
+  /**
+   * Where the keys read whether the deployment has a Vault, which a Turnstile secret is
+   * stored in: the capabilities say it (the payment provider is unavailable for want of
+   * one), and the model of billing hands that over, so that the refusal and the signal
+   * the form reads cannot disagree.
+   */
+  setVaultSource(vaultConfigured: () => boolean) {
+    this.vaultConfigured = vaultConfigured;
   }
 
   /** Where the keys read the time, for a spec that freezes it. */
@@ -224,6 +242,9 @@ export class BillingPublishableKeys {
     const label = validateLabel(operation, draft.label);
     const allowedOrigins = normalizeOrigins(operation, draft.allowedOrigins);
     const anonymousCheckout = draft.anonymousCheckout ?? false;
+    if (draft.turnstileSecret !== undefined && !this.vaultConfigured()) {
+      throw vaultNotConfigured(operation);
+    }
     requireTurnstile(
       operation,
       anonymousCheckout,
@@ -264,6 +285,10 @@ export class BillingPublishableKeys {
       patch.allowedOrigins === undefined
         ? undefined
         : normalizeOrigins(operation, patch.allowedOrigins);
+    // A new secret is refused for want of a Vault before the key is looked at.
+    if (patch.turnstileSecret && !this.vaultConfigured()) {
+      throw vaultNotConfigured(operation);
+    }
     const key = this.require(operation, id);
 
     if (key.revokedAt) {

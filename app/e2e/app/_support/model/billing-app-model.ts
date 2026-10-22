@@ -162,6 +162,7 @@ export class BillingAppModel {
       model.publishableKeys = BillingPublishableKeys.fromSerialized(
         state.publishableKeys,
       );
+      model.wirePublishableKeys();
     }
     model.subscriptions = state.subscriptions
       ? BillingSubscriptions.fromSerialized(
@@ -205,6 +206,7 @@ export class BillingAppModel {
     this.addons = new AddonCatalogue(seed.addonCatalogue);
     this.vouchers = new BillingVouchers(seed.voucherCatalogue);
     this.publishableKeys = new BillingPublishableKeys(seed.publishableKeys);
+    this.wirePublishableKeys();
     this.subscriptions = new BillingSubscriptions(
       this.invoices,
       seed,
@@ -225,6 +227,13 @@ export class BillingAppModel {
       now: () => Date.now(),
       subscriptions: () => this.subscriptions.snapshot(),
     };
+  }
+
+  /** Tells the keys whether the deployment has a Vault: the capabilities say it, read at each call. */
+  private wirePublishableKeys() {
+    this.publishableKeys.setVaultSource(
+      () => this.stripeStanding() !== 'vaultMissing',
+    );
   }
 
   /** Gives the subscriptions the world a move to a payment provider is checked against. */
