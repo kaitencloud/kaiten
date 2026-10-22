@@ -53,5 +53,20 @@ body:
     id: logs
     attributes:
       label: Logs or screenshots
-      description: Relevant output only. Secrets removed.
+      description: Relevant output only. Synthetic data only; explicitly reviewed for publication. Never attach .audit wholesale, authenticated traces, env/token/config dumps or request bodies.
       render: shell
+  - type: input
+    id: finding-key
+    attributes:
+      label: Stable finding key
+      description: Optional audit/nightly finding key. Search open and closed issues/PRs first; link an existing finding rather than duplicate it.
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Baseline and safe evidence
+      description: Revision and selected profile; failing baseline; expected/actual behavior; minimal synthetic reproduction; passed/failed/blocked/skipped checks. Missing prerequisites are not product defects.
+  - type: textarea
+    id: risks
+    attributes:
+      label: Compatibility and proposed regression test
+      description: Describe compatibility/migration risk and the narrow regression test. Use SECURITY.md for sensitive reports.

@@ -28,3 +28,15 @@ app/cel-engine/target/
 # Workspace package installs and builds: the image installs and builds its own.
 packages/*/node_modules/
 packages/*/dist/
+
+# User-owned configuration, credentials and private audit evidence are never
+# build inputs, including when the authenticated runner builds this checkout.
+.env
+.env.*
+!.env.example
+dev/
+.audit/
+api/config.yaml
+api/config.yml
+api/config.toml
+api/config.json

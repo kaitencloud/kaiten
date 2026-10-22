@@ -11,6 +11,7 @@ on:
       # This workflow itself: a change to how the API is built, linted or tested
       # (the Go version, the linter's) has to be proved by a run of it.
       - '.github/workflows/go-ci.yml'
+      - 'scripts/check-deps.sh'
 
 concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
@@ -154,15 +155,7 @@ jobs:
       # What is allowed under github.com/kaitencloud/: this repository's own
       # modules and the public Go SDK.
       - name: Dependency direction
-        run: |
-          set -eu
-          for module in . cmd/schema-docs; do
-            graph=$(cd "$module" && go list -m all)
-            if printf '%s\n' "$graph" | grep -E '^github\.com/kaitencloud/' | grep -v -E '^github\.com/kaitencloud/(kaiten/|sdk-go( |$))'; then
-              echo "::error::$module depends on a Kaiten module other than the Go SDK — kaiten is depended on, it never depends back"
-              exit 1
-            fi
-          done
+        run: sh ../scripts/check-deps.sh
 
   codegen:
     name: Codegen up to date /api
@@ -269,3 +262,8 @@ jobs:
       # runs the same flag.
       - name: ${{ matrix.mode.label }}
         run: go test -shuffle=on ${{ matrix.mode.flag }} ${{ matrix.shard.packages }}
+
+      - name: Schema documentation module tests
+        if: matrix.shard.name == 'unit'
+        working-directory: api/cmd/schema-docs
+        run: go test -shuffle=on ${{ matrix.mode.flag }} ./...

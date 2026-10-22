@@ -297,10 +297,10 @@ services:
       - sh
       - -ec
       - |
-        i=0
-        until wget -qO- http://envoy/api/healthz >/dev/null 2>&1; do
-          i=$$((i+1))
-          [ "$$i" -gt 300 ] && echo "API did not become ready in 60s" >&2 && exit 1
+        deadline=$$(($$(date +%s)+120))
+        until wget -T 2 -qO- http://envoy/api/healthz >/dev/null 2>&1 \
+          && wget -T 2 -qO- http://api:${KAITEN_PORT}/api/readyz >/dev/null 2>&1; do
+          [ "$$(date +%s)" -ge "$$deadline" ] && echo "API did not become ready within 120s" >&2 && exit 1
           sleep 0.2
         done
         echo "API is serving"
@@ -327,7 +327,7 @@ services:
     # along on every seed. api-ready only polls envoy, so it is inert.
     #
     # What actually guarantees the API is up is the caller: `task up` runs
-    # `compose up --wait` before this. Running it by hand against a stopped
+    # the bounded host startup gate before this. Running it by hand against a stopped
     # stack is on you.
     depends_on:
       api-ready:

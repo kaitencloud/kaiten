@@ -8,7 +8,13 @@
 
 ## Testing
 
-<!-- Commands you ran, and what you checked by hand. -->
+<!-- Revision/profile, minimal synthetic reproduction, expected/actual behavior,
+failing baseline and regression test. List passed/failed/blocked/skipped outcomes;
+a selected subset is not the complete CI matrix. Include only explicitly reviewed
+sanitized artifacts, never .audit bundles, env/token dumps or authenticated traces. -->
+
+<!-- Stable finding-key marker and linked issue; search open/closed issues and PRs
+before publication. One issue / one owned branch / one narrow fix. -->
 
 The checks that match your change are listed in [Before you open a pull request](https://github.com/kaitencloud/kaiten/blob/main/CONTRIBUTING.md#before-you-open-a-pull-request).
 
@@ -30,3 +36,7 @@ The checks that match your change are listed in [Before you open a pull request]
 - [ ] I have updated documentation where appropriate.
 - [ ] I understand that accepted contributions to the Kaiten open-source core
       are contributed under Apache-2.0.
+
+- [ ] An independent reviewer has checked the diff; publication was explicitly authorized.
+- [ ] Dependency, migration, generated-contract, infrastructure or auth-boundary changes have explicit approval where applicable.
+- [ ] Agent-created PRs remain draft until human review; no auto-merge/release/deploy.

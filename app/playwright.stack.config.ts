@@ -2,7 +2,10 @@ import { defineConfig, devices } from '@playwright/test';
 
 const port = process.env.STACK_APP_PORT;
 const api = process.env.STACK_API_URL;
-if (!port || !api || !process.env.STACK_TOKENS_FILE)
+const reportDir = process.env.STACK_REPORT_DIR;
+const resultsDir = process.env.STACK_RESULTS_DIR;
+const jsonReport = process.env.STACK_JSON_REPORT;
+if (!port || !api || !process.env.STACK_TOKENS_FILE || !reportDir || !resultsDir || !jsonReport)
   throw new Error('Run pnpm run test:e2e:stack');
 
 export default defineConfig({
@@ -12,13 +15,15 @@ export default defineConfig({
   timeout: 60_000,
   reporter: [
     ['list'],
-    ['html', { outputFolder: 'stack-playwright-report', open: 'never' }],
+    ['json', { outputFile: jsonReport }],
+    ['html', { outputFolder: reportDir, open: 'never' }],
   ],
-  outputDir: 'stack-test-results',
+  outputDir: resultsDir,
   use: {
     ...devices['Desktop Chrome'],
     baseURL: `http://127.0.0.1:${port}`,
-    trace: 'retain-on-failure',
+    // Authenticated traces can contain JWTs; no safe publication/redaction contract yet.
+    trace: 'off',
     screenshot: 'only-on-failure',
   },
   webServer: {
@@ -26,6 +31,7 @@ export default defineConfig({
     env: {
       VITE_API_URL: `${api}/api`,
       VITE_LOCAL_AUTH: 'true',
+      VITE_CLERK_PUBLISHABLE_KEY: '',
       VITE_E2E_BYPASS_AUTH: 'false',
       VITE_E2E_MSW: 'false',
       VITE_MOCK_API: 'false',

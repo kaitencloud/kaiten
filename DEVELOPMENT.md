@@ -474,3 +474,53 @@ describes.
 Four operations that authorize on holding a scope rather than on owning the target
 (`get`/`delete-organization`, `delete-membership`, `delete-user`) live here now and
 have **left** the Core API — a breaking change to the published contract.
+
+## Read-only agent preflight and checks
+
+Python 3 is required for the local audit tooling. `task doctor` selects backend
+prerequisites by default; `task doctor -- --profile frontend --json` selects
+frontend tools. Other profiles: `lint`, `charts`, `runtime`, `tests`, `all`. The JSON
+schema is version 1; `passed` / `blocked` checks and explicitly `skipped` areas
+are not interchangeable. The script exits 2 for a blocker (Task wraps nonzero
+statuses; use `task --exit-code doctor -- --profile backend --json` to preserve
+exit 2). It never installs tools, resolves/downloads Go toolchains, starts
+Docker, reads credential values or rewrites configuration. Runtime doctor checks
+configuration and credential **presence**, not validity; a credential absent
+before initial startup is expected. Dirty work is reported without filenames.
+
+`task lint:api:check` and `task lint:app:check` do not fix source. Existing
+`task lint` remains an explicit fixing workflow. API lint uses CI's Go 1.27.1
+workaround with golangci-lint v2.13.1; build/test use the module-compatible
+current toolchain instead. `task check:api` checks dependency direction, build,
+vet, `go mod tidy -diff`, endpoint declarations, both-module lint and shuffled
+normal/race tests. Full backend tests require an already reachable Docker daemon;
+missing prerequisites are environment blockers, not product defects.
+
+This backend check is not the complete changed-area matrix. For console work,
+use the existing `pnpm run check:ci` in `app/` (static checks, unit tests, build);
+theme, API generator, browser and Rust/Wasm changes additionally need their CI
+jobs and package scripts. Code generation drift checks belong in a clean,
+owned checkout: never regenerate over unrelated user changes during diagnosis.
+Security scanning remains the explicit `task vuln:api` command; unavailable
+scanner databases are blockers rather than a successful scan.
+
+`task up`, `task up:bare` and `task quickstart` now gate completion on required
+successful one-shots, running API/gateway services, nonempty credential files
+(without reading them), the API's internal `/api/readyz`, and the local gateway's `/api/healthz`. The host gate is
+bounded to 120 seconds after Compose startup. Compose build/start itself is
+bounded to 600 seconds; on timeout/interrupt only the owned Compose CLI process
+group is terminated. Already created stack resources are retained, never pruned. Failed one-shots are errors; exited-success one-shots are
+legitimate. Accounts/tokens are required only for the accounts profile. This
+startup latch does **not** prove continuous Dapr/Debezium/RabbitMQ event-pipeline
+health. No diagnostics logs or credential values are gathered by this gate.
+
+`task test:tooling` runs offline subprocess/status/privacy/readiness fixtures;
+CI runs the same Python test suite without Docker or dependency installation.
+
+`task --exit-code check -- --profile static --area frontend` runs selected leaf
+gates without fixing source; `task --exit-code audit -- --profile unit --area
+tooling` retains an ignored private manifest. `task --exit-code diagnose --
+--project kaiten-oss --port 6060 --evidence` only inspects an explicitly named
+existing stack with bounded allowlisted metadata and loopback liveness. See
+[the repair runbook](docs/AGENT_REPAIR.md) for exact coverage, blockers, artifact
+privacy, runtime approval and staged issue-to-draft-PR publication gates.

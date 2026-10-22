@@ -77,6 +77,7 @@ vars:
   # GOLANGCI_LINT_VERSION must match .github/workflows/go-ci.yml and
   # .pre-commit-config.yaml.
   GOLANGCI_LINT_VERSION: v2.13.1
+  LINT_GO_VERSION: go1.27.1
   DEADCODE_VERSION: v0.49.0
   # Pinned like every other tool here. The vulnerability database is fetched
   # at run time regardless, so pinning the scanner costs no freshness.
@@ -140,6 +141,9 @@ tasks:
   stack:
     internal: true
     silent: true
+    preconditions:
+      - sh: command -v python3 >/dev/null 2>&1
+        msg: "Python 3 is required for bounded startup verification; provide it before task up"
     cmds:
       # Before compose, always. ./dev is gitignored, so a fresh clone does not
       # have it --
@@ -151,10 +155,9 @@ tasks:
       # accounts, if this caller asked for that profile. Ordering among them is
       # compose's job (depends_on), not this file's.
       #
-      # No --wait: it treats a one-shot container exiting 0 as a failure, and
-      # half of this graph is one-shots. Readiness is not lost -- api-ready
-      # polls until the API actually answers through Envoy.
-      - "{{.COMPOSE}} {{.PROFILES}} up -d --build"
+      # No --wait: successful exited one-shots are legitimate. The bounded
+      # gate below waits for completion, credentials and gateway readiness.
+      - python3 scripts/wait-stack.py --start --project "{{.PROJECT}}" {{if .PROFILES}}--accounts{{end}}
 
   ready:
     internal: true
@@ -330,7 +333,8 @@ tasks:
     cmds:
       # -shuffle=on is the only guard in the repo against a test that passes
       # only because an earlier one left state behind. CI runs the same flag.
-      - go test -shuffle=on {{.CLI_ARGS}} ./...
+      - for: { var: MODULES }
+        cmd: cd "{{.ITEM}}" && go test -shuffle=on {{.CLI_ARGS}} ./...
 
   test:app:
     desc: "Frontend unit tests"
@@ -341,44 +345,82 @@ tasks:
   test:charts:
     desc: "Lint and render the Helm charts (needs helm, no cluster)"
     cmds:
-      # helm's own two commands. charts/kaiten renders from stock values;
-      # charts/kaiten-infra will not render until it has been told where the
-      # database credential comes from, and naming a Secret is the shorter of
-      # the two ways to answer that.
-      #
-      # examples/minimal-values.yaml gets both commands too. An example nobody
-      # renders is an example that rots, and this one is the first-install path.
-      - helm lint charts/kaiten
-      - helm template kaiten charts/kaiten >/dev/null
-      - helm lint charts/kaiten -f charts/kaiten/examples/minimal-values.yaml
-      - >-
-        helm template kaiten charts/kaiten
-        -f charts/kaiten/examples/minimal-values.yaml >/dev/null
-      - >-
-        helm lint charts/kaiten-infra
-        --set migrate.database.existingSecret=example-db
-        --set debeziumServer.database.existingSecret=example-db
-      - >-
-        helm template kaiten-infra charts/kaiten-infra
-        --set migrate.database.existingSecret=example-db
-        --set debeziumServer.database.existingSecret=example-db >/dev/null
+      - sh scripts/check-charts.sh
 
   deps:check:
     desc: "Refuse a dependency on any other Kaiten module but the Go SDK (kaiten is depended on; it never depends back)"
     cmds:
-      # The module GRAPH rather than the import list, so a `replace` left behind
-      # after a local experiment fails the same way a real import does. Both
-      # modules by name: `go ... ./...` stops at a nested one. What is allowed
-      # under github.com/kaitencloud/: this repository's own modules and the
-      # public Go SDK; anything else is a decision to make, not a `go get`.
-      - |
-        set -eu
-        for module in api api/cmd/schema-docs; do
-          if (cd "$module" && go list -m all) | grep -E '^github\.com/kaitencloud/' | grep -v -E '^github\.com/kaitencloud/(kaiten/|sdk-go( |$))'; then
-            echo "$module depends on a Kaiten module other than the Go SDK — kaiten is depended on, it never depends back" >&2
-            exit 1
-          fi
-        done
+      - sh scripts/check-deps.sh
+
+  check:
+    desc: "Bounded non-fixing gates: task --exit-code check -- --profile static --area backend"
+    silent: true
+    cmds:
+      - python3 scripts/audit.py {{.CLI_ARGS}}
+
+  audit:
+    desc: "Private ignored evidence: task --exit-code audit -- --profile unit --area tooling"
+    silent: true
+    cmds:
+      - python3 scripts/audit.py --evidence {{.CLI_ARGS}}
+
+  diagnose:
+    desc: "Read-only existing stack: task --exit-code diagnose -- --project kaiten-oss --port 6060"
+    silent: true
+    cmds:
+      - python3 scripts/diagnose.py {{.CLI_ARGS}}
+
+  doctor:
+    desc: "Read-only prerequisite checks: task doctor -- --profile backend --json"
+    silent: true
+    cmds:
+      - python3 scripts/doctor.py {{.CLI_ARGS}}
+
+  test:tooling:
+    desc: "Offline self-audit tooling regression fixtures (Python 3, no Docker)"
+    cmds:
+      - python3 -m unittest discover -s scripts/tests -v
+
+  lint:check:
+    desc: "Non-fixing backend and frontend lint"
+    cmds:
+      - task: lint:api:check
+      - task: lint:app:check
+
+  lint:api:check:
+    desc: "Non-fixing golangci-lint over both modules, using CI's Go workaround"
+    dir: api
+    cmds:
+      - python3 ../scripts/doctor.py --profile lint
+      - for: { var: MODULES }
+        cmd: >-
+          cd "{{.ITEM}}" &&
+          GOTOOLCHAIN={{.LINT_GO_VERSION}}
+          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+          run --timeout=10m ./...
+
+  lint:app:check:
+    desc: "Non-fixing frontend lint"
+    dir: app
+    cmds:
+      - python3 ../scripts/doctor.py --profile frontend
+      - pnpm run lint
+
+  check:api:
+    desc: "Non-fixing backend build, vet, endpoint, lint and shuffled/race checks (Docker required for full tests)"
+    dir: api
+    cmds:
+      - python3 ../scripts/doctor.py --profile tests
+      - sh ../scripts/check-deps.sh
+      - for: { var: MODULES }
+        cmd: cd "{{.ITEM}}" && go build ./... && go vet ./...
+      - for: { var: MODULES }
+        cmd: cd "{{.ITEM}}" && go mod tidy -diff
+      - go run ./cmd/checkapierrors
+      - task: lint:api:check
+      - task: test:api
+      - task: test:api
+        vars: { CLI_ARGS: "-race" }
 
   lint:
     desc: "Lint and auto-fix, backend and frontend"
@@ -416,6 +458,7 @@ tasks:
       - for: { var: MODULES }
         cmd: >-
           cd "{{.ITEM}}" &&
+          GOTOOLCHAIN={{.LINT_GO_VERSION}}
           go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
           run --timeout=10m --fix ./...
 

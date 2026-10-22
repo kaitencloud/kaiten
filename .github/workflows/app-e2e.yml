@@ -24,6 +24,7 @@ on:
       - 'pnpm-workspace.yaml'
       - '.npmrc'
       - '.github/workflows/app-e2e.yml'
+      - 'scripts/nightly-finding.cjs'
       - '.github/actions/setup-app-e2e/**'
   push:
     branches: ['main']
@@ -39,6 +40,7 @@ on:
       - 'pnpm-workspace.yaml'
       - '.npmrc'
       - '.github/workflows/app-e2e.yml'
+      - 'scripts/nightly-finding.cjs'
       - '.github/actions/setup-app-e2e/**'
   workflow_dispatch:
   schedule:
@@ -333,45 +335,10 @@ jobs:
       contents: read
       issues: write
     steps:
+      - uses: actions/checkout@v7.0.1
       - name: File or update tracking issue
         uses: actions/github-script@v9.0.0
         with:
           script: |
-            const today = new Date().toISOString().slice(0, 10);
-            const title = `Nightly E2E run failed — ${today}`;
-            const body = [
-              '## Nightly E2E failure',
-              '',
-              `- Workflow: \`${context.workflow}\``,
-              `- Run: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
-              `- Storybook job: \`${{ needs.e2e_storybook.result }}\``,
-              `- App job: \`${{ needs.e2e_app.result }}\``,
-              `- Firefox/WebKit job: \`${{ needs.browser_smoke.result }}\``,
-              `- Dev mock bootstrap: \`${{ needs.dev_mock_smoke.result }}\``,
-              '',
-              'Inspect the Playwright HTML reports uploaded as run artifacts.',
-              'When fixed, close the issue. Auto-deduplicated by title (one issue per day).',
-            ].join('\n');
-
-            const { data: existing } = await github.rest.search.issuesAndPullRequests({
-              q: `repo:${context.repo.owner}/${context.repo.repo} is:issue is:open in:title "${title}"`,
-            });
-
-            if (existing.total_count > 0) {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existing.items[0].number,
-                body: `New failure on run ${context.runId}.`,
-              });
-              core.info(`Updated existing issue #${existing.items[0].number}`);
-              return;
-            }
-
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              body,
-              labels: ['e2e', 'nightly-failure'],
-            });
+            const { notify } = require('./scripts/nightly-finding.cjs');
+            await notify({ github, context, core, results: ${{ toJSON(needs) }} });

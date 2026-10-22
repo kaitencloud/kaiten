@@ -92,3 +92,11 @@ Regenerate them instead; the hooks in `.claude/settings.json` and
   `pnpm run check:i18n-keys`).
 - Verify that a command exists (`package.json` scripts, `Taskfile.yml`) before
   you write it into a doc or a skill.
+
+## Bounded audit and repair
+
+Use the standalone [agent repair runbook](docs/AGENT_REPAIR.md) for private
+evidence, explicit static/unit/runtime/security profiles and staged issue/PR
+proposals. `pr-check` stays read-only. Doctor/check never grant install, stack
+startup, provider/customer access or publication permission. Runtime and scanner
+coverage that cannot run safely is blocked, never claimed passed.
