@@ -989,6 +989,18 @@ export class BillingInvoices {
     invoice.holdDetail = null;
   }
 
+  /**
+   * A void gives up the hold, as the API does (it clears the reason, the detail
+   * and the moment it was held): only a draft can be held. What a release once
+   * recorded stays.
+   */
+  private dropHold(invoice: Invoice) {
+    invoice.holdReason = null;
+    invoice.holdDetail = null;
+    const released = invoice.hold?.releasedAt;
+    invoice.hold = released ? { ...invoice.hold, heldAt: undefined } : null;
+  }
+
   /** `POST /invoices/{invoiceId}/release-hold`. */
   releaseHold(id: string, reason: string | undefined): Invoice {
     this.consume('releaseHold');
@@ -1227,6 +1239,7 @@ export class BillingInvoices {
     invoice.status = 'VOID';
     invoice.voidedAt = new Date(this.now()).toISOString();
     invoice.voidReason = reason ?? null;
+    this.dropHold(invoice);
     invoice.provider = invoice.provider && {
       ...invoice.provider,
       nextPushAt: undefined,

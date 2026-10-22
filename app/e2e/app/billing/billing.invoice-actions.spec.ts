@@ -647,6 +647,34 @@ test.describe('voiding an invoice', () => {
     await expect(invoice.summary()).toContainText('wrong amount');
   });
 
+  test('gives up the hold of a held draft: the page reads Void, not Held, and drops the banner', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-h1');
+    await expect(invoice.statusBadge()).toHaveText('Held');
+    await expect(invoice.holdBanner()).toBeVisible();
+    await invoice.action('Void').click();
+    await invoice.confirmWithReason('Void invoice', 'cancelled while held');
+
+    await expectToast(page, 'Invoice voided');
+    await expect(invoice.statusBadge()).toHaveText('Void');
+    await expect(invoice.holdBanner()).toHaveCount(0);
+    await invoice.expectActions(['Recompose']);
+    // What the API answers: the hold is cleared with the void.
+    const voided = await page.evaluate(async () => {
+      const response = await fetch('/api/invoices/inv-h1');
+
+      return response.json();
+    });
+    expect(voided.status).toBe('VOID');
+    expect(voided.holdReason ?? null).toBeNull();
+    expect(voided.holdDetail ?? null).toBeNull();
+    expect(voided.hold ?? null).toBeNull();
+  });
+
   test('shows a failure that changed nothing as such, keeps the status, and sends it again when asked', async ({
     page,
   }) => {
