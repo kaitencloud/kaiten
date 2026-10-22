@@ -31,7 +31,8 @@ type UseAttachAddonFormOptions = {
  * not a failure: the request is sent again by itself, once, after the minute the API
  * names, and `closing` says so meanwhile. A refusal leaves the form as it is, with
  * what was typed, since nothing was attached and it can be sent again: it goes on its
- * field when it is about one, and is returned as the failure otherwise. Once the
+ * field when it is about one, and is returned as the failure otherwise. `offered` is the
+ * versions to list: those given, and the one sent when a refusal made them out of date. Once the
  * add-on is attached, the toast says what it did to the entitlements.
  */
 export function useAttachAddonForm({
@@ -46,11 +47,26 @@ export function useAttachAddonForm({
   const { closing, send } = useBoundaryRetry();
   const [failure, setFailure] = useState<unknown>(null);
   const sending = useRef(false);
+  // The version that was sent. A refusal that says the screen is out of date (the family was
+  // attached in another tab) reads the instance again, and the version is then no longer
+  // offered: it stays on the field with the words of the API under it, instead of the field
+  // being emptied and asked for again, which would take the refusal away unread.
+  const [sent, setSent] = useState<Addon | null>(null);
+  const offered =
+    sent && !addons.some(({ slug }) => slug === sent.slug)
+      ? [sent, ...addons]
+      : addons;
 
   const form = useAppForm({
     ...attachAddonFormOpts,
     listeners: {
-      onChange: () => setFailure(null),
+      onChange: ({ fieldApi }) => {
+        setFailure(null);
+        // Another version chosen: the one that was sent is no longer on the field.
+        if (fieldApi.name === 'addonSlug') {
+          setSent(null);
+        }
+      },
     },
     onSubmit: async ({ formApi, value }) => {
       if (sending.current) {
@@ -59,7 +75,8 @@ export function useAttachAddonForm({
       sending.current = true;
       setFailure(null);
       try {
-        const addon = addons.find(({ slug }) => slug === value.addonSlug);
+        const addon = offered.find(({ slug }) => slug === value.addonSlug);
+        setSent(addon ?? null);
 
         await report(
           () =>
@@ -89,7 +106,7 @@ export function useAttachAddonForm({
       onChange: ({ value }) => {
         const errors = getAttachAddonFormErrors(
           value,
-          addons.find(({ slug }) => slug === value.addonSlug),
+          offered.find(({ slug }) => slug === value.addonSlug),
         );
 
         // A field reads the message of its first error, as the schema validators
@@ -108,5 +125,5 @@ export function useAttachAddonForm({
     },
   });
 
-  return { closing, failure, form };
+  return { closing, failure, form, offered };
 }

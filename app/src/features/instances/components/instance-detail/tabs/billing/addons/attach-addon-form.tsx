@@ -38,7 +38,7 @@ export function AttachAddonForm({
   const { t } = useTranslation();
   const formId = useId();
   const { entitlements, instance } = useInstanceDetail();
-  const { closing, failure, form } = useAttachAddonForm({
+  const { closing, failure, form, offered } = useAttachAddonForm({
     addons,
     entitlements,
     instanceSlug: instance.slug ?? instance.id,
@@ -64,7 +64,7 @@ export function AttachAddonForm({
           <div className="space-y-5">
             {notice}
             <AttachAddonFields
-              addons={addons}
+              addons={offered}
               form={form}
               period={subscription.billingPeriod}
             />

@@ -24,7 +24,7 @@ import {
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
-import { buildAddon, buildPrice } from '../../../../../../../../../e2e/app/_support/fixtures';
+import { buildAddon, buildInstanceAddon, buildPrice } from '../../../../../../../../../e2e/app/_support/fixtures';
 import { billingCapabilitiesProfiles } from '../../../../../../../../../e2e/app/_support/model/billing-capabilities';
 import { INSTANCE, subscription } from '../../__tests__/lifecycle-fixtures';
 import { AttachAddonDialog } from '../attach-addon-dialog';
@@ -498,6 +498,51 @@ describe('the dialog that adds an add-on to an instance', () => {
     expect(screen.queryByRole('alert')).toBeNull();
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByRole('combobox', { name: /Add-on/ })).toHaveTextContent('Extra storage · 2026');
+  });
+
+  it('keeps the version chosen, and the words of the API under it, when the family was attached elsewhere in the meantime', async () => {
+    const heldStorage = buildInstanceAddon({
+      addon: STORAGE_V1,
+      id: 'attachment-storage',
+      quantity: 1,
+    });
+    let attached = false;
+    server.use(
+      handleListInstanceAddons(() =>
+        HttpResponse.json(attached ? [heldSeats(), heldStorage] : [heldSeats()]),
+      ),
+    );
+    const bodies = serveAttach(() => {
+      attached = true;
+
+      return refusal(409, {
+        code: 'AttachInstanceAddon.FamilyAlreadyAttached',
+        detail:
+          'the instance already holds a version of this add-on: change its quantity, or detach it first',
+      });
+    });
+    const { onClose } = renderDialog();
+    await choose('Extra storage · 2026');
+
+    await userEvent.click(await submit());
+
+    const refusedAs =
+      'the instance already holds a version of this add-on: change its quantity, or detach it first';
+    expect(await screen.findByText(refusedAs)).toBeInTheDocument();
+    // The list behind the dialog is read again, and no longer offers the family.
+    await waitFor(() => expect(attached).toBe(true));
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(screen.getByText(refusedAs)).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: /Add-on/ })).toHaveTextContent('Extra storage · 2026');
+    expect(screen.queryByText('Choose an add-on', { selector: '[data-slot="form-message"]' })).toBeNull();
+    expect(bodies).toHaveLength(1);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Another version chosen: the one that is held now is not offered, nor is its refusal kept.
+    await choose('Priority support · 2026');
+    expect(screen.queryByText(refusedAs)).toBeNull();
+    await userEvent.click(screen.getByRole('combobox', { name: /Add-on/ }));
+    expect(screen.queryByRole('option', { name: 'Extra storage · 2026' })).toBeNull();
   });
 
   it('shows a refusal that is about no field above the buttons, with a way to ask again', async () => {
