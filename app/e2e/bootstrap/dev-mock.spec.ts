@@ -4,10 +4,15 @@ test('dev:mock boots its own world and reads it after reload without a stack', a
   page,
 }) => {
   const errors: string[] = [];
+  const webhookRequests: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => {
     if (message.text().includes('[MSW] Unhandled API request:'))
       errors.push(message.text());
+  });
+  page.on('request', (request) => {
+    if (/\/api\/webhooks(?:[/?]|$)/.test(request.url()))
+      webhookRequests.push(request.url());
   });
   await page.goto('/customers');
   await expect(
@@ -21,6 +26,9 @@ test('dev:mock boots its own world and reads it after reload without a stack', a
     page.getByRole('cell', { name: 'Acme Corp', exact: true }),
   ).toBeVisible();
   expect(errors).toEqual([]);
+  // dev:mock serves no webhooks, and the console does not ask for them: a request
+  // that can only end in a 404 would sit in the network tab of every page.
+  expect(webhookRequests).toEqual([]);
 });
 
 test('dev:mock answers every request of the billing screens of the instances, the customers, the add-ons and the settings', async ({

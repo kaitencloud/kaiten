@@ -264,7 +264,7 @@ pnpm run test:e2e:codegen:storybook    # in a second terminal
 For the application, `test:e2e:codegen:app` opens `http://127.0.0.1:3100` and starts no server. The dev server of the application suite has the sign-in bypass but no mocks, because a spec installs them from the test: the page shows no data.
 
 ```bash
-VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true \
+VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true VITE_KAITEN_WEBHOOKS=true \
   pnpm exec vp dev --host 127.0.0.1 --port 3100
 pnpm run test:e2e:codegen:app          # in a second terminal
 ```

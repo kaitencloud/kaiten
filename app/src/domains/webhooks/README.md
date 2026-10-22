@@ -26,7 +26,13 @@ never enforced, so it changes nothing here. So the console asks the routes thems
 | 403 | refused: the licence grants 0 webhook events, or none (`Webhooks.NotEntitled`), or the caller has no `read:webhooks` | `false` |
 | anything else (503 `Webhooks.EntitlementVerificationUnavailable`, a network error) | no answer | throws |
 
-No platform flag and no console setting decides it. The call is written by
+No platform flag decides it, and no console setting says whether webhooks are
+on. The console only declines to ask where nothing can answer
+(`webhooksCanBeServed`): a build with no `VITE_KAITEN_PLATFORM_API_URL` is
+self-hosted, has no saas-api, and `getWebhooksServed` returns `false` without
+sending the request, so that no page carries a 404 for it. A dev server or an e2e
+build, which cannot tell, sets `VITE_KAITEN_WEBHOOKS=true` to ask (the Playwright
+app suite does; `dev:mock` does not). The call is written by
 hand, on the shared `client`, because `app/openapi.yaml` does not describe the
 webhooks paths (see the feature's [Data](../../features/webhooks/README.md#data)).
 
@@ -53,7 +59,8 @@ history) calls `ensureQueryData(webhooksServedQueryOptions)`: `false` throws
 
 ## Tests
 
-- `__tests__/webhooks-served.test.ts`: each row of the table above.
+- `__tests__/webhooks-served.test.ts`: each row of the table above, and the
+  builds that never send the request.
 - The consumers' own tests seed the query: `side-nav-sections.test.tsx`,
   `-route.test.ts` (which also drives a 403 and a 503 through the guard),
   `scope-access-table.test.tsx`, and the side navigation and token stories.

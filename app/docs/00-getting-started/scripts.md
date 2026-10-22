@@ -117,7 +117,7 @@ The dev server that `test:e2e:app` starts (`webServer` in
 `playwright.app.config.ts`) is, from `app/`:
 
 ```bash
-VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true \
+VITE_API_URL=/api VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true VITE_KAITEN_WEBHOOKS=true \
   pnpm exec vp dev --host 127.0.0.1 --port 3100
 ```
 

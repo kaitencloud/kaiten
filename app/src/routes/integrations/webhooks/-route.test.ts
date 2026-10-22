@@ -5,11 +5,23 @@ import { webhooksServedQueryOptions } from '@/domains/webhooks';
 import { ApiError } from '@/lib/errors';
 import { Route } from './route';
 
-const { getMock } = vi.hoisted(() => ({ getMock: vi.fn() }));
+const { getMock, platform } = vi.hoisted(() => ({
+  getMock: vi.fn(),
+  platform: { url: 'https://platform.test/api' },
+}));
 
 // What the guard asks when nothing is cached: GET /webhooks.
 vi.mock('@/api-client/client.gen', () => ({
   client: { get: getMock },
+}));
+
+// A Kaiten Cloud build, which names its platform and so may be served webhooks.
+vi.mock('@/env', () => ({
+  default: {
+    get PLATFORM_API_URL() {
+      return platform.url;
+    },
+  },
 }));
 
 const beforeLoad = Route.options.beforeLoad as unknown as (options: {
@@ -31,6 +43,7 @@ const outcomeOf = (guard: Promise<unknown>) =>
 describe('/integrations/webhooks guard', () => {
   beforeEach(() => {
     getMock.mockReset();
+    platform.url = 'https://platform.test/api';
   });
 
   it('opens where webhooks are served', async () => {
@@ -56,6 +69,17 @@ describe('/integrations/webhooks guard', () => {
 
     expect(isNotFound(outcome)).toBe(true);
     expect(getMock).toHaveBeenCalledOnce();
+  });
+
+  it('is not found in a self-hosted build, without asking', async () => {
+    platform.url = '';
+
+    const outcome = await outcomeOf(
+      beforeLoad({ context: { queryClient: new QueryClient() } }),
+    );
+
+    expect(isNotFound(outcome)).toBe(true);
+    expect(getMock).not.toHaveBeenCalled();
   });
 
   // The licence could not be read: the router's retryable error page, not a
