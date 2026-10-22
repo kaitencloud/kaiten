@@ -60,6 +60,7 @@ func managementError(err error) error {
 func user(row db.GetOrganizationUserRow) schema.ManagedUser {
 	return schema.ManagedUser{ID: row.ID, ExternalID: row.ExternalID, Name: row.Name, Email: row.Email, CreatedAt: row.CreatedAt.Time, Authorization: schema.UserAuthorization{Enabled: row.Enabled, Roles: append([]string{}, row.Roles...), Permissions: append([]string{}, row.Permissions...)}}
 }
+
 func (u *UseCase) Get(ctx context.Context, orgID, actorID, userID uuid.UUID) (schema.ManagedUser, error) {
 	if err := u.administrator(ctx, orgID, actorID); err != nil {
 		return schema.ManagedUser{}, err
@@ -67,6 +68,7 @@ func (u *UseCase) Get(ctx context.Context, orgID, actorID, userID uuid.UUID) (sc
 	row, err := u.queries.GetOrganizationUser(ctx, db.GetOrganizationUserParams{OrganizationID: orgID, UserID: userID})
 	return user(row), managementError(err)
 }
+
 func (u *UseCase) Me(ctx context.Context, orgID, actorID uuid.UUID) (schema.Me, error) {
 	a, err := u.store.Resolve(ctx, orgID, actorID)
 	if err != nil {
@@ -78,6 +80,7 @@ func (u *UseCase) Me(ctx context.Context, orgID, actorID uuid.UUID) (schema.Me, 
 	}
 	return schema.Me{User: user(row), OrganizationID: orgID, Scopes: a.EffectiveScopes(), AvailableRoles: schema.BuiltInRoles(), AvailablePermissions: scope.OrganizationScopes()}, nil
 }
+
 func (u *UseCase) List(ctx context.Context, orgID, actorID uuid.UUID, limit int32, cursor *string) (pagination.Page[schema.ManagedUser], error) {
 	if err := u.administrator(ctx, orgID, actorID); err != nil {
 		return pagination.Page[schema.ManagedUser]{}, err
@@ -101,6 +104,7 @@ func (u *UseCase) List(ctx context.Context, orgID, actorID uuid.UUID, limit int3
 	}
 	return pagination.BuildPage(items, limit, func(item schema.ManagedUser) pagination.IDCursor { return pagination.IDCursor{ID: item.ID} })
 }
+
 func (u *UseCase) Replace(ctx context.Context, orgID, actorID, userID uuid.UUID, assignment schema.UserAuthorization) (schema.UserAuthorization, error) {
 	if err := u.administrator(ctx, orgID, actorID); err != nil {
 		return schema.UserAuthorization{}, err
@@ -111,6 +115,7 @@ func (u *UseCase) Replace(ctx context.Context, orgID, actorID, userID uuid.UUID,
 	result, err := u.store.ReplaceAuthorization(ctx, orgID, actorID, userID, assignment)
 	return result, managementError(err)
 }
+
 func (u *UseCase) Update(ctx context.Context, orgID, actorID, userID uuid.UUID, profile schema.Profile) error {
 	if err := u.administrator(ctx, orgID, actorID); err != nil {
 		return err

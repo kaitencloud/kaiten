@@ -110,7 +110,6 @@ func TestValidateTokenOnServiceAccount(t *testing.T) {
 
 		require.NotContains(t, claims, "scopes", "Authorization must not travel in JWT claims")
 		require.Equal(t, output.ID.String(), claims["kaiten_token_id"])
-
 	})
 
 	t.Run("WhenServiceAccountIsSoftDeleted_RejectsToken", func(t *testing.T) {

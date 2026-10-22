@@ -14,15 +14,17 @@ import (
 type Application interface {
 	GetMe(ctx context.Context, cl caller.OrganizationCaller) (schema.Me, error)
 }
-type Request struct{}
-type Response struct{ Body schema.Me }
+type (
+	Request  struct{}
+	Response struct{ Body schema.Me }
+)
 
 func RegisterEndpoint(api huma.API, app Application) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
 		OperationID: "GetMe", Method: http.MethodGet, Path: "/me", Summary: "Read current user and effective authorization",
 		Description: "Available to every active human member, including members with no assigned roles or permissions.",
 		Tags:        []string{"users"}, Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
-	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
+	}, RequiredScope, func(ctx context.Context, _ *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {
 			return nil, err

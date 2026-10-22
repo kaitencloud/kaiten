@@ -72,7 +72,7 @@ func TestStoredAuthorization(t *testing.T) {
 		require.ErrorIs(t, err, pgx.ErrNoRows)
 	})
 
-	t.Run("failed transaction and ineligible signins do not consume bootstrap", func(t *testing.T) {
+	t.Run("failed transaction and ineligible sign-ins do not consume bootstrap", func(t *testing.T) {
 		require.NoError(t, testDB.Reset())
 		cmd := command(org)
 		rollback := errors.New("caller rollback")
@@ -87,17 +87,19 @@ func TestStoredAuthorization(t *testing.T) {
 			err = nil
 			cmd := command(org)
 			id := externalid.DeriveUserID(cmd.Subject)
-			if kind == "machine" {
+			switch kind {
+			case "machine":
 				_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO "user"(id,external_id,name,type,slug,organization_id) VALUES ($1,$2,'Machine','machine',$2,$3)`, id, cmd.Subject, org)
-			} else if kind == "system" {
+			case "system":
 				cmd.Subject = "system:kaiten"
-			} else {
+			default:
 				_, err = q.CreateUser(t.Context(), db.CreateUserParams{ID: &id, ExternalID: cmd.Subject, Email: &cmd.Email, Name: cmd.Name})
 			}
 			require.NoError(t, err)
-			if kind == "deleted-user" {
+			switch kind {
+			case "deleted-user":
 				_, err = q.DeleteUser(t.Context(), id)
-			} else if kind == "deleted-membership" || kind == "disabled" {
+			case "deleted-membership", "disabled":
 				_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO user_on_organization(organization_id,user_id,deleted_at) VALUES ($1,$2, CASE WHEN $3 THEN now() ELSE NULL END)`, org, id, kind == "deleted-membership")
 				if kind == "disabled" {
 					_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO user_organization_authorization(organization_id,user_id,enabled) VALUES ($1,$2,FALSE)`, org, id)
@@ -212,7 +214,7 @@ func TestStoredAuthorization(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "Managed", row.Name)
 		require.Equal(t, "managed@example.com", *row.Email)
-		rows, err := q.ListOrganizationUsers(t.Context(), db.ListOrganizationUsersParams{OrganizationID: org, LimitPlusOne: 10})
+		rows, err := q.ListOrganizationUsers(t.Context(), db.ListOrganizationUsersParams{OrganizationID: org, CursorID: nil, LimitPlusOne: 10})
 		require.NoError(t, err)
 		require.Len(t, rows, 3)
 		cursor := rows[0].ID

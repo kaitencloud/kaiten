@@ -25,24 +25,28 @@ func (u Users) ListUsers(ctx context.Context, cl caller.OrganizationCaller, limi
 	}
 	return u.uc.ListUsers.Execute(bindOrganization(ctx, cl), cl.OrganizationID(), cl.UserID(), limit, cursor)
 }
+
 func (u Users) GetUser(ctx context.Context, cl caller.OrganizationCaller, id uuid.UUID) (schema.ManagedUser, error) {
 	if err := cl.Require(getuser.RequiredScope); err != nil {
 		return schema.ManagedUser{}, err
 	}
 	return u.uc.GetUser.Execute(bindOrganization(ctx, cl), cl.OrganizationID(), cl.UserID(), id)
 }
+
 func (u Users) UpdateUser(ctx context.Context, cl caller.OrganizationCaller, id uuid.UUID, profile schema.Profile) error {
 	if err := cl.Require(updateuser.RequiredScope); err != nil {
 		return err
 	}
 	return u.uc.UpdateUser.Execute(bindOrganization(ctx, cl), cl.OrganizationID(), cl.UserID(), id, profile)
 }
+
 func (u Users) PutUserAuthorization(ctx context.Context, cl caller.OrganizationCaller, id uuid.UUID, assignment schema.UserAuthorization) (schema.UserAuthorization, error) {
 	if err := cl.Require(putauthorization.RequiredScope); err != nil {
 		return schema.UserAuthorization{}, err
 	}
 	return u.uc.PutAuthorization.Execute(bindOrganization(ctx, cl), cl.OrganizationID(), cl.UserID(), id, assignment)
 }
+
 func (u Users) GetMe(ctx context.Context, cl caller.OrganizationCaller) (schema.Me, error) {
 	if err := cl.Require(getme.RequiredScope); err != nil {
 		return schema.Me{}, err
