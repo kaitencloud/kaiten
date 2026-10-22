@@ -340,6 +340,8 @@ test.describe('changing a published voucher', () => {
       code: 'WELCOME-SPRING-2027',
       duration: 'REPEATING',
       durationInPeriods: 3,
+      // The end the person did not touch goes as stored, to the second.
+      expiresAt: '2027-06-30T23:59:59.000Z',
       maxRedemptions: 150,
       name: 'Welcome spring 2027',
       priceAppliesTo: 'LICENSE_BASE',

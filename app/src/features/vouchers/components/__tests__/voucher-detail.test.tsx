@@ -399,7 +399,7 @@ describe('changing a published voucher', () => {
       code: 'WELCOME-SPRING-2027',
       duration: 'REPEATING',
       durationInPeriods: 3,
-      expiresAt: '2999-06-30T23:59:00.000Z',
+      expiresAt: '2999-06-30T23:59:59.000Z',
       maxRedemptions: 100,
       name: 'Welcome spring 2027',
       priceAppliesTo: 'LICENSE_BASE',

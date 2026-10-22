@@ -87,6 +87,23 @@ const grantToStoredBody = ({ modifierValue, ...grant }: Grant): Grant =>
   modifierValue == null ? grant : { ...grant, modifierValue };
 
 /**
+ * The end to send. The field holds the stored end to the minute, so an end the
+ * person left alone goes as it is stored: rewritten from the field, an end at
+ * `23:59:59` would fall back by 59 seconds at each save that changed something
+ * else.
+ */
+function editedExpiresAt(
+  voucher: Voucher,
+  expiresAt: string,
+): string | undefined {
+  if (expiresAt === instantToDateTimeInput(voucher.expiresAt)) {
+    return voucher.expiresAt ?? undefined;
+  }
+
+  return dateTimeInputToInstant(expiresAt) ?? undefined;
+}
+
+/**
  * The replacement of an ACTIVE voucher: the four members the person changed, and every
  * other one restated as the API stores it. The API takes the whole body and compares the
  * members it does not let change with what it holds, answering 409 when one differs, and
@@ -110,7 +127,7 @@ export function voucherToEditBody(
       values.description.trim() === '' ? undefined : values.description.trim(),
     duration: voucher.duration,
     durationInPeriods: voucher.durationInPeriods ?? undefined,
-    expiresAt: dateTimeInputToInstant(values.expiresAt) ?? undefined,
+    expiresAt: editedExpiresAt(voucher, values.expiresAt),
     grants: voucher.grants.map(grantToStoredBody),
     maxRedemptions: Number.isNaN(values.maxRedemptions)
       ? undefined

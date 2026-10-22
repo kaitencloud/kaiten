@@ -103,6 +103,37 @@ describe('what a published voucher lets change', () => {
     });
   });
 
+  describe('an end that is not touched', () => {
+    const SECONDS = { ...STORED, expiresAt: '2027-06-30T23:59:59Z' };
+
+    it('goes as it is stored when only the name changes, to the second', () => {
+      const body = voucherToEditBody(SECONDS, {
+        ...voucherToEditValues(SECONDS),
+        name: 'Renamed',
+      });
+
+      expect(body.expiresAt).toBe('2027-06-30T23:59:59Z');
+    });
+
+    it('is rewritten from the field once the person changes it', () => {
+      const body = voucherToEditBody(SECONDS, {
+        ...voucherToEditValues(SECONDS),
+        expiresAt: '2027-07-15T08:30',
+      });
+
+      expect(body.expiresAt).toBe('2027-07-15T08:30:00.000Z');
+    });
+
+    it('is left out once the person empties it', () => {
+      const body = voucherToEditBody(SECONDS, {
+        ...voucherToEditValues(SECONDS),
+        expiresAt: '',
+      });
+
+      expect(body.expiresAt).toBeUndefined();
+    });
+  });
+
   it('reads a voucher whose absent members are null as it reads one that leaves them out', () => {
     const bare = buildVoucher({
       code: 'ABCDEFGH',
