@@ -149,7 +149,7 @@ test.describe('issuing a key that opens the anonymous checkout', () => {
     await expect(keys.createButton()).toBeDisabled();
   });
 
-  test('shows the API its words on the switch when it refuses the checkout, and keeps what was typed', async ({
+  test('says it in the console’s words on the switch when the API refuses the checkout, and keeps what was typed', async ({
     page,
   }) => {
     const keys = new PublishableKeysDriver(page);
@@ -171,8 +171,9 @@ test.describe('issuing a key that opens the anonymous checkout', () => {
     await keys.createButton().click();
 
     await expect(keys.dialog()).toContainText(
-      'anonymousCheckout needs a Turnstile site key and a Turnstile secret',
+      'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
     );
+    await expect(keys.dialog()).not.toContainText('anonymousCheckout needs');
     await expect(keys.anonymousCheckout()).toHaveAttribute(
       'aria-invalid',
       'true',
@@ -369,7 +370,7 @@ test.describe('changing a key that opens the anonymous checkout', () => {
     await keys.removeSecret().click();
 
     await expect(keys.secretStatus()).toHaveText(
-      'The secret will be removed when you save.',
+      'The secret will be removed when you save, but anonymous checkout needs one. Keep the secret, or turn anonymous checkout off.',
     );
     await expect(keys.dialog()).toContainText(
       'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
@@ -377,6 +378,9 @@ test.describe('changing a key that opens the anonymous checkout', () => {
     await expect(keys.saveButton()).toBeDisabled();
 
     await keys.anonymousCheckout().click();
+    await expect(keys.secretStatus()).toHaveText(
+      'The secret will be removed when you save.',
+    );
     await expect(keys.saveButton()).toBeEnabled();
     await keys.saveButton().click();
 
@@ -456,7 +460,7 @@ test.describe('changing a key that opens the anonymous checkout', () => {
     ]);
   });
 
-  test('shows the API its words on the switch when it refuses a key left without a value', async ({
+  test('says it in the console’s words on the switch when the API refuses a key left without a value', async ({
     page,
   }) => {
     const keys = new PublishableKeysDriver(page);
@@ -475,8 +479,9 @@ test.describe('changing a key that opens the anonymous checkout', () => {
     await keys.saveButton().click();
 
     await expect(keys.dialog()).toContainText(
-      'anonymousCheckout needs a Turnstile site key and a Turnstile secret',
+      'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
     );
+    await expect(keys.dialog()).not.toContainText('anonymousCheckout needs');
     await expect(page).toHaveURL(
       '/integrations/publishable-keys/pk-checkout/edit',
     );
@@ -523,11 +528,36 @@ test.describe('the anonymous checkout of a key, read in French', () => {
     );
     await keys.removeSecret().click();
     await expect(keys.secretStatus()).toHaveText(
-      'Le secret sera retiré à l’enregistrement.',
+      'Le secret sera retiré à l’enregistrement, mais le paiement anonyme en a besoin. Gardez le secret, ou désactivez le paiement anonyme.',
     );
     await expect(keys.dialog()).toContainText(
       'Le paiement anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
     );
+  });
+
+  test('says the refusal of the API in French, not in its developer words', async ({
+    page,
+  }) => {
+    await startInLanguage(page, 'fr');
+    const keys = new PublishableKeysDriver(page);
+    const model = createAnonymousCheckoutBillingModel();
+    model.publishableKeys.armProblem('updatePublishableKey', {
+      code: 'UpdatePublishableKey.TurnstileNotConfigured',
+      detail:
+        'anonymousCheckout needs a Turnstile site key and a Turnstile secret',
+      status: 422,
+    });
+    await installBillingAppMocks(page, model);
+    await page.goto('/integrations/publishable-keys');
+    await page.getByRole('link', { name: 'Modifier Checkout page' }).click();
+
+    await keys.fill({ label: 'Checkout page v2' });
+    await keys.dialog().getByRole('button', { name: 'Enregistrer' }).click();
+
+    await expect(keys.dialog()).toContainText(
+      'Le paiement anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
+    );
+    await expect(keys.dialog()).not.toContainText('anonymousCheckout needs');
   });
 });
 

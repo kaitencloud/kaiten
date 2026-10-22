@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
+import { StrictMode } from 'react';
 import {
   afterAll,
   beforeAll,
@@ -229,6 +230,19 @@ describe('issuing a key that opens the anonymous checkout', () => {
     expect(screen.getByRole('button', { name: 'Create key' })).toBeDisabled();
   });
 
+  it('leaves the focus where the dialog put it, on the label, in StrictMode as in production', async () => {
+    renderScreen(
+      <StrictMode>
+        <PublishableKeyFormDialog onClose={onClose} />
+      </StrictMode>,
+    );
+
+    const secret = await screen.findByLabelText(/^Turnstile secret/);
+
+    await waitFor(() => expect(screen.getByLabelText(/^Label/)).toHaveFocus());
+    expect(secret).not.toHaveFocus();
+  });
+
   describe('on a deployment with no Vault', () => {
     beforeEach(() => {
       server.use(
@@ -284,7 +298,7 @@ describe('issuing a key that opens the anonymous checkout', () => {
     expect(screen.queryByTestId('created-key')).not.toBeInTheDocument();
   });
 
-  it('shows the API its words on the switch when it refuses the checkout for want of a Turnstile value', async () => {
+  it('says it in the console’s words on the switch when the API refuses the checkout for want of a Turnstile value', async () => {
     const user = userEvent.setup();
     server.use(
       handleCreatePublishableKey(() =>
@@ -304,7 +318,7 @@ describe('issuing a key that opens the anonymous checkout', () => {
     await user.click(await screen.findByRole('button', { name: 'Create key' }));
 
     const message = await screen.findByText(
-      'anonymousCheckout needs a Turnstile site key and a Turnstile secret',
+      'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
     );
     expect(message).toBeVisible();
     expect(await anonymousSwitch()).toHaveAttribute('aria-invalid', 'true');
@@ -406,7 +420,7 @@ describe('changing a key that opens the anonymous checkout', () => {
     await user.click(await screen.findByRole('button', { name: 'Remove' }));
 
     expect(await screen.findByTestId('turnstile-secret-status')).toHaveTextContent(
-      'The secret will be removed when you save.',
+      'The secret will be removed when you save, but anonymous checkout needs one. Keep the secret, or turn anonymous checkout off.',
     );
     expect(
       await screen.findByText(
@@ -516,7 +530,7 @@ describe('changing a key that opens the anonymous checkout', () => {
     ]);
   });
 
-  it('shows the API its words when it refuses the site key it was left with', async () => {
+  it('says it in the console’s words when the API refuses the site key it was left with', async () => {
     const user = userEvent.setup();
     server.use(
       handleUpdatePublishableKey(() =>
@@ -536,10 +550,73 @@ describe('changing a key that opens the anonymous checkout', () => {
 
     expect(
       await screen.findByText(
-        'anonymousCheckout needs a Turnstile site key and a Turnstile secret',
+        'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
       ),
     ).toBeVisible();
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('shows a plain 422 that names the site key on the site key field, with the API’s message', async () => {
+    const user = userEvent.setup();
+    server.use(
+      handleUpdatePublishableKey(() =>
+        refusal(422, {
+          detail: 'validation failed',
+          errors: [
+            {
+              location: 'body.turnstileSiteKey',
+              message: 'expected length <= 255',
+            },
+          ],
+        }),
+      ),
+    );
+    renderScreen(
+      <PublishableKeyFormDialog onClose={onClose} publishableKey={CHECKOUT} />,
+    );
+
+    await type(user, /^Label/, 'checkout page');
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    expect(await screen.findByText('expected length <= 255')).toBeVisible();
+    expect(screen.getByLabelText(/^Turnstile site key/)).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    expect(screen.queryByText('validation failed')).not.toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not move the focus to the secret when a key with one is opened, and puts it on Replace’s field once asked', async () => {
+    const user = userEvent.setup();
+    renderScreen(
+      <StrictMode>
+        <PublishableKeyFormDialog onClose={onClose} publishableKey={CHECKOUT} />
+      </StrictMode>,
+    );
+
+    const replace = await screen.findByRole('button', { name: 'Replace' });
+    await waitFor(() => expect(screen.getByLabelText(/^Label/)).toHaveFocus());
+    expect(replace).not.toHaveFocus();
+
+    await user.click(replace);
+
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Turnstile secret/)).toHaveFocus(),
+    );
+  });
+
+  it('marks the site key as required while the checkout is on', async () => {
+    const user = userEvent.setup();
+    renderScreen(
+      <PublishableKeyFormDialog onClose={onClose} publishableKey={CHECKOUT} />,
+    );
+
+    await user.clear(await screen.findByLabelText(/^Turnstile site key/));
+
+    expect(screen.getByLabelText(/^Turnstile site key/)).toBeRequired();
+    await user.click(await anonymousSwitch());
+    expect(screen.getByLabelText(/^Turnstile site key/)).not.toBeRequired();
   });
 
   it('keeps no copy of a secret it sent', async () => {

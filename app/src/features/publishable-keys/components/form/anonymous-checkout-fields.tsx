@@ -37,6 +37,11 @@ export const AnonymousCheckoutFields = withForm({
     const { t } = useTranslation();
     const titleId = useId();
     const vaultMissing = useVaultMissing();
+    // With the switch on, the site key and the secret are what the key needs.
+    const anonymousCheckout = useStore(
+      form.store,
+      (state) => state.values.anonymousCheckout,
+    );
     // A switch left on whose site key or secret was just taken away is what the person
     // must mend next: the message says so at once, not once the switch is touched.
     const mustTurnOff = useStore(
@@ -93,6 +98,7 @@ export const AnonymousCheckoutFields = withForm({
               description={t(`${BASE}.Descriptions.turnstileSiteKey`)}
               label={t(`${BASE}.Labels.turnstileSiteKey`)}
               placeholder={t(`${BASE}.Placeholders.turnstileSiteKey`)}
+              required={anonymousCheckout}
             />
           )}
         </form.AppField>

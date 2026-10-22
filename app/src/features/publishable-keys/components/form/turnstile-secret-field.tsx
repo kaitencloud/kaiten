@@ -35,25 +35,38 @@ export const TurnstileSecretField = withForm({
       form.store,
       (state) => state.values.turnstileSecretOnFile,
     );
+    const anonymousCheckout = useStore(
+      form.store,
+      (state) => state.values.anonymousCheckout,
+    );
     const block = useRef<HTMLDivElement>(null);
-    const mounted = useRef(false);
+    // Set by the buttons below, taken by the effect that follows the state they change.
+    const focusAfterChange = useRef(false);
 
     // The button pressed leaves with the state it belonged to, and the focus would fall
-    // to the page: it goes to the first control of the state that replaces it. Not on
-    // the first render, which the person did not ask for.
+    // to the page: it goes to the first control of the state that replaces it. Only when
+    // a button asked for it, never when the field is drawn (an effect runs twice at
+    // mount in StrictMode, and the first draw is not the person's doing).
     useEffect(() => {
-      if (mounted.current) {
+      if (focusAfterChange.current) {
+        focusAfterChange.current = false;
         block.current?.querySelector<HTMLElement>('input, button')?.focus();
       }
-      mounted.current = true;
     }, [action]);
 
     const choose = (next: TurnstileSecretAction) => {
+      focusAfterChange.current = true;
       form.setFieldValue('turnstileSecretAction', next);
       form.setFieldValue('turnstileSecret', '');
       // What the API refused of the switch was about the secret as it stood.
       clearProblemFieldError(form, 'anonymousCheckout');
     };
+
+    // A secret taken away from a key that still opens the checkout cannot be saved: the
+    // line says so, since no field is left to carry the requirement.
+    const removingWords = anonymousCheckout
+      ? t(`${BASE}.Secret.removingWhileOn`)
+      : t(`${BASE}.Secret.removing`);
 
     if (action === 'set') {
       return (
@@ -68,7 +81,7 @@ export const TurnstileSecretField = withForm({
                 }
                 disabled={vaultMissing}
                 label={t(`${BASE}.Labels.turnstileSecret`)}
-                required={onFile}
+                required={onFile || anonymousCheckout}
                 type="password"
               />
             )}
@@ -100,9 +113,7 @@ export const TurnstileSecretField = withForm({
             className="text-sm text-muted-foreground"
             data-testid="turnstile-secret-status"
           >
-            {action === 'keep'
-              ? t(`${BASE}.Secret.stored`)
-              : t(`${BASE}.Secret.removing`)}
+            {action === 'keep' ? t(`${BASE}.Secret.stored`) : removingWords}
           </p>
           <div className="flex gap-2">
             {action === 'keep' ? (

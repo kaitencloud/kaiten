@@ -3445,6 +3445,8 @@ export default {
             stored:
               'Un secret est stocké pour cette clé. Il n’est jamais affiché.',
             removing: 'Le secret sera retiré à l’enregistrement.',
+            removingWhileOn:
+              'Le secret sera retiré à l’enregistrement, mais le paiement anonyme en a besoin. Gardez le secret, ou désactivez le paiement anonyme.',
             replace: 'Remplacer',
             remove: 'Retirer',
             undo: 'Garder le secret',

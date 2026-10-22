@@ -34,10 +34,6 @@ const REFUSAL_FIELDS = {
     'UpdatePublishableKey.InvalidLabel': 'label',
     'UpdatePublishableKey.InvalidOrigin': 'origins',
     'UpdatePublishableKey.TooManyOrigins': 'origins',
-    // The key would open the anonymous checkout without a site key and a secret: the
-    // switch is what the refusal is about, whichever of the two is missing.
-    'CreatePublishableKey.TurnstileNotConfigured': 'anonymousCheckout',
-    'UpdatePublishableKey.TurnstileNotConfigured': 'anonymousCheckout',
   },
   // The schema of the site key and of the secret answers a plain 422 that names the
   // member and no code.
@@ -49,6 +45,17 @@ const REFUSAL_FIELDS = {
 
 /** The refusal of a change to a key that was revoked in the meantime. */
 export const REVOKED_REFUSAL = 'UpdatePublishableKey.Revoked';
+
+/**
+ * The refusals of a key that would open the anonymous checkout without a site key and a
+ * secret. The switch is what they are about, whichever of the two is missing; they are
+ * said in the console's words, as the form's own rule says them, and not in the API's
+ * developer-facing sentence.
+ */
+const TURNSTILE_REFUSALS = new Set([
+  'CreatePublishableKey.TurnstileNotConfigured',
+  'UpdatePublishableKey.TurnstileNotConfigured',
+]);
 
 /** The refusals of a secret on a deployment that has no Vault to store it in. */
 const VAULT_REFUSALS = new Set([
@@ -151,6 +158,12 @@ export function usePublishableKeyForm({
             formApi,
             'turnstileSecret',
             'Pages.Integrations.PublishableKeys.Form.Errors.vaultNotConfigured',
+          );
+        } else if (TURNSTILE_REFUSALS.has(getProblemCode(error) ?? '')) {
+          setProblemFieldError(
+            formApi,
+            'anonymousCheckout',
+            'Pages.Integrations.PublishableKeys.Form.Errors.turnstileRequired',
           );
         } else if (!placeRefusalOnFields(formApi, error, REFUSAL_FIELDS)) {
           setFailure(error);

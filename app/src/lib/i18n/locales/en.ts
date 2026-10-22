@@ -3395,6 +3395,8 @@ export default {
           Secret: {
             stored: 'A secret is stored for this key. It is never shown.',
             removing: 'The secret will be removed when you save.',
+            removingWhileOn:
+              'The secret will be removed when you save, but anonymous checkout needs one. Keep the secret, or turn anonymous checkout off.',
             replace: 'Replace',
             remove: 'Remove',
             undo: 'Keep the secret',
