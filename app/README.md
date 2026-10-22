@@ -34,7 +34,7 @@ both paths, the prerequisites (Node 24, pnpm through Corepack) and the environme
 variables; [`.env.example`](./.env.example) lists them.
 
 To work on the interface without the stack, `pnpm run dev:mock` serves the console
-on the same port with no sign-in, and Mock Service Worker answers the whole API in
+on the same port (`pnpm run dev:mock -- --port 3200` picks another) with no sign-in, and Mock Service Worker answers the whole API in
 the page, from one set of sample records that every page shares. What a page
 changes lasts until the tab closes.
 

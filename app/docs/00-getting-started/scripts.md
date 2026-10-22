@@ -9,7 +9,7 @@ Every script is defined in [`app/package.json`](../../package.json). Run them fr
 `app/` with `pnpm run <script>`, after `pnpm install` at the repository root.
 
 The scripts call `vp`, the Vite+ command line, and add flags to it: `dev` passes
-`--port 3000`, and `test` runs only the `unit` Vitest project. Run the script, not
+`--port 3000` (`dev:mock` goes through `scripts/dev-mock.ts`, which keeps a port you ask for), and `test` runs only the `unit` Vitest project. Run the script, not
 the bare `vp` command it wraps, or you get different behaviour.
 
 Two scripts cover most days:
@@ -23,7 +23,7 @@ Two scripts cover most days:
 | Script | What it does |
 | --- | --- |
 | `dev` | Starts the dev server on port 3000. |
-| `dev:mock` | Starts the dev server on port 3000 for work without the stack: sign-in is bypassed, local auth included (`VITE_LOCAL_AUTH=false` overrides `app/.env.local`), and Mock Service Worker answers the whole API in the page (`VITE_MOCK_API=true`, `app/src/e2e/msw/dev.ts`), from one set of sample records every area shares (`app/src/e2e/msw/dev-world/`). The platform flags are off, and webhooks are not served. A change lasts until the tab closes, or until a file of the mocks is saved, and the browser console warns about each API request the mocks do not serve. |
+| `dev:mock` | Starts the dev server on port 3000 for work without the stack (`pnpm run dev:mock -- --port 3200 --strictPort` serves it elsewhere; the other Vite flags pass through too): sign-in is bypassed, local auth included (`VITE_LOCAL_AUTH=false` overrides `app/.env.local`), and Mock Service Worker answers the whole API in the page (`VITE_MOCK_API=true`, `app/src/e2e/msw/dev.ts`), from one set of sample records every area shares (`app/src/e2e/msw/dev-world/`). The platform flags are off, and webhooks are not served. A change lasts until the tab closes, or until a file of the mocks is saved, and the browser console warns about each API request the mocks do not serve. |
 | `start` | Same as `dev`. |
 | `build` | Builds the production bundle into `dist/`, then runs `tsc` (a type check: the tsconfig emits nothing). |
 | `build:ci` | Builds the CEL engine to WebAssembly, then the production bundle. CI does the two as separate steps. |
