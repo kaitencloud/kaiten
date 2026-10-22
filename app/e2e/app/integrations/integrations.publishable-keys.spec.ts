@@ -319,6 +319,32 @@ test.describe('issuing a publishable key', () => {
     await expect(page).toHaveURL('/integrations/publishable-keys/new');
   });
 
+  test('offers a Retry when the billing service could not be reached, and issues the key on the second try', async ({
+    page,
+  }) => {
+    const keys = new PublishableKeysDriver(page);
+    const model = createPublishableKeysBillingModel();
+    model.publishableKeys.armProblem('createPublishableKey', {
+      detail: 'The billing service is restarting',
+      status: 503,
+    });
+    await installBillingAppMocks(page, model);
+    await keys.goto();
+    await keys.newKey().click();
+
+    await keys.fill({ label: 'pricing', origins: ['https://example.com'] });
+    await keys.createButton().click();
+
+    const alert = keys.dialog().getByRole('alert');
+    await expect(alert).toContainText(
+      'Nothing was changed. You can try again.',
+    );
+    await expect(keys.createdKey()).toHaveCount(0);
+    await alert.getByRole('button', { name: 'Retry' }).click();
+
+    await expect(keys.createdKey()).toBeVisible();
+  });
+
   test('asks before a key that was not copied is dismissed, and lets a copied one go', async ({
     page,
     context,

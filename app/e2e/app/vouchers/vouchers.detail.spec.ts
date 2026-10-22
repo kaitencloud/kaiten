@@ -398,6 +398,32 @@ test.describe('changing a published voucher', () => {
     await expect(detail.maxRedemptionsField()).toHaveValue('50');
   });
 
+  test('offers a Retry when the billing service could not be reached, and saves on the second try', async ({
+    page,
+  }) => {
+    const detail = new VoucherDetailDriver(page);
+    const model = createVouchersBillingModel();
+    model.vouchers.armProblem('updateVoucher', {
+      detail: 'The billing service is restarting',
+      status: 503,
+    });
+    await installVouchersWorld(page, model);
+    await detail.goto('voucher-welcome', 'Welcome spring');
+    await detail.editLink().click();
+
+    await detail.nameField().fill('Welcome spring 2027');
+    await detail.saveButton().click();
+
+    const alert = detail.dialog().getByRole('alert');
+    await expect(alert).toContainText(
+      'Nothing was changed. You can try again.',
+    );
+    await alert.getByRole('button', { name: 'Retry' }).click();
+
+    await expect(detail.dialog()).toHaveCount(0);
+    await expectToast(page, 'Voucher saved');
+  });
+
   test('gives the focus to the number field the API refused, not to the page', async ({
     page,
   }) => {

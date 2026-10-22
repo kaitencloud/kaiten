@@ -93,7 +93,12 @@ export function PriceDrawer({
                 form={form}
               />
               <PriceAmountSection form={form} source={source} />
-              {failure ? <ProblemAlert error={failure} /> : null}
+              {failure ? (
+                <ProblemAlert
+                  error={failure}
+                  onRetry={() => void form.handleSubmit()}
+                />
+              ) : null}
             </div>
             <SheetFooter className="flex-row justify-end border-t">
               <Button onClick={onClose} type="button" variant="outline">

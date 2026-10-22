@@ -60,7 +60,13 @@ function AddonForm({
         <StackedFormDialogPanel>
           <div className="space-y-6">
             <AddonFormFields form={form} mode={mode} />
-            {failure ? <ProblemAlert autoFocus error={failure} /> : null}
+            {failure ? (
+              <ProblemAlert
+                autoFocus
+                error={failure}
+                onRetry={() => void form.handleSubmit()}
+              />
+            ) : null}
           </div>
         </StackedFormDialogPanel>
       </form.AppForm>

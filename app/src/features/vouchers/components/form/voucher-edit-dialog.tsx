@@ -38,7 +38,13 @@ function VoucherEditForm({ onClose, voucher }: VoucherEditDialogProps) {
         <StackedFormDialogPanel>
           <div className="space-y-6">
             <VoucherEditFields form={form} voucher={voucher} />
-            {failure ? <ProblemAlert autoFocus error={failure} /> : null}
+            {failure ? (
+              <ProblemAlert
+                autoFocus
+                error={failure}
+                onRetry={() => void form.handleSubmit()}
+              />
+            ) : null}
           </div>
         </StackedFormDialogPanel>
       </form.AppForm>

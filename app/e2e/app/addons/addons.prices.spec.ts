@@ -318,6 +318,32 @@ test.describe('adding a price', () => {
     await expectNoToast(page);
   });
 
+  test('offers a Retry when the billing service could not be reached, and sends the same price again', async ({
+    page,
+  }) => {
+    const prices = new AddonPricesDriver(page);
+    const model = createAddonsBillingModel();
+    model.addons.armProblem('createAddonPrice', {
+      detail: 'The billing service is restarting',
+      status: 503,
+    });
+    await installAddonsWorld(page, model);
+    await prices.goto('extra-seats-v2', 'Extra seats');
+
+    await prices.addPrice().click();
+    await prices.amountField().fill('13.00');
+    await prices.createButton().click();
+
+    const alert = prices.drawer().getByRole('alert');
+    await expect(alert).toContainText(
+      'Nothing was changed. You can try again.',
+    );
+    await alert.getByRole('button', { name: 'Retry' }).click();
+
+    await expectToast(page, 'Price created');
+    await expect(prices.drawer()).toHaveCount(0);
+  });
+
   test('closes with Cancel, and leaves the tab as it was', async ({ page }) => {
     const prices = new AddonPricesDriver(page);
     const writes = recordWrites(page, PRICE_WRITES);

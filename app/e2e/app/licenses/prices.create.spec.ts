@@ -75,6 +75,33 @@ test.describe('adding a price', () => {
     ]);
   });
 
+  test('offers a Retry when the billing service could not be reached, and sends the same price again', async ({
+    page,
+  }) => {
+    const prices = new LicensePricesDriver(page);
+    const drawer = new LicensePriceDrawerDriver(page);
+    const model = createPricedCatalogModel();
+    model.setNextProblem('createPrice', {
+      code: 'Armed.Unavailable',
+      detail: 'The billing service is restarting',
+      status: 503,
+    });
+    await installLicenseAppMocks(page, model);
+
+    await prices.goto('pro-v4', 'Pro');
+    await prices.addPrice().click();
+    await drawer.amount().fill('49.00');
+    await drawer.submit('Create price').click();
+
+    await expect(drawer.problem()).toContainText(
+      'Nothing was changed. You can try again.',
+    );
+    await drawer.problem().getByRole('button', { name: 'Retry' }).click();
+
+    await expectToast(page, 'Price created');
+    await drawer.expectClosed();
+  });
+
   test('takes the currency of the version once it has a price, and puts the next price after the last', async ({
     page,
   }) => {

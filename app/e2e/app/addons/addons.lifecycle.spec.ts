@@ -68,6 +68,33 @@ test.describe('making an add-on', () => {
     ]);
   });
 
+  test('offers a Retry when the billing service could not be reached, and makes the add-on on the second try', async ({
+    page,
+  }) => {
+    const list = new AddonsListDriver(page);
+    const form = new AddonFormDriver(page);
+    const model = createEmptyAddonsBillingModel();
+    model.addons.armProblem('createAddon', {
+      detail: 'The billing service is restarting',
+      status: 503,
+    });
+    await installAddonsWorld(page, model);
+
+    await list.goto();
+    await list.newAddon().click();
+    await form.fill({ name: 'Extra projects' });
+    await form.submit();
+
+    const alert = form.dialog().getByRole('alert');
+    await expect(alert).toContainText(
+      'Nothing was changed. You can try again.',
+    );
+    await alert.getByRole('button', { name: 'Retry' }).click();
+
+    await expectToast(page, 'Add-on created');
+    await expect(page).toHaveURL('/catalog/addons/extra-projects');
+  });
+
   test('sends the slug and the version name that were typed, and a version put on sale at once', async ({
     page,
   }) => {

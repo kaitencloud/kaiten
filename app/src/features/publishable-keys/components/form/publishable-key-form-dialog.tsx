@@ -65,7 +65,12 @@ function PublishableKeyForm({
         <StackedFormDialogPanel>
           <div className="space-y-6">
             <PublishableKeyFields form={form} />
-            {failure ? <FormFailure failure={failure} /> : null}
+            {failure ? (
+              <FormFailure
+                failure={failure}
+                onRetry={() => void form.handleSubmit()}
+              />
+            ) : null}
           </div>
         </StackedFormDialogPanel>
       </form.AppForm>
@@ -78,12 +83,18 @@ function PublishableKeyForm({
  * was open says so in words that tell what to do: a revoked key does not change, and a
  * new one takes its place. Any other refusal is the API's own words.
  */
-function FormFailure({ failure }: { failure: unknown }) {
+function FormFailure({
+  failure,
+  onRetry,
+}: {
+  failure: unknown;
+  onRetry: () => void;
+}) {
   const { t } = useTranslation();
 
   return (
     <div className="space-y-2">
-      <ProblemAlert autoFocus error={failure} />
+      <ProblemAlert autoFocus error={failure} onRetry={onRetry} />
       {getProblemCode(failure) === REVOKED_REFUSAL ? (
         <p className="text-sm text-muted-foreground" data-testid="revoked-hint">
           {t('Pages.Integrations.PublishableKeys.Edit.revoked')}
