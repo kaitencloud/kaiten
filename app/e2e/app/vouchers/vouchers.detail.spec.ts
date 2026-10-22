@@ -398,6 +398,30 @@ test.describe('changing a published voucher', () => {
     await expect(detail.maxRedemptionsField()).toHaveValue('50');
   });
 
+  test('gives the focus to the number field the API refused, not to the page', async ({
+    page,
+  }) => {
+    const detail = new VoucherDetailDriver(page);
+    const model = createVouchersBillingModel();
+    model.vouchers.armProblem('updateVoucher', {
+      code: 'UpdateVoucher.MaxRedemptionsBelowCount',
+      detail: 'maxRedemptions is below the redemptions already made',
+      status: 409,
+    });
+    await installVouchersWorld(page, model);
+    await detail.goto('voucher-welcome', 'Welcome spring');
+    await detail.editLink().click();
+
+    await detail.maxRedemptionsField().fill('50');
+    await detail.saveButton().click();
+
+    await expect(detail.maxRedemptionsField()).toHaveAttribute(
+      'aria-invalid',
+      'true',
+    );
+    await expect(detail.maxRedemptionsField()).toBeFocused();
+  });
+
   test('is not offered for a voucher that is not published', async ({
     page,
   }) => {

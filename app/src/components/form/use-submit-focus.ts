@@ -8,9 +8,33 @@ type SubmitFocusState = {
   isValid: boolean;
 };
 
+// What takes the focus by itself, enabled.
+const FOCUSABLE =
+  'input:not([type="hidden"]):not(:disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), [tabindex]:not([tabindex="-1"]), [contenteditable="true"]';
+
+/**
+ * Where the focus goes for an element that is marked invalid: the element itself when it
+ * takes the focus, else the control inside it. A number field marks its group invalid as
+ * well as its input, and the group, which comes first in the document, takes no focus.
+ */
+function focusTargetOf(element: HTMLElement) {
+  return element.matches(FOCUSABLE)
+    ? element
+    : element.querySelector<HTMLElement>(FOCUSABLE);
+}
+
 /** The control of the first field the form shows an error on, in document order. */
 function findFirstInvalidControl(form: HTMLFormElement | null) {
-  return form?.querySelector<HTMLElement>('[aria-invalid="true"]') ?? null;
+  for (const element of form?.querySelectorAll<HTMLElement>(
+    '[aria-invalid="true"]',
+  ) ?? []) {
+    const target = focusTargetOf(element);
+    if (target) {
+      return target;
+    }
+  }
+
+  return null;
 }
 
 /** Whether the person has been left with no place to type: nothing holds the focus. */

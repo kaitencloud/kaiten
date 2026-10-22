@@ -50,13 +50,20 @@ describe('SubmitButton', () => {
 // A form that sends what it holds and hears back: `refusal` is a message the API gives for
 // the "Reason" field, or nothing when the send is accepted. A refusal is the way a form
 // that was valid becomes invalid after a submit, with the focus on the button that sent it.
-function SendingHarness({ refusal }: { refusal?: string }) {
+function SendingHarness({
+  field = 'reason',
+  refusal,
+}: {
+  /** Which field the refusal is about. */
+  field?: 'days' | 'reason';
+  refusal?: string;
+}) {
   const form = useAppForm({
-    defaultValues: { name: 'Acme', reason: '' },
+    defaultValues: { days: 30, name: 'Acme', reason: '' },
     onSubmit: async ({ formApi }) => {
       await Promise.resolve();
       if (refusal) {
-        formApi.setFieldMeta('reason', (meta) => ({
+        formApi.setFieldMeta(field, (meta) => ({
           ...meta,
           errorMap: { ...meta.errorMap, onServer: { message: refusal } },
           isTouched: true,
@@ -70,6 +77,9 @@ function SendingHarness({ refusal }: { refusal?: string }) {
       <form.AppForm>
         <form.AppField name="name">
           {(field) => <field.TextField label="Name" />}
+        </form.AppField>
+        <form.AppField name="days">
+          {(field) => <field.NumberField label="Payment terms (days)" />}
         </form.AppField>
         <form.AppField name="reason">
           {(field) => <field.TextField label="Reason" />}
@@ -95,6 +105,20 @@ describe('SubmitButton focus', () => {
       'true',
     );
     expect(button).toBeDisabled();
+  });
+
+  it('moves the focus to the input of a number field the refusal is about', async () => {
+    const user = userEvent.setup();
+    render(<SendingHarness field="days" refusal="days is out of range" />);
+
+    const button = screen.getByRole('button', { name: 'Send' });
+    button.focus();
+    await user.keyboard('{Enter}');
+
+    // The group around the input is marked invalid too, and comes first.
+    const input = screen.getByRole('textbox', { name: 'Payment terms (days)' });
+    await waitFor(() => expect(input).toHaveFocus());
+    expect(input).toHaveAttribute('aria-invalid', 'true');
   });
 
   it('puts the focus back on the button when the form is valid again after the submit', async () => {
