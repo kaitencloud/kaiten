@@ -298,14 +298,9 @@ export class BillingPublishableKeys {
         'a revoked publishable key cannot be changed',
       );
     }
-    if (label !== undefined) {
-      key.label = label;
-    }
-    if (allowedOrigins !== undefined) {
-      key.allowedOrigins = allowedOrigins;
-    }
     // A member left out keeps its value, "" clears a Turnstile value, and the
-    // key must hold both values whenever anonymousCheckout is on.
+    // key must hold both values whenever anonymousCheckout is on. The API is atomic:
+    // everything is worked out first, and nothing is written when a rule refuses.
     const anonymousCheckout = patch.anonymousCheckout ?? key.anonymousCheckout;
     const turnstileSiteKey =
       patch.turnstileSiteKey === undefined
@@ -321,6 +316,12 @@ export class BillingPublishableKeys {
       turnstileSiteKey !== null,
       turnstileSecretConfigured,
     );
+    if (label !== undefined) {
+      key.label = label;
+    }
+    if (allowedOrigins !== undefined) {
+      key.allowedOrigins = allowedOrigins;
+    }
     key.anonymousCheckout = anonymousCheckout;
     key.turnstileSiteKey = turnstileSiteKey;
     key.turnstileSecretConfigured = turnstileSecretConfigured;

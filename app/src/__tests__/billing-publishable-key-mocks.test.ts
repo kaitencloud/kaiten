@@ -324,6 +324,31 @@ describe('the Turnstile settings of a key, as the mocks serve them', () => {
     });
   });
 
+  it('writes nothing of a change the Turnstile rule refuses, label and origins included', async () => {
+    const find = async () =>
+      (
+        await items<PublishableKey>(await send('GET', '/publishable-keys'))
+      ).find(({ id }) => id === 'publishable-key-staging');
+    const before = await find();
+
+    const refused = await send(
+      'PATCH',
+      '/publishable-keys/publishable-key-staging',
+      {
+        allowedOrigins: ['https://elsewhere.acme.test'],
+        label: 'Renamed in vain',
+        turnstileSecret: '',
+      },
+    );
+
+    expect(refused.status).toBe(422);
+    expect((await refusal(refused)).code).toBe(
+      'UpdatePublishableKey.TurnstileNotConfigured',
+    );
+    expect(before?.label).not.toBe('Renamed in vain');
+    expect(await find()).toEqual(before);
+  });
+
   it('refuses a secret on a deployment with no Vault, before anything else of the Turnstile rule, and still takes a key for the catalog', async () => {
     server.use(
       ...createMockHandlers(
