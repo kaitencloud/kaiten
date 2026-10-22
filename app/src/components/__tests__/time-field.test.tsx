@@ -208,7 +208,7 @@ describe('TimeField segments', () => {
     expect(minutes()).toHaveFocus();
   });
 
-  it('ignores a digit that cannot follow the first, as the 5 of 25 hours', async () => {
+  it('keeps the pair as it was typed when it is out of range, as the 25 of 25 hours, and marks it invalid', async () => {
     const onChange = vi.fn();
     render(<Harness onChange={onChange} />);
     const user = userEvent.setup();
@@ -216,24 +216,52 @@ describe('TimeField segments', () => {
     await user.click(hours());
     await user.keyboard('25');
 
-    expect(hours()).toHaveValue('02');
-    expect(hours()).toHaveFocus();
-    expect(onChange).toHaveBeenCalledTimes(1);
-
-    await user.keyboard('3');
-
-    expect(held()).toBe('23:--');
+    // Not 02 with the 5 dropped: the person sees what they typed, out of range.
+    expect(hours()).toHaveValue('25');
+    expect(hours()).toHaveAttribute('aria-invalid', 'true');
     expect(minutes()).toHaveFocus();
+    expect(held()).toBe('25:--');
+
+    await user.keyboard('99');
+
+    expect(held()).toBe('25:99');
+    expect(minutes()).toHaveAttribute('aria-invalid', 'true');
   });
 
-  it('starts a new entry when one is complete, so 60 minutes is 06 and then 00', async () => {
+  it.each([
+    ['2400', '24:00'],
+    ['2500', '25:00'],
+    ['1260', '12:60'],
+    ['2599', '25:99'],
+  ])('holds %s as it was typed, never as another time', async (digits, shown) => {
+    render(<Harness />);
+    const user = userEvent.setup();
+
+    await user.click(hours());
+    await user.keyboard(digits);
+
+    expect(held()).toBe(shown);
+  });
+
+  it('keeps 60 minutes as 60, which is out of range, not as 06 and then 00', async () => {
     render(<Harness initial="10:--" />);
     const user = userEvent.setup();
 
     await user.click(minutes());
     await user.keyboard('60');
 
-    expect(held()).toBe('10:00');
+    expect(held()).toBe('10:60');
+    expect(minutes()).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('starts a new entry once an entry is over, so a digit after 59 is the first of another', async () => {
+    render(<Harness initial="10:--" />);
+    const user = userEvent.setup();
+
+    await user.click(minutes());
+    await user.keyboard('593');
+
+    expect(held()).toBe('10:03');
   });
 
   it('calls onChange at each digit, with the time as the field shows it', async () => {
@@ -258,8 +286,10 @@ describe('TimeField segments', () => {
 
     expect(held()).toBe('10:07');
 
-    await user.keyboard('5');
-    await user.keyboard('9');
+    // A new entry, since the focus left the segment and came back.
+    await user.click(hours());
+    await user.click(minutes());
+    await user.keyboard('59');
 
     expect(held()).toBe('10:59');
   });

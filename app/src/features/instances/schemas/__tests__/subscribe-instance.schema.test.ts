@@ -111,6 +111,15 @@ describe('when billing starts', () => {
     });
   });
 
+  it.each(['2026-03-14T24:00', '2026-03-14T12:60', '2026-03-14T25:99', '2026-03-14T--:--'])(
+    'refuses %s, a time that does not exist, instead of reading it as another',
+    (startAt) => {
+      expect(getSubscribeFormErrors({ ...values, startAt }, { now: NOW, period: 'MONTHLY' })).toEqual({
+        startAt: 'Pages.Customers.Instances.Detail.Billing.Subscribe.Errors.startAt',
+      });
+    },
+  );
+
   it('may reach back one billing period, for a contract that began before it was entered', () => {
     expect(
       getSubscribeFormErrors({ ...values, startAt: '2027-02-15T12:00' }, { now: NOW, period: 'MONTHLY' }),

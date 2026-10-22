@@ -218,6 +218,28 @@ test.describe('subscribing an instance', () => {
     expect(writes).toHaveLength(0);
   });
 
+  for (const time of ['24:00', '12:60', '25:99']) {
+    test(`refuses the time ${time}, which does not exist, instead of turning it into another, and sends nothing`, async ({
+      page,
+    }) => {
+      const billing = new InstanceBillingDriver(page);
+      const writes = recordWrites(page, SUBSCRIPTION_WRITES, ['POST']);
+      await installBillingAppMocks(page, createSubscriptionsModel());
+      await billing.goto('beta-staging');
+      await billing.openSubscribe();
+
+      await billing.setStartAt(`2026-10-06T${time}`);
+
+      // The time is shown as it was typed, and the dialog says it is wrong.
+      await expectPickerValue(billing.startAtField(), `2026-10-06T${time}`);
+      await expect(billing.dialog()).toContainText(
+        'Enter a valid date and time',
+      );
+      await expect(billing.confirmButton()).toBeDisabled();
+      expect(writes).toHaveLength(0);
+    });
+  }
+
   test('is told before it is asked that the payment terms are no number of days up to a year, and keeps what was typed', async ({
     page,
   }) => {

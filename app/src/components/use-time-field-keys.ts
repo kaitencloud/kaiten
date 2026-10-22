@@ -52,14 +52,11 @@ export function useTimeFieldKeys({
       pending.current?.segment === segment ? pending.current.digit : null;
     const result = typeDigit(segments, segment, digit, awaiting);
 
-    if (result.ignored) {
-      return;
-    }
     onChange(joinTimeText(result.segments));
     pending.current = result.pending
       ? { segment, digit: result.pending }
       : null;
-    if (result.done && segment === 'hours') {
+    if (segment === 'hours' && result.pending === null) {
       inputs.minutes.current?.focus();
     }
   };

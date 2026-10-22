@@ -26,7 +26,20 @@ describe.each(TEST_ZONES)('in $zone', ({ zone, utcMoment }) => {
       );
     });
 
-    it.each(['', 'yesterday', '2027-13-45T10:00', '2027-03-03'])(
+    it.each([
+      '',
+      'yesterday',
+      '2027-13-45T10:00',
+      '2027-03-03',
+      // A time that does not exist is none, not another moment: a `Date` reads
+      // 24:00 as the midnight after, and a 31st of February as the 3rd of March.
+      '2027-03-03T24:00',
+      '2027-03-03T25:00',
+      '2027-03-03T12:60',
+      '2027-03-03T25:99',
+      '2027-03-03T10:00:60',
+      '2027-02-31T10:00',
+    ])(
       'is no instant when it reads %j',
       (value) => {
         expect(dateTimeInputToInstant(value)).toBeNull();

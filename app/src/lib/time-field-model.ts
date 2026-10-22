@@ -8,7 +8,8 @@
  * (not filled yet, or cleared) is written `--`, so a half-filled time is
  * `09:--`, and a time with both segments empty is the empty text. The text of a
  * segment that is out of range (`25` in the hours) is kept as it is, so that a
- * value a form hands in and that is no time is shown, not silently corrected.
+ * value a form hands in and that is no time is shown, not silently corrected;
+ * the digits a person types are kept as they are too (see `typeDigit`).
  */
 
 export type TimeSegment = 'hours' | 'minutes';
@@ -122,26 +123,27 @@ export function stepSegment(
 
 export type DigitResult = {
   segments: TimeSegments;
-  /** The first digit of a two-digit entry, kept while the second is awaited. */
+  /**
+   * The first digit of a two-digit entry, kept while the second is awaited.
+   * Null once the entry is over, which is when the focus moves on from the hours.
+   */
   pending: string | null;
-  /** Whether nothing more can follow in this segment, so the focus moves on. */
-  done: boolean;
-  /** Whether the digit was dropped: it could not follow the one awaiting it. */
-  ignored: boolean;
 };
 
 /**
  * A digit typed into a segment. A first digit that no second digit could follow
- * (`3` to `9` in the hours, `6` to `9` in the minutes) fills the segment and is
- * done; a first digit that could (`1`, or `0` and `2` in the hours) fills it as
- * `01` and waits. The second digit completes the pair when the pair is in range
- * (`16`).
+ * (`3` to `9` in the hours) fills the segment and ends the entry; a first digit
+ * that could (`1`, or `0` and `2` in the hours) fills it as `01` and waits for a
+ * second one.
  *
- * A digit that cannot follow the one awaited (the `4` of `24` hours) is
- * ignored: the segment keeps what it showed, still awaiting a digit, and the
- * time is never one the person did not type. Once an entry is complete (`06`,
- * or `16`) the next digit starts a new entry, as the time input of a browser
- * does: `60` in the minutes is `06` and then `00`.
+ * A pair that is out of range (`24` to `29` in the hours, `60` to `99` in the
+ * minutes) is kept as it was typed, and the entry ends there: the segment shows
+ * it, marked invalid, so that the time that results is one the person typed and
+ * never another one. Refusing it is the caller's. Once an entry is over the next
+ * digit starts a new one, as the time input of a browser does. In the minutes,
+ * the last segment, where no other would take the digit, a first digit of `6` to
+ * `9` also waits for a second: `60` is a pair out of range, not `06` and then
+ * `00`.
  */
 export function typeDigit(
   segments: TimeSegments,
@@ -149,32 +151,30 @@ export function typeDigit(
   digit: string,
   pending: string | null,
 ): DigitResult {
-  const max = SEGMENT_MAX[segment];
-
   if (pending !== null) {
-    const pair = Number(`${pending}${digit}`);
-    if (pair > max) {
-      return { segments, pending, done: false, ignored: true };
-    }
-
     return {
-      segments: setSegment(segments, segment, pair),
+      segments: { ...segments, [segment]: pad(Number(`${pending}${digit}`)) },
       pending: null,
-      done: true,
-      ignored: false,
     };
   }
 
-  const value = Number(digit);
-  const tens = Math.floor(max / 10);
-  const done = value > tens;
+  const ends =
+    segment === 'hours' && Number(digit) > Math.floor(SEGMENT_MAX.hours / 10);
 
   return {
-    segments: setSegment(segments, segment, value),
-    pending: done ? null : digit,
-    done,
-    ignored: false,
+    segments: { ...segments, [segment]: pad(Number(digit)) },
+    pending: ends ? null : digit,
   };
+}
+
+/**
+ * Whether both segments hold a text, in range or not: a time typed to the end,
+ * which is either a time or one that is none, as opposed to one half filled.
+ */
+export function isFilledTime(text: string): boolean {
+  const { hours, minutes } = splitTimeText(text);
+
+  return hours !== '' && minutes !== '';
 }
 
 /** Whether a time text is a complete time of day: both segments in range. */

@@ -377,7 +377,9 @@ describe('DateTimePicker', () => {
     expect(hours()).toHaveValue('25');
     expect(minutes()).toHaveValue('99');
     expect(hours()).toHaveAttribute('aria-invalid', 'true');
-    expect(screen.getByText(/Enter a complete time/)).toBeInTheDocument();
+    expect(
+      screen.getByText('Enter a time from 00:00 to 23:59.'),
+    ).toBeInTheDocument();
     expect(onChange).not.toHaveBeenCalled();
 
     const user = userEvent.setup();
@@ -386,6 +388,44 @@ describe('DateTimePicker', () => {
     expect(onChange).toHaveBeenLastCalledWith('2027-03-03T18:45');
     expect(hours()).not.toHaveAttribute('aria-invalid');
   });
+
+  describe.each(['24:00', '12:60', '25:99', '25:00'])(
+    'a time that does not exist, %s',
+    (time) => {
+      it('is given to the form as it was typed, never as another time, and is said', async () => {
+        const onChange = vi.fn();
+        render(<Harness initial="2027-03-03T10:00" onChange={onChange} />);
+        const user = userEvent.setup();
+
+        await typeTime(user, time);
+
+        // At once, while the field is still being typed in: the form never holds
+        // the time it had while the field shows another.
+        expect(onChange).toHaveBeenLastCalledWith(`2027-03-03T${time}`);
+        expect(timeText()).toBe(time);
+        expect(pickerValue(trigger())).toBe(`2027-03-03T${time}`);
+        expect(
+          screen.getByText('Enter a time from 00:00 to 23:59.'),
+        ).toBeInTheDocument();
+        expect(timeGroup()).toHaveAccessibleDescription(
+          'Enter a time from 00:00 to 23:59.',
+        );
+      });
+
+      it('stays as it is when the field is left, for the form to refuse', async () => {
+        render(<Harness initial="2027-03-03T10:00" />);
+        const user = userEvent.setup();
+
+        await typeTime(user, time);
+        await leave(user);
+
+        await waitFor(() =>
+          expect(pickerValue(trigger())).toBe(`2027-03-03T${time}`),
+        );
+        expect(timeText()).toBe(time);
+      });
+    },
+  );
 
   it('hands the state and the description of a form to the time field as well as to the date button', () => {
     render(

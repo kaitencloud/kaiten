@@ -453,6 +453,25 @@ test.describe('marking an invoice paid', () => {
     await expect(invoice.statusBadge()).toHaveText('Paid');
   });
 
+  test('refuses a time that does not exist instead of turning it into another, and sends nothing', async ({
+    page,
+  }) => {
+    const invoice = new InvoiceDetailDriver(page);
+    const writes = recordWrites(page, WRITES);
+    await installBillingAppMocks(page, createInvoicesModel());
+
+    await invoice.goto('inv-m1');
+    await invoice.action('Mark as paid').click();
+
+    await invoice.setPaidAt(`${yesterdayAt10().slice(0, 10)}T24:00`);
+
+    await expect(
+      invoice.dialog().getByText('Enter a valid date and time'),
+    ).toBeVisible();
+    await expect(invoice.confirm('Mark as paid')).toBeDisabled();
+    expect(writes).toHaveLength(0);
+  });
+
   test('refuses a payment in the future, and a number longer than the API takes, before asking it', async ({
     page,
   }) => {

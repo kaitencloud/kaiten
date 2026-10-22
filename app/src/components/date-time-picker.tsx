@@ -23,6 +23,11 @@ import {
   isUtcZone,
   localTimeHint,
 } from '@/lib/local-time-hint';
+import {
+  isFilledTime,
+  isOutOfRange,
+  splitTimeText,
+} from '@/lib/time-field-model';
 import { cn } from '@/lib/utils';
 
 const MIDNIGHT = '00:00';
@@ -59,7 +64,9 @@ type DateTimePickerProps = DatePickerTriggerProps & {
  * segments are filled: while one is empty the value is left as it was, and when
  * the field is left the form is given the half-filled time with the day
  * (`2027-03-03T10:--`), which its own validation refuses; the field shows it,
- * marked invalid, and nothing replaces it behind the person's back. The same
+ * marked invalid, and nothing replaces it behind the person's back. A
+ * time typed to the end that is none (`24:00`) is given to the form at once, as
+ * typed, and said to be wrong. The same
  * goes for a text a form hands in that is not a moment: it shows as it is and
  * stays until the person picks one.
  *
@@ -106,6 +113,10 @@ export function DateTimePicker({
   const formInvalid =
     props['aria-invalid'] === true || props['aria-invalid'] === 'true';
   const ownError = timeProblem && !formInvalid;
+  // A time with a segment out of range (`24:00`), as against one half filled.
+  const timeImpossible =
+    isOutOfRange(splitTimeText(time), 'hours') ||
+    isOutOfRange(splitTimeText(time), 'minutes');
   const zone = localTimeZone ?? browserTimeZone();
   const showsLocalTime = zone !== null && !isUtcZone(zone);
   const localHint =
@@ -140,9 +151,14 @@ export function DateTimePicker({
     );
   };
 
+  // A time typed to the end is given to the form at once, whether it is a time
+  // or not (`24:00`), so that the form never holds the time it had while the
+  // field shows another. One half filled waits for the field to be left.
   const changeTime = (text: string) => {
     write(
-      day && isTimeOfDay(text) ? joinDateTimeInput(day, text) : value,
+      day && (isTimeOfDay(text) || isFilledTime(text))
+        ? joinDateTimeInput(day, text)
+        : value,
       text,
     );
   };
@@ -248,7 +264,11 @@ export function DateTimePicker({
       ) : null}
       {ownError ? (
         <p className="text-xs text-destructive-subtle-foreground" id={errorId}>
-          {t('Common.datePicker.timeInvalid')}
+          {t(
+            timeImpossible
+              ? 'Common.datePicker.timeOutOfRange'
+              : 'Common.datePicker.timeInvalid',
+          )}
         </p>
       ) : null}
     </div>

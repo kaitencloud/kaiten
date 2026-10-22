@@ -3,6 +3,7 @@ import {
   centredScrollTop,
   clearSegment,
   isCompleteTime,
+  isFilledTime,
   isOutOfRange,
   joinTimeText,
   segmentNumber,
@@ -98,32 +99,29 @@ describe('typeDigit', () => {
   ) => {
     let segments = start;
     let pending: string | null = null;
-    let done = false;
     for (const digit of digits) {
-      ({ segments, pending, done } = typeDigit(segments, segment, digit, pending));
+      ({ segments, pending } = typeDigit(segments, segment, digit, pending));
     }
 
-    return { segments, pending, done };
+    return { segments, pending };
   };
 
   it('waits after a first digit another could follow', () => {
     expect(type('hours', '1')).toEqual({
       segments: at('01', ''),
       pending: '1',
-      done: false,
     });
     expect(type('hours', '0').pending).toBe('0');
     expect(type('hours', '2').pending).toBe('2');
     expect(type('minutes', '5').pending).toBe('5');
   });
 
-  it('moves on after a first digit that no second could follow', () => {
+  it('ends the entry of the hours after a first digit that no second could follow', () => {
     expect(type('hours', '3')).toEqual({
       segments: at('03', ''),
       pending: null,
-      done: true,
     });
-    expect(type('minutes', '6').done).toBe(true);
+    expect(type('hours', '9').segments).toEqual(at('09', ''));
     expect(type('minutes', '9').segments).toEqual(at('', '09'));
   });
 
@@ -131,47 +129,53 @@ describe('typeDigit', () => {
     expect(type('hours', '16')).toEqual({
       segments: at('16', ''),
       pending: null,
-      done: true,
     });
     expect(type('hours', '23').segments.hours).toBe('23');
     expect(type('minutes', '59').segments.minutes).toBe('59');
     expect(type('hours', '09').segments.hours).toBe('09');
   });
 
-  it('ignores a second digit that would make the pair out of range', () => {
-    // 2 then 5 is not 25 hours, and the 5 is not taken for another entry: the
-    // hours stay 02, awaiting a digit that can follow.
-    expect(type('hours', '25')).toEqual({
-      segments: at('02', ''),
-      pending: '2',
-      done: false,
-    });
-    expect(type('hours', '24').segments.hours).toBe('02');
-    // A digit that can follow still completes the entry.
-    expect(type('hours', '253').segments.hours).toBe('23');
+  it('keeps a pair that is out of range as it was typed, and ends the entry there', () => {
+    // 2 then 4 is 24 hours, not 02 with the 4 dropped: the segment shows what was
+    // typed and is out of range, for the caller to refuse.
+    expect(type('hours', '24')).toEqual({ segments: at('24', ''), pending: null });
+    expect(type('hours', '25').segments.hours).toBe('25');
+    expect(type('hours', '29').segments.hours).toBe('29');
+    expect(isOutOfRange(type('hours', '24').segments, 'hours')).toBe(true);
+    // Likewise in the minutes, where a first digit of 6 to 9 waits for a second.
+    expect(type('minutes', '60')).toEqual({ segments: at('', '60'), pending: null });
+    expect(type('minutes', '99').segments.minutes).toBe('99');
+    expect(isOutOfRange(type('minutes', '60').segments, 'minutes')).toBe(true);
   });
 
-  it('says a digit was ignored, and changes nothing', () => {
-    const typed = type('hours', '2').segments;
-
-    expect(typeDigit(typed, 'hours', '7', '2')).toEqual({
-      segments: typed,
-      pending: '2',
-      done: false,
-      ignored: true,
-    });
-    expect(typeDigit(typed, 'hours', '3', '2').ignored).toBe(false);
+  it('never turns the digits typed into another time', () => {
+    // The hours of `2400` end at `24`, and the minutes are the next two digits.
+    expect(type('hours', '24').segments.hours).toBe('24');
+    expect(type('minutes', '00').segments.minutes).toBe('00');
+    // The pair of the minutes that follows the first digit is not read as `06`
+    // and then `00`.
+    expect(type('minutes', '60').segments.minutes).not.toBe('00');
   });
 
-  it('starts a new entry once an entry is complete', () => {
-    // 6 fills the minutes and is complete, so the 0 after it is a new entry:
-    // 60 is 06 and then 00, never 60.
-    expect(type('minutes', '60').segments.minutes).toBe('00');
+  it('starts a new entry once an entry is over', () => {
     expect(type('hours', '1623').segments.hours).toBe('23');
+    expect(type('hours', '253').segments.hours).toBe('03');
+    expect(type('minutes', '5930').segments.minutes).toBe('30');
   });
 
   it('overwrites what the segment held', () => {
     expect(type('hours', '7', at('10', '30')).segments).toEqual(at('07', '30'));
+  });
+});
+
+describe('isFilledTime', () => {
+  it('says whether both segments hold a text, in range or not', () => {
+    expect(isFilledTime('09:30')).toBe(true);
+    expect(isFilledTime('24:00')).toBe(true);
+    expect(isFilledTime('12:60')).toBe(true);
+    expect(isFilledTime('09:--')).toBe(false);
+    expect(isFilledTime('--:30')).toBe(false);
+    expect(isFilledTime('')).toBe(false);
   });
 });
 

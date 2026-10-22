@@ -52,6 +52,7 @@ export default {
       localEquivalent: '= {{time}} à {{place}} ({{zone}})',
       localEquivalentNoPlace: '= {{time}} ({{zone}})',
       timeInvalid: 'Saisissez une heure complète, par exemple 09:30.',
+      timeOutOfRange: 'Saisissez une heure de 00:00 à 23:59.',
       hours: 'Heures',
       minutes: 'Minutes',
       timeEmpty: 'Vide',
