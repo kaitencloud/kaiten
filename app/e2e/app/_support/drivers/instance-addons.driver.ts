@@ -120,7 +120,11 @@ export class InstanceAddonsDriver {
 
   async optionNames(): Promise<string[]> {
     await this.addonField().click();
-    const names = await this.page.getByRole('option').allInnerTexts();
+    // The popup mounts its options a moment after it opens: reading them at once
+    // gives an empty list. The versions are all there when the first one is.
+    const options = this.page.getByRole('option');
+    await expect(options.first()).toBeVisible();
+    const names = await options.allInnerTexts();
     await this.page.keyboard.press('Escape');
     await expect(this.page.getByRole('listbox')).toHaveCount(0);
 
