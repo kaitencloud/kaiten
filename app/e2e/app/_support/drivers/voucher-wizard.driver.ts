@@ -23,11 +23,13 @@ export class VoucherWizardDriver {
   }
 
   async expectStep(title: string) {
-    // A step is alone in its card. The router changes the URL at once and keeps the
-    // page it leaves on screen until the loader of the next one is done (the voucher
-    // a boost goes with): for that moment the cards of the published page are all
-    // there, and a locator that must resolve to one element fails on the spot
-    // instead of waiting. Wait for the one card, then read its title.
+    // A step is alone in its card. Following "Add a boost" the locator was seen to
+    // match the cards of three steps at once and to fail on the spot, as a locator
+    // that must resolve to one element does, instead of waiting. The reading taken
+    // is that the router has changed the URL and still shows the page it leaves
+    // while the loader of the next one runs; it was not traced, and the wait below
+    // tolerates that transition rather than proves it harmless. Wait for the one
+    // card, then read its title.
     await expect(this.stepTitle()).toHaveCount(1);
     await expect(this.stepTitle()).toHaveText(title);
   }
