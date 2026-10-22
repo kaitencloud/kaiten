@@ -208,7 +208,7 @@ function getRetentionStart(errors: readonly ErrorDetail[]): string | undefined {
 // render.
 function messageOfFailure(error: unknown): string | undefined {
   if (isApiError(error)) {
-    return getErrorMessage({ ...mapApiError(error), message: '' });
+    return getErrorMessage(mapApiError(error));
   }
 
   return error instanceof Error ? error.message : undefined;

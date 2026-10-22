@@ -49,8 +49,7 @@ depends on the response:
 | --- | --- |
 | `ApiError` without `status` (no response) | `Errors.api.NETWORK` |
 | `ApiError` with a `Problem` body | the `detail`, else the `title`, else `Errors.api.<code>` |
-| `ApiError` with a string body | the string |
-| any other `ApiError` | `Errors.api.<code>` |
+| any other `ApiError`, a string or an HTML page included | `Errors.api.<code>` |
 | GraphQL errors | their messages, joined with `; ` |
 | `Error` | its `message` |
 | anything else | `Errors.api.UNKNOWN` |
@@ -59,8 +58,10 @@ depends on the response:
 404 `NOT_FOUND`, 409 `CONFLICT`, 429 `RATE_LIMITED`, 500, 502, 503 and 504
 `SERVER_ERROR`, any other status `UNKNOWN`. The codes are listed in
 `app/src/lib/errors/types.ts`, and `pnpm run check:api-error-i18n` fails when one has
-no `Errors.api.<code>` translation. Text written by the server is shown as is: only
-the generic `Errors.api.*` messages follow the active language.
+no `Errors.api.<code>` translation. The text of a problem is the API speaking and is
+shown as is; only the generic `Errors.api.*` messages follow the active language. A body that is not a problem is a gateway speaking, the
+`Jwt is missing` of a 401 or the HTML page of a 502, and is never printed: a 401 says
+that the session is not signed in, a 502 that the server failed.
 
 Every call to `handleApiError` is logged with `logger.error`
 (`app/src/lib/logger.ts`), which prints to the browser console in development. No
@@ -88,11 +89,9 @@ depends on what was thrown:
 
 On the card, an `ApiError` shows the `detail` of its problem, else the `title`, else
 `Errors.api.<code>`, and `Errors.api.NETWORK` when it has no `status`. That is what
-`getApiErrorMessage` returns for it, with one difference: a body that is not a problem
-is never printed. It is the text or the HTML page of a gateway, so the card shows
-`Errors.api.<code>` where `getApiErrorMessage` returns the string. `RouteError` reads
-the message with `mapApiError` and `getErrorMessage`, because `getApiErrorMessage` and
-`handleApiError` log on every call and a component renders more than once. Any other
+`getApiErrorMessage` returns for it. `RouteError` reads the message with `mapApiError`
+and `getErrorMessage`, because `getApiErrorMessage` and `handleApiError` log on every
+call and a component renders more than once. Any other
 `Error` shows its `message`, and a thrown string is shown as is.
 
 Only an `ApiError` has a status to branch on. The GraphQL client throws one when the

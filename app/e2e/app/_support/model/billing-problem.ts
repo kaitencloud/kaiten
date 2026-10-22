@@ -31,6 +31,11 @@ export class BillingProblem extends Error {
   /** The correlation id of the server-side log entry, which a 500 carries. */
   readonly errorId?: string;
   readonly retryAfterSeconds?: number;
+  /**
+   * When set, the answer is not a problem document but what a gateway in front of the
+   * API says: a plain text (`Jwt is missing`) or an HTML page, with its own content type.
+   */
+  readonly gateway?: { body: string; contentType: string };
 
   constructor(
     httpStatus: number,
@@ -39,10 +44,12 @@ export class BillingProblem extends Error {
     extras: {
       errorId?: string;
       errors?: ErrorDetail[];
+      gateway?: { body: string; contentType: string };
       retryAfterSeconds?: number;
     } = {},
   ) {
     super(detail);
+    this.gateway = extras.gateway;
     this.httpStatus = httpStatus;
     this.code = code;
     this.errors = extras.errors;

@@ -9,6 +9,12 @@ export type ArmedBillingProblem = {
   detail: string;
   errorId?: string;
   errors?: ErrorDetail[];
+  /**
+   * Answers with this body and content type instead of a problem document, as a gateway in
+   * front of the API does (a 401 text `Jwt is missing`, a 502 HTML page); `detail` is then
+   * not sent.
+   */
+  gateway?: { body: string; contentType: string };
   /** What `Retry-After` says, when the refusal carries it. */
   retryAfterSeconds?: number;
   status: number;
@@ -63,6 +69,7 @@ export class ArmedProblems<Operation extends string> {
     throw new BillingProblem(problem.status, problem.code, problem.detail, {
       errorId: problem.errorId,
       errors: problem.errors,
+      gateway: problem.gateway,
       retryAfterSeconds: problem.retryAfterSeconds,
     });
   }

@@ -75,14 +75,19 @@ export const problemJson = (
  * its status, its code, its field errors and the `Retry-After` it carries.
  */
 export const billingProblemResponse = (problem: BillingProblem) =>
-  problemJson(problem.httpStatus, problem.message, problem.code, {
-    errorId: problem.errorId,
-    errors: problem.errors,
-    headers:
-      problem.retryAfterSeconds === undefined
-        ? undefined
-        : { 'Retry-After': String(problem.retryAfterSeconds) },
-  });
+  problem.gateway
+    ? new HttpResponse(problem.gateway.body, {
+        status: problem.httpStatus,
+        headers: { 'Content-Type': problem.gateway.contentType },
+      })
+    : problemJson(problem.httpStatus, problem.message, problem.code, {
+        errorId: problem.errorId,
+        errors: problem.errors,
+        headers:
+          problem.retryAfterSeconds === undefined
+            ? undefined
+            : { 'Retry-After': String(problem.retryAfterSeconds) },
+      });
 
 export const parseRequestJson = async <T>(request: Request): Promise<T> => {
   const body = await request.json();

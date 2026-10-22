@@ -34,6 +34,45 @@ test.describe('customers errors', () => {
     await list.expectCustomerHidden('Orbit Labs');
   });
 
+  // The 502 of a proxy in front of the API is an HTML page, and the 401 of the
+  // gateway a bare text: neither is the API speaking, so neither is printed.
+  for (const refusal of [
+    {
+      body: '<html>Bad gateway</html>',
+      contentType: 'text/html',
+      message: 'The server encountered an error. Please try again later.',
+      status: 502,
+    },
+    {
+      body: 'Jwt is missing',
+      contentType: 'text/plain',
+      message: 'You are not signed in. Please sign in and try again.',
+      status: 401,
+    },
+  ]) {
+    test(`says the generic words of a ${refusal.status} a gateway answered with ${refusal.contentType}`, async ({
+      page,
+    }) => {
+      const model = createEmptyCustomersModel();
+      const list = new CustomersListDriver(page);
+      const form = new CustomerFormDriver(page);
+
+      model.armProblem('create', {
+        detail: '',
+        gateway: { body: refusal.body, contentType: refusal.contentType },
+        status: refusal.status,
+      });
+      await installCustomerAppMocks(page, model);
+      await list.goto();
+      await list.openCreateDialog();
+      await form.fill({ name: 'Orbit Labs' });
+      await form.createButton().click();
+
+      await expectErrorToast(page, refusal.message);
+      await expect(page.getByText(refusal.body)).toHaveCount(0);
+    });
+  }
+
   test('shows an error toast when customer update fails with a server error', async ({
     page,
   }) => {
