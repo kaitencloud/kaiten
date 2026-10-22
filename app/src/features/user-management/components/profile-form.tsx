@@ -25,7 +25,7 @@ export function ProfileForm({
   // differ from it, and takes the others from the user as the API holds it.
   const [openedValues, setOpenedValues] = useState(() => userToProfile(user));
   const form = useAppForm({
-    defaultValues: { name: user.name, email: user.email ?? '' },
+    defaultValues: openedValues,
     validators: { onChange: profileSchema },
     onSubmit: async ({ value }) => {
       setError('');

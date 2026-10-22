@@ -57,7 +57,7 @@ export function BillingDefaultsCard({ settings }: BillingDefaultsCardProps) {
   );
 
   const form = useAppForm({
-    defaultValues: billingSettingsToFormValues(settings),
+    defaultValues: openedValues,
     listeners: {
       onChange: () => setFailure(null),
     },
