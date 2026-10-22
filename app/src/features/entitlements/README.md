@@ -53,6 +53,8 @@ The lists of entitlements and groups come from helpers of `app/src/lib/api/all-p
 | Create a group           | `createEntitlementGroup`                                                                                                                       | `useEntitlementGroupFormMutations`, called by the group selector                                     |
 | Usage of the detail page | `getEntitlementsUsageMetrics` (`GET /instances/{instanceSlug}/entitlements/usage`), one call per instance whose license grants the entitlement | `components/entitlement-detail/use-entitlement-detail-data.ts`                                       |
 
+The updates of an entitlement (the form, the rename, the icon and the inline group editor) and of a group go through `saveEntitlementOnFresh` and `saveEntitlementGroupOnFresh` (`queries/`): the PUT replaces the object as a whole, so the object is read again and only what the caller changed is put on top of it, which keeps an icon, a group or a description saved from another tab (see [forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole)).
+
 The detail page also reads all the licenses, instances and customers, and the entitlements of each license (`allLicensesOptions`, `allInstancesOptions`, `allCustomersOptions`, `allLicenseEntitlementsOptions`). It derives everything it shows from them in the browser: the linked licenses, the impacted instances and customers, the usage rows, the saturation buckets and the rankings. The logic is in `components/entitlement-detail/entitlement-detail-context-*.ts`, which the unit tests cover.
 
 Invalidation:
