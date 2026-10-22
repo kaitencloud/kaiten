@@ -173,10 +173,9 @@ describe('the handoff view of the invoices', () => {
     expect(
       await screen.findByRole('link', { name: 'Acknowledged' }),
     ).toBeVisible();
-    expect(screen.getByRole('link', { name: 'Handoff' })).toHaveAttribute(
-      'href',
-      '/invoices?view=waiting',
-    );
+    expect(
+      await screen.findByRole('link', { name: 'Handoff' }),
+    ).toHaveAttribute('href', '/invoices?view=waiting');
     expect(screen.queryByText(/not allowed|lacks read:billing/)).toBeNull();
   });
 
@@ -210,8 +209,9 @@ describe('the handoff view of the invoices', () => {
     });
 
     expect(acknowledged).toHaveClass('bg-background');
+    // Each part counts its own invoices, so the other tab may come later.
     expect(
-      screen.getByRole('link', { name: 'Handoff 2' }),
+      await screen.findByRole('link', { name: 'Handoff 2' }),
     ).not.toHaveClass('bg-background');
   });
 
