@@ -1,3 +1,4 @@
+import { StepNextButton } from '@/components/form/step-next-button';
 import { Button } from '@/components/ui/button';
 import { useTranslation } from 'react-i18next';
 import type { Instance } from '@/api-client';
@@ -22,9 +23,9 @@ const ValidatedStepNextButton = ({
   const { nextStep } = useStepStack();
 
   return (
-    <Button type="button" disabled={disabled} onClick={nextStep}>
+    <StepNextButton disabled={disabled} onClick={nextStep}>
       {label}
-    </Button>
+    </StepNextButton>
   );
 };
 

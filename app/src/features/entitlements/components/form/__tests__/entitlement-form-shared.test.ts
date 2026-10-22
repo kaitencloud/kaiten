@@ -386,6 +386,17 @@ describe('entitlementIdentityStepSchema display order', () => {
       entitlementIdentityStepSchema.safeParse({ ...step, displayOrder }).success,
     ).toBe(false);
   });
+
+  it('says it wants a whole number for a fraction, in the words of the form and not the validator', () => {
+    const result = entitlementIdentityStepSchema.safeParse({
+      ...step,
+      displayOrder: 1.5,
+    });
+
+    expect(result.success ? [] : result.error.issues.map((i) => i.message)).toEqual([
+      'Pages.Entitlements.Mutation.Form.Errors.displayOrder',
+    ]);
+  });
 });
 
 describe('getEntitlementFormDefaults slug', () => {

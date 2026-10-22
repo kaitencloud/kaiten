@@ -92,6 +92,7 @@ export default {
     firstPage: 'First page',
     previous: 'Previous',
     next: 'Next',
+    nextBlocked: 'Fill in the required fields correctly to continue.',
     lastPage: 'Last page',
   },
   Functionals: {
@@ -2682,6 +2683,7 @@ export default {
               'Sale units require the base unit labels to be set',
             saleUnitFactor: 'The conversion factor must be greater than 0',
             unitLabelTooLong: 'Unit labels must be at most 100 characters',
+            displayOrder: 'Enter a whole number',
           },
           Steps: {
             identity: 'Entitlement information',

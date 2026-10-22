@@ -47,7 +47,17 @@ test('holds the first step on a display order the API would refuse', async ({
     await form.displayOrderField().blur();
 
     await expect(form.nextButton()).toBeDisabled();
+    // A disabled Next says why to a screen reader, whether or not the field is in view.
+    await expect(form.nextButton()).toHaveAccessibleDescription(
+      'Fill in the required fields correctly to continue.',
+    );
   }
+
+  // A fraction is told in the words of the form, not those of the validator.
+  await form.displayOrderField().fill('1.5');
+  await form.displayOrderField().blur();
+  await expect(page.getByText('Enter a whole number')).toBeVisible();
+  await expect(page.getByText(/Invalid input/)).toHaveCount(0);
 
   await form.displayOrderField().fill('7');
   await form.displayOrderField().blur();

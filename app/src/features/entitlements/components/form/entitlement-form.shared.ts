@@ -26,6 +26,15 @@ const unitLabelSchema = z
 
 const isLabelSet = (value?: string) => Boolean(value && value.trim() !== '');
 
+// The order is a whole number, and the message for a fraction says so: the one of the generated
+// schema is the bare type check of the validator. The generated schema still decides the range.
+const displayOrderSchema = z
+  .custom<number>((value) => Number.isInteger(value), {
+    error: 'Pages.Entitlements.Mutation.Form.Errors.displayOrder',
+  })
+  .optional()
+  .pipe(zEntitlementWritable.shape.displayOrder);
+
 // Creating a schema for entitlement form based on the available fields
 // Step 1 of both create wizards, dialog and page, holds every field of the identity: the
 // name, the slug, the description, the groups, the icon, whether it is shown to customers and
@@ -43,6 +52,7 @@ export const entitlementIdentityStepSchema = zEntitlementWritable
   .extend({
     name: entitlementNameSchema,
     slug: entitlementSlugSchema,
+    displayOrder: displayOrderSchema,
   });
 
 export const entitlementFormSchema = zEntitlementWritable
@@ -60,6 +70,7 @@ export const entitlementFormSchema = zEntitlementWritable
     name: entitlementNameSchema,
     // Optional: left blank, the API generates the slug from the name.
     slug: entitlementSlugSchema,
+    displayOrder: displayOrderSchema,
     unitSingular: unitLabelSchema,
     unitPlural: unitLabelSchema,
     saleUnitSingular: unitLabelSchema,

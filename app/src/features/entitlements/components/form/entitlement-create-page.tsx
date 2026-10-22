@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
+import { StepNextButton } from '@/components/form/step-next-button';
 import { focusFirstInvalidControl } from '@/components/form/use-submit-focus';
 import { Page } from '@/functionals/page';
 import { ProgressStepper } from '@/functionals/progress-stepper';
@@ -38,6 +39,8 @@ export function EntitlementCreatePage({
   const form = useEntitlementMutationForm(undefined, onSuccess);
   const [activeStep, setActiveStep] = useState(0);
   const [furthestStep, setFurthestStep] = useState(0);
+  // How many times the stepper took the person back to the identity because it was broken.
+  const [refusals, setRefusals] = useState(0);
   const isTypeStep = activeStep === 1;
   const steps = [
     {
@@ -68,15 +71,19 @@ export function EntitlementCreatePage({
     );
     if (index > activeStep && !identity.success) {
       setActiveStep(0);
-      void form.handleSubmit();
-      requestAnimationFrame(() =>
-        focusFirstInvalidControl(document.getElementById(formId)),
-      );
+      // The step draws the errors the submit found, then the effect below moves the focus.
+      void form.handleSubmit().then(() => setRefusals((count) => count + 1));
 
       return;
     }
     setActiveStep(index);
   };
+
+  useEffect(() => {
+    if (refusals > 0) {
+      focusFirstInvalidControl(document.getElementById(formId));
+    }
+  }, [formId, refusals]);
 
   const goToTypeStep = () => {
     setActiveStep(1);
@@ -202,10 +209,10 @@ function IdentityStepNextButton({
         );
 
         return (
-          <Button type="button" disabled={!success} onClick={onNext}>
+          <StepNextButton disabled={!success} onClick={onNext}>
             {t('Common.next', 'Next')}
             <ArrowRight />
-          </Button>
+          </StepNextButton>
         );
       }}
     </form.Subscribe>

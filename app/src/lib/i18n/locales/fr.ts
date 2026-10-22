@@ -94,6 +94,8 @@ export default {
     firstPage: 'Première page',
     previous: 'Précédent',
     next: 'Suivant',
+    nextBlocked:
+      'Renseignez correctement les champs obligatoires pour continuer.',
     lastPage: 'Dernière page',
   },
   Functionals: {
@@ -2715,6 +2717,7 @@ export default {
             saleUnitFactor: 'Le facteur de conversion doit être supérieur à 0',
             unitLabelTooLong:
               "Les libellés d'unité sont limités à 100 caractères",
+            displayOrder: 'Saisissez un nombre entier',
           },
           Steps: {
             identity: 'Informations du droit',
