@@ -14,3 +14,7 @@ export {
   type UsageHistoryRange,
   usageHistoryQueryOptions,
 } from './usage-history-query-options';
+export {
+  type SaveInstanceVariables,
+  saveInstanceOnFresh,
+} from './instance-save';

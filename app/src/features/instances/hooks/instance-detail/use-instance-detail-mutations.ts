@@ -6,7 +6,6 @@ import type { PatchInstanceBody, InstanceWritable } from '@/api-client';
 import {
   deleteInstanceMutation,
   patchInstanceMutation,
-  updateInstanceMutation,
 } from '@/api-client/@tanstack/react-query.gen';
 import { readDeletionRefusal } from '@/domains/billing';
 import { startAttioSyncWatcher } from '@/domains/crm-sync';
@@ -14,6 +13,7 @@ import {
   getInstanceStatusLabel,
   type InstanceStatus,
 } from '@/domains/customer-management';
+import { saveInstanceOnFresh } from '../../queries';
 import {
   forgetDeletedInstanceQueries,
   invalidateInstanceQueries,
@@ -47,9 +47,9 @@ export const useInstanceDetailMutations = (
   });
 
   const updateMutation = useMutation({
-    ...updateInstanceMutation({ path: { instanceSlug } }),
+    mutationFn: saveInstanceOnFresh,
     onSuccess: async (_updatedInstance, variables) => {
-      const updatedInstanceSlug = variables.path.instanceSlug;
+      const updatedInstanceSlug = variables.instanceSlug;
       const syncWatcher = startAttioSyncWatcher({
         queryClient,
         entityKind: 'instance',
@@ -168,11 +168,13 @@ export const useInstanceDetailMutations = (
     forgetDeletedInstance: () =>
       forgetDeletedInstanceQueries(queryClient, instanceSlug),
     isDeleting: deleteMutation.isPending,
-    updateInstance: async (body: InstanceWritable) => {
-      await updateMutation.mutateAsync({
-        path: { instanceSlug },
-        body,
-      });
+    // The instance is read again and only what `edited` changes from `opened` is
+    // put on top of it: see `saveInstanceOnFresh`.
+    updateInstance: async (
+      edited: InstanceWritable,
+      opened: InstanceWritable,
+    ) => {
+      await updateMutation.mutateAsync({ edited, instanceSlug, opened });
     },
     isUpdating: updateMutation.isPending,
     updateInstanceStatus,

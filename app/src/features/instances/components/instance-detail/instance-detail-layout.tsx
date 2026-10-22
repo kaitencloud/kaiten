@@ -8,7 +8,10 @@ import { useCanPerform, useDeletionRefusal } from '@/domains/billing';
 import { DetailEntityLayout } from '@/functionals/detail-entity-layout';
 import { EditableTitle, Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import { instanceDetailsFormValuesToInstanceInput } from '../../utils/instance-form.shared';
+import {
+  instanceDetailsFormValuesToInstanceInput,
+  instanceToDetailsFormValues,
+} from '../../utils/instance-form.shared';
 import { InstanceStatusEditor } from '../instance-status-editor';
 import { useInstanceDetail } from './instance-detail-context';
 import { InstanceDetailQuickStats } from './instance-detail-quick-stats';
@@ -47,15 +50,10 @@ export const InstanceDetailLayout = ({
   const mayDelete = useCanPerform('instances.delete');
 
   const handleRename = async (name: string) => {
+    const values = instanceToDetailsFormValues(instance);
     await updateInstance(
-      instanceDetailsFormValuesToInstanceInput(
-        {
-          name,
-          description: instance.description,
-          customerId: instance.customerId,
-        },
-        instance,
-      ),
+      instanceDetailsFormValuesToInstanceInput({ ...values, name }, instance),
+      instanceDetailsFormValuesToInstanceInput(values, instance),
     );
   };
 

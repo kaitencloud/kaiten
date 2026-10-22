@@ -5,17 +5,18 @@ import {
   createInstanceMutation,
   getInstanceQueryKey,
   patchInstanceMutation,
-  updateInstanceMutation,
 } from '@/api-client/@tanstack/react-query.gen';
 import { startAttioSyncWatcher } from '@/domains/crm-sync';
 import {
   invalidateInstanceQueries,
   invalidateInstancesListQueries,
 } from '../../hooks/instance-query-invalidation';
+import { saveInstanceOnFresh } from '../../queries';
 
 /**
  * The writes of the instance form and what each refreshes: the create, the
- * update of an existing instance, and the PATCH that carries the lifecycle
+ * update of an existing instance (which reads it again and puts only what the form
+ * changed on top of it), and the PATCH that carries the lifecycle
  * stage, which the API does not take in the PUT body.
  */
 export function useInstanceFormMutations(instance?: Instance) {
@@ -46,9 +47,9 @@ export function useInstanceFormMutations(instance?: Instance) {
   });
 
   const updateMutation = useMutation({
-    ...updateInstanceMutation({ path: { instanceSlug: instance?.slug ?? '' } }),
+    mutationFn: saveInstanceOnFresh,
     onSuccess: async (_updatedInstance, variables) => {
-      const instanceSlug = variables.path.instanceSlug;
+      const instanceSlug = variables.instanceSlug;
       const syncWatcher = startAttioSyncWatcher({
         queryClient,
         entityKind: 'instance',

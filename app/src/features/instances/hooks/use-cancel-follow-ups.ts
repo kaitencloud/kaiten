@@ -1,10 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { Instance } from '@/api-client';
-import {
-  detachInstanceAddonMutation,
-  updateInstanceMutation,
-} from '@/api-client/@tanstack/react-query.gen';
+import { detachInstanceAddonMutation } from '@/api-client/@tanstack/react-query.gen';
 import { invalidateInstanceBillingQueries } from '@/domains/billing';
+import { saveInstanceOnFresh } from '../queries';
+import { instanceToUpdateBody } from '../utils/instance-update-body';
 
 /** What a person asked the cancellation to do beside ending the subscription. */
 export type CancelFollowUps = {
@@ -44,7 +43,7 @@ export function useCancelFollowUps(instance: Instance) {
   const queryClient = useQueryClient();
   const instanceSlug = instance.slug ?? instance.id;
   const detach = useMutation(detachInstanceAddonMutation());
-  const update = useMutation(updateInstanceMutation());
+  const update = useMutation({ mutationFn: saveInstanceOnFresh });
 
   async function run(
     followUps: CancelFollowUps,
@@ -64,20 +63,14 @@ export function useCancelFollowUps(instance: Instance) {
     const instant = followUps.endLicenseDate;
     if (instant !== null) {
       try {
-        // The PUT replaces the instance: everything it holds is sent back as it
-        // is, with the one date changed. The slug is left out, which keeps it.
+        // The PUT replaces the instance: the instance is read again and sent back
+        // as it is, with the one date changed (what another tab saved meanwhile
+        // stays). The slug is left out, which keeps it.
+        const opened = instanceToUpdateBody(instance);
         await update.mutateAsync({
-          body: {
-            customerId: instance.customerId,
-            deploymentZoneId: instance.deploymentZoneId,
-            description: instance.description,
-            endLicenseDate: instant,
-            licenseId: instance.licenseId,
-            metadata: instance.metadata ?? {},
-            name: instance.name,
-            startLicenseDate: instance.startLicenseDate,
-          },
-          path: { instanceSlug },
+          edited: { ...opened, endLicenseDate: instant },
+          instanceSlug,
+          opened,
         });
         endLicenseDate = { instant, ok: true };
       } catch (error) {

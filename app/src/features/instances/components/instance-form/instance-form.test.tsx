@@ -8,6 +8,7 @@ import type { Customer, License } from '@/api-client';
 import { getInstanceQueryKey } from '@/api-client/@tanstack/react-query.gen';
 import {
   handleCreateInstance,
+  handleGetInstance,
   handleGetLicenses,
   handleListCustomers,
   handleListDeploymentZones,
@@ -165,9 +166,16 @@ type Write =
  * body each one carried. Counts the reads of the customer list as well.
  */
 function serveInstanceApi() {
-  const api = { customerListReads: 0, writes: [] as Write[] };
+  // `stored` is the instance as the API holds it: an update reads it again before
+  // it writes.
+  const api = {
+    customerListReads: 0,
+    stored: undefined as unknown,
+    writes: [] as Write[],
+  };
 
   server.use(
+    handleGetInstance(() => HttpResponse.json(api.stored as never)),
     handleListCustomers(() => {
       api.customerListReads += 1;
       return HttpResponse.json({ hasMore: false, items: [customer] });
@@ -271,6 +279,7 @@ describe('InstanceForm', () => {
     } as never;
 
     const submitWithStage = async (lifecycleStage: string) => {
+      api.stored = existingInstance;
       await renderForm(
         <InstanceForm instance={existingInstance} onSuccess={vi.fn()} />,
       );
@@ -315,6 +324,101 @@ describe('InstanceForm', () => {
       expect(toastSuccessSpy).toHaveBeenCalledWith(
         'Pages.Customers.Instances.Mutation.Form.updateSuccess',
       );
+    });
+  });
+
+  // The update replaces the instance as a whole: it reads the instance again and
+  // puts on top of it only what the form changed.
+  describe('an instance changed meanwhile', () => {
+    const openedInstance = {
+      customerId: 'customer-1',
+      customerSlug: 'acme',
+      deploymentZoneId: 'zone-1',
+      description: 'Acme production',
+      endLicenseDate: '2026-12-31T00:00:00.000Z',
+      id: 'instance-1',
+      licenseId: 'license-1',
+      licenseSlug: 'starter',
+      metadata: { region: 'eu' },
+      name: 'Acme Instance',
+      slug: 'acme-instance',
+      startLicenseDate: '2026-01-01T00:00:00.000Z',
+      status: 'HEALTHY',
+    } as never;
+
+    const values = (changes: Record<string, unknown> = {}) => ({
+      customerId: 'customer-1',
+      deploymentZoneId: 'zone-1',
+      description: 'Acme production',
+      licenseDate: {
+        from: new Date('2026-01-01T00:00:00.000Z'),
+        to: new Date('2026-12-31T00:00:00.000Z'),
+      },
+      licenseSlug: 'starter',
+      metadata: { region: 'eu' },
+      name: 'Acme Instance',
+      ...changes,
+    });
+
+    it('keeps the zone, the window and the metadata another tab saved, and sends the name that was typed', async () => {
+      api.stored = {
+        ...(openedInstance as object),
+        deploymentZoneId: 'zone-2',
+        endLicenseDate: '2027-06-30T00:00:00.000Z',
+        metadata: { region: 'us' },
+      };
+      await renderForm(
+        <InstanceForm instance={openedInstance} onSuccess={vi.fn()} />,
+      );
+
+      await act(() =>
+        capturedFormOptions.onSubmit({
+          value: values({ name: 'Acme Instance EU' }),
+        }),
+      );
+
+      expect(api.writes).toEqual([
+        {
+          op: 'update',
+          instanceSlug: 'acme-instance',
+          body: {
+            customerId: 'customer-1',
+            deploymentZoneId: 'zone-2',
+            description: 'Acme production',
+            endLicenseDate: '2027-06-30T00:00:00.000Z',
+            licenseId: 'license-1',
+            metadata: { region: 'us' },
+            name: 'Acme Instance EU',
+            startLicenseDate: '2026-01-01T00:00:00.000Z',
+          },
+        },
+      ]);
+    });
+
+    it('says the instance is gone when it was deleted meanwhile, and writes nothing', async () => {
+      server.use(
+        handleGetInstance(() =>
+          HttpResponse.json(
+            { detail: 'The instance does not exist', status: 404 },
+            { status: 404 },
+          ),
+        ),
+      );
+      const onSuccess = vi.fn();
+      await renderForm(
+        <InstanceForm instance={openedInstance} onSuccess={onSuccess} />,
+      );
+
+      await act(() =>
+        capturedFormOptions.onSubmit({
+          formApi: {} as never,
+          value: values({ name: 'Acme Instance EU' }),
+        } as never),
+      );
+
+      expect(api.writes).toEqual([]);
+      expect(toastErrorSpy).toHaveBeenCalledTimes(1);
+      expect(onSuccess).not.toHaveBeenCalled();
     });
   });
 
@@ -429,6 +533,7 @@ describe('InstanceForm', () => {
           marked.push({ field, error: update({ errorMap: {} }).errorMap.onServer });
         },
       };
+      api.stored = billedInstance;
       await renderForm(
         <InstanceForm instance={billedInstance} onSuccess={vi.fn()} />,
       );

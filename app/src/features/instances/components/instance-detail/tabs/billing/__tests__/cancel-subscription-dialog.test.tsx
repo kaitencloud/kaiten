@@ -13,6 +13,7 @@ import {
   handleCancelSubscription,
   handleDetachInstanceAddon,
   handleGetBillingCapabilities,
+  handleGetInstance,
   handleGetInstanceBilling,
   handleListInstanceAddons,
   handleUpdateInstance,
@@ -321,8 +322,15 @@ describe('the cancel dialog', () => {
   });
 
   describe('beside the cancellation', () => {
+    // The instance as the API holds it: setting the end reads it again before it writes.
+    let stored: typeof INSTANCE;
+
     beforeEach(() => {
-      server.use(handleListInstanceAddons({ body: [addon('extra-seats-v1', 5), addon('connector-v2')] }));
+      stored = INSTANCE;
+      server.use(
+        handleListInstanceAddons({ body: [addon('extra-seats-v1', 5), addon('connector-v2')] }),
+        handleGetInstance(() => HttpResponse.json(stored)),
+      );
     });
 
     it('offers to remove the add-ons and to set the end of the license, both unchecked, each on its own', async () => {
@@ -445,6 +453,53 @@ describe('the cancel dialog', () => {
         name: 'Globex Production',
         startLicenseDate: '2026-01-01T00:00:00.000Z',
       });
+    });
+
+    it('sets the end on top of the instance as it is now, keeping what another tab saved meanwhile', async () => {
+      let updateBody: Record<string, unknown> | undefined;
+      server.use(
+        handleUpdateInstance(async ({ request }) => {
+          updateBody = (await request.json()) as Record<string, unknown>;
+
+          return HttpResponse.json(INSTANCE);
+        }),
+      );
+      serveCancel();
+      renderDialog();
+      const setEndDate = await screen.findByRole('checkbox', { name: 'Also set the license end date' });
+      await userEvent.click(setEndDate);
+      await screen.findByRole('button', { name: 'License ends (UTC)' });
+
+      // Another tab renamed the instance and moved it to another zone after the dialog opened.
+      stored = { ...INSTANCE, deploymentZoneId: 'zone-2', name: 'Globex Production EU' };
+      await userEvent.click(await confirm());
+
+      await screen.findByTestId('cancel-follow-ups');
+      expect(updateBody).toMatchObject({
+        deploymentZoneId: 'zone-2',
+        endLicenseDate: '2026-10-27T00:00:00.000Z',
+        name: 'Globex Production EU',
+      });
+    });
+
+    it('says the end could not be set when the instance was deleted meanwhile, and writes nothing', async () => {
+      const updated = vi.fn();
+      server.use(
+        handleGetInstance(() => refusal(404, { code: 'GetInstance.NotFound', detail: 'The instance does not exist' })),
+        handleUpdateInstance(() => {
+          updated();
+
+          return HttpResponse.json(INSTANCE);
+        }),
+      );
+      serveCancel();
+      renderDialog();
+      await userEvent.click(await screen.findByRole('checkbox', { name: 'Also set the license end date' }));
+      await userEvent.click(await confirm());
+
+      const report = await screen.findByTestId('cancel-follow-ups');
+      expect(report).toHaveTextContent('The end of the license could not be set.');
+      expect(updated).not.toHaveBeenCalled();
     });
 
     it('says which could not be done, keeps the cancellation, and tries only those again', async () => {

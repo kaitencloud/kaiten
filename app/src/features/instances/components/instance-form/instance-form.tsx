@@ -1,6 +1,6 @@
 import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouter } from '@tanstack/react-router';
-import { useId, useMemo, useRef } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Customer, DeploymentZone, Instance, License } from '@/api-client';
@@ -29,6 +29,7 @@ import {
   instanceFormValuesToUpdateInput,
   instanceLifecycleStageToPatchBody,
   instanceToFormValues,
+  type InstanceFormValues,
 } from '../../utils/instance-form.shared';
 import type { InstanceFormStepsHandle } from './instance-form-frozen-notice';
 import { InstanceFormSteps } from './instance-form-steps';
@@ -94,9 +95,16 @@ const InstanceFormContent = ({
   // The submit is on the last step, and a refusal about a field on an earlier
   // one has to take the person there.
   const stepsRef = useRef<InstanceFormStepsHandle>(null);
+  // The instance and the form as they were when the form opened: an update sends
+  // the fields that differ from them, and takes the others from the instance as
+  // the API holds it.
+  const [openedInstance] = useState(instance);
+  const [openedValues] = useState(() =>
+    getDefaultValues(instance, lockedCustomer),
+  );
 
   const form = useAppForm({
-    defaultValues: getDefaultValues(instance, lockedCustomer),
+    defaultValues: openedValues,
     validators: {
       onChange: instanceFormSchema,
     },
@@ -109,13 +117,19 @@ const InstanceFormContent = ({
         if (instance) {
           // An update may answer with no body; the instance being edited then
           // stands in, since only its slug is needed downstream.
+          const base = openedInstance ?? instance;
           savedInstance =
             (await updateMutation.mutateAsync({
-              path: { instanceSlug: instance.slug! },
-              body: instanceFormValuesToUpdateInput(
+              edited: instanceFormValuesToUpdateInput(
                 value,
                 licenses ?? [],
-                instance,
+                base,
+              ),
+              instanceSlug: instance.slug!,
+              opened: instanceFormValuesToUpdateInput(
+                openedValues as InstanceFormValues,
+                licenses ?? [],
+                base,
               ),
             })) ?? instance;
 
