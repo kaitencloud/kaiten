@@ -47,3 +47,26 @@ export async function startInLanguage(page: Page, language: string) {
     { settings: appSettings(language), storageKey: APP_SETTINGS_STORAGE_KEY },
   );
 }
+
+/** Sets startup language before the first navigation, avoiding a second app boot. */
+export async function initializeLanguage(page: Page, language: string) {
+  await page.addInitScript(
+    ({ storageKey, storedLanguage }) => {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          's:app': {
+            data: {
+              id: 'app',
+              language: storedLanguage,
+              sideNavExpanded: true,
+              theme: 'dark',
+            },
+            versionKey: 'e2e-language',
+          },
+        }),
+      );
+    },
+    { storageKey: APP_SETTINGS_STORAGE_KEY, storedLanguage: language },
+  );
+}

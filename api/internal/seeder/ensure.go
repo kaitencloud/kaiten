@@ -144,10 +144,17 @@ func (sc *SeederContext) EnsureUser(ctx context.Context, arg usersdb.CreateUserP
 }
 
 // EnsureUserOnOrganization creates or restores the user-org membership.
+// EnsureUserOnOrganization also gives explicitly seeded demo humans local
+// administrator assignments. Ordinary JIT provisioning never calls this helper.
 func (sc *SeederContext) EnsureUserOnOrganization(ctx context.Context, arg organizationdb.CreateUserOnOrganizationParams) error {
 	_, err := organizationdb.New(sc.pool).CreateUserOnOrganization(ctx, arg)
-	if pgerrors.IsUniqueViolation(err) {
-		return nil
+	if err != nil && !pgerrors.IsUniqueViolation(err) {
+		return err
 	}
+	_, err = sc.pool.Exec(ctx, `
+ INSERT INTO user_organization_authorization(organization_id,user_id,roles)
+ SELECT $1,$2,ARRAY['administrator']::text[] FROM "user"
+ WHERE id=$2 AND type='human' AND deleted_at IS NULL
+ ON CONFLICT(organization_id,user_id) DO NOTHING`, arg.OrganizationID, arg.UserID)
 	return err
 }

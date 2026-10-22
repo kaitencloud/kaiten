@@ -5,6 +5,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
+	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getauthorization"
 	"github.com/kaitencloud/kaiten/api/pkg/subscribers"
 )
 
@@ -52,11 +53,11 @@ func Register(deps Deps) {
 	// scope into the document and record the attempt, and decide nothing.
 	platform := deps.App.Platform()
 
-	// organization and users publish nothing on the Core document: all four of their
-	// operations take an organization or user id from the path and authorize on a
-	// scope alone, so they are Platform operations and moved there wholesale.
+	// Global deletion stays on Platform; Core manages human memberships only.
 	registerOrganization(deps.Platform, platform)
 	registerUsers(deps.Platform, platform)
+	registerCoreUsers(deps.Core, deps.App.Users())
+	getauthorization.RegisterEndpoint(deps.Core)
 
 	registerComponents(deps.Core, deps.App.Components())
 	registerConnectors(deps.Core, deps.Platform, deps.App.Connectors(), platform)

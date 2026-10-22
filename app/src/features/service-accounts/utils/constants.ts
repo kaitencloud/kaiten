@@ -40,7 +40,10 @@ export const SCOPE_GROUP_IDS: ScopeGroupId[] = [
 // typecheck here until someone decides where it belongs. It still reaches the
 // picker on its own (see lib/api/scopes.gen.ts); this is where it is placed, and
 // the vocabulary test asks for its label and description in en and fr.
-const RESOURCE_GROUPS: Record<ApiScopeResource, ScopeGroupId> = {
+const RESOURCE_GROUPS: Record<
+  Exclude<ApiScopeResource, 'users' | 'profile'>,
+  ScopeGroupId
+> = {
   customers: 'customers',
   instances: 'customers',
   licenses: 'licensing',
@@ -69,17 +72,20 @@ const RESOURCE_GROUPS: Record<ApiScopeResource, ScopeGroupId> = {
 // the API accepts -- this narrows what is offered, not what is valid.
 export const WEBHOOKS_SCOPE_RESOURCE: ApiScopeResource = 'webhooks';
 
-// Every scope an organization credential can carry, from the OpenAPI document.
-export const AVAILABLE_RESOURCES: AvailableResource[] = API_SCOPE_RESOURCES.map(
-  (id) => ({
+// Human administration/profile scopes are documented by Core but cannot be
+// exercised by machine credentials; do not offer misleading token grants.
+export const AVAILABLE_RESOURCES: AvailableResource[] =
+  API_SCOPE_RESOURCES.filter(
+    (id): id is Exclude<ApiScopeResource, 'users' | 'profile'> =>
+      id !== 'users' && id !== 'profile',
+  ).map((id) => ({
     id,
     group: RESOURCE_GROUPS[id],
     labelKey: `${SCOPES_I18N_PREFIX}.Resources.${i18nSegment(id)}.label`,
     descriptionKey: `${SCOPES_I18N_PREFIX}.Resources.${i18nSegment(id)}.description`,
     fallbackLabel: humanize(id),
     fallbackDescription: `Access to ${humanize(id).toLowerCase()}`,
-  }),
-);
+  }));
 
 export const TOKEN_PRESET_IDS: TokenPresetId[] = ['dataPlane', 'controlPlane'];
 

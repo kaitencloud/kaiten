@@ -129,6 +129,12 @@ func assertEveryOperationDeclaresItsScope(t *testing.T, oapi *huma.OpenAPI, expe
 
 		scopes, ok := op.Security[0][expectedScheme]
 		require.True(t, ok, "%s %s must require the %q scheme", method, path, expectedScheme)
+		if expectedScheme == kaitenhuma.BearerAuth && method == "GET" && path == "/authorization" {
+			assert.Equal(t, "GetAuthorization", op.OperationID)
+			assert.Empty(t, scopes, "introspection must remain usable with no grants")
+			assert.Len(t, op.Security, 1)
+			return
+		}
 		require.NotEmpty(t, scopes, "%s %s must say which scope it needs", method, path)
 
 		for _, s := range scopes {

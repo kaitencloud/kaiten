@@ -124,28 +124,22 @@ try {
   const input = `${header}.${payload}`;
   const token = `${input}.${createHmac('sha256', env.KAITEN_DEV_JWT_SECRET).update(input).digest('base64url')}`;
   // JIT provisions the second test tenant through the authenticated API itself.
-  const provision = await fetch(`${env.STACK_API_URL}/api/customers`, {
+  const provision = await fetch(`${env.STACK_API_URL}/api/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!provision.ok)
     throw new Error(`Second tenant provisioning failed: ${provision.status}`);
-  // Read the ID JIT actually assigned; the test must not duplicate the API's
-  // UUID derivation or treat an identity hash as a cryptographic operation.
-  const orgId = run(
-    'docker',
-    [
-      ...composeArgs,
-      'exec', '-T', 'db',
-      'psql', '-U', env.KAITEN_DATABASE_USER, '-d', env.KAITEN_DATABASE,
-      '-At', '-v', 'ON_ERROR_STOP=1', '-v', `org_external_id=${orgExternalId}`,
-    ],
-    {
-      input: "SELECT id FROM organization WHERE external_id = :'org_external_id';\n",
-      stdio: ['pipe', 'pipe', 'inherit'],
-      encoding: 'utf8',
-    },
-  ).trim();
+  const provisioned = await provision.json();
+  const orgId = provisioned.organizationId;
   if (!orgId) throw new Error('Second tenant was not provisioned');
+  // This fixture explicitly seeds its isolated tenant's stored grants. Provider
+  // JWT claims are identity only and cannot grant access to the second tenant.
+  run('docker', [...composeArgs, 'exec', '-T', 'db', 'psql',
+    '-U', env.KAITEN_DATABASE_USER, '-d', env.KAITEN_DATABASE,
+    '-v', 'ON_ERROR_STOP=1', '-v', `org_id=${orgId}`, '-v', `user_id=${provisioned.user.id}`], {
+    input: "INSERT INTO user_organization_authorization(organization_id,user_id,roles) VALUES (:'org_id',:'user_id',ARRAY['administrator']) ON CONFLICT(organization_id,user_id) DO UPDATE SET roles=EXCLUDED.roles;\n",
+    stdio: ['pipe', 'pipe', 'inherit'],
+  });
   tokens.push({
     ...tokens[0],
     org_external_id: orgExternalId,
@@ -154,9 +148,22 @@ try {
     token,
   });
   writeFileSync(tokenFile, JSON.stringify(tokens), { mode: 0o600 });
-  const scopedPayload = Buffer.from(JSON.stringify({ ...claims, scopes: ['read:customers'] })).toString('base64url');
-  const scopedInput = `${header}.${scopedPayload}`;
-  env.STACK_READ_ONLY_TOKEN = `${scopedInput}.${createHmac('sha256', env.KAITEN_DEV_JWT_SECRET).update(scopedInput).digest('base64url')}`;
+  const readOnlySubject = 'user_stack_read_only';
+  const readOnlyPayload = Buffer.from(JSON.stringify({ ...claims, sub: readOnlySubject, email: 'readonly@stack.example', name: 'Read-only User' })).toString('base64url');
+  const readOnlyInput = `${header}.${readOnlyPayload}`;
+  env.STACK_READ_ONLY_TOKEN = `${readOnlyInput}.${createHmac('sha256', env.KAITEN_DEV_JWT_SECRET).update(readOnlyInput).digest('base64url')}`;
+  const readOnlyResponse = await fetch(`${env.STACK_API_URL}/api/me`, {
+    headers: { Authorization: `Bearer ${env.STACK_READ_ONLY_TOKEN}` },
+  });
+  if (!readOnlyResponse.ok) throw new Error(`Read-only fixture provisioning failed: ${readOnlyResponse.status}`);
+  const readOnly = await readOnlyResponse.json();
+  run('docker', [...composeArgs, 'exec', '-T', 'db', 'psql',
+    '-U', env.KAITEN_DATABASE_USER, '-d', env.KAITEN_DATABASE,
+    '-v', 'ON_ERROR_STOP=1', '-v', `org_id=${readOnly.organizationId}`, '-v', `user_id=${readOnly.user.id}`], {
+    input: "INSERT INTO user_organization_authorization(organization_id,user_id,permissions) VALUES (:'org_id',:'user_id',ARRAY['read:customers']) ON CONFLICT(organization_id,user_id) DO UPDATE SET roles='{}',permissions=EXCLUDED.permissions;\n",
+    stdio: ['pipe', 'pipe', 'inherit'],
+  });
+
   run(
     'pnpm',
     [

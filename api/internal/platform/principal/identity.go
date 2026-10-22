@@ -126,9 +126,12 @@ type Principal struct {
 	// public surface only, read from X-Envoy-External-Address and never from
 	// a client's own X-Forwarded-For (§14.2): Turnstile's remoteip and the
 	// per-address limits read it.
-	ClientAddress string       `json:"-"`
-	Scopes        []string     `json:"scopes"`
-	Provisioning  Provisioning `json:"-"`
+	ClientAddress string `json:"-"`
+	// OrganizationTokenID identifies a proxy-exchanged machine credential. Its
+	// permissions are loaded from storage on every Core request.
+	OrganizationTokenID uuid.UUID    `json:"-"`
+	Scopes              []string     `json:"scopes"`
+	Provisioning        Provisioning `json:"-"`
 }
 
 // IsPlatform reports whether this is a platform credential. Nil-safe, because

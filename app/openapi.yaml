@@ -514,6 +514,31 @@ components:
         - eventType
         - timestamp
       type: object
+    Authorization:
+      additionalProperties: false
+      properties:
+        externalOrganizationId:
+          type: string
+        kind:
+          type: string
+        organizationId:
+          type: string
+        scopes:
+          items:
+            type: string
+          type: array
+        subject:
+          type: string
+        userId:
+          type: string
+      required:
+        - kind
+        - userId
+        - organizationId
+        - externalOrganizationId
+        - subject
+        - scopes
+      type: object
     Basic:
       additionalProperties: false
       properties:
@@ -1945,6 +1970,31 @@ components:
         - available
         - entitled
         - activated
+      type: object
+    CreateRole:
+      additionalProperties: false
+      properties:
+        description:
+          maxLength: 1000
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        permissions:
+          items:
+            type: string
+          type: array
+        slug:
+          maxLength: 64
+          minLength: 1
+          pattern: ^[a-z][a-z0-9]*(-[a-z0-9]+)*$
+          type: string
+      required:
+        - slug
+        - name
+        - description
+        - permissions
       type: object
     CreatedCustomerSession:
       additionalProperties: false
@@ -6019,6 +6069,32 @@ components:
         - nextCursor
         - unreadCount
       type: object
+    ManagedUser:
+      additionalProperties: false
+      properties:
+        authorization:
+          $ref: "#/components/schemas/UserAuthorization"
+        createdAt:
+          format: date-time
+          type: string
+        email:
+          type:
+            - string
+            - "null"
+        externalId:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - externalId
+        - name
+        - email
+        - createdAt
+        - authorization
+      type: object
     ManifestEnvelope:
       additionalProperties: false
       properties:
@@ -6062,6 +6138,32 @@ components:
       required:
         - updated
         - unreadCount
+      type: object
+    Me:
+      additionalProperties: false
+      properties:
+        availablePermissions:
+          items:
+            type: string
+          type: array
+        availableRoles:
+          items:
+            $ref: "#/components/schemas/Role"
+          type: array
+        organizationId:
+          type: string
+        scopes:
+          items:
+            type: string
+          type: array
+        user:
+          $ref: "#/components/schemas/ManagedUser"
+      required:
+        - user
+        - organizationId
+        - scopes
+        - availableRoles
+        - availablePermissions
       type: object
     MetadataField:
       additionalProperties: false
@@ -6991,6 +7093,23 @@ components:
         items:
           items:
             $ref: "#/components/schemas/LicenseFamilyView"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
+    PageManagedUser:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/ManagedUser"
           type: array
         nextCursor:
           description: Opaque cursor for the next page. Absent when hasMore is false.
@@ -8287,6 +8406,21 @@ components:
             - https://tools.ietf.org/html/rfc7231#section-6.5.4
           format: uri
           type: string
+      type: object
+    Profile:
+      additionalProperties: false
+      properties:
+        email:
+          format: email
+          maxLength: 320
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+      required:
+        - name
+        - email
       type: object
     Provenance:
       additionalProperties: false
@@ -10229,6 +10363,50 @@ components:
       required:
         - reason
       type: object
+    Role:
+      additionalProperties: false
+      properties:
+        builtIn:
+          type: boolean
+        description:
+          type: string
+        isAdministrator:
+          type: boolean
+        name:
+          type: string
+        permissions:
+          items:
+            type: string
+          type: array
+        slug:
+          type: string
+      required:
+        - slug
+        - name
+        - description
+        - permissions
+        - builtIn
+        - isAdministrator
+      type: object
+    RoleDefinition:
+      additionalProperties: false
+      properties:
+        description:
+          maxLength: 1000
+          type: string
+        name:
+          maxLength: 200
+          minLength: 1
+          type: string
+        permissions:
+          items:
+            type: string
+          type: array
+      required:
+        - name
+        - description
+        - permissions
+      type: object
     RolloutDate:
       additionalProperties: false
       properties:
@@ -11890,6 +12068,47 @@ components:
       required:
         - id
       type: object
+    UserAuthorization:
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+        permissions:
+          items:
+            type: string
+          type: array
+        roles:
+          items:
+            type: string
+          type: array
+      required:
+        - enabled
+        - roles
+        - permissions
+      type: object
+    UserEnablement:
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+      type: object
+    UserRoleAssignments:
+      additionalProperties: false
+      properties:
+        permissions:
+          items:
+            type: string
+          type: array
+        roles:
+          items:
+            type: string
+          type: array
+      required:
+        - roles
+        - permissions
+      type: object
     Validity:
       additionalProperties: false
       properties:
@@ -12362,7 +12581,7 @@ components:
   securitySchemes:
     bearerAuth:
       bearerFormat: JWT
-      description: "A JWT verified by the proxy in front of this API, or a Kaiten access token (`ksh_...`) — send either as `Authorization: Bearer <token>`. The scopes listed on each operation are the ones the token must carry; `write:<module>` implies `read:<module>`, and `read:*` / `write:*` are wildcards over every module. `x-kaiten-scopes` lists every scope such a token can carry, including those enforced by a service in front of this API rather than by one of its operations."
+      description: "A JWT verified by the proxy in front of this API, or a Kaiten access token (`ksh_...`) — send either as `Authorization: Bearer <token>`. The scopes listed on each operation are checked server-side against current stored user assignments or stored service-token permissions, never JWT claims; `write:<module>` implies `read:<module>`, and `read:*` / `write:*` are wildcards over every module. `x-kaiten-scopes` lists every scope such a token can carry, including those enforced by a service in front of this API rather than by one of its operations."
       scheme: bearer
       type: http
       x-kaiten-scopes:
@@ -12379,9 +12598,11 @@ components:
         - read:metadata_fields
         - read:notifications
         - read:organizations
+        - read:profile
         - read:publishable_keys
         - read:releases
         - read:tokens
+        - read:users
         - read:voucher_redemptions
         - read:vouchers
         - read:webhooks
@@ -12398,9 +12619,11 @@ components:
         - write:metadata_fields
         - write:notifications
         - write:organizations
+        - write:profile
         - write:publishable_keys
         - write:releases
         - write:tokens
+        - write:users
         - write:voucher_redemptions
         - write:vouchers
         - write:webhooks
@@ -14229,6 +14452,44 @@ paths:
       summary: Unarchive an add-on version
       tags:
         - addons
+  /authorization:
+    get:
+      description: Returns current stored grants for an active human or service-token caller, not JWT permissions. No permission is required. Credentials and token identifiers are never returned. Responses must not be cached.
+      operationId: GetAuthorization
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Authorization"
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth: []
+      summary: Read current caller authorization
+      tags:
+        - identity
   /billing/capabilities:
     get:
       description: Whether billing is enabled for the organization, and if not why; who can collect its invoices; and which parts of billing this release ships, so a client shows only what works. Answers even when billing is disabled.
@@ -24365,6 +24626,65 @@ paths:
       summary: Unarchive a license version
       tags:
         - licenses
+  /me:
+    get:
+      description: Available to every active human member, including members with no assigned roles or permissions.
+      operationId: GetMe
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:profile
+      summary: Read current user and effective authorization
+      tags:
+        - users
   /metadata-fields:
     get:
       description: "Returns a cursor-paginated page of the metadata fields declared for the org and the given resource type, ordered by displayOrder then createdAt. Only active fields are listed, unless includeArchived is set: an archived field's id is what unarchive-metadata-field takes."
@@ -26726,6 +27046,264 @@ paths:
       summary: Get a release by slug
       tags:
         - deploymentZones
+  /roles:
+    get:
+      description: Requires a live human member with stored read:users (write:users implies read). Lists immutable built-in templates and current organization roles.
+      operationId: ListRoles
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Role"
+                type:
+                  - array
+                  - "null"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:users
+      summary: List organization roles
+      tags:
+        - users
+    post:
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
+      operationId: CreateRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRole"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Create a custom organization role
+      tags:
+        - users
+  /roles/{slug}:
+    delete:
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
+      operationId: DeleteRole
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Delete an unassigned custom organization role
+      tags:
+        - users
+    put:
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
+      operationId: UpdateRole
+      parameters:
+        - in: path
+          name: slug
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RoleDefinition"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Role"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Replace a custom organization role
+      tags:
+        - users
   /service-accounts:
     get:
       description: Returns a cursor-paginated page of service accounts (machine users) for the current organization.
@@ -27360,6 +27938,429 @@ paths:
       summary: Export the organization's usage reports
       tags:
         - instances
+  /users:
+    get:
+      description: Requires a live human member with stored read:users (write:users implies read). Provider authorization claims are ignored.
+      operationId: ListUsers
+      parameters:
+        - explode: false
+          in: query
+          name: limit
+          schema:
+            default: 50
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+        - explode: false
+          in: query
+          name: cursor
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageManagedUser"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:users
+      summary: List human users
+      tags:
+        - users
+  /users/{id}:
+    get:
+      description: Requires a live human member with stored read:users (write:users implies read). Provider authorization claims are ignored.
+      operationId: GetUser
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ManagedUser"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:users
+      summary: Get a human user
+      tags:
+        - users
+    put:
+      description: Requires a live human member with stored write:users who covers the target's current authority. Profile name and email are global across memberships and become locally managed.
+      operationId: UpdateUser
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Profile"
+        required: true
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Update a human profile
+      tags:
+        - users
+  /users/{id}/assignments:
+    patch:
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
+      operationId: SetUserAssignments
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserRoleAssignments"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthorization"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Set user roles and direct scopes atomically
+      tags:
+        - users
+  /users/{id}/authorization:
+    put:
+      description: Requires a live human member with stored write:users who covers current and proposed target authority. The last enabled administrator is protected. Provider authorization claims are ignored.
+      operationId: PutUserAuthorization
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserAuthorization"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthorization"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Replace user roles, permissions and enabled state
+      tags:
+        - users
+  /users/{id}/enabled:
+    patch:
+      description: Requires a live human member with stored write:users who covers current and proposed permissions. Built-in roles are immutable but assignable within caller authority; the last enabled administrator is protected.
+      operationId: SetUserEnabled
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            format: uuid
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserEnablement"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAuthorization"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:users
+      summary: Set user enabled state atomically
+      tags:
+        - users
   /v1/notification-preferences:
     get:
       description: "Every notifiable event, with this user's effective value per channel: their own choice where they made one, the catalog default otherwise. Events absent from the catalog of an installation never appear, which is what keeps high-volume system events out of the feed."

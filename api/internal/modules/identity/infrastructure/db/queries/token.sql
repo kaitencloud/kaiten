@@ -224,7 +224,8 @@ RETURNING token.id, token.lookup_hash;
 --
 -- expires_at is selected so the caller can clamp the JWT's own exp to it, or a
 -- 15-minute token yields a JWT valid for the full default lifetime.
-SELECT t.hash,
+SELECT t.id,
+       t.hash,
        t.service_account_id,
        t.organization_id,
        t.scopes,
@@ -239,3 +240,17 @@ WHERE t.lookup_hash = sqlc.arg(lookup_hash)
   AND t.revoked_date IS NULL
   AND u.deleted_at IS NULL
   AND (t.expires_at IS NULL OR t.expires_at > now());
+
+-- name: ResolveOrganizationTokenAuthorization :one
+-- Internal token identity is not a grant: always fetch live stored permissions.
+SELECT t.service_account_id AS user_id, t.organization_id, t.scopes
+FROM token t
+JOIN "user" u ON u.id = t.service_account_id
+JOIN organization o ON o.id = t.organization_id
+JOIN user_on_organization m ON m.user_id = u.id AND m.organization_id = o.id
+WHERE t.id = sqlc.arg(token_id)
+  AND u.external_id = sqlc.arg(subject)
+  AND o.external_id = sqlc.arg(external_organization_id)
+  AND t.kind = 'organization' AND t.revoked_date IS NULL
+  AND (t.expires_at IS NULL OR t.expires_at > now())
+  AND u.type = 'machine' AND u.deleted_at IS NULL AND m.deleted_at IS NULL;

@@ -105,7 +105,7 @@ forms that trigger mutations in [forms.md](../03-patterns/forms.md).
 
 The console only attaches a credential to its requests. Verifying it and
 authorizing the request are the gateway's and the API's job; see
-[Authentication](../../../README.md#authentication) in the README.
+[Authentication](../../../DEVELOPMENT.md#authentication) in DEVELOPMENT.md.
 
 How the console obtains a credential depends on three build-time variables that
 `main.tsx` reads:

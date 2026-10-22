@@ -3,7 +3,7 @@ import { DeploymentZoneDialogDriver } from '../_support/drivers/deployment-zone-
 import { ReleaseDetailDriver } from '../_support/drivers/release-detail.driver';
 import { ReleaseListDriver } from '../_support/drivers/release-list.driver';
 import { ReleasesDialogDriver } from '../_support/drivers/releases-dialog.driver';
-import { persistLanguage } from '../_support/language';
+import { initializeLanguage } from '../_support/language';
 import { installReleaseManagementAppMocks } from '../_support/mocks/install-release-management-app-mocks';
 import {
   createDeploymentFlowModel,
@@ -85,9 +85,8 @@ test.describe('release-management release status', () => {
     const releases = new ReleasesDialogDriver(page);
 
     await installReleaseManagementAppMocks(page, model);
+    await initializeLanguage(page, 'fr');
     await page.goto('/releases/deployments');
-    await persistLanguage(page, 'fr');
-    await page.reload();
     await list.expectLoaded();
 
     await list.expectStatus('v1.6.0', 'Planifiée');

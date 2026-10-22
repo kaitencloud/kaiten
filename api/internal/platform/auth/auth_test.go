@@ -160,7 +160,7 @@ func TestJWTMiddleware_Authorization(t *testing.T) {
 		assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 	})
 
-	t.Run("WhenMissingScopesClaim_ReturnUnauthorized", func(t *testing.T) {
+	t.Run("WhenMissingScopesClaim_AuthenticatesIdentityOnly", func(t *testing.T) {
 		// Arrange
 		app := createTestApp()
 		middleware := &JWTMiddleware{}
@@ -188,7 +188,7 @@ func TestJWTMiddleware_Authorization(t *testing.T) {
 
 		// Assert
 		require.NoError(t, err)
-		assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	})
 
 	t.Run("WhenEmptySubClaim_ReturnUnauthorized", func(t *testing.T) {
@@ -255,7 +255,7 @@ func TestJWTMiddleware_Authorization(t *testing.T) {
 		assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
 	})
 
-	t.Run("WhenScopesNotStringArray_ReturnUnauthorized", func(t *testing.T) {
+	t.Run("WhenScopesNotStringArray_IgnoresAuthorizationClaims", func(t *testing.T) {
 		// Arrange
 		app := createTestApp()
 		middleware := &JWTMiddleware{}
@@ -284,7 +284,7 @@ func TestJWTMiddleware_Authorization(t *testing.T) {
 
 		// Assert
 		require.NoError(t, err)
-		assert.Equal(t, fiber.StatusUnauthorized, resp.StatusCode)
+		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 	})
 
 	t.Run("WhenValidJWT_SetIdentityInContext", func(t *testing.T) {
@@ -328,7 +328,7 @@ func TestJWTMiddleware_Authorization(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, fiber.StatusOK, resp.StatusCode)
 		require.NotNil(t, capturedIdentity)
-		assert.Equal(t, expectedScopes, capturedIdentity.Scopes)
+		assert.Empty(t, capturedIdentity.Scopes, "JWT scopes must never grant authorization")
 		assert.Equal(t, tokenString, capturedIdentity.Token)
 		assert.Equal(t, uuid.Nil, capturedIdentity.UserID)
 		assert.Equal(t, uuid.Nil, capturedIdentity.OrganizationID)

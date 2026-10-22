@@ -21,7 +21,9 @@ version: "3"
 # seed -- is a depends_on edge there, where it can be read as a graph instead
 # of reverse-engineered from the order of lines in a shell script.
 
-dotenv: [".env"]
+# Existing local config wins; tracked local defaults also make the first setup
+# usable before .env exists. Compose reads only this exported effective config.
+dotenv: [".env", ".env.example"]
 
 env:
   # The uid every container that touches ./dev runs as. ./dev is a bind mount
@@ -71,9 +73,10 @@ vars:
   COMPOSE: >-
     docker compose --progress quiet
     --project-name "{{.PROJECT}}"
+    --env-file /dev/null
     -f "{{.TASKFILE_DIR}}/compose.yml"
-  # Tool versions live here and are run with `go run ...@{{.VERSION}}`, so a
-  # contributor needs nothing installed and gets the same version CI does.
+  # Tool versions live here; explicit setup:tools provisions api/bin once.
+  # Ordinary lint never downloads tools or switches the installed toolchain.
   # GOLANGCI_LINT_VERSION must match .github/workflows/go-ci.yml and
   # .pre-commit-config.yaml.
   GOLANGCI_LINT_VERSION: v2.13.1
@@ -84,6 +87,9 @@ vars:
   # `go ... ./...` does not descend into a nested module, so every quality
   # target has to name both of them.
   MODULES: ". cmd/schema-docs"
+  READY_SERVICES: '{{default "api envoy db rabbitmq api-dapr-sidecar debezium local-jwks jaeger" .READY_SERVICES}}'
+  ONESHOT_SERVICES: '{{default "migrate bootstrap api-ready" .ONESHOT_SERVICES}}'
+  READY_URLS: '{{default (printf "http://localhost:%s/api/healthz" (default "6060" .KAITEN_PORT)) .READY_URLS}}'
   NVM: |
     export NVM_DIR="$HOME/.nvm"
     [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
@@ -99,81 +105,140 @@ tasks:
   # Start here
   # ─────────────────────────────────────────────────────────────────────────────
 
-  dev:
-    desc: "Everything: stack + accounts + fake product data + frontend"
+  setup:
+    desc: "Explicit dependencies, generated client and local images; no application start"
     cmds:
-      - task: quickstart
-      - task: generate
+      - task: setup:check
+      - test -e .env || test -L .env || sh -c 'umask 077; cp .env.example .env'
+      # Re-enter Task so dotenv includes the configuration just created above.
+      - task --taskfile "{{.TASKFILE_DIR}}/Taskfile.yml" setup:prepared
+
+  setup:prepared:
+    desc: "Provision after local configuration is loaded (used by setup)"
+    cmds:
+      - for: { var: MODULES }
+        cmd: cd "{{.TASKFILE_DIR}}/api/{{.ITEM}}" && go mod download
+      - task: setup:tools
+      - task: setup:app
+      - task: setup:browser
+      - task: setup:images
+
+  setup:check:
+    desc: "Check tools before explicit provisioning (no install)"
+    preconditions:
+      - sh: node -e 'if (+process.versions.node.split(".")[0] !== 24) process.exit(1)'
+        msg: "Use Node 24 from app/.nvmrc"
+      - sh: test "$(COREPACK_ENABLE_NETWORK=0 pnpm --version)" = "$(node -p 'require("./package.json").packageManager.split("@")[1]')"
+        msg: "Explicitly activate the pnpm version pinned in package.json with Corepack"
+      - sh: go version | grep -Eq 'go1\.27\.'
+        msg: "Use Go 1.27.x from api/go.mod"
+      - sh: docker compose version --short | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const [a,b,c]=s.trim().replace(/^v/,"").split(".").map(Number);if(!(a>2||(a===2&&(b>24||(b===24&&c>=4)))))process.exit(1)})'
+        msg: "Docker Compose >=2.24.4 is required for optional profile dependencies"
+    cmds:
+      - echo "Required tools available; setup explicitly provisions dependencies next"
+
+  setup:tools:
+    desc: "Explicitly provision pinned Go quality tools into api/bin"
+    env: { GOBIN: "{{.TASKFILE_DIR}}/api/bin" }
+    cmds:
+      # Existing CI needs Go 1.27.1 specifically for this linter's export-data reader.
+      # This explicit provisioning task may acquire that toolchain; lint itself never does.
+      - GOTOOLCHAIN=go1.27.1 go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
+      - go install golang.org/x/tools/cmd/deadcode@{{.DEADCODE_VERSION}}
+      - go install golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}}
+
+  setup:app:
+    desc: "Explicit frozen workspace install and frontend generation only; no runtime"
+    cmds:
+      - pnpm install --frozen-lockfile
+      - pnpm --dir app run generate
+
+  setup:wasm:
+    desc: "Explicitly provision/build the existing CEL WASM artifact"
+    dir: app
+    preconditions:
+      - sh: command -v cargo && command -v wasm-pack
+        msg: "Install Rust/cargo and wasm-pack explicitly for the optional CEL engine"
+    cmds:
+      - cargo fetch --locked --manifest-path cel-engine/Cargo.toml
+      - pnpm run build:wasm -- --locked
+
+  setup:browser:
+    desc: "Explicitly provision the pinned Playwright Chromium browser"
+    dir: app
+    cmds:
+      - pnpm exec playwright install chromium
+
+  setup:images:
+    desc: "Explicitly pull infrastructure and build stable local images"
+    cmds:
+      - "{{.COMPOSE}} --profile '*' pull --ignore-buildable"
+      - "{{.COMPOSE}} --profile '*' build api migrate bootstrap seed-accounts"
+
+  dev:
+    desc: "Prepared stack with local accounts, then foreground frontend; no installs/generation/builds"
+    cmds:
+      - node app/scripts/local-dev.mjs --mode real --credentials "$KAITEN_DEV_DIR" --check
+      - task: up
       - task: app
 
-  quickstart:
-    desc: "The whole backend stack with accounts and fake product data — no frontend"
+  dev:mock:
+    desc: "Explicit UI-only mock convenience; not backend readiness"
     cmds:
-      - task: stack
-        vars: { PROFILES: "--profile accounts" }
-      # Fake product data. Behind compose's `seed` profile, so it stays opt-in
-      # for anyone driving compose directly, and always on here. Written through
-      # the same reporting-enabled use cases the product uses, which is also why
-      # it is the slow one.
-      - "{{.COMPOSE}} run --rm --build seed-data"
+      - node app/scripts/local-dev.mjs --mode mock --port "${KAITEN_APP_PORT:-3000}"
+
+  quickstart:
+    desc: "Explicit demo fixture population after prepared backend readiness"
+    cmds:
+      - task: up
+      - task: seed
+
+  seed:
+    desc: "Explicit demo fixtures; never replay bootstrap dependencies"
+    cmds:
       - task: ready
-        vars: { CONTAINS: "the Kaiten Sushi Shop org, its 5 TMNT users, and the demo dataset" }
+        vars: { ACCOUNT_ONESHOTS: "seed-accounts tokens" }
+      - "{{.COMPOSE}} run --rm --no-deps --no-build --pull never seed-data"
 
   up:
-    desc: "The stack with an organization and users, but no product data"
+    desc: "Prepared backend and local accounts, no demo reseed"
     cmds:
       - task: stack
-        vars: { PROFILES: "--profile accounts" }
-      - task: ready
-        vars: { CONTAINS: "the Kaiten Sushi Shop org and its 5 TMNT users; no product data" }
+        vars: { PROFILES: "--profile accounts", ACCOUNT_ONESHOTS: "seed-accounts tokens" }
 
   up:bare:
-    desc: "Infrastructure only: schema and the platform credential. No organization, no user"
+    desc: "Prepared backend without local accounts; first login provisions them"
     cmds:
       - task: stack
-      - task: ready
-        vars: { CONTAINS: "no organization and no user — the first login creates both (JIT provisioning)" }
 
-  # The body all three share. Internal, because which profiles are on IS the
-  # decision, and a target that took it as an argument would be a fourth way to
-  # start the stack whose name said nothing about what it starts.
   stack:
     internal: true
-    silent: true
     cmds:
-      # Before compose, always. ./dev is gitignored, so a fresh clone does not
-      # have it --
-      # and a bind mount whose source is missing is created by the DAEMON, as
-      # root. Nothing the containers run as can then write the credentials into
-      # it. Creating it here means it belongs to the user whose uid they run as.
-      - mkdir -p "$KAITEN_DEV_DIR"
-      # Infrastructure, migrations, the platform credential, the API -- and the
-      # accounts, if this caller asked for that profile. Ordering among them is
-      # compose's job (depends_on), not this file's.
-      #
-      # No --wait: it treats a one-shot container exiting 0 as a failure, and
-      # half of this graph is one-shots. Readiness is not lost -- api-ready
-      # polls until the API actually answers through Envoy.
-      - "{{.COMPOSE}} {{.PROFILES}} up -d --build"
+      - sh -c 'umask 077; mkdir -p "$KAITEN_DEV_DIR"'
+      - "{{.COMPOSE}} {{.PROFILES}} up -d --no-build --pull never"
+      - task: ready
+        vars: { ACCOUNT_ONESHOTS: "{{.ACCOUNT_ONESHOTS}}" }
 
   ready:
     internal: true
-    silent: true
+    env: { LOCAL_COMPOSE: "{{.COMPOSE}}" }
     cmds:
-      - |
-        echo "Ready — API http://localhost:${KAITEN_PORT}  Jaeger http://localhost:${JAEGER_UI_PORT:-16686}"
-        echo "Compose project {{.PROJECT}}; \`task app\` serves the frontend on http://localhost:${KAITEN_APP_PORT:-3000}."
-        echo "This stack has {{.CONTAINS}}."
-        echo "Sign in through the frontend's dev switcher; no account anywhere is needed."
+      - node "{{.TASKFILE_DIR}}/scripts/local-ready.mjs" --services "{{.READY_SERVICES}}" --one-shots "{{.ONESHOT_SERVICES}} {{.ACCOUNT_ONESHOTS}}" --urls "{{.READY_URLS}}"
+      - echo "Selected gateway is ready; task app serves the frontend"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Stack
   # ─────────────────────────────────────────────────────────────────────────────
 
-  down:
-    desc: "Stop everything (keeps data)"
+  stop:
+    desc: "Stop selected runtime; retain containers, data and credentials"
     cmds:
-      - "{{.COMPOSE}} --profile '*' down"
+      - "{{.COMPOSE}} --profile '*' stop"
+
+  down:
+    desc: "Alias for stop (retains data)"
+    cmds:
+      - task: stop
 
   down:clean:
     desc: "Stop everything and delete all data (volumes)"
@@ -184,27 +249,62 @@ tasks:
     desc: "Throw the database away and rebuild from scratch"
     cmds:
       - task: down:clean
+      - sh -c 'umask 077; mkdir -p "$KAITEN_DEV_DIR"'
+      - "{{.COMPOSE}} up -d --no-build --pull never migrate"
+      - LOCAL_COMPOSE='{{.COMPOSE}}' node scripts/local-ready.mjs --services db --one-shots migrate --no-http
+      - "{{.COMPOSE}} run --rm --no-deps --no-build --pull never bootstrap rotate"
       - task: quickstart
 
   restart:
-    desc: "Rebuild and restart the API alone, keeping data"
+    desc: "Explicitly rebuild/restart only api; independent sidecar remains running (CDC proof required)"
     cmds:
-      - "{{.COMPOSE}} up -d --build --no-deps api"
-      # The sidecar too, and not because anything about it changed. It runs
-      # inside the api container's network namespace (network_mode:
-      # "service:api" in compose.yml), so recreating the api leaves it holding a
-      # namespace whose container is gone: Dapr's RabbitMQ subscriber loses its
-      # channel, loops "ensureSubscription: channel not initialized" every three
-      # seconds forever, and EVERY CDC delivery stops -- silently, with the api
-      # itself healthy and answering. That is the whole outbox pipeline down
-      # after a command whose description says it restarts the API alone.
-      #
-      # --force-recreate, not `restart`: `docker compose restart` fails outright
-      # here ("joining network namespace of container: No such container"),
-      # because rejoining a dead namespace is not a thing. A new container is
-      # the only recovery, which is why this is a line in the task rather than
-      # something to rediscover from an empty inbox_events table.
-      - "{{.COMPOSE}} up -d --force-recreate --no-deps api-dapr-sidecar"
+      - "{{.COMPOSE}} build api"
+      - "{{.COMPOSE}} up -d --no-build --pull never --no-deps api"
+      - task: ready
+
+  setup:debug:
+    desc: "Explicitly provision pinned Delve locally (no global profile writes)"
+    env: { GOBIN: "{{.TASKFILE_DIR}}/api/bin" }
+    cmds:
+      - go install github.com/go-delve/delve/cmd/dlv@v1.27.2
+
+  debug:
+    desc: "Explicit dev-only Delve build/start for SERVICE=api; gateway and infrastructure preserved"
+    vars: { SERVICE: '{{default "api" .SERVICE}}' }
+    env:
+      KAITEN_DEBUG_PORT: '{{default "40000" .KAITEN_DEBUG_PORT}}'
+    preconditions:
+      - sh: test "{{.SERVICE}}" = api
+        msg: "Unknown debug service; OSS supports only SERVICE=api (no runtime changed)"
+    cmds:
+      - '{{.COMPOSE}} -f "{{.TASKFILE_DIR}}/compose.debug.yml" build api'
+      - '{{.COMPOSE}} -f "{{.TASKFILE_DIR}}/compose.debug.yml" up -d --no-deps --no-build --pull never api'
+      - task: ready
+      - echo "Attach Delve/IDE on 127.0.0.1:{{default "40000" .KAITEN_DEBUG_PORT}}; source map /go/kaiten/api to this checkout/api"
+
+  debug:test:
+    desc: "Debug one Go test package; Docker-capable TestMain may require Docker"
+    dir: api
+    vars: { PACKAGE: '{{default "" .PACKAGE}}' }
+    preconditions:
+      - sh: test -n "{{.PACKAGE}}"
+        msg: "Pass PACKAGE=./pkg/...; inspect its TestMain for Docker prerequisites"
+      - sh: test -x bin/dlv
+        msg: "Explicitly run task setup:debug first (pinned Delve v1.27.2)"
+    cmds:
+      - 'bin/dlv test "{{.PACKAGE}}" --headless --listen=127.0.0.1:{{default "40000" .KAITEN_DEBUG_PORT}} --api-version=2 --accept-multiclient -- {{.CLI_ARGS}}'
+
+  credentials:rotate:
+    desc: "Explicit recovery/rotation: revokes local platform token and its children"
+    cmds:
+      - "{{.COMPOSE}} run --rm --no-deps --no-build --pull never bootstrap rotate"
+
+  status:
+    desc: "Normal accounts stack readiness; use ACCOUNT_ONESHOTS='' for bare mode"
+    vars: { ACCOUNT_ONESHOTS: "seed-accounts tokens" }
+    env: { LOCAL_COMPOSE: "{{.COMPOSE}}" }
+    cmds:
+      - node "{{.TASKFILE_DIR}}/scripts/local-ready.mjs" --status --services "{{.READY_SERVICES}}" --one-shots "{{.ONESHOT_SERVICES}} {{.ACCOUNT_ONESHOTS}}" --urls "{{.READY_URLS}}"
 
   ps:
     desc: "What is running"
@@ -212,38 +312,49 @@ tasks:
       - "{{.COMPOSE}} --profile '*' ps -a"
 
   logs:
-    desc: "Tail logs — all services, or one: task logs -- api"
+    desc: "Bounded logs (last 100 lines/10 minutes): task logs -- api"
     cmds:
-      - "{{.COMPOSE}} logs -f {{.CLI_ARGS}}"
+      - "{{.COMPOSE}} logs --tail 100 --since 10m {{.CLI_ARGS}}"
+
+  logs:follow:
+    desc: "Explicit log follow: task logs:follow -- api"
+    cmds:
+      - "{{.COMPOSE}} logs --tail 100 -f {{.CLI_ARGS}}"
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Frontend
   # ─────────────────────────────────────────────────────────────────────────────
 
   app:
-    desc: "Frontend dev server"
-    dir: app
-    vars:
-      # On by default: the dev user-switcher is the only way in to this
-      # stack. A caller fronting the app with a real identity provider passes
-      # LOCAL_AUTH=false.
-      LOCAL_AUTH: '{{default "true" .LOCAL_AUTH}}'
+    desc: "Foreground console; local auth by default, explicit LOCAL_AUTH=false preserves provider mode"
+    vars: { LOCAL_AUTH: '{{default "true" .LOCAL_AUTH}}' }
     cmds:
-      # VITE_API_URL is derived from KAITEN_PORT rather than left unset. Unset,
-      # app/src/env.ts falls back to its DEFAULT_LOCAL_API_URL, which can only
-      # ever name one port -- so it names KAITEN_PORT's default, and a stack that
-      # moved the port off the default had a frontend pointing at nothing. That
-      # is a connection error on every request with no mention of the port
-      # anywhere in it. Deriving it here is one source of truth, and it is what
-      # lets a second stack on a second port get a frontend that talks to its own
-      # API rather than to the first one's.
       - |
-        {{.NVM}}
-        nvm use
-        pnpm install
-        VITE_LOCAL_AUTH={{.LOCAL_AUTH}} \
-        VITE_API_URL="${VITE_API_URL:-http://localhost:${KAITEN_PORT}/api}" \
-          pnpm exec vp dev --port "${KAITEN_APP_PORT:-3000}"
+        if [ "{{.LOCAL_AUTH}}" = false ]; then
+          # Explicit advanced provider mode; installed tooling only, no lookup/install.
+          cd "{{.TASKFILE_DIR}}/app"
+          VITE_LOCAL_AUTH=false VITE_API_URL="${VITE_API_URL:-http://localhost:${KAITEN_PORT:-6060}/api}" \
+            ../node_modules/.bin/vp dev --host 127.0.0.1 --strictPort --port "${KAITEN_APP_PORT:-3000}"
+        else
+          node "{{.TASKFILE_DIR}}/app/scripts/local-dev.mjs" --mode real --credentials "$KAITEN_DEV_DIR" \
+            --api-url "http://localhost:${KAITEN_PORT:-6060}/api" --port "${KAITEN_APP_PORT:-3000}"
+        fi
+
+  app:clerk:
+    desc: "Explicit advanced provider frontend; configured public env only, no install/credential lookup"
+    cmds:
+      - task: app
+        vars: { LOCAL_AUTH: "false" }
+
+  browser:
+    desc: "Interactive fresh browser: task browser -- http://localhost:3000 [--devtools-port 9222]"
+    cmds:
+      - node app/scripts/local-browser.mjs --interactive {{.CLI_ARGS}}
+
+  capture:
+    desc: "Private screenshot and bounded failure evidence: task capture -- http://localhost:3000"
+    cmds:
+      - node app/scripts/local-browser.mjs {{.CLI_ARGS}}
 
   # ─────────────────────────────────────────────────────────────────────────────
   # Code generation
@@ -257,8 +368,7 @@ tasks:
         {{.NVM}}
         cd "{{.TASKFILE_DIR}}/app"
         nvm use
-        pnpm install
-        pnpm generate
+        pnpm run generate
 
   generate:oas:
     desc: "The Core and Platform OpenAPI specs from Go source"
@@ -323,6 +433,7 @@ tasks:
       - task: test:api
       - task: test:app
       - task: test:charts
+      - task: test:local
 
   test:api:
     desc: "Backend tests — extra go test flags pass through: task test:api -- -v -run Usage"
@@ -330,13 +441,32 @@ tasks:
     cmds:
       # -shuffle=on is the only guard in the repo against a test that passes
       # only because an earlier one left state behind. CI runs the same flag.
-      - go test -shuffle=on {{.CLI_ARGS}} ./...
+      - for: { var: MODULES }
+        cmd: cd "{{.ITEM}}" && go test -shuffle=on {{.CLI_ARGS}} ./...
+
+  test:api:race:
+    desc: "Both Go modules with race detector; filters pass through (Docker integration prerequisites apply)"
+    dir: api
+    cmds:
+      - for: { var: MODULES }
+        cmd: cd "{{.ITEM}}" && go test -race -shuffle=on {{.CLI_ARGS}} ./...
+
+  test:local:
+    desc: "Workflow fixtures without Docker, browser, installs or credentials"
+    cmds:
+      - node --test scripts/local-ready.test.mjs scripts/local-compose.test.mjs app/scripts/local-development.test.mjs
+
+  test:app:e2e:
+    desc: "Existing Playwright regressions (installed browser and prepared clients required)"
+    dir: app
+    cmds:
+      - pnpm run test:e2e:app {{.CLI_ARGS}}
 
   test:app:
     desc: "Frontend unit tests"
     dir: app
     cmds:
-      - pnpm test
+      - pnpm run test {{.CLI_ARGS}}
 
   test:charts:
     desc: "Lint and render the Helm charts (needs helm, no cluster)"
@@ -374,14 +504,15 @@ tasks:
       - |
         set -eu
         for module in api api/cmd/schema-docs; do
-          if (cd "$module" && go list -m all) | grep -E '^github\.com/kaitencloud/' | grep -v -E '^github\.com/kaitencloud/(kaiten/|sdk-go( |$))'; then
+          graph=$(cd "$module" && go list -m all)
+          if printf '%s\n' "$graph" | grep -E '^github\.com/kaitencloud/' | grep -v -E '^github\.com/kaitencloud/(kaiten/|sdk-go( |$))'; then
             echo "$module depends on a Kaiten module other than the Go SDK — kaiten is depended on, it never depends back" >&2
             exit 1
           fi
         done
 
   lint:
-    desc: "Lint and auto-fix, backend and frontend"
+    desc: "Read-only lint, backend and frontend"
     cmds:
       - task: lint:api
       - task: lint:app
@@ -410,20 +541,40 @@ tasks:
       - task: coverage:api
 
   lint:api:
-    desc: "golangci-lint over both Go modules, with --fix"
+    desc: "Read-only golangci-lint over both modules (task setup:tools first)"
     dir: api
+    env: { GOTOOLCHAIN: local }
+    preconditions:
+      - sh: go version | grep -q 'go1.27.1 '
+        msg: "Select already-installed Go 1.27.1 for pinned lint (existing CI export-data constraint); no automatic download"
+      - sh: test -x bin/golangci-lint
+        msg: "Explicitly run task setup:tools first"
     cmds:
       - for: { var: MODULES }
         cmd: >-
           cd "{{.ITEM}}" &&
-          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
-          run --timeout=10m --fix ./...
+          "{{.TASKFILE_DIR}}/api/bin/golangci-lint" run --timeout=10m ./...
+
+  build:
+    desc: "Build owning Go commands/nested module and frontend using prepared tooling"
+    cmds:
+      - task: build:api
+      - task: build:app
+
+  build:app:
+    dir: app
+    cmds:
+      - pnpm run build
 
   build:api:
-    desc: "Build the API server binary into api/bin/"
+    desc: "Build server, admin tools, seeder, docs and nested schema-docs into api/bin/"
     dir: api
     cmds:
       - go build -o bin/api ./cmd/server
+      - go build -o bin/kaiten-admin-tools ./cmd/admin-tools
+      - go build -o bin/seeder ./cmd/seeder
+      - go build -o bin/docs ./cmd/docs
+      - cd cmd/schema-docs && go build -o ../../bin/schema-docs .
 
   fmt:api:
     desc: "gofumpt + gci over both Go modules"
@@ -432,8 +583,7 @@ tasks:
       - for: { var: MODULES }
         cmd: >-
           cd "{{.ITEM}}" &&
-          go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@{{.GOLANGCI_LINT_VERSION}}
-          fmt ./...
+          "{{.TASKFILE_DIR}}/api/bin/golangci-lint" fmt ./...
 
   vuln:api:
     desc: "govulncheck over both Go modules"
@@ -442,7 +592,7 @@ tasks:
       - for: { var: MODULES }
         cmd: >-
           cd "{{.ITEM}}" &&
-          go run golang.org/x/vuln/cmd/govulncheck@{{.GOVULNCHECK_VERSION}} ./...
+          "{{.TASKFILE_DIR}}/api/bin/govulncheck" ./...
 
   deadcode:api:
     desc: "Unreachable functions, both Go modules (findings need triage, not blind deletion)"
@@ -451,17 +601,41 @@ tasks:
       - for: { var: MODULES }
         cmd: >-
           cd "{{.ITEM}}" &&
-          go run golang.org/x/tools/cmd/deadcode@{{.DEADCODE_VERSION}} -test ./...
+          "{{.TASKFILE_DIR}}/api/bin/deadcode" -test ./...
 
   coverage:api:
-    desc: "Write api/coverage.out"
+    desc: "Coverage in both Go modules (Docker integration prerequisites apply)"
     dir: api
     cmds:
       # Unit and integration shards together: ./... is both, and the
       # integration half needs Docker for testcontainers.
-      - go test ./... -coverprofile=coverage.out -covermode=atomic
+      - for: { var: MODULES }
+        cmd: cd "{{.ITEM}}" && go test {{.CLI_ARGS}} ./... -coverprofile=coverage.out -covermode=atomic
 
   lint:app:
     dir: app
     cmds:
-      - pnpm lint:fix
+      - pnpm run lint
+
+  lint:fix:
+    desc: "Explicit auto-fix, backend and frontend"
+    cmds:
+      - task: lint:api:fix
+      - task: lint:app:fix
+
+  lint:api:fix:
+    dir: api
+    env: { GOTOOLCHAIN: local }
+    preconditions:
+      - sh: go version | grep -q 'go1.27.1 '
+        msg: "Select already-installed Go 1.27.1 for pinned lint (existing CI export-data constraint)"
+      - sh: test -x bin/golangci-lint
+        msg: "Explicitly run task setup:tools first"
+    cmds:
+      - for: { var: MODULES }
+        cmd: cd "{{.ITEM}}" && "{{.TASKFILE_DIR}}/api/bin/golangci-lint" run --timeout=10m --fix ./...
+
+  lint:app:fix:
+    dir: app
+    cmds:
+      - pnpm run lint:fix

@@ -18,6 +18,7 @@ type Repository interface {
 
 // TokenData represents validated token information.
 type TokenData struct {
+	TokenID        uuid.UUID
 	SubjectID      uuid.UUID
 	OrganizationID uuid.UUID
 	Scopes         []string
@@ -56,6 +57,7 @@ func (r *repository) ValidateToken(ctx context.Context, plainToken string) (*Tok
 	}
 
 	return &TokenData{
+		TokenID:                dbToken.ID,
 		SubjectID:              dbToken.ServiceAccountID,
 		OrganizationID:         dbToken.OrganizationID,
 		Scopes:                 dbToken.Scopes,

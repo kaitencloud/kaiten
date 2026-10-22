@@ -30,7 +30,7 @@ func NewMiddleware(p provisioner) fiber.Handler {
 		// Provisioner.Check requires a non-empty ExternalOrganizationID, and
 		// resolveOrganization *upserts* an organization -- which is exactly the
 		// implicit organization attachment a platform credential must never get.
-		if identity.IsPlatform() {
+		if identity.IsPlatform() || identity.OrganizationTokenID != uuid.Nil {
 			return c.Next()
 		}
 

@@ -1,8 +1,8 @@
 # Contributing to Kaiten
 
 Thank you for helping. This file is the short path from a clone to a pull request.
-The [README](./README.md) is the authoritative guide to running the stack and is not
-repeated here.
+[DEVELOPMENT.md](./DEVELOPMENT.md) is the authoritative guide to running the stack and is
+not repeated here.
 
 Unless a repository or component explicitly states otherwise, Kaiten's
 open-source code is licensed under the
@@ -112,7 +112,7 @@ follow the README's [Quickstart](./README.md#quickstart): copy `.env.example` to
 
 ### macOS
 
-Follow the README's [Prerequisites](./README.md#prerequisites) as written: they are
+Follow the [Prerequisites](./DEVELOPMENT.md#prerequisites) as written: they are
 the Homebrew commands.
 
 ### Linux
@@ -169,7 +169,8 @@ does the same locally.
 
 | Where | What it holds |
 | --- | --- |
-| [`README.md`](./README.md) | Running the stack, the task list, the environment, authentication |
+| [`README.md`](./README.md) | What Kaiten is, the quickstart, where the documentation is |
+| [`DEVELOPMENT.md`](./DEVELOPMENT.md) | Running the stack, the task list, the environment, authentication |
 | [`app/docs/`](./app/docs/README.md) | The frontend: architecture, conventions, patterns, testing, deployment |
 | `app/src/features/<name>/README.md` | One feature: what it does and how it is built |
 | [`AGENTS.md`](./AGENTS.md) | Layout, commands, rules and checks, for coding agents and for people |

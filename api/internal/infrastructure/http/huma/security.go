@@ -71,7 +71,8 @@ var bearerScheme = &huma.SecurityScheme{
 	BearerFormat: "JWT",
 	Description: "A JWT verified by the proxy in front of this API, or a Kaiten access token (`ksh_...`) — " +
 		"send either as `Authorization: Bearer <token>`. The scopes listed " +
-		"on each operation are the ones the token must carry; " +
+		"on each operation are checked server-side against current stored user assignments " +
+		"or stored service-token permissions, never JWT claims; " +
 		"`write:<module>` implies `read:<module>`, and `read:*` / `write:*` " +
 		"are wildcards over every module. `" + ScopesExtension + "` lists every " +
 		"scope such a token can carry, including those enforced by a service " +
@@ -191,6 +192,19 @@ func RegisterScoped[I, O any](
 	handler func(context.Context, *I) (*O, error),
 ) {
 	op.Security = append(op.Security, ScopeRequirement(requiredScope))
+	huma.Register(api, op, handler)
+}
+
+// RegisterAuthorizationIntrospection is the single auth-only Core operation.
+// It reveals the authenticated caller's current grants, including an empty set;
+// requiring a permission would prevent callers from observing full revocation.
+// The fixed method/path/ID prevents this exception from authorizing domain routes.
+// Like RegisterScoped, its handler must resolve caller.Organization (AST-tested).
+func RegisterAuthorizationIntrospection[I, O any](api huma.API, op huma.Operation, handler func(context.Context, *I) (*O, error)) {
+	if op.Method != "GET" || op.Path != "/authorization" || op.OperationID != "GetAuthorization" {
+		panic("auth-only registration is reserved for GET /authorization")
+	}
+	op.Security = []map[string][]string{{BearerAuth: {}}}
 	huma.Register(api, op, handler)
 }
 

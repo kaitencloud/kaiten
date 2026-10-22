@@ -16,6 +16,7 @@ import { useDemoSandboxEnabled } from '@/hooks/use-feature-flag';
 import { useIsSideNavLocked } from './-components/side-nav/use-sidenav-lock';
 import { PathBreadcrumbs } from './-components/path-breadcrumbs';
 import { SideNav } from './-components/side-nav/side-nav';
+import { DevAccessBadge } from './-components/dev-access-badge';
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -83,7 +84,12 @@ function RootLayout() {
                   <UserButton />
                 </>
               )}
-              {isLocalAuth && <DevAuthSwitcher />}
+              {isLocalAuth && (
+                <>
+                  {' '}
+                  <DevAccessBadge /> <DevAuthSwitcher />{' '}
+                </>
+              )}
             </div>
           </header>
           <main className="flex-1 overflow-auto">

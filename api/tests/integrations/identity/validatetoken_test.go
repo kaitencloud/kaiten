@@ -108,20 +108,8 @@ func TestValidateTokenOnServiceAccount(t *testing.T) {
 		require.Nil(t, claims["kaiten_org_id"], "kaiten_org_id claim should no longer be present")
 		require.Nil(t, claims["org_id"], "org_id claim should no longer be present")
 
-		scopesInterface, ok := claims["scopes"].([]any)
-		require.True(t, ok, "scopes claim should be present and be an array")
-		require.Len(t, scopesInterface, len(payload.Body.Scopes), "scopes should have the same length")
-
-		// Convert []any to []string for the comparison
-		scopes := make([]string, len(scopesInterface))
-		for i, scope := range scopesInterface {
-			scopes[i], ok = scope.(string)
-			require.True(t, ok, "each scope should be a string")
-		}
-
-		for _, scope := range scopes {
-			require.Contains(t, payload.Body.Scopes, scope, "scope should be in the original scopes")
-		}
+		require.NotContains(t, claims, "scopes", "Authorization must not travel in JWT claims")
+		require.Equal(t, output.ID.String(), claims["kaiten_token_id"])
 	})
 
 	t.Run("WhenServiceAccountIsSoftDeleted_RejectsToken", func(t *testing.T) {

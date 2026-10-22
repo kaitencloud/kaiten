@@ -526,7 +526,14 @@ func TestInProcessFacadeMethodsCheckNoScope(t *testing.T) {
 			switch len(executes) {
 			case 1:
 				for _, pkgPath := range sortedKeys(executes) {
-					if _, credentialFree := inProcessUseCasePkgs[pkgPath]; !credentialFree {
+					_, credentialFree := inProcessUseCasePkgs[pkgPath]
+					// Local bootstrap verifies a credential before HTTP starts. This
+					// one authentication-only facade method reuses the permanent
+					// validator exemption; it is not an unauthenticated write and
+					// does not add a driver to the Modules bypass allowlist.
+					localVerification := fn.Name.Name == "ValidatePlatformToken" &&
+						pkgPath == modulesPrefix+"identity/validateplatformtoken"
+					if !credentialFree && !localVerification {
 						violations = append(violations, fmt.Sprintf(
 							"%s: %s runs %s.Execute, which is not one of the credential-free use cases -- an "+
 								"operation reached without a credential must be one that could not have "+

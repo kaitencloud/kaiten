@@ -1,3 +1,4 @@
+import type { ComponentProps } from 'react';
 import { Input } from '@/components/ui/input';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
@@ -9,7 +10,7 @@ type TextFieldProps = {
    */
   autoComplete?: string;
   className?: string;
-  inputMode?: 'decimal' | 'email' | 'numeric' | 'search' | 'text' | 'url';
+  inputMode?: ComponentProps<'input'>['inputMode'];
   label: string;
   required?: boolean;
   placeholder?: string;
@@ -17,10 +18,10 @@ type TextFieldProps = {
   disabled?: boolean;
   onChange?: (value: string) => void;
   /**
-   * `password` for a secret that is typed and never read back: the characters are
-   * hidden, and the browser is told not to offer it again.
+   * The input's type. `password` is for a secret that is typed and never read back:
+   * the characters are hidden, and the browser is told not to offer it again.
    */
-  type?: 'password' | 'text';
+  type?: ComponentProps<'input'>['type'];
 };
 
 const TextField = ({

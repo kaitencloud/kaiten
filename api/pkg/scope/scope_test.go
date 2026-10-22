@@ -180,7 +180,7 @@ func TestOrganizationScopes(t *testing.T) {
 		}
 	}
 
-	for _, module := range []Module{Users, Memberships} {
+	for _, module := range []Module{Memberships} {
 		for _, s := range []string{Read(module), Write(module)} {
 			if slices.Contains(scopes, s) {
 				t.Errorf("OrganizationScopes() offers %q, which only the Platform API enforces", s)

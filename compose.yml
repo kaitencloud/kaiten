@@ -26,7 +26,7 @@ x-seeder: &seeder
   # other two on whatever binary they were last built with, so a stack could
   # run a fresh seeder and a stale token minter from the same commit. One name
   # means whichever service builds it, all three then run the same bits.
-  image: ${KAITEN_CONTAINER_PREFIX:-kaiten}-seeder
+  image: kaiten-local-seeder
   environment:
     KAITEN_DATABASE_CONNECTION_STRING: "postgres://${KAITEN_DATABASE_USER}:${KAITEN_DATABASE_PASSWORD}@db:5432/${KAITEN_DATABASE}?sslmode=disable"
     KAITEN_API_PORT: ${KAITEN_PORT}
@@ -129,8 +129,8 @@ services:
       # this can no longer be "*".
       KAITEN_APP_URL: ${KAITEN_APP_URL}
     ports:
-      - "${KAITEN_PORT}:80"
-      - "${ENVOY_ADMIN_PORT:-8080}:8080"  # Envoy admin interface
+      - "127.0.0.1:${KAITEN_PORT}:80"
+      - "127.0.0.1:${ENVOY_ADMIN_PORT:-8080}:8080"  # Envoy admin interface
     volumes:
       - ./docker/envoy:/etc/envoy/dynamic:ro
     depends_on:
@@ -144,16 +144,16 @@ services:
     environment:
       - COLLECTOR_OTLP_ENABLED=true
     ports:
-      - "${JAEGER_UI_PORT:-16686}:16686"            # Jaeger UI
-      - "${JAEGER_OTLP_GRPC_PORT:-4317}:4317"       # OTLP gRPC
-      - "${JAEGER_OTLP_HTTP_PORT:-4318}:4318"       # OTLP HTTP
+      - "127.0.0.1:${JAEGER_UI_PORT:-16686}:16686"            # Jaeger UI
+      - "127.0.0.1:${JAEGER_OTLP_GRPC_PORT:-4317}:4317"       # OTLP gRPC
+      - "127.0.0.1:${JAEGER_OTLP_HTTP_PORT:-4318}:4318"       # OTLP HTTP
 
   db:
     image: postgres:17.4
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-db
     restart: unless-stopped
     ports:
-      - "${KAITEN_DATABASE_PORT:-5452}:5432"
+      - "127.0.0.1:${KAITEN_DATABASE_PORT:-5452}:5432"
     environment:
       POSTGRES_USER: ${KAITEN_DATABASE_USER}
       POSTGRES_PASSWORD: ${KAITEN_DATABASE_PASSWORD}
@@ -182,6 +182,7 @@ services:
   # charts/kaiten-infra (see migrate-job.yaml): schema migrations run here,
   # once, before anything else touches the database.
   migrate:
+    image: kaiten-local-admin-tools
     build:
       context: .
       dockerfile: api/Containerfile.admin-tools
@@ -217,11 +218,10 @@ services:
   # reaches stdout — only the path is logged — so a
   # `docker compose logs bootstrap` never contains a secret.
   #
-  # Re-running is the normal case (`task up` twice): it is created with
-  # --replace, so the previous run's is revoked and the file rewritten. Anything
-  # still holding an old value gets a 401, which is the honest outcome — there is
-  # no way to recover a plaintext once written.
+  # Repeated starts validate/preserve the existing credential. Stale files fail
+  # closed; only explicit credentials:rotate revokes its descendants.
   bootstrap:
+    image: kaiten-local-admin-shell
     build:
       context: .
       dockerfile: api/Containerfile.admin-tools
@@ -239,7 +239,7 @@ services:
       # Read-only, and mounted rather than baked in: editing the local credential
       # policy is editing a file in the repo, with no image rebuild in between.
       - ./scripts/local-credentials.sh:/usr/local/bin/local-credentials.sh:ro
-    command: ["/usr/local/bin/local-credentials.sh"]
+    entrypoint: ["/usr/local/bin/local-credentials.sh"]
     depends_on:
       db:
         condition: service_healthy
@@ -284,12 +284,8 @@ services:
   # reports itself ready a second or two before it can serve, and whatever
   # runs next fails against a half-started API.
   #
-  # Depends on envoy alone rather than on `api`. `docker compose run` re-runs an
-  # exited dependency, so anything that names `api` drags along whatever `api`
-  # waits on -- which is how a `run --rm seed` used to re-run the credential
-  # bootstrap and revoke the token the running API was holding. Polling through
-  # envoy proves the API is serving without ever naming it, and keeps this
-  # service inert as a dependency.
+  # This gate names API explicitly; later fixture tasks use run --no-deps
+  # after the host gate, so they never replay its bootstrap dependencies.
   api-ready:
     image: busybox:1.37.0
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-api-ready
@@ -298,13 +294,15 @@ services:
       - -ec
       - |
         i=0
-        until wget -qO- http://envoy/api/healthz >/dev/null 2>&1; do
+        until wget -T 1 -qO- http://envoy/api/healthz >/dev/null 2>&1; do
           i=$$((i+1))
-          [ "$$i" -gt 300 ] && echo "API did not become ready in 60s" >&2 && exit 1
-          sleep 0.2
+          [ "$$i" -ge 30 ] && echo "API did not become ready within 60s" >&2 && exit 1
+          sleep 1
         done
         echo "API is serving"
     depends_on:
+      api:
+        condition: service_started
       envoy:
         condition: service_started
 
@@ -322,18 +320,14 @@ services:
     <<: *seeder
     profiles: [seed]
     command: ["--profile", "demo"]
-    # Gated on api-ready, not on `api`: `docker compose run` re-runs an exited
-    # dependency, so naming the API here would drag its one-shot dependencies
-    # along on every seed. api-ready only polls envoy, so it is inert.
-    #
-    # What actually guarantees the API is up is the caller: `task up` runs
-    # `compose up --wait` before this. Running it by hand against a stopped
-    # stack is on you.
+    # Direct Compose seed uses readiness; root task seed uses --no-deps
+    # after its host gate to avoid replaying any one-shot.
     depends_on:
       api-ready:
         condition: service_completed_successfully
 
   api:
+    image: kaiten-local-api
     build:
       context: .
       dockerfile: api/Containerfile
@@ -353,7 +347,7 @@ services:
     # curl it directly, or reach it as api:${KAITEN_PLATFORM_PORT:-6001} from
     # another container.
     ports:
-      - "${KAITEN_PLATFORM_PORT:-6001}:${KAITEN_PLATFORM_PORT:-6001}"
+      - "127.0.0.1:${KAITEN_PLATFORM_PORT:-6001}:${KAITEN_PLATFORM_PORT:-6001}"
     environment:
       KAITEN_API_PORT: ${KAITEN_PORT}
       KAITEN_PLATFORM_API_PORT: ${KAITEN_PLATFORM_PORT:-6001}
@@ -406,11 +400,13 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      # Named explicitly. It used to arrive transitively through `bootstrap`,
-      # which the API no longer waits on -- and the API against a schema one
-      # migration behind fails in ways that look like anything but that.
       migrate:
         condition: service_completed_successfully
+      bootstrap:
+        condition: service_completed_successfully
+      tokens:
+        condition: service_completed_successfully
+        required: false
       rabbitmq:
         condition: service_healthy
 
@@ -428,8 +424,8 @@ services:
     container_name: ${KAITEN_CONTAINER_PREFIX:-kaiten}-rabbitmq
     restart: unless-stopped
     ports:
-      - "${RABBITMQ_AMQP_PORT:-5672}:5672"              # AMQP
-      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"      # Management UI
+      - "127.0.0.1:${RABBITMQ_AMQP_PORT:-5672}:5672"              # AMQP
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"      # Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./docker/rabbitmq/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
@@ -482,12 +478,8 @@ services:
       OTEL_TRACES_EXPORTER: otlp
       OTEL_METRICS_EXPORTER: none
       OTEL_LOGS_EXPORTER: none
-    # No named volume for /debezium/data: offsets.dat is a position in the
-    # database's WAL, so it must not outlive the database. db keeps its data
-    # in the image's anonymous volume, which `down` discards; a named volume
-    # here survived it, and the next stack resumed from an LSN its fresh WAL
-    # had not reached -- skipping every outbox event, silently, until the WAL
-    # caught up. The image's own anonymous volume shares db's lifetime.
+    # Stop retains the DB container and CDC offsets together. down:clean
+    # explicitly deletes both; do not persist offsets past DB replacement.
     volumes:
       - ./docker/rabbitmq/rabbitmq-debezium-application.properties:/debezium/config/application.properties:ro
     depends_on:
@@ -512,6 +504,8 @@ services:
       - "kaiten-api"
       - "--app-port"
       - "${KAITEN_PORT}"
+      - "--app-channel-address"
+      - "api"
       - "--dapr-http-port"
       - "3500"
       - "--dapr-grpc-port"
@@ -531,7 +525,8 @@ services:
         condition: service_healthy
       jaeger:
         condition: service_started
-    network_mode: "service:api"
+    # Independent internal-network sidecar: stable API DNS survives replacement.
+    # No Dapr HTTP/gRPC controls are published to the host.
 
 volumes:
   rabbitmq_data:

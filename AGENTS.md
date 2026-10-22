@@ -19,17 +19,35 @@ Codex; `CLAUDE.md` imports it for Claude Code. Human contributors: start with
 
 ## Install and run
 
-- Prerequisites are listed in `README.md`. Node 24 is pinned in `app/.nvmrc`;
+- Prerequisites are listed in `DEVELOPMENT.md`. Node 24 is pinned in `app/.nvmrc`;
   pnpm is pinned by the `packageManager` field of the root `package.json`.
 - Install the workspace once, from the repository root: `pnpm install`.
-- `cp .env.example .env`, then `task dev`: the whole backend stack in Docker,
-  fake product data, the generated API client and the frontend dev server.
+- Explicit `task setup` provisions dependencies/images and generates the client
+  once, preserving existing `.env`; then `task dev` runs the prepared Docker stack,
+  local accounts and frontend. `task seed` explicitly adds demo product data.
   `task up` starts the stack without the frontend; `task down` stops it;
   `task --list` shows every task.
 - `pnpm run dev:mock` in `app/`, after `pnpm run generate`: the console alone,
   with no sign-in and the whole API answered by Mock Service Worker in the page.
 - Run package scripts with `pnpm run <script>`, from the directory that owns
   them (`app/` for the console).
+
+## Local feature workshop
+
+Use [local development](app/docs/00-getting-started/agent-development.md) and the
+same root `Taskfile.yml` as humans: explicit `setup`, prepared `dev`, bounded
+`status`/`logs`, `debug`, `browser` and `capture`. No agent-only command tree.
+`dev` never installs/generates/builds or rotates credentials. Never treat mocked
+UI as backend proof. Keep captures private and use synthetic actors, not provider
+or customer credentials. During Playwright local reproduction, agents MUST pair
+before/after screenshot visual analysis with Chrome DevTools MCP DOM/computed-style,
+console and network evidence from the **same browser session**. Use the optional
+`task browser -- <loopback-url> --devtools-port 9222` attachment workflow in the
+local-development guide; never attach a personal browser or treat `task capture`
+(a separate session) as same-session evidence. Add/rerun a focused regression.
+If installed Chrome or separately authorized pinned DevTools MCP is unavailable,
+report the blocker and incomplete evidence honestly; do not install/start tools
+without authorization or substitute screenshot-only verification.
 
 ## Architecture rules (frontend)
 

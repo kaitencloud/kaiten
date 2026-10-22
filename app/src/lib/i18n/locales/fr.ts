@@ -5467,6 +5467,166 @@ export default {
           "Le journal d'audit n'a pas pu être chargé pour le moment.",
       },
     },
+    Access: {
+      readOnlyAccess:
+        'Lecture seule : l’écriture des utilisateurs et des permissions suffisantes sont nécessaires pour modifier cet utilisateur ou ce rôle.',
+      grantAdministrator: 'Accorder les accès administrateur',
+      grantAdministratorDescription:
+        'Ajoutez un autre administrateur qui pourra gérer les utilisateurs et les rôles de façon autonome. Vos propres accès administrateur sont conservés.',
+      singleAdministrator: 'Un seul administrateur',
+      singleAdministratorDescription:
+        'Évitez un point de défaillance unique : ouvrez un autre utilisateur actif et accordez-lui les accès Administrateur. Tous les administrateurs peuvent en nommer d’autres.',
+
+      requestFailed: 'Impossible d’enregistrer les modifications',
+      fullAdministrator: 'Accès administrateur complet',
+      effectiveAccess: 'Accès effectifs aux ressources',
+      inherited: 'Via les rôles',
+      direct: 'Permission directe',
+      noResourceAccess: 'Aucun accès aux ressources accordé',
+      rolesAdded: 'Rôles ajoutés',
+      rolesRemoved: 'Rôles retirés',
+      directScopesChanged:
+        'Permissions directes : {{added}} ajoutées, {{removed}} retirées',
+      discard: 'Abandonner les modifications',
+      discardDescription:
+        'Les modifications non enregistrées du profil ou des accès seront perdues. Les modifications enregistrées sont conservées.',
+      roleSaveImpact:
+        'Les modifications concernent {{count}} utilisateurs associés',
+
+      errors: {
+        LastAdministrator:
+          'Le dernier administrateur ne peut être désactivé ni perdre son rôle. Attribuez d’abord ce rôle à un autre utilisateur.',
+        RoleInUse:
+          'Ce rôle est encore attribué à des utilisateurs. Retirez ces attributions avant de le supprimer.',
+        BuiltInRole:
+          'Les rôles prédéfinis ne peuvent être modifiés ni supprimés.',
+        InvalidAuthorization:
+          'La sélection de rôles ou de permissions est invalide. Actualisez et vérifiez les accès disponibles.',
+      },
+      title: 'Utilisateurs et rôles',
+      subtitle:
+        'Gérez les utilisateurs, regroupez les permissions en rôles et contrôlez les accès.',
+      cardDescription:
+        'Gérez les profils, les rôles réutilisables et les accès à votre organisation.',
+      manageAccess: 'Gérer les utilisateurs et rôles',
+      users: 'Utilisateurs',
+      roles: 'Rôles',
+      user: 'Utilisateur',
+      role: 'Rôle',
+      you: 'Vous',
+      name: 'Nom',
+      email: 'Adresse e-mail',
+      description: 'Description',
+      identity: 'Identifiant du fournisseur d’identité',
+      status: 'Statut',
+      enabled: 'Activé',
+      disabled: 'Désactivé',
+      allStatuses: 'Tous les statuts',
+      searchUsers: 'Rechercher des utilisateurs',
+      searchRoles: 'Rechercher des rôles',
+      manage: 'Gérer',
+      edit: 'Modifier',
+      view: 'Consulter',
+      manageNamedUser: 'Gérer {{name}}',
+      manageNamedRole: 'Gérer le rôle {{name}}',
+      noRoles: 'Aucun rôle attribué',
+      scopeCount: '{{count}} permissions',
+      effectiveScopes:
+        '{{count}} permissions effectives issues des rôles et des ajouts directs',
+      overrides: 'Permissions directes',
+      scopeOverrides: 'Avancé : permissions directes',
+      overridesExplanation:
+        'Les permissions directes s’ajoutent aux rôles. Aucun retire uniquement l’ajout direct, sans supprimer les accès hérités d’un rôle.',
+      assignedUsers: 'Utilisateurs attribués',
+      access: 'Accès',
+      administrator: 'Administrateur',
+      builtIn: 'Prédéfini',
+      adminExplanation:
+        'La lecture des utilisateurs permet de consulter les utilisateurs et les rôles. L’écriture permet de les gérer. Les rôles regroupent des permissions ; vous ne pouvez déléguer que les accès que vous possédez.',
+      accessDenied: 'Accès à l’annuaire requis',
+      accessDeniedDescription:
+        'Vos accès actuels ont été vérifiés par Kaiten Core. Demandez à une personne disposant de l’écriture des utilisateurs de les gérer ou d’attribuer des rôles.',
+      loading: 'Vérification des accès et chargement des utilisateurs…',
+      notFound:
+        'Cet utilisateur ou ce rôle n’existe plus. Actualisez la liste et réessayez.',
+      resourceAccess: 'Accès à {{resource}}',
+      profile: 'Profil',
+      saveProfile: 'Enregistrer le profil',
+      profileSaved: 'Profil enregistré',
+      userEditorDescription:
+        'Le nom et l’adresse e-mail sont partagés entre les organisations. Les rôles et accès ne concernent que cette organisation.',
+      selfProtection:
+        'Vous ne pouvez pas désactiver votre propre compte. Le dernier administrateur doit conserver ses accès.',
+      enableAccount: 'Compte activé',
+      saveAccess: 'Enregistrer les accès',
+      saving: 'Enregistrement…',
+      accessSaved: 'Accès mis à jour',
+      confirm: 'Confirmer',
+      confirmAccess: 'Modifier les accès ?',
+      confirmEnable: 'Réactiver cet utilisateur ?',
+      confirmDisable: 'Désactiver cet utilisateur ?',
+      accessImpact:
+        'Les accès de {{name}} changeront immédiatement. Les sessions existantes utiliseront les nouvelles autorisations.',
+      disableImpact:
+        '{{name}} perdra immédiatement ses accès, y compris dans ses sessions existantes. Son profil et ses rôles sont conservés pour permettre une réactivation.',
+      disableUser: 'Désactiver l’utilisateur',
+      enableUser: 'Réactiver l’utilisateur',
+      discardChanges: 'Abandonner les modifications non enregistrées ?',
+      createRole: 'Créer un rôle',
+      editRole: 'Détails du rôle',
+      roleEditorDescription:
+        'Un rôle est un groupe nommé et réutilisable de permissions. Attribuez-le aux utilisateurs depuis leur éditeur d’accès.',
+      slug: 'Identifiant du rôle',
+      slugExplanation:
+        'Lettres minuscules, chiffres et tirets. Ne peut plus être modifié après création.',
+      permissions: 'Permissions par ressource',
+      rolePermissionsExplanation:
+        'Lecture et écriture inclut la lecture. Les modifications s’appliquent immédiatement à tous les utilisateurs de ce rôle.',
+      builtInExplanation:
+        'Les rôles prédéfinis sont gérés par Kaiten et ne peuvent être modifiés ni supprimés.',
+      deleteRoleExplanation:
+        '{{count}} utilisateurs attribués. Un rôle ne peut être supprimé que si aucun utilisateur ne le possède.',
+      deleteRole: 'Supprimer le rôle',
+      confirmDeleteRole: 'Supprimer ce rôle ?',
+      deleteRoleImpact:
+        'Le rôle {{name}} sera définitivement supprimé. Cette action est irréversible.',
+      roleSaved: 'Rôle enregistré',
+      roleDeleted: 'Rôle supprimé',
+      levels: {
+        none: 'Aucun',
+        read: 'Lecture',
+        write: 'Lecture et écriture',
+      },
+      validation: {
+        name: 'Saisissez un nom.',
+        email: 'Saisissez une adresse e-mail valide.',
+        slug: 'Utilisez des lettres minuscules, des chiffres et des tirets.',
+      },
+      resources: {
+        components: 'Composants',
+        customers: 'Clients',
+        deployment_zones: 'Zones de déploiement',
+        entitlements: 'Droits',
+        feature_flags: 'Feature flags',
+        instances: 'Instances',
+        licenses: 'Licences',
+        metadata_fields: 'Champs de métadonnées',
+        notifications: 'Notifications',
+        organizations: 'Organisations',
+        profile: 'Profil',
+        releases: 'Versions',
+        tokens: 'Jetons',
+        users: 'Utilisateurs',
+        webhooks: 'Webhooks',
+      },
+      local: {
+        checking: 'Vérification des accès',
+        unavailable: 'Accès indisponibles',
+        administrator: 'Administrateur',
+        member: 'Membre',
+        description: 'Accès actuels vérifiés par Kaiten Core',
+      },
+    },
     Settings: {
       title: 'Paramètres',
       subtitle:

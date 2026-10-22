@@ -129,6 +129,13 @@ func (p InProcess) CreatePlatformToken(
 	return p.identity.CreatePlatformToken.Execute(bindInProcess(ctx), cmd)
 }
 
+// ValidatePlatformToken verifies a bootstrap credential through the same identity
+// logic as the Platform listener. A false result is deliberately ambiguous and
+// must never authorize automatic rotation: lookup errors also return false.
+func (p InProcess) ValidatePlatformToken(ctx context.Context, plaintext string) (uuid.UUID, []string, bool) {
+	return p.identity.ValidatePlatformToken.ValidatePlatformToken(ctx, plaintext)
+}
+
 // ListPlatformTokens returns every platform credential this deployment has issued,
 // revoked and expired rows included.
 func (p InProcess) ListPlatformTokens(ctx context.Context) ([]identityschema.PlatformToken, error) {

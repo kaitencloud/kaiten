@@ -7,8 +7,7 @@
 // `x-kaiten-scopes` extension listing every scope an organization credential can
 // hold. The API builds that list from pkg/scope (scope.OrganizationScopes) -- the
 // one place a scope can come from, since a token is minted only with scopes
-// pkg/scope accepts -- minus the modules only the Platform API enforces (`users`,
-// `memberships`), which a service account's ksh_ token can never reach.
+// pkg/scope accepts -- minus the modules only the Platform API enforces (`memberships`), which a service account's ksh_ token can never reach.
 //
 // It used to be read off the operations' `security:` blocks instead. Those name
 // only what the Core API itself enforces, and the outbound webhooks service
@@ -61,8 +60,12 @@ if (!Array.isArray(published) || published.length === 0) {
 const scopes = new Set(published);
 
 // The SDK names an operation after its operationId in camelCase
-// (`get-licenses` -> `getLicenses`); the table uses the same name.
-const sdkName = (operationId) => operationId.replace(/[^A-Za-z0-9]+(.)/g, (_, character) => character.toUpperCase());
+// (`get-licenses` -> `getLicenses`, `CreateRole` -> `createRole`); the table
+// uses the same name.
+const sdkName = (operationId) =>
+	operationId
+		.replace(/[^A-Za-z0-9]+(.)/g, (_, character) => character.toUpperCase())
+		.replace(/^[A-Z]/, (character) => character.toLowerCase());
 
 const operationScopes = new Map();
 

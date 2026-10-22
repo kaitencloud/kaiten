@@ -2,6 +2,7 @@ package kaiten
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity"
@@ -15,6 +16,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/updateserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
+	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/scope"
 )
 
 // ServiceAccounts is the seven identity operations a tenant reaches with its own
@@ -94,6 +97,16 @@ func (s ServiceAccounts) CreateToken(
 ) (*identityschema.PlainToken, error) {
 	if err := cl.Require(createtokenonserviceaccount.RequiredScope); err != nil {
 		return nil, err
+	}
+
+	// A token cannot delegate authority its creator does not currently hold.
+	for _, requested := range scopes {
+		if requested != scope.ReadAll() && requested != scope.WriteAll() && !slices.Contains(scope.OrganizationScopes(), requested) {
+			return nil, apierrors.Validation("Token.InvalidScopes", "Only organization permissions may be delegated")
+		}
+		if err := cl.Require(requested); err != nil {
+			return nil, err
+		}
 	}
 
 	return s.uc.CreateTokenOnServiceAccount.Execute(
