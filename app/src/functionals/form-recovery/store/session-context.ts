@@ -51,6 +51,12 @@ export type SessionConfig = {
   pristine: object;
   /** The steps of the form now, in order; empty for a single page. */
   steps: readonly string[];
+  /**
+   * False once the person has signed out: nothing more is written. Another
+   * tab that signed out explicitly has purged the storage, and a late flush
+   * must not bring the input back.
+   */
+  stillSignedIn?: () => boolean;
   /** Shows a toast that offers to undo a deliberate discard. */
   notify: (kind: SessionToast, undo?: () => void) => void;
   now?: () => Date;
@@ -66,6 +72,8 @@ export type SessionRuntime = {
   /** Raised each time the subtree of the form is replaced. */
   epoch: number;
   ownHold: { release: () => void } | null;
+  /** The attempt to take the lock of this lineage that is under way. */
+  holding: Promise<void> | null;
   snapshot: FormRecoverySnapshot | null;
   /** What was last written for this lineage, to skip a write that changes nothing. */
   lastWritten: string | null;

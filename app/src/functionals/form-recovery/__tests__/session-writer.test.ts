@@ -300,6 +300,20 @@ describe('tabs', () => {
     expect(Object.values(storedRecords()).every((record) => record.kind === 'userMark')).toBe(true);
   });
 
+  it('writes nothing once the person has signed out, even on the flush of the unmount', async () => {
+    let signedIn = true;
+    const h = mountSession({ stillSignedIn: () => signedIn });
+    await advance(0);
+    track(h, snapshotOf([['name', 'Gold']]));
+
+    // Another tab signed out explicitly: this one unmounts, and flushes.
+    signedIn = false;
+    h.session.actions.flushOnUnmount(h.session.actions.getEpoch());
+    await advance(5_000);
+
+    expect(storedRecords()).toEqual({});
+  });
+
   it('does not touch a lineage another tab sends or discards', async () => {
     const a = mountSession();
     const b = mountSession();

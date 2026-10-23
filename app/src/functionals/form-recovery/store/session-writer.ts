@@ -53,11 +53,21 @@ export function releaseHold(ctx: SessionContext) {
  * Holds the lock of this lineage, so that no other tab offers it. A lock this
  * very tab released a moment ago can still look taken: try once more.
  */
-export async function ensureHold(ctx: SessionContext): Promise<void> {
+export function ensureHold(ctx: SessionContext): Promise<void> {
   const { runtime } = ctx;
-  if (!runtime.alive || runtime.ownHold) return;
+  if (!runtime.alive || runtime.ownHold) return Promise.resolve();
 
+  // One attempt at a time: two would take the lock from each other.
+  runtime.holding ??= takeHold(ctx).finally(() => {
+    runtime.holding = null;
+  });
+  return runtime.holding;
+}
+
+async function takeHold(ctx: SessionContext): Promise<void> {
+  const { runtime } = ctx;
   const key = ownRecordKey(ctx);
+
   let hold = await holdLineage(key);
   if (hold.status === 'taken') {
     await new Promise((resolve) => setTimeout(resolve, HOLD_RETRY_MS));
@@ -172,6 +182,7 @@ export function writeSnapshot(
 ): SaveHandle | null {
   const { runtime, config } = ctx;
   if (!runtime.snapshot) return null;
+  if (config.stillSignedIn && !config.stillSignedIn()) return null;
 
   // The never-kept fields still to enter stay in the record until they are.
   const snapshot = {

@@ -134,6 +134,7 @@ function createRuntime(
     mountedAt,
     epoch: 0,
     ownHold: null,
+    holding: null,
     snapshot: null,
     lastWritten: null,
     createdAt: null,
