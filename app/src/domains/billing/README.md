@@ -269,7 +269,7 @@ page holds, or an export the API streams.
   `addonGrants.*`, `addonPrices.*`, `addonCompatibility.*`, whose scopes are the add-ons'),
   what the screens of the catalogue read of the licenses and the entitlements
   (`licenseFamilies.list`, `licenseGrants.list`, `entitlements.list`, `instances.list`)
-  and the public listing of a family of licenses (`licenseFamily.setPublic`), and the
+  the public listing of a family of licenses (`licenseFamily.setPublic`) and its settings (`licenseFamily.updateSettings`), and the
   publishable keys a web page reads that catalogue with (`publishableKeys.list`,
   `.create`, `.update`, `.revoke`: scopes of their own, `read:publishable_keys` and
   `write:publishable_keys`, which `features/publishable-keys` follows).

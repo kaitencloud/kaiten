@@ -1,6 +1,6 @@
 # State management
 
-State lives in three layers, each with one job, plus two places beside them: the URL and the settings persisted in `localStorage`. The convention is stated in [AI_CONTEXT.md](../AI_CONTEXT.md#conventions); this page says where each kind of state goes and shows the code.
+State lives in three layers, each with one job, plus three places beside them: the URL, the settings persisted in `localStorage` and the unsent input of creation forms. The convention is stated in [AI_CONTEXT.md](../AI_CONTEXT.md#conventions); this page says where each kind of state goes and shows the code.
 
 ## The layers
 
