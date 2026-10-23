@@ -90,8 +90,30 @@ func TestPublishableKeyTurnstile(t *testing.T) {
 	require.False(t, revoked.TurnstileSecretConfigured)
 	require.False(t, inVault(), "the secret goes with the key")
 
+	// A secret refused for its shape is never sent back (E-24, §20.1 rule 5):
+	// huma's 422 would otherwise carry it in errors[].value.
+	tooLong := "0x4AAAAAAA-" + strings.Repeat("s", 250)
+	for _, refused := range []struct{ method, path string }{{"POST", "/api/publishable-keys"}, {"PATCH", reopenedPath(t)}} {
+		body := map[string]any{"turnstileSecret": tooLong}
+		if refused.method == "POST" {
+			body = map[string]any{"label": "Long", "allowedOrigins": []string{storefront}, "turnstileSecret": tooLong}
+		}
+		resp := call(t, refused.method, refused.path, body)
+		raw, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode, string(raw))
+		require.NotContains(t, string(raw), tooLong, refused.method)
+		require.Contains(t, string(raw), "body.turnstileSecret", "the member is still named")
+	}
+
 	plain := newPublishableKey(t)
 	require.False(t, plain.AnonymousCheckout)
 	require.Nil(t, plain.TurnstileSiteKey)
 	require.False(t, plain.TurnstileSecretConfigured)
+}
+
+// reopenedPath is a live key's path, to PATCH.
+func reopenedPath(t *testing.T) string {
+	t.Helper()
+	return "/api/publishable-keys/" + newPublishableKey(t).ID.String()
 }

@@ -1,6 +1,7 @@
 package common
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -86,4 +87,26 @@ func TestValidateConnectorSettings_RejectsInvalidSchemaItself(t *testing.T) {
 
 	require.Error(t, err)
 	require.True(t, kaitenerrors.IsValidation(err))
+}
+
+// A secret in the wrong shape is refused without being repeated: the
+// validator's pattern message would quote it (E-24).
+func TestValidateConnectorSettings_NeverRepeatsASecret(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"apiKey": map[string]any{"type": "string", "writeOnly": true, "pattern": "^rk_"},
+			"region": map[string]any{"type": "string", "enum": []any{"eu", "us"}},
+		},
+	}
+	err := ValidateConnectorSettings("test", schema, map[string]any{"apiKey": "wrong-shape-SECRETVALUE", "region": "mars"}, "Test.Invalid")
+	if err == nil {
+		t.Fatal("expected a refusal")
+	}
+	if strings.Contains(err.Error(), "SECRETVALUE") {
+		t.Fatalf("the refusal repeats the secret: %s", err)
+	}
+	if !strings.Contains(err.Error(), "apiKey") || !strings.Contains(err.Error(), "region") {
+		t.Fatalf("the refusal should name the secret field and keep the other's detail: %s", err)
+	}
 }

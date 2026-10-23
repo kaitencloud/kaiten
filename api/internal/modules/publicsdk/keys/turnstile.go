@@ -27,10 +27,15 @@ type SecretStore interface {
 }
 
 // VaultSecretStore keeps the secrets in Vault KV, beside the connectors'
-// settings, at <base>/<organization>/publishable-keys/<key>/turnstile.
+// settings, at <base>/<organization>/publishable_keys/<key>/settings under
+// turnstileSecret (§5.10).
 type VaultSecretStore struct{ basePath string }
 
 const defaultSecretBasePath = "kaiten/connectors"
+
+// secretField is the member of the key's Vault document that holds the
+// Turnstile secret.
+const secretField = "turnstileSecret"
 
 // NewVaultSecretStore stores under basePath, the connectors' Vault base.
 func NewVaultSecretStore(basePath string) *VaultSecretStore {
@@ -42,7 +47,7 @@ func NewVaultSecretStore(basePath string) *VaultSecretStore {
 }
 
 func (s *VaultSecretStore) path(organizationID, keyID uuid.UUID) string {
-	return fmt.Sprintf("%s/%s/publishable-keys/%s/turnstile", s.basePath, organizationID, keyID)
+	return fmt.Sprintf("%s/%s/publishable_keys/%s/settings", s.basePath, organizationID, keyID)
 }
 
 func (s *VaultSecretStore) Configured() bool { return vault.Configured() }
@@ -52,7 +57,7 @@ func (s *VaultSecretStore) Put(ctx context.Context, organizationID, keyID uuid.U
 	if err != nil {
 		return err
 	}
-	return client.WriteSecretAny(ctx, map[string]any{"secret": secret})
+	return client.WriteSecretAny(ctx, map[string]any{secretField: secret})
 }
 
 func (s *VaultSecretStore) Get(ctx context.Context, organizationID, keyID uuid.UUID) (string, error) {
@@ -64,7 +69,7 @@ func (s *VaultSecretStore) Get(ctx context.Context, organizationID, keyID uuid.U
 	if err != nil {
 		return "", err
 	}
-	secret, _ := data["secret"].(string)
+	secret, _ := data[secretField].(string)
 	if secret == "" {
 		return "", ErrNoTurnstileSecret
 	}
