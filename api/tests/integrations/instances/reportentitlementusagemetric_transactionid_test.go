@@ -225,6 +225,28 @@ func TestReportEntitlementUsageMetric_TransactionID(t *testing.T) {
 		require.Equal(t, after, snapshotPair(t, instances[0].ID, entitlement.ID), "a replay writes nothing")
 	})
 
+	// S01-059, V31-29: the key is looked up before the grant is checked, so a
+	// retry after the grant went away still replays, and a conflict is still
+	// a conflict; only a new report needs the grant.
+	t.Run("WhenTheGrantWentAwaySinceTheReport_TheReplayStillAnswers", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		instances := newInstances(t, 1)
+		entitlement := newPeriodicEntitlement(t, period.Month, period.Calendar)
+		assignEntitlementToLicenseWithOverage(t, instances[0].LicenseSlug, entitlement.Slug, 1000, 20)
+		first := reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "250", "append", "evt-0001").usage(t)
+
+		_, err := testDb.DbPool.Exec(t.Context(), `DELETE FROM license_entitlement WHERE entitlement_id = $1`, entitlement.ID)
+		require.NoError(t, err)
+		retry := reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "250", "append", "evt-0001")
+		require.Equal(t, "true", retry.replayed)
+		require.Equal(t, asReplayed(first), retry.usage(t))
+		require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused",
+			reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "300", "append", "evt-0001").problem(t, fiber.StatusConflict).Code)
+		require.Equal(t, "ReportEntitlementUsageMetric.ContextNotFound",
+			reportWithKey(t, nil, instances[0].Slug, entitlement.Slug, "250", "append", "evt-0002").problem(t, fiber.StatusNotFound).Code,
+			"a new report needs the grant")
+	})
+
 	t.Run("WhenTheKeyComesBackWithAnotherValue_Returns409NamingTheOriginal", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		instances := newInstances(t, 1)

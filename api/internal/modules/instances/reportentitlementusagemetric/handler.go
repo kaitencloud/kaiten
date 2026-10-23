@@ -224,12 +224,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 	}()
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		entitlementUsageCtx, err := h.queryRepo.GetEntitlementUsageContext(
-			ctx,
-			instanceSlug,
-			entitlementSlug,
-			user.OrganizationID,
-		)
+		entitlementUsageCtx, err := h.queryRepo.LockPair(ctx, instanceSlug, entitlementSlug, user.OrganizationID)
 		if err != nil {
 			return err
 		}
@@ -290,6 +285,12 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 				replayed = true
 				return nil
 			}
+		}
+
+		// The grant is checked only now (§6.1 step 6, V31-29): a replay or a
+		// conflict above needs the pair to be granted no longer.
+		if err := h.queryRepo.LoadLimits(ctx, entitlementUsageCtx, instanceSlug, entitlementSlug, user.OrganizationID); err != nil {
+			return err
 		}
 
 		aggregationMethod := resolveAggregationMethod(entitlementUsageCtx.AggregationMethod)

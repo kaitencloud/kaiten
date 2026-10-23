@@ -351,6 +351,16 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 					OrganizationID: org, InstanceSlug: instanceSlug, EntitlementSlug: entitlementSlug,
 				})
 				if len(want) == 0 {
+					// The slug lookup no longer checks the grant (V31-29): the
+					// report checks it under the lock, after its replay lookup,
+					// where the limit has no row for a pair nothing grants.
+					if errors.Is(err, pgx.ErrNoRows) {
+						continue // an unknown slug
+					}
+					require.NoError(t, err)
+					_, err = instancesDB.GetEffectiveEntitlementLimit(ctx, db.GetEffectiveEntitlementLimitParams{
+						OrganizationID: org, InstanceID: got.InstanceID, EntitlementID: got.EntitlementID,
+					})
 					require.True(t, errors.Is(err, pgx.ErrNoRows), "%s / %s: not granted before, so not now: %v", instanceSlug, entitlementSlug, err)
 					continue
 				}

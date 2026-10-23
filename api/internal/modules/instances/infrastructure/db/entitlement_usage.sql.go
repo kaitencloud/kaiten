@@ -69,8 +69,12 @@ const getEffectiveEntitlementLimit = `-- name: GetEffectiveEntitlementLimit :one
 SELECT iee.value,
        iee.limit_cap_exceeded_overage_percent,
        iee.license_entitlement_id,
-       iee.provenance
+       iee.provenance,
+       i.license_id,
+       l.slug AS license_slug
 FROM instance_effective_entitlement iee
+JOIN instance i ON i.id = iee.instance_id AND i.organization_id = iee.organization_id
+LEFT JOIN "license" l ON l.id = i.license_id
 WHERE iee.instance_id = $1
   AND iee.entitlement_id = $2
   AND iee.organization_id = $3
@@ -87,13 +91,17 @@ type GetEffectiveEntitlementLimitRow struct {
 	LimitCapExceededOveragePercent *int16     `json:"limit_cap_exceeded_overage_percent"`
 	LicenseEntitlementID           *uuid.UUID `json:"license_entitlement_id"`
 	Provenance                     []byte     `json:"provenance"`
+	LicenseID                      uuid.UUID  `json:"license_id"`
+	LicenseSlug                    *string    `json:"license_slug"`
 }
 
 // The limit and overage policy a report is gated on: the instance's effective
 // entitlement, read after StampReportInstant. No row means the instance is no
 // longer granted the entitlement.
 // license_entitlement_id and provenance answer the report's source and
-// provenance from the very row the gate read (V31-55).
+// provenance from the very row the gate read (V31-55); license_id and its
+// slug are the instance's version as of the same read, which the ledger row
+// records (A2-12): the slug lookup before the lock may have seen an older one.
 func (q *Queries) GetEffectiveEntitlementLimit(ctx context.Context, arg GetEffectiveEntitlementLimitParams) (GetEffectiveEntitlementLimitRow, error) {
 	row := q.db.QueryRow(ctx, getEffectiveEntitlementLimit, arg.InstanceID, arg.EntitlementID, arg.OrganizationID)
 	var i GetEffectiveEntitlementLimitRow
@@ -102,6 +110,8 @@ func (q *Queries) GetEffectiveEntitlementLimit(ctx context.Context, arg GetEffec
 		&i.LimitCapExceededOveragePercent,
 		&i.LicenseEntitlementID,
 		&i.Provenance,
+		&i.LicenseID,
+		&i.LicenseSlug,
 	)
 	return i, err
 }
@@ -123,9 +133,6 @@ FROM instance i
 JOIN entitlement e
   ON e.slug            = $1
  AND e.organization_id = $2
-JOIN instance_effective_entitlement iee
-  ON iee.instance_id    = i.id
- AND iee.entitlement_id = e.id
 LEFT JOIN "license" l
   ON l.id = i.license_id
 WHERE i.slug            = $3
@@ -152,11 +159,12 @@ type GetEntitlementContextBySlugRow struct {
 	LicenseSlug             *string                 `json:"license_slug"`
 }
 
-// Resolves instance/entitlement slugs and checks the instance is granted the
-// entitlement, in a single round-trip. Returns IDs and metadata needed to then
-// lock and update the usage row, including everything period.Current needs
-// (reset_period/reset_anchor/start_license_date). Includes neither the usage
-// value (GetEntitlementUsageContext, with FOR UPDATE) nor the limit
+// Resolves instance/entitlement slugs, in a single round-trip, without
+// checking the grant: the report checks it under the pair's lock, after its
+// replay lookup (§6.1 steps 2 and 6, V31-29). Returns IDs and metadata needed
+// to then lock and update the usage row, including everything period.Current
+// needs (reset_period/reset_anchor/start_license_date). Includes neither the
+// usage value (GetEntitlementUsageContext, with FOR UPDATE) nor the limit
 // (GetEffectiveEntitlementLimit): both are read under the pair's lock.
 func (q *Queries) GetEntitlementContextBySlug(ctx context.Context, arg GetEntitlementContextBySlugParams) (GetEntitlementContextBySlugRow, error) {
 	row := q.db.QueryRow(ctx, getEntitlementContextBySlug, arg.EntitlementSlug, arg.OrganizationID, arg.InstanceSlug)
