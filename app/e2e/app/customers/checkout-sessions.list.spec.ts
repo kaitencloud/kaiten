@@ -70,16 +70,17 @@ test.describe('the list of checkouts', () => {
     await expect(checkouts.row('carol@globex.test')).toContainText('pro-v2');
   });
 
-  test('has no link before the completion ran, and says on an expired checkout that its records stay', async ({
+  test('has no link to a customer or an instance before the completion ran, and says on an expired checkout that its records stay', async ({
     page,
   }) => {
     const checkouts = new CheckoutSessionsDriver(page);
 
     await checkouts.goto();
 
+    // Only the e-mail, which opens the panel of the checkout, is a link.
     await expect(
       checkouts.row('dana@hooli.test').getByRole('link'),
-    ).toHaveCount(0);
+    ).toHaveCount(1);
     const expired = checkouts.row('finance@globex.test');
     await expect(expired).toContainText('Expired');
     await expect(expired).toContainText('Stays after expiry');

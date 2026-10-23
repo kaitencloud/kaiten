@@ -64,7 +64,14 @@ export function CheckoutSessionDrawer({
             {sessionId}
           </SheetDescription>
         </SheetHeader>
-        <div className="flex-1 overflow-y-auto p-4">
+        {/* The body scrolls, so the keyboard must be able to reach it: a checkout that has
+            no link in it would leave nothing to focus. */}
+        <div
+          aria-label={t(`${prefix}.title`)}
+          className="flex-1 overflow-y-auto p-4 focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+          role="region"
+          tabIndex={0}
+        >
           {isPending ? <DetailSkeleton /> : null}
           {gone ? (
             <p className="text-sm" data-testid="checkout-session-gone">

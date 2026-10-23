@@ -30,19 +30,22 @@ const navigate = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/auth-token', () => ({ getAuthToken }));
 vi.mock('@tanstack/react-router', () => ({
   Link: (
-    props: { children?: unknown; params?: Record<string, string>; to: string } & Record<
-      string,
-      unknown
-    >,
+    props: {
+      children?: unknown;
+      params?: Record<string, string>;
+      search?: (previous: object) => Record<string, string>;
+      to: string;
+    } & Record<string, unknown>,
   ) => {
-    const { children, params, to, ...rest } = props;
-    const href = Object.entries(params ?? {}).reduce(
-      (path, [name, value]) => path.replace(`$${name}`, value),
+    const { children, params, search, to, ...rest } = props;
+    const path = Object.entries(params ?? {}).reduce(
+      (result, [name, value]) => result.replace(`$${name}`, value),
       to,
     );
+    const query = new URLSearchParams(search?.({})).toString();
 
     return (
-      <a {...(rest as object)} href={href}>
+      <a {...(rest as object)} href={query ? `${path}?${query}` : path}>
         {children as never}
       </a>
     );
@@ -140,7 +143,8 @@ function page(search: { session?: string; status?: string } = {}) {
   );
 }
 
-const row = (text: string) => screen.getByRole('button', { name: new RegExp(text) });
+const row = (text: string) =>
+  screen.getByRole('row', { name: new RegExp(text) });
 
 beforeEach(() => {
   navigate.mockReset();
@@ -154,7 +158,7 @@ describe('the list of checkouts', () => {
     serve();
     page();
 
-    expect(await screen.findByRole('button', { name: /dana@hooli.test/ })).toBeVisible();
+    expect(await screen.findByRole('row', { name: /dana@hooli.test/ })).toBeVisible();
     const completed = row('alice@acme.test');
     expect(within(completed).getByText('Completed')).toBeVisible();
     expect(within(completed).getByText('cmp-17')).toBeVisible();
@@ -167,7 +171,7 @@ describe('the list of checkouts', () => {
     expect(
       within(completed).getByRole('link', { name: 'bought-online-prod' }),
     ).toHaveAttribute('href', '/customers/instances/bought-online-prod/billing');
-    expect(within(row('dana@hooli.test')).queryByRole('link')).not.toBeInTheDocument();
+    expect(within(row('dana@hooli.test')).getAllByRole('link')).toHaveLength(1);
   });
 
   it('names the key whose page started a checkout, by its label once the keys are read', async () => {
@@ -184,20 +188,23 @@ describe('the list of checkouts', () => {
     page();
 
     expect(
-      within(await screen.findByRole('button', { name: /finance@globex.test/ })).getByText(
+      within(await screen.findByRole('row', { name: /finance@globex.test/ })).getByText(
         'Stays after expiry',
       ),
     ).toBeVisible();
     expect(within(row('alice@acme.test')).queryByText('Stays after expiry')).toBeNull();
   });
 
-  it('opens the panel of a checkout from its row, and not from a link in it', async () => {
+  it('opens the panel of a checkout from its row, whose e-mail is the link to it, and not from the other links in it', async () => {
     serve();
     page();
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: /alice@acme.test/ }));
+    await user.click(await screen.findByRole('row', { name: /alice@acme.test/ }));
     expect(onOpen).toHaveBeenCalledWith('cs-completed');
+    expect(
+      within(row('alice@acme.test')).getByRole('link', { name: 'alice@acme.test' }),
+    ).toHaveAttribute('href', '/customers/checkout-sessions?session=cs-completed');
 
     onOpen.mockClear();
     await user.click(within(row('alice@acme.test')).getByRole('link', { name: 'bought-online' }));
@@ -209,10 +216,10 @@ describe('the list of checkouts', () => {
     page();
     const user = userEvent.setup();
 
-    await screen.findByRole('button', { name: /dana@hooli.test/ });
+    await screen.findByRole('row', { name: /dana@hooli.test/ });
     await user.type(screen.getByPlaceholderText(/Search by email/), 'cmp-42');
 
-    await waitFor(() => expect(screen.getAllByRole('button', { name: /@/ })).toHaveLength(1));
+    await waitFor(() => expect(screen.getAllByRole('row', { name: /@/ })).toHaveLength(1));
     expect(row('finance@globex.test')).toBeVisible();
 
     await user.clear(screen.getByPlaceholderText(/Search by email/));
@@ -224,8 +231,8 @@ describe('the list of checkouts', () => {
     serve();
     page({ status: 'expired' });
 
-    expect(await screen.findByRole('button', { name: /finance@globex.test/ })).toBeVisible();
-    expect(screen.queryByRole('button', { name: /dana@hooli.test/ })).toBeNull();
+    expect(await screen.findByRole('row', { name: /finance@globex.test/ })).toBeVisible();
+    expect(screen.queryByRole('row', { name: /dana@hooli.test/ })).toBeNull();
   });
 
   it('says there is no checkout when the organization has none', async () => {
@@ -242,7 +249,7 @@ describe('the list of checkouts', () => {
     const keyReads = serve();
     page();
 
-    expect(await screen.findByRole('button', { name: /dana@hooli.test/ })).toBeVisible();
+    expect(await screen.findByRole('row', { name: /dana@hooli.test/ })).toBeVisible();
     expect(within(row('dana@hooli.test')).getByText('pk-checkout')).toBeVisible();
     expect(keyReads).toEqual([]);
   });
@@ -251,7 +258,7 @@ describe('the list of checkouts', () => {
     serve({ keys: [] });
     page();
 
-    await screen.findByRole('button', { name: /dana@hooli.test/ });
+    await screen.findByRole('row', { name: /dana@hooli.test/ });
     await waitFor(() =>
       expect(within(row('dana@hooli.test')).getByText('pk-checkout')).toBeVisible(),
     );
@@ -338,7 +345,7 @@ describe('the tabs of the section', () => {
     serve();
     page();
 
-    await screen.findByRole('button', { name: /dana@hooli.test/ });
+    await screen.findByRole('row', { name: /dana@hooli.test/ });
     await waitFor(() =>
       expect(screen.getByRole('link', { name: 'Checkouts' })).toHaveAttribute(
         'href',

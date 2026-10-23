@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { CheckoutSessionAdmin } from '@/api-client';
 import { Money } from '@/domains/billing';
@@ -13,11 +14,21 @@ import {
 
 type SessionProps = { session: CheckoutSessionAdmin };
 
-/** The e-mail the visitor gave, with the vendor's own reference under it when there is one. */
+/**
+ * The e-mail the visitor gave, with the vendor's own reference under it when there is one.
+ * It is the link that opens the panel of the checkout: a real link, so that the keyboard
+ * reaches it and a new tab can open it, while a click anywhere else on the row opens it too.
+ */
 export function CheckoutEmailCell({ session }: SessionProps) {
   return (
     <div className="min-w-0">
-      <p className="truncate text-sm font-medium">{session.email}</p>
+      <Link
+        className="block truncate rounded-sm text-sm font-medium underline-offset-4 hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
+        search={(previous) => ({ ...previous, session: session.sessionId })}
+        to="/customers/checkout-sessions"
+      >
+        {session.email}
+      </Link>
       {session.clientReferenceId ? (
         <p className="truncate font-mono text-xs text-muted-foreground">
           {session.clientReferenceId}

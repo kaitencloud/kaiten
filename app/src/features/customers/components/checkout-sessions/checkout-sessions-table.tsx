@@ -17,8 +17,9 @@ const getSessionId = (session: CheckoutSessionAdmin) => session.sessionId;
 
 /**
  * The checkouts as rows, sorted and paged in the browser like every other list: the page
- * holds the whole list. A row opens the panel of its checkout; the links in it lead to the
- * customer and the instance the checkout created, and do not open the panel.
+ * holds the whole list. The e-mail of a row is the link that opens the panel of its checkout,
+ * and a click anywhere else on the row opens it too; the links to the customer and the
+ * instance the checkout created lead away and do not open it.
  */
 export function CheckoutSessionsTable({
   emptyMessage,
@@ -35,7 +36,6 @@ export function CheckoutSessionsTable({
       columns={columns}
       data={sessions as CheckoutSessionAdmin[]}
       emptyMessage={emptyMessage}
-      enableRowKeyboardNavigation
       getRowId={getSessionId}
       onClickRow={(row) => onOpen(row.original)}
     />

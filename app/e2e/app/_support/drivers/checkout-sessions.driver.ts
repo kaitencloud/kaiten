@@ -26,12 +26,14 @@ export class CheckoutSessionsDriver extends FilterToolbarDriver {
     ).toBeVisible();
   }
 
-  /**
-   * The rows of the table, header and the message of an empty list apart. A row opens the
-   * panel of its checkout, so the table gives it the role of a button.
-   */
+  /** The rows of the table, header and the message of an empty list apart. */
   rows(): Locator {
-    return this.page.locator('tbody tr[role="button"]');
+    return this.page.locator('tbody tr:not(:has(td[colspan]))');
+  }
+
+  /** The link in a row that opens the panel of its checkout: the e-mail. */
+  openLink(email: string): Locator {
+    return this.row(email).getByRole('link', { exact: true, name: email });
   }
 
   /** One row, found by what it shows: the e-mail, a reference. */

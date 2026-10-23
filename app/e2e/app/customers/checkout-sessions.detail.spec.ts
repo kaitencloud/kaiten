@@ -32,7 +32,7 @@ test.describe('the panel of a checkout', () => {
     const reads = recordWrites(page, ONE_CHECKOUT, ['GET']);
 
     await checkouts.goto();
-    await checkouts.row('alice@acme.test').click();
+    await checkouts.row('alice@acme.test').getByRole('cell').first().click();
 
     await expect(page).toHaveURL(/\?session=cs-completed$/);
     await expect(checkouts.panel()).toBeVisible();
@@ -173,7 +173,7 @@ test.describe('the panel of a checkout', () => {
     await checkouts.goto();
     await checkouts.search('globex');
     await expect(checkouts.rows()).toHaveCount(2);
-    await checkouts.row('carol@globex.test').click();
+    await checkouts.row('carol@globex.test').getByRole('cell').first().click();
     await expect(checkouts.detail()).toBeVisible();
 
     await checkouts.close();
@@ -183,11 +183,11 @@ test.describe('the panel of a checkout', () => {
     await expect(checkouts.searchField()).toHaveValue('globex');
   });
 
-  test('opens from the keyboard, on a focused row', async ({ page }) => {
+  test('opens from the keyboard, on the e-mail of a row', async ({ page }) => {
     const checkouts = new CheckoutSessionsDriver(page);
 
     await checkouts.goto();
-    await checkouts.row('dana@hooli.test').focus();
+    await checkouts.openLink('dana@hooli.test').focus();
     await page.keyboard.press('Enter');
 
     await expect(page).toHaveURL(/\?session=cs-open$/);
