@@ -623,7 +623,11 @@ func (s *Server) setupCoreRoutes() (apiGroup, daprGroup fiber.Router) {
 				if authorizePublishable == nil {
 					return fiber.ErrNotFound
 				}
-				return authorizePublishable(c)
+				err := authorizePublishable(c)
+				if err != nil || c.Response().StatusCode() >= fiber.StatusBadRequest {
+					uncacheable(c)
+				}
+				return err
 			}
 
 			return authorize(c)
@@ -772,6 +776,14 @@ func IsPublicAPIPath(path string) bool {
 	// predicate must not describe as public.
 
 	return strings.HasPrefix(path, "/api/openapi")
+}
+
+// uncacheable marks a public SDK refusal as never stored: a refusal that
+// depends on the origin or the credential must not be served to another by a
+// shared cache (§14.8). The successes set their own.
+func uncacheable(c fiber.Ctx) {
+	c.Set(fiber.HeaderCacheControl, "no-store")
+	c.Vary(fiber.HeaderOrigin, fiber.HeaderAuthorization, "X-Kaiten-Publishable-Key")
 }
 
 // IsPublicSDKPath reports whether path is on the public SDK surface, which a

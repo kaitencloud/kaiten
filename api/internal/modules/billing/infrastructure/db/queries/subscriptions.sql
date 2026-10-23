@@ -171,3 +171,14 @@ UPDATE instance_billing
 SET started_at = sqlc.arg(started_at)
 WHERE id = sqlc.arg(id)
 RETURNING *;
+
+
+-- name: RecordCustomerTrial :exec
+-- A trial consumed (INV-32): the subscribe that starts one records it for the
+-- customer and the licence's family; the first record stays.
+INSERT INTO customer_trial (customer_id, license_family_id, organization_id, instance_id, consumed_at)
+SELECT sqlc.arg(customer_id), l.family_id, l.organization_id, sqlc.arg(instance_id), sqlc.arg(now)
+FROM license l
+WHERE l.organization_id = sqlc.arg(organization_id)
+  AND l.id = sqlc.arg(license_id)
+ON CONFLICT (customer_id, license_family_id) DO NOTHING;

@@ -180,8 +180,10 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CompletePaymentMethodSession: completepaymentmethodsession.NewUseCase(deps),
 		CreatePortalSession:          createportalsession.NewUseCase(deps),
 		DetachPaymentMethod:          detachpaymentmethod.NewUseCase(deps),
-		CheckoutSetup:                checkoutsetup.NewUseCase(deps),
 	}
+	// The anonymous checkout's read refreshes its ACTIVATION as the session's
+	// invoice list does, under the same throttle.
+	useCases.CheckoutSetup = checkoutsetup.NewUseCase(deps, useCases.SessionInvoices)
 
 	// The billing jobs run only where billing is on and background work runs.
 	if cfg.Enabled && svc.BackgroundWorkers && svc.Pool != nil {

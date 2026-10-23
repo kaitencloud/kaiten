@@ -482,6 +482,36 @@ func (q *Queries) LockInstanceForSubscribe(ctx context.Context, arg LockInstance
 	return i, err
 }
 
+const recordCustomerTrial = `-- name: RecordCustomerTrial :exec
+INSERT INTO customer_trial (customer_id, license_family_id, organization_id, instance_id, consumed_at)
+SELECT $1, l.family_id, l.organization_id, $2, $3
+FROM license l
+WHERE l.organization_id = $4
+  AND l.id = $5
+ON CONFLICT (customer_id, license_family_id) DO NOTHING
+`
+
+type RecordCustomerTrialParams struct {
+	CustomerID     uuid.UUID        `json:"customer_id"`
+	InstanceID     *uuid.UUID       `json:"instance_id"`
+	Now            pgtype.Timestamp `json:"now"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	LicenseID      uuid.UUID        `json:"license_id"`
+}
+
+// A trial consumed (INV-32): the subscribe that starts one records it for the
+// customer and the licence's family; the first record stays.
+func (q *Queries) RecordCustomerTrial(ctx context.Context, arg RecordCustomerTrialParams) error {
+	_, err := q.db.Exec(ctx, recordCustomerTrial,
+		arg.CustomerID,
+		arg.InstanceID,
+		arg.Now,
+		arg.OrganizationID,
+		arg.LicenseID,
+	)
+	return err
+}
+
 const resubscribeInstanceBilling = `-- name: ResubscribeInstanceBilling :one
 UPDATE instance_billing
 SET customer_id           = $1,

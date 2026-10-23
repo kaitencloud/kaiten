@@ -189,7 +189,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	if err != nil {
 		return nil, fmt.Errorf("checkout session: %w", err)
 	}
-	selection := checkout.Selection{AddOns: []checkout.SelectedAddon{}, Voucher: nil, TrialEndsAt: preview.TrialEndsAt}
+	selection := checkout.Selection{AddOns: []checkout.SelectedAddon{}, Voucher: nil, TrialEndsAt: preview.TrialEndsAt, DueToday: &due}
 	for _, addon := range draft.AddOns {
 		i := slices.IndexFunc(catalog.AddOns, func(a getpubliccatalog.PublicAddOn) bool { return a.AddonSlug == addon.AddonSlug })
 		addonID, err := uuid.Parse(catalog.AddOns[i].AddonID)

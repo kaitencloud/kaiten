@@ -423,6 +423,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			if cmd.DryRun {
 				return errDryRun
 			}
+			// The trial is consumed, whatever happens next (INV-32): the next
+			// anonymous checkout with this e-mail reads it (INV-35).
+			if err := q.RecordCustomerTrial(ctx, db.RecordCustomerTrialParams{
+				CustomerID: customer.ID, InstanceID: &instance.ID, Now: invoices.Timestamp(now),
+				OrganizationID: user.OrganizationID, LicenseID: targetLicenseID,
+			}); err != nil {
+				return err
+			}
 			if err := u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 				user.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
 				BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil)); err != nil {

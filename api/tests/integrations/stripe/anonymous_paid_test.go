@@ -105,6 +105,8 @@ func TestAnonymousCheckoutPaysThroughASetup(t *testing.T) {
 	first := confirmAnonymous(t, opened)
 	pageID := setupSessionID(t, first)
 	require.Equal(t, tier2.StatusOpen, first.Session.Status)
+	require.NotEmpty(t, opened.DueToday.Lines)
+	require.Equal(t, opened.DueToday, first.Session.DueToday, "the confirm shows what the start showed, lines included (E-26)")
 	require.Equal(t, customersBefore, fake.Customers(stripefake.DefaultAccount), "no Stripe customer before the setup (INV-34)")
 	stripeCustomer, email, form, ok := fake.SetupSessionOf(stripefake.DefaultAccount, pageID)
 	require.True(t, ok)
@@ -247,4 +249,42 @@ func TestAnonymousCheckoutTrialWithCard(t *testing.T) {
 		call(t, "GET", "/api/customers/"+*done.Session.CustomerSlug+"/billing", nil), fiber.StatusOK)
 	link := billing["providers"].([]any)[0].(map[string]any)
 	require.Equal(t, "ACTIVE", link["paymentMethod"].(map[string]any)["status"], "the trial's card is the default")
+
+	// One trial per e-mail and family, in any letter case (INV-35): the next
+	// checkout is a paid one, and says why.
+	again := startAnonymous(t, s, "Trial@Startup.test")
+	require.Nil(t, again.TrialEndsAt)
+	require.NotNil(t, again.TrialRefusedReason)
+	require.Equal(t, "ALREADY_CONSUMED", *again.TrialRefusedReason)
+	require.EqualValues(t, 2900, again.DueToday.Total)
+}
+
+// TestAnonymousCheckoutConfirmsA3DSecurePayment: a charge that needs
+// authenticating leaves the session AWAITING_PAYMENT with requires_action
+// and the hosted invoice page; once the visitor confirms there, the session's
+// own read learns it from Stripe and the session is COMPLETED (E-5, §14.8).
+func TestAnonymousCheckoutConfirmsA3DSecurePayment(t *testing.T) {
+	fresh(t)
+	s := newStorefront(t, nil)
+	opened := startAnonymous(t, s, "secure@startup.test")
+	pageID := setupSessionID(t, confirmAnonymous(t, opened))
+	pm := fake.CompleteSetupSession(stripefake.DefaultAccount, pageID, "visa", "3155", 12, 2030)
+	fake.SetCardOutcome(stripefake.DefaultAccount, pm, stripefake.CardAuthenticationRequire)
+
+	waiting := confirmAnonymous(t, opened)
+	require.Equal(t, tier2.ConfirmAwaitingPayment, waiting.Status)
+	require.Equal(t, "requires_action", waiting.Session.Payment.Status)
+	require.NotNil(t, waiting.Session.Payment.HostedInvoiceURL)
+
+	activation := invoice(t, mustUUID(t, waiting.Session.ActivationInvoice.ID))
+	fake.Pay(stripefake.DefaultAccount, deref(activation.Provider.ExternalInvoiceID))
+	_, err := testServer.Dependencies.DB.Exec(t.Context(),
+		`UPDATE instance_invoice SET synced_at = synced_at - interval '1 minute' WHERE id = $1`, activation.ID)
+	require.NoError(t, err)
+	read := commonfixture.AssertJSONResponse[tier2.CheckoutSession](t, anonymousCall(t, "GET",
+		"/api/public/checkout-sessions/"+opened.SessionID.String(), nil,
+		map[string]string{"Authorization": "Bearer " + *opened.Token}), fiber.StatusOK)
+	require.Equal(t, tier2.StatusCompleted, read.Status, "the payment, learned by the read, completes it")
+	require.Equal(t, "paid", read.Payment.Status)
+	require.Equal(t, 1, outboxCount(t, tier2events.CheckoutSessionCompleted.Name))
 }

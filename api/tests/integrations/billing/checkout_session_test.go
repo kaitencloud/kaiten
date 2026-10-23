@@ -88,6 +88,16 @@ func TestCheckoutSessionStart(t *testing.T) {
 	}
 
 	require.Equal(t, "CreateCheckoutSession.AnonymousCheckoutDisabled", startProblem(t, plain.Key, order, fiber.StatusForbidden).Code)
+	// A refusal is never cached, and says what it varies on (E-25).
+	for _, refused := range []*http.Response{
+		startCheckout(t, plain.Key, order),
+		startCheckout(t, key.Key, with(order, "turnstileToken", "fail")),
+		readCheckout(t, "00000000-0000-0000-0000-000000000000", "ksc_unknown"),
+	} {
+		require.GreaterOrEqual(t, refused.StatusCode, fiber.StatusBadRequest)
+		require.Equal(t, "no-store", refused.Header.Get("Cache-Control"), refused.StatusCode)
+		require.Contains(t, refused.Header.Get("Vary"), "Origin", refused.StatusCode)
+	}
 
 	for tok, code := range map[string]string{"fail": "CreateCheckoutSession.TurnstileFailed", "pass:evil.example": "CreateCheckoutSession.TurnstileFailed"} {
 		require.Equal(t, code, startProblem(t, key.Key, with(order, "turnstileToken", tok), fiber.StatusUnprocessableEntity).Code, tok)
@@ -150,6 +160,7 @@ func TestCheckoutSessionStart(t *testing.T) {
 	require.Equal(t, community.Slug, read.LicenseSlug)
 	require.Equal(t, "MONTHLY", read.BillingPeriod)
 	require.Equal(t, free.ID, read.PriceID)
+	require.Equal(t, opened.DueToday, read.DueToday, "what the start showed, lines included (E-26)")
 	require.Empty(t, read.AddOns)
 	require.Nil(t, read.CustomerSlug)
 	require.Nil(t, read.CompletedAt)
