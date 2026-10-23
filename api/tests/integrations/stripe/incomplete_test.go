@@ -208,6 +208,11 @@ func TestIncompleteRefusalsAndCancel(t *testing.T) {
 		require.Contains(t, problem["code"], ".SubscriptionIncomplete", refused.path)
 	}
 
+	// Nor from the portal: the checkout's own voucher waits for the payment (§11.6).
+	pending := commonfixture.AssertJSONResponse[map[string]any](t, asCustomer(t, s, "POST", "/api/public/session/vouchers/redeem",
+		map[string]any{"code": "ANY-CODE-AT-ALL"}), fiber.StatusConflict)
+	require.Equal(t, "RedeemSessionVoucher.SubscriptionIncomplete", pending["code"])
+
 	canceled := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", base+"/billing/cancel",
 		map[string]any{"mode": "AT_PERIOD_END"}), fiber.StatusOK)
 	require.Equal(t, "CANCELED", canceled["status"], "at once, whatever the mode")

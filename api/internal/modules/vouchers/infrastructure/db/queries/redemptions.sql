@@ -269,3 +269,14 @@ VALUES (sqlc.arg(id), sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg
         sqlc.arg(now), sqlc.narg(effective_expires_at))
 ON CONFLICT DO NOTHING
 RETURNING id;
+
+
+-- name: GetRedeemSubscriptionState :one
+-- The state of an instance's subscription, held FOR SHARE until the
+-- redemption commits (§11.6): whether it is live, and whether a checkout
+-- still waits on its payment over it.
+SELECT ib.status::text AS status, (ib.pending_license_id IS NOT NULL)::boolean AS checkout_pending
+FROM instance_billing ib
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.instance_id = sqlc.arg(instance_id)
+FOR SHARE OF ib;

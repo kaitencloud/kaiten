@@ -8,6 +8,7 @@ import (
 
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getsessionportal"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -75,10 +76,13 @@ func TestSessionPortal(t *testing.T) {
 	require.Len(t, portal.AddOns, 1)
 	require.Equal(t, "Extra seats", portal.AddOns[0].Name)
 	require.EqualValues(t, 2, portal.AddOns[0].Quantity)
-	require.Equal(t, []getsessionportal.PortalVoucher{{
-		Name: "Welcome", VoucherType: "PRICE", Status: "ACTIVE",
+	require.Len(t, portal.Vouchers, 1)
+	next := "next"
+	require.Equal(t, sessions.SessionRedemption{
+		Name: "Welcome", VoucherType: "PRICE", Status: "ACTIVE", AppliesFromInvoice: &next,
+		ApplicationsCount: 0, ApplicationsMax: portal.Vouchers[0].ApplicationsMax,
 		EffectiveStartsAt: portal.Vouchers[0].EffectiveStartsAt, EffectiveExpiresAt: nil,
-	}}, portal.Vouchers)
+	}, portal.Vouchers[0], "the ACTIVATION issued before it is never discounted")
 	require.Nil(t, portal.PaymentMethod, "NOOP: the vendor collects, nothing is saved")
 	require.Equal(t, "EUR", portal.UpcomingInvoice.Currency)
 	require.EqualValues(t, 2900+2*900, portal.UpcomingInvoice.Subtotal, "the renewal: the base and the add-ons, in advance")

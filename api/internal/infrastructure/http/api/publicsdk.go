@@ -21,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/redeemsessionvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/setsessionaddonquantity"
@@ -50,6 +51,7 @@ func registerPublicSDK(core huma.API, app kaiten.PublicSDK) {
 	cancelsessionsubscription.RegisterEndpoint(core, app)
 	reactivatesessionsubscription.RegisterEndpoint(core, app)
 	validatesessionvoucher.RegisterEndpoint(core, app)
+	redeemsessionvoucher.RegisterEndpoint(core, app)
 	setsessionaddonquantity.RegisterEndpoint(core, app)
 	getsessionportal.RegisterEndpoint(core, app)
 	keys.RegisterWebhooks(core)

@@ -99,3 +99,70 @@ func TestSessionVoucherValidation(t *testing.T) {
 	require.Equal(t, "60", resp.Header.Get("Retry-After"))
 	require.Equal(t, "ValidateSessionVoucher.RateLimited", sessionProblem(t, resp, fiber.StatusTooManyRequests))
 }
+
+const sessionRedeemPath = "/api/public/session/vouchers/redeem"
+
+// §11.6, V32-02: a customer redeems a code from its portal on the session's
+// instance while its subscription is live. A dry run writes nothing; the
+// redemption is the vendor's, by the principal that minted the session, its
+// event marked via customer_session; every refusal of the code is the same.
+func TestSessionVoucherRedemption(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	newPublishableKey(t, storefront)
+	welcome := newVoucher(t, percentOff("30", map[string]any{"name": "Welcome", "duration": "REPEATING", "durationInPeriods": 3}))
+	publish(t, welcome)
+	redeemCall := func(token string, body map[string]any) (int, string) {
+		t.Helper()
+		resp := sessionCall(t, testServer, "POST", sessionRedeemPath, token, storefront, body)
+		raw, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		return resp.StatusCode, string(raw)
+	}
+	code := func(body string) string {
+		t.Helper()
+		var problem map[string]any
+		require.NoError(t, json.Unmarshal([]byte(body), &problem))
+		c, _ := problem["code"].(string)
+		return c
+	}
+
+	unbound := mintSession(t, testServer, s.instance.CustomerSlug, "")
+	status, body := redeemCall(unbound.Token, map[string]any{"code": *welcome.Code})
+	require.Equal(t, fiber.StatusUnprocessableEntity, status, body)
+	require.Equal(t, "RedeemSessionVoucher.InstanceRequired", code(body))
+
+	bound := mintSession(t, testServer, s.instance.CustomerSlug, s.instance.Slug)
+	status, body = redeemCall(bound.Token, map[string]any{"code": *welcome.Code})
+	require.Equal(t, fiber.StatusConflict, status, body)
+	require.Equal(t, "RedeemSessionVoucher.NoLiveSubscription", code(body), "a checkout starts one")
+
+	subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+	status, body = redeemCall(bound.Token, map[string]any{"code": *welcome.Code, "dryRun": true})
+	require.Equal(t, fiber.StatusOK, status, body)
+	require.Empty(t, outboxPayloads(t, "INSTANCE_VOUCHER_REDEEMED"), "a dry run writes nothing")
+
+	status, body = redeemCall(bound.Token, map[string]any{"code": strings.ToLower(*welcome.Code)})
+	require.Equal(t, fiber.StatusCreated, status, body)
+	var redeemed map[string]any
+	require.NoError(t, json.Unmarshal([]byte(body), &redeemed))
+	require.Equal(t, "Welcome", redeemed["name"])
+	require.Equal(t, "next", redeemed["appliesFromInvoice"], "never the invoice already issued")
+	require.EqualValues(t, 3, redeemed["applicationsMax"])
+	require.NotContains(t, body, *welcome.Code, "never the code")
+	events := outboxPayloads(t, "INSTANCE_VOUCHER_REDEEMED")
+	require.Len(t, events, 1)
+	require.Equal(t, "customer_session", events[0]["via"])
+	require.Equal(t, bound.ID.String(), events[0]["customerSessionId"])
+	require.Len(t, portalOf(t, bound.Token).Vouchers, 1, "the portal lists the active redemption")
+
+	// The same answer whatever the reason (§11.2 rule 6).
+	draft := newVoucher(t, percentOff("10", nil))
+	_, unknown := redeemCall(bound.Token, map[string]any{"code": "NO-SUCH-CODE-42"})
+	require.Equal(t, "RedeemSessionVoucher.VoucherInvalid", code(unknown))
+	for name, refused := range map[string]string{"already redeemed": *welcome.Code, "a draft": *draft.Code} {
+		status, body := redeemCall(bound.Token, map[string]any{"code": refused})
+		require.Equal(t, fiber.StatusUnprocessableEntity, status, name)
+		require.Equal(t, unknown, body, "%s: the same answer as an unknown code", name)
+	}
+}

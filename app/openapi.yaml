@@ -10371,40 +10371,6 @@ components:
         - total
         - boundaryAt
       type: object
-    PortalVoucher:
-      additionalProperties: false
-      properties:
-        effectiveExpiresAt:
-          description: When a boost stops applying; null when it does not expire, and for a PRICE voucher, counted in invoices
-          format: date-time
-          type:
-            - string
-            - "null"
-        effectiveStartsAt:
-          format: date-time
-          type: string
-        name:
-          examples:
-            - Summer launch
-          type: string
-        status:
-          enum:
-            - ACTIVE
-            - EXPIRED
-            - REVOKED
-          type: string
-        voucherType:
-          enum:
-            - PRICE
-            - ENTITLEMENT_BOOST
-          type: string
-      required:
-        - name
-        - voucherType
-        - status
-        - effectiveStartsAt
-        - effectiveExpiresAt
-      type: object
     PreferenceChoices:
       additionalProperties: false
       properties:
@@ -13635,9 +13601,9 @@ components:
           format: date-time
           type: string
         vouchers:
-          description: The vouchers the instance redeemed. Never a code.
+          description: The instance's ACTIVE redemptions. Never a code.
           items:
-            $ref: "#/components/schemas/PortalVoucher"
+            $ref: "#/components/schemas/SessionRedemption"
           type: array
       required:
         - customer
@@ -13653,6 +13619,79 @@ components:
         - capabilities
         - branding
         - updatedAt
+      type: object
+    SessionRedeem:
+      additionalProperties: false
+      properties:
+        code:
+          description: The code as the customer typed it; case and separators do not matter
+          examples:
+            - SUMMER-2026-LAUNCH
+          maxLength: 64
+          minLength: 1
+          type: string
+        dryRun:
+          description: Check, and answer the redemption the call would make, without making it; counts as one attempt
+          type: boolean
+      required:
+        - code
+      type: object
+    SessionRedemption:
+      additionalProperties: false
+      properties:
+        applicationsCount:
+          description: Invoices its PRICE part discounted; 0 without one
+          format: int32
+          type: integer
+        applicationsMax:
+          description: "How many it discounts in all: 1 for ONE_TIME, its periods for REPEATING; null for FOREVER and without a PRICE part"
+          format: int32
+          type:
+            - integer
+            - "null"
+        appliesFromInvoice:
+          description: "next: a PRICE part that has not discounted an invoice yet -- it applies from the next invoice composed, never to one already issued; null otherwise"
+          enum:
+            - next
+            - null
+          type:
+            - string
+            - "null"
+        effectiveExpiresAt:
+          description: When a boost or a flag grant stops applying; null when it does not expire, and for a PRICE voucher, counted in invoices
+          format: date-time
+          type:
+            - string
+            - "null"
+        effectiveStartsAt:
+          format: date-time
+          type: string
+        name:
+          examples:
+            - Summer launch
+          type: string
+        status:
+          enum:
+            - ACTIVE
+            - EXPIRED
+            - REVOKED
+          type: string
+        voucherType:
+          enum:
+            - PRICE
+            - ENTITLEMENT_BOOST
+            - FLAG_GRANT
+            - COMPOSITE
+          type: string
+      required:
+        - name
+        - voucherType
+        - status
+        - appliesFromInvoice
+        - applicationsCount
+        - applicationsMax
+        - effectiveStartsAt
+        - effectiveExpiresAt
       type: object
     SessionScheduledChange:
       additionalProperties: false
@@ -29524,6 +29563,88 @@ paths:
       security:
         - customerSession: []
       summary: Read the customer portal
+      tags:
+        - public
+  /public/session/vouchers/redeem:
+    post:
+      description: "Redeems a code on the session's instance, whose subscription is TRIAL, ACTIVE or PAST_DUE: 201 with the redemption, never the code; dryRun answers 200 with the redemption it would make and writes nothing. A PRICE voucher discounts from the next invoice composed (appliesFromInvoice: next), never one already issued; a boost applies at once. Every refusal of the code is the same 422 .VoucherInvalid. 409 .SubscriptionIncomplete (a checkout waits for its payment), .NoLiveSubscription; 422 .InstanceRequired (a session bound to the customer only); 429 .RateLimited, with Retry-After, past 10 attempts per 10 minutes per session or 30 an hour per customer, validate's included."
+      operationId: redeemSessionVoucher
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SessionRedeem"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionRedemption"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "429":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Too Many Requests
+          headers:
+            Retry-After:
+              description: Seconds to wait before the next attempt
+              schema:
+                minimum: 0
+                type: integer
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - customerSession: []
+      summary: Redeem a voucher code
       tags:
         - public
   /public/session/vouchers/validate:

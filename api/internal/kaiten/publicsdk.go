@@ -28,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/redeemsessionvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
@@ -173,6 +174,16 @@ func (p PublicSDK) ValidateSessionVoucher(ctx context.Context, cl caller.Custome
 	request validatesessionvoucher.SessionVoucherCheck,
 ) (*validatesessionvoucher.SessionVoucherValidity, error) {
 	return p.uc.ValidateSessionVoucher.Execute(bindCustomerSession(ctx, cl), validatesessionvoucher.Session{
+		SessionID: cl.SessionID(), CustomerID: cl.CustomerID(), InstanceSlug: cl.InstanceSlug(),
+	}, request)
+}
+
+// RedeemSessionVoucher redeems a code on the session's instance, as the
+// vendor principal that minted the session (§11.6).
+func (p PublicSDK) RedeemSessionVoucher(ctx context.Context, cl caller.CustomerSessionCaller,
+	request redeemsessionvoucher.SessionRedeem,
+) (*sessions.SessionRedemption, bool, error) {
+	return p.uc.RedeemSessionVoucher.Execute(bindCustomerSession(ctx, cl), redeemsessionvoucher.Session{
 		SessionID: cl.SessionID(), CustomerID: cl.CustomerID(), InstanceSlug: cl.InstanceSlug(),
 	}, request)
 }

@@ -38,7 +38,7 @@ type SessionPortal struct {
 	Subscription    *sessions.SessionSubscription   `json:"subscription" doc:"The instance's subscription; null when it has none, or the session is bound to no instance"`
 	Entitlements    []PortalEntitlement             `json:"entitlements" nullable:"false" doc:"The instance's effective entitlements: its licence's, raised or added by add-ons and boosts"`
 	AddOns          []sessions.SessionAddon         `json:"addOns" nullable:"false" doc:"The add-ons the instance holds"`
-	Vouchers        []PortalVoucher                 `json:"vouchers" nullable:"false" doc:"The vouchers the instance redeemed. Never a code."`
+	Vouchers        []sessions.SessionRedemption    `json:"vouchers" nullable:"false" doc:"The instance's ACTIVE redemptions. Never a code."`
 	PaymentMethod   *PortalPaymentMethod            `json:"paymentMethod" doc:"The payment method the customer's invoices are charged to; null when none is saved"`
 	UpcomingInvoice *PortalUpcomingInvoice          `json:"upcomingInvoice" doc:"What the next boundary will bill, on usage so far; null without a live subscription"`
 	Trial           *PortalTrial                    `json:"trial" doc:"TRIAL only: when the trial ends, when its reminder is due, what the conversion would charge and to which card (V32-09); null otherwise"`
@@ -85,15 +85,6 @@ type PortalEntitlement struct {
 	CurrentPeriodEnd               *time.Time                       `json:"currentPeriodEnd" doc:"The usage window's end; null for a lifetime quota"`
 	Source                         string                           `json:"source" enum:"license,addon" doc:"license: the licence grants it; addon: only add-ons do"`
 	Provenance                     *instanceschema.Provenance       `json:"provenance" doc:"What the licence, the add-ons and the boosts each contribute"`
-}
-
-// PortalVoucher is a voucher the instance redeemed.
-type PortalVoucher struct {
-	Name               string     `json:"name" example:"Summer launch"`
-	VoucherType        string     `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST"`
-	Status             string     `json:"status" enum:"ACTIVE,EXPIRED,REVOKED"`
-	EffectiveStartsAt  time.Time  `json:"effectiveStartsAt"`
-	EffectiveExpiresAt *time.Time `json:"effectiveExpiresAt" doc:"When a boost stops applying; null when it does not expire, and for a PRICE voucher, counted in invoices"`
 }
 
 // PortalPaymentMethod is the payment method's labels, as the provider gave
@@ -216,7 +207,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 		Customer:  PortalCustomer{Slug: customer.Slug, Name: customer.Name, BillingEmail: customer.BillingEmail},
 		Instance:  nil,
 		Instances: []PortalInstanceSummary{}, Subscription: nil,
-		Entitlements: []PortalEntitlement{}, AddOns: []sessions.SessionAddon{}, Vouchers: []PortalVoucher{},
+		Entitlements: []PortalEntitlement{}, AddOns: []sessions.SessionAddon{}, Vouchers: []sessions.SessionRedemption{},
 		PaymentMethod: nil, UpcomingInvoice: nil, Trial: nil,
 		Capabilities: PortalCapabilities{PaymentMethods: catalog.Capabilities.PaymentMethods, Invoices: true, Unsubscribe: false, Checkout: false},
 		Branding:     catalog.Branding,
@@ -285,15 +276,12 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 	for _, addon := range addOns {
 		out.AddOns = append(out.AddOns, sessions.AddonFrom(addon))
 	}
-	redeemed, err := u.deps.Vouchers.Execute(ctx, slug, "")
+	redeemed, err := u.deps.Vouchers.Execute(ctx, slug, "ACTIVE")
 	if err != nil {
 		return nil, err
 	}
 	for _, r := range redeemed {
-		out.Vouchers = append(out.Vouchers, PortalVoucher{
-			Name: r.VoucherName, VoucherType: r.VoucherType, Status: r.Status,
-			EffectiveStartsAt: r.EffectiveStartsAt, EffectiveExpiresAt: r.EffectiveExpiresAt,
-		})
+		out.Vouchers = append(out.Vouchers, sessions.RedemptionFrom(r))
 	}
 	if live {
 		upcoming, err := u.deps.UpcomingInvoice.Execute(ctx, slug)

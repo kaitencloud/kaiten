@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
+	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
@@ -190,4 +191,39 @@ func PaymentOf(invoice invoices.Invoice) (status string, hostedInvoiceURL *strin
 		// charge has no answer yet. The queue carries on either way.
 		return PaymentProcessing, hostedInvoiceURL
 	}
+}
+
+// SessionRedemption is a voucher an instance redeemed, as its customer sees
+// it (§14.4): what it is and how far it went. Never its code.
+type SessionRedemption struct {
+	Name               string     `json:"name" example:"Summer launch"`
+	VoucherType        string     `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT,COMPOSITE"`
+	Status             string     `json:"status" enum:"ACTIVE,EXPIRED,REVOKED"`
+	AppliesFromInvoice *string    `json:"appliesFromInvoice" enum:"next" doc:"next: a PRICE part that has not discounted an invoice yet -- it applies from the next invoice composed, never to one already issued; null otherwise"`
+	ApplicationsCount  int32      `json:"applicationsCount" doc:"Invoices its PRICE part discounted; 0 without one"`
+	ApplicationsMax    *int32     `json:"applicationsMax" doc:"How many it discounts in all: 1 for ONE_TIME, its periods for REPEATING; null for FOREVER and without a PRICE part"`
+	EffectiveStartsAt  time.Time  `json:"effectiveStartsAt"`
+	EffectiveExpiresAt *time.Time `json:"effectiveExpiresAt" doc:"When a boost or a flag grant stops applying; null when it does not expire, and for a PRICE voucher, counted in invoices"`
+}
+
+// TransformSchema publishes SessionRedemption's absent members as null.
+func (SessionRedemption) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, SessionRedemption{})
+}
+
+// RedemptionFrom shows a redemption as a session does.
+func RedemptionFrom(r vouchercatalogue.Redemption) SessionRedemption {
+	out := SessionRedemption{
+		Name: r.VoucherName, VoucherType: r.VoucherType, Status: r.Status, AppliesFromInvoice: nil,
+		ApplicationsCount: r.ApplicationsCount, ApplicationsMax: r.ApplicationsMax,
+		EffectiveStartsAt: r.EffectiveStartsAt, EffectiveExpiresAt: r.EffectiveExpiresAt,
+	}
+	if (r.VoucherType == "PRICE" || r.VoucherType == "COMPOSITE") && r.ApplicationsCount == 0 && r.Status == "ACTIVE" {
+		next := "next"
+		out.AppliesFromInvoice = &next
+	}
+	if r.VoucherType != "PRICE" && r.VoucherType != "COMPOSITE" {
+		out.ApplicationsMax = nil
+	}
+	return out
 }

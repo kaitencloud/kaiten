@@ -216,6 +216,13 @@ func (u *UseCase) limitPrincipal(ctx context.Context, organizationID, userID uui
 
 // limitSession takes one of the checks a session may make (10 per 10 minutes)
 // and one of its customer's (30 an hour), or neither.
+// LimitSession counts one attempt of a customer session against the public
+// buckets -- 10 per 10 minutes per session, 30 an hour per customer -- which
+// the portal's redemption shares with validate (§11.6 rule 1).
+func (u *UseCase) LimitSession(ctx context.Context, sessionID, customerID uuid.UUID) error {
+	return u.limitSession(ctx, sessionID, customerID)
+}
+
 func (u *UseCase) limitSession(ctx context.Context, sessionID, customerID uuid.UUID) error {
 	now := u.now()
 	if wait, ok := ratelimit.All(u.sessions.Reserve(sessionID, now), u.customers.Reserve(customerID, now)); !ok {

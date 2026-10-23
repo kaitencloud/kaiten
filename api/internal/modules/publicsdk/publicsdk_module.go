@@ -29,6 +29,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/redeemsessionvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokecustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/revokepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
@@ -74,6 +75,7 @@ type UseCases struct {
 	CancelSessionSubscription     *cancelsessionsubscription.UseCase
 	ReactivateSessionSubscription *reactivatesessionsubscription.UseCase
 	ValidateSessionVoucher        *validatesessionvoucher.UseCase
+	RedeemSessionVoucher          *redeemsessionvoucher.UseCase
 	SetSessionAddonQuantity       *setsessionaddonquantity.UseCase
 	GetSessionPortal              *getsessionportal.UseCase
 }
@@ -100,6 +102,8 @@ type Ports struct {
 	Cancel             cancelsessionsubscription.Canceler
 	Reactivate         reactivatesessionsubscription.Reactivator
 	Vouchers           validatesessionvoucher.Validator
+	VoucherLimit       redeemsessionvoucher.Limiter
+	SessionRedeemer    redeemsessionvoucher.Redeemer
 	AddonList          setsessionaddonquantity.Lister
 	AddonAttach        setsessionaddonquantity.Attacher
 	AddonQuantity      setsessionaddonquantity.QuantitySetter
@@ -159,6 +163,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CancelSessionSubscription:     cancelsessionsubscription.NewUseCase(from.Cancel),
 		ReactivateSessionSubscription: reactivatesessionsubscription.NewUseCase(from.Reactivate),
 		ValidateSessionVoucher:        validatesessionvoucher.NewUseCase(from.Vouchers),
+		RedeemSessionVoucher:          redeemsessionvoucher.NewUseCase(from.VoucherLimit, from.SessionRedeemer),
 		SetSessionAddonQuantity: setsessionaddonquantity.NewUseCase(setsessionaddonquantity.Deps{
 			UserProvider: svc.UserProvider, Catalog: catalog,
 			List: from.AddonList, Attach: from.AddonAttach, SetQuantity: from.AddonQuantity, Detach: from.AddonDetach,

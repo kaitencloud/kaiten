@@ -66,11 +66,6 @@ func (PortalEntitlement) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.
 	return nullable.Pointers(s, PortalEntitlement{})
 }
 
-// TransformSchema publishes PortalVoucher's absent members as null (§13.15).
-func (PortalVoucher) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
-	return nullable.Pointers(s, PortalVoucher{})
-}
-
 // TransformSchema publishes PortalPaymentMethod's absent members as null (§13.15).
 func (PortalPaymentMethod) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 	return nullable.Pointers(s, PortalPaymentMethod{})

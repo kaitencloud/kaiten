@@ -341,6 +341,34 @@ func (q *Queries) GetRedeemSubscription(ctx context.Context, arg GetRedeemSubscr
 	return i, err
 }
 
+const getRedeemSubscriptionState = `-- name: GetRedeemSubscriptionState :one
+SELECT ib.status::text AS status, (ib.pending_license_id IS NOT NULL)::boolean AS checkout_pending
+FROM instance_billing ib
+WHERE ib.organization_id = $1
+  AND ib.instance_id = $2
+FOR SHARE OF ib
+`
+
+type GetRedeemSubscriptionStateParams struct {
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	InstanceID     *uuid.UUID `json:"instance_id"`
+}
+
+type GetRedeemSubscriptionStateRow struct {
+	Status          string `json:"status"`
+	CheckoutPending bool   `json:"checkout_pending"`
+}
+
+// The state of an instance's subscription, held FOR SHARE until the
+// redemption commits (§11.6): whether it is live, and whether a checkout
+// still waits on its payment over it.
+func (q *Queries) GetRedeemSubscriptionState(ctx context.Context, arg GetRedeemSubscriptionStateParams) (GetRedeemSubscriptionStateRow, error) {
+	row := q.db.QueryRow(ctx, getRedeemSubscriptionState, arg.OrganizationID, arg.InstanceID)
+	var i GetRedeemSubscriptionStateRow
+	err := row.Scan(&i.Status, &i.CheckoutPending)
+	return i, err
+}
+
 const getVoucherSystemActor = `-- name: GetVoucherSystemActor :one
 SELECT u.id
 FROM "user" u
