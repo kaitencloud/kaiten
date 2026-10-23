@@ -337,3 +337,36 @@ test.describe('the link to the settings of a family', () => {
     await expect(settings.link('Pro')).toHaveCount(0);
   });
 });
+
+test.describe('the row of a family on a phone', () => {
+  for (const width of [360, 390]) {
+    test(`keeps its actions and its chevron inside the card at ${width} px`, async ({
+      page,
+    }) => {
+      const list = new LicensesListDriver(page);
+      await page.setViewportSize({ height: 800, width });
+      await installBillingAppMocks(page, createBillingStackModel());
+      await installLicenseAppMocks(page, createFamilySettingsCatalogModel());
+      await list.goto();
+      await expect(list.family('Pro')).toBeVisible();
+
+      const overflows = await page
+        .locator('[data-slot="accordion-item"]')
+        .evaluateAll((cards) =>
+          cards.flatMap((card) => {
+            const edge = card.getBoundingClientRect().right;
+
+            return [
+              ...card.querySelectorAll(
+                '[data-slot="accordion-actions"] > *, [data-slot="accordion-chevron"]',
+              ),
+            ]
+              .filter((control) => control.getBoundingClientRect().right > edge)
+              .map((control) => control.textContent || control.ariaLabel);
+          }),
+        );
+
+      expect(overflows).toEqual([]);
+    });
+  }
+});

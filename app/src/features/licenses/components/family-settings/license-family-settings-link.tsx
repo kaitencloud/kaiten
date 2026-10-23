@@ -44,6 +44,7 @@ export function LicenseFamilySettingsLink({
           </span>
         </Link>
       }
+      className="max-sm:min-w-10"
       role="link"
       size="sm"
       variant="outline"

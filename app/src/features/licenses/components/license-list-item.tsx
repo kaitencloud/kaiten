@@ -81,8 +81,10 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
       value={group.familyId}
       className="rounded-xl border border-border border-b-0 bg-card px-6"
     >
-      <ActionAccordionHeader className="py-2">
-        <ActionAccordionTrigger className="py-4 hover:no-underline">
+      {/* On a phone the actions do not fit beside the title: the chevron stays on the
+          title's line and the actions take a line of their own below it. */}
+      <ActionAccordionHeader className="flex-wrap py-2 max-sm:[&>[data-slot=accordion-chevron]]:order-2">
+        <ActionAccordionTrigger className="min-w-0 py-4 hover:no-underline">
           <div className="flex flex-wrap items-center gap-3 text-left">
             <LicenseIcon className="size-5 text-primary-subtle-foreground" />
             <span className="text-lg font-semibold">{group.licenseName}</span>
@@ -110,7 +112,7 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
             <LicensePriceSummaryText license={headVersion} />
           </div>
         </ActionAccordionTrigger>
-        <ActionAccordionActions>
+        <ActionAccordionActions className="max-sm:order-3 max-sm:basis-full max-sm:flex-wrap max-sm:pb-2">
           <LicenseFamilyPublicToggle group={group} />
           <LicenseFamilySettingsLink group={group} />
           {mayCreateVersion ? (
