@@ -14,7 +14,7 @@ function renderRow(entry: GlobalAuditEntry) {
 
 function FeedColumnHeader({ t }: { t: TFunction }) {
   return (
-    <div className={cn('hidden border-b px-3 pb-2 sm:grid', AUDIT_GRID)}>
+    <div className={cn('hidden border-b px-3 pb-2', AUDIT_GRID)}>
       <span aria-hidden />
       <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {t('Pages.AuditTrail.table.headers.event')}

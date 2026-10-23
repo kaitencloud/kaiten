@@ -21,6 +21,26 @@ const NO_INSTANCE = {
   instanceSlug: null,
 };
 
+// Who the API records an event under: a member of the organization, a member who is
+// called Kaiten (a person, not the platform: the console reads the kind), and Kaiten
+// itself, which records the jobs and the anonymous checkouts. Entries without one stand
+// for what was recorded before the API kept actors.
+const ADA = {
+  id: 'dev-user-ada',
+  kind: 'USER',
+  name: 'Ada Lovelace',
+} as const;
+const KAITEN_THE_PERSON = {
+  id: 'dev-user-kaiten',
+  kind: 'USER',
+  name: 'Kaiten',
+} as const;
+const KAITEN_THE_SYSTEM = {
+  id: '00000000-0000-0000-0000-000000000001',
+  kind: 'SYSTEM',
+  name: 'Kaiten (system)',
+} as const;
+
 /**
  * What the organization's audit trail recorded about the world: the usage
  * that the instances' entitlements tabs show, the flag changed minutes ago, the
@@ -80,6 +100,7 @@ export const createAuditTrail = ({
     },
     {
       ...NO_INSTANCE,
+      actor: ADA,
       eventName: 'FEATURE_FLAG_UPDATED',
       eventType: 'com.kaiten.feature_flag.v1.updated',
       id: 'dev-audit-08',
@@ -144,6 +165,7 @@ export const createAuditTrail = ({
     },
     {
       ...NO_INSTANCE,
+      actor: KAITEN_THE_SYSTEM,
       customerName: gamma.name,
       eventName: 'CUSTOMER_CREATED',
       eventType: 'com.kaiten.customer.v1.created',
@@ -178,6 +200,7 @@ export const createAuditTrail = ({
       : []),
     {
       ...NO_INSTANCE,
+      actor: KAITEN_THE_PERSON,
       eventName: 'LICENSE_PUBLISHED',
       eventType: 'com.kaiten.license.v1.published',
       id: 'dev-audit-02',

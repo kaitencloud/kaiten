@@ -68,4 +68,20 @@ test.describe('audit trail read', () => {
       await expect(auditTrail.eventRow(label)).toHaveCount(0);
     }
   });
+
+  test('draws each event once on a phone, as a row made for it, with no column header', async ({
+    page,
+  }) => {
+    const auditTrail = new AuditTrailDriver(page);
+
+    await page.setViewportSize({ width: 390, height: 800 });
+    await installAuditTrailAppMocks(page, createUsageEventsAuditTrailModel());
+    await auditTrail.goto();
+
+    // The desktop header and rows are hidden below the sm breakpoint; only the
+    // rows of the phone are drawn.
+    await expect(page.getByText('Actor', { exact: true })).toBeHidden();
+    await expect(auditTrail.eventRow('Usage rejected')).toHaveCount(1);
+    await expect(auditTrail.eventRow('Usage rejected')).toBeVisible();
+  });
 });

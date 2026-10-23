@@ -12,8 +12,11 @@ import { AuditStatusBadge, getEventIcon } from './audit-trail-event-visuals';
 
 // Shared grid template so the feed column header and every row stay aligned:
 // icon | Event | Instance | Customer | Actor | Status | Time | chevron
+// Every class is for `sm` and up: the header and the rows are `hidden` below it, and a
+// bare `grid` here would win over that `hidden` once the classes are merged, drawing the
+// desktop grid on a phone beside the row made for it.
 export const AUDIT_GRID =
-  'grid grid-cols-[2.25rem_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_7rem_8rem_1.25rem] items-center gap-3';
+  'sm:grid sm:grid-cols-[2.25rem_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_7rem_8rem_1.25rem] sm:items-center sm:gap-3';
 
 // Who the entry is recorded under, named as a record's author is everywhere
 // else: Kaiten itself reads "Kaiten (system)". An entry recorded before the API
@@ -121,7 +124,7 @@ function AuditEventRowDesktop({
   open: boolean;
 }) {
   return (
-    <div className={cn('hidden px-3 py-2.5 sm:grid', AUDIT_GRID)}>
+    <div className={cn('hidden px-3 py-2.5', AUDIT_GRID)}>
       <EventIconCircle entry={entry} />
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">
