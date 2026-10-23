@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { encodePayload } from '@/lib/form-recovery';
+import { buildLockName } from '@/lib/form-recovery/form-recovery-keys';
 import {
   isoAfter,
   makeEntry,
@@ -164,6 +165,34 @@ describe('the offer', () => {
 
     h.session.actions.dismiss('lost');
     expect(h.state().lost).toBeNull();
+    h.dispose(); // a session left alive would answer the next test's events
+  });
+
+  it('leaves an incompatible entry alone while another tab holds it', async () => {
+    const strict = defineFormRecovery<{ name: string; count: number; note: string; secret: string }>({
+      ...thingRecovery,
+      version: 2,
+      incompatibleBelow: 2,
+    });
+    const old = entry({ lineageId: 'old-bundle', formVersion: 1 });
+    seedEntry(old);
+    fake.held.set(buildLockName(old.key), () => {}); // a tab still on the old bundle
+
+    const h = await mount({ descriptor: strict });
+    await advance(10);
+
+    expect(storedRecords()['old-bundle']).toMatchObject({ kind: 'entry' });
+    expect(offerOf(h)).toBeNull();
+    expect(h.state().lost).toBeNull();
+    expect(h.state().openElsewhere).toBe(true);
+
+    fake.held.clear(); // that tab closed
+    document.dispatchEvent(new Event('visibilitychange'));
+    await advance(10);
+
+    expect(storedRecords()).toEqual({});
+    expect(h.state().lost).not.toBeNull();
+    h.dispose();
   });
 
   it('does not touch the offer when the person types in the blank form: it shrinks to a line, and both are kept', async () => {
@@ -298,6 +327,29 @@ describe('resume', () => {
     await advance(10);
 
     expect(h.state().restored).toBeNull();
+    expect(offerOf(h)).toBeNull();
+  });
+
+  it('does not restore an entry another tab sent while the lock was awaited', async () => {
+    seedEntry(entry({ lineageId: 'old' }));
+    const h = await mount();
+    const request = fake.manager.request;
+    vi.spyOn(fake.manager, 'request').mockImplementation(async (...args) => {
+      const sent = makeTombstone({ formId: 'things.create', lineageId: 'old' });
+      window.localStorage.setItem(
+        'kaiten:form-recovery',
+        JSON.stringify({ [`s:${sent.key}`]: { versionKey: 'v', data: sent } }),
+      );
+      return request(...args);
+    });
+
+    h.session.actions.resume();
+    await advance(10);
+
+    expect(h.state().restored).toBeNull();
+    expect(h.state().generation).toBe(0);
+    expect(storedRecords().old).toMatchObject({ kind: 'tombstone', reason: 'sent' });
+    expect(fake.held.size).toBe(0);
     expect(offerOf(h)).toBeNull();
   });
 

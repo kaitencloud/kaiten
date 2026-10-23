@@ -28,12 +28,22 @@ export function applyScope(
   ready: boolean,
 ) {
   const { runtime, store } = ctx;
-  observeOwnLineage(ctx, scope);
+  // Creation only reads: the own lineage is watched once the mount started.
+  if (runtime.alive) observeOwnLineage(ctx, scope);
 
   const own = store.state.lineageId;
   const others = scope.entries.filter((entry) => entry.lineageId !== own);
 
-  const incompatible = others.filter((entry) => isIncompatible(ctx, entry));
+  // An incompatible entry another tab holds is that tab's work, often one
+  // still on the bundle from before a deploy: it is left alone, as `held`,
+  // and removed once nobody holds it. Nothing is removed before the Web Locks
+  // are known, nor by a creation, which only reads.
+  const incompatible =
+    ready && runtime.alive
+      ? others.filter(
+          (entry) => isIncompatible(ctx, entry) && !live.has(entry.key),
+        )
+      : [];
   for (const entry of incompatible) void removeRecord(entry.key);
 
   const held = others.filter((entry) => live.has(entry.key));

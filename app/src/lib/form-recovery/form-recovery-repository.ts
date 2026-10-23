@@ -48,11 +48,13 @@ export function readFormRecoveryRecord(key: string): FormRecoveryRecord | null {
 
 /**
  * The entries, tombstones and sign-out mark of a scope, after a resync.
- * Expired and invalid records found on the way are removed, silently.
+ * Expired and invalid records found on the way are removed, silently, unless
+ * `prune` is false: the read of a render must not write.
  */
 export function readScope(
   scope: FormRecoveryScope,
   now: Date = new Date(),
+  options: { prune?: boolean } = {},
 ): FormRecoveryScopeSnapshot {
   const snapshot: FormRecoveryScopeSnapshot = {
     entries: [],
@@ -87,7 +89,9 @@ export function readScope(
     }
   }
 
-  void deleteKeys(runtime, stale);
+  if (options.prune !== false) {
+    void deleteKeys(runtime, stale);
+  }
   return snapshot;
 }
 

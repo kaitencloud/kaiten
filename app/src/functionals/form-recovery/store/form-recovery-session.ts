@@ -24,7 +24,11 @@ import type {
   SessionRuntime,
   SessionState,
 } from './session-context';
-import { adoptPendingUndo, resume } from './session-adopt';
+import {
+  commitPendingAdoption,
+  previewPendingUndo,
+  resume,
+} from './session-adopt';
 import { keepHere } from './session-observe';
 import {
   addNotes,
@@ -149,6 +153,7 @@ function createRuntime(
     warnedQuota: false,
     openElsewhereDismissed: false,
     unsubscribe: null,
+    pendingAdoption: null,
   };
 }
 
@@ -185,16 +190,17 @@ export function createFormRecoverySession(
   };
 
   // The collection is read once here, synchronously, so that the first render
-  // already knows whether to offer something. A pure read: StrictMode may run
-  // this twice.
+  // already knows whether to offer something. A pure read, with no write, no
+  // removal and no lock: StrictMode may run this twice, and React may drop a
+  // render that is never committed. `start` does the rest.
   if (persistent) {
     const pendingUndo = peekPendingUndo(runtime.scopeKey);
     if (pendingUndo) {
-      adoptPendingUndo(ctx, pendingUndo);
+      previewPendingUndo(ctx, pendingUndo);
     }
     applyScope(
       ctx,
-      readScope(runtime.scope, now()),
+      readScope(runtime.scope, now(), { prune: false }),
       new Set(),
       !runtime.lockSupported,
     );
@@ -240,6 +246,7 @@ export function createFormRecoverySession(
       if (!persistent) return;
 
       takePendingUndo(runtime.scopeKey);
+      commitPendingAdoption(ctx);
       runtime.unsubscribe = subscribeToFormRecovery(() => void refresh(ctx));
       window.addEventListener('pagehide', onPageHide);
       window.addEventListener('pageshow', onPageShow);

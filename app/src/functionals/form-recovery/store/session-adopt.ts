@@ -90,27 +90,16 @@ function restoreEntry(
   };
 }
 
-/**
- * Makes an entry this mount's own, once its lock is taken (or there is none to
- * take): restores it on the initial values of today and replaces the subtree of
- * the form. False when it cannot be read back.
- */
-export function applyAdoption(
+type Restoration = NonNullable<ReturnType<typeof restoreEntry>>;
+
+/** Makes the entry this mount's own in memory: no storage is touched. */
+function takeOver(
   ctx: SessionContext,
   record: FormRecoveryEntry,
+  result: Restoration,
   hold: { release: () => void } | null,
-): boolean {
+) {
   const { runtime, store } = ctx;
-
-  const result = restoreEntry(ctx, record);
-  if (!result) {
-    hold?.release();
-    void removeRecord(record.key);
-    logger.warn('An unsent input could not be read back', {
-      formId: record.formId,
-    });
-    return false;
-  }
 
   releaseHold(ctx);
   runtime.ownHold = hold;
@@ -123,27 +112,6 @@ export function applyAdoption(
   runtime.attemptedAt = null;
   runtime.ownRecordExpected = true;
   runtime.lastSeenAt = ctx.now().getTime();
-
-  // Adopting an input writes it once: the other tabs learn of it through the
-  // change (a lock alone sends no event), the session id says who owns it when
-  // there are no Web Locks, and a send left without a verdict is taken
-  // knowingly, so that its warning does not come back at every visit.
-  const now = ctx.now();
-  const retentionDays =
-    ctx.config.descriptor.retentionDays ?? FORM_RECOVERY_DEFAULT_RETENTION_DAYS;
-  replaceRecord(
-    {
-      ...record,
-      sessionId: runtime.sessionId,
-      status: 'editing',
-      attemptedAt: null,
-      updatedAt: now.toISOString(),
-      expiresAt: new Date(
-        now.getTime() + retentionDays * 86_400_000,
-      ).toISOString(),
-    },
-    { mountedAt: runtime.mountedAt },
-  );
 
   ctx.setState({
     lineageId: record.lineageId,
@@ -158,15 +126,103 @@ export function applyAdoption(
     followUpPending: false,
     focusToken: store.state.focusToken + 1,
   });
+}
+
+/**
+ * Adopting an input writes it once: the other tabs learn of it through the
+ * change (a lock alone sends no event), the session id says who owns it when
+ * there are no Web Locks, and a send left without a verdict is taken
+ * knowingly, so that its warning does not come back at every visit. The write
+ * is the last check: it is refused when the lineage was sent or discarded
+ * since the record was read.
+ */
+function writeAdoption(ctx: SessionContext, record: FormRecoveryEntry) {
+  const { runtime } = ctx;
+  const now = ctx.now();
+  const retentionDays =
+    ctx.config.descriptor.retentionDays ?? FORM_RECOVERY_DEFAULT_RETENTION_DAYS;
+
+  return replaceRecord(
+    {
+      ...record,
+      sessionId: runtime.sessionId,
+      status: 'editing',
+      attemptedAt: null,
+      updatedAt: now.toISOString(),
+      expiresAt: new Date(
+        now.getTime() + retentionDays * 86_400_000,
+      ).toISOString(),
+    },
+    { mountedAt: runtime.mountedAt },
+  );
+}
+
+/**
+ * Makes an entry this mount's own, once its lock is taken (or there is none to
+ * take): restores it on the initial values of today and replaces the subtree of
+ * the form. False when it cannot be read back, or when the lineage was ended
+ * since the entry was read; nothing is adopted then.
+ */
+export function applyAdoption(
+  ctx: SessionContext,
+  record: FormRecoveryEntry,
+  hold: { release: () => void } | null,
+): boolean {
+  const result = restoreEntry(ctx, record);
+  if (!result) {
+    hold?.release();
+    void removeRecord(record.key);
+    logger.warn('An unsent input could not be read back', {
+      formId: record.formId,
+    });
+    return false;
+  }
+
+  if (!writeAdoption(ctx, record).written) {
+    hold?.release();
+    return false;
+  }
+
+  takeOver(ctx, record, result, hold);
   return true;
 }
 
-/** Adopts the entry an "Undo" of a cancelled form brought back, if it is there. */
-export function adoptPendingUndo(ctx: SessionContext, lineageId: string) {
-  const entry = readScope(ctx.runtime.scope, ctx.now()).entries.find(
-    (item) => item.lineageId === lineageId,
-  );
-  return entry ? applyAdoption(ctx, entry, null) : false;
+/**
+ * The entry an "Undo" of a cancelled form brought back, restored at creation
+ * with a pure read: the write, and the lock, wait for `commitPendingAdoption`,
+ * since a creation may run twice or never be committed.
+ */
+export function previewPendingUndo(ctx: SessionContext, lineageId: string) {
+  const entry = readScope(ctx.runtime.scope, ctx.now(), {
+    prune: false,
+  }).entries.find((item) => item.lineageId === lineageId);
+  const result = entry ? restoreEntry(ctx, entry) : null;
+  if (!entry || !result) return;
+
+  takeOver(ctx, entry, result, null);
+  ctx.runtime.pendingAdoption = entry;
+}
+
+/** Writes the entry `previewPendingUndo` restored, once the mount started. */
+export function commitPendingAdoption(ctx: SessionContext) {
+  const { runtime } = ctx;
+  const record = runtime.pendingAdoption;
+  if (!record) return;
+  runtime.pendingAdoption = null;
+
+  const handle = writeAdoption(ctx, record);
+  if (handle.written) return;
+
+  // Ended in the meantime: the form keeps what it shows, the entry is gone.
+  runtime.ownRecordExpected = false;
+  runtime.lastWritten = null;
+  if (handle.reason === 'tombstoned') {
+    ctx.setState({ writer: { status: 'paused', reason: 'discarded' } });
+  } else if (handle.reason === 'signed-out') {
+    ctx.setState({ writer: { status: 'disabled' } });
+  } else {
+    ctx.setState({ writer: { status: 'idle' } });
+  }
 }
 
 /**
@@ -195,11 +251,18 @@ export async function adoptEntry(
     return false;
   }
 
-  const adopted = applyAdoption(
-    ctx,
-    record,
-    hold.status === 'held' ? hold : null,
-  );
+  const holding = hold.status === 'held' ? hold : null;
+
+  // The lock is taken: another tab may have sent or discarded the lineage while
+  // it was awaited, so the record is read once more.
+  const current = readFormRecoveryRecord(key);
+  if (current?.kind !== 'entry' || new Date(current.expiresAt) <= ctx.now()) {
+    holding?.release();
+    await refresh(ctx);
+    return false;
+  }
+
+  const adopted = applyAdoption(ctx, current, holding);
   await refresh(ctx);
   return adopted;
 }

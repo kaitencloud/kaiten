@@ -212,6 +212,9 @@ export function discardOwn(
 ) {
   const { runtime, store } = ctx;
   const status = store.state.writer.status;
+  // A paused tab does not own its lineage (another tab does, or it was ended):
+  // it would write a tombstone on somebody else's input.
+  if (status === 'paused') return;
   if (PASS_THROUGH.has(status) && status !== 'discarded') return;
 
   ctx.cancelWrite();

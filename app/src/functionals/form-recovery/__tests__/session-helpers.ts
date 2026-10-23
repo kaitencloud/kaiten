@@ -57,7 +57,8 @@ export type Harness = {
   dispose: () => void;
 };
 
-export function mountSession(overrides: Partial<SessionConfig> = {}): Harness {
+/** A session as a render creates it: not started, nothing committed yet. */
+export function createSession(overrides: Partial<SessionConfig> = {}) {
   const notify = vi.fn();
   const session = createFormRecoverySession({
     descriptor: thingRecovery,
@@ -69,6 +70,11 @@ export function mountSession(overrides: Partial<SessionConfig> = {}): Harness {
     notify,
     ...overrides,
   });
+  return { session, notify };
+}
+
+export function mountSession(overrides: Partial<SessionConfig> = {}): Harness {
+  const { session, notify } = createSession(overrides);
   session.start();
 
   return {

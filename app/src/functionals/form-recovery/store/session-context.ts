@@ -91,6 +91,11 @@ export type SessionRuntime = {
   warnedQuota: boolean;
   openElsewhereDismissed: boolean;
   unsubscribe: (() => void) | null;
+  /**
+   * The entry an "Undo" brought back, restored at creation without a write:
+   * `start` writes it, once the mount is committed.
+   */
+  pendingAdoption: FormRecoveryEntry | null;
 };
 
 export type SessionContext = {

@@ -9,6 +9,7 @@ import { ApiError } from '@/lib/errors';
 import { makeEntry } from '@/lib/form-recovery/__tests__/test-records';
 import { selectOffer } from '../logic/selectors';
 import {
+  createSession,
   IDENTITY,
   mountSession,
   seedEntry,
@@ -439,6 +440,30 @@ describe('discard', () => {
     expect(offerOf(next)).toBeNull();
   });
 
+  it('restores an undone input at creation without writing, and writes it once the mount starts', async () => {
+    const h = await typed();
+    h.session.actions.discard({ undo: vi.fn() });
+    h.dispose();
+    (h.notify.mock.calls[0]![1] as () => void)();
+    const before = window.localStorage.getItem(FORM_RECOVERY_STORAGE_KEY);
+
+    // A render that React throws away, then the one it keeps (StrictMode).
+    const dropped = createSession();
+    const kept = createSession();
+
+    expect(kept.session.store.state.restored?.values).toMatchObject({ name: 'Gold' });
+    expect(window.localStorage.getItem(FORM_RECOVERY_STORAGE_KEY)).toBe(before);
+
+    kept.session.start();
+    await advance(10);
+
+    const stored = Object.values(storedRecords()).find((r) => r.kind === 'entry');
+    expect(stored!.sessionId).toBeDefined();
+    expect(kept.session.store.state.writer).toEqual({ status: 'saved' });
+    expect(dropped.session.store.state.restored).not.toBeNull();
+    kept.session.dispose();
+  });
+
   it('says nothing when nothing was stored', async () => {
     const h = mountSession();
     await advance(0);
@@ -457,6 +482,28 @@ describe('discard', () => {
     await advance(5_000);
 
     expect(Object.values(storedRecords()).map((record) => record.kind)).toEqual(['tombstone']);
+  });
+});
+
+describe('discard from a paused tab', () => {
+  it('does not write a tombstone on a lineage the tab does not own', async () => {
+    const h = await typed();
+    await advance(25 * 3_600_000);
+    window.localStorage.removeItem(FORM_RECOVERY_STORAGE_KEY);
+    window.dispatchEvent(
+      new StorageEvent('storage', {
+        key: FORM_RECOVERY_STORAGE_KEY,
+        storageArea: window.localStorage,
+      }),
+    );
+    await advance(50);
+    expect(h.state().writer).toEqual({ status: 'paused', reason: 'unknown' });
+
+    h.session.actions.discard({ undo: vi.fn() });
+
+    expect(storedRecords()).toEqual({});
+    expect(h.state().writer).toEqual({ status: 'paused', reason: 'unknown' });
+    expect(h.notify).not.toHaveBeenCalled();
   });
 });
 
