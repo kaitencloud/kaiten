@@ -58,6 +58,27 @@ describe('a form that uses the recovery', () => {
     expect(alerts()).toHaveLength(0);
   });
 
+  it('keeps what was typed less than a second before the page went away', async () => {
+    const user = setupUser();
+    const view = mountDemo();
+    await user.type(input('Name'), 'Gold');
+    expect(only()).toEqual([]);
+
+    view.unmount();
+
+    expect(only()[0]).toMatchObject({ kind: 'entry', payload: '[["name","Gold"]]' });
+  });
+
+  it('keeps what was typed less than a second before pagehide', async () => {
+    const user = setupUser();
+    mountDemo();
+    await user.type(input('Name'), 'Gold');
+
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(only()[0]).toMatchObject({ kind: 'entry', payload: '[["name","Gold"]]' });
+  });
+
   it('offers the input on the next visit, and restores values, step and focus on "Resume"', async () => {
     const user = setupUser();
     await fillAndLeave(user);
