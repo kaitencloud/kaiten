@@ -25,6 +25,32 @@ func (q *Queries) BillingClock(ctx context.Context) (pgtype.Timestamp, error) {
 	return now, err
 }
 
+const customerTrialConsumed = `-- name: CustomerTrialConsumed :one
+SELECT EXISTS (SELECT 1
+               FROM customer_trial ct
+               JOIN license l
+                 ON l.family_id = ct.license_family_id
+                AND l.organization_id = ct.organization_id
+               WHERE ct.organization_id = $1
+                 AND ct.customer_id = $2
+                 AND l.id = $3)::boolean AS consumed
+`
+
+type CustomerTrialConsumedParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	CustomerID     uuid.UUID `json:"customer_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+}
+
+// Whether the customer has consumed a trial of the family of this licence
+// version (INV-32).
+func (q *Queries) CustomerTrialConsumed(ctx context.Context, arg CustomerTrialConsumedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, customerTrialConsumed, arg.OrganizationID, arg.CustomerID, arg.LicenseID)
+	var consumed bool
+	err := row.Scan(&consumed)
+	return consumed, err
+}
+
 const getBillingCustomer = `-- name: GetBillingCustomer :one
 SELECT c.id, c.slug, c.name, c.billing_email
 FROM customer c
@@ -388,6 +414,18 @@ func (q *Queries) ListInstanceBillingSummaries(ctx context.Context, arg ListInst
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockCustomerTrials = `-- name: LockCustomerTrials :exec
+SELECT pg_advisory_xact_lock(hashtextextended('customer_trial:' || $1::text, 0))
+`
+
+// One trial per customer and family, under concurrency (INV-32): a subscribe
+// that may start a default trial serializes on its customer, until it has
+// recorded the trial.
+func (q *Queries) LockCustomerTrials(ctx context.Context, customerID string) error {
+	_, err := q.db.Exec(ctx, lockCustomerTrials, customerID)
+	return err
 }
 
 const lockInstanceBilling = `-- name: LockInstanceBilling :one

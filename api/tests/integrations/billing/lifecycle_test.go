@@ -110,6 +110,34 @@ func TestTrials(t *testing.T) {
 		require.Equal(t, subscriptions.StatusActive, subscribe(t, other.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 0}).Status)
 	})
 
+	// INV-32: a trial is consumed when it starts, whatever happens next; the
+	// customer's next subscribe to the family gets no default trial, and only
+	// an explicit trialDays grants another.
+	t.Run("ADefaultTrial_IsGivenOncePerCustomerAndFamily", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		exec(t, `UPDATE license SET trial_period_days = 14 WHERE id = $1`, s.version.ID)
+		require.Equal(t, subscriptions.StatusTrial, subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID}).Status)
+		cancel(t, s.instance.Slug, map[string]any{})
+
+		second := newInstance(t, "Acme staging", s.instance.CustomerID, s.version.ID)
+		started := subscribe(t, second.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		require.Equal(t, subscriptions.StatusActive, started.Status, "the trial was consumed by the first instance")
+		require.NotNil(t, started.ActivationInvoice)
+		cancel(t, second.Slug, map[string]any{"mode": "IMMEDIATE"})
+
+		third := newInstance(t, "Acme dev", s.instance.CustomerID, s.version.ID)
+		require.Equal(t, subscriptions.StatusTrial, subscribe(t, third.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 7}).Status,
+			"the vendor grants another, explicitly")
+
+		other := newCustomer(t, "globex")
+		fourth := newInstance(t, "Globex prod", other.ID, s.version.ID)
+		require.Equal(t, subscriptions.StatusTrial, subscribe(t, fourth.Slug, map[string]any{"basePriceId": s.monthly.ID}).Status, "per customer")
+		var rows int
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT count(*) FROM customer_trial`).Scan(&rows))
+		require.Equal(t, 2, rows, "one per customer and family: the first record stays")
+	})
+
 	t.Run("ACanceledTrial_IsCanceledAtOnce_WithoutAnInvoice", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		s := newSold(t, flatFee("2900", "MONTHLY"))

@@ -173,6 +173,26 @@ WHERE id = sqlc.arg(id)
 RETURNING *;
 
 
+-- name: LockCustomerTrials :exec
+-- One trial per customer and family, under concurrency (INV-32): a subscribe
+-- that may start a default trial serializes on its customer, until it has
+-- recorded the trial.
+SELECT pg_advisory_xact_lock(hashtextextended('customer_trial:' || sqlc.arg(customer_id)::text, 0));
+
+
+-- name: CustomerTrialConsumed :one
+-- Whether the customer has consumed a trial of the family of this licence
+-- version (INV-32).
+SELECT EXISTS (SELECT 1
+               FROM customer_trial ct
+               JOIN license l
+                 ON l.family_id = ct.license_family_id
+                AND l.organization_id = ct.organization_id
+               WHERE ct.organization_id = sqlc.arg(organization_id)
+                 AND ct.customer_id = sqlc.arg(customer_id)
+                 AND l.id = sqlc.arg(license_id))::boolean AS consumed;
+
+
 -- name: RecordCustomerTrial :exec
 -- A trial consumed (INV-32): the subscribe that starts one records it for the
 -- customer and the licence's family; the first record stays.

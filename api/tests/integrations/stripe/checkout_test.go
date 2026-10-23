@@ -261,6 +261,27 @@ func TestCheckoutTrialWithoutCard(t *testing.T) {
 	require.Empty(t, fake.CallsOf(stripefake.OpPayInvoice))
 }
 
+// TestCheckoutTrialOncePerFamily: a customer who had a trial of the plan's
+// family, on another of its instances, checks out without one: the dryRun
+// shows no trialEndsAt and the amount due today (INV-32, §14.4).
+func TestCheckoutTrialOncePerFamily(t *testing.T) {
+	fresh(t)
+	s := newShop(t, map[string]any{"trialPeriodDays": 14})
+	staging := commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "POST", "/api/instances", map[string]any{
+		"name": "Acme staging", "description": "d", "customerId": s.customer.ID, "licenseId": s.plan.ID,
+		"startLicenseDate": time.Now().UTC().Add(-24 * time.Hour), "endLicenseDate": time.Now().UTC().AddDate(1, 0, 0),
+		"metadata": map[string]any{},
+	}), fiber.StatusCreated)
+	trial := commonfixture.AssertJSONResponse[map[string]any](t,
+		call(t, "POST", "/api/instances/"+staging.Slug+"/billing", map[string]any{"basePriceId": s.monthly.ID}), fiber.StatusCreated)
+	require.Equal(t, "TRIAL", trial["status"])
+	require.Equal(t, fiber.StatusOK, call(t, "POST", "/api/instances/"+staging.Slug+"/billing/cancel", map[string]any{}).StatusCode)
+
+	preview := checkout(t, s, map[string]any{"licensePriceId": s.monthly.ID, "dryRun": true}, fiber.StatusOK)
+	require.Nil(t, preview.TrialEndsAt, "the trial of the family was consumed")
+	require.EqualValues(t, 2900, preview.DueToday.Total)
+}
+
 // TestCheckoutCardRequiredByThePlan: a plan that requires a payment method
 // asks for one even with nothing due today.
 func TestCheckoutCardRequiredByThePlan(t *testing.T) {

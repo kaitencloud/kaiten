@@ -43,7 +43,8 @@ type Command struct {
 	CollectionMethod *string
 	DaysUntilDue     *int32
 	StartAt          *time.Time
-	// TrialDays nil takes the licence's trial; 0 is none.
+	// TrialDays nil takes the licence's trial, unless the customer had one of
+	// its family (INV-32); 0 is none.
 	TrialDays *int32
 	// AddOns are attached, and VoucherCode redeemed, in the subscribe's
 	// transaction, after the subscription row and before the ACTIVATION
@@ -244,6 +245,23 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				return kaitenerrors.UnprocessableEntity(operation+".InvalidTrialDays", "trialDays is 0 (no trial) or between 1 and 365")
 			}
 			trialDays = *cmd.TrialDays
+		}
+		if cmd.TrialDays == nil && trialDays > 0 {
+			// One trial per customer and family (INV-32): a customer who had
+			// one gets no default trial, dryRun included; only an explicit
+			// trialDays grants another.
+			if err := q.LockCustomerTrials(ctx, instance.CustomerID.String()); err != nil {
+				return err
+			}
+			consumed, err := q.CustomerTrialConsumed(ctx, db.CustomerTrialConsumedParams{
+				OrganizationID: user.OrganizationID, CustomerID: instance.CustomerID, LicenseID: targetLicenseID,
+			})
+			if err != nil {
+				return err
+			}
+			if consumed {
+				trialDays = 0
+			}
 		}
 		if cmd.DaysUntilDue != nil && (*cmd.DaysUntilDue < 0 || *cmd.DaysUntilDue > 365) {
 			return kaitenerrors.UnprocessableEntity(operation+".InvalidDaysUntilDue", "daysUntilDue is between 0 and 365")
