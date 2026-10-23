@@ -285,6 +285,16 @@ type Instance struct {
 	Integrations map[string]InstanceIntegration `json:"integrations,omitempty" doc:"Integrations grouped by adapter name"`
 }
 
+// Licence change reasons an INSTANCE_UPDATED carries (§15.1).
+const LicenseChangeBillingFallback = "BILLING_FALLBACK"
+
+// InstanceUpdate is the payload of INSTANCE_UPDATED: the instance as it now
+// is, and why billing changed its licence when it did.
+type InstanceUpdate struct {
+	Instance
+	LicenseChangeReason *string `json:"licenseChangeReason" nullable:"true" enum:"BILLING_FALLBACK" doc:"BILLING_FALLBACK: the subscription ended and the instance moved to its family's fallback (V31-66). Null for any other change, the move a paid checkout applies included"`
+}
+
 // InstancePage is a cursor-paginated page of instances, returned by the
 // GraphQL instances field -- the GraphQL counterpart of the REST
 // getinstances endpoint's pagination.Page[*Instance] envelope. It is a

@@ -359,6 +359,7 @@ export class AddonCatalogue {
     return {
       currentVersion: current ? clone(current) : undefined,
       id: `addon-family-${slug}`,
+      increaseBilling: 'TRUE_UP',
       isPublic: this.publicFamilies.includes(slug),
       lastVersion: this.lastVersions[slug] ?? versions[0].version,
       slug,
@@ -538,6 +539,7 @@ export class AddonCatalogue {
       description: body.description,
       familySlug,
       id: `addon-${slug}`,
+      increaseBilling: 'TRUE_UP',
       isDefault: Boolean(body.isDefault),
       lifecycleState: state,
       maxQuantity: body.maxQuantity,

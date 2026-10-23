@@ -48,7 +48,7 @@ func newInstanceAddonsBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.
 		for _, row := range rows {
 			byInstance[row.InstanceID] = append(byInstance[row.InstanceID], catalogue.InstanceAddon{
 				ID: row.ID, AddonID: row.AddonID, AddonSlug: row.AddonSlug, FamilySlug: row.FamilySlug, Name: row.AddonName,
-				Quantity: row.Quantity, MaxQuantity: row.MaxQuantity, AttachedAt: row.CreatedAt.Time.UTC(), RemovedAt: nil, Prices: nil,
+				Quantity: row.Quantity, MaxQuantity: row.MaxQuantity, PendingQuantity: row.PendingQuantity, AttachedAt: row.CreatedAt.Time.UTC(), RemovedAt: nil, Prices: nil,
 			})
 		}
 		for n, key := range keys {

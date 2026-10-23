@@ -65,11 +65,11 @@ func (a Addons) GetFamily(ctx context.Context, cl caller.OrganizationCaller, fam
 	return a.uc.GetFamily.Execute(bindOrganization(ctx, cl), familySlug)
 }
 
-func (a Addons) UpdateFamily(ctx context.Context, cl caller.OrganizationCaller, familySlug string, isPublic bool) (*catalogue.AddonFamily, error) {
+func (a Addons) UpdateFamily(ctx context.Context, cl caller.OrganizationCaller, familySlug string, cmd updateaddonfamily.Command) (*catalogue.AddonFamily, error) {
 	if err := cl.Require(updateaddonfamily.RequiredScope); err != nil {
 		return nil, err
 	}
-	return a.uc.UpdateFamily.Execute(bindOrganization(ctx, cl), familySlug, isPublic)
+	return a.uc.UpdateFamily.Execute(bindOrganization(ctx, cl), familySlug, cmd)
 }
 
 func (a Addons) CreateAddon(ctx context.Context, cl caller.OrganizationCaller, command createaddon.NewAddon) (*catalogue.Addon, error) {

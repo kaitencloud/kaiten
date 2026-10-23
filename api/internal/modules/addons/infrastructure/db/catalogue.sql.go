@@ -136,20 +136,22 @@ func (q *Queries) CountOtherActiveMeteredAddonPrices(ctx context.Context, arg Co
 }
 
 const createAddonFamily = `-- name: CreateAddonFamily :one
-INSERT INTO addon_family (organization_id, slug)
-VALUES ($1, $2)
+INSERT INTO addon_family (organization_id, slug, increase_billing)
+VALUES ($1, $2,
+        COALESCE($3::addon_increase_billing, 'TRUE_UP'))
 RETURNING id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
 `
 
 type CreateAddonFamilyParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	Slug           string    `json:"slug"`
+	OrganizationID  uuid.UUID             `json:"organization_id"`
+	Slug            string                `json:"slug"`
+	IncreaseBilling *AddonIncreaseBilling `json:"increase_billing"`
 }
 
 // A family is opened by its first version and outlives every one of them,
 // like a licence family.
 func (q *Queries) CreateAddonFamily(ctx context.Context, arg CreateAddonFamilyParams) (AddonFamily, error) {
-	row := q.db.QueryRow(ctx, createAddonFamily, arg.OrganizationID, arg.Slug)
+	row := q.db.QueryRow(ctx, createAddonFamily, arg.OrganizationID, arg.Slug, arg.IncreaseBilling)
 	var i AddonFamily
 	err := row.Scan(
 		&i.ID,
@@ -278,7 +280,7 @@ func (q *Queries) EntitlementMeteredByAddonPrice(ctx context.Context, arg Entitl
 }
 
 const getAddonBySlug = `-- name: GetAddonBySlug :one
-SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, f.slug AS family_slug
+SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, f.slug AS family_slug, f.increase_billing AS family_increase_billing
 FROM addon a
 JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization_id
 WHERE a.organization_id = $1
@@ -291,23 +293,24 @@ type GetAddonBySlugParams struct {
 }
 
 type GetAddonBySlugRow struct {
-	ID             uuid.UUID             `json:"id"`
-	OrganizationID uuid.UUID             `json:"organization_id"`
-	FamilyID       uuid.UUID             `json:"family_id"`
-	Name           string                `json:"name"`
-	Slug           string                `json:"slug"`
-	Description    string                `json:"description"`
-	Version        int32                 `json:"version"`
-	VersionName    *string               `json:"version_name"`
-	IsDefault      bool                  `json:"is_default"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
-	PricingType    PricingType           `json:"pricing_type"`
-	MaxQuantity    *int32                `json:"max_quantity"`
-	CreatedAt      pgtype.Timestamp      `json:"created_at"`
-	CreatedByID    uuid.UUID             `json:"created_by_id"`
-	UpdatedAt      pgtype.Timestamp      `json:"updated_at"`
-	UpdatedByID    uuid.UUID             `json:"updated_by_id"`
-	FamilySlug     string                `json:"family_slug"`
+	ID                    uuid.UUID             `json:"id"`
+	OrganizationID        uuid.UUID             `json:"organization_id"`
+	FamilyID              uuid.UUID             `json:"family_id"`
+	Name                  string                `json:"name"`
+	Slug                  string                `json:"slug"`
+	Description           string                `json:"description"`
+	Version               int32                 `json:"version"`
+	VersionName           *string               `json:"version_name"`
+	IsDefault             bool                  `json:"is_default"`
+	LifecycleState        LicenseLifecycleState `json:"lifecycle_state"`
+	PricingType           PricingType           `json:"pricing_type"`
+	MaxQuantity           *int32                `json:"max_quantity"`
+	CreatedAt             pgtype.Timestamp      `json:"created_at"`
+	CreatedByID           uuid.UUID             `json:"created_by_id"`
+	UpdatedAt             pgtype.Timestamp      `json:"updated_at"`
+	UpdatedByID           uuid.UUID             `json:"updated_by_id"`
+	FamilySlug            string                `json:"family_slug"`
+	FamilyIncreaseBilling AddonIncreaseBilling  `json:"family_increase_billing"`
 }
 
 func (q *Queries) GetAddonBySlug(ctx context.Context, arg GetAddonBySlugParams) (GetAddonBySlugRow, error) {
@@ -331,6 +334,7 @@ func (q *Queries) GetAddonBySlug(ctx context.Context, arg GetAddonBySlugParams) 
 		&i.UpdatedAt,
 		&i.UpdatedByID,
 		&i.FamilySlug,
+		&i.FamilyIncreaseBilling,
 	)
 	return i, err
 }
@@ -819,7 +823,7 @@ func (q *Queries) ListAddonPrices(ctx context.Context, arg ListAddonPricesParams
 }
 
 const listAddons = `-- name: ListAddons :many
-SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, f.slug AS family_slug
+SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, f.slug AS family_slug, f.increase_billing AS family_increase_billing
 FROM addon a
 JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization_id
 WHERE a.organization_id = $1
@@ -841,23 +845,24 @@ type ListAddonsParams struct {
 }
 
 type ListAddonsRow struct {
-	ID             uuid.UUID             `json:"id"`
-	OrganizationID uuid.UUID             `json:"organization_id"`
-	FamilyID       uuid.UUID             `json:"family_id"`
-	Name           string                `json:"name"`
-	Slug           string                `json:"slug"`
-	Description    string                `json:"description"`
-	Version        int32                 `json:"version"`
-	VersionName    *string               `json:"version_name"`
-	IsDefault      bool                  `json:"is_default"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
-	PricingType    PricingType           `json:"pricing_type"`
-	MaxQuantity    *int32                `json:"max_quantity"`
-	CreatedAt      pgtype.Timestamp      `json:"created_at"`
-	CreatedByID    uuid.UUID             `json:"created_by_id"`
-	UpdatedAt      pgtype.Timestamp      `json:"updated_at"`
-	UpdatedByID    uuid.UUID             `json:"updated_by_id"`
-	FamilySlug     string                `json:"family_slug"`
+	ID                    uuid.UUID             `json:"id"`
+	OrganizationID        uuid.UUID             `json:"organization_id"`
+	FamilyID              uuid.UUID             `json:"family_id"`
+	Name                  string                `json:"name"`
+	Slug                  string                `json:"slug"`
+	Description           string                `json:"description"`
+	Version               int32                 `json:"version"`
+	VersionName           *string               `json:"version_name"`
+	IsDefault             bool                  `json:"is_default"`
+	LifecycleState        LicenseLifecycleState `json:"lifecycle_state"`
+	PricingType           PricingType           `json:"pricing_type"`
+	MaxQuantity           *int32                `json:"max_quantity"`
+	CreatedAt             pgtype.Timestamp      `json:"created_at"`
+	CreatedByID           uuid.UUID             `json:"created_by_id"`
+	UpdatedAt             pgtype.Timestamp      `json:"updated_at"`
+	UpdatedByID           uuid.UUID             `json:"updated_by_id"`
+	FamilySlug            string                `json:"family_slug"`
+	FamilyIncreaseBilling AddonIncreaseBilling  `json:"family_increase_billing"`
 }
 
 func (q *Queries) ListAddons(ctx context.Context, arg ListAddonsParams) ([]ListAddonsRow, error) {
@@ -894,6 +899,7 @@ func (q *Queries) ListAddons(ctx context.Context, arg ListAddonsParams) ([]ListA
 			&i.UpdatedAt,
 			&i.UpdatedByID,
 			&i.FamilySlug,
+			&i.FamilyIncreaseBilling,
 		); err != nil {
 			return nil, err
 		}
@@ -906,7 +912,7 @@ func (q *Queries) ListAddons(ctx context.Context, arg ListAddonsParams) ([]ListA
 }
 
 const listAddonsByFamilyIDs = `-- name: ListAddonsByFamilyIDs :many
-SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, f.slug AS family_slug
+SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, f.slug AS family_slug, f.increase_billing AS family_increase_billing
 FROM addon a
 JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization_id
 WHERE a.organization_id = $1
@@ -920,23 +926,24 @@ type ListAddonsByFamilyIDsParams struct {
 }
 
 type ListAddonsByFamilyIDsRow struct {
-	ID             uuid.UUID             `json:"id"`
-	OrganizationID uuid.UUID             `json:"organization_id"`
-	FamilyID       uuid.UUID             `json:"family_id"`
-	Name           string                `json:"name"`
-	Slug           string                `json:"slug"`
-	Description    string                `json:"description"`
-	Version        int32                 `json:"version"`
-	VersionName    *string               `json:"version_name"`
-	IsDefault      bool                  `json:"is_default"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
-	PricingType    PricingType           `json:"pricing_type"`
-	MaxQuantity    *int32                `json:"max_quantity"`
-	CreatedAt      pgtype.Timestamp      `json:"created_at"`
-	CreatedByID    uuid.UUID             `json:"created_by_id"`
-	UpdatedAt      pgtype.Timestamp      `json:"updated_at"`
-	UpdatedByID    uuid.UUID             `json:"updated_by_id"`
-	FamilySlug     string                `json:"family_slug"`
+	ID                    uuid.UUID             `json:"id"`
+	OrganizationID        uuid.UUID             `json:"organization_id"`
+	FamilyID              uuid.UUID             `json:"family_id"`
+	Name                  string                `json:"name"`
+	Slug                  string                `json:"slug"`
+	Description           string                `json:"description"`
+	Version               int32                 `json:"version"`
+	VersionName           *string               `json:"version_name"`
+	IsDefault             bool                  `json:"is_default"`
+	LifecycleState        LicenseLifecycleState `json:"lifecycle_state"`
+	PricingType           PricingType           `json:"pricing_type"`
+	MaxQuantity           *int32                `json:"max_quantity"`
+	CreatedAt             pgtype.Timestamp      `json:"created_at"`
+	CreatedByID           uuid.UUID             `json:"created_by_id"`
+	UpdatedAt             pgtype.Timestamp      `json:"updated_at"`
+	UpdatedByID           uuid.UUID             `json:"updated_by_id"`
+	FamilySlug            string                `json:"family_slug"`
+	FamilyIncreaseBilling AddonIncreaseBilling  `json:"family_increase_billing"`
 }
 
 func (q *Queries) ListAddonsByFamilyIDs(ctx context.Context, arg ListAddonsByFamilyIDsParams) ([]ListAddonsByFamilyIDsRow, error) {
@@ -966,6 +973,7 @@ func (q *Queries) ListAddonsByFamilyIDs(ctx context.Context, arg ListAddonsByFam
 			&i.UpdatedAt,
 			&i.UpdatedByID,
 			&i.FamilySlug,
+			&i.FamilyIncreaseBilling,
 		); err != nil {
 			return nil, err
 		}
@@ -979,14 +987,14 @@ func (q *Queries) ListAddonsByFamilyIDs(ctx context.Context, arg ListAddonsByFam
 
 const lockAddonBySlug = `-- name: LockAddonBySlug :one
 WITH family AS (
-  SELECT f.id, f.slug
+  SELECT f.id, f.slug, f.increase_billing
   FROM addon_family f
   JOIN addon a0 ON a0.family_id = f.id AND a0.organization_id = f.organization_id
   WHERE a0.organization_id = $1
     AND a0.slug = $2
   FOR UPDATE OF f
 )
-SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, family.slug AS family_slug
+SELECT a.id, a.organization_id, a.family_id, a.name, a.slug, a.description, a.version, a.version_name, a.is_default, a.lifecycle_state, a.pricing_type, a.max_quantity, a.created_at, a.created_by_id, a.updated_at, a.updated_by_id, family.slug AS family_slug, family.increase_billing AS family_increase_billing
 FROM addon a
 JOIN family ON family.id = a.family_id
 WHERE a.organization_id = $1
@@ -1000,23 +1008,24 @@ type LockAddonBySlugParams struct {
 }
 
 type LockAddonBySlugRow struct {
-	ID             uuid.UUID             `json:"id"`
-	OrganizationID uuid.UUID             `json:"organization_id"`
-	FamilyID       uuid.UUID             `json:"family_id"`
-	Name           string                `json:"name"`
-	Slug           string                `json:"slug"`
-	Description    string                `json:"description"`
-	Version        int32                 `json:"version"`
-	VersionName    *string               `json:"version_name"`
-	IsDefault      bool                  `json:"is_default"`
-	LifecycleState LicenseLifecycleState `json:"lifecycle_state"`
-	PricingType    PricingType           `json:"pricing_type"`
-	MaxQuantity    *int32                `json:"max_quantity"`
-	CreatedAt      pgtype.Timestamp      `json:"created_at"`
-	CreatedByID    uuid.UUID             `json:"created_by_id"`
-	UpdatedAt      pgtype.Timestamp      `json:"updated_at"`
-	UpdatedByID    uuid.UUID             `json:"updated_by_id"`
-	FamilySlug     string                `json:"family_slug"`
+	ID                    uuid.UUID             `json:"id"`
+	OrganizationID        uuid.UUID             `json:"organization_id"`
+	FamilyID              uuid.UUID             `json:"family_id"`
+	Name                  string                `json:"name"`
+	Slug                  string                `json:"slug"`
+	Description           string                `json:"description"`
+	Version               int32                 `json:"version"`
+	VersionName           *string               `json:"version_name"`
+	IsDefault             bool                  `json:"is_default"`
+	LifecycleState        LicenseLifecycleState `json:"lifecycle_state"`
+	PricingType           PricingType           `json:"pricing_type"`
+	MaxQuantity           *int32                `json:"max_quantity"`
+	CreatedAt             pgtype.Timestamp      `json:"created_at"`
+	CreatedByID           uuid.UUID             `json:"created_by_id"`
+	UpdatedAt             pgtype.Timestamp      `json:"updated_at"`
+	UpdatedByID           uuid.UUID             `json:"updated_by_id"`
+	FamilySlug            string                `json:"family_slug"`
+	FamilyIncreaseBilling AddonIncreaseBilling  `json:"family_increase_billing"`
 }
 
 // Locks the version a write names, after its family: the order every version
@@ -1042,6 +1051,7 @@ func (q *Queries) LockAddonBySlug(ctx context.Context, arg LockAddonBySlugParams
 		&i.UpdatedAt,
 		&i.UpdatedByID,
 		&i.FamilySlug,
+		&i.FamilyIncreaseBilling,
 	)
 	return i, err
 }
@@ -1131,36 +1141,6 @@ func (q *Queries) LockAddonPrice(ctx context.Context, arg LockAddonPriceParams) 
 	row := q.db.QueryRow(ctx, lockAddonPrice, arg.OrganizationID, arg.AddonID, arg.ID)
 	var i LockAddonPriceRow
 	err := row.Scan(&i.ID, &i.Status, &i.IsDefault)
-	return i, err
-}
-
-const setAddonFamilyPublic = `-- name: SetAddonFamilyPublic :one
-UPDATE addon_family
-SET is_public = $1
-WHERE organization_id = $2
-  AND slug = $3
-RETURNING id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
-`
-
-type SetAddonFamilyPublicParams struct {
-	IsPublic       bool      `json:"is_public"`
-	OrganizationID uuid.UUID `json:"organization_id"`
-	Slug           string    `json:"slug"`
-}
-
-func (q *Queries) SetAddonFamilyPublic(ctx context.Context, arg SetAddonFamilyPublicParams) (AddonFamily, error) {
-	row := q.db.QueryRow(ctx, setAddonFamilyPublic, arg.IsPublic, arg.OrganizationID, arg.Slug)
-	var i AddonFamily
-	err := row.Scan(
-		&i.ID,
-		&i.OrganizationID,
-		&i.Slug,
-		&i.LastVersion,
-		&i.IsPublic,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.IncreaseBilling,
-	)
 	return i, err
 }
 
@@ -1298,4 +1278,42 @@ func (q *Queries) UpdateAddonEntitlement(ctx context.Context, arg UpdateAddonEnt
 		arg.ID,
 	)
 	return err
+}
+
+const updateAddonFamilySettings = `-- name: UpdateAddonFamilySettings :one
+UPDATE addon_family
+SET is_public        = COALESCE($1::boolean, is_public),
+    increase_billing = COALESCE($2::addon_increase_billing, increase_billing)
+WHERE organization_id = $3
+  AND slug = $4
+RETURNING id, organization_id, slug, last_version, is_public, created_at, updated_at, increase_billing
+`
+
+type UpdateAddonFamilySettingsParams struct {
+	IsPublic        *bool                 `json:"is_public"`
+	IncreaseBilling *AddonIncreaseBilling `json:"increase_billing"`
+	OrganizationID  uuid.UUID             `json:"organization_id"`
+	Slug            string                `json:"slug"`
+}
+
+// A family's own settings; an absent one keeps the stored value (§13.1).
+func (q *Queries) UpdateAddonFamilySettings(ctx context.Context, arg UpdateAddonFamilySettingsParams) (AddonFamily, error) {
+	row := q.db.QueryRow(ctx, updateAddonFamilySettings,
+		arg.IsPublic,
+		arg.IncreaseBilling,
+		arg.OrganizationID,
+		arg.Slug,
+	)
+	var i AddonFamily
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.Slug,
+		&i.LastVersion,
+		&i.IsPublic,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.IncreaseBilling,
+	)
+	return i, err
 }

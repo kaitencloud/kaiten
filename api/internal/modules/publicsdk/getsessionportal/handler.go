@@ -32,17 +32,18 @@ import (
 
 // SessionPortal is the customer portal's payload.
 type SessionPortal struct {
-	Customer        PortalCustomer                `json:"customer"`
-	Instance        *PortalInstance               `json:"instance" doc:"The session's instance; null for a session bound to the customer only"`
-	Instances       []PortalInstanceSummary       `json:"instances" nullable:"false" doc:"The customer's instances, for a session bound to the customer only; empty otherwise"`
-	Subscription    *sessions.SessionSubscription `json:"subscription" doc:"The instance's subscription; null when it has none, or the session is bound to no instance"`
-	Entitlements    []PortalEntitlement           `json:"entitlements" nullable:"false" doc:"The instance's effective entitlements: its licence's, raised or added by add-ons and boosts"`
-	AddOns          []sessions.SessionAddon       `json:"addOns" nullable:"false" doc:"The add-ons the instance holds"`
-	Vouchers        []PortalVoucher               `json:"vouchers" nullable:"false" doc:"The vouchers the instance redeemed. Never a code."`
-	PaymentMethod   *PortalPaymentMethod          `json:"paymentMethod" doc:"The payment method the customer's invoices are charged to; null when none is saved"`
-	UpcomingInvoice *PortalUpcomingInvoice        `json:"upcomingInvoice" doc:"What the next boundary will bill, on usage so far; null without a live subscription"`
-	Capabilities    PortalCapabilities            `json:"capabilities"`
-	UpdatedAt       time.Time                     `json:"updatedAt" doc:"When this snapshot was read"`
+	Customer        PortalCustomer                  `json:"customer"`
+	Instance        *PortalInstance                 `json:"instance" doc:"The session's instance; null for a session bound to the customer only"`
+	Instances       []PortalInstanceSummary         `json:"instances" nullable:"false" doc:"The customer's instances, for a session bound to the customer only; empty otherwise"`
+	Subscription    *sessions.SessionSubscription   `json:"subscription" doc:"The instance's subscription; null when it has none, or the session is bound to no instance"`
+	Entitlements    []PortalEntitlement             `json:"entitlements" nullable:"false" doc:"The instance's effective entitlements: its licence's, raised or added by add-ons and boosts"`
+	AddOns          []sessions.SessionAddon         `json:"addOns" nullable:"false" doc:"The add-ons the instance holds"`
+	Vouchers        []PortalVoucher                 `json:"vouchers" nullable:"false" doc:"The vouchers the instance redeemed. Never a code."`
+	PaymentMethod   *PortalPaymentMethod            `json:"paymentMethod" doc:"The payment method the customer's invoices are charged to; null when none is saved"`
+	UpcomingInvoice *PortalUpcomingInvoice          `json:"upcomingInvoice" doc:"What the next boundary will bill, on usage so far; null without a live subscription"`
+	Capabilities    PortalCapabilities              `json:"capabilities"`
+	Branding        getpubliccatalog.PublicBranding `json:"branding"`
+	UpdatedAt       time.Time                       `json:"updatedAt" doc:"When this snapshot was read"`
 }
 
 // PortalCustomer is the session's customer.
@@ -196,6 +197,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 		Entitlements: []PortalEntitlement{}, AddOns: []sessions.SessionAddon{}, Vouchers: []PortalVoucher{},
 		PaymentMethod: nil, UpcomingInvoice: nil,
 		Capabilities: PortalCapabilities{PaymentMethods: catalog.Capabilities.PaymentMethods, Invoices: true, Unsubscribe: false, Checkout: false},
+		Branding:     catalog.Branding,
 		UpdatedAt:    time.Now().UTC().Truncate(time.Millisecond),
 	}
 

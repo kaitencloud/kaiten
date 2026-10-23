@@ -98,6 +98,51 @@ func (g Gate) entitled(ctx context.Context, organizationID uuid.UUID) (bool, err
 	return entitled, nil
 }
 
+// Feature is a BOOLEAN entitlement of the organization's own plan that
+// changes what Kaiten shows, never what it does: the plan is asked as the
+// gate asks it, its answer trusted for ttl and kept while the licensing
+// authority cannot be reached, and an organization it never answered for
+// reads false (§24 #70). Self-hosted, every feature is granted.
+type Feature struct {
+	entitlements services.ConnectorEntitlements
+	slug         string
+	answers      *answers
+}
+
+// NewFeature checks slug, trusting an answer for ttl (0 caches nothing).
+func NewFeature(entitlements services.ConnectorEntitlements, slug string, ttl time.Duration) *Feature {
+	f := &Feature{entitlements: services.ConnectorEntitlementsOrAlways(entitlements), slug: slug, answers: nil}
+	if ttl > 0 {
+		f.answers = &answers{ttl: ttl, now: time.Now, byOrganization: map[uuid.UUID]answer{}}
+	}
+	return f
+}
+
+// Granted reports whether the organization's plan grants the feature.
+func (f *Feature) Granted(ctx context.Context, organizationID uuid.UUID) bool {
+	if f == nil {
+		return false
+	}
+	if f.answers != nil {
+		if granted, fresh, ok := f.answers.get(organizationID); ok && fresh {
+			return granted
+		}
+	}
+	granted, err := f.entitlements.Entitled(ctx, organizationID, f.slug)
+	if err != nil {
+		if f.answers != nil {
+			if last, _, ok := f.answers.get(organizationID); ok {
+				return last
+			}
+		}
+		return false
+	}
+	if f.answers != nil {
+		f.answers.set(organizationID, granted)
+	}
+	return granted
+}
+
 type answer struct {
 	entitled bool
 	at       time.Time

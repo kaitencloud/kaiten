@@ -40,6 +40,7 @@ type InvoiceLine struct {
 	Amount            int64                `json:"amount" doc:"round_half_up(quantity × unitAmountDecimal), in minor units; negative on a DISCOUNT line" example:"2440"`
 	Metering          *InvoiceLineMetering `json:"metering" doc:"How a USAGE or OVERAGE line's quantity was measured"`
 	Overage           *InvoiceLineOverage  `json:"overage" doc:"The arithmetic of an OVERAGE line"`
+	TrueUp            *InvoiceLineTrueUp   `json:"trueUp" doc:"On the true-up line of an ADVANCE add-on of a TRUE_UP family: the highest quantity held in the elapsed period and the quantity billed in advance for it (V31-70)"`
 	Discount          *InvoiceLineDiscount `json:"discount" doc:"How a DISCOUNT line was computed"`
 	Provider          *InvoiceLineProvider `json:"provider" doc:"The line in the payment provider, once pushed"`
 	Capped            bool                 `json:"capped,omitempty" doc:"Set on a preview line whose sample exceeded what the licence accepts: reports above that are rejected, so the excess is not billed"`
@@ -50,6 +51,13 @@ type InvoiceLine struct {
 // TransformSchema publishes InvoiceLine's absent members as null (§13.15).
 func (InvoiceLine) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 	return nullable.Pointers(s, InvoiceLine{})
+}
+
+// InvoiceLineTrueUp is what a true-up line bills: maxQuantity minus
+// billedQuantity, for the whole elapsed period (§8.2).
+type InvoiceLineTrueUp struct {
+	MaxQuantity    int32 `json:"maxQuantity" doc:"The highest quantity the attachment held in the elapsed period"`
+	BilledQuantity int32 `json:"billedQuantity" doc:"The quantity its ADVANCE line billed at the previous boundary; 0 when it started after it"`
 }
 
 // InvoiceLineProvider is a line as its payment provider holds it.

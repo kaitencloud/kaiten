@@ -250,6 +250,7 @@ export const SEATS_ADDON: InstanceAddon = {
   id: 'instance-addon-initech-seats',
   maxQuantity: 5,
   name: 'Extra seats',
+  pendingQuantity: null,
   prices: [],
   quantity: 2,
 };

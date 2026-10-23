@@ -35,6 +35,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/setsessionaddonquantity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // UseCases contains all the use case handlers for the public SDK module.
@@ -120,6 +121,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Uof:       svc.Uof,
 		Gate:      billingGate,
 		Providers: svc.BillingProviders,
+		Branding:  gate.NewFeature(svc.ConnectorEntitlements, dogfooding.RemovePoweredByEntitlementSlug, svc.Config.Billing.EntitlementCacheTTL),
 	})
 	sessionDeps := sessions.Deps{UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: billingGate}
 	return &UseCases{

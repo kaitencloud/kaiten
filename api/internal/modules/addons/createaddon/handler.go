@@ -20,16 +20,17 @@ const operation = "CreateAddon"
 
 // NewAddon is a version to create.
 type NewAddon struct {
-	Name           string     `json:"name" minLength:"1" example:"Extra seats"`
-	Slug           *string    `json:"slug,omitempty" doc:"The version's slug. Default: {familySlug}-v{n} for a new version of a family, a slug generated from the name for a new family." example:"extra-seats-v1"`
-	Description    string     `json:"description" example:"Five more seats per unit"`
-	FamilyID       *uuid.UUID `json:"familyId,omitempty" doc:"Make this a new version of this family"`
-	FamilySlug     *string    `json:"familySlug,omitempty" doc:"Make this a new version of this family" example:"extra-seats"`
-	VersionName    *string    `json:"versionName,omitempty" doc:"Default: Version - {n}"`
-	LifecycleState string     `json:"lifecycleState,omitempty" enum:"DRAFT,PUBLISHED" default:"PUBLISHED"`
-	IsDefault      bool       `json:"isDefault,omitempty" doc:"Make this version its family's default; the previous default loses it"`
-	PricingType    string     `json:"pricingType" enum:"FREE,PAID,CUSTOM"`
-	MaxQuantity    *int32     `json:"maxQuantity,omitempty" doc:"The largest quantity an instance can hold" example:"10"`
+	Name            string     `json:"name" minLength:"1" example:"Extra seats"`
+	Slug            *string    `json:"slug,omitempty" doc:"The version's slug. Default: {familySlug}-v{n} for a new version of a family, a slug generated from the name for a new family." example:"extra-seats-v1"`
+	Description     string     `json:"description" example:"Five more seats per unit"`
+	FamilyID        *uuid.UUID `json:"familyId,omitempty" doc:"Make this a new version of this family"`
+	FamilySlug      *string    `json:"familySlug,omitempty" doc:"Make this a new version of this family" example:"extra-seats"`
+	VersionName     *string    `json:"versionName,omitempty" doc:"Default: Version - {n}"`
+	LifecycleState  string     `json:"lifecycleState,omitempty" enum:"DRAFT,PUBLISHED" default:"PUBLISHED"`
+	IsDefault       bool       `json:"isDefault,omitempty" doc:"Make this version its family's default; the previous default loses it"`
+	PricingType     string     `json:"pricingType" enum:"FREE,PAID,CUSTOM"`
+	MaxQuantity     *int32     `json:"maxQuantity,omitempty" doc:"The largest quantity an instance can hold" example:"10"`
+	IncreaseBilling *string    `json:"increaseBilling,omitempty" doc:"Read only when the call opens a new family: how a mid-period increase of its ADVANCE add-ons is billed, TRUE_UP (the default) or NEXT_BOUNDARY; another value answers 422 .InvalidIncreaseBilling"`
 }
 
 type UseCase struct {
@@ -49,6 +50,9 @@ func (u *UseCase) Execute(ctx context.Context, command NewAddon) (*catalogue.Add
 		}
 	}
 	if err := catalogue.ValidateMaxQuantity(operation, command.MaxQuantity); err != nil {
+		return nil, err
+	}
+	if _, err := catalogue.ParseIncreaseBilling(operation, command.IncreaseBilling); err != nil {
 		return nil, err
 	}
 	state := command.LifecycleState
@@ -91,7 +95,7 @@ func (u *UseCase) Execute(ctx context.Context, command NewAddon) (*catalogue.Add
 		if err != nil {
 			return err
 		}
-		created = catalogue.ToAddon(row, family.Slug)
+		created = catalogue.ToAddon(row, family.Slug, family.IncreaseBilling)
 		return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(user.OrganizationID,
 			events.AddonCreated.Name, events.AddonCreated.Type, created, nil))
 	})
@@ -115,7 +119,11 @@ func (u *UseCase) family(ctx context.Context, q *db.Queries, organizationID uuid
 			}
 			slug = generated
 		}
-		family, err := q.CreateAddonFamily(ctx, db.CreateAddonFamilyParams{OrganizationID: organizationID, Slug: slug})
+		increase, err := catalogue.ParseIncreaseBilling(operation, command.IncreaseBilling)
+		if err != nil {
+			return db.AddonFamily{}, "", err
+		}
+		family, err := q.CreateAddonFamily(ctx, db.CreateAddonFamilyParams{OrganizationID: organizationID, Slug: slug, IncreaseBilling: increase})
 		if kaitenerrors.IsUniqueViolationOnConstraint(err, "addon_family_organization_id_slug_key") {
 			return db.AddonFamily{}, "", kaitenerrors.Conflict(operation+".SlugConflict",
 				fmt.Sprintf("an add-on family with slug %q already exists", slug))

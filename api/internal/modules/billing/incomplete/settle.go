@@ -75,6 +75,12 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 		}); err != nil {
 			return false, err
 		}
+		// The version it bought, announced like any other move (§9.10 rule 3).
+		if deps.Mover != nil {
+			if err := deps.Mover.AnnounceUpdated(ctx, sub.OrganizationID, instance.Slug, nil); err != nil {
+				return false, err
+			}
+		}
 	}
 	if err := apply(ctx, deps, sub, instance.Slug, selection, invoice, actor, now); err != nil {
 		return false, err

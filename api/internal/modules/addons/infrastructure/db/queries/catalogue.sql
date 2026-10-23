@@ -1,8 +1,9 @@
 -- name: CreateAddonFamily :one
 -- A family is opened by its first version and outlives every one of them,
 -- like a licence family.
-INSERT INTO addon_family (organization_id, slug)
-VALUES (sqlc.arg(organization_id), sqlc.arg(slug))
+INSERT INTO addon_family (organization_id, slug, increase_billing)
+VALUES (sqlc.arg(organization_id), sqlc.arg(slug),
+        COALESCE(sqlc.narg(increase_billing)::addon_increase_billing, 'TRUE_UP'))
 RETURNING *;
 
 
@@ -38,9 +39,11 @@ WHERE organization_id = sqlc.arg(organization_id)
 ORDER BY created_at DESC, id DESC;
 
 
--- name: SetAddonFamilyPublic :one
+-- name: UpdateAddonFamilySettings :one
+-- A family's own settings; an absent one keeps the stored value (§13.1).
 UPDATE addon_family
-SET is_public = sqlc.arg(is_public)
+SET is_public        = COALESCE(sqlc.narg(is_public)::boolean, is_public),
+    increase_billing = COALESCE(sqlc.narg(increase_billing)::addon_increase_billing, increase_billing)
 WHERE organization_id = sqlc.arg(organization_id)
   AND slug = sqlc.arg(slug)
 RETURNING *;
@@ -70,7 +73,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: GetAddonBySlug :one
-SELECT a.*, f.slug AS family_slug
+SELECT a.*, f.slug AS family_slug, f.increase_billing AS family_increase_billing
 FROM addon a
 JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization_id
 WHERE a.organization_id = sqlc.arg(organization_id)
@@ -81,14 +84,14 @@ WHERE a.organization_id = sqlc.arg(organization_id)
 -- Locks the version a write names, after its family: the order every version
 -- write takes, so they never deadlock one another.
 WITH family AS (
-  SELECT f.id, f.slug
+  SELECT f.id, f.slug, f.increase_billing
   FROM addon_family f
   JOIN addon a0 ON a0.family_id = f.id AND a0.organization_id = f.organization_id
   WHERE a0.organization_id = sqlc.arg(organization_id)
     AND a0.slug = sqlc.arg(slug)
   FOR UPDATE OF f
 )
-SELECT a.*, family.slug AS family_slug
+SELECT a.*, family.slug AS family_slug, family.increase_billing AS family_increase_billing
 FROM addon a
 JOIN family ON family.id = a.family_id
 WHERE a.organization_id = sqlc.arg(organization_id)
@@ -97,7 +100,7 @@ FOR NO KEY UPDATE OF a;
 
 
 -- name: ListAddons :many
-SELECT a.*, f.slug AS family_slug
+SELECT a.*, f.slug AS family_slug, f.increase_billing AS family_increase_billing
 FROM addon a
 JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization_id
 WHERE a.organization_id = sqlc.arg(organization_id)
@@ -110,7 +113,7 @@ LIMIT sqlc.narg(row_limit)::integer;
 
 
 -- name: ListAddonsByFamilyIDs :many
-SELECT a.*, f.slug AS family_slug
+SELECT a.*, f.slug AS family_slug, f.increase_billing AS family_increase_billing
 FROM addon a
 JOIN addon_family f ON f.id = a.family_id AND f.organization_id = a.organization_id
 WHERE a.organization_id = sqlc.arg(organization_id)

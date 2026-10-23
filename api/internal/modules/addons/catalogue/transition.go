@@ -50,7 +50,7 @@ func (t Transition) Move(ctx context.Context, deps Deps, box *outbox.ScopedRepos
 		if err != nil {
 			return err
 		}
-		moved = ToAddon(row, locked.FamilySlug)
+		moved = ToAddon(row, locked.FamilySlug, locked.FamilyIncreaseBilling)
 		return box.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(user.OrganizationID, t.Event.Name, t.Event.Type, moved, nil))
 	})
 	if err != nil {

@@ -50,29 +50,31 @@ func (d Deps) Queries(ctx context.Context) *db.Queries {
 
 // Addon is an add-on version as the API returns it.
 type Addon struct {
-	ID             uuid.UUID `json:"id" readOnly:"true"`
-	Slug           string    `json:"slug" doc:"The version's slug, unique in the organization" example:"extra-seats-v1"`
-	FamilySlug     string    `json:"familySlug" doc:"The family the version belongs to" example:"extra-seats"`
-	Name           string    `json:"name" example:"Extra seats"`
-	Description    string    `json:"description"`
-	Version        int32     `json:"version" readOnly:"true" doc:"The version number in its family, assigned on create" example:"1"`
-	VersionName    string    `json:"versionName" example:"Version - 1"`
-	IsDefault      bool      `json:"isDefault" doc:"The version the family resolves to. Only a PUBLISHED version."`
-	LifecycleState string    `json:"lifecycleState" enum:"DRAFT,PUBLISHED,ARCHIVED" doc:"A DRAFT can be attached to try it; an ARCHIVED version stays on the instances holding it but cannot be attached again."`
-	PricingType    string    `json:"pricingType" enum:"FREE,PAID,CUSTOM"`
-	MaxQuantity    *int32    `json:"maxQuantity,omitempty" doc:"The largest quantity an instance can hold; unbounded when absent" example:"10"`
-	CreatedAt      time.Time `json:"createdAt" readOnly:"true"`
-	UpdatedAt      time.Time `json:"updatedAt" readOnly:"true"`
+	ID              uuid.UUID `json:"id" readOnly:"true"`
+	Slug            string    `json:"slug" doc:"The version's slug, unique in the organization" example:"extra-seats-v1"`
+	FamilySlug      string    `json:"familySlug" doc:"The family the version belongs to" example:"extra-seats"`
+	Name            string    `json:"name" example:"Extra seats"`
+	Description     string    `json:"description"`
+	Version         int32     `json:"version" readOnly:"true" doc:"The version number in its family, assigned on create" example:"1"`
+	VersionName     string    `json:"versionName" example:"Version - 1"`
+	IsDefault       bool      `json:"isDefault" doc:"The version the family resolves to. Only a PUBLISHED version."`
+	LifecycleState  string    `json:"lifecycleState" enum:"DRAFT,PUBLISHED,ARCHIVED" doc:"A DRAFT can be attached to try it; an ARCHIVED version stays on the instances holding it but cannot be attached again."`
+	PricingType     string    `json:"pricingType" enum:"FREE,PAID,CUSTOM"`
+	MaxQuantity     *int32    `json:"maxQuantity,omitempty" doc:"The largest quantity an instance can hold; unbounded when absent" example:"10"`
+	IncreaseBilling string    `json:"increaseBilling" enum:"TRUE_UP,NEXT_BOUNDARY" readOnly:"true" doc:"The family's: how a mid-period increase or attachment of an ADVANCE add-on is billed. TRUE_UP adds a true-up line for the elapsed period at the next renewal; NEXT_BOUNDARY bills from the next boundary only"`
+	CreatedAt       time.Time `json:"createdAt" readOnly:"true"`
+	UpdatedAt       time.Time `json:"updatedAt" readOnly:"true"`
 }
 
 // AddonFamily is an add-on family with its versions.
 type AddonFamily struct {
-	ID             uuid.UUID `json:"id" readOnly:"true"`
-	Slug           string    `json:"slug" example:"extra-seats"`
-	IsPublic       bool      `json:"isPublic" doc:"Whether the family is listed in the public catalogue"`
-	LastVersion    int32     `json:"lastVersion" doc:"The highest version number the family has assigned"`
-	CurrentVersion *Addon    `json:"currentVersion,omitempty" doc:"The default version, else the highest PUBLISHED one; absent when none is published"`
-	Versions       []Addon   `json:"versions" doc:"Every version, newest first"`
+	ID              uuid.UUID `json:"id" readOnly:"true"`
+	Slug            string    `json:"slug" example:"extra-seats"`
+	IsPublic        bool      `json:"isPublic" doc:"Whether the family is listed in the public catalogue"`
+	IncreaseBilling string    `json:"increaseBilling" enum:"TRUE_UP,NEXT_BOUNDARY" doc:"How a mid-period increase or attachment of the family's ADVANCE add-ons is billed (V31-70)"`
+	LastVersion     int32     `json:"lastVersion" doc:"The highest version number the family has assigned"`
+	CurrentVersion  *Addon    `json:"currentVersion,omitempty" doc:"The default version, else the highest PUBLISHED one; absent when none is published"`
+	Versions        []Addon   `json:"versions" doc:"Every version, newest first"`
 }
 
 // AddonEntitlement is what an add-on version grants per unit of quantity.
@@ -95,7 +97,7 @@ const (
 )
 
 // ToAddon maps a version row.
-func ToAddon(row db.Addon, familySlug string) Addon {
+func ToAddon(row db.Addon, familySlug string, increaseBilling db.AddonIncreaseBilling) Addon {
 	versionName := ""
 	if row.VersionName != nil {
 		versionName = *row.VersionName
@@ -104,18 +106,33 @@ func ToAddon(row db.Addon, familySlug string) Addon {
 		ID: row.ID, Slug: row.Slug, FamilySlug: familySlug, Name: row.Name, Description: row.Description,
 		Version: row.Version, VersionName: versionName, IsDefault: row.IsDefault,
 		LifecycleState: string(row.LifecycleState), PricingType: string(row.PricingType),
-		MaxQuantity: row.MaxQuantity, CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
+		MaxQuantity: row.MaxQuantity, IncreaseBilling: string(increaseBilling), CreatedAt: row.CreatedAt.Time, UpdatedAt: row.UpdatedAt.Time,
 	}
+}
+
+// ParseIncreaseBilling reads an increaseBilling member: nil when absent,
+// <operation>.InvalidIncreaseBilling for another value than TRUE_UP or
+// NEXT_BOUNDARY.
+func ParseIncreaseBilling(operation string, raw *string) (*db.AddonIncreaseBilling, error) {
+	if raw == nil {
+		return nil, nil //nolint:nilnil // absent keeps the stored value
+	}
+	switch value := db.AddonIncreaseBilling(*raw); value {
+	case db.AddonIncreaseBillingTRUEUP, db.AddonIncreaseBillingNEXTBOUNDARY:
+		return &value, nil
+	}
+	return nil, kaitenerrors.UnprocessableEntity(operation+".InvalidIncreaseBilling", "increaseBilling is TRUE_UP or NEXT_BOUNDARY")
 }
 
 // Locked is a version a write holds the lock on.
 type Locked struct {
-	Row        db.Addon
-	FamilySlug string
+	Row                   db.Addon
+	FamilySlug            string
+	FamilyIncreaseBilling db.AddonIncreaseBilling
 }
 
 // Addon maps the locked version.
-func (l Locked) Addon() Addon { return ToAddon(l.Row, l.FamilySlug) }
+func (l Locked) Addon() Addon { return ToAddon(l.Row, l.FamilySlug, l.FamilyIncreaseBilling) }
 
 // Lock reads and locks, after its family, the version a write names;
 // <operation>.NotFound (or code, when given) when the organization has none.
@@ -132,7 +149,7 @@ func Lock(ctx context.Context, q *db.Queries, organizationID uuid.UUID, slug, co
 		Description: row.Description, Version: row.Version, VersionName: row.VersionName, IsDefault: row.IsDefault,
 		LifecycleState: row.LifecycleState, PricingType: row.PricingType, MaxQuantity: row.MaxQuantity,
 		CreatedAt: row.CreatedAt, CreatedByID: row.CreatedByID, UpdatedAt: row.UpdatedAt, UpdatedByID: row.UpdatedByID,
-	}, FamilySlug: row.FamilySlug}, nil
+	}, FamilySlug: row.FamilySlug, FamilyIncreaseBilling: row.FamilyIncreaseBilling}, nil
 }
 
 // Get reads the version a read names; code when the organization has none.
@@ -149,7 +166,7 @@ func Get(ctx context.Context, q *db.Queries, organizationID uuid.UUID, slug, cod
 		Description: row.Description, Version: row.Version, VersionName: row.VersionName, IsDefault: row.IsDefault,
 		LifecycleState: row.LifecycleState, PricingType: row.PricingType, MaxQuantity: row.MaxQuantity,
 		CreatedAt: row.CreatedAt, CreatedByID: row.CreatedByID, UpdatedAt: row.UpdatedAt, UpdatedByID: row.UpdatedByID,
-	}, row.FamilySlug), nil
+	}, row.FamilySlug, row.FamilyIncreaseBilling), nil
 }
 
 // RefuseBilled refuses to change what an add-on version sells while an

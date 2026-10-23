@@ -31,7 +31,7 @@ describe('the families of add-ons', () => {
     server.use(
       handleListAddonFamilies({
         body: [
-          { currentVersion: SEATS, id: 'family', isPublic: false, lastVersion: 1, slug: 'extra-seats', versions: [SEATS] },
+          { currentVersion: SEATS, id: 'family', increaseBilling: 'TRUE_UP', isPublic: false, lastVersion: 1, slug: 'extra-seats', versions: [SEATS] },
         ],
       }),
     );

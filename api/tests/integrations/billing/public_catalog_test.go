@@ -153,6 +153,7 @@ func TestPublicCatalog(t *testing.T) {
 		require.JSONEq(t, `1000000`, string(plan.Entitlements[0].Value))
 		require.False(t, plan.SelfServe, "PAID with no provider that captures payment methods")
 		require.False(t, catalog.Capabilities.Checkout)
+		require.True(t, catalog.Branding.PoweredByRemovable, "the plan grants remove-powered-by")
 	})
 
 	t.Run("a server-side read sends no Origin and passes", func(t *testing.T) {

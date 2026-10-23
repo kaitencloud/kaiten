@@ -17,6 +17,13 @@ components:
         id:
           readOnly: true
           type: string
+        increaseBilling:
+          description: "The family's: how a mid-period increase or attachment of an ADVANCE add-on is billed. TRUE_UP adds a true-up line for the elapsed period at the next renewal; NEXT_BOUNDARY bills from the next boundary only"
+          enum:
+            - TRUE_UP
+            - NEXT_BOUNDARY
+          readOnly: true
+          type: string
         isDefault:
           description: The version the family resolves to. Only a PUBLISHED version.
           type: boolean
@@ -74,6 +81,7 @@ components:
         - isDefault
         - lifecycleState
         - pricingType
+        - increaseBilling
         - createdAt
         - updatedAt
       type: object
@@ -163,6 +171,12 @@ components:
         id:
           readOnly: true
           type: string
+        increaseBilling:
+          description: How a mid-period increase or attachment of the family's ADVANCE add-ons is billed (V31-70)
+          enum:
+            - TRUE_UP
+            - NEXT_BOUNDARY
+          type: string
         isPublic:
           description: Whether the family is listed in the public catalogue
           type: boolean
@@ -185,17 +199,19 @@ components:
         - id
         - slug
         - isPublic
+        - increaseBilling
         - lastVersion
         - versions
       type: object
     AddonFamilyVisibility:
       additionalProperties: false
       properties:
+        increaseBilling:
+          description: "How a mid-period increase or attachment of the family's ADVANCE add-ons is billed, from the next composition: TRUE_UP (a true-up line for the elapsed period at the next renewal) or NEXT_BOUNDARY (from the next boundary only); another value answers 422 .InvalidIncreaseBilling"
+          type: string
         isPublic:
           description: List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue
           type: boolean
-      required:
-        - isPublic
       type: object
     AddonGrant:
       additionalProperties: false
@@ -421,6 +437,13 @@ components:
         id:
           readOnly: true
           type: string
+        increaseBilling:
+          description: "The family's: how a mid-period increase or attachment of an ADVANCE add-on is billed. TRUE_UP adds a true-up line for the elapsed period at the next renewal; NEXT_BOUNDARY bills from the next boundary only"
+          enum:
+            - TRUE_UP
+            - NEXT_BOUNDARY
+          readOnly: true
+          type: string
         isDefault:
           description: The version the family resolves to. Only a PUBLISHED version.
           type: boolean
@@ -480,6 +503,7 @@ components:
         - isDefault
         - lifecycleState
         - pricingType
+        - increaseBilling
         - createdAt
         - updatedAt
       type: object
@@ -3593,6 +3617,9 @@ components:
     HoldDetail:
       additionalProperties: false
       properties:
+        itemLimit:
+          $ref: "#/components/schemas/ProviderLineLimit"
+          description: "PROVIDER_ITEM_LIMIT only: the provider's line limit and how many items the invoice needs"
         pairs:
           items:
             $ref: "#/components/schemas/HeldPair"
@@ -3822,6 +3849,12 @@ components:
           examples:
             - Extra seats
           type: string
+        pendingQuantity:
+          description: A decrease scheduled for the next boundary, 0 for a removal; the current quantity holds until then. Null when nothing is scheduled (V31-67)
+          format: int32
+          type:
+            - integer
+            - "null"
         prices:
           description: "What the instance's subscription bills for it: the default FLAT_FEE price of the subscription's period and the ACTIVE metered prices. Empty when the instance is not billed."
           items:
@@ -3842,6 +3875,7 @@ components:
         - familySlug
         - name
         - quantity
+        - pendingQuantity
         - attachedAt
         - prices
       type: object
@@ -3874,6 +3908,12 @@ components:
           examples:
             - Extra seats
           type: string
+        pendingQuantity:
+          description: A decrease scheduled for the next boundary, 0 for a removal; the current quantity holds until then. Null when nothing is scheduled (V31-67)
+          format: int32
+          type:
+            - integer
+            - "null"
         previousQuantity:
           description: The quantity before a quantity change
           format: int32
@@ -3899,6 +3939,7 @@ components:
         - familySlug
         - name
         - quantity
+        - pendingQuantity
         - attachedAt
         - prices
       type: object
@@ -4453,6 +4494,152 @@ components:
         - new_status
         - changed_by
       type: object
+    InstanceUpdate:
+      additionalProperties: false
+      properties:
+        createdAt:
+          description: Timestamp when the instance was created
+          examples:
+            - "2023-10-01T12:00:00Z"
+          format: date-time
+          readOnly: true
+          type: string
+        createdBy:
+          $ref: "#/components/schemas/User"
+          description: User who created this instance
+          readOnly: true
+        customerId:
+          description: ID of the customer associated with this instance
+          examples:
+            - 123e4567-e89b-12d3-a456-426614174003
+          type: string
+        customerSlug:
+          description: Slug of the customer associated with this instance
+          examples:
+            - acme-corp
+          readOnly: true
+          type: string
+        deploymentZoneId:
+          description: ID of the deployment zone associated with this instance (optional)
+          examples:
+            - 123e4567-e89b-12d3-a456-426614174005
+          type: string
+        deploymentZoneSlug:
+          description: Slug of the deployment zone associated with this instance (optional)
+          examples:
+            - aws-us-west-2
+          readOnly: true
+          type: string
+        description:
+          description: Brief description of the instance
+          examples:
+            - This is a sample instance description
+          type: string
+        endLicenseDate:
+          description: End date of the license for this instance
+          examples:
+            - "2024-10-01T12:00:00Z"
+          format: date-time
+          type: string
+        id:
+          description: Unique identifier for the instance
+          examples:
+            - 123e4567-e89b-12d3-a2456-426614174000
+          readOnly: true
+          type: string
+        integrations:
+          additionalProperties:
+            $ref: "#/components/schemas/InstanceIntegration"
+          description: Integrations grouped by adapter name
+          type: object
+        licenseChangeReason:
+          description: "BILLING_FALLBACK: the subscription ended and the instance moved to its family's fallback (V31-66). Null for any other change, the move a paid checkout applies included"
+          enum:
+            - BILLING_FALLBACK
+          type:
+            - string
+            - "null"
+        licenseId:
+          description: ID of the license version this instance is pinned to. An ARCHIVED version cannot be assigned, on create or by changing the license (CreateInstance.LicenseArchived, UpdateInstance.LicenseArchived); an instance already on a version that is archived later keeps it. A DRAFT version can be assigned, to try it before publishing.
+          examples:
+            - 123e4567-e89b-12d3-a456-426614174004
+          type: string
+        licenseSlug:
+          description: Slug of the license associated with this instance
+          examples:
+            - my-license
+          readOnly: true
+          type: string
+        lifecycleStage:
+          description: "Commercial lifecycle stage of the instance (free-form; suggested: TRIAL, ACTIVE, AT_RISK, CHURNED)"
+          examples:
+            - ACTIVE
+          readOnly: true
+          type: string
+        metadata:
+          additionalProperties: {}
+          description: Metadata for the instance
+          examples:
+            - key: value
+          type: object
+        name:
+          description: Name of the instance
+          examples:
+            - My Instance
+          minLength: 1
+          type: string
+        slug:
+          description: Optional URL-friendly identifier, unique per organization. Auto-generated if not provided.
+          examples:
+            - my-instance
+          maxLength: 100
+          minLength: 2
+          pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+          type: string
+        startLicenseDate:
+          description: Start date of the license for this instance
+          examples:
+            - "2023-10-01T12:00:00Z"
+          format: date-time
+          type: string
+        status:
+          description: Operational status of the instance
+          enum:
+            - HEALTHY
+            - DEGRADED
+            - INCIDENT
+            - MAINTENANCE
+          examples:
+            - HEALTHY
+          readOnly: true
+          type: string
+        updatedAt:
+          description: Timestamp when the instance was last updated
+          examples:
+            - "2023-10-01T12:00:00Z"
+          format: date-time
+          readOnly: true
+          type: string
+        updatedBy:
+          $ref: "#/components/schemas/User"
+          description: User who last updated this instance
+          readOnly: true
+      required:
+        - licenseChangeReason
+        - id
+        - createdBy
+        - createdAt
+        - updatedBy
+        - updatedAt
+        - name
+        - description
+        - customerId
+        - customerSlug
+        - licenseId
+        - licenseSlug
+        - startLicenseDate
+        - endLicenseDate
+      type: object
     Invoice:
       additionalProperties: false
       properties:
@@ -4838,6 +5025,13 @@ components:
           description: End of the period the line bills (exclusive)
           format: date-time
           type: string
+        trueUp:
+          description: "On the true-up line of an ADVANCE add-on of a TRUE_UP family: the highest quantity held in the elapsed period and the quantity billed in advance for it (V31-70)"
+          oneOf:
+            - $ref: "#/components/schemas/InvoiceLineTrueUp"
+            - enum:
+                - null
+              type: "null"
         type:
           description: "BASE: the subscription's FLAT_FEE price. ADDON: an add-on's FLAT_FEE price times the quantity held at the boundary. USAGE: a USAGE_BASED price's metered usage. OVERAGE: an OVERAGE price's usage above the licence's limit. DISCOUNT: a PRICE voucher's discount, negative."
           enum:
@@ -4881,6 +5075,7 @@ components:
         - amount
         - metering
         - overage
+        - trueUp
         - discount
         - provider
       type: object
@@ -5063,6 +5258,21 @@ components:
         externalLineId:
           description: The provider's id of the line; absent on a DISCOUNT line, which the provider holds as discounts on its targets
           type: string
+      type: object
+    InvoiceLineTrueUp:
+      additionalProperties: false
+      properties:
+        billedQuantity:
+          description: The quantity its ADVANCE line billed at the previous boundary; 0 when it started after it
+          format: int32
+          type: integer
+        maxQuantity:
+          description: The highest quantity the attachment held in the elapsed period
+          format: int32
+          type: integer
+      required:
+        - maxQuantity
+        - billedQuantity
       type: object
     InvoicePayment:
       additionalProperties: false
@@ -6549,6 +6759,9 @@ components:
           description: Make this a new version of this family
           examples:
             - extra-seats
+          type: string
+        increaseBilling:
+          description: "Read only when the call opens a new family: how a mid-period increase of its ADVANCE add-ons is billed, TRUE_UP (the default) or NEXT_BOUNDARY; another value answers 422 .InvalidIncreaseBilling"
           type: string
         isDefault:
           description: Make this version its family's default; the previous default loses it
@@ -8753,6 +8966,26 @@ components:
         - to
         - effectiveFrom
       type: object
+    ProviderLineLimit:
+      additionalProperties: false
+      properties:
+        items:
+          description: The provider items the invoice needs
+          format: int32
+          type: integer
+        limit:
+          description: The most the provider takes on one invoice
+          format: int32
+          type: integer
+        providerKind:
+          enum:
+            - STRIPE
+          type: string
+      required:
+        - providerKind
+        - items
+        - limit
+      type: object
     ProviderRecord:
       additionalProperties: false
       properties:
@@ -8824,6 +9057,10 @@ components:
           format: int64
           type: integer
         lastFullSweepAt:
+          format: date-time
+          type: string
+        lastSuccessfulSyncAt:
+          description: The last pass that ended SUCCESS; absent before the first (V31-11)
           format: date-time
           type: string
         lastSyncError:
@@ -8933,6 +9170,15 @@ components:
         - value
         - overrideBehavior
       type: object
+    PublicBranding:
+      additionalProperties: false
+      properties:
+        poweredByRemovable:
+          description: Whether the vendor's plan lets its storefront and portal hide "Powered by Kaiten" (the remove-powered-by entitlement). False while Kaiten's licensing authority cannot answer; always true self-hosted
+          type: boolean
+      required:
+        - poweredByRemovable
+      type: object
     PublicCatalog:
       additionalProperties: false
       properties:
@@ -8941,6 +9187,8 @@ components:
           items:
             $ref: "#/components/schemas/PublicAddOn"
           type: array
+        branding:
+          $ref: "#/components/schemas/PublicBranding"
         capabilities:
           $ref: "#/components/schemas/PublicCatalogCapabilities"
         plans:
@@ -8952,6 +9200,7 @@ components:
         - plans
         - addOns
         - capabilities
+        - branding
       type: object
     PublicCatalogCapabilities:
       additionalProperties: false
@@ -9977,6 +10226,13 @@ components:
           type: array
         totals:
           $ref: "#/components/schemas/TotalsDifference"
+        warnings:
+          description: What the comparison noticed without calling it a mismatch (§12.7, V31-60)
+          items:
+            type: string
+          type:
+            - array
+            - "null"
       required:
         - lines
         - missingInProvider
@@ -10724,6 +10980,12 @@ components:
           examples:
             - Extra seats
           type: string
+        pendingQuantity:
+          description: A decrease scheduled for the next renewal, 0 for a removal; null when nothing is scheduled
+          format: int32
+          type:
+            - integer
+            - "null"
         prices:
           description: "What it is billed: the flat fee of the subscription's period and the metered prices. Quantity changes are billed from the next renewal, with no proration."
           items:
@@ -10741,6 +11003,7 @@ components:
         - name
         - quantity
         - maxQuantity
+        - pendingQuantity
         - prices
       type: object
     SessionAddonQuantity:
@@ -11110,6 +11373,8 @@ components:
           items:
             $ref: "#/components/schemas/SessionAddon"
           type: array
+        branding:
+          $ref: "#/components/schemas/PublicBranding"
         capabilities:
           $ref: "#/components/schemas/PortalCapabilities"
         customer:
@@ -11172,6 +11437,7 @@ components:
         - paymentMethod
         - upcomingInvoice
         - capabilities
+        - branding
         - updatedAt
       type: object
     SessionScheduledChange:
@@ -12918,7 +13184,7 @@ paths:
       tags:
         - addons
     patch:
-      description: Lists the family in the public catalogue, or takes it out. Families are private until made public. Emits ADDON_UPDATED on each of its versions. Requires billing to be enabled for the organization.
+      description: "Changes a family's own settings: whether the public catalogue lists it (families are private until made public), and how a mid-period increase of its ADVANCE add-ons is billed. An absent member keeps the stored value. Emits ADDON_UPDATED on each of its versions. Requires billing to be enabled for the organization. 404 .NotFound; 422 .InvalidIncreaseBilling."
       operationId: updateAddonFamily
       parameters:
         - description: Add-on family slug
@@ -32830,7 +33096,7 @@ webhooks:
         - instances
   com.kaiten.instance.v1.updated:
     post:
-      description: Triggered when an instance is updated.
+      description: "Triggered when an instance is updated, by a write or by billing: the licence version a paid checkout bought, or the fallback a subscription that ended moves it to (licenseChangeReason BILLING_FALLBACK)."
       operationId: onInstanceUpdated
       requestBody:
         content:
@@ -32839,7 +33105,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/Instance"
+                  $ref: "#/components/schemas/InstanceUpdate"
                 headers:
                   $ref: "#/components/schemas/EventHeaders"
                 name:

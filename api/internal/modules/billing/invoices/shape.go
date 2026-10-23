@@ -117,6 +117,7 @@ type Reconciliation struct {
 	Totals            TotalsDifference     `json:"totals"`
 	InclusiveTax      bool                 `json:"inclusiveTax" doc:"Whether the provider's subtotal was compared, its tax being included in the amounts"`
 	DueDate           *DueDateDifference   `json:"dueDate,omitempty" doc:"A SEND_INVOICE invoice the provider gives another due date than Kaiten's dueAt"`
+	Warnings          []string             `json:"warnings,omitempty" doc:"What the comparison noticed without calling it a mismatch (§12.7, V31-60)"`
 }
 
 // DueDateDifference is a due date the provider set apart from Kaiten's,
@@ -192,7 +193,15 @@ type MismatchedInvoice struct {
 
 // HoldDetail lists the meters whose journal failed a check.
 type HoldDetail struct {
-	Pairs []HeldPair `json:"pairs" nullable:"false"`
+	Pairs     []HeldPair         `json:"pairs" nullable:"false"`
+	ItemLimit *ProviderLineLimit `json:"itemLimit,omitempty" doc:"PROVIDER_ITEM_LIMIT only: the provider's line limit and how many items the invoice needs"`
+}
+
+// ProviderLineLimit is an invoice with more items than its provider takes (V31-61).
+type ProviderLineLimit struct {
+	ProviderKind string `json:"providerKind" enum:"STRIPE"`
+	Items        int32  `json:"items" doc:"The provider items the invoice needs"`
+	Limit        int32  `json:"limit" doc:"The most the provider takes on one invoice"`
 }
 
 // HeldPair is one meter whose journal failed a check.

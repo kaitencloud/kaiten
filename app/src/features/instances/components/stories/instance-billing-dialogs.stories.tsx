@@ -130,6 +130,7 @@ const addon = (addonSlug: string, quantity: number): InstanceAddon => ({
   familySlug: 'extras',
   id: `attachment-${addonSlug}`,
   name: addonSlug,
+  pendingQuantity: null,
   prices: [],
   quantity,
 });

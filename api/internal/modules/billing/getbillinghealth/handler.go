@@ -43,13 +43,14 @@ type PushFailures struct {
 
 // ProviderSync is one provider's sync health.
 type ProviderSync struct {
-	ProviderKind        string     `json:"providerKind" enum:"NOOP,STRIPE"`
-	LastSyncedAt        *time.Time `json:"lastSyncedAt,omitempty"`
-	LastSyncStatus      *string    `json:"lastSyncStatus,omitempty" enum:"SUCCESS,PARTIAL,FAILED"`
-	LastSyncError       *string    `json:"lastSyncError,omitempty"`
-	ConsecutiveFailures int32      `json:"consecutiveFailures"`
-	LagSeconds          *int64     `json:"lagSeconds,omitempty" doc:"Seconds since the last pass"`
-	LastFullSweepAt     *time.Time `json:"lastFullSweepAt,omitempty"`
+	ProviderKind         string     `json:"providerKind" enum:"NOOP,STRIPE"`
+	LastSyncedAt         *time.Time `json:"lastSyncedAt,omitempty"`
+	LastSuccessfulSyncAt *time.Time `json:"lastSuccessfulSyncAt,omitempty" doc:"The last pass that ended SUCCESS; absent before the first (V31-11)"`
+	LastSyncStatus       *string    `json:"lastSyncStatus,omitempty" enum:"SUCCESS,PARTIAL,FAILED"`
+	LastSyncError        *string    `json:"lastSyncError,omitempty"`
+	ConsecutiveFailures  int32      `json:"consecutiveFailures"`
+	LagSeconds           *int64     `json:"lagSeconds,omitempty" doc:"Seconds since the last pass"`
+	LastFullSweepAt      *time.Time `json:"lastFullSweepAt,omitempty"`
 }
 
 // HandoffBacklog is the invoices waiting for the accounting system.
@@ -110,7 +111,7 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingHealth, error) {
 		sync := ProviderSync{
 			ProviderKind: string(state.ProviderKind), LastSyncedAt: invoices.TimePtr(state.LastSyncedAt), LastSyncStatus: nil,
 			LastSyncError: state.LastSyncError, ConsecutiveFailures: state.ConsecutiveFailures, LagSeconds: nil,
-			LastFullSweepAt: invoices.TimePtr(state.LastFullSweepAt),
+			LastFullSweepAt: invoices.TimePtr(state.LastFullSweepAt), LastSuccessfulSyncAt: invoices.TimePtr(state.LastSuccessfulSyncAt),
 		}
 		if state.LastSyncStatus != nil {
 			status := string(*state.LastSyncStatus)

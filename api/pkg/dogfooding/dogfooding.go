@@ -84,6 +84,11 @@ const (
 	// the constant exists so the connector kaiten ships names the same string
 	// the bootstrap creates. A connector included in every licence names none.
 	ConnectorStripeEntitlementSlug = "connector-stripe"
+
+	// RemovePoweredByEntitlementSlug lets an organization's storefront and
+	// portal hide "Powered by Kaiten" (V31-E3, §18.5). BOOLEAN, read rather
+	// than reported; the public surface says it as branding.poweredByRemovable.
+	RemovePoweredByEntitlementSlug = "remove-powered-by"
 )
 
 // Platform usage: whether an organization actually uses Kaiten. Unlimited on
@@ -127,6 +132,7 @@ var EntitlementSlugs = []string{
 	UsageHistoryRetentionEntitlementSlug,
 	BillingEntitlementSlug,
 	ConnectorStripeEntitlementSlug,
+	RemovePoweredByEntitlementSlug,
 
 	FeatureFlagEvaluatedEntitlementSlug,
 	EntitlementValuesCheckedEntitlementSlug,
@@ -171,6 +177,7 @@ var GatedEntitlementSlugs = []string{
 var BooleanEntitlementSlugs = []string{
 	BillingEntitlementSlug,
 	ConnectorStripeEntitlementSlug,
+	RemovePoweredByEntitlementSlug,
 }
 
 // ConfigEntitlementSlugs are the catalogue entries created as CONFIG

@@ -63,18 +63,19 @@ type DirectiveRoot struct {
 
 type ComplexityRoot struct {
 	Addon struct {
-		Description    func(childComplexity int) int
-		FamilySlug     func(childComplexity int) int
-		ID             func(childComplexity int) int
-		IsDefault      func(childComplexity int) int
-		LifecycleState func(childComplexity int) int
-		MaxQuantity    func(childComplexity int) int
-		Name           func(childComplexity int) int
-		Prices         func(childComplexity int, status *string) int
-		PricingType    func(childComplexity int) int
-		Slug           func(childComplexity int) int
-		Version        func(childComplexity int) int
-		VersionName    func(childComplexity int) int
+		Description     func(childComplexity int) int
+		FamilySlug      func(childComplexity int) int
+		ID              func(childComplexity int) int
+		IncreaseBilling func(childComplexity int) int
+		IsDefault       func(childComplexity int) int
+		LifecycleState  func(childComplexity int) int
+		MaxQuantity     func(childComplexity int) int
+		Name            func(childComplexity int) int
+		Prices          func(childComplexity int, status *string) int
+		PricingType     func(childComplexity int) int
+		Slug            func(childComplexity int) int
+		Version         func(childComplexity int) int
+		VersionName     func(childComplexity int) int
 	}
 
 	AddonPage struct {
@@ -259,14 +260,15 @@ type ComplexityRoot struct {
 	}
 
 	InstanceAddon struct {
-		AddonID     func(childComplexity int) int
-		AddonSlug   func(childComplexity int) int
-		AttachedAt  func(childComplexity int) int
-		FamilySlug  func(childComplexity int) int
-		ID          func(childComplexity int) int
-		MaxQuantity func(childComplexity int) int
-		Name        func(childComplexity int) int
-		Quantity    func(childComplexity int) int
+		AddonID         func(childComplexity int) int
+		AddonSlug       func(childComplexity int) int
+		AttachedAt      func(childComplexity int) int
+		FamilySlug      func(childComplexity int) int
+		ID              func(childComplexity int) int
+		MaxQuantity     func(childComplexity int) int
+		Name            func(childComplexity int) int
+		PendingQuantity func(childComplexity int) int
+		Quantity        func(childComplexity int) int
 	}
 
 	InstanceBillingSummary struct {
@@ -569,6 +571,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Addon.ID(childComplexity), true
+	case "Addon.increaseBilling":
+		if e.ComplexityRoot.Addon.IncreaseBilling == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Addon.IncreaseBilling(childComplexity), true
 	case "Addon.isDefault":
 		if e.ComplexityRoot.Addon.IsDefault == nil {
 			break
@@ -1490,6 +1498,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.InstanceAddon.Name(childComplexity), true
+	case "InstanceAddon.pendingQuantity":
+		if e.ComplexityRoot.InstanceAddon.PendingQuantity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.InstanceAddon.PendingQuantity(childComplexity), true
 	case "InstanceAddon.quantity":
 		if e.ComplexityRoot.InstanceAddon.Quantity == nil {
 			break
@@ -2493,6 +2507,11 @@ type InstanceAddon {
   quantity: Int!
   """The most one instance may hold; null when unbounded."""
   maxQuantity: Int
+  """
+  A decrease scheduled for the next boundary, 0 for a removal; null when
+  nothing is scheduled.
+  """
+  pendingQuantity: Int
   attachedAt: Time!
 }
 
@@ -2526,6 +2545,11 @@ type Addon {
   pricingType: String!
   """The most one instance may hold; null when unbounded."""
   maxQuantity: Int
+  """
+  The family's TRUE_UP or NEXT_BOUNDARY: how a mid-period increase of its
+  ADVANCE add-ons is billed.
+  """
+  increaseBilling: String!
   """
   The version's prices in display order; status ACTIVE or DEPRECATED narrows
   them.
@@ -3543,6 +3567,8 @@ func (ec *executionContext) childFields_Addon(ctx context.Context, field graphql
 		return ec.fieldContext_Addon_pricingType(ctx, field)
 	case "maxQuantity":
 		return ec.fieldContext_Addon_maxQuantity(ctx, field)
+	case "increaseBilling":
+		return ec.fieldContext_Addon_increaseBilling(ctx, field)
 	case "prices":
 		return ec.fieldContext_Addon_prices(ctx, field)
 	}
@@ -3927,6 +3953,8 @@ func (ec *executionContext) childFields_InstanceAddon(ctx context.Context, field
 		return ec.fieldContext_InstanceAddon_quantity(ctx, field)
 	case "maxQuantity":
 		return ec.fieldContext_InstanceAddon_maxQuantity(ctx, field)
+	case "pendingQuantity":
+		return ec.fieldContext_InstanceAddon_pendingQuantity(ctx, field)
 	case "attachedAt":
 		return ec.fieldContext_InstanceAddon_attachedAt(ctx, field)
 	}
@@ -5242,6 +5270,29 @@ func (ec *executionContext) _Addon_maxQuantity(ctx context.Context, field graphq
 }
 func (ec *executionContext) fieldContext_Addon_maxQuantity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _Addon_increaseBilling(ctx context.Context, field graphql.CollectedField, obj *catalogue.Addon) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Addon_increaseBilling(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IncreaseBilling, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Addon_increaseBilling(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
 func (ec *executionContext) _Addon_prices(ctx context.Context, field graphql.CollectedField, obj *catalogue.Addon) (ret graphql.Marshaler) {
@@ -8724,6 +8775,29 @@ func (ec *executionContext) _InstanceAddon_maxQuantity(ctx context.Context, fiel
 	)
 }
 func (ec *executionContext) fieldContext_InstanceAddon_maxQuantity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("InstanceAddon", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _InstanceAddon_pendingQuantity(ctx context.Context, field graphql.CollectedField, obj *catalogue.InstanceAddon) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_InstanceAddon_pendingQuantity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.PendingQuantity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_InstanceAddon_pendingQuantity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("InstanceAddon", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
@@ -13488,6 +13562,11 @@ func (ec *executionContext) _Addon(ctx context.Context, sel ast.SelectionSet, ob
 			if out.Values[i] == graphql.RequiredNull {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "increaseBilling":
+			out.Values[i] = ec._Addon_increaseBilling(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		case "prices":
 			field := field
 
@@ -15345,6 +15424,11 @@ func (ec *executionContext) _InstanceAddon(ctx context.Context, sel ast.Selectio
 			}
 		case "maxQuantity":
 			out.Values[i] = ec._InstanceAddon_maxQuantity(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "pendingQuantity":
+			out.Values[i] = ec._InstanceAddon_pendingQuantity(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}

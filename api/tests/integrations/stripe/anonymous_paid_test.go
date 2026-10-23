@@ -135,6 +135,7 @@ func TestAnonymousCheckoutPaysThroughASetup(t *testing.T) {
 	require.NotNil(t, done.Session.CustomerSlug)
 	require.NotNil(t, done.Session.InstanceSlug)
 	require.Equal(t, 1, outboxCount(t, tier2events.CheckoutSessionCompleted.Name))
+	require.Equal(t, 1, outboxCount(t, "INSTANCE_UPDATED"), "the move at PAID is announced")
 
 	instance := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/instances/"+*done.Session.InstanceSlug, nil), fiber.StatusOK)
 	require.Equal(t, s.plan.ID.String(), instance["licenseId"], "moved from the fallback at PAID")
