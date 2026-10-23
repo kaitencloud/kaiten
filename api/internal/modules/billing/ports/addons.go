@@ -34,6 +34,11 @@ type BillableAttachment struct {
 	Quantity   int32
 	AttachedAt time.Time
 	RemovedAt  *time.Time
+	// PeriodMaxQuantity is the highest quantity it held since the last
+	// composed boundary, and IncreaseBilling how its family bills an
+	// increase, TRUE_UP or NEXT_BOUNDARY (V31-70).
+	PeriodMaxQuantity int32
+	IncreaseBilling   string
 	// Flat is its default ACTIVE FLAT_FEE price for the period; nil when it
 	// has none (a FREE add-on, or no price for that period).
 	Flat *BillableAddon

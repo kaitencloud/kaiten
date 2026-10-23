@@ -88,6 +88,15 @@ func (c *Closer) ApplyScheduled(ctx context.Context, sub db.InstanceBilling, act
 	return c.deps.Scheduled.ApplyScheduled(ctx, sub.OrganizationID, actor, *sub.InstanceID, at)
 }
 
+// ResetPeriodMax starts the instance's attachments' highest quantities at the
+// quantities held (V31-70).
+func (c *Closer) ResetPeriodMax(ctx context.Context, sub db.InstanceBilling) error {
+	if sub.InstanceID == nil || c.deps.Scheduled == nil {
+		return nil
+	}
+	return c.deps.Scheduled.ResetPeriodMax(ctx, sub.OrganizationID, *sub.InstanceID)
+}
+
 // Fallback is the fallback move's writes outside billing (§9.11).
 func (c *Closer) Fallback() lifecycle.Fallback {
 	return lifecycle.Fallback{Mover: c.deps.Mover, Addons: c.deps.Fallback}
@@ -272,6 +281,13 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 	// scheduled (§10.2, V31-67).
 	if err := c.ApplyScheduled(ctx, sub, actor, boundary); err != nil {
 		return Outcome{}, err
+	}
+	// The period that starts at B measures its highest quantities from the
+	// quantities held at B (V31-70).
+	if plan.kind != rating.KindFinal {
+		if err := c.ResetPeriodMax(ctx, sub); err != nil {
+			return Outcome{}, err
+		}
 	}
 
 	var billingEmail *string
@@ -537,6 +553,15 @@ func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBill
 			return rating.Composition{}, nil, err
 		}
 		hold = withPairs(hold, addonHeld)
+		trueUps, err := c.addonTrueUps(ctx, q, sub, sub.CurrentPeriodStart.Time.UTC(), boundary)
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
+		trueUpLines, err := rating.TrueUpLines(money.Currency(sub.Currency), trueUps)
+		if err != nil {
+			return rating.Composition{}, nil, overflow(err)
+		}
+		lines = append(lines, trueUpLines...)
 		arrears, err := rating.Compose(rating.Input{
 			Kind: rating.KindFinal, Currency: money.Currency(sub.Currency), LicenseName: p.arrearsBase.LicenseName,
 			Base: metering.Price(*p.arrearsBase), Metered: rated, Measures: measures, Addons: fees, AddonMetered: addonMeters,

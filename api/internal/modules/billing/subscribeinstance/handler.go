@@ -438,6 +438,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			appliedAt = later.Time.UTC()
 		}
 
+		// Nothing before P0 is ever trued up: the first period measures its
+		// highest quantities from the ones held now (V31-70, §10.4 rule 4).
+		if u.deps.Scheduled != nil {
+			if err := u.deps.Scheduled.ResetPeriodMax(ctx, user.OrganizationID, instance.ID); err != nil {
+				return err
+			}
+		}
+
 		// The first period's invoice: the base price in advance, when it bills
 		// in advance. An all-arrears subscription has no ACTIVATION invoice.
 		if status == db.InstanceBillingStatusTRIAL {

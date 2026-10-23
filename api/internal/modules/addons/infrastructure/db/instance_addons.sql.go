@@ -478,9 +478,10 @@ func (q *Queries) ListBillableAddons(ctx context.Context, arg ListBillableAddons
 
 const listBillableAttachments = `-- name: ListBillableAttachments :many
 SELECT ia.id AS instance_addon_id, ia.addon_id, ia.addon_family_id, ia.quantity, ia.created_at AS attached_at,
-       ia.removed_at, a.name AS addon_name
+       ia.removed_at, a.name AS addon_name, ia.period_max_quantity, af.increase_billing
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_family af ON af.id = ia.addon_family_id AND af.organization_id = ia.organization_id
 WHERE ia.organization_id = $1
   AND ia.instance_id = $2
   AND ia.created_at < $3
@@ -496,18 +497,21 @@ type ListBillableAttachmentsParams struct {
 }
 
 type ListBillableAttachmentsRow struct {
-	InstanceAddonID uuid.UUID        `json:"instance_addon_id"`
-	AddonID         uuid.UUID        `json:"addon_id"`
-	AddonFamilyID   uuid.UUID        `json:"addon_family_id"`
-	Quantity        int32            `json:"quantity"`
-	AttachedAt      pgtype.Timestamp `json:"attached_at"`
-	RemovedAt       pgtype.Timestamp `json:"removed_at"`
-	AddonName       string           `json:"addon_name"`
+	InstanceAddonID   uuid.UUID            `json:"instance_addon_id"`
+	AddonID           uuid.UUID            `json:"addon_id"`
+	AddonFamilyID     uuid.UUID            `json:"addon_family_id"`
+	Quantity          int32                `json:"quantity"`
+	AttachedAt        pgtype.Timestamp     `json:"attached_at"`
+	RemovedAt         pgtype.Timestamp     `json:"removed_at"`
+	AddonName         string               `json:"addon_name"`
+	PeriodMaxQuantity int32                `json:"period_max_quantity"`
+	IncreaseBilling   AddonIncreaseBilling `json:"increase_billing"`
 }
 
-// The attachments an arrears period bills (§10.4): every one active at any
+// The attachments an elapsed period bills (§10.4): every one active at any
 // time in [from, to) -- attached before to, not removed by from -- removed
-// ones included, in attachment order.
+// ones included, in attachment order, with the highest quantity each held
+// since the last boundary and how its family bills an increase (V31-70).
 func (q *Queries) ListBillableAttachments(ctx context.Context, arg ListBillableAttachmentsParams) ([]ListBillableAttachmentsRow, error) {
 	rows, err := q.db.Query(ctx, listBillableAttachments,
 		arg.OrganizationID,
@@ -530,6 +534,8 @@ func (q *Queries) ListBillableAttachments(ctx context.Context, arg ListBillableA
 			&i.AttachedAt,
 			&i.RemovedAt,
 			&i.AddonName,
+			&i.PeriodMaxQuantity,
+			&i.IncreaseBilling,
 		); err != nil {
 			return nil, err
 		}
@@ -989,6 +995,27 @@ func (q *Queries) RemoveInstanceAddonAt(ctx context.Context, arg RemoveInstanceA
 		arg.OrganizationID,
 		arg.ID,
 	)
+	return err
+}
+
+const resetPeriodMaxQuantity = `-- name: ResetPeriodMaxQuantity :exec
+UPDATE instance_addon
+SET period_max_quantity = quantity
+WHERE organization_id = $1
+  AND instance_id = $2
+  AND removed_at IS NULL
+  AND period_max_quantity <> quantity
+`
+
+type ResetPeriodMaxQuantityParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+// A boundary composed: the highest quantity of the period that starts is the
+// quantity held at it (V31-70). Removed attachments keep theirs.
+func (q *Queries) ResetPeriodMaxQuantity(ctx context.Context, arg ResetPeriodMaxQuantityParams) error {
+	_, err := q.db.Exec(ctx, resetPeriodMaxQuantity, arg.OrganizationID, arg.InstanceID)
 	return err
 }
 

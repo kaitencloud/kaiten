@@ -141,3 +141,10 @@ func (u *UseCase) ApplyScheduled(ctx context.Context, organizationID, actorID, i
 	}
 	return nil
 }
+
+// ResetPeriodMax starts the period that begins at a composed boundary, or at
+// a subscribe, with each active attachment's highest quantity at the one it
+// holds (V31-70): what an ADVANCE true-up measures from there.
+func (u *UseCase) ResetPeriodMax(ctx context.Context, organizationID, instanceID uuid.UUID) error {
+	return u.deps.Queries(ctx).ResetPeriodMaxQuantity(ctx, db.ResetPeriodMaxQuantityParams{OrganizationID: organizationID, InstanceID: instanceID})
+}

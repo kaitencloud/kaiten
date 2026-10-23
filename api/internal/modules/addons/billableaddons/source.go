@@ -104,7 +104,8 @@ func (s *Source) BillableAttachments(ctx context.Context, organizationID, instan
 	for _, row := range rows {
 		attachment := ports.BillableAttachment{
 			InstanceAddonID: row.InstanceAddonID, AddonID: row.AddonID, FamilyID: row.AddonFamilyID, Name: row.AddonName,
-			Quantity: row.Quantity, AttachedAt: row.AttachedAt.Time.UTC(), RemovedAt: nil, Flat: nil, Metered: nil,
+			Quantity: row.Quantity, AttachedAt: row.AttachedAt.Time.UTC(), RemovedAt: nil,
+			PeriodMaxQuantity: row.PeriodMaxQuantity, IncreaseBilling: string(row.IncreaseBilling), Flat: nil, Metered: nil,
 		}
 		if row.RemovedAt.Valid {
 			removed := row.RemovedAt.Time.UTC()

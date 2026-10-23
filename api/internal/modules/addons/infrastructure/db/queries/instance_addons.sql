@@ -325,18 +325,31 @@ ORDER BY ia.created_at, ia.id;
 
 
 -- name: ListBillableAttachments :many
--- The attachments an arrears period bills (§10.4): every one active at any
+-- The attachments an elapsed period bills (§10.4): every one active at any
 -- time in [from, to) -- attached before to, not removed by from -- removed
--- ones included, in attachment order.
+-- ones included, in attachment order, with the highest quantity each held
+-- since the last boundary and how its family bills an increase (V31-70).
 SELECT ia.id AS instance_addon_id, ia.addon_id, ia.addon_family_id, ia.quantity, ia.created_at AS attached_at,
-       ia.removed_at, a.name AS addon_name
+       ia.removed_at, a.name AS addon_name, ia.period_max_quantity, af.increase_billing
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_family af ON af.id = ia.addon_family_id AND af.organization_id = ia.organization_id
 WHERE ia.organization_id = sqlc.arg(organization_id)
   AND ia.instance_id = sqlc.arg(instance_id)
   AND ia.created_at < sqlc.arg(to_at)
   AND (ia.removed_at IS NULL OR ia.removed_at > sqlc.arg(from_at))
 ORDER BY ia.created_at, ia.id;
+
+
+-- name: ResetPeriodMaxQuantity :exec
+-- A boundary composed: the highest quantity of the period that starts is the
+-- quantity held at it (V31-70). Removed attachments keep theirs.
+UPDATE instance_addon
+SET period_max_quantity = quantity
+WHERE organization_id = sqlc.arg(organization_id)
+  AND instance_id = sqlc.arg(instance_id)
+  AND removed_at IS NULL
+  AND period_max_quantity <> quantity;
 
 
 -- name: InsertPaidInstanceAddon :one

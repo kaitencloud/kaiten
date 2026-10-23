@@ -30,6 +30,10 @@ type AddonFallback interface {
 // which no boundary is left to wait for. Implemented by the add-ons module.
 type AddonSchedule interface {
 	ApplyScheduled(ctx context.Context, organizationID, actorID, instanceID uuid.UUID, at time.Time) error
+	// ResetPeriodMax starts a period's highest quantities at the quantities
+	// held, after a boundary was composed or a subscription started
+	// (V31-70).
+	ResetPeriodMax(ctx context.Context, organizationID, instanceID uuid.UUID) error
 }
 
 // VoucherRedeemer redeems a voucher for an instance, inside the caller's

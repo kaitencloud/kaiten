@@ -85,7 +85,8 @@ func TestSessionPortal(t *testing.T) {
 	}, portal.Vouchers[0], "the ACTIVATION issued before it is never discounted")
 	require.Nil(t, portal.PaymentMethod, "NOOP: the vendor collects, nothing is saved")
 	require.Equal(t, "EUR", portal.UpcomingInvoice.Currency)
-	require.EqualValues(t, 2900+2*900, portal.UpcomingInvoice.Subtotal, "the renewal: the base and the add-ons, in advance")
+	require.EqualValues(t, 2900+2*900+2*900, portal.UpcomingInvoice.Subtotal,
+		"the renewal: the base and the add-ons in advance, and the add-ons' true-up since their attach mid-period (V31-70)")
 	require.Positive(t, portal.UpcomingInvoice.DiscountTotal, "the voucher applies to the next invoice")
 	require.True(t, portal.UpcomingInvoice.BoundaryAt.Equal(started.CurrentPeriodEnd))
 	require.Equal(t, getsessionportal.PortalCapabilities{PaymentMethods: false, Invoices: true, Unsubscribe: true, Checkout: false}, portal.Capabilities)

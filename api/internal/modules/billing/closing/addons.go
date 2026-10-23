@@ -2,10 +2,16 @@ package closing
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
 	"slices"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
@@ -115,6 +121,90 @@ func (c *Closer) addonArrears(ctx context.Context, q *db.Queries, sub db.Instanc
 		}
 	}
 	return charges, meters, held, nil
+}
+
+// TrueUp is the family setting that trues up an ADVANCE add-on (V31-70).
+const increaseTrueUp = "TRUE_UP"
+
+// addonTrueUps are the ADVANCE true-ups a RENEWAL or a FINAL at boundary bills
+// for the elapsed period [prev, boundary) (V31-70, §10.4): for each attachment
+// active in it whose family is TRUE_UP and whose flat fee for the elapsed
+// period is billed in advance, the units it held above what prev's ADVANCE
+// line billed it -- period_max_quantity minus that line's quantity, 0 when it
+// started after prev -- over [max(prev, attached), min(boundary, removed)), in
+// full, at the price of the elapsed period's billing period.
+func (c *Closer) addonTrueUps(ctx context.Context, q *db.Queries, sub db.InstanceBilling, prev, boundary time.Time) ([]rating.AddonCharge, error) {
+	attachments, err := c.attachments(ctx, sub, prev, boundary)
+	if err != nil || len(attachments) == 0 {
+		return nil, err
+	}
+	billed, err := billedInAdvance(ctx, q, sub.ID, prev, boundary)
+	if err != nil {
+		return nil, err
+	}
+	var out []rating.AddonCharge
+	for _, a := range attachments {
+		if a.Flat == nil || a.Flat.BillingTiming == rating.TimingArrears || a.Flat.Currency != sub.Currency || a.IncreaseBilling != increaseTrueUp {
+			continue
+		}
+		already := billed[a.InstanceAddonID]
+		if a.PeriodMaxQuantity <= already {
+			continue
+		}
+		w := rating.Period{From: prev, To: boundary}
+		if a.AttachedAt.After(w.From) {
+			w.From = a.AttachedAt
+		}
+		if a.RemovedAt != nil && a.RemovedAt.Before(w.To) {
+			w.To = *a.RemovedAt
+		}
+		if !w.From.Before(w.To) {
+			continue
+		}
+		charge := metering.Addons([]ports.BillableAddon{*a.Flat}, sub.Currency)[0]
+		charge.Quantity = a.PeriodMaxQuantity - already
+		charge.Service = &w
+		charge.TrueUp = &rating.InvoiceLineTrueUp{MaxQuantity: a.PeriodMaxQuantity, BilledQuantity: already}
+		out = append(out, charge)
+	}
+	return out, nil
+}
+
+// billedInAdvance is what the boundary prev billed each attachment in
+// advance: the quantity of the ADVANCE ADDON line, not a true-up, that names
+// it and starts at prev, on the subscription's last live invoice before
+// boundary.
+func billedInAdvance(ctx context.Context, q *db.Queries, subscriptionID uuid.UUID, prev, boundary time.Time) (map[uuid.UUID]int32, error) {
+	out := map[uuid.UUID]int32{}
+	encoded, err := q.GetPreviousInvoiceLines(ctx, db.GetPreviousInvoiceLinesParams{
+		InstanceBillingID: subscriptionID, BoundaryAt: invoices.Timestamp(boundary),
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return out, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var lines []rating.InvoiceLine
+	if err := json.Unmarshal(encoded, &lines); err != nil {
+		return nil, fmt.Errorf("decode the previous invoice's lines: %w", err)
+	}
+	for _, line := range lines {
+		if line.Type != rating.LineAddon || line.TrueUp != nil || line.InstanceAddonID == nil || line.Metering != nil ||
+			line.BillingTiming == nil || *line.BillingTiming == rating.TimingArrears || !line.ServiceFrom.Equal(prev) {
+			continue
+		}
+		quantity, err := decimal.NewFromString(line.Quantity)
+		if err != nil {
+			return nil, fmt.Errorf("decode the quantity of line %d: %w", line.Seq, err)
+		}
+		units := quantity.IntPart()
+		if units < 0 || units > math.MaxInt32 {
+			return nil, fmt.Errorf("line %d bills %s units of an add-on", line.Seq, line.Quantity)
+		}
+		out[*line.InstanceAddonID] += int32(units)
+	}
+	return out, nil
 }
 
 // attachments reads the add-ons attached to the subscription's instance at
