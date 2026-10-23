@@ -122,6 +122,99 @@ export default {
       dialogDescription:
         'Completion and documentation follow your context; problems are checked as you type. Nothing is saved until you apply.',
     },
+    FormRecovery: {
+      offer: {
+        title: 'Pick up where you left off?',
+        description: 'Unsent entries for this form were kept ({{when}}).',
+        descriptionAtStep:
+          'Unsent entries for this form were kept ({{when}}), at step {{current}} of {{total}} ({{step}}).',
+        omitted_one:
+          'For security, one field is never kept and must be entered again: {{fields}}.',
+        omitted_other:
+          'For security, some fields are never kept and must be entered again: {{fields}}.',
+        formChanged:
+          'The form has changed since: check each step before sending.',
+        others_one: '{{count}} other unsent entry is kept.',
+        others_other: '{{count}} other unsent entries are kept.',
+        showOther_one: 'Show it',
+        showOther_other: 'Show the next one',
+      },
+      time: { justNow: 'just now' },
+      resume: 'Resume',
+      startOver: 'Start over',
+      uncertain: {
+        title: 'Your last submission may have gone through',
+        description:
+          'A submission started on {{date}} at {{time}} and the page got no answer. Check the list before sending again, so as not to create a duplicate.',
+        resumeAnyway: 'Resume anyway',
+        discard: 'Discard these entries',
+      },
+      condensed: {
+        description: 'Earlier entries ({{when}}) are still kept.',
+        restore: 'Bring them back',
+        hide: 'Hide',
+      },
+      openElsewhere: {
+        description:
+          'This form is also open in another tab, with entries in progress. This tab keeps its own.',
+      },
+      notKept: {
+        otherTab:
+          'These entries are also open in another tab, which keeps them. What you enter here is no longer kept on this device.',
+        discarded:
+          'These entries were discarded from another tab. What you enter here is no longer kept on this device.',
+        unknown: 'These entries are no longer kept on this device.',
+        keepHere: 'Keep them here',
+      },
+      sentElsewhere: {
+        description:
+          'These entries were sent from another tab: sending them here would create a duplicate.',
+      },
+      unknownOutcome: {
+        description:
+          'The last submission got no answer and may have gone through. Check the list before trying again.',
+      },
+      followUp: {
+        pending:
+          'Created, but the next step did not go through. If you leave this page, your corrections will not be kept here.',
+        later: 'Sending “{{name}}” did not finish.',
+      },
+      lost: {
+        description:
+          'Your entries from {{date}} could not be restored: the form has changed since.',
+      },
+      notes: {
+        title: 'Entries restored',
+        intro: 'Some values no longer apply and were removed:',
+        unavailable: '“{{name}}” ({{kind}}) is no longer available.',
+        unavailableUnnamed:
+          'A selected item is no longer available ({{kind}}).',
+        reset: '{{field}} was reset: the form changed since.',
+        itemRemoved:
+          'An item of {{field}} was removed: the form changed since.',
+        sourceChanged:
+          '{{source}} has changed since: its values were loaded again.',
+      },
+      omitted: {
+        reminder_one:
+          'For security, this field is never kept: {{fields}}. Enter it again.',
+        reminder_other:
+          'For security, these fields are never kept: {{fields}}. Enter them again.',
+        continueWithout: 'Continue without',
+      },
+      announce: {
+        resumed: 'Entries restored.',
+        resumedAtStep:
+          'Entries restored, step {{current}} of {{total}} ({{step}}).',
+      },
+      dismiss: 'OK',
+      toast: {
+        discarded: 'Previous entries discarded',
+        undo: 'Undo',
+        cancelled: 'Entries discarded',
+        replaced: 'Current entries replaced',
+      },
+    },
   },
   Errors: {
     title: 'Something went wrong',

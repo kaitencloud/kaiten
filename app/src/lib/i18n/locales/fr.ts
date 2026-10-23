@@ -125,6 +125,101 @@ export default {
       dialogDescription:
         "La complétion et la documentation suivent votre contexte ; les problèmes sont vérifiés pendant la frappe. Rien n'est enregistré avant d'appliquer.",
     },
+    FormRecovery: {
+      offer: {
+        title: 'Reprendre votre saisie ?',
+        description:
+          'Une saisie non envoyée de ce formulaire a été conservée ({{when}}).',
+        descriptionAtStep:
+          "Une saisie non envoyée de ce formulaire a été conservée ({{when}}), à l'étape {{current}} sur {{total}} ({{step}}).",
+        omitted_one:
+          "Par sécurité, un champ n'est jamais conservé et sera à saisir de nouveau : {{fields}}.",
+        omitted_other:
+          'Par sécurité, certains champs ne sont jamais conservés et seront à saisir de nouveau : {{fields}}.',
+        formChanged:
+          "Le formulaire a changé depuis : vérifiez chaque étape avant d'envoyer.",
+        others_one: '{{count}} autre saisie non envoyée est conservée.',
+        others_other: '{{count}} autres saisies non envoyées sont conservées.',
+        showOther_one: "Voir l'autre",
+        showOther_other: 'Voir la suivante',
+      },
+      time: { justNow: "à l'instant" },
+      resume: 'Reprendre',
+      startOver: 'Recommencer',
+      uncertain: {
+        title: 'Votre dernier envoi a peut-être abouti',
+        description:
+          "Un envoi a commencé le {{date}} à {{time}} sans que la page reçoive de réponse. Vérifiez la liste avant d'envoyer de nouveau, pour ne pas créer de doublon.",
+        resumeAnyway: 'Reprendre quand même',
+        discard: 'Effacer cette saisie',
+      },
+      condensed: {
+        description: 'Une saisie précédente ({{when}}) est conservée.',
+        restore: 'La reprendre',
+        hide: 'Masquer',
+      },
+      openElsewhere: {
+        description:
+          'Ce formulaire est aussi ouvert dans un autre onglet, avec une saisie en cours. Cet onglet garde la sienne.',
+      },
+      notKept: {
+        otherTab:
+          "Cette saisie est aussi ouverte dans un autre onglet, qui la conserve. Ce que vous saisissez ici n'est plus conservé sur cet appareil.",
+        discarded:
+          "Cette saisie a été effacée depuis un autre onglet. Ce que vous saisissez ici n'est plus conservé sur cet appareil.",
+        unknown: "Cette saisie n'est plus conservée sur cet appareil.",
+        keepHere: 'La conserver ici',
+      },
+      sentElsewhere: {
+        description:
+          "Cette saisie a été envoyée depuis un autre onglet : l'envoyer ici créerait un doublon.",
+      },
+      unknownOutcome: {
+        description:
+          "Le dernier envoi n'a pas reçu de réponse et a peut-être abouti. Vérifiez la liste avant de réessayer.",
+      },
+      followUp: {
+        pending:
+          "La création a abouti, mais pas l'étape suivante. Si vous quittez cette page, vos corrections ne seront pas conservées ici.",
+        later: "L'envoi de « {{name}} » ne s'est pas terminé.",
+      },
+      lost: {
+        description:
+          "Votre saisie du {{date}} n'a pas pu être reprise : le formulaire a changé depuis.",
+      },
+      notes: {
+        title: 'Saisie reprise',
+        intro: 'Certaines valeurs ne sont plus valables et ont été retirées :',
+        unavailable: "« {{name}} » ({{kind}}) n'est plus disponible.",
+        unavailableUnnamed:
+          "Un élément choisi n'est plus disponible ({{kind}}).",
+        reset:
+          'Valeur initiale rétablie pour {{field}} : le formulaire a changé depuis.',
+        itemRemoved:
+          'Un élément de {{field}} a été retiré : le formulaire a changé depuis.',
+        sourceChanged:
+          '{{source}} a changé depuis : ses valeurs ont été rechargées.',
+      },
+      omitted: {
+        reminder_one:
+          "Par sécurité, ce champ n'est jamais conservé : {{fields}}. Saisissez-le de nouveau.",
+        reminder_other:
+          'Par sécurité, ces champs ne sont jamais conservés : {{fields}}. Saisissez-les de nouveau.',
+        continueWithout: 'Continuer sans',
+      },
+      announce: {
+        resumed: 'Saisie reprise.',
+        resumedAtStep:
+          'Saisie reprise, étape {{current}} sur {{total}} ({{step}}).',
+      },
+      dismiss: 'OK',
+      toast: {
+        discarded: 'Saisie précédente effacée',
+        undo: 'Rétablir',
+        cancelled: 'Saisie effacée',
+        replaced: 'Saisie en cours remplacée',
+      },
+    },
   },
   Errors: {
     title: 'Une erreur est survenue',
