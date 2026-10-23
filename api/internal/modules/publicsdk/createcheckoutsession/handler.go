@@ -56,6 +56,9 @@ type Deps struct {
 	Activation Activation
 	Secrets    keys.SecretStore
 	Turnstile  turnstile.Verifier
+	// Limits bound the starts, dryRun included, before the Turnstile
+	// verification (§14.3).
+	Limits *checkout.Limits
 }
 
 type UseCase struct {
@@ -88,7 +91,9 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	if !key.AnonymousCheckout {
 		return nil, disabled()
 	}
-	// The rate limits of §14.3 come next (Δ32-3.10).
+	if err := u.deps.Limits.Take(ctx, operation, start.PublishableKeyID, start.RemoteIP); err != nil {
+		return nil, err
+	}
 	if err := u.verifyTurnstile(ctx, start, key, draft.TurnstileToken); err != nil {
 		return nil, err
 	}

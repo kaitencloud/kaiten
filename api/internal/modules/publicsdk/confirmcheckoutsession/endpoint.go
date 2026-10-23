@@ -39,6 +39,7 @@ func RegisterEndpoint(api huma.API, app Confirmer) {
 			"awaiting_payment while the first invoice is charged, completed once paid. No body. " +
 			"403 .AnonymousCheckoutDisabled; 409 .SessionClosed (errors[0].value.status), .DueTodayChanged, .EntitlementLimitReached; " +
 			"422 .PriceNotPublic, .AddonNotPublic, .FallbackRequired, .ProviderCannotCapturePayment, .VoucherInvalid; " +
+			"429 .RateLimited (Retry-After): 30 confirms per 10 minutes per visitor address, 1,000 an hour per key; " +
 			"503 .ProviderUnavailable (Retry-After), Entitlement.VerificationUnavailable.",
 		Tags:   []string{"public"},
 		Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable},

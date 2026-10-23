@@ -109,6 +109,7 @@ func CheckoutSession(ctx context.Context) (CheckoutSessionCaller, error) {
 		organizationID:   i.OrganizationID,
 		sessionID:        i.CheckoutSessionID,
 		publishableKeyID: i.PublishableKeyID,
+		clientAddress:    i.ClientAddress,
 	}, nil
 }
 

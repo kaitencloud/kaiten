@@ -100,6 +100,21 @@ type Billing struct {
 	// times as long. 0 asks on every request and keeps nothing.
 	EntitlementCacheTTL time.Duration `mapstructure:"entitlement_cache_ttl" validate:"gte=0"`
 	Stripe              BillingStripe `mapstructure:"stripe"`
+	// CheckoutLimits bound the anonymous checkout's starts and confirms (§14.3,
+	// proposed numbers, §24 #83). 0 is the default.
+	CheckoutLimits BillingCheckoutLimits `mapstructure:"checkout_limits"`
+}
+
+// BillingCheckoutLimits are the anonymous checkout's limits, per replica: per
+// client address, and per publishable key. A start's dryRun counts.
+type BillingCheckoutLimits struct {
+	// StartsPerAddressPer10m and StartsPerAddressPerHour: 10 and 30.
+	StartsPerAddressPer10m  int `mapstructure:"starts_per_address_per_10m" validate:"gte=0"`
+	StartsPerAddressPerHour int `mapstructure:"starts_per_address_per_hour" validate:"gte=0"`
+	// ConfirmsPerAddressPer10m: 30.
+	ConfirmsPerAddressPer10m int `mapstructure:"confirms_per_address_per_10m" validate:"gte=0"`
+	// PerKeyPerHour bounds the starts, and apart the confirms, of each key: 1000.
+	PerKeyPerHour int `mapstructure:"per_key_per_hour" validate:"gte=0"`
 }
 
 // BillingStripe tunes the Stripe provider.
@@ -420,6 +435,10 @@ var settings = []struct {
 	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
 	{"billing.lifecycle.interval", "KAITEN_BILLING_LIFECYCLE_INTERVAL", "15m", false},
 	{"billing.lifecycle.checkout_session_retention", "KAITEN_BILLING_CHECKOUT_SESSION_RETENTION", "2160h", false},
+	{"billing.checkout_limits.starts_per_address_per_10m", "KAITEN_BILLING_CHECKOUT_STARTS_PER_ADDRESS_PER_10M", 10, false},
+	{"billing.checkout_limits.starts_per_address_per_hour", "KAITEN_BILLING_CHECKOUT_STARTS_PER_ADDRESS_PER_HOUR", 30, false},
+	{"billing.checkout_limits.confirms_per_address_per_10m", "KAITEN_BILLING_CHECKOUT_CONFIRMS_PER_ADDRESS_PER_10M", 30, false},
+	{"billing.checkout_limits.per_key_per_hour", "KAITEN_BILLING_CHECKOUT_PER_KEY_PER_HOUR", 1000, false},
 	{"billing.invoice_push.interval", "KAITEN_BILLING_INVOICE_PUSH_INTERVAL", "1m", false},
 	{"billing.invoice_push.batch_size", "KAITEN_BILLING_PUSH_BATCH_SIZE", 50, false},
 	{"billing.invoice_push.max_backoff", "KAITEN_BILLING_PUSH_MAX_BACKOFF", "6h", false},

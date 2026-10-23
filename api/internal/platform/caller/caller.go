@@ -112,6 +112,7 @@ type CheckoutSessionCaller struct {
 	organizationID   uuid.UUID
 	sessionID        uuid.UUID
 	publishableKeyID uuid.UUID
+	clientAddress    string
 }
 
 // OrganizationID is the vendor's organization.
@@ -122,6 +123,10 @@ func (c CheckoutSessionCaller) SessionID() uuid.UUID { return c.sessionID }
 
 // PublishableKeyID is the key that started the session.
 func (c CheckoutSessionCaller) PublishableKeyID() uuid.UUID { return c.publishableKeyID }
+
+// ClientAddress is the visitor's address as the gateway saw it; "" when the
+// gateway does not set it.
+func (c CheckoutSessionCaller) ClientAddress() string { return c.clientAddress }
 
 // CustomerSessionCaller is a vendor's customer, acting through a customer
 // session the vendor's backend minted. Like PublishableKeyCaller it carries no

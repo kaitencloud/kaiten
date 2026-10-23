@@ -40,7 +40,8 @@ func RegisterEndpoint(api huma.API, app Starter) {
 			"dueToday is computed by the server. " +
 			"403 .AnonymousCheckoutDisabled; 422 .TurnstileNotConfigured, .TurnstileFailed, .InvalidPriceSelection, .PriceNotPublic, .AddonNotPublic, " +
 			".PriceNotFlatFee, .NotSelfServe, .ProviderCannotCapturePayment, .QuantityExceedsMax, .CurrencyMismatch, .InvalidEmail, .InvalidReturnUrl, " +
-			".VoucherInvalid, .FallbackRequired; 503 .TurnstileUnavailable (Retry-After).",
+			".VoucherInvalid, .FallbackRequired; 429 .RateLimited (Retry-After): 10 starts per 10 minutes and 30 an hour per visitor address, dryRun included, " +
+			"1,000 an hour per key; 503 .TurnstileUnavailable (Retry-After).",
 		Tags:          []string{"public"},
 		Metadata:      kaitenhuma.AlsoResponds(http.StatusOK, "A preview (dryRun): nothing was written"),
 		DefaultStatus: http.StatusCreated,

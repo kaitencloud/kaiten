@@ -2,10 +2,14 @@ package billing_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -34,13 +38,40 @@ func anonymousKey(t *testing.T) keys.PublishableKeyCreated {
 	}), fiber.StatusCreated)
 }
 
+// Each start and confirm comes from a visitor address of its own, so the
+// server's per-address limits (§14.3) hold back only the test that is about
+// them; lastAddresses is each test's latest.
+var (
+	lastAddresses sync.Map
+	visitors      atomic.Int32
+)
+
+func visitorAddress(t *testing.T) string {
+	t.Helper()
+	n := visitors.Add(1)
+	address := fmt.Sprintf("198.18.%d.%d", n/250, n%250+1)
+	lastAddresses.Store(t.Name(), address)
+	return address
+}
+
+func lastAddress(t *testing.T) string {
+	t.Helper()
+	address, _ := lastAddresses.Load(t.Name())
+	return address.(string)
+}
+
 // startCheckout posts a start from the storefront, as the gateway forwards it.
 func startCheckout(t *testing.T, key string, body map[string]any) *http.Response {
+	t.Helper()
+	return startCheckoutFrom(t, visitorAddress(t), key, body)
+}
+
+func startCheckoutFrom(t *testing.T, address, key string, body map[string]any) *http.Response {
 	t.Helper()
 	req := commonfixture.NewJSONRequest(t, "POST", checkoutSessionsPath, body)
 	req.Header.Set("X-Kaiten-Publishable-Key", key)
 	req.Header.Set("Origin", storefront)
-	req.Header.Set("X-Envoy-External-Address", "203.0.113.7")
+	req.Header.Set("X-Envoy-External-Address", address)
 	resp, err := testServer.App.Test(req, fiber.TestConfig{Timeout: 30 * time.Second})
 	require.NoError(t, err)
 	t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
@@ -108,7 +139,7 @@ func TestCheckoutSessionStart(t *testing.T) {
 	down := startCheckout(t, key.Key, with(order, "turnstileToken", "down"))
 	require.Equal(t, fiber.StatusServiceUnavailable, down.StatusCode)
 	require.Equal(t, "30", down.Header.Get("Retry-After"))
-	require.Equal(t, "203.0.113.7", turnstileRemoteIP.Load(), "the visitor's address, as the gateway saw it")
+	require.Equal(t, lastAddress(t), turnstileRemoteIP.Load(), "the visitor's address, as the gateway saw it")
 
 	both := with(with(order, "licenseSlug", community.Slug), "billingPeriod", "MONTHLY")
 	require.Equal(t, "CreateCheckoutSession.InvalidPriceSelection", startProblem(t, key.Key, both, fiber.StatusUnprocessableEntity).Code)
@@ -187,13 +218,68 @@ func TestCheckoutSessionStart(t *testing.T) {
 // confirmCheckout confirms a session with its ksc_, from the storefront.
 func confirmCheckout(t *testing.T, sessionID, ksc string) *http.Response {
 	t.Helper()
+	return confirmCheckoutFrom(t, visitorAddress(t), sessionID, ksc)
+}
+
+func confirmCheckoutFrom(t *testing.T, address, sessionID, ksc string) *http.Response {
+	t.Helper()
 	req := commonfixture.NewJSONRequest(t, "POST", checkoutSessionsPath+"/"+sessionID+"/confirm", nil)
 	req.Header.Set("Authorization", "Bearer "+ksc)
 	req.Header.Set("Origin", storefront)
+	req.Header.Set("X-Envoy-External-Address", address)
 	resp, err := testServer.App.Test(req, fiber.TestConfig{Timeout: 30 * time.Second})
 	require.NoError(t, err)
 	t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
 	return resp
+}
+
+// TestCheckoutSessionRateLimits: a visitor address starts 10 checkouts in 10
+// minutes, dryRun included, and confirms 30, whatever the sessions; the next
+// is refused 429 .RateLimited with Retry-After, the start before Turnstile,
+// and counts nothing. Another address is not held back (§14.3).
+func TestCheckoutSessionRateLimits(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	community := newDefaultVersion(t, "Community", "FREE")
+	makePublic(t, community.FamilySlug)
+	free := createPrice(t, community.Slug, defaultFlatFee("0", "MONTHLY"))
+	key := anonymousKey(t)
+	draft := func(dryRun bool) map[string]any {
+		return map[string]any{
+			"turnstileToken": "pass:app.acme.test", "priceId": free.ID, "email": "visitor@example.com",
+			"returnUrl": storefront + "/welcome", "dryRun": dryRun,
+		}
+	}
+	const visitor = "198.51.100.10"
+	for range 10 {
+		commonfixture.AssertJSONResponse[checkout.CheckoutSessionStart](t, startCheckoutFrom(t, visitor, key.Key, draft(true)), fiber.StatusOK)
+	}
+	sessions := countCheckoutSessions(t)
+	limited := startCheckoutFrom(t, visitor, key.Key, map[string]any{"turnstileToken": "fail", "priceId": free.ID, "email": "visitor@example.com"})
+	problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, limited, fiber.StatusTooManyRequests)
+	require.Equal(t, "CreateCheckoutSession.RateLimited", problem.Code, "refused before Turnstile, which would refuse the token")
+	wait, err := strconv.Atoi(limited.Header.Get("Retry-After"))
+	require.NoError(t, err)
+	require.Positive(t, wait)
+	require.Equal(t, sessions, countCheckoutSessions(t))
+	commonfixture.AssertJSONResponse[checkout.CheckoutSessionStart](t,
+		startCheckout(t, key.Key, draft(true)), fiber.StatusOK)
+
+	// Three sessions, ten confirms each, under each ksc_'s own limit.
+	var last checkout.CheckoutSessionStart
+	for range 3 {
+		last = commonfixture.AssertJSONResponse[checkout.CheckoutSessionStart](t, startCheckout(t, key.Key, draft(false)), fiber.StatusCreated)
+		id := last.SessionID.String()
+		done := commonfixture.AssertJSONResponse[checkout.CheckoutConfirmation](t, confirmCheckoutFrom(t, visitor, id, *last.Token), fiber.StatusOK)
+		require.Equal(t, checkout.ConfirmCompleted, done.Status)
+		for range 9 {
+			closed := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, confirmCheckoutFrom(t, visitor, id, *last.Token), fiber.StatusConflict)
+			require.Equal(t, "ConfirmCheckoutSession.SessionClosed", closed.Code)
+		}
+	}
+	limited = confirmCheckoutFrom(t, visitor, last.SessionID.String(), *last.Token)
+	problem = commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, limited, fiber.StatusTooManyRequests)
+	require.Equal(t, "ConfirmCheckoutSession.RateLimited", problem.Code)
+	require.NotEmpty(t, limited.Header.Get("Retry-After"))
 }
 
 // TestCheckoutSessionFreePlan: an anonymous checkout of a FREE plan

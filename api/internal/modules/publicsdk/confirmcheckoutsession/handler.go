@@ -87,6 +87,9 @@ type Deps struct {
 	Subscriber    Subscriber
 	Setup         Setup
 	UsageReporter services.UsageReporter
+	// Limits bound the visitor's confirms (§14.3); a job's completion is not
+	// counted.
+	Limits *checkout.Limits
 }
 
 type UseCase struct {
@@ -107,9 +110,19 @@ var errTrialTaken = errors.New("confirm: the trial was consumed meanwhile")
 // session is no longer OPEN, has no setup, or its setup is not complete.
 var errNothingToComplete = errors.New("confirm: nothing to complete")
 
+// Visitor is who confirms: the key that started the session, and the
+// visitor's address as the gateway saw it.
+type Visitor struct {
+	PublishableKeyID uuid.UUID
+	RemoteIP         string
+}
+
 // Execute confirms the session. The principal ctx carries is system:kaiten
 // in the session's organization: the completion's rows are its.
-func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UUID) (*checkout.CheckoutConfirmation, error) {
+func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UUID, visitor Visitor) (*checkout.CheckoutConfirmation, error) {
+	if err := u.deps.Limits.Take(ctx, operation, visitor.PublishableKeyID, visitor.RemoteIP); err != nil {
+		return nil, err
+	}
 	out, err := u.confirm(ctx, organizationID, sessionID, false)
 	if errors.Is(err, errTrialTaken) {
 		// Once: the session now has no trial to lose.

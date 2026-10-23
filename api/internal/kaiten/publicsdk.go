@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/cancelsessionsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/completesessionpaymentmethodsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/confirmcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcustomersession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createpublishablekey"
@@ -249,7 +250,9 @@ func (p PublicSDK) ConfirmCheckoutSession(ctx context.Context, cl caller.Checkou
 	if err != nil {
 		return nil, err
 	}
-	return p.uc.ConfirmCheckoutSession.Execute(ctx, cl.OrganizationID(), cl.SessionID())
+	return p.uc.ConfirmCheckoutSession.Execute(ctx, cl.OrganizationID(), cl.SessionID(), confirmcheckoutsession.Visitor{
+		PublishableKeyID: cl.PublishableKeyID(), RemoteIP: cl.ClientAddress(),
+	})
 }
 
 // GetCheckoutSession reads the session the ksc_ authenticates.
