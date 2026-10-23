@@ -24,6 +24,16 @@ const BYPASS_IDENTITY: SessionIdentity = {
   organizationId: 'e2e',
 };
 
+let lastKnown: SessionIdentity | null = null;
+
+/**
+ * Who was last seen signed in by this page, if anyone: what a sign-out screen
+ * can still know of the person after Clerk has forgotten them.
+ */
+export function getLastKnownIdentity(): SessionIdentity | null {
+  return lastKnown;
+}
+
 /**
  * The signed-in person and organization, read now, or null when nobody is
  * known yet. Synchronous on purpose: a caller that keys something on the
@@ -38,6 +48,12 @@ const BYPASS_IDENTITY: SessionIdentity = {
  * The internal organization id is not used: deriving it is asynchronous.
  */
 export function getSessionIdentity(): SessionIdentity | null {
+  const identity = readSessionIdentity();
+  if (identity) lastKnown = identity;
+  return identity;
+}
+
+function readSessionIdentity(): SessionIdentity | null {
   if (import.meta.env.VITE_LOCAL_AUTH === 'true') {
     const current = getStoredDevToken();
     const entry = tokens.find((candidate) => candidate.token === current);

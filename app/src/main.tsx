@@ -12,17 +12,20 @@ import '@/lib/api/bootstrap';
 import { routeTree } from './routeTree.gen';
 
 import './styles.css';
-import { RedirectToSignIn, Show, useAuth } from '@clerk/react';
+import { Show, useAuth } from '@clerk/react';
 import { ClerkProvider } from './components/clerk-provider';
 import { LocalAuthGate } from './components/dev-auth-switcher';
 import { RouteError } from './components/route';
+import { SignedOutGate } from './components/signed-out-gate';
 import { NotFound } from './components/route/not-found';
 import { RoutePending } from './components/route/route-pending';
 import { ThemeProvider } from './components/theme-provider';
 import { TooltipProvider } from './components/ui/tooltip';
 import { trackLastUsedControl } from './lib/dialog-opener';
+import { pruneFormRecoveryAtStartup } from './lib/form-recovery';
 import { subscribeFeatureFlagRefresh } from './lib/feature-flags';
 import { syncSessionCookie } from './lib/local-auth';
+import { getSessionIdentity } from './lib/session-identity';
 import reportWebVitals from './report-web-vitals';
 
 const bypassAuthForE2E = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true';
@@ -87,6 +90,11 @@ function RoutedApp() {
 function AuthenticatedApp() {
   const { orgId } = useAuth();
 
+  // Once the person is known: drop what expired and what another user left.
+  useEffect(() => {
+    void pruneFormRecoveryAtStartup(getSessionIdentity());
+  }, []);
+
   return <RoutedApp key={orgId ?? 'no-organization'} />;
 }
 
@@ -142,6 +150,12 @@ async function bootstrapApp() {
   // is not any more once the page was drawn again: noted from the first click on.
   trackLastUsedControl();
 
+  // Accounts without a provider know who they are at once; Clerk's do it in
+  // AuthenticatedApp, when the session is there.
+  if (useLocalAuth || bypassAuthForE2E) {
+    void pruneFormRecoveryAtStartup(getSessionIdentity());
+  }
+
   await prepareE2EMockServiceWorker();
   await prepareApiDevMocks();
   await prepareNotificationsDevMocks();
@@ -168,7 +182,7 @@ async function bootstrapApp() {
               <AuthenticatedApp />
             </Show>
             <Show when="signed-out">
-              <RedirectToSignIn />
+              <SignedOutGate />
             </Show>
           </ClerkProvider>
         )}
