@@ -193,7 +193,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// surface runs its subscribe and reads its invoices.
 	// The checkout sweep runs the public SDK's completion, built after
 	// billing: billing's jobs reach it through this handle, bound below.
-	checkoutSweep := &lateCheckoutSweeper{}
+	checkoutSweep := newLateCheckoutSweeper()
 	billingModule := billing.NewUseCases(svc, billing.Ports{
 		Catalogue: billablecatalogue.New(svc.Uof),
 		Usage:     instanceModule.BillableUsage,
@@ -335,48 +335,64 @@ func deref(s *string) string {
 
 // lateCheckoutSweeper is billing's CheckoutSweeper before the public SDK
 // module exists: billing is built first, its jobs start with a delay, and the
-// sweep is bound once the module map is complete. Unbound, it does nothing.
+// sweep is bound once the module map is complete. A job that runs before the
+// binding waits for it rather than doing nothing: a sync pass that skipped a
+// completion would still move its cursor past the provider's event, and that
+// visitor's session would never be completed by the sync again.
 type lateCheckoutSweeper struct {
-	mu     sync.RWMutex
+	bound  chan struct{}
+	once   sync.Once
 	target *checkoutsweep.Sweep
 }
 
-func (l *lateCheckoutSweeper) bind(target *checkoutsweep.Sweep) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.target = target
+func newLateCheckoutSweeper() *lateCheckoutSweeper {
+	return &lateCheckoutSweeper{bound: make(chan struct{})}
 }
 
-func (l *lateCheckoutSweeper) get() *checkoutsweep.Sweep {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	return l.target
+func (l *lateCheckoutSweeper) bind(target *checkoutsweep.Sweep) {
+	l.once.Do(func() {
+		l.target = target
+		close(l.bound)
+	})
+}
+
+func (l *lateCheckoutSweeper) get(ctx context.Context) (*checkoutsweep.Sweep, error) {
+	select {
+	case <-l.bound:
+		return l.target, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
 func (l *lateCheckoutSweeper) Complete(ctx context.Context, organizationID, checkoutSessionID uuid.UUID) error {
-	if t := l.get(); t != nil {
-		return t.Complete(ctx, organizationID, checkoutSessionID)
+	t, err := l.get(ctx)
+	if err != nil {
+		return err
 	}
-	return nil
+	return t.Complete(ctx, organizationID, checkoutSessionID)
 }
 
 func (l *lateCheckoutSweeper) RetryCompleted(ctx context.Context, organizationID uuid.UUID, limit int) ([]uuid.UUID, error) {
-	if t := l.get(); t != nil {
-		return t.RetryCompleted(ctx, organizationID, limit)
+	t, err := l.get(ctx)
+	if err != nil {
+		return nil, err
 	}
-	return nil, nil
+	return t.RetryCompleted(ctx, organizationID, limit)
 }
 
 func (l *lateCheckoutSweeper) Abandon(ctx context.Context, limit int) (int, error) {
-	if t := l.get(); t != nil {
-		return t.Abandon(ctx, limit)
+	t, err := l.get(ctx)
+	if err != nil {
+		return 0, err
 	}
-	return 0, nil
+	return t.Abandon(ctx, limit)
 }
 
 func (l *lateCheckoutSweeper) Purge(ctx context.Context, limit int) (int, error) {
-	if t := l.get(); t != nil {
-		return t.Purge(ctx, limit)
+	t, err := l.get(ctx)
+	if err != nil {
+		return 0, err
 	}
-	return 0, nil
+	return t.Purge(ctx, limit)
 }
