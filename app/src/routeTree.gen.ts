@@ -22,6 +22,7 @@ import { Route as CatalogEntitlementsRouteRouteImport } from './routes/catalog/e
 import { Route as CatalogVouchersRouteRouteImport } from './routes/catalog/vouchers/route'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as CustomersCustomerSlugRouteRouteImport } from './routes/customers/$customerSlug/route'
+import { Route as CustomersCheckoutSessionsRouteImport } from './routes/customers/checkout-sessions'
 import { Route as CustomersInstancesRouteRouteImport } from './routes/customers/instances/route'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard/index'
 import { Route as FeatureFlagsIndexRouteImport } from './routes/feature-flags/index'
@@ -189,6 +190,12 @@ const CustomersCustomerSlugRouteRoute =
   CustomersCustomerSlugRouteRouteImport.update({
     id: '/$customerSlug',
     path: '/$customerSlug',
+    getParentRoute: () => CustomersRouteRoute,
+  } as any)
+const CustomersCheckoutSessionsRoute =
+  CustomersCheckoutSessionsRouteImport.update({
+    id: '/checkout-sessions',
+    path: '/checkout-sessions',
     getParentRoute: () => CustomersRouteRoute,
   } as any)
 const CustomersInstancesRouteRoute = CustomersInstancesRouteRouteImport.update({
@@ -797,6 +804,7 @@ export interface FileRoutesByFullPath {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/customers/checkout-sessions': typeof CustomersCheckoutSessionsRoute
   '/settings/access': typeof SettingsAccessRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
@@ -898,6 +906,7 @@ export interface FileRoutesByTo {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/customers/checkout-sessions': typeof CustomersCheckoutSessionsRoute
   '/settings/access': typeof SettingsAccessRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
@@ -1008,6 +1017,7 @@ export interface FileRoutesById {
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
   '/releases/deployment-zones': typeof ReleasesDeploymentZonesRouteRouteWithChildren
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
+  '/customers/checkout-sessions': typeof CustomersCheckoutSessionsRoute
   '/settings/access': typeof SettingsAccessRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
@@ -1126,6 +1136,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/customers/checkout-sessions'
     | '/settings/access'
     | '/settings/billing'
     | '/settings/metadata'
@@ -1227,6 +1238,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/customers/checkout-sessions'
     | '/settings/access'
     | '/settings/billing'
     | '/settings/metadata'
@@ -1336,6 +1348,7 @@ export interface FileRouteTypes {
     | '/releases/components'
     | '/releases/deployment-zones'
     | '/releases/deployments'
+    | '/customers/checkout-sessions'
     | '/settings/access'
     | '/settings/billing'
     | '/settings/metadata'
@@ -1557,6 +1570,13 @@ declare module '@tanstack/react-router' {
       path: '/$customerSlug'
       fullPath: '/customers/$customerSlug'
       preLoaderRoute: typeof CustomersCustomerSlugRouteRouteImport
+      parentRoute: typeof CustomersRouteRoute
+    }
+    '/customers/checkout-sessions': {
+      id: '/customers/checkout-sessions'
+      path: '/checkout-sessions'
+      fullPath: '/customers/checkout-sessions'
+      preLoaderRoute: typeof CustomersCheckoutSessionsRouteImport
       parentRoute: typeof CustomersRouteRoute
     }
     '/customers/instances': {
@@ -2370,6 +2390,7 @@ const CustomersInstancesRouteRouteWithChildren =
 interface CustomersRouteRouteChildren {
   CustomersCustomerSlugRouteRoute: typeof CustomersCustomerSlugRouteRouteWithChildren
   CustomersInstancesRouteRoute: typeof CustomersInstancesRouteRouteWithChildren
+  CustomersCheckoutSessionsRoute: typeof CustomersCheckoutSessionsRoute
   CustomersIndexRoute: typeof CustomersIndexRoute
   CustomersNewIndexRoute: typeof CustomersNewIndexRoute
 }
@@ -2377,6 +2398,7 @@ interface CustomersRouteRouteChildren {
 const CustomersRouteRouteChildren: CustomersRouteRouteChildren = {
   CustomersCustomerSlugRouteRoute: CustomersCustomerSlugRouteRouteWithChildren,
   CustomersInstancesRouteRoute: CustomersInstancesRouteRouteWithChildren,
+  CustomersCheckoutSessionsRoute: CustomersCheckoutSessionsRoute,
   CustomersIndexRoute: CustomersIndexRoute,
   CustomersNewIndexRoute: CustomersNewIndexRoute,
 }

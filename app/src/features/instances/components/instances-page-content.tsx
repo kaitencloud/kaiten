@@ -5,7 +5,10 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Page } from '@/functionals/page';
 import { RouteTabs } from '@/functionals/route-tabs';
-import { useInstancesBilling } from '@/domains/billing';
+import {
+  useCustomersSectionTabs,
+  useInstancesBilling,
+} from '@/domains/billing';
 import { useInstancesWithRelations } from '@/domains/customer-management';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { InstancesTable } from './instance-table';
@@ -17,18 +20,7 @@ export function InstancesPageContent({ children }: { children?: ReactNode }) {
   const billing = useInstancesBilling();
   const { t } = useTranslation();
   const InstanceIcon = dataModelIcons.instance;
-  const tabs = [
-    {
-      id: 'customers',
-      to: '/customers',
-      label: t('Pages.Customers.Tabs.customers'),
-    },
-    {
-      id: 'instances',
-      to: '/customers/instances',
-      label: t('Pages.Customers.Tabs.instances'),
-    },
-  ];
+  const tabs = useCustomersSectionTabs();
 
   return (
     <>

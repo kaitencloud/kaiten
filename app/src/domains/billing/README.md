@@ -83,7 +83,8 @@ app/src/domains/billing/
 │                     # license grants (LicenseGrantWarning)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
 │                     # useBillingScreenOffered, whether a link to a screen of billing is offered (billing,
-│                     # the feature of the release and the scope of its action);
+│                     # the feature of the release and the scope of its action), and useCustomersSectionTabs,
+│                     # the tabs of the Customers section, which lists the checkouts where it is;
 │                     # useLeaveRestrictedDialog, what a dialog does for a session that may not
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the eight actions on an invoice;

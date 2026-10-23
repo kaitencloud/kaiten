@@ -8,6 +8,7 @@ export { useBillingActionForm } from './use-billing-action-form';
 export { useBillingScreenOffered } from './use-billing-screen-offered';
 export { useBillingProvider } from './use-billing-provider';
 export { useBoundaryRetry } from './use-boundary-retry';
+export { useCustomersSectionTabs } from './use-customers-section-tabs';
 export { useDeletionRefusal } from './use-deletion-refusal';
 export { useGrantedScopes } from './use-granted-scopes';
 export { useLeaveRestrictedDialog } from './use-leave-restricted-dialog';

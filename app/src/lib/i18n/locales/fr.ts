@@ -468,7 +468,85 @@ export default {
       Tabs: {
         customers: 'Clients',
         instances: 'Instances',
+        checkoutSessions: 'Checkouts',
         hosts: 'Hôtes',
+      },
+      CheckoutSessions: {
+        title: 'Checkouts',
+        subtitle:
+          'Checkouts anonymes démarrés depuis vos clés publiables, et les clients qu’ils ont créés',
+        noRecord: 'Non créé',
+        expiredRemains: 'Reste après l’expiration',
+        expiredNote:
+          'Ce checkout a expiré après la création de son client et de son instance. Tous deux restent en place : l’instance est sur la version de repli de la licence, avec un abonnement annulé, et c’est à vous de les supprimer.',
+        Status: {
+          OPEN: 'Ouvert',
+          AWAITING_PAYMENT: 'En attente de paiement',
+          COMPLETED: 'Terminé',
+          ABANDONED: 'Abandonné',
+          EXPIRED: 'Expiré',
+        },
+        Columns: {
+          status: 'Statut',
+          email: 'E-mail',
+          plan: 'Formule',
+          dueToday: 'Dû aujourd’hui',
+          key: 'Clé publiable',
+          customer: 'Client',
+          instance: 'Instance',
+          created: 'Créé',
+          closed: 'Clos',
+        },
+        Filters: {
+          search: 'Recherche',
+          searchPlaceholder:
+            'Rechercher par e-mail, référence, licence, client ou clé…',
+          status: 'Statut',
+          email: 'E-mail',
+          emailPlaceholder: 'Adresse e-mail',
+          clientReference: 'Référence client',
+          clientReferencePlaceholder: 'Votre référence',
+          clear: 'Effacer les filtres',
+        },
+        Empty: {
+          title: 'Aucun checkout pour l’instant',
+          description:
+            'Un checkout apparaît ici quand un visiteur en démarre un depuis une page qui envoie une clé publiable autorisée à ouvrir le checkout anonyme.',
+          filteredTitle: 'Aucun checkout ne correspond',
+          filteredDescription:
+            'Modifiez ou effacez les filtres pour en voir davantage.',
+        },
+        Drawer: {
+          title: 'Checkout',
+          loading: 'Chargement du checkout',
+          gone: 'Ce checkout n’existe plus : l’API supprime un checkout 90 jours après sa clôture.',
+          email: 'E-mail',
+          clientReference: 'Référence client',
+          license: 'Licence',
+          period: 'Période',
+          price: 'Prix',
+          addOns: 'Add-ons',
+          addOn: '{{slug}} × {{quantity}}',
+          key: 'Clé publiable',
+          trial: 'Essai',
+          trialEnds: 'Se termine le {{date}}',
+          noTrial: 'Pas d’essai',
+          trialAlreadyConsumed:
+            'Cet e-mail a déjà eu l’essai de cette formule : le checkout facture donc la première période.',
+          customer: 'Client créé',
+          instance: 'Instance créée',
+          created: 'Créé',
+          expires: 'Expire',
+          completed: 'Terminé',
+          closed: 'Clos',
+          dueToday: 'Dû aujourd’hui',
+          DueToday: {
+            noLines: 'Rien n’est dû aujourd’hui.',
+            subtotal: 'Sous-total',
+            discount: 'Remise',
+            total: 'Total',
+          },
+        },
       },
       Table: {
         Columns: {

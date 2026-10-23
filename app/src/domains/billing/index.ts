@@ -76,6 +76,7 @@ export {
   useBillingScreenOffered,
   useBoundaryRetry,
   useCanPerform,
+  useCustomersSectionTabs,
   useDeletionRefusal,
   type InstancesBilling,
   useGrantedScopes,

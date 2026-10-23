@@ -10,11 +10,12 @@ A customer is one of the organization's end clients, and it owns instances. This
 | `/customers/new` | `app/src/routes/customers/new/index.tsx` | The same page with `CustomerFormDialog` open |
 | `/customers/$customerSlug` | `app/src/routes/customers/$customerSlug/route.tsx` | `CustomerDetailPageContent`. With `?mode=configure` it opens `CustomerFormDialog` on the customer. With `?kaiten_setup_session=` (where Stripe sends the customer back to, once a payment method is saved there) the payment method card checks the session with the API and the route drops it from the address |
 | `/customers/$customerSlug/edit` | `app/src/routes/customers/$customerSlug/edit.tsx` | Redirects to `/customers/$customerSlug?mode=configure` |
+| `/customers/checkout-sessions` | `app/src/routes/customers/checkout-sessions.tsx` | `CheckoutSessionsPageContent`: the anonymous checkouts, read-only, under the tab bar of the section. `?status=open\|awaiting_payment\|completed\|abandoned\|expired` opens the list on that filter, and `?session=<id>` opens the panel of a checkout over it. A leaf route on purpose, see [Checkouts](#checkouts) |
 | `/customers/$customerSlug/instances/new` | `app/src/routes/customers/$customerSlug/instances/new/index.tsx` | `InstanceFormDialog` from the `instances` feature, over the detail page, with the customer locked |
 
 `app/src/routes/customers/route.tsx` is the layout of the whole `/customers` section: it loads the customers list and renders the outlet. The Instances tab and every `/customers/instances/**` route belong to the `instances` feature.
 
-`/customers` is the second entry of the side navigation (`topLevelRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`). The dialogs follow [dialog via route](../../../docs/03-patterns/dialog-via-route.md).
+The Checkouts tab sits after Customers and Instances in the tab bar of the section, which the three pages of the section draw from one hook (`useCustomersSectionTabs` of `@/domains/billing`). `/customers` is the second entry of the side navigation (`topLevelRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`). The dialogs follow [dialog via route](../../../docs/03-patterns/dialog-via-route.md).
 
 ## Structure
 
@@ -25,6 +26,7 @@ app/src/features/customers/
 │   ├── customer-table.tsx               # table, filters, "New Customer" button
 │   ├── customer-table-actions.tsx       # delete action of a row
 │   ├── customer-instances-display.tsx   # instance count that opens the list of instances
+│   ├── checkout-sessions/               # the list of anonymous checkouts, its table and cells, and the panel of one
 │   ├── customer-detail/                 # detail page: header, details card, payment method card (payment-method/), instances card, invoices card
 │   ├── customer-detail-page-content.tsx # re-exports customer-detail/
 │   ├── customer-form-dialog.tsx         # dialog around the form
@@ -34,10 +36,10 @@ app/src/features/customers/
 │   ├── customer-form.mutations.ts       # create and update mutations
 │   ├── __tests__/, stories/
 │   └── index.ts
-├── hooks/                               # use-customer-billing (what a customer screen offers of billing), use-payment-method (the writes on the payment method), use-setup-return (the session the customer comes back with)
-├── schemas/                             # the currency a payment method is set up in
-├── utils/provider-pages.ts              # where the customer comes back to, and the way to the pages Stripe hosts
-├── queries/customer-query-options.ts    # customerQueryOptions
+├── hooks/                               # use-publishable-key-labels (the label of the key that started a checkout), use-customer-billing (what a customer screen offers of billing), use-payment-method (the writes on the payment method), use-setup-return (the session the customer comes back with)
+├── schemas/                             # the currency a payment method is set up in, and what the address of the checkouts holds
+├── utils/                               # provider-pages (where the customer comes back to, and the way to the pages Stripe hosts), the statuses and the filters of a checkout
+├── queries/                             # customerQueryOptions, checkoutSessionsQueryOptions, checkoutSessionQueryOptions
 ├── types/index.ts                       # Customer, CustomerLicenseType (from the domain)
 └── index.ts
 ```
@@ -65,6 +67,8 @@ Invalidation goes through `@/domains/customer-management`:
 - After a payment method is saved or removed, `invalidateCustomerBillingQueries` (`@/domains/billing`) refreshes what the customer holds in Stripe, and a 409 of a removal refreshes it too.
 - After a delete, `forgetDeletedCustomerQueries` removes the detail query and invalidates the lists. The detail page navigates to `/customers` first and reconciles the cache afterwards: it observes the customer through `useSuspenseQuery`, so invalidating the detail query while it is mounted would refetch a customer the API has just deleted.
 
+- **Checkouts.** `checkoutSessionsQueryOptions()` (`GET /checkout-sessions`) walks every page, 200 rows a request, like the other lists of billing (`allCheckoutSessionsOptions`, `@/lib/api`), and asks the API for none of its filters: the page filters in the browser. The route loads it. `checkoutSessionQueryOptions(sessionId)` is `GET /checkout-sessions/{sessionId}`, read by the panel apart from the list, with no retry: a checkout the API deleted (90 days after it closed) answers 404, which the panel says as "gone". The label of the key whose page started a checkout comes from the list of keys (`allPublishableKeysOptions` with the revoked ones, the cache entry the page of the keys reads), asked for only where the session's scopes cover `publishableKeys.list` and never failing the screen: without it the column shows the id of the key.
+
 ## Behaviour
 
 - **Table.** Columns: name (sortable), external ID, domain, CRM sync, license types, instances and a delete action. The instances cell shows a count that opens a dialog listing them. The filters (name search, external ID, domain, license type) run on the client over the full list. A row opens the detail page, and "New Customer" goes to `/customers/new`. See [`functionals/table`](../../functionals/table/README.md) and [`functionals/filters`](../../functionals/filters/README.md).
@@ -89,3 +93,11 @@ Invalidation goes through `@/domains/customer-management`:
 `app/src/features/customers/index.ts` exports `CustomersPageContent`, `CustomerDetailPageContent`, `CustomerFormDialog` and `customerQueryOptions`. Only the routes under `app/src/routes/customers/` import them, as routes are the only importers of a feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)). The other components are internal to the feature.
 
 The feature uses `@/domains/billing` for the invoices card, the gate and the dialog that explains a refusal to delete. What the `instances` feature needs about customers comes from `@/domains/customer-management`, or from its own code: it defines its own `customerQueryOptions` for the instance detail page.
+
+## Checkouts
+
+The Checkouts tab lists the anonymous checkouts of the organization, which the public surface starts and the console only reads (no checkout is started, confirmed or changed from here). It exists where billing is on, the release ships the public surface (`features.publicSurface`) and the scopes of the session cover `checkoutSessions.list` (`read:billing`): the tab is left out otherwise, and the route (`requireBillingCapability(..., 'publicSurface')`) explains why in place of the screen and requests nothing.
+
+- **List.** Columns: status, e-mail (with the vendor's own reference under it), plan (licence and period), amount due today (`dueToday.total`, the API's own figure), publishable key, the customer and the instance the completion created (links to the customer's page and to the Billing tab of the instance, a dash before the completion), created and closed. Sorted newest first by default; sorted, filtered and paged in the browser. The search matches the e-mail, the reference, the licence, the customer, the instance, the label of the key and the id; the Filter menu has the status (several), the e-mail and the client reference. An expired checkout says that its customer and instance remain, the instance on the fallback version with a canceled subscription, for the vendor to delete. There is no count of the rows shown: the table pages them. Empty, filtered-empty, loading (the route's pending state) and refused (the API's own words, with a retry) are drawn.
+- **Panel.** A row opens a side panel over the list (`?session=<id>`, so that it can be linked to and the back button closes it): every member the contract returns of the checkout, the lines of what is due today and the three totals, the trial or why it was refused, the customer and instance created and the moments of its life. It never holds the token the visitor has or a voucher code, because the API returns neither.
+- **Why `/customers/checkout-sessions` is a leaf.** The router matches a static segment before `$customerSlug`, so the path is the list of checkouts even for a customer whose slug is `checkout-sessions` (the API takes any slug), whose page is then unreachable at its own address. Every path below it still has no match under the static route and falls to that customer's routes, which is why the panel is a search parameter and not a segment (`/customers/checkout-sessions/$sessionId` would take `edit` and `instances` for checkouts).
