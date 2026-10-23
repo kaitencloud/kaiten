@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
   FORM_RECOVERY_STORAGE_KEY,
@@ -7,10 +8,15 @@ import {
 import { makeEntry } from '@/lib/form-recovery/__tests__/test-records';
 import { SIGNED_OUT_PATH, SignedOutGate } from '../signed-out-gate';
 
+const redirected = vi.hoisted(() => ({ from: [] as string[] }));
 vi.mock('@clerk/react', () => ({
-  RedirectToSignIn: () => (
-    <p data-testid="redirect">{window.location.pathname}</p>
-  ),
+  // Like Clerk's: it reads the URL in an effect, not in its render.
+  RedirectToSignIn: () => {
+    useEffect(() => {
+      redirected.from.push(window.location.pathname);
+    }, []);
+    return <p data-testid="redirect" />;
+  },
 }));
 
 const identity = vi.hoisted(() => ({
@@ -31,6 +37,7 @@ function stored() {
 }
 
 beforeEach(() => {
+  redirected.from = [];
   identity.last = { userId: 'user_1', organizationId: 'org_1' };
   replaceRecord(makeEntry(), { mountedAt: new Date(0).toISOString() });
   replaceRecord(makeEntry({ lineageId: 'other', userId: 'user_2' }), {
@@ -51,7 +58,8 @@ describe('SignedOutGate', () => {
     expect(stored()).toEqual(['userMark']);
     expect(window.location.pathname).toBe('/');
     // The redirect sees the URL the person will come back to.
-    expect(screen.getByTestId('redirect')).toHaveTextContent('/');
+    expect(redirected.from).toEqual(['/']);
+    expect(screen.getByTestId('redirect')).toBeInTheDocument();
   });
 
   it('purges all the same when the page was reloaded and nobody is remembered', () => {

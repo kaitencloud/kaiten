@@ -46,8 +46,8 @@ function ResumableOffer({
   const { t } = text;
   const descriptionId = useId();
   const when = text.when(offer.savedAt);
-  const omitted = offer.omittedFilled.map(
-    (path) => fieldLabels?.[path] ?? path,
+  const omitted = offer.omittedFilled.map((path) =>
+    text.field(path, fieldLabels, recovery.internals.descriptor.fieldLabels),
   );
 
   return (
@@ -102,7 +102,9 @@ function ResumableOffer({
           variant="outline"
           onClick={recovery.startOver}
         >
-          {t('Functionals.FormRecovery.startOver')}
+          {offer.others > 0
+            ? t('Functionals.FormRecovery.offer.discardOne')
+            : t('Functionals.FormRecovery.startOver')}
         </Button>
         {offer.others > 0 && (
           <Button
@@ -164,7 +166,9 @@ function UncertainOffer({
           variant="outline"
           onClick={recovery.startOver}
         >
-          {t('Functionals.FormRecovery.uncertain.discard')}
+          {offer.others > 0
+            ? t('Functionals.FormRecovery.offer.discardOne')
+            : t('Functionals.FormRecovery.uncertain.discard')}
         </Button>
       </Actions>
     </StatusAlert>

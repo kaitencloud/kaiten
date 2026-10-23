@@ -67,6 +67,11 @@ describe('the adapter and the lists of references', () => {
     formId: 'refs.create',
     version: 1,
     omit: [],
+    fieldLabels: {
+      licenseId: { text: 'License' },
+      addonIds: { text: 'Add-ons' },
+      name: { text: 'Name' },
+    },
     schema: z.object({
       licenseId: z.string(),
       addonIds: z.array(z.string()),
@@ -207,6 +212,7 @@ describe('the adapter and the state outside the form', () => {
       formId: 'rows.create',
       version: 1,
       omit: [],
+      fieldLabels: { name: { text: 'Name' } },
       extraSchema: z.object({ rows: z.array(z.string()) }),
       extraSource: (references) => references.base?.updatedAt ?? null,
       extraSourceLabel: { text: 'The base license' },

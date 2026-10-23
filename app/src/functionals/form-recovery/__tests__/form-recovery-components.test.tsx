@@ -34,6 +34,7 @@ const descriptor = defineFormRecovery<{ code: string }>({
   version: 1,
   omit: ['code'],
   steps: ['type', 'offer', 'eligibility', 'review'],
+  fieldLabels: { code: { text: 'Code' } },
 });
 
 function fakeRecovery(
@@ -164,8 +165,12 @@ describe('FormRecoveryAlert, the offer', () => {
       screen.getByText('The form has changed since: check each step before sending.'),
     ).toBeInTheDocument();
     expect(screen.getByText('2 other unsent entries are kept.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Show the next one' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Show the next entry' }));
     expect(recovery.showOther).toHaveBeenCalledTimes(1);
+    // With several entries, "Start over" would read as discarding them all.
+    expect(screen.queryByRole('button', { name: 'Start over' })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Discard this one' }));
+    expect(recovery.startOver).toHaveBeenCalledTimes(1);
   });
 
   it('says "may have gone through", with the actions of the feature, and names the buttons for a duplicate', async () => {
@@ -335,8 +340,16 @@ describe('FormRecoveryNotes', () => {
     render(<FormRecoveryNotes recovery={recovery} fieldLabels={FIELD_LABELS} />);
 
     expect(screen.getByText('For security, this field is never kept: Code. Enter it again.')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: 'Continue without' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Continue without it' }));
     expect(recovery.dismiss).toHaveBeenCalledWith('omitted');
+  });
+
+  it('names a field with the label of the descriptor when the feature passes none, never with its key', () => {
+    const recovery = fakeRecovery({ notices: [{ kind: 'omitted', paths: ['code', 'config.token'] }] });
+    render(<FormRecoveryNotes recovery={recovery} />);
+
+    expect(screen.getByText(/these fields are never kept: Code and config\.token/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Continue without them' })).toBeInTheDocument();
   });
 
   it('says a chain is unfinished, in the words of the feature when it has some', () => {
@@ -386,6 +399,9 @@ describe('FormRecoverySubmitWarning', () => {
   });
 });
 
+const polite = () => document.querySelector('[aria-live="polite"]')!;
+const assertive = () => document.querySelector('[aria-live="assertive"]')!;
+
 describe('FormRecoveryAnnouncer', () => {
   it('announces the restore with the step it landed on', () => {
     render(
@@ -395,11 +411,16 @@ describe('FormRecoveryAnnouncer', () => {
       />,
     );
 
-    expect(screen.getByRole('status')).toHaveTextContent('Entries restored, step 3 of 4 (Eligibility).');
+    expect(polite()).toHaveTextContent('Entries restored, step 3 of 4 (Eligibility).');
   });
 
   it('announces a restore of a single page', () => {
-    const single = defineFormRecovery<{ code: string }>({ formId: 'demo.create', version: 1, omit: [] });
+    const single = defineFormRecovery<{ code: string }>({
+      formId: 'demo.create',
+      version: 1,
+      omit: [],
+      fieldLabels: { code: { text: 'Code' } },
+    });
     render(
       <FormRecoveryAnnouncer
         recovery={fakeRecovery({
@@ -409,13 +430,35 @@ describe('FormRecoveryAnnouncer', () => {
       />,
     );
 
-    expect(screen.getByRole('status')).toHaveTextContent('Entries restored.');
+    expect(polite()).toHaveTextContent('Entries restored.');
   });
 
   it('is an empty live region before anything is restored', () => {
     render(<FormRecoveryAnnouncer recovery={fakeRecovery()} />);
 
-    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    expect(polite()).toBeEmptyDOMElement();
+  });
+
+  it('speaks a send that may have gone through from a region that was there before', () => {
+    const { rerender } = render(<FormRecoveryAnnouncer recovery={fakeRecovery()} />);
+    const region = assertive();
+    expect(region).toBeEmptyDOMElement();
+
+    rerender(<FormRecoveryAnnouncer recovery={fakeRecovery({ notices: [{ kind: 'unknownOutcome' }] })} />);
+
+    // The very same node: a region mounted with its text is not announced reliably.
+    expect(assertive()).toBe(region);
+    expect(region).toHaveTextContent('the last submission may have gone through');
+
+    rerender(<FormRecoveryAnnouncer recovery={fakeRecovery()} />);
+    expect(region).toBeEmptyDOMElement();
+  });
+
+  it('speaks entries that were sent from another tab', () => {
+    render(<FormRecoveryAnnouncer recovery={fakeRecovery({ notices: [{ kind: 'sentElsewhere' }] })} />);
+
+    expect(assertive()).toHaveTextContent('sent from another tab');
+    expect(assertive()).toHaveTextContent('Warning');
   });
 });
 
@@ -446,6 +489,7 @@ describe('in French', () => {
     expect(screen.getByText(/Code et token/)).toBeInTheDocument();
     expect(screen.getByText('2 autres saisies non envoyées sont conservées.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reprendre' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Recommencer' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Effacer celle-ci' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Voir la saisie suivante' })).toBeInTheDocument();
   });
 });

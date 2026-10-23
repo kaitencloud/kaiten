@@ -34,11 +34,15 @@ export const demoRecovery = defineFormRecovery<DemoValues>({
   steps: ['identity', 'details'],
   stepFields: { identity: ['name'], details: ['count', 'note', 'secret'] },
   schema: demoSchema,
-  fieldLabels: { name: { text: 'Name' }, count: { text: 'Count' } },
+  fieldLabels: {
+    name: { text: 'Name' },
+    count: { text: 'Count' },
+    note: { text: 'Note' },
+    secret: { text: 'Secret' },
+  },
 });
 
 const STEP_LABELS = ['Identity', 'Details'] as const;
-const FIELD_LABELS = { secret: 'Secret' };
 
 export const demoDefaults = (): DemoValues => ({
   name: '',
@@ -113,14 +117,10 @@ function DemoWizard({
       className="flex max-w-xl flex-col gap-4"
       onSubmit={createFormSubmitHandler(form.handleSubmit)}
     >
-      <FormRecoveryAlert
-        recovery={recovery}
-        stepLabels={STEP_LABELS}
-        fieldLabels={FIELD_LABELS}
-      >
+      <FormRecoveryAlert recovery={recovery} stepLabels={STEP_LABELS}>
         <a href="#list">View the list</a>
       </FormRecoveryAlert>
-      <FormRecoveryNotes recovery={recovery} fieldLabels={FIELD_LABELS} />
+      <FormRecoveryNotes recovery={recovery} />
       <form.AppForm>
         {step === 0 && (
           <form.AppField name="name">
@@ -141,9 +141,6 @@ function DemoWizard({
           </>
         )}
       </form.AppForm>
-      <FormRecoverySubmitWarning recovery={recovery}>
-        <a href="#list">View the list</a>
-      </FormRecoverySubmitWarning>
       <div className="flex gap-2">
         <Button
           type="button"
@@ -172,6 +169,9 @@ function DemoWizard({
           </Button>
         )}
       </div>
+      <FormRecoverySubmitWarning recovery={recovery}>
+        <a href="#list">View the list</a>
+      </FormRecoverySubmitWarning>
     </form>
   );
 }

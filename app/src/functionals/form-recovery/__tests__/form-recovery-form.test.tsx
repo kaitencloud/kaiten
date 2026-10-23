@@ -139,6 +139,23 @@ describe('a form that uses the recovery', () => {
     expect(JSON.stringify(window.localStorage)).not.toContain('again');
   });
 
+  it('keeps the keyboard in the form when a notice is dismissed', async () => {
+    const user = setupUser();
+    await fillAndLeave(user);
+    mountDemo();
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+    await screen.findByText(/this field is never kept: Secret/);
+    const dismiss = screen.getByRole('button', { name: 'Continue without it' });
+
+    dismiss.focus();
+    await user.keyboard('{Enter}');
+    await elapse(300);
+
+    expect(screen.queryByText(/this field is never kept/)).not.toBeInTheDocument();
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.querySelector('form')).toContainElement(document.activeElement as HTMLElement);
+  });
+
   it('does not submit the form when a button of the alert is pressed', async () => {
     const user = setupUser();
     const request = vi.fn().mockResolvedValue({});

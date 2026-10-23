@@ -46,8 +46,13 @@ export type FormRecoveryDescriptor<
   stepFields?: Readonly<Record<string, readonly (keyof TValues & string)[]>>;
   /** Schema of the form, derived from the generated one: shape and drifts. */
   schema?: z.ZodType<TValues>;
-  /** Labels of the first-level fields, for the notes. */
-  fieldLabels?: Partial<Record<keyof TValues & string, FormRecoveryLabel>>;
+  /**
+   * Labels of the fields, for the notes and the reminders. Required for every
+   * first-level field, so that a raw key (`saleUnitFactor`) never reaches the
+   * person; a path into an object (`config.token`) may add its own.
+   */
+  fieldLabels: Record<keyof TValues & string, FormRecoveryLabel> &
+    Partial<Record<string, FormRecoveryLabel>>;
   /** Schema of the state outside the form (`extra`) when read back. */
   extraSchema?: z.ZodType<TExtra>;
   /** Fingerprint of what `extra` was copied from; if it moved, `extra` is dropped. */

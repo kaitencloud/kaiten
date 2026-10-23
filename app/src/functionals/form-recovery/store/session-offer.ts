@@ -11,7 +11,12 @@ import type { FormRecoveryNote, FormRecoveryNotice } from '../types';
 import { adoptEntry } from './session-adopt';
 import type { SessionContext } from './session-context';
 import { refresh } from './session-scope';
-import { newLineageId, ownRecordKey, startNewLineage } from './session-writer';
+import {
+  newLineageId,
+  ownRecordKey,
+  startNewLineage,
+  writeNow,
+} from './session-writer';
 
 /** Writes an entry again under a new lineage, for an undo. */
 export function reinstate(
@@ -93,21 +98,43 @@ export async function restoreSetAside(ctx: SessionContext): Promise<void> {
   const candidate = currentCandidate(store.state);
   if (!candidate) return;
 
+  // What was typed in the last second is written first: the copy the toast
+  // can bring back must be what is on screen.
+  ctx.cancelWrite();
+  writeNow(ctx);
   const ownKey = ownRecordKey(ctx);
   const ownCopy = ctx.runtime.ownRecordExpected ? readEntry(ownKey) : null;
-  ctx.cancelWrite();
 
   if (!(await adoptEntry(ctx, candidate.key))) return;
 
   if (ownCopy) {
     discardRecord(ownKey, 'discarded');
-    ctx.config.notify('replaced', () => {
-      if (reinstate(ctx, ownCopy)) {
-        ctx.setState({ offerMode: 'condensed' });
-        void refresh(ctx);
-      }
-    });
+    ctx.config.notify('replaced', () => void undoReplacement(ctx, ownCopy));
   }
+}
+
+/**
+ * The undo of "Bring them back": the input that was replaced is written again
+ * and put back on screen, and the entries brought back return to the reduced
+ * offer, with what was typed in them since.
+ */
+async function undoReplacement(
+  ctx: SessionContext,
+  ownCopy: FormRecoveryEntry,
+) {
+  const entry = reinstate(ctx, ownCopy);
+  if (!entry || !ctx.runtime.alive) return;
+
+  ctx.cancelWrite();
+  writeNow(ctx);
+  if (!(await adoptEntry(ctx, entry.key))) return;
+
+  ctx.setState({ offerMode: 'condensed' });
+  // The lock of the entries just set aside is released a moment after the
+  // adoption: they are offered only once nobody looks like holding them.
+  setTimeout(() => {
+    if (ctx.runtime.alive) void refresh(ctx);
+  }, 0);
 }
 
 /** Adds the notes a reconcile made, once each. */
@@ -141,6 +168,12 @@ export function dismiss(
   kind: FormRecoveryNotice['kind'] | 'notes' | 'condensed',
 ) {
   const { runtime, store } = ctx;
+
+  // The button that was pressed leaves the page with its notice: the focus
+  // goes back to the form instead of falling to the body.
+  if (kind !== 'notKept' && kind !== 'sentElsewhere') {
+    ctx.setState({ focusToken: store.state.focusToken + 1 });
+  }
 
   switch (kind) {
     case 'notes':

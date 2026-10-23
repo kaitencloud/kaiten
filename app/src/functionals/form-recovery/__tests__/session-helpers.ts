@@ -28,6 +28,12 @@ export const thingRecovery = defineFormRecovery<ThingValues>({
   omit: ['secret'],
   steps: ['identity', 'details'],
   stepFields: { identity: ['name'], details: ['count', 'note'] },
+  fieldLabels: {
+    name: { text: 'Name' },
+    count: { text: 'Count' },
+    note: { text: 'Note' },
+    secret: { text: 'Secret' },
+  },
 });
 
 export const IDENTITY = { userId: 'user_1', organizationId: 'org_1' };

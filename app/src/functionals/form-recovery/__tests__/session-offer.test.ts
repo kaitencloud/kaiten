@@ -437,6 +437,67 @@ describe('bring them back, from the reduced offer', () => {
     expect(storedRecords()[own.lineageId]).toMatchObject({ kind: 'tombstone', reason: 'discarded' });
     expect(h.notify).toHaveBeenCalledWith('replaced', expect.any(Function));
   });
+
+  it('keeps what was typed a moment ago, so that the toast always has something to undo', async () => {
+    seedEntry(entry({ lineageId: 'old' }));
+    const h = await mount();
+    track(h, snapshotOf([['name', 'Sil']]), false); // debounced: not written yet
+    expect(Object.values(storedRecords()).filter((record) => record.kind === 'entry')).toHaveLength(1);
+
+    h.session.actions.restoreSetAside();
+    await advance(10);
+
+    expect(h.notify).toHaveBeenCalledWith('replaced', expect.any(Function));
+    const reinstated = () =>
+      Object.values(storedRecords()).filter(
+        (record) => record.kind === 'entry' && record.payload === encodePayload([['name', 'Sil']]),
+      );
+    expect(reinstated()).toHaveLength(0);
+
+    (h.notify.mock.calls.at(-1)![1] as () => void)();
+    await advance(10);
+    expect(reinstated()).toHaveLength(1);
+  });
+
+  it('puts the replaced input back on screen with the undo, and sets the other aside again', async () => {
+    seedEntry(entry({ lineageId: 'old' }));
+    const h = await mount();
+    track(h, snapshotOf([['name', 'Silver']]), true);
+    h.session.actions.restoreSetAside();
+    await advance(10);
+    expect(h.state().restored?.values.name).toBe('Gold');
+    const generation = h.state().generation;
+
+    (h.notify.mock.calls.at(-1)![1] as () => void)();
+    await advance(10);
+
+    expect(h.state().restored?.values.name).toBe('Silver');
+    expect(h.state().generation).toBeGreaterThan(generation);
+    expect(h.state().lineageId).not.toBe('old');
+    expect(h.state().writer).toEqual({ status: 'saved' });
+    // The entries brought back are kept, and on offer again.
+    expect(storedRecords().old).toMatchObject({ kind: 'entry' });
+    expect(offerOf(h)).toMatchObject({ kind: 'condensed' });
+    h.dispose();
+  });
+});
+
+describe('the focus, when a notice goes', () => {
+  it('asks for the focus to go back to the form when a notice is dismissed or kept here', async () => {
+    const h = await mount();
+    const before = h.state().focusToken;
+
+    h.session.actions.dismiss('notes');
+    expect(h.state().focusToken).toBe(before + 1);
+    h.session.actions.dismiss('condensed');
+    expect(h.state().focusToken).toBe(before + 2);
+    h.session.actions.dismiss('omitted');
+    expect(h.state().focusToken).toBe(before + 3);
+    // A notice that has no button to dismiss it does not move the focus.
+    h.session.actions.dismiss('sentElsewhere');
+    expect(h.state().focusToken).toBe(before + 3);
+    h.dispose();
+  });
 });
 
 describe('several tabs', () => {

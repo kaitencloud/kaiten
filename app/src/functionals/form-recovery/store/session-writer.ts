@@ -174,11 +174,7 @@ async function recoverFromFailure(
 async function enforceLimits(ctx: SessionContext): Promise<void> {
   const live = await liveLineages();
   if (!ctx.runtime.alive) return;
-  await pruneRecords(
-    ctx.now(),
-    null,
-    new Set([...live, ownRecordKey(ctx)]),
-  );
+  await pruneRecords(ctx.now(), null, new Set([...live, ownRecordKey(ctx)]));
 }
 
 type WriteOptions = {

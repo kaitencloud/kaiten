@@ -140,8 +140,9 @@ export default {
           "Le formulaire a changé depuis : vérifiez chaque étape avant d'envoyer.",
         others_one: '{{count}} autre saisie non envoyée est conservée.',
         others_other: '{{count}} autres saisies non envoyées sont conservées.',
-        showOther_one: "Voir l'autre",
-        showOther_other: 'Voir la suivante',
+        showOther_one: "Voir l'autre saisie",
+        showOther_other: 'Voir la saisie suivante',
+        discardOne: 'Effacer celle-ci',
       },
       time: { justNow: "à l'instant" },
       resume: 'Reprendre',
@@ -206,12 +207,17 @@ export default {
           "Par sécurité, ce champ n'est jamais conservé : {{fields}}. Saisissez-le de nouveau.",
         reminder_other:
           'Par sécurité, ces champs ne sont jamais conservés : {{fields}}. Saisissez-les de nouveau.',
-        continueWithout: 'Continuer sans',
+        continueWithout_one: 'Continuer sans ce champ',
+        continueWithout_other: 'Continuer sans ces champs',
       },
       announce: {
         resumed: 'Saisie reprise.',
         resumedAtStep:
           'Saisie reprise, étape {{current}} sur {{total}} ({{step}}).',
+        unknownOutcome:
+          "Attention : le dernier envoi a peut-être abouti. Vérifiez la liste avant d'envoyer de nouveau.",
+        sentElsewhere:
+          "Attention : cette saisie a été envoyée depuis un autre onglet. L'envoyer de nouveau créerait un doublon.",
       },
       dismiss: 'OK',
       toast: {

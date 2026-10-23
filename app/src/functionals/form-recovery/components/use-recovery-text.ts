@@ -27,6 +27,19 @@ export function useRecoveryText() {
   const label = (value: FormRecoveryLabel): string =>
     'key' in value ? t(value.key) : value.text;
 
+  /**
+   * The name of a field in a sentence: the text the feature passed to the
+   * component, else the label of the descriptor, else the path itself.
+   */
+  const field = (
+    path: string,
+    given: Partial<Record<string, string>> | undefined,
+    declared: Partial<Record<string, FormRecoveryLabel>> | undefined,
+  ): string => {
+    const declaredLabel = declared?.[path];
+    return given?.[path] ?? (declaredLabel ? label(declaredLabel) : path);
+  };
+
   const date = (timestamp: string): string =>
     new Date(timestamp).toLocaleDateString(locale, {
       day: 'numeric',
@@ -62,5 +75,5 @@ export function useRecoveryText() {
     }
   };
 
-  return { t, locale, when, list, label, date, time, note };
+  return { t, locale, when, list, label, field, date, time, note };
 }

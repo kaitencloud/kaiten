@@ -59,6 +59,7 @@ const recovery = defineFormRecovery<Values, Refs, Extra>({
   steps: ['identity', 'type'],
   stepFields: { identity: ['name', 'slug'], type: ['type'] },
   schema: entitlementFormSchema,
+  fieldLabels: { name: { key: '...' }, slug: { key: '...' }, type: { key: '...' } }, // every field
 });
 
 // outside the subtree of the form

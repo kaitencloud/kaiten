@@ -42,7 +42,8 @@ export function FormRecoveryNotes({
   const pending = recovery.notices.some(
     (notice) => notice.kind === 'followUpPending',
   );
-  const { followUpMessageKeys } = recovery.internals.descriptor;
+  const { followUpMessageKeys, fieldLabels: declaredLabels } =
+    recovery.internals.descriptor;
 
   if (
     !recovery.persistent ||
@@ -85,7 +86,9 @@ export function FormRecoveryNotes({
               {t('Functionals.FormRecovery.omitted.reminder', {
                 count: omitted.paths.length,
                 fields: text.list(
-                  omitted.paths.map((path) => fieldLabels?.[path] ?? path),
+                  omitted.paths.map((path) =>
+                    text.field(path, fieldLabels, declaredLabels),
+                  ),
                 ),
               })}
             </p>
@@ -97,7 +100,9 @@ export function FormRecoveryNotes({
               variant="outline"
               onClick={() => recovery.dismiss('omitted')}
             >
-              {t('Functionals.FormRecovery.omitted.continueWithout')}
+              {t('Functionals.FormRecovery.omitted.continueWithout', {
+                count: omitted.paths.length,
+              })}
             </Button>
           </div>
         </Alert>

@@ -136,8 +136,9 @@ export default {
           'The form has changed since: check each step before sending.',
         others_one: '{{count}} other unsent entry is kept.',
         others_other: '{{count}} other unsent entries are kept.',
-        showOther_one: 'Show it',
-        showOther_other: 'Show the next one',
+        showOther_one: 'Show the other entry',
+        showOther_other: 'Show the next entry',
+        discardOne: 'Discard this one',
       },
       time: { justNow: 'just now' },
       resume: 'Resume',
@@ -201,12 +202,17 @@ export default {
           'For security, this field is never kept: {{fields}}. Enter it again.',
         reminder_other:
           'For security, these fields are never kept: {{fields}}. Enter them again.',
-        continueWithout: 'Continue without',
+        continueWithout_one: 'Continue without it',
+        continueWithout_other: 'Continue without them',
       },
       announce: {
         resumed: 'Entries restored.',
         resumedAtStep:
           'Entries restored, step {{current}} of {{total}} ({{step}}).',
+        unknownOutcome:
+          'Warning: the last submission may have gone through. Check the list before sending again.',
+        sentElsewhere:
+          'Warning: these entries were sent from another tab. Sending them again would create a duplicate.',
       },
       dismiss: 'OK',
       toast: {

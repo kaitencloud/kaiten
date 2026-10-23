@@ -74,6 +74,9 @@ export function keepHere(ctx: SessionContext) {
   const { writer } = ctx.store.state;
   if (writer.status !== 'paused') return;
 
+  // The notice and its button leave the page: the focus goes back to the form.
+  ctx.setState({ focusToken: ctx.store.state.focusToken + 1 });
+
   // With Web Locks, another tab that holds the lineage keeps it: this one
   // begins its own. Without them, the session id is all there is to decide who
   // owns the lineage, and this tab takes it over.

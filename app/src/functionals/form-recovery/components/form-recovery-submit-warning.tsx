@@ -13,9 +13,13 @@ export type FormRecoverySubmitWarningProps = {
 };
 
 /**
- * Above the submit button, where the person decides: these entries were sent
+ * Under the row of buttons, where the person decides: these entries were sent
  * from another tab, or the last send got no answer and may have gone through.
- * Gone at the next verdict of the server.
+ * Under, not above: it appears right after a click on Send, and above the
+ * buttons it would push them away from the pointer. Gone at the next verdict
+ * of the server. Screen readers hear it from `FormRecoveryAnnouncer`, which
+ * is mounted before it: a status inserted with its text is not announced
+ * reliably.
  */
 export function FormRecoverySubmitWarning({
   recovery,
