@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
+import { getCustomerDetailTarget } from '@/features/customers';
 
 export const buildCustomerDetailEditRedirect = (customerSlug: string) => ({
-  to: '/customers/$customerSlug' as const,
-  params: { customerSlug },
+  ...getCustomerDetailTarget(customerSlug),
   replace: true,
   search: (prev: Record<string, unknown>) => ({
     ...prev,

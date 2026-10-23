@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vite-plus/test';
 import type { Customer } from '@/api-client';
 import { zCustomer } from '@/api-client/zod.gen';
 import {
+  createCustomerFormSchema,
   customerFormSchema,
   customerFormValuesToCreateBody,
   customerFormValuesToUpdateBody,
@@ -80,6 +81,40 @@ describe('customerFormSchema', () => {
         domain: '',
         slug: 'acme-inc',
       }).success,
+    ).toBe(true);
+  });
+});
+
+describe('createCustomerFormSchema', () => {
+  const values = { ...formValues, domain: '' };
+
+  it.each(['checkout-sessions', 'instances', 'new'])(
+    'refuses %s, the slug of a static route of /customers, on the slug field',
+    (slug) => {
+      const result = createCustomerFormSchema.safeParse({ ...values, slug });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          message: 'Pages.Customers.Mutation.Form.Errors.slugShadowed',
+          path: ['slug'],
+        }),
+      ]);
+    },
+  );
+
+  it('accepts an empty slug, a slug that only starts like one, and any other', () => {
+    for (const slug of ['', 'checkout-sessions-ltd', 'newsletter', 'acme']) {
+      expect(createCustomerFormSchema.safeParse({ ...values, slug }).success).toBe(
+        true,
+      );
+    }
+  });
+
+  it('is only for a new customer: an edit keeps the schema that lets a customer made with such a slug be saved', () => {
+    expect(
+      customerFormSchema.safeParse({ ...values, slug: 'checkout-sessions' })
+        .success,
     ).toBe(true);
   });
 });

@@ -1,6 +1,7 @@
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { dataModelIcons } from '@/lib/data-model-icons';
+import { getCustomerDetailTarget } from '../../utils/customer-path';
 
 const LINK_CLASS_NAME =
   'inline-flex max-w-full items-center gap-1.5 rounded-sm text-sm underline-offset-4 hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none';
@@ -20,8 +21,7 @@ export function CheckoutCustomerLink({
   return (
     <Link
       className={LINK_CLASS_NAME}
-      params={{ customerSlug }}
-      to="/customers/$customerSlug"
+      {...getCustomerDetailTarget(customerSlug)}
     >
       <CustomerIcon aria-hidden className="size-3.5 shrink-0 opacity-70" />
       <span className="truncate">{customerSlug}</span>

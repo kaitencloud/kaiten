@@ -6,6 +6,7 @@ import {
   CustomerDetailPageContent,
   CustomerFormDialog,
   customerQueryOptions,
+  getCustomerDetailTarget,
 } from '@/features/customers';
 
 // `kaiten_setup_session` is what Stripe's page brings the customer back with once a
@@ -44,15 +45,14 @@ function CustomerDetailRouteLayout() {
   );
 
   const closeConfigure = () => {
-    navigate({ to: '/customers/$customerSlug', params: { customerSlug } });
+    navigate(getCustomerDetailTarget(customerSlug));
   };
 
   const dropSetupSession = () => {
     navigate({
-      params: { customerSlug },
+      ...getCustomerDetailTarget(customerSlug),
       replace: true,
       search: (previous) => ({ ...previous, kaiten_setup_session: undefined }),
-      to: '/customers/$customerSlug',
     });
   };
 

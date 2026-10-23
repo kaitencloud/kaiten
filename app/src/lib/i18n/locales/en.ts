@@ -696,6 +696,8 @@ export default {
               'Enter a valid e-mail address, such as billing@acme.com',
             billingEmailTooLong:
               'The e-mail address is too long (254 characters at most)',
+            slugShadowed:
+              'This slug is the address of a page of the console. Choose another one.',
           },
           createSuccess: 'Customer created successfully',
           updateSuccess: 'Customer updated successfully',

@@ -713,6 +713,8 @@ export default {
               'Saisissez une adresse e-mail valide, par exemple facturation@acme.com',
             billingEmailTooLong:
               'L’adresse e-mail est trop longue (254 caractères au plus)',
+            slugShadowed:
+              'Ce slug est l’adresse d’une page de la console. Choisissez-en un autre.',
           },
           createSuccess: 'Client créé avec succès',
           updateSuccess: 'Client mis à jour avec succès',

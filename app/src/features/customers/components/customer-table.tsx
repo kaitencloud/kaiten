@@ -18,6 +18,7 @@ import {
 } from '@/functionals/table';
 import { capitalizeFromUpperCase } from '@/lib/utils';
 import type { Customer } from '../types';
+import { getCustomerDetailTarget } from '../utils/customer-path';
 import { CustomerInstancesDisplay } from './customer-instances-display';
 import { CustomerTableActions } from './customer-table-actions';
 
@@ -185,10 +186,7 @@ export const CustomersTable = ({ customers }: CustomersTableProps) => {
   });
 
   const getCustomerPath = (customer: Customer) =>
-    router.buildLocation({
-      to: '/customers/$customerSlug',
-      params: { customerSlug: customer.slug },
-    }).pathname;
+    router.buildLocation(getCustomerDetailTarget(customer.slug)).pathname;
 
   return (
     <FilterTableLayout controller={filterController}>

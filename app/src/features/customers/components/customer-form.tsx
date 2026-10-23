@@ -15,6 +15,7 @@ import { useCustomerBilling } from '../hooks/use-customer-billing';
 import { useCustomerFormMutations } from './customer-form.mutations';
 import {
   CUSTOMER_REFUSAL_FIELDS,
+  createCustomerFormSchema,
   customerFormSchema,
   customerFormValuesToCreateBody,
   customerFormValuesToUpdateBody,
@@ -72,7 +73,7 @@ export const CustomerForm = ({
   const form = useAppForm({
     defaultValues: openedValues,
     validators: {
-      onChange: customerFormSchema,
+      onChange: customer ? customerFormSchema : createCustomerFormSchema,
     },
     onSubmit: async ({ formApi, value }) => {
       try {

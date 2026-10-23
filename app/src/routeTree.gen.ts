@@ -55,6 +55,7 @@ import { Route as CatalogVouchersIndexRouteImport } from './routes/catalog/vouch
 import { Route as CatalogVouchersVoucherIdRouteRouteImport } from './routes/catalog/vouchers/$voucherId/route'
 import { Route as CustomersCustomerSlugIndexRouteImport } from './routes/customers/$customerSlug/index'
 import { Route as CustomersCustomerSlugEditRouteImport } from './routes/customers/$customerSlug/edit'
+import { Route as CustomersCustomerSlugOverviewRouteImport } from './routes/customers/$customerSlug/overview'
 import { Route as CustomersInstancesIndexRouteImport } from './routes/customers/instances/index'
 import { Route as CustomersInstancesInstanceSlugRouteRouteImport } from './routes/customers/instances/$instanceSlug/route'
 import { Route as CustomersNewIndexRouteImport } from './routes/customers/new/index'
@@ -371,6 +372,12 @@ const CustomersCustomerSlugEditRoute =
   CustomersCustomerSlugEditRouteImport.update({
     id: '/edit',
     path: '/edit',
+    getParentRoute: () => CustomersCustomerSlugRouteRoute,
+  } as any)
+const CustomersCustomerSlugOverviewRoute =
+  CustomersCustomerSlugOverviewRouteImport.update({
+    id: '/overview',
+    path: '/overview',
     getParentRoute: () => CustomersCustomerSlugRouteRoute,
   } as any)
 const CustomersInstancesIndexRoute = CustomersInstancesIndexRouteImport.update({
@@ -826,6 +833,7 @@ export interface FileRoutesByFullPath {
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
+  '/customers/$customerSlug/overview': typeof CustomersCustomerSlugOverviewRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
   '/feature-flags/$featureFlagSlug/evaluation': typeof FeatureFlagsFeatureFlagSlugEvaluationRoute
   '/feature-flags/$featureFlagSlug/targeting': typeof FeatureFlagsFeatureFlagSlugTargetingRoute
@@ -922,6 +930,7 @@ export interface FileRoutesByTo {
   '/releases': typeof ReleasesIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
+  '/customers/$customerSlug/overview': typeof CustomersCustomerSlugOverviewRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
   '/feature-flags/$featureFlagSlug/evaluation': typeof FeatureFlagsFeatureFlagSlugEvaluationRoute
   '/feature-flags/$featureFlagSlug/targeting': typeof FeatureFlagsFeatureFlagSlugTargetingRoute
@@ -1039,6 +1048,7 @@ export interface FileRoutesById {
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones_/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
+  '/customers/$customerSlug/overview': typeof CustomersCustomerSlugOverviewRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
   '/feature-flags/$featureFlagSlug/evaluation': typeof FeatureFlagsFeatureFlagSlugEvaluationRoute
   '/feature-flags/$featureFlagSlug/targeting': typeof FeatureFlagsFeatureFlagSlugTargetingRoute
@@ -1158,6 +1168,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones/$zoneSlug'
     | '/customers/$customerSlug/edit'
+    | '/customers/$customerSlug/overview'
     | '/feature-flags/$featureFlagSlug/audit-trail'
     | '/feature-flags/$featureFlagSlug/evaluation'
     | '/feature-flags/$featureFlagSlug/targeting'
@@ -1254,6 +1265,7 @@ export interface FileRouteTypes {
     | '/releases'
     | '/settings'
     | '/customers/$customerSlug/edit'
+    | '/customers/$customerSlug/overview'
     | '/feature-flags/$featureFlagSlug/audit-trail'
     | '/feature-flags/$featureFlagSlug/evaluation'
     | '/feature-flags/$featureFlagSlug/targeting'
@@ -1370,6 +1382,7 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones_/$zoneSlug'
     | '/customers/$customerSlug/edit'
+    | '/customers/$customerSlug/overview'
     | '/feature-flags/$featureFlagSlug/audit-trail'
     | '/feature-flags/$featureFlagSlug/evaluation'
     | '/feature-flags/$featureFlagSlug/targeting'
@@ -1801,6 +1814,13 @@ declare module '@tanstack/react-router' {
       path: '/edit'
       fullPath: '/customers/$customerSlug/edit'
       preLoaderRoute: typeof CustomersCustomerSlugEditRouteImport
+      parentRoute: typeof CustomersCustomerSlugRouteRoute
+    }
+    '/customers/$customerSlug/overview': {
+      id: '/customers/$customerSlug/overview'
+      path: '/overview'
+      fullPath: '/customers/$customerSlug/overview'
+      preLoaderRoute: typeof CustomersCustomerSlugOverviewRouteImport
       parentRoute: typeof CustomersCustomerSlugRouteRoute
     }
     '/customers/instances/': {
@@ -2291,6 +2311,7 @@ declare module '@tanstack/react-router' {
 
 interface CustomersCustomerSlugRouteRouteChildren {
   CustomersCustomerSlugEditRoute: typeof CustomersCustomerSlugEditRoute
+  CustomersCustomerSlugOverviewRoute: typeof CustomersCustomerSlugOverviewRoute
   CustomersCustomerSlugIndexRoute: typeof CustomersCustomerSlugIndexRoute
   CustomersCustomerSlugInstancesNewIndexRoute: typeof CustomersCustomerSlugInstancesNewIndexRoute
 }
@@ -2298,6 +2319,7 @@ interface CustomersCustomerSlugRouteRouteChildren {
 const CustomersCustomerSlugRouteRouteChildren: CustomersCustomerSlugRouteRouteChildren =
   {
     CustomersCustomerSlugEditRoute: CustomersCustomerSlugEditRoute,
+    CustomersCustomerSlugOverviewRoute: CustomersCustomerSlugOverviewRoute,
     CustomersCustomerSlugIndexRoute: CustomersCustomerSlugIndexRoute,
     CustomersCustomerSlugInstancesNewIndexRoute:
       CustomersCustomerSlugInstancesNewIndexRoute,

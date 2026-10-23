@@ -7,6 +7,7 @@ import { DestructiveActionButton } from '@/components/destructive-action-button'
 import { useCanPerform } from '@/domains/billing';
 import { EditableTitle, Page } from '@/functionals/page';
 import { dataModelIcons } from '@/lib/data-model-icons';
+import { getCustomerDetailTarget } from '../../utils/customer-path';
 import { useCustomerFormMutations } from '../customer-form.mutations';
 import {
   customerFormValuesToUpdateBody,
@@ -67,8 +68,7 @@ export const CustomerDetailHeader = ({
               role="link"
               render={
                 <Link
-                  to="/customers/$customerSlug"
-                  params={{ customerSlug: customer.slug! }}
+                  {...getCustomerDetailTarget(customer.slug!)}
                   search={{ mode: 'configure' }}
                 >
                   <Pencil className="size-4" />
