@@ -14,6 +14,7 @@ import {
   Repeat,
   Rocket,
   Server,
+  ShoppingCart,
   SquareLibrary,
   Tag,
   Ticket,
@@ -46,6 +47,7 @@ export const dataModelIcons = {
   addon: Puzzle,
   voucher: Ticket,
   publishableKey: KeySquare,
+  checkoutSession: ShoppingCart,
 } as const satisfies Record<string, LucideIcon>;
 
 export type DataModelIconKey = keyof typeof dataModelIcons;

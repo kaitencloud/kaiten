@@ -122,6 +122,10 @@ export const BILLING_ACTIONS = {
   'publishableKeys.create': 'createPublishableKey',
   'publishableKeys.update': 'updatePublishableKey',
   'publishableKeys.revoke': 'revokePublishableKey',
+  // The anonymous checkouts the keys started, which the console only reads: a session is
+  // started, confirmed and completed on the public surface alone.
+  'checkoutSessions.list': 'listCheckoutSessions',
+  'checkoutSessions.read': 'getCheckoutSessionAdmin',
   // Invoices of the organization.
   'invoices.list': 'listInvoices',
   'invoices.export': 'exportInvoices',

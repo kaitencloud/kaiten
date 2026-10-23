@@ -82,6 +82,8 @@ app/src/domains/billing/
 │                     # the warning that a grant of an add-on or a voucher would lower what a
 │                     # license grants (LicenseGrantWarning)
 ├── hooks/            # useCanPerform and useActionAccess, over the scopes of the session;
+│                     # useBillingScreenOffered, whether a link to a screen of billing is offered (billing,
+│                     # the feature of the release and the scope of its action);
 │                     # useLeaveRestrictedDialog, what a dialog does for a session that may not
 │                     # (useGrantedScopes reads them, for a screen that filters on several);
 │                     # useInvoiceActionAccess, the same for the eight actions on an invoice;
@@ -272,7 +274,9 @@ page holds, or an export the API streams.
   the public listing of a family of licenses (`licenseFamily.setPublic`) and its settings (`licenseFamily.updateSettings`), and the
   publishable keys a web page reads that catalogue with (`publishableKeys.list`,
   `.create`, `.update`, `.revoke`: scopes of their own, `read:publishable_keys` and
-  `write:publishable_keys`, which `features/publishable-keys` follows).
+  `write:publishable_keys`, which `features/publishable-keys` follows) and the anonymous
+  checkouts the keys started, which the console only reads (`checkoutSessions.list`,
+  `.read`: `read:billing`, which `features/customers` follows).
 
 ## Behaviour
 

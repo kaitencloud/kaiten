@@ -1,16 +1,19 @@
 import {
   type ListAddonsResponse,
+  type ListCheckoutSessionsResponse,
   type ListPublishableKeysData,
   type ListPublishableKeysResponse,
   type ListVoucherRedemptionsResponse,
   type ListVouchersResponse,
   listAddons,
+  listCheckoutSessions,
   listPublishableKeys,
   listVoucherRedemptions,
   listVouchers,
 } from '@/api-client';
 import {
   listAddonsOptions,
+  listCheckoutSessionsOptions,
   listPublishableKeysOptions,
   listVoucherRedemptionsOptions,
   listVouchersOptions,
@@ -19,10 +22,10 @@ import { pageRequest, type QueryContext } from './all-pages-query-options';
 import { fetchAllPages } from './pagination';
 
 // The lists of billing that the API pages: the versions of the add-ons, the vouchers,
-// the redemptions of a voucher and the publishable keys. They are read as the lists of
-// `all-pages-query-options.ts` are, under the generated key of the first-page options
-// and across every page, so that a screen that searches and sorts in the browser holds
-// the whole list and not its first fifty rows.
+// the redemptions of a voucher, the publishable keys and the anonymous checkouts. They
+// are read as the lists of `all-pages-query-options.ts` are, under the generated key of
+// the first-page options and across every page, so that a screen that searches and sorts
+// in the browser holds the whole list and not its first fifty rows.
 
 /**
  * What narrows the list of publishable keys: whether the revoked ones are in it. The
@@ -39,6 +42,24 @@ export const allAddonsOptions = () => ({
     hasMore: false,
     items: await fetchAllPages(
       async (cursor) => (await listAddons(pageRequest(cursor, signal))).data,
+      signal,
+    ),
+  }),
+});
+
+/**
+ * Every anonymous checkout of the organization, newest first, whatever its status: the
+ * screen filters them in the browser, so it asks the API for none of its filters.
+ */
+export const allCheckoutSessionsOptions = () => ({
+  ...listCheckoutSessionsOptions(),
+  queryFn: async ({
+    signal,
+  }: QueryContext): Promise<ListCheckoutSessionsResponse> => ({
+    hasMore: false,
+    items: await fetchAllPages(
+      async (cursor) =>
+        (await listCheckoutSessions(pageRequest(cursor, signal))).data,
       signal,
     ),
   }),

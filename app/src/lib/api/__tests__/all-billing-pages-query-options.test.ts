@@ -3,24 +3,28 @@ import { describe, expect, it } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type {
   Addon,
+  CheckoutSessionAdmin,
   PublishableKey,
   Redemption,
   Voucher,
 } from '@/api-client';
 import {
   listAddonsOptions,
+  listCheckoutSessionsOptions,
   listPublishableKeysQueryKey,
   listVoucherRedemptionsQueryKey,
   listVouchersQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import {
   handleListAddons,
+  handleListCheckoutSessions,
   handleListPublishableKeys,
   handleListVoucherRedemptions,
   handleListVouchers,
 } from '@/api-client/msw.gen';
 import {
   allAddonsOptions,
+  allCheckoutSessionsOptions,
   allPublishableKeysOptions,
   allVoucherRedemptionsOptions,
   allVouchersOptions,
@@ -28,6 +32,7 @@ import {
 
 const addon = (id: string) => ({ id }) as Addon;
 const key = (id: string) => ({ id }) as PublishableKey;
+const checkout = (sessionId: string) => ({ sessionId }) as CheckoutSessionAdmin;
 const redemption = (id: string) => ({ id }) as Redemption;
 const voucher = (id: string) => ({ id }) as Voucher;
 const context = () => ({ signal: new AbortController().signal }) as never;
@@ -179,6 +184,47 @@ describe('allPublishableKeysOptions', () => {
 
     await expect(allPublishableKeysOptions().queryFn(context())).rejects.toThrow(
       'Invalid pagination response',
+    );
+  });
+});
+
+describe('allCheckoutSessionsOptions', () => {
+  it('reads every page of the checkouts under the generated key, 200 rows a request and no filter', async () => {
+    const requests: Request[] = [];
+    server.use(
+      handleListCheckoutSessions(({ request }) => {
+        requests.push(request);
+
+        return HttpResponse.json(
+          new URL(request.url).searchParams.get('cursor') === 'c1'
+            ? { hasMore: false, items: [checkout('cs-2')] }
+            : { hasMore: true, items: [checkout('cs-1')], nextCursor: 'c1' },
+        );
+      }),
+    );
+
+    const options = allCheckoutSessionsOptions();
+
+    expect(options.queryKey).toEqual(listCheckoutSessionsOptions().queryKey);
+    expect(await options.queryFn(context())).toEqual({
+      hasMore: false,
+      items: [checkout('cs-1'), checkout('cs-2')],
+    });
+    expect(queriesOf(requests)).toEqual([
+      { limit: '200' },
+      { cursor: 'c1', limit: '200' },
+    ]);
+  });
+
+  it('refuses a page that says more follows and gives no cursor', async () => {
+    server.use(
+      handleListCheckoutSessions({
+        body: { hasMore: true, items: [checkout('cs-1')] },
+      }),
+    );
+
+    await expect(allCheckoutSessionsOptions().queryFn(context())).rejects.toThrow(
+      'hasMore requires a cursor',
     );
   });
 });
