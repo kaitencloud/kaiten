@@ -142,7 +142,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		}),
 		CreateCheckoutSession: createcheckoutsession.NewUseCase(createcheckoutsession.Deps{
 			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
-			Turnstile: turnstile.NewClient(svc.Config.Billing.TurnstileVerifyURL),
+			Turnstile: turnstile.NewClient(svc.TurnstileVerifyURL),
 		}),
 		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation, Payments: from.CheckoutSetup}),
 		ConfirmCheckoutSession: confirmcheckoutsession.NewUseCase(confirmcheckoutsession.Deps{

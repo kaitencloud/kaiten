@@ -84,11 +84,11 @@ func TestMain(m *testing.M) {
 			cfg.Billing.Push.MaxBackoff = 200 * time.Millisecond
 			cfg.Billing.Push.AlertAfterAttempts = 2
 			cfg.Billing.AutoCollectionGrace = 2 * time.Hour
-			cfg.Billing.TurnstileVerifyURL = turnstile.URL
 		},
 		ConnectorEntitlements: entitlements,
 		UsageReporter:         quotas,
 		Stripe:                billingstripe.Options{BaseURL: fake.URL(), HTTPClient: fake.Client()},
+		TurnstileVerifyURL:    turnstile.URL,
 	})
 
 	code := m.Run()

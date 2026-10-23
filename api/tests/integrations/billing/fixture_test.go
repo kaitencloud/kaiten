@@ -60,9 +60,9 @@ func TestMain(m *testing.M) {
 			cfg.Billing.Enabled = true
 			// Tests close periods themselves; the job would race them.
 			cfg.Billing.PeriodClose.Interval = -1
-			cfg.Billing.TurnstileVerifyURL = turnstile.URL
 		},
 		ConnectorEntitlements: entitlements,
+		TurnstileVerifyURL:    turnstile.URL,
 	})
 	disabledServer = tests.NewTestServer(testDb)
 	platformServer = tests.NewTestServer(testDb, tests.TestServerOptions{

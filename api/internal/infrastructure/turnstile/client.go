@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+// VerifyURL is Cloudflare's siteverify endpoint. It is not configurable: an
+// address pointed at a fake that always says yes would bypass Turnstile, which
+// the spec forbids, self-hosted included (V32-01 rule 6, §16.4). An egress
+// proxy goes through HTTPS_PROXY.
+const VerifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
+
 // Timeout bounds one verification: past it the start answers 503
 // .TurnstileUnavailable.
 const Timeout = 5 * time.Second
@@ -41,8 +47,12 @@ type Client struct {
 	http *http.Client
 }
 
-// NewClient verifies against verifyURL.
+// NewClient verifies against verifyURL; empty is VerifyURL. Only tests name
+// another, through kaiten.Options.
 func NewClient(verifyURL string) *Client {
+	if verifyURL == "" {
+		verifyURL = VerifyURL
+	}
 	return &Client{url: verifyURL, http: &http.Client{Timeout: Timeout}}
 }
 

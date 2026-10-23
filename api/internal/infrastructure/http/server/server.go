@@ -63,10 +63,13 @@ type Dependencies struct {
 	BillingProviders provider.Registry
 	// Stripe configures the Stripe adapter of the default providers (tests
 	// point it at a fake Stripe); the zero value reaches Stripe.
-	Stripe        billingstripe.Options
-	DB            *pgxpool.Pool
-	Logger        *slog.Logger
-	UsageReporter services.UsageReporter
+	Stripe billingstripe.Options
+	// TurnstileVerifyURL points the Turnstile verification at a fake, for
+	// tests; empty is Cloudflare's.
+	TurnstileVerifyURL string
+	DB                 *pgxpool.Pool
+	Logger             *slog.Logger
+	UsageReporter      services.UsageReporter
 }
 
 // Server runs two HTTP stacks in one process.
@@ -279,6 +282,7 @@ func (s *Server) setupApplication() error {
 		EntitlementConfig:     s.deps.EntitlementConfig,
 		BillingProviders:      s.deps.BillingProviders,
 		Stripe:                s.deps.Stripe,
+		TurnstileVerifyURL:    s.deps.TurnstileVerifyURL,
 		// A server with no database serves no background work: cmd/docs builds one
 		// purely to walk the route table and generate the OpenAPI documents. This is
 		// the same condition setupRetention applies to the transport-table sweep,

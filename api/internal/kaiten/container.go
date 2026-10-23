@@ -155,6 +155,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// configure them: both read svc (its unit of work, its settings store), and
 	// both must be on it before the billing and connectors modules are built.
 	svc.BillingProviders, svc.ConnectorHooks = billingProviders(opts, svc)
+	svc.TurnstileVerifyURL = opts.TurnstileVerifyURL
 
 	// The template for the dedicated Postgres LISTEN connections the two
 	// cache-owning modules dial (see internal/infrastructure/pgnotify), derived

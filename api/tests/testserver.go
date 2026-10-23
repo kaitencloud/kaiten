@@ -150,6 +150,9 @@ type TestServerOptions struct {
 	// Stripe points the shipped Stripe adapter somewhere (a stripefake).
 	Stripe billingstripe.Options
 
+	// TurnstileVerifyURL points the Turnstile verification at a fake.
+	TurnstileVerifyURL string
+
 	// PlatformCredential makes BOTH of the server's listeners authenticate every
 	// request as a platform credential (StubPlatformMiddleware) instead of an
 	// organization one.
@@ -275,6 +278,12 @@ func NewTestServer(tdb *TestDatabase, opts ...TestServerOptions) *TestServer {
 				return opts[0].Stripe
 			}
 			return billingstripe.Options{}
+		}(),
+		TurnstileVerifyURL: func() string {
+			if len(opts) > 0 {
+				return opts[0].TurnstileVerifyURL
+			}
+			return ""
 		}(),
 	}
 

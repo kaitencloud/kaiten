@@ -217,6 +217,10 @@ type Container struct {
 	// through. Never nil: NOOP alone when the driver registers none.
 	BillingProviders provider.Registry
 
+	// TurnstileVerifyURL is where an anonymous checkout's start verifies its
+	// Turnstile token: empty is Cloudflare's own. Only a test sets it.
+	TurnstileVerifyURL string
+
 	// ConnectorHooks are the lifecycle rules of the connectors that have
 	// their own (a payment provider's), by connector name. Nil has none.
 	ConnectorHooks connectorhooks.Registry

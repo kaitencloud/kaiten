@@ -84,6 +84,10 @@ type Options struct {
 	// value reaches Stripe itself. Tests point it at a fake Stripe.
 	Stripe billingstripe.Options
 
+	// TurnstileVerifyURL points the Turnstile verification at a fake, for
+	// tests; empty is Cloudflare's. No configuration reaches it (V32-01 rule 6).
+	TurnstileVerifyURL string
+
 	// BackgroundWorkers is whether this process runs background work: the
 	// pgnotify listeners, the retired-token sweep, the feature-flag evaluation
 	// publisher.
