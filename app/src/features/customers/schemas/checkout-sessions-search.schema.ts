@@ -13,8 +13,9 @@ const STATUS_PARAMS = CHECKOUT_SESSION_STATUSES.map((status) =>
 /**
  * What a link can open the checkouts on. `?status=` is a filter already set, in the
  * words the address uses (`open`, `awaiting_payment`, `completed`, `abandoned`,
- * `expired`): it only seeds the filter when the list opens, and what the person then
- * changes is not written back. `?session=<id>` opens the panel of that checkout over the
+ * `expired`): it sets the filter, when the list opens and when a link to it is followed
+ * with another status; once the person changes or clears the filter by hand the address
+ * drops it, so that a reload or a copied link shows what the page shows. `?session=<id>` opens the panel of that checkout over the
  * list, so that a checkout can be linked to and the back button closes it. A link is not
  * an API call, so what does not read as one of these is dropped, field by field.
  */

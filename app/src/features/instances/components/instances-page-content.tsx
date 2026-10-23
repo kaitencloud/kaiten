@@ -6,10 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { Page } from '@/functionals/page';
 import { RouteTabs } from '@/functionals/route-tabs';
 import {
-  useCustomersSectionTabs,
+  useCheckoutSessionsOffered,
   useInstancesBilling,
 } from '@/domains/billing';
-import { useInstancesWithRelations } from '@/domains/customer-management';
+import {
+  useCustomersSectionTabs,
+  useInstancesWithRelations,
+} from '@/domains/customer-management';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { InstancesTable } from './instance-table';
 
@@ -20,7 +23,9 @@ export function InstancesPageContent({ children }: { children?: ReactNode }) {
   const billing = useInstancesBilling();
   const { t } = useTranslation();
   const InstanceIcon = dataModelIcons.instance;
-  const tabs = useCustomersSectionTabs();
+  const tabs = useCustomersSectionTabs({
+    checkoutsOffered: useCheckoutSessionsOffered(),
+  });
 
   return (
     <>

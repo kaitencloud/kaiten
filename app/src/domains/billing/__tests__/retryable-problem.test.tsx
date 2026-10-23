@@ -6,7 +6,7 @@ import { testI18n } from '@/__tests__/test-i18n';
 import { ApiError } from '@/lib/errors';
 import en from '@/lib/i18n/locales/en';
 import fr from '@/lib/i18n/locales/fr';
-import { BillingRouteError, RetryableProblem } from '../components';
+import { BillingRouteError, ProblemAlert, RetryableProblem } from '../components';
 
 const invalidate = vi.fn();
 
@@ -96,6 +96,46 @@ describe('RetryableProblem', () => {
 
     expect(screen.getByText('read:billing')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Retry' })).toBeNull();
+  });
+});
+
+describe('the title of a read that failed', () => {
+  it.each([500, 502, 503])(
+    'does not say a %s was refused: the server could not answer, nobody refused',
+    (status) => {
+      render(
+        <RetryableProblem
+          error={apiError(status, { detail: 'boom', status })}
+          onRetry={() => {}}
+        />,
+      );
+
+      expect(screen.getByText('The data could not be read')).toBeInTheDocument();
+      expect(screen.queryByText('The request was refused')).toBeNull();
+    },
+  );
+
+  it('says it for a failure that got no answer at all', () => {
+    render(<RetryableProblem error={new Error('Failed to fetch')} onRetry={() => {}} />);
+
+    expect(screen.getByText('The data could not be read')).toBeInTheDocument();
+  });
+
+  it.each([403, 422])('keeps "refused" for a %s, which the API did refuse', (status) => {
+    render(
+      <RetryableProblem
+        error={apiError(status, { detail: 'no', status })}
+        onRetry={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('The request was refused')).toBeInTheDocument();
+  });
+
+  it('keeps "refused" for a call that is not a read, whatever the status', () => {
+    render(<ProblemAlert error={apiError(500, { detail: 'boom', status: 500 })} />);
+
+    expect(screen.getByText('The request was refused')).toBeInTheDocument();
   });
 });
 

@@ -277,12 +277,13 @@ export function createEmptyInstancesModel() {
   });
 }
 
-export function createCustomerScopedInstanceModel() {
+/** One customer and two licenses; `customerSlug` gives the customer another slug than its own. */
+export function createCustomerScopedInstanceModel(customerSlug?: string) {
   const { customers, licenses } = createBaseEntities();
   const [acme] = customers;
 
   return new InstanceAppModel({
-    customers: [acme],
+    customers: [customerSlug ? { ...acme, slug: customerSlug } : acme],
     licenses: licenses.slice(0, 2),
   });
 }

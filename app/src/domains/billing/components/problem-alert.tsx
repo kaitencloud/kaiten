@@ -39,6 +39,8 @@ type ProblemAlertProps = {
   className?: string;
   /** What a billing call threw: an `ApiError`, a problem document, anything. */
   error: unknown;
+  /** The alert is about a read: a failure that is not a refusal (a 4xx) is then not worded as one. */
+  reading?: boolean;
   /** Offered for a failure that changed nothing, when asking again may work. */
   onRetry?: () => void;
 };
@@ -61,6 +63,7 @@ export function ProblemAlert({
   className,
   error,
   onRetry,
+  reading = false,
 }: ProblemAlertProps) {
   const { i18n, t } = useTranslation();
   const problem = handleBillingProblem(error);
@@ -82,6 +85,9 @@ export function ProblemAlert({
   }
 
   const hasDetail = Boolean(problem.detail);
+  // A read that failed on the server, or on the way to it, was not refused by anyone.
+  const refused =
+    !reading || (problem.status !== undefined && problem.status < 500);
   // Nothing was changed by either, and asking again is what they invite.
   const retryable =
     (problem.kind === 'transient' ||
@@ -98,7 +104,13 @@ export function ProblemAlert({
       variant="destructive"
     >
       <TriangleAlert />
-      <AlertTitle>{t('Features.Billing.Problems.title')}</AlertTitle>
+      <AlertTitle>
+        {t(
+          refused
+            ? 'Features.Billing.Problems.title'
+            : 'Features.Billing.Problems.unreadableTitle',
+        )}
+      </AlertTitle>
       <AlertDescription>
         <p>{problem.detail ?? t('Features.Billing.Problems.generic')}</p>
         {!hasDetail && problem.code ? (

@@ -36,7 +36,7 @@ export function RetryableProblem({
 
   return (
     <div className={cn('space-y-3', className)} {...props}>
-      <ProblemAlert error={error} />
+      <ProblemAlert error={error} reading />
       {FINAL_KINDS.includes(handleBillingProblem(error).kind) ? null : (
         <Button onClick={onRetry} type="button" variant="outline">
           <RefreshCw />

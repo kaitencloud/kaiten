@@ -2,10 +2,12 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { CheckoutSessionAdmin } from '@/api-client';
 import { Money } from '@/domains/billing';
-import { formatDateTime } from '@/lib/format-date';
+import { formatDate, formatDateTime } from '@/lib/format-date';
 import {
+  type CheckoutLabels,
   getPeriodLabelKey,
   isExpiredWithRecords,
+  nameOrId,
 } from '../../utils/checkout-session';
 import {
   CheckoutCustomerLink,
@@ -13,6 +15,7 @@ import {
 } from './checkout-session-links';
 
 type SessionProps = { session: CheckoutSessionAdmin };
+type LabelledSessionProps = SessionProps & { labels: CheckoutLabels };
 
 /**
  * The e-mail the visitor gave, with the vendor's own reference under it when there is one.
@@ -23,6 +26,7 @@ export function CheckoutEmailCell({ session }: SessionProps) {
   return (
     <div className="min-w-0">
       <Link
+        data-session-id={session.sessionId}
         className="block truncate rounded-sm text-sm font-medium underline-offset-4 hover:underline focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-none"
         search={(previous) => ({ ...previous, session: session.sessionId })}
         to="/customers/checkout-sessions"
@@ -38,14 +42,16 @@ export function CheckoutEmailCell({ session }: SessionProps) {
   );
 }
 
-/** The licence the visitor chose and the period it is billed over. */
-export function CheckoutPlanCell({ session }: SessionProps) {
+/** The license the visitor chose, by its name, and the period it is billed over. */
+export function CheckoutLicenseCell({ labels, session }: LabelledSessionProps) {
   const { t } = useTranslation();
   const periodKey = getPeriodLabelKey(session.billingPeriod);
 
   return (
     <div className="min-w-0">
-      <p className="truncate text-sm font-medium">{session.licenseSlug}</p>
+      <p className="truncate text-sm font-medium">
+        {nameOrId(labels.licenses, session.licenseSlug)}
+      </p>
       <p className="truncate text-xs text-muted-foreground">
         {periodKey ? t(periodKey) : session.billingPeriod}
       </p>
@@ -78,7 +84,9 @@ export function CheckoutKeyCell({
   const label = keyLabels[publishableKeyId];
 
   return label ? (
-    <span className="text-sm">{label}</span>
+    <span className="block max-w-40 truncate text-sm" title={label}>
+      {label}
+    </span>
   ) : (
     <span
       className="block max-w-40 truncate font-mono text-xs text-muted-foreground"
@@ -90,12 +98,22 @@ export function CheckoutKeyCell({
 }
 
 /** The customer a completion created; an expired checkout says that it stays. */
-export function CheckoutCustomerCell({ session }: SessionProps) {
+export function CheckoutCustomerCell({
+  labels,
+  session,
+}: LabelledSessionProps) {
   const { t } = useTranslation();
 
   return (
     <div className="min-w-0 space-y-0.5">
-      <CheckoutCustomerLink customerSlug={session.customerSlug} />
+      <CheckoutCustomerLink
+        customerSlug={session.customerSlug}
+        name={
+          session.customerSlug
+            ? labels.customers[session.customerSlug]
+            : undefined
+        }
+      />
       {isExpiredWithRecords(session) ? (
         <p className="text-xs text-muted-foreground">
           {t('Pages.Customers.CheckoutSessions.expiredRemains')}
@@ -106,19 +124,37 @@ export function CheckoutCustomerCell({ session }: SessionProps) {
 }
 
 /** The instance a completion created, linked to its Billing tab. */
-export function CheckoutInstanceCell({ session }: SessionProps) {
-  return <CheckoutInstanceLink instanceSlug={session.instanceSlug} />;
+export function CheckoutInstanceCell({
+  labels,
+  session,
+}: LabelledSessionProps) {
+  return (
+    <CheckoutInstanceLink
+      instanceSlug={session.instanceSlug}
+      name={
+        session.instanceSlug
+          ? labels.instances[session.instanceSlug]
+          : undefined
+      }
+    />
+  );
 }
 
-/** A moment of the checkout, or a dash while it has not happened. */
+/**
+ * A moment of the checkout on two lines, the day and the time of day, or a dash while it
+ * has not happened: narrow enough for the list to show both dates of a checkout.
+ */
 export function CheckoutInstantCell({ value }: { value: string | null }) {
+  if (!value) {
+    return <span className="text-sm text-muted-foreground">—</span>;
+  }
+
   return (
-    <span className="text-sm">
-      {value ? (
-        formatDateTime(value)
-      ) : (
-        <span className="text-muted-foreground">—</span>
-      )}
-    </span>
+    <div className="text-sm whitespace-nowrap" title={formatDateTime(value)}>
+      <p>{formatDate(value)}</p>
+      <p className="text-xs text-muted-foreground">
+        {formatDateTime(value, { timeStyle: 'short' })}
+      </p>
+    </div>
   );
 }

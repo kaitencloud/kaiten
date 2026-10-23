@@ -8,7 +8,10 @@ import type { CheckoutSessionAdmin, PublishableKey } from '@/api-client';
 import {
   handleGetBillingCapabilities,
   handleGetCheckoutSessionAdmin,
+  handleGetInstances,
+  handleGetLicenses,
   handleListCheckoutSessions,
+  handleListCustomers,
   handleListPublishableKeys,
 } from '@/api-client/msw.gen';
 import {
@@ -130,6 +133,7 @@ function serve({
 
 const onOpen = vi.fn();
 const onClose = vi.fn();
+const onStatusSeedDropped = vi.fn();
 
 function page(search: { session?: string; status?: string } = {}) {
   return renderWithClient(
@@ -137,6 +141,7 @@ function page(search: { session?: string; status?: string } = {}) {
       <CheckoutSessionsPageContent
         onClose={onClose}
         onOpen={onOpen}
+        onStatusSeedDropped={onStatusSeedDropped}
         search={search}
       />
     </Suspense>,
@@ -150,6 +155,7 @@ beforeEach(() => {
   navigate.mockReset();
   onOpen.mockReset();
   onClose.mockReset();
+  onStatusSeedDropped.mockReset();
   getAuthToken.mockResolvedValue(sessionToken(READ));
 });
 
@@ -265,7 +271,124 @@ describe('the list of checkouts', () => {
   });
 });
 
+describe('the names of what a checkout points at', () => {
+  const READ_NAMES = [...READ, 'read:customers', 'read:instances', 'read:licenses'];
+
+  function serveNames() {
+    server.use(
+      handleListCustomers({
+        body: {
+          hasMore: false,
+          items: [{ id: 'c1', name: 'Bought Online Ltd', slug: 'bought-online' }] as never,
+        },
+      }),
+      handleGetInstances({
+        body: {
+          hasMore: false,
+          items: [
+            { id: 'i1', name: 'Bought Online Production', slug: 'bought-online-prod' },
+          ],
+        } as never,
+      }),
+      handleGetLicenses({
+        body: { hasMore: false, items: [{ id: 'l1', name: 'Professional', slug: 'pro' }] } as never,
+      }),
+    );
+  }
+
+  it('shows the name of the license, of the customer and of the instance once their lists are read, and the slug till then', async () => {
+    getAuthToken.mockResolvedValue(sessionToken(READ_NAMES));
+    serve();
+    serveNames();
+    page();
+
+    const completed = await screen.findByRole('row', { name: /alice@acme.test/ });
+    expect(within(completed).getByText('bought-online')).toBeVisible();
+    await waitFor(() =>
+      expect(within(completed).getByRole('link', { name: 'Bought Online Ltd' })).toHaveAttribute(
+        'href',
+        '/customers/bought-online',
+      ),
+    );
+    expect(
+      within(completed).getByRole('link', { name: 'Bought Online Production' }),
+    ).toHaveAttribute('href', '/customers/instances/bought-online-prod/billing');
+    expect(within(completed).getByText('Professional')).toBeVisible();
+  });
+
+  it('finds a checkout by the name of what it created as well as by its slug', async () => {
+    getAuthToken.mockResolvedValue(sessionToken(READ_NAMES));
+    serve();
+    serveNames();
+    page();
+    const user = userEvent.setup();
+
+    await screen.findByRole('row', { name: /dana@hooli.test/ });
+    await screen.findByRole('link', { name: 'Bought Online Ltd' });
+    await user.type(screen.getByPlaceholderText(/Search by email/), 'online ltd');
+
+    await waitFor(() => expect(screen.getAllByRole('row', { name: /@/ })).toHaveLength(1));
+    expect(row('alice@acme.test')).toBeVisible();
+  });
+
+  it('asks for none of those lists, and keeps the slugs, for a session that may not read them', async () => {
+    const reads: string[] = [];
+    server.use(
+      handleListCustomers(({ request }) => {
+        reads.push(request.url);
+        return HttpResponse.json({ hasMore: false, items: [] });
+      }),
+    );
+    serve();
+    page();
+
+    const completed = await screen.findByRole('row', { name: /alice@acme.test/ });
+    expect(within(completed).getByRole('link', { name: 'bought-online' })).toBeVisible();
+    expect(within(completed).getByText('pro')).toBeVisible();
+    expect(reads).toEqual([]);
+  });
+});
+
+describe('the columns of the list', () => {
+  it('shows when each checkout was made and when it expires, the date apart from the time', async () => {
+    serve();
+    page();
+
+    const headers = (await screen.findAllByRole('columnheader')).map((header) => header.textContent);
+    expect(headers).toEqual([
+      'Status',
+      'Email',
+      'License',
+      'Due today',
+      'Created',
+      'Expires',
+      'Customer',
+      'Instance',
+      'Publishable key',
+    ]);
+    expect(within(row('dana@hooli.test')).getByText('Oct 8, 2026')).toBeVisible();
+  });
+});
+
 describe('the panel of a checkout', () => {
+  it('is titled with the e-mail the list holds while the checkout is read', async () => {
+    serve();
+    server.use(handleGetCheckoutSessionAdmin(() => new Promise<never>(() => {})));
+    page({ session: 'cs-completed' });
+
+    expect(await screen.findByRole('heading', { name: 'alice@acme.test' })).toBeVisible();
+    expect(screen.getByRole('status', { name: 'Loading the checkout' })).toBeVisible();
+  });
+
+  it('takes the focus itself when it opens, so that no ring is drawn round its body', async () => {
+    serve();
+    page({ session: 'cs-completed' });
+
+    const dialog = await screen.findByRole('dialog');
+    await waitFor(() => expect(dialog).toHaveFocus());
+  });
+
+
   it('reads the checkout from the API and shows what it returns', async () => {
     serve();
     page({ session: 'cs-completed' });

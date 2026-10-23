@@ -9,8 +9,11 @@ const LINK_CLASS_NAME =
 /** The customer a completed checkout created, as a link to its page; a dash before one exists. */
 export function CheckoutCustomerLink({
   customerSlug,
+  name,
 }: {
   customerSlug: string | null;
+  /** The name of the customer, when it is known: the slug stands in for it otherwise. */
+  name?: string;
 }) {
   const CustomerIcon = dataModelIcons.customer;
 
@@ -24,7 +27,9 @@ export function CheckoutCustomerLink({
       {...getCustomerDetailTarget(customerSlug)}
     >
       <CustomerIcon aria-hidden className="size-3.5 shrink-0 opacity-70" />
-      <span className="truncate">{customerSlug}</span>
+      <span className="truncate" title={customerSlug}>
+        {name ?? customerSlug}
+      </span>
     </Link>
   );
 }
@@ -35,8 +40,11 @@ export function CheckoutCustomerLink({
  */
 export function CheckoutInstanceLink({
   instanceSlug,
+  name,
 }: {
   instanceSlug: string | null;
+  /** The name of the instance, when it is known: the slug stands in for it otherwise. */
+  name?: string;
 }) {
   const InstanceIcon = dataModelIcons.instance;
 
@@ -51,7 +59,9 @@ export function CheckoutInstanceLink({
       to="/customers/instances/$instanceSlug/billing"
     >
       <InstanceIcon aria-hidden className="size-3.5 shrink-0 opacity-70" />
-      <span className="truncate">{instanceSlug}</span>
+      <span className="truncate" title={instanceSlug}>
+        {name ?? instanceSlug}
+      </span>
     </Link>
   );
 }
@@ -61,11 +71,11 @@ function NoRecord() {
   const { t } = useTranslation();
 
   return (
-    <span
-      aria-label={t('Pages.Customers.CheckoutSessions.noRecord')}
-      className="text-sm text-muted-foreground"
-    >
-      —
+    <span className="text-sm text-muted-foreground">
+      <span aria-hidden>—</span>
+      <span className="sr-only">
+        {t('Pages.Customers.CheckoutSessions.noRecord')}
+      </span>
     </span>
   );
 }

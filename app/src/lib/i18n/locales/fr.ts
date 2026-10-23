@@ -475,6 +475,7 @@ export default {
         title: 'Checkouts',
         subtitle:
           'Checkouts anonymes démarrés depuis vos clés publiables, et les clients qu’ils ont créés',
+        loading: 'Chargement des checkouts',
         noRecord: 'Non créé',
         expiredRemains: 'Reste après l’expiration',
         expiredNote:
@@ -489,19 +490,20 @@ export default {
         Columns: {
           status: 'Statut',
           email: 'E-mail',
-          plan: 'Formule',
+          license: 'Licence',
           dueToday: 'Dû aujourd’hui',
           key: 'Clé publiable',
           customer: 'Client',
           instance: 'Instance',
           created: 'Créé',
-          closed: 'Clos',
+          expires: 'Expire',
         },
         Filters: {
           search: 'Recherche',
           searchPlaceholder:
             'Rechercher par e-mail, référence, licence, client ou clé…',
           status: 'Statut',
+          period: 'Période',
           email: 'E-mail',
           emailPlaceholder: 'Adresse e-mail',
           clientReference: 'Référence client',
@@ -535,10 +537,10 @@ export default {
             'Cet e-mail a déjà eu l’essai de cette formule : le checkout facture donc la première période.',
           customer: 'Client créé',
           instance: 'Instance créée',
-          created: 'Créé',
-          expires: 'Expire',
-          completed: 'Terminé',
-          closed: 'Clos',
+          created: 'Créé le',
+          expires: 'Expire le',
+          completed: 'Terminé le',
+          closed: 'Clôturé le',
           dueToday: 'Dû aujourd’hui',
           DueToday: {
             noLines: 'Rien n’est dû aujourd’hui.',
@@ -6396,6 +6398,7 @@ export default {
       },
       Problems: {
         title: 'La requête a été refusée',
+        unreadableTitle: 'Les données n’ont pas pu être lues',
         generic: 'Une erreur est survenue en dialoguant avec la facturation.',
         transient: 'Rien n’a été modifié. Vous pouvez réessayer.',
         providerUnreachable:

@@ -23,3 +23,15 @@ export function useBillingScreenOffered({
 
   return billing.has(feature) && access.allowed;
 }
+
+/**
+ * Whether the anonymous checkouts are offered: billing is on, the release ships the public
+ * surface that starts them, and the scopes of the session cover reading them. The pages
+ * that lead to them (the tabs of the Customers section) ask this and draw the link
+ * themselves.
+ */
+export const useCheckoutSessionsOffered = (): boolean =>
+  useBillingScreenOffered({
+    action: 'checkoutSessions.list',
+    feature: 'publicSurface',
+  });

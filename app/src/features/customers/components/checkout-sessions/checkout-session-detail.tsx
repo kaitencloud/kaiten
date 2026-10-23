@@ -5,6 +5,7 @@ import type { CheckoutSessionAdmin } from '@/api-client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { formatDateTime } from '@/lib/format-date';
 import {
+  type CheckoutLabels,
   getPeriodLabelKey,
   isExpiredWithRecords,
 } from '../../utils/checkout-session';
@@ -16,8 +17,8 @@ import {
 import { CheckoutSessionStatusBadge } from './checkout-session-status-badge';
 
 type CheckoutSessionDetailProps = {
-  /** The label of the key whose page started the checkout, when the session may read the keys. */
-  keyLabel?: string;
+  /** The names the panel shows besides the ids and slugs of the checkout. */
+  labels: CheckoutLabels;
   session: CheckoutSessionAdmin;
 };
 
@@ -32,8 +33,20 @@ function Row({ children, label }: { children: ReactNode; label: string }) {
   );
 }
 
-const instant = (value: string | null) =>
-  value ? formatDateTime(value) : NONE;
+// A moment of the checkout is read in the time zone of the browser, and says which: the
+// service period of a line under it is in UTC, so that the same instant would otherwise
+// read two hours apart on one panel with no word of why.
+// (`dateStyle` and `timeStyle` cannot be combined with a zone name, hence the fields.)
+const INSTANT_FORMAT: Intl.DateTimeFormatOptions = {
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  month: 'short',
+  timeZoneName: 'short',
+  year: 'numeric',
+};
+const formatInstant = (value: string) => formatDateTime(value, INSTANT_FORMAT);
+const instant = (value: string | null) => (value ? formatInstant(value) : NONE);
 
 /** The reason a trial was not granted, in words when the console knows the code. */
 function TrialRefusal({ reason }: { reason: string | null }) {
@@ -58,12 +71,15 @@ function TrialRefusal({ reason }: { reason: string | null }) {
  * created, and the moments of its life. It only reads.
  */
 export function CheckoutSessionDetail({
-  keyLabel,
+  labels,
   session,
 }: CheckoutSessionDetailProps) {
   const { t } = useTranslation();
   const prefix = 'Pages.Customers.CheckoutSessions.Drawer';
   const periodKey = getPeriodLabelKey(session.billingPeriod);
+  const keyLabel = labels.keys[session.publishableKeyId];
+  const licenseName = labels.licenses[session.licenseSlug];
+  const { customerSlug, instanceSlug } = session;
 
   return (
     <div className="space-y-5" data-testid="checkout-session-detail">
@@ -89,7 +105,18 @@ export function CheckoutSessionDetail({
             NONE
           )}
         </Row>
-        <Row label={t(`${prefix}.license`)}>{session.licenseSlug}</Row>
+        <Row label={t(`${prefix}.license`)}>
+          {licenseName ? <p>{licenseName}</p> : null}
+          <span
+            className={
+              licenseName
+                ? 'font-mono text-xs text-muted-foreground'
+                : undefined
+            }
+          >
+            {session.licenseSlug}
+          </span>
+        </Row>
         <Row label={t(`${prefix}.period`)}>
           {periodKey ? t(periodKey) : session.billingPeriod}
         </Row>
@@ -121,7 +148,7 @@ export function CheckoutSessionDetail({
         <Row label={t(`${prefix}.trial`)}>
           {session.trialEndsAt ? (
             t(`${prefix}.trialEnds`, {
-              date: formatDateTime(session.trialEndsAt),
+              date: formatInstant(session.trialEndsAt),
             })
           ) : (
             <span className="text-muted-foreground">
@@ -131,10 +158,16 @@ export function CheckoutSessionDetail({
           <TrialRefusal reason={session.trialRefusedReason} />
         </Row>
         <Row label={t(`${prefix}.customer`)}>
-          <CheckoutCustomerLink customerSlug={session.customerSlug} />
+          <CheckoutCustomerLink
+            customerSlug={customerSlug}
+            name={customerSlug ? labels.customers[customerSlug] : undefined}
+          />
         </Row>
         <Row label={t(`${prefix}.instance`)}>
-          <CheckoutInstanceLink instanceSlug={session.instanceSlug} />
+          <CheckoutInstanceLink
+            instanceSlug={instanceSlug}
+            name={instanceSlug ? labels.instances[instanceSlug] : undefined}
+          />
         </Row>
         <Row label={t(`${prefix}.created`)}>{instant(session.createdAt)}</Row>
         <Row label={t(`${prefix}.expires`)}>{instant(session.expiresAt)}</Row>

@@ -459,6 +459,7 @@ export default {
         title: 'Checkouts',
         subtitle:
           'Anonymous checkouts started from your publishable keys, and the customers they created',
+        loading: 'Loading the checkouts',
         noRecord: 'Not created',
         expiredRemains: 'Stays after expiry',
         expiredNote:
@@ -473,19 +474,20 @@ export default {
         Columns: {
           status: 'Status',
           email: 'Email',
-          plan: 'Plan',
+          license: 'License',
           dueToday: 'Due today',
           key: 'Publishable key',
           customer: 'Customer',
           instance: 'Instance',
           created: 'Created',
-          closed: 'Closed',
+          expires: 'Expires',
         },
         Filters: {
           search: 'Search',
           searchPlaceholder:
             'Search by email, reference, license, customer or key…',
           status: 'Status',
+          period: 'Period',
           email: 'Email',
           emailPlaceholder: 'Email address',
           clientReference: 'Client reference',
@@ -6295,6 +6297,7 @@ export default {
       },
       Problems: {
         title: 'The request was refused',
+        unreadableTitle: 'The data could not be read',
         generic: 'Something went wrong while talking to billing.',
         transient: 'Nothing was changed. You can try again.',
         providerUnreachable:

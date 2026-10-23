@@ -1,11 +1,14 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useCustomersSectionTabs } from '@/domains/billing';
+import { useCheckoutSessionsOffered } from '@/domains/billing';
 import { Page } from '@/functionals/page';
 import { RouteTabs } from '@/functionals/route-tabs';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import { customersWithInstancesQueryOptions } from '@/domains/customer-management';
+import {
+  customersWithInstancesQueryOptions,
+  useCustomersSectionTabs,
+} from '@/domains/customer-management';
 import { CustomersTable } from './customer-table';
 
 export function CustomersPageContent({ children }: { children?: ReactNode }) {
@@ -14,7 +17,9 @@ export function CustomersPageContent({ children }: { children?: ReactNode }) {
     customersWithInstancesQueryOptions,
   );
   const CustomerIcon = dataModelIcons.customer;
-  const tabs = useCustomersSectionTabs();
+  const tabs = useCustomersSectionTabs({
+    checkoutsOffered: useCheckoutSessionsOffered(),
+  });
 
   return (
     <>

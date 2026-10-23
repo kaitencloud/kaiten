@@ -2,6 +2,7 @@
 // the instances screens, so their labels and badges live here, beside the
 // read models the two features share.
 export { InstanceLifecycleStageBadge, InstanceStatusBadge } from './components';
+export { useCustomersSectionTabs } from './hooks';
 export {
   BILLING_EMAIL_ERROR_KEYS,
   BILLING_EMAIL_MAX_LENGTH,

@@ -111,4 +111,25 @@ test.describe('instances create', () => {
     await customerDetail.expectLoaded('Acme Corp');
     await customerDetail.expectInstanceVisible('Acme Sandbox');
   });
+
+  test('closes the customer-scoped dialog onto the page of a customer whose slug a static route takes', async ({
+    page,
+  }) => {
+    const customerDetail = new CustomerDetailDriver(page);
+
+    await installInstanceAppMocks(
+      page,
+      createCustomerScopedInstanceModel('checkout-sessions'),
+    );
+    await page.goto('/customers/checkout-sessions/overview');
+    await customerDetail.expectLoaded('Acme Corp');
+    await customerDetail.openCreateInstanceDialog();
+    await expect(page).toHaveURL('/customers/checkout-sessions/instances/new');
+
+    await page.getByRole('button', { name: 'Cancel' }).click();
+
+    // Back on the customer, not on the list of checkouts its slug is the path of.
+    await expect(page).toHaveURL('/customers/checkout-sessions/overview');
+    await customerDetail.expectLoaded('Acme Corp');
+  });
 });

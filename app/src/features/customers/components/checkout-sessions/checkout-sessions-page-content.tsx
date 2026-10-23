@@ -1,10 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { useTranslation } from 'react-i18next';
-import { useCustomersSectionTabs } from '@/domains/billing';
-import { Page } from '@/functionals/page';
-import { RouteTabs } from '@/functionals/route-tabs';
-import { dataModelIcons } from '@/lib/data-model-icons';
-import { usePublishableKeyLabels } from '../../hooks/use-publishable-key-labels';
+import { useCheckoutLabels } from '../../hooks/use-checkout-labels';
 import { checkoutSessionsQueryOptions } from '../../queries';
 import {
   type CheckoutSessionsSearch,
@@ -12,12 +7,15 @@ import {
 } from '../../schemas/checkout-sessions-search.schema';
 import { CheckoutSessionDrawer } from './checkout-session-drawer';
 import { CheckoutSessionsList } from './checkout-sessions-list';
+import { CheckoutSessionsPageShell } from './checkout-sessions-page-shell';
 
 type CheckoutSessionsPageContentProps = {
   /** Drops the checkout the panel was opened on from the address. */
   onClose: () => void;
   /** Opens the panel of a checkout, by writing its id to the address. */
   onOpen: (sessionId: string) => void;
+  /** Drops the status the address seeded, once the person changed the filter away from it. */
+  onStatusSeedDropped: () => void;
   /** What the address holds: the filter the list opens with and the checkout open over it. */
   search: CheckoutSessionsSearch;
 };
@@ -31,47 +29,33 @@ type CheckoutSessionsPageContentProps = {
 export function CheckoutSessionsPageContent({
   onClose,
   onOpen,
+  onStatusSeedDropped,
   search,
 }: CheckoutSessionsPageContentProps) {
-  const { t } = useTranslation();
   const { data } = useSuspenseQuery(checkoutSessionsQueryOptions());
-  const { labels } = usePublishableKeyLabels();
-  const tabs = useCustomersSectionTabs();
-  const CheckoutIcon = dataModelIcons.checkoutSession;
+  const labels = useCheckoutLabels();
+  // The row the panel was opened from already knows the e-mail the panel is titled with.
+  const listed = search.session
+    ? data.items.find((session) => session.sessionId === search.session)
+    : undefined;
 
   return (
-    <Page className="h-full min-h-0 overflow-hidden">
-      <Page.Header>
-        <Page.Leading>
-          <Page.Icon>
-            <CheckoutIcon className="size-8 text-primary-subtle-foreground" />
-          </Page.Icon>
-          <Page.Heading>
-            <Page.Title>
-              {t('Pages.Customers.CheckoutSessions.title')}
-            </Page.Title>
-            <Page.Subtitle>
-              {t('Pages.Customers.CheckoutSessions.subtitle')}
-            </Page.Subtitle>
-          </Page.Heading>
-        </Page.Leading>
-      </Page.Header>
-      <RouteTabs tabs={tabs} />
-      <div className="min-h-0 flex-1">
-        <CheckoutSessionsList
-          initialFilterValues={toInitialFilterValues(search)}
-          keyLabels={labels}
-          onOpen={(session) => onOpen(session.sessionId)}
-          sessions={data.items}
-        />
-      </div>
+    <CheckoutSessionsPageShell>
+      <CheckoutSessionsList
+        initialFilterValues={toInitialFilterValues(search)}
+        labels={labels}
+        onOpen={(session) => onOpen(session.sessionId)}
+        onStatusSeedDropped={onStatusSeedDropped}
+        sessions={data.items}
+      />
       {search.session ? (
         <CheckoutSessionDrawer
-          keyLabels={labels}
+          labels={labels}
+          listedEmail={listed?.email}
           onClose={onClose}
           sessionId={search.session}
         />
       ) : null}
-    </Page>
+    </CheckoutSessionsPageShell>
   );
 }

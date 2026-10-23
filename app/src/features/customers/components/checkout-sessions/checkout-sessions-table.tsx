@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react';
 import type { CheckoutSessionAdmin } from '@/api-client';
 import { DataTable } from '@/functionals/table';
+import type { CheckoutLabels } from '../../utils/checkout-session';
 import { useCheckoutSessionColumns } from './checkout-sessions-columns';
 
 type CheckoutSessionsTableProps = {
-  /** What to say when there is no checkout, which tells why for the state of the list. */
+  /** What to say when the filters leave no checkout. */
   emptyMessage?: ReactNode;
-  /** The label of each key by its id, which the key column shows. */
-  keyLabels: Readonly<Record<string, string>>;
+  /** The names the columns show in place of ids and slugs. */
+  labels: CheckoutLabels;
   /** Opens the panel of a checkout. */
   onOpen: (session: CheckoutSessionAdmin) => void;
   sessions: readonly CheckoutSessionAdmin[];
@@ -23,11 +24,11 @@ const getSessionId = (session: CheckoutSessionAdmin) => session.sessionId;
  */
 export function CheckoutSessionsTable({
   emptyMessage,
-  keyLabels,
+  labels,
   onOpen,
   sessions,
 }: CheckoutSessionsTableProps) {
-  const columns = useCheckoutSessionColumns(keyLabels);
+  const columns = useCheckoutSessionColumns(labels);
 
   return (
     <DataTable

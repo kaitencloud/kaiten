@@ -90,6 +90,13 @@ test.describe('a customer whose slug is the path of the list of checkouts', () =
     ).toBeVisible();
     await expect(form.createButton()).toBeDisabled();
 
+    // Cleared, the slug is the one the API makes from the name: the same refusal.
+    await page.getByLabel('Slug').fill('');
+    await expect(
+      page.getByText('This slug is the address of a page of the console'),
+    ).toBeVisible();
+    await expect(form.createButton()).toBeDisabled();
+
     await page.getByLabel('Slug').fill('checkout-sessions-ltd');
     await expect(
       page.getByText('This slug is the address of a page of the console'),

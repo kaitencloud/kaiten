@@ -10,6 +10,8 @@ type Tone = { className?: string; variant: BadgeProps['variant'] };
 
 const WARNING_TONE =
   'border-transparent bg-warning-subtle text-warning-subtle-foreground';
+const DESTRUCTIVE_TONE =
+  'border-transparent bg-destructive-subtle text-destructive-subtle-foreground';
 const INFO_TONE =
   'border-info-subtle-foreground/30 bg-info-subtle text-info-subtle-foreground';
 
@@ -17,7 +19,8 @@ const TONES: Record<CheckoutSessionStatus, Tone> = {
   ABANDONED: { className: 'text-muted-foreground', variant: 'outline' },
   AWAITING_PAYMENT: { className: WARNING_TONE, variant: 'secondary' },
   COMPLETED: { variant: 'success' },
-  EXPIRED: { className: WARNING_TONE, variant: 'secondary' },
+  // A tone of its own: a checkout waiting for its payment is still going, an expired one is over.
+  EXPIRED: { className: DESTRUCTIVE_TONE, variant: 'secondary' },
   OPEN: { className: INFO_TONE, variant: 'outline' },
 };
 

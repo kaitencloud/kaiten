@@ -8,14 +8,13 @@ import {
   billingCapabilitiesProfiles,
   NO_BILLING_FEATURES,
 } from '../../../../e2e/app/_support/model/billing-capabilities';
-import { useCustomersSectionTabs } from '../hooks';
+import { useCheckoutSessionsOffered } from '../hooks';
 import { billingCapabilitiesQueryOptions } from '../queries';
 
-// The row of tabs above the pages of Customers: the customers and their instances always,
-// the checkouts where billing is on, the release ships the public surface and the scopes
-// of the session cover the list of checkouts.
+// Whether the checkouts are offered: billing is on, the release ships the public surface
+// and the scopes of the session cover the list of checkouts.
 
-function tabIdsWith(
+function offeredWith(
   capabilities: BillingCapabilities | undefined,
   scopes: GrantedScopes | 'unread' = null,
 ) {
@@ -32,25 +31,16 @@ function tabIdsWith(
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
-  const { result } = renderHook(() => useCustomersSectionTabs(), { wrapper });
+  const { result } = renderHook(() => useCheckoutSessionsOffered(), { wrapper });
 
   return result.current;
 }
 
-const ids = (tabs: ReturnType<typeof tabIdsWith>) => tabs.map(({ id }) => id);
-
-describe('useCustomersSectionTabs', () => {
+describe('useCheckoutSessionsOffered', () => {
   const stack = billingCapabilitiesProfiles.stack();
 
-  it('lists the checkouts after the customers and the instances where billing offers them', () => {
-    const tabs = tabIdsWith(stack);
-
-    expect(ids(tabs)).toEqual(['customers', 'instances', 'checkout-sessions']);
-    expect(tabs.map(({ to }) => to)).toEqual([
-      '/customers',
-      '/customers/instances',
-      '/customers/checkout-sessions',
-    ]);
+  it('is true where billing offers the checkouts', () => {
+    expect(offeredWith(stack)).toBe(true);
   });
 
   it.each([
@@ -58,17 +48,17 @@ describe('useCustomersSectionTabs', () => {
     ['the plan has no billing', billingCapabilitiesProfiles.disabled('NOT_ENTITLED')],
     ['the release does not ship the public surface', { ...stack, features: NO_BILLING_FEATURES }],
     ['the capabilities are still being read', undefined],
-  ])('lists only the customers and the instances when %s', (_, capabilities) => {
-    expect(ids(tabIdsWith(capabilities))).toEqual(['customers', 'instances']);
+  ])('is false when %s', (_, capabilities) => {
+    expect(offeredWith(capabilities)).toBe(false);
   });
 
-  it('is left out for a session whose scopes do not cover read:billing, and offered to one that does', () => {
-    expect(ids(tabIdsWith(stack, ['read:customers']))).toEqual(['customers', 'instances']);
-    expect(ids(tabIdsWith(stack, ['read:billing']))).toContain('checkout-sessions');
-    expect(ids(tabIdsWith(stack, ['read:*']))).toContain('checkout-sessions');
+  it('is false for a session whose scopes do not cover read:billing, and true for one that does', () => {
+    expect(offeredWith(stack, ['read:customers'])).toBe(false);
+    expect(offeredWith(stack, ['read:billing'])).toBe(true);
+    expect(offeredWith(stack, ['read:*'])).toBe(true);
   });
 
-  it('is left out while the scopes of the token are being read', () => {
-    expect(ids(tabIdsWith(stack, 'unread'))).toEqual(['customers', 'instances']);
+  it('is false while the scopes of the token are being read', () => {
+    expect(offeredWith(stack, 'unread')).toBe(false);
   });
 });

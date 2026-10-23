@@ -245,4 +245,47 @@ test.describe('the list of checkouts, when the API refuses it', () => {
     );
     await expect(page.getByRole('link', { name: 'Dashboard' })).toBeVisible();
   });
+
+  test('keeps the title and the tabs of the section, so that the other tabs are one click away', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+    const model = createCheckoutSessionsBillingModel();
+    model.checkoutSessions.armProblem('listCheckoutSessions', {
+      code: 'Internal',
+      detail: 'the checkout store is down',
+      status: 500,
+    });
+    await installBillingAppMocks(page, model);
+
+    await page.goto('/customers/checkout-sessions');
+
+    await expect(page.getByTestId('billing-route-error')).toContainText(
+      'the checkout store is down',
+    );
+    await checkouts.expectLoaded();
+    await expect(checkouts.tab('Customers')).toBeVisible();
+    await expect(checkouts.tab('Instances')).toBeVisible();
+    // Nobody refused a read the server could not answer, and a retry reads again.
+    await expect(page.getByTestId('billing-route-error')).toContainText(
+      'The data could not be read',
+    );
+    await page.getByRole('button', { name: 'Retry' }).click();
+    await expect(checkouts.rows()).toHaveCount(6);
+  });
+
+  test('says a refusal is one when the API refused', async ({ page }) => {
+    const model = createCheckoutSessionsBillingModel();
+    model.checkoutSessions.armProblem('listCheckoutSessions', {
+      code: 'Auth.MissingScope',
+      detail: 'missing required scope: read:billing',
+      status: 403,
+    });
+    await installBillingAppMocks(page, model);
+
+    await page.goto('/customers/checkout-sessions');
+
+    await expect(page.getByTestId('billing-route-error')).toBeVisible();
+    await expect(page.getByText('The data could not be read')).toHaveCount(0);
+  });
 });

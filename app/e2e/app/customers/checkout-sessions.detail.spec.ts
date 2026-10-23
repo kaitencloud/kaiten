@@ -70,7 +70,7 @@ test.describe('the panel of a checkout', () => {
     );
     await expect(checkouts.detailRow('Trial')).toContainText('Ends');
     await expect(checkouts.detailRow('Customer created')).toContainText(
-      'annual-buyer',
+      'Annual Buyer',
     );
     await expect(checkouts.detailRow('Instance created')).toContainText(
       'annual-buyer-prod',
@@ -155,7 +155,7 @@ test.describe('the panel of a checkout', () => {
 
     const panel = checkouts.panel();
     await expect(
-      panel.getByRole('link', { name: 'bought-online', exact: true }),
+      panel.getByRole('link', { name: 'Bought Online', exact: true }),
     ).toHaveAttribute('href', '/customers/bought-online');
     await expect(
       panel.getByRole('link', { name: 'bought-online-prod' }),
@@ -192,6 +192,61 @@ test.describe('the panel of a checkout', () => {
 
     await expect(page).toHaveURL(/\?session=cs-open$/);
     await expect(checkouts.detail()).toBeVisible();
+  });
+
+  test('takes the focus itself when it opens, and gives it back to the e-mail it was opened from', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await checkouts.goto();
+    await checkouts.openLink('alice@acme.test').focus();
+    await page.keyboard.press('Enter');
+
+    // Not the scrolling body of the panel, which would be framed by a ring: the panel,
+    // named by its title.
+    await expect(checkouts.panel()).toBeFocused();
+    await expect(
+      checkouts.panel().getByRole('heading', { name: 'alice@acme.test' }),
+    ).toBeVisible();
+
+    await page.keyboard.press('Escape');
+    await expect(checkouts.panel()).toHaveCount(0);
+    await expect(checkouts.openLink('alice@acme.test')).toBeFocused();
+  });
+
+  test('closes onto the entry the list had when it was opened from the list, so that Back leaves the list', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await page.goto('/customers');
+    await checkouts.tab('Checkouts').click();
+    await checkouts.expectLoaded();
+    await checkouts.row('alice@acme.test').getByRole('cell').first().click();
+    await expect(checkouts.detail()).toBeVisible();
+
+    await checkouts.close();
+    await expect(page).toHaveURL('/customers/checkout-sessions');
+
+    await page.goBack();
+    await expect(page).toHaveURL('/customers');
+  });
+
+  test('replaces its own entry when it came with the address, so that Back does not open it again', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await page.goto('/customers');
+    await page.goto('/customers/checkout-sessions?session=cs-open');
+    await expect(checkouts.detail()).toBeVisible();
+
+    await checkouts.close();
+    await expect(page).toHaveURL('/customers/checkout-sessions');
+
+    await page.goBack();
+    await expect(page).toHaveURL('/customers');
   });
 
   test('says a checkout is gone when the API has deleted it, and offers no retry', async ({
@@ -239,5 +294,25 @@ test.describe('the panel of a checkout, when the API refuses it', () => {
     await page.getByRole('button', { name: 'Retry' }).click();
     await expect(checkouts.detail()).toBeVisible();
     await expect(checkouts.detailRow('Email')).toContainText('dana@hooli.test');
+  });
+});
+
+test.describe('the moments of a checkout, in the time zone of the browser', () => {
+  test.use({ locale: 'en-US', timezoneId: 'Europe/Paris' });
+
+  test('say which zone they are read in, as the service periods under them say theirs', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+    await installBillingAppMocks(page, createCheckoutSessionsBillingModel());
+
+    await checkouts.goto('?session=cs-annual');
+
+    await expect(checkouts.detailRow('Created')).toContainText('GMT+2');
+    await expect(checkouts.detailRow('Expires')).toContainText('GMT+2');
+    await expect(checkouts.detailRow('Trial')).toContainText('GMT+2');
+    await expect(page.getByTestId('checkout-session-due-today')).toContainText(
+      '(UTC)',
+    );
   });
 });

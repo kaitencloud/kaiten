@@ -35,13 +35,13 @@ test.describe('the checkouts, read in French', () => {
     for (const header of [
       'Statut',
       'E-mail',
-      'Formule',
+      'Licence',
       'Dû aujourd’hui',
       'Clé publiable',
       'Client',
       'Instance',
       'Créé',
-      'Clos',
+      'Expire',
     ]) {
       await expect(columns.filter({ hasText: header }).first()).toBeVisible();
     }
@@ -121,10 +121,10 @@ test.describe('the checkouts, read in French', () => {
       'Essai',
       'Client créé',
       'Instance créée',
-      'Créé',
-      'Expire',
-      'Terminé',
-      'Clos',
+      'Créé le',
+      'Expire le',
+      'Terminé le',
+      'Clôturé le',
     ]) {
       await expect(checkouts.detailRow(label)).toBeVisible();
     }

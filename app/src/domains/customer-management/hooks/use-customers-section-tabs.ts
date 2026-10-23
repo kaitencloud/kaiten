@@ -1,19 +1,18 @@
 import { useTranslation } from 'react-i18next';
 import type { RouteTab } from '@/functionals/route-tabs';
-import { useBillingScreenOffered } from './use-billing-screen-offered';
 
 /**
- * The tabs above the pages of the Customers section: the customers, their instances
- * and, where billing is on with the public surface and the session may read the
- * checkouts, the anonymous checkouts that created customers. Each page of the section
- * draws the same row, so the row is written once.
+ * The tabs above the pages of the Customers section: the customers, their instances and,
+ * where the console offers them, the anonymous checkouts that created customers. Each page
+ * of the section draws the same row, so the row is written once; whether the checkouts are
+ * offered is not this row's to know, the page says it.
  */
-export function useCustomersSectionTabs(): RouteTab[] {
+export function useCustomersSectionTabs({
+  checkoutsOffered,
+}: {
+  checkoutsOffered: boolean;
+}): RouteTab[] {
   const { t } = useTranslation();
-  const checkoutsOffered = useBillingScreenOffered({
-    action: 'checkoutSessions.list',
-    feature: 'publicSurface',
-  });
 
   return [
     {

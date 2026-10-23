@@ -45,8 +45,10 @@ test.describe('the list of checkouts', () => {
     await expect(completed).toContainText('Monthly');
     await expect(completed).toContainText('€49.00');
     await expect(completed).toContainText('Checkout page');
+    // The customer is named as the list of customers names it; the contract carries its
+    // slug only. The instance keeps its slug where no list of instances names it.
     await expect(
-      completed.getByRole('link', { name: 'bought-online', exact: true }),
+      completed.getByRole('link', { name: 'Bought Online', exact: true }),
     ).toHaveAttribute('href', '/customers/bought-online');
     await expect(
       completed.getByRole('link', { name: 'bought-online-prod' }),
@@ -85,7 +87,7 @@ test.describe('the list of checkouts', () => {
     await expect(expired).toContainText('Expired');
     await expect(expired).toContainText('Stays after expiry');
     await expect(
-      expired.getByRole('link', { name: 'lapsed-buyer', exact: true }),
+      expired.getByRole('link', { name: 'Lapsed Buyer', exact: true }),
     ).toBeVisible();
     await expect(checkouts.row('alice@acme.test')).not.toContainText(
       'Stays after expiry',
@@ -171,6 +173,57 @@ test.describe('the list of checkouts', () => {
     await expect(checkouts.rows().first()).toContainText('finance@globex.test');
   });
 
+  test('filters by billing period, which the checkout asked for', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await checkouts.goto();
+
+    await checkouts.addFilter('Period');
+    await checkouts.pick('Annual');
+    await checkouts.closeEditor();
+    await expect(checkouts.rows()).toHaveCount(1);
+    await expect(checkouts.rows().first()).toContainText('carol@globex.test');
+    await checkouts.expectChips(['Period: Annual']);
+  });
+
+  test('shows when each checkout was made and when it expires, on screen without scrolling sideways', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await page.setViewportSize({ height: 800, width: 1280 });
+    await checkouts.goto();
+
+    const completed = checkouts.row('alice@acme.test');
+    await expect(completed).toContainText('Oct 6, 2026');
+    await expect(completed).toContainText('Oct 7, 2026');
+    // The column the list is sorted by, and the one beside it, are inside the container.
+    const container = page.getByRole('table').first().locator('..');
+    const visible = await container.boundingBox();
+    for (const name of ['Created', 'Expires']) {
+      const header = await page
+        .getByRole('columnheader', { name })
+        .boundingBox();
+      expect(header).not.toBeNull();
+      expect((header?.x ?? 0) + (header?.width ?? 0)).toBeLessThanOrEqual(
+        (visible?.x ?? 0) + (visible?.width ?? 0),
+      );
+    }
+  });
+
+  test('sorts by when a checkout expires', async ({ page }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await checkouts.goto();
+    await checkouts.sortBy('Expires');
+    await expect(checkouts.rows().first()).toContainText('dana@hooli.test');
+    await expect(checkouts.rows().last()).toContainText('finance@globex.test');
+    await checkouts.sortBy('Expires');
+    await expect(checkouts.rows().first()).toContainText('finance@globex.test');
+  });
+
   test('opens already narrowed on the status a link names', async ({
     page,
   }) => {
@@ -181,6 +234,41 @@ test.describe('the list of checkouts', () => {
     await expect(checkouts.rows()).toHaveCount(1);
     await expect(checkouts.rows().first()).toContainText('ravi@initech.test');
     await checkouts.expectChips(['Status: Awaiting payment']);
+  });
+
+  test('drops the status from the address once the chip is cleared, so that a reload lists everything', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await checkouts.goto('?status=expired');
+    await expect(checkouts.rows()).toHaveCount(1);
+
+    await checkouts.removeFilter('Status');
+    await expect(checkouts.rows()).toHaveCount(6);
+    await expect(page).toHaveURL('/customers/checkout-sessions');
+
+    await page.reload();
+    await expect(checkouts.rows()).toHaveCount(6);
+  });
+
+  test('applies the status of a link to the page that is followed while the list is open', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+
+    await checkouts.goto();
+    await expect(checkouts.rows()).toHaveCount(6);
+
+    // What a link to `?status=` does in the console: a navigation of the router.
+    await page.evaluate(() => {
+      history.pushState({}, '', '/customers/checkout-sessions?status=expired');
+      dispatchEvent(new PopStateEvent('popstate'));
+    });
+
+    await expect(checkouts.rows()).toHaveCount(1);
+    await expect(checkouts.rows().first()).toContainText('finance@globex.test');
+    await expect(page).toHaveURL('/customers/checkout-sessions?status=expired');
   });
 
   test('drops a status the address spells wrongly, and lists everything', async ({
@@ -227,6 +315,28 @@ test.describe('the list of checkouts', () => {
   });
 });
 
+test.describe('the list of checkouts, with none yet, on a phone', () => {
+  test.use({ viewport: { height: 812, width: 375 } });
+
+  test('reads the first-use message in full, inside the screen, not cut off with the table', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+    await installBillingAppMocks(
+      page,
+      createEmptyCheckoutSessionsBillingModel(),
+    );
+
+    await checkouts.goto();
+
+    const message = checkouts.empty().getByText('A checkout appears here');
+    await expect(message).toBeVisible();
+    const box = await message.boundingBox();
+    expect(box?.x).toBeGreaterThanOrEqual(0);
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375);
+  });
+});
+
 test.describe('the list of checkouts, with none yet', () => {
   test('says so, and why', async ({ page }) => {
     const checkouts = new CheckoutSessionsDriver(page);
@@ -240,5 +350,27 @@ test.describe('the list of checkouts, with none yet', () => {
     await expect(checkouts.empty()).toContainText('No checkout yet');
     await expect(checkouts.rows()).toHaveCount(0);
     await expect(checkouts.searchField()).toBeVisible();
+  });
+
+  test('says why in full, inside the screen, whatever the width of the columns of the table', async ({
+    page,
+  }) => {
+    const checkouts = new CheckoutSessionsDriver(page);
+    await installBillingAppMocks(
+      page,
+      createEmptyCheckoutSessionsBillingModel(),
+    );
+
+    await page.setViewportSize({ height: 800, width: 1280 });
+    await checkouts.goto();
+
+    const message = checkouts.empty().getByText('A checkout appears here');
+    await expect(message).toBeVisible();
+    const box = await message.boundingBox();
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(1280);
+    // The whole sentence is read, not the start of one long line.
+    await expect(message).toContainText(
+      'allowed to open the anonymous checkout',
+    );
   });
 });
