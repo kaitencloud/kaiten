@@ -65,7 +65,8 @@ SELECT
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   ''::text AS billing_status,
   NULL::timestamp AS billing_anchor_at,
-  NULL::timestamp AS live_ended_at
+  NULL::timestamp AS live_ended_at,
+  0::numeric AS reserved
 FROM instance i
 JOIN license_entitlement le
   ON le.license_id = i.license_id
@@ -110,7 +111,8 @@ SELECT
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   ''::text AS billing_status,
   NULL::timestamp AS billing_anchor_at,
-  NULL::timestamp AS live_ended_at
+  NULL::timestamp AS live_ended_at,
+  0::numeric AS reserved
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1

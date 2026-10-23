@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -123,4 +124,22 @@ func TestAIGateUsesBillingAddonLimit(t *testing.T) {
 	var committedAt time.Time
 	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT committed_at FROM ai_inference WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&committedAt))
 	require.True(t, rows[0].ReportedAt.Equal(committedAt))
+	// History reads must continue to resolve the effective grant when only the
+	// add-on grants the pool; they must not require a licence_entitlement row.
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `DELETE FROM license_entitlement WHERE license_id=$1 AND entitlement_id=$2`, instance.LicenseID, pool.ID)
+	require.NoError(t, err)
+	get := func(suffix string) *http.Response {
+		response, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "GET", "/api/instances/"+instance.Slug+"/entitlements/"+pool.Slug+"/usage/"+suffix, nil), fiber.TestConfig{Timeout: 30 * time.Second})
+		require.NoError(t, err)
+		t.Cleanup(func() { commonfixture.MustCloseBody(t, response.Body) })
+		return response
+	}
+	events := recordedEvents(t)
+	history := commonfixture.AssertJSONResponse[schema.AiInferencePage](t, get("inferences"), http.StatusOK)
+	require.Len(t, history.Items, 1)
+	reservations := commonfixture.AssertJSONResponse[schema.AiReservations](t, get("reservations"), http.StatusOK)
+	require.Empty(t, reservations.Items)
+	require.Equal(t, events, recordedEvents(t))
+	require.Equal(t, rows, ledgerRows(t, instance.ID, pool.ID))
+
 }

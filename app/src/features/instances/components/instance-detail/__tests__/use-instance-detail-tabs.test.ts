@@ -7,7 +7,10 @@ const { billing, pathname } = vi.hoisted(() => ({
   pathname: { current: '/customers/instances/globex-production' },
 }));
 
-vi.mock('@tanstack/react-query', () => ({useQuery: () => ({data: billing.ai})}));
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
+  useQuery: () => ({ data: billing.ai }),
+}));
 
 vi.mock('@tanstack/react-router', () => ({
   useRouterState: ({

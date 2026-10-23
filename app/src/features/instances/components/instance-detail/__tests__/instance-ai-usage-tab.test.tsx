@@ -8,7 +8,7 @@ import { beforeEach, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import { handleListAiInferences, handleListAiReservations } from '@/api-client/msw.gen';
 import { getEntitlementsUsageMetricsOptions } from '@/api-client/@tanstack/react-query.gen';
-import { allEntitlementsOptions, allLicenseEntitlementsOptions } from '@/lib/api/all-pages-query-options';
+import { allEntitlementsOptions } from '@/lib/api/all-pages-query-options';
 import { InstanceAiUsageTab } from '../instance-ai-usage-tab';
 vi.mock('../instance-detail-context', () => ({ useInstanceDetail: () => ({ instance: { slug: 'fixture-instance' } }) }));
 beforeEach(() => { configure({ asyncUtilTimeout: 30000 }); i18n.addResourceBundle('en', 'translation', en, true, true); void i18n.changeLanguage('en'); });
@@ -22,10 +22,11 @@ it('shows reserved credits, soft maximum, open reservations and cursor-complete 
   }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   client.setQueryData(allEntitlementsOptions().queryKey, { items: [{ id: 'pool', name: 'Credits', description: '', createdAt: '2026-10-19T00:00:00Z', updatedAt: '2026-10-19T00:00:00Z', slug: 'credits', type: 'NUMBER_AI_CREDIT' }], hasMore: false });
-  client.setQueryData(allLicenseEntitlementsOptions('pro-v1').queryKey, { items: [{ entitlementSlug: 'credits', entitlementName: 'Credits', licenseSlug: 'pro-v1', licenseId: 'license', createdAt: '2026-10-19T00:00:00Z', updatedAt: '2026-10-19T00:00:00Z', createdBy: { id: 'fixture', name: 'Fixture' }, updatedBy: { id: 'fixture', name: 'Fixture' }, value: { type: 'number', value: 10 }, limitCapExceededOveragePercent: 20 }], hasMore: false });
-  client.setQueryData(getEntitlementsUsageMetricsOptions({ path: { instanceSlug: 'fixture-instance' } }).queryKey, [{ entitlementId: 'pool', entitlementSlug: 'credits', licenseSlug: 'pro-v1', licenseId: 'license', reserved: '2.500000', value: { type: 'number', value: 4.123456 }, limit: { type: 'number', value: 10 } }]);
+  client.setQueryData(getEntitlementsUsageMetricsOptions({ path: { instanceSlug: 'fixture-instance' } }).queryKey, [{ entitlementId: 'pool', entitlementSlug: 'credits', licenseSlug: 'pro-v1', licenseId: 'license', source: 'addon', limitCapExceededOveragePercent: 20, reserved: '2.500000', value: { type: 'number', value: 4.123456 }, limit: { type: 'number', value: 10 } }]);
   render(<QueryClientProvider client={client}><Suspense fallback={null}><InstanceAiUsageTab /></Suspense></QueryClientProvider>);
+  // An add-on-only pool has no licence grant to query; use its effective policy.
   expect(await screen.findByText('12.00')).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'All statuses' })).toBeInTheDocument();
   expect(await screen.findByText('Open, unexpired reservations')).toBeInTheDocument();
   expect(screen.getAllByText('2.50').length).toBeGreaterThan(0);
   fireEvent.click(await screen.findByRole('button', { name: 'Load older inferences' }));
