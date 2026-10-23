@@ -9,7 +9,7 @@ import { useAppForm } from '@/hooks/form';
 import { invalidateLicenseFamilies } from '../../queries';
 import {
   familyToSettingsFormValues,
-  LICENSE_FAMILY_REFUSAL_FIELDS,
+  LICENSE_FAMILY_REFUSALS,
   settingsFormValuesToUpdateBody,
 } from '../../schemas/license-family-settings.schema';
 import { familySettingsFormOpts } from './license-family-settings-form-options';
@@ -25,8 +25,8 @@ type UseLicenseFamilySettingsFormOptions = {
  * write is never optimistic: the lists show the new settings once the API has
  * accepted them. The update carries only the settings that were changed, so one
  * saved from another tab since the dialog opened stays as it is. A refusal about
- * a setting is shown on its field, any other above the buttons, and the form
- * keeps what was typed either way.
+ * a setting is shown on its field in the words of the locales, any other above
+ * the buttons in the API's, and the form keeps what was typed either way.
  */
 export function useLicenseFamilySettingsForm({
   family,
@@ -62,12 +62,12 @@ export function useLicenseFamilySettingsForm({
         onDone();
       } catch (error) {
         const problem = handleBillingProblem(error);
-        const field =
-          LICENSE_FAMILY_REFUSAL_FIELDS[
-            (problem.code ?? '') as keyof typeof LICENSE_FAMILY_REFUSAL_FIELDS
+        const refusal =
+          LICENSE_FAMILY_REFUSALS[
+            (problem.code ?? '') as keyof typeof LICENSE_FAMILY_REFUSALS
           ];
-        if (field && problem.detail) {
-          setProblemFieldError(formApi, field, problem.detail);
+        if (refusal) {
+          setProblemFieldError(formApi, refusal.field, t(refusal.messageKey));
 
           return;
         }

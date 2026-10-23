@@ -170,7 +170,7 @@ describe('the settings of a family of licenses', () => {
     expect(updates).toHaveLength(0);
   });
 
-  it('shows the words of the API on the field a refusal names, and keeps what was typed', async () => {
+  it('shows a refusal on the field it names in the words of the console, and keeps what was typed', async () => {
     const onClose = renderDialog();
     server.use(
       handleUpdateLicenseFamily(() =>
@@ -187,10 +187,37 @@ describe('the settings of a family of licenses', () => {
     await userEvent.click(await save());
 
     expect(
-      await screen.findByText('trialReminderDays is between 1 and 30'),
+      await screen.findByText('Enter a whole number of days from 1 to 30'),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByText('trialReminderDays is between 1 and 30'),
+    ).not.toBeInTheDocument();
     expect(days).toHaveValue('12');
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('does not ask for required fields after a refusal, since none is empty', async () => {
+    renderDialog();
+    server.use(
+      handleUpdateLicenseFamily(() =>
+        refusal(422, {
+          code: 'UpdateLicenseFamily.InvalidFallback',
+          detail: 'fallbackLicenseFamilySlug names another FREE family',
+        }),
+      ),
+    );
+    const days = await reminder();
+
+    await userEvent.clear(days);
+    await userEvent.type(days, '12');
+    await userEvent.click(await save());
+
+    expect(
+      await screen.findByText(
+        'Choose another license whose every version is free, or no fallback.',
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Fill in the required fields')).toBeNull();
   });
 
   it('says any other refusal above the buttons', async () => {
@@ -215,27 +242,6 @@ describe('the settings of a family of licenses', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('closes for a family the lists do not know', async () => {
-    const onClose = renderDialog('nothing-here');
-
-    await waitFor(() => expect(onClose).toHaveBeenCalled());
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-  });
-
-  it('is not there where billing is off', async () => {
-    server.use(
-      handleGetBillingCapabilities({
-        body: billingCapabilitiesProfiles.disabled(),
-      }),
-    );
-    renderDialog();
-
-    await waitFor(() =>
-      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
-    );
-    expect(screen.queryByLabelText(/^Trial reminder/)).not.toBeInTheDocument();
-  });
-});
   it('warns that a public family with a paid version and no fallback cannot be sold anonymously, until a fallback is chosen', async () => {
     families[0] = family('pro', { isPublic: true });
     renderDialog();
@@ -281,3 +287,24 @@ describe('the settings of a family of licenses', () => {
     ).not.toBeInTheDocument();
   });
 
+  it('closes for a family the lists do not know', async () => {
+    const onClose = renderDialog('nothing-here');
+
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('is not there where billing is off', async () => {
+    server.use(
+      handleGetBillingCapabilities({
+        body: billingCapabilitiesProfiles.disabled(),
+      }),
+    );
+    renderDialog();
+
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog')).not.toBeInTheDocument(),
+    );
+    expect(screen.queryByLabelText(/^Trial reminder/)).not.toBeInTheDocument();
+  });
+});

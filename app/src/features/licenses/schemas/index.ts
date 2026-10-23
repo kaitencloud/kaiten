@@ -25,7 +25,7 @@ export { licenseToUpdateBody } from './license-update-body';
 export type { LicenseFamilySettingsFormValues } from './license-family-settings.schema';
 export {
   familyToSettingsFormValues,
-  LICENSE_FAMILY_REFUSAL_FIELDS,
+  LICENSE_FAMILY_REFUSALS,
   licenseFamilySettingsFormSchema,
   NO_FALLBACK,
   settingsFormValuesToUpdateBody,

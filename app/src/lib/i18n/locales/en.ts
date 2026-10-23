@@ -1615,7 +1615,7 @@ export default {
         linkLabel: 'Settings of {{name}}',
         dialogTitle: 'License settings',
         dialogDescription:
-          'How {{name}} behaves when a subscription to it ends or a trial of it is about to end. They apply to every version of the license.',
+          'How {{name}} behaves when a subscription to it ends or a trial of it is about to end. These settings apply to every version of the license.',
         save: 'Save settings',
         noFallback: 'No fallback',
         Labels: {
@@ -1627,7 +1627,7 @@ export default {
           fallback:
             'Another license of the organization whose every version is free. When a subscription to this license ends, the instance moves to the default published version of that license.',
           trialEnd:
-            'What a trial that is charged automatically, for a total above 0, becomes at its end when the customer has no active payment method. Cancel cancels the subscription. Convert makes it active, and its first charge then fails.',
+            'What a trial that is charged automatically, for a total above 0, becomes at its end when the customer has no active payment method. If it is canceled, the subscription is canceled. If it is converted, the subscription becomes active, and its first charge then fails.',
           trialReminder:
             'How many days before a trial ends it announces its end, from 1 to 30. A trial no longer than that announces it at once. It applies to the trials that start after the change: a trial already running keeps the lead it started with.',
         },
@@ -1637,6 +1637,12 @@ export default {
         },
         Errors: {
           trialReminderDays: 'Enter a whole number of days from 1 to 30',
+        },
+        Refusals: {
+          invalidFallback:
+            'Choose another license whose every version is free, or no fallback.',
+          invalidTrialEnd:
+            'Choose what a trial becomes at its end: cancel it or convert it.',
         },
         Toasts: {
           updated: 'The license settings were saved',

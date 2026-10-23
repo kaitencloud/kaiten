@@ -210,7 +210,7 @@ test.describe('the settings of a family of licenses', () => {
     await expect(settings.save()).toBeEnabled();
   });
 
-  test('show the refusal of the API on the field it names, and let it be sent again once the field changes', async ({
+  test('show the refusal of the API on the field it names in the words of the console, and let it be sent again once the field changes', async ({
     page,
   }) => {
     const list = new LicensesListDriver(page);
@@ -230,14 +230,23 @@ test.describe('the settings of a family of licenses', () => {
     await settings.choose(settings.fallback(), 'Basic');
     await settings.save().click();
 
+    const sentence =
+      'Choose another license whose every version is free, or no fallback.';
     await expect(settings.field('fallbackLicenseFamilySlug')).toContainText(
+      sentence,
+    );
+    await expect(settings.field('fallbackLicenseFamilySlug')).not.toContainText(
       detail,
     );
     await expect(settings.dialog()).toBeVisible();
+    // Nothing is empty: the form does not ask for required fields.
+    await expect(settings.dialog()).not.toContainText(
+      'Fill in the required fields',
+    );
 
     await settings.choose(settings.fallback(), 'Community');
     await expect(settings.field('fallbackLicenseFamilySlug')).not.toContainText(
-      detail,
+      sentence,
     );
     await settings.save().click();
     await expectToast(page, 'The license settings were saved');
@@ -250,6 +259,7 @@ test.describe('the settings of a family of licenses', () => {
       code: 'UpdateLicenseFamily.InvalidTrialReminderDays',
       detail: 'trialReminderDays is between 1 and 30',
       field: 'trialReminderDays',
+      sentence: 'Enter a whole number of days from 1 to 30',
     },
     {
       change: async (settings: LicenseFamilySettingsDriver) =>
@@ -260,6 +270,8 @@ test.describe('the settings of a family of licenses', () => {
       code: 'UpdateLicenseFamily.InvalidTrialEndBehavior',
       detail: 'trialEndWithoutPaymentMethod is CANCEL or CONVERT',
       field: 'trialEndWithoutPaymentMethod',
+      sentence:
+        'Choose what a trial becomes at its end: cancel it or convert it.',
     },
   ]) {
     test(`show the refusal ${refusal.code} on its field`, async ({ page }) => {
@@ -278,7 +290,12 @@ test.describe('the settings of a family of licenses', () => {
       await refusal.change(settings);
       await settings.save().click();
 
-      await expect(settings.field(refusal.field)).toContainText(refusal.detail);
+      await expect(settings.field(refusal.field)).toContainText(
+        refusal.sentence,
+      );
+      await expect(settings.field(refusal.field)).not.toContainText(
+        refusal.detail,
+      );
       await expect(settings.dialog()).toBeVisible();
     });
   }
@@ -308,23 +325,6 @@ test.describe('the settings of a family of licenses', () => {
   });
 });
 
-test.describe('the link to the settings of a family', () => {
-  test('is not there where billing is off', async ({ page }) => {
-    const list = new LicensesListDriver(page);
-    const settings = new LicenseFamilySettingsDriver(page);
-    await installLicenseAppMocks(page, createFamilySettingsCatalogModel());
-    await installBillingAppMocks(
-      page,
-      createBillingDisabledModel('DEPLOYMENT_DISABLED'),
-    );
-
-    await list.goto();
-
-    await expect(list.family('Pro')).toBeVisible();
-    await expect(settings.link('Pro')).toHaveCount(0);
-  });
-
-  test('is not there for a session that may only read', async ({ page }) => {
 // A public family that has a paid version and names no fallback: the customer whose
 // subscription ends keeps a paid version unbilled, and the family cannot be sold
 // through an anonymous checkout with an amount due today. The console warns, and
@@ -382,6 +382,23 @@ test.describe('the warning about a public family with a paid version and no fall
   });
 });
 
+test.describe('the link to the settings of a family', () => {
+  test('is not there where billing is off', async ({ page }) => {
+    const list = new LicensesListDriver(page);
+    const settings = new LicenseFamilySettingsDriver(page);
+    await installLicenseAppMocks(page, createFamilySettingsCatalogModel());
+    await installBillingAppMocks(
+      page,
+      createBillingDisabledModel('DEPLOYMENT_DISABLED'),
+    );
+
+    await list.goto();
+
+    await expect(list.family('Pro')).toBeVisible();
+    await expect(settings.link('Pro')).toHaveCount(0);
+  });
+
+  test('is not there for a session that may only read', async ({ page }) => {
     const list = new LicensesListDriver(page);
     const settings = new LicenseFamilySettingsDriver(page);
     await signInWithScopes(page, SESSION_SCOPES.reader);

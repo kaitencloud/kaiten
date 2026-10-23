@@ -145,4 +145,49 @@ describe('SubmitButton focus', () => {
     await new Promise((resolve) => requestAnimationFrame(resolve));
     expect(screen.getByLabelText('Name')).toHaveFocus();
   });
+
+  // "Fill in the required fields" is about what is empty or mistyped. A refusal is the
+  // server's word about a form that was complete, and is on its field already.
+  it('does not ask for required fields after a refusal, since none is missing', async () => {
+    const user = userEvent.setup();
+    render(<SendingHarness refusal="reason is too long" />);
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled(),
+    );
+    expect(screen.queryByText(/requiredFieldsHint/)).toBeNull();
+  });
+
+  it('still asks for them when a field is invalid for what was typed', async () => {
+    const user = userEvent.setup();
+    render(<TypedHarness />);
+
+    await user.type(screen.getByLabelText('Name'), 'x');
+    await user.clear(screen.getByLabelText('Name'));
+
+    expect(await screen.findByText(/requiredFieldsHint/)).toBeInTheDocument();
+  });
 });
+
+function TypedHarness() {
+  const form = useAppForm({
+    defaultValues: { name: 'Acme' },
+    validators: {
+      onChange: ({ value }) => (value.name ? undefined : 'required'),
+    },
+  });
+
+  return (
+    <form.AppForm>
+      <form.AppField
+        name="name"
+        validators={{ onChange: ({ value }) => (value ? undefined : 'required') }}
+      >
+        {(field) => <field.TextField label="Name" />}
+      </form.AppField>
+      <form.SubmitButton label="Save" />
+    </form.AppForm>
+  );
+}

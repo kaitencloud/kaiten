@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
-import { zLicenseFamilyView } from '@/api-client/zod.gen';
 import {
   familyToSettingsFormValues,
-  LICENSE_FAMILY_REFUSAL_FIELDS,
+  LICENSE_FAMILY_REFUSALS,
   type LicenseFamilySettingsFormValues,
   licenseFamilySettingsFormSchema,
   MAX_TRIAL_REMINDER_DAYS,
@@ -34,13 +33,20 @@ const issuesOf = (form: LicenseFamilySettingsFormValues) => {
 };
 
 describe('the form of the settings of a family', () => {
-  it('holds the bounds of the reminder that the contract declares of a family it reads', () => {
-    const contract = zLicenseFamilyView.shape.trialReminderDays;
+  it('reads the bounds of the reminder from what the contract declares of a family it reads', () => {
+    expect(MIN_TRIAL_REMINDER_DAYS).toBe(1);
+    expect(MAX_TRIAL_REMINDER_DAYS).toBe(30);
+  });
 
-    expect(contract.safeParse(MIN_TRIAL_REMINDER_DAYS).success).toBe(true);
-    expect(contract.safeParse(MIN_TRIAL_REMINDER_DAYS - 1).success).toBe(false);
-    expect(contract.safeParse(MAX_TRIAL_REMINDER_DAYS).success).toBe(true);
-    expect(contract.safeParse(MAX_TRIAL_REMINDER_DAYS + 1).success).toBe(false);
+  it('refuses a fallback longer than the contract takes', () => {
+    expect(
+      issuesOf(values({ fallbackLicenseFamilySlug: 'a'.repeat(256) })).map(
+        ([path]) => path,
+      ),
+    ).toEqual(['fallbackLicenseFamilySlug']);
+    expect(
+      issuesOf(values({ fallbackLicenseFamilySlug: 'a'.repeat(255) })),
+    ).toEqual([]);
   });
 
   it('shows a family without a fallback as having none', () => {
@@ -129,15 +135,25 @@ describe('the partial update of the settings of a family', () => {
 });
 
 describe('the refusals of the API about a family', () => {
-  it('are each shown on the field of the form they name', () => {
-    expect(LICENSE_FAMILY_REFUSAL_FIELDS).toEqual({
+  it('are each shown on the field of the form they name, in a sentence of the locales', () => {
+    expect(
+      Object.fromEntries(
+        Object.entries(LICENSE_FAMILY_REFUSALS).map(([code, refusal]) => [
+          code,
+          refusal.field,
+        ]),
+      ),
+    ).toEqual({
       'UpdateLicenseFamily.InvalidFallback': 'fallbackLicenseFamilySlug',
       'UpdateLicenseFamily.InvalidTrialEndBehavior':
         'trialEndWithoutPaymentMethod',
       'UpdateLicenseFamily.InvalidTrialReminderDays': 'trialReminderDays',
     });
-    for (const field of Object.values(LICENSE_FAMILY_REFUSAL_FIELDS)) {
+    for (const { field, messageKey } of Object.values(
+      LICENSE_FAMILY_REFUSALS,
+    )) {
       expect(Object.keys(values())).toContain(field);
+      expect(messageKey).toMatch(/^Pages\.Licenses\.FamilySettings\./);
     }
   });
 });

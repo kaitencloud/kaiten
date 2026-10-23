@@ -76,6 +76,28 @@ const SubmitControls = ({
   );
 };
 
+type ErrorMap = Record<string, unknown> | undefined;
+
+const hasErrorsOtherThan = (errorMap: ErrorMap, source: string) =>
+  Object.entries(errorMap ?? {}).some(
+    ([key, error]) => key !== source && Boolean(error),
+  );
+
+/**
+ * Whether what makes the form invalid is nothing the person has left empty or
+ * mistyped, but only what a server refused after a send (`onServer`, as the
+ * field shows it): the refusal is on its field already, and "fill in the required
+ * fields" would be wrong about a form that is complete.
+ */
+const isInvalidOnlyByServerRefusal = (state: {
+  errorMap: ErrorMap;
+  fieldMeta: Record<string, { errorMap?: ErrorMap } | undefined>;
+}) =>
+  !hasErrorsOtherThan(state.errorMap, 'onServer') &&
+  Object.values(state.fieldMeta).every(
+    (meta) => !hasErrorsOtherThan(meta?.errorMap, 'onServer'),
+  );
+
 const SubmitButton = ({
   allowPristine = false,
   ...props
@@ -95,7 +117,11 @@ const SubmitButton = ({
         isValidating: state.isValidating,
         // A greyed-out button explains nothing. Once the form has been
         // touched and is still invalid, say what is missing next to it.
-        needsInput: state.isTouched && !state.isValid && !state.isSubmitting,
+        needsInput:
+          state.isTouched &&
+          !state.isValid &&
+          !state.isSubmitting &&
+          !isInvalidOnlyByServerRefusal(state),
       })}
     >
       {(state) => <SubmitControls {...props} state={state} />}

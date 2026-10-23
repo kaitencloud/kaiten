@@ -8,10 +8,13 @@ import {
 } from '@/features/licenses';
 
 // `?familySettings=<slug>` opens the dialog the settings of that family are edited
-// in, over the list, as `?mode=configure` opens the edit dialog of a version.
-const licensesSearchSchema = z.object({
-  familySettings: z.string().optional(),
-});
+// in, over the list, as `?mode=configure` opens the edit dialog of a version. Any
+// other search param is kept, as it is on the routes of a version and an instance.
+const licensesSearchSchema = z
+  .object({
+    familySettings: z.string().optional(),
+  })
+  .loose();
 
 export const Route = createFileRoute('/catalog/licenses/')({
   component: LicensesIndex,

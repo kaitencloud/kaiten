@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { LicenseFamilyUpdate, LicenseFamilyView } from '@/api-client';
-import { zLicenseFamilyView } from '@/api-client/zod.gen';
+import { zLicenseFamilyUpdate, zLicenseFamilyView } from '@/api-client/zod.gen';
 
 /**
  * The select of the fallback cannot hold an empty value, so "no fallback" travels
@@ -9,32 +9,36 @@ import { zLicenseFamilyView } from '@/api-client/zod.gen';
  */
 export const NO_FALLBACK = 'NONE';
 
-// What the API takes of the lead of the trial reminder, in days.
-export const MIN_TRIAL_REMINDER_DAYS = 1;
-export const MAX_TRIAL_REMINDER_DAYS = 30;
+// What the API says of the lead of the trial reminder, in days, on a family it
+// reads: the contract states the bounds there and not on the update.
+const trialReminderDaysContract = zLicenseFamilyView.shape.trialReminderDays;
+export const MIN_TRIAL_REMINDER_DAYS =
+  trialReminderDaysContract.minValue ?? undefined;
+export const MAX_TRIAL_REMINDER_DAYS =
+  trialReminderDaysContract.maxValue ?? undefined;
 
 export const TRIAL_REMINDER_DAYS_ERROR_KEY =
   'Pages.Licenses.FamilySettings.Errors.trialReminderDays';
 
 /**
  * The settings of a family the form edits besides its public listing, which has a
- * switch of its own on the row. It starts from what the API declares of a family
- * (the two ways a trial can end) and says the rest in its own words: a fallback
- * is a slug or none, and the lead of the reminder is a whole number of days from 1
- * to 30 (the contract states the bounds on the family it reads and not on the
- * update; a unit test holds these within it).
+ * switch of its own on the row. It starts from what the API declares: the two
+ * ways a trial can end and the bounds of the reminder come from the family it
+ * reads (the update types the first as a bare string and bounds neither), the
+ * length of a fallback from the update. The reminder is refused in the form's
+ * own words, whatever the contract refuses it for.
  */
 export const licenseFamilySettingsFormSchema = zLicenseFamilyView
   .pick({ trialEndWithoutPaymentMethod: true })
   .extend({
-    fallbackLicenseFamilySlug: z.string().max(255),
-    // An empty field reads as NaN, which the number check would refuse in its
-    // own words: the form says it in its own.
-    trialReminderDays: z
-      .number({ error: TRIAL_REMINDER_DAYS_ERROR_KEY })
-      .int(TRIAL_REMINDER_DAYS_ERROR_KEY)
-      .min(MIN_TRIAL_REMINDER_DAYS, TRIAL_REMINDER_DAYS_ERROR_KEY)
-      .max(MAX_TRIAL_REMINDER_DAYS, TRIAL_REMINDER_DAYS_ERROR_KEY),
+    fallbackLicenseFamilySlug:
+      zLicenseFamilyUpdate.shape.fallbackLicenseFamilySlug.unwrap(),
+    // An empty field reads as NaN, which the contract refuses like any other
+    // number out of its bounds.
+    trialReminderDays: z.custom<number>(
+      (days) => trialReminderDaysContract.safeParse(days).success,
+      { error: TRIAL_REMINDER_DAYS_ERROR_KEY },
+    ),
   });
 
 export type LicenseFamilySettingsFormValues = z.infer<
@@ -89,11 +93,25 @@ export function settingsFormValuesToUpdateBody(
 }
 
 /**
- * Where a refusal of the API is shown on the form: it names the field in prose
- * and does not locate it, so the code says which it is.
+ * Where a refusal of the API is shown on the form, and in what words: it names the
+ * field in prose and does not locate it, so the code says which it is, and its
+ * English detail is the API's, not the console's, so each code has a sentence of
+ * the locales. A code that is not here is shown above the buttons, in the API's words.
  */
-export const LICENSE_FAMILY_REFUSAL_FIELDS = {
-  'UpdateLicenseFamily.InvalidFallback': 'fallbackLicenseFamilySlug',
-  'UpdateLicenseFamily.InvalidTrialEndBehavior': 'trialEndWithoutPaymentMethod',
-  'UpdateLicenseFamily.InvalidTrialReminderDays': 'trialReminderDays',
-} as const satisfies Record<string, keyof LicenseFamilySettingsFormValues>;
+export const LICENSE_FAMILY_REFUSALS = {
+  'UpdateLicenseFamily.InvalidFallback': {
+    field: 'fallbackLicenseFamilySlug',
+    messageKey: 'Pages.Licenses.FamilySettings.Refusals.invalidFallback',
+  },
+  'UpdateLicenseFamily.InvalidTrialEndBehavior': {
+    field: 'trialEndWithoutPaymentMethod',
+    messageKey: 'Pages.Licenses.FamilySettings.Refusals.invalidTrialEnd',
+  },
+  'UpdateLicenseFamily.InvalidTrialReminderDays': {
+    field: 'trialReminderDays',
+    messageKey: TRIAL_REMINDER_DAYS_ERROR_KEY,
+  },
+} as const satisfies Record<
+  string,
+  { field: keyof LicenseFamilySettingsFormValues; messageKey: string }
+>;
