@@ -266,3 +266,35 @@ describe('classifyOutcome', () => {
     expect(classifyOutcome('boom')).toBe('unknown');
   });
 });
+
+describe('restoreValues, untrusted entries', () => {
+  it('ignores a path that reaches the prototype chain', () => {
+    const outcome = restoreValues(
+      [
+        ['__proto__.polluted', 'yes'],
+        ['constructor.prototype.polluted', 'yes'],
+        ['name', 'Gold plan'],
+      ],
+      context,
+    );
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(outcome.values.name).toBe('Gold plan');
+  });
+
+  it('does not take an inherited key for a field of the form', () => {
+    const outcome = restoreValues([['toString', 'x'], ['hasOwnProperty', 'x']], context);
+
+    expect(outcome.changedKeys).toEqual([]);
+  });
+
+  it('drops an omitted path carried inside a stored value', () => {
+    const outcome = restoreValues(
+      [['metadata', { apiKey: 'sk-live', region: 'eu' }]],
+      { ...context, omit: ['metadata.apiKey'] },
+    );
+
+    expect(outcome.values.metadata).toEqual({ region: 'eu' });
+    expect(JSON.stringify(outcome)).not.toContain('sk-live');
+  });
+});

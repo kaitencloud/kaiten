@@ -127,4 +127,20 @@ describe('form recovery payload codec', () => {
   it('throws on text that is not JSON', () => {
     expect(() => decodePayload('{nope')).toThrow();
   });
+
+  it('does not let a hostile payload swap a prototype or pollute Object', () => {
+    const decoded = decodePayload(
+      '{"__proto__":{"polluted":"yes"},"nested":{"__proto__":{"polluted":"yes"},"a":1}}',
+    ) as Record<string, unknown>;
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.getPrototypeOf(decoded)).toBe(Object.prototype);
+    expect(decoded).toEqual({ nested: { a: 1 } });
+  });
+
+  it('does not write a __proto__ key', () => {
+    const value = JSON.parse('{"__proto__":{"x":1},"a":"1"}') as unknown;
+
+    expect(JSON.parse(encodePayload(value))).toEqual({ a: '1' });
+  });
 });

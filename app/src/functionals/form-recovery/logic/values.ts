@@ -50,6 +50,16 @@ export function isFilled(value: unknown): boolean {
   return true;
 }
 
+/**
+ * Keys that reach the prototype chain. A stored path is data from a storage the
+ * origin does not control alone, so none of them is ever followed or assigned.
+ */
+const UNSAFE_SEGMENTS = new Set(['__proto__', 'constructor', 'prototype']);
+
+export function isUnsafeSegment(segment: string): boolean {
+  return UNSAFE_SEGMENTS.has(segment);
+}
+
 /** A deep copy that keeps dates, arrays and plain objects; the rest by reference. */
 export function cloneValue<T>(value: T): T {
   if (value instanceof Date) {
@@ -61,7 +71,9 @@ export function cloneValue<T>(value: T): T {
   if (isPlainObject(value)) {
     const copy: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(value)) {
-      copy[key] = cloneValue(item);
+      if (key !== '__proto__') {
+        copy[key] = cloneValue(item);
+      }
     }
     return copy as T;
   }
@@ -83,7 +95,7 @@ export function getAtPath(root: unknown, segments: readonly string[]): unknown {
   for (const segment of segments) {
     if (Array.isArray(node)) {
       node = node[Number(segment)];
-    } else if (isPlainObject(node)) {
+    } else if (isPlainObject(node) && Object.hasOwn(node, segment)) {
       node = node[segment];
     } else {
       return undefined;
@@ -92,12 +104,19 @@ export function getAtPath(root: unknown, segments: readonly string[]): unknown {
   return node;
 }
 
-/** Sets a value in a root that is already a copy; creates missing objects. */
+/**
+ * Sets a value in a root that is already a copy; creates missing objects.
+ * Returns false, and sets nothing, for a path that reaches the prototype chain.
+ */
 export function setAtPath(
   root: Record<string, unknown>,
   segments: readonly string[],
   value: unknown,
-): void {
+): boolean {
+  if (segments.some(isUnsafeSegment)) {
+    return false;
+  }
+
   let node: Record<string, unknown> | unknown[] = root;
 
   segments.forEach((segment, index) => {
@@ -109,16 +128,14 @@ export function setAtPath(
       return;
     }
 
-    let next = (node as Record<string | number, unknown>)[key];
+    const holder = node as Record<string | number, unknown>;
+    let next = Object.hasOwn(holder, key) ? holder[key] : undefined;
     if (typeof next !== 'object' || next === null) {
       next = {};
-      (node as Record<string | number, unknown>)[key] = next;
+      holder[key] = next;
     }
     node = next as Record<string, unknown> | unknown[];
   });
-}
 
-/** True when `path` is `ancestor` or lies under it. */
-export function isPathUnder(path: string, ancestor: string): boolean {
-  return path === ancestor || path.startsWith(`${ancestor}.`);
+  return true;
 }

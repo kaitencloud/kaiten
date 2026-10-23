@@ -1,12 +1,12 @@
 import type { z } from 'zod';
 import type { FormRecoveryLabel, FormRecoveryNote } from '../types';
-import { applyPatch, type PatchEntry } from './patch';
+import { applyPatch, stripOmittedEntry, type PatchEntry } from './patch';
 import { expectedShape, matchesShape } from './shape';
 import {
   cloneValue,
   getAtPath,
   isEqualValue,
-  isPathUnder,
+  isUnsafeSegment,
   joinPath,
   setAtPath,
   splitPath,
@@ -78,14 +78,21 @@ function selectApplicable<TValues extends object>(
   const applicable: PatchEntry[] = [];
   const mismatched: string[] = [];
 
-  for (const entry of entries) {
-    const segments = splitPath(entry[0]);
+  for (const stored of entries) {
+    const segments = splitPath(stored[0]);
     const [top] = segments;
-    if (top === undefined || !(top in context.pristine)) {
-      continue; // the field was removed from the form
+    if (
+      top === undefined ||
+      segments.some(isUnsafeSegment) ||
+      !Object.hasOwn(context.pristine, top)
+    ) {
+      continue; // the field was removed from the form, or the path is hostile
     }
-    if (context.omit.some((omitted) => isPathUnder(entry[0], omitted))) {
-      continue; // an older version may have written it
+    // An older version may have written an omitted path, or a value that
+    // carries one: the entry is cleaned, not trusted.
+    const entry = stripOmittedEntry(stored, context.omit);
+    if (!entry) {
+      continue;
     }
 
     const shape = expectedShape(context.schema, context.pristine, segments);

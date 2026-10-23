@@ -116,6 +116,9 @@ function encodeNode(value: unknown, path: string, seen: Set<object>): Json {
     if (isPlainObject(value)) {
       const encoded: { [key: string]: Json } = {};
       for (const [key, item] of Object.entries(value)) {
+        if (key === '__proto__') {
+          continue; // never a field; assigning it would swap the prototype
+        }
         encoded[key] = encodeNode(
           item,
           path === '' ? key : `${path}.${key}`,
@@ -193,6 +196,11 @@ function decodeNode(node: unknown): unknown {
     }
     const decoded: Record<string, unknown> = {};
     for (const [key, item] of Object.entries(record)) {
+      // The text is read back from a storage: `__proto__` is dropped, not
+      // assigned, so that a hostile payload cannot swap the prototype.
+      if (key === '__proto__') {
+        continue;
+      }
       decoded[key] = decodeNode(item);
     }
     return decoded;

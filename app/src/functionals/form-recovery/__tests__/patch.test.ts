@@ -6,6 +6,7 @@ import {
   stripIgnored,
 } from '../logic/patch';
 import { isEqualValue } from '../logic/values';
+import { encodePayload } from '@/lib/form-recovery';
 
 type Values = {
   name: string;
@@ -156,6 +157,91 @@ describe('computePatch', () => {
   });
 });
 
+describe('computePatch, omitted paths inside a value taken whole', () => {
+  type Loose = {
+    config: { token: string; url: string } | null | undefined;
+    rows: { key: string; token: string }[];
+  };
+  const omit = ['config.token', 'rows[].token'];
+
+  it('keeps a secret out when the reference at an ancestor is null', () => {
+    const values: Loose = { config: { token: 'SECRET', url: 'x' }, rows: [] };
+    const reference: Loose = { config: null, rows: [] };
+
+    const result = computePatch(values, reference, { omit });
+
+    expect(result.patch).toEqual([['config', { url: 'x' }]]);
+    expect(result.omittedFilled).toEqual(['config.token']);
+    expect(JSON.stringify(result)).not.toContain('SECRET');
+  });
+
+  it('keeps a secret out when the reference at an ancestor is undefined', () => {
+    const values: Loose = { config: { token: 'SECRET', url: 'x' }, rows: [] };
+    const reference: Loose = { config: undefined, rows: [] };
+
+    const result = computePatch(values, reference, { omit });
+
+    expect(result.patch).toEqual([['config', { url: 'x' }]]);
+    expect(JSON.stringify(result)).not.toContain('SECRET');
+  });
+
+  it('keeps nothing when only an omitted part was typed under a null ancestor', () => {
+    const values: Loose = { config: { token: 'SECRET', url: '' }, rows: [] };
+    const reference: Loose = { config: null, rows: [] };
+
+    const result = computePatch(values, reference, { omit: ['config'] });
+
+    expect(result.patch).toEqual([]);
+    expect(result.omittedFilled).toEqual(['config']);
+  });
+
+  it('applies omitWhen under an undefined reference too', () => {
+    const values = { config: { token: 'SECRET', url: 'x' } };
+
+    const result = computePatch(
+      values,
+      { config: undefined },
+      { omit: [], omitWhen: (path) => path.join('.') === 'config.token' },
+    );
+
+    expect(result.patch).toEqual([['config', { url: 'x' }]]);
+    expect(result.omittedFilled).toEqual(['config.token']);
+  });
+
+  it('reaches into the rows of an array with [] and with an index', () => {
+    const values: Loose = {
+      config: null,
+      rows: [
+        { key: 'a', token: 'S1' },
+        { key: 'b', token: 'S2' },
+      ],
+    };
+    const reference: Loose = { config: null, rows: [] };
+
+    const withWildcard = computePatch(values, reference, { omit });
+    expect(withWildcard.patch).toEqual([['rows', [{ key: 'a' }, { key: 'b' }]]]);
+    expect(withWildcard.omittedFilled).toEqual(['rows.0.token', 'rows.1.token']);
+
+    const withIndex = computePatch(values, reference, { omit: ['rows.1.token'] });
+    expect(withIndex.patch).toEqual([
+      ['rows', [{ key: 'a', token: 'S1' }, { key: 'b' }]],
+    ]);
+  });
+
+  it('writes nothing secret to the encoded payload', () => {
+    const values: Loose = {
+      config: { token: 'SECRET', url: 'x' },
+      rows: [{ key: 'a', token: 'S1' }],
+    };
+    const { patch } = computePatch(values, { config: null, rows: [] }, { omit });
+
+    const stored = encodePayload(patch);
+
+    expect(stored).not.toContain('SECRET');
+    expect(stored).not.toContain('S1');
+  });
+});
+
 describe('patchCounts', () => {
   it('does not count a blank form, an omitted field or a step change', () => {
     expect(patchCounts(pristine(), pristine(), options)).toBe(false);
@@ -217,5 +303,43 @@ describe('applyPatch', () => {
     const merged = applyPatch(pristine(), [['code', 'LEAK']], ['code']);
 
     expect(merged.code).toBe('');
+  });
+});
+
+describe('applyPatch, hostile and older entries', () => {
+  it('strips an omitted path carried by an ancestor an older version wrote', () => {
+    const base = { config: null as null | { token?: string; url?: string } };
+
+    const merged = applyPatch(
+      base,
+      [['config', { token: 'LEAK', url: 'x' }]],
+      ['config.token'],
+    );
+
+    expect(merged.config).toEqual({ url: 'x' });
+  });
+
+  it('never sets a path that reaches the prototype chain', () => {
+    const merged = applyPatch(
+      pristine(),
+      [
+        ['__proto__.polluted', 'yes'],
+        ['metadata.constructor.prototype.polluted', 'yes'],
+      ],
+      [],
+    );
+
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+    expect(Object.getPrototypeOf(merged)).toBe(Object.prototype);
+    expect(Object.prototype.hasOwnProperty.call(Object.prototype, 'polluted')).toBe(false);
+  });
+
+  it('drops a __proto__ key inside a stored value', () => {
+    const hostile = JSON.parse('{"__proto__":{"polluted":"yes"},"a":"1"}') as unknown;
+
+    const merged = applyPatch(pristine(), [['metadata', hostile]], []);
+
+    expect(merged.metadata).toEqual({ a: '1' });
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
   });
 });
