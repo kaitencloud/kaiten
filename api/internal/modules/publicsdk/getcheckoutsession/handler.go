@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -49,6 +50,22 @@ func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UU
 		return nil, err
 	}
 	return Read(ctx, u.deps.Activation, u.deps.Payments, row)
+}
+
+// Admin is a session row as the vendor reads it (§13.18): the public read,
+// without its invoice and payment, plus its key and when it closed.
+func Admin(ctx context.Context, activation createcheckoutsession.Activation, row db.GetCheckoutSessionRow) (*checkout.CheckoutSessionAdmin, error) {
+	session, err := Read(ctx, activation, nil, row)
+	if err != nil {
+		return nil, err
+	}
+	var closedAt *time.Time
+	if row.ClosedAt.Valid {
+		at := row.ClosedAt.Time.UTC()
+		closedAt = &at
+	}
+	admin := checkout.AdminFrom(*session, row.PublishableKeyID, closedAt)
+	return &admin, nil
 }
 
 // Load reads a session row. One waiting for its payment has its ACTIVATION

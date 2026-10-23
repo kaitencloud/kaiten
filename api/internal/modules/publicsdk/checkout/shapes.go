@@ -88,6 +88,45 @@ type CheckoutSession struct {
 	CompletedAt           *time.Time               `json:"completedAt"`
 }
 
+// CheckoutSessionAdmin is a checkout session as the vendor reads it (§13.18):
+// the public CheckoutSession without its invoice and payment, plus the key
+// that started it and when it closed. Never the ksc_, its digest, or a code.
+type CheckoutSessionAdmin struct {
+	SessionID          uuid.UUID               `json:"sessionId"`
+	PublishableKeyID   uuid.UUID               `json:"publishableKeyId" doc:"The key whose page started it"`
+	Status             string                  `json:"status" enum:"OPEN,AWAITING_PAYMENT,COMPLETED,ABANDONED,EXPIRED" doc:"A session still OPEN after expiresAt reads ABANDONED"`
+	Email              string                  `json:"email" doc:"As the visitor gave it. Personal data"`
+	ClientReferenceID  *string                 `json:"clientReferenceId"`
+	LicenseSlug        string                  `json:"licenseSlug"`
+	BillingPeriod      string                  `json:"billingPeriod"`
+	PriceID            uuid.UUID               `json:"priceId"`
+	AddOns             []SessionAddonSelection `json:"addOns" nullable:"false"`
+	DueToday           sessions.DueToday       `json:"dueToday"`
+	TrialEndsAt        *time.Time              `json:"trialEndsAt"`
+	TrialRefusedReason *string                 `json:"trialRefusedReason"`
+	CustomerSlug       *string                 `json:"customerSlug" doc:"Set by the completion"`
+	InstanceSlug       *string                 `json:"instanceSlug" doc:"Set by the completion"`
+	CreatedAt          time.Time               `json:"createdAt"`
+	ExpiresAt          time.Time               `json:"expiresAt"`
+	CompletedAt        *time.Time              `json:"completedAt"`
+	ClosedAt           *time.Time              `json:"closedAt" doc:"When it became COMPLETED, ABANDONED or EXPIRED; null while OPEN or AWAITING_PAYMENT"`
+}
+
+func (CheckoutSessionAdmin) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, CheckoutSessionAdmin{})
+}
+
+// AdminFrom is a session as the vendor reads it, from its public read.
+func AdminFrom(session CheckoutSession, publishableKeyID uuid.UUID, closedAt *time.Time) CheckoutSessionAdmin {
+	return CheckoutSessionAdmin{
+		SessionID: session.SessionID, PublishableKeyID: publishableKeyID, Status: session.Status, Email: session.Email,
+		ClientReferenceID: session.ClientReferenceID, LicenseSlug: session.LicenseSlug, BillingPeriod: session.BillingPeriod,
+		PriceID: session.PriceID, AddOns: session.AddOns, DueToday: session.DueToday, TrialEndsAt: session.TrialEndsAt,
+		TrialRefusedReason: session.TrialRefusedReason, CustomerSlug: session.CustomerSlug, InstanceSlug: session.InstanceSlug,
+		CreatedAt: session.CreatedAt, ExpiresAt: session.ExpiresAt, CompletedAt: session.CompletedAt, ClosedAt: closedAt,
+	}
+}
+
 // Selection is the JSON a session stores of what its start priced: no
 // foreign key, the completion re-validates it.
 type Selection struct {

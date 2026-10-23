@@ -22,9 +22,11 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessioncheckout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsessionadmin"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getsessionportal"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listcheckoutsessions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
@@ -67,6 +69,22 @@ func (p PublicSDK) ListPublishableKeys(ctx context.Context, cl caller.Organizati
 		return pagination.Page[keys.PublishableKey]{}, err
 	}
 	return p.uc.ListPublishableKeys.Execute(bindOrganization(ctx, cl), includeRevoked, cursor, limit)
+}
+
+// ListCheckoutSessions lists the organization's anonymous checkouts (§13.18).
+func (p PublicSDK) ListCheckoutSessions(ctx context.Context, cl caller.OrganizationCaller, query listcheckoutsessions.Query) (pagination.Page[checkout.CheckoutSessionAdmin], error) {
+	if err := cl.Require(listcheckoutsessions.RequiredScope); err != nil {
+		return pagination.Page[checkout.CheckoutSessionAdmin]{}, err
+	}
+	return p.uc.ListCheckoutSessions.Execute(bindOrganization(ctx, cl), query)
+}
+
+// GetCheckoutSessionAdmin reads one of the organization's anonymous checkouts.
+func (p PublicSDK) GetCheckoutSessionAdmin(ctx context.Context, cl caller.OrganizationCaller, sessionID uuid.UUID) (*checkout.CheckoutSessionAdmin, error) {
+	if err := cl.Require(getcheckoutsessionadmin.RequiredScope); err != nil {
+		return nil, err
+	}
+	return p.uc.GetCheckoutSessionAdmin.Execute(bindOrganization(ctx, cl), sessionID)
 }
 
 func (p PublicSDK) UpdatePublishableKey(ctx context.Context, cl caller.OrganizationCaller, keyID uuid.UUID, patch updatepublishablekey.PublishableKeyPatch) (*keys.PublishableKey, error) {

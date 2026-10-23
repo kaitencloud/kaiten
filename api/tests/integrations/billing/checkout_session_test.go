@@ -1,6 +1,8 @@
 package billing_test
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"path/filepath"
 	"strings"
@@ -13,6 +15,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
@@ -240,4 +243,64 @@ func TestCheckoutSessionFreePlan(t *testing.T) {
 	read := commonfixture.AssertJSONResponse[checkout.CheckoutSession](t, readCheckout(t, id, *opened.Token), fiber.StatusOK)
 	require.Equal(t, checkout.StatusCompleted, read.Status, "the ksc_ still reads it after it closed")
 	require.Len(t, outboxPayloads(t, "CHECKOUT_SESSION_COMPLETED"), 1, "completed once")
+}
+
+// TestCheckoutSessionVendorReads: the vendor reads its anonymous checkouts
+// (§13.18): newest first, filtered by status (an OPEN one past its expiry is
+// ABANDONED), normalized e-mail and clientReferenceId; never a ksc_.
+func TestCheckoutSessionVendorReads(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	community := newDefaultVersion(t, "Community", "FREE")
+	makePublic(t, community.FamilySlug)
+	free := createPrice(t, community.Slug, defaultFlatFee("0", "MONTHLY"))
+	key := anonymousKey(t)
+	start := func(email, reference string) checkout.CheckoutSessionStart {
+		t.Helper()
+		return commonfixture.AssertJSONResponse[checkout.CheckoutSessionStart](t, startCheckout(t, key.Key, map[string]any{
+			"turnstileToken": "pass:app.acme.test", "priceId": free.ID, "email": email,
+			"returnUrl": storefront + "/welcome", "clientReferenceId": reference,
+		}), fiber.StatusCreated)
+	}
+	completed := start("Ada@Example.com", "lead-1")
+	require.Equal(t, fiber.StatusOK, confirmCheckout(t, completed.SessionID.String(), *completed.Token).StatusCode)
+	open := start("grace@example.com", "lead-2")
+	lapsed := start("linus@example.com", "lead-3")
+	_, err := testServer.Dependencies.DB.Exec(t.Context(),
+		`UPDATE checkout_session SET created_at = created_at - interval '25 hours', expires_at = expires_at - interval '25 hours' WHERE id = $1`, lapsed.SessionID)
+	require.NoError(t, err)
+
+	list := func(query string) []checkout.CheckoutSessionAdmin {
+		t.Helper()
+		resp := call(t, "GET", "/api/checkout-sessions"+query, nil)
+		raw, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, fiber.StatusOK, resp.StatusCode, string(raw))
+		require.NotContains(t, string(raw), "ksc_", "never the token")
+		var page pagination.Page[checkout.CheckoutSessionAdmin]
+		require.NoError(t, json.Unmarshal(raw, &page))
+		return page.Items
+	}
+	all := list("")
+	require.Len(t, all, 3)
+	require.Equal(t, open.SessionID.String(), all[0].SessionID.String(), "newest first")
+	require.Equal(t, lapsed.SessionID.String(), all[2].SessionID.String(), "the backdated one last")
+
+	done := list("?status=COMPLETED")
+	require.Len(t, done, 1)
+	require.Equal(t, completed.SessionID.String(), done[0].SessionID.String())
+	require.NotNil(t, done[0].CustomerSlug, "the completion's customer")
+	require.NotNil(t, done[0].ClosedAt)
+	abandoned := list("?status=ABANDONED")
+	require.Len(t, abandoned, 1, "OPEN past its expiry reads ABANDONED")
+	require.Equal(t, lapsed.SessionID.String(), abandoned[0].SessionID.String())
+	require.Len(t, list("?status=OPEN&status=ABANDONED"), 2)
+	require.Len(t, list("?email=ADA@example.COM"), 1, "the e-mail in any letter case")
+	require.Len(t, list("?clientReferenceId=lead-2"), 1)
+
+	one := commonfixture.AssertJSONResponse[checkout.CheckoutSessionAdmin](t,
+		call(t, "GET", "/api/checkout-sessions/"+open.SessionID.String(), nil), fiber.StatusOK)
+	require.Equal(t, "grace@example.com", one.Email)
+	require.Equal(t, checkout.StatusOpen, one.Status)
+	require.Nil(t, one.ClosedAt)
+	require.Equal(t, "GetCheckoutSessionAdmin.NotFound", problemCode(t, fiber.StatusNotFound, "GET", "/api/checkout-sessions/"+uuid.NewString(), nil))
 }

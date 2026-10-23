@@ -424,6 +424,67 @@ func (q *Queries) InsertCheckoutSession(ctx context.Context, arg InsertCheckoutS
 	return i, err
 }
 
+const listCheckoutSessionIDs = `-- name: ListCheckoutSessionIDs :many
+SELECT cs.id, cs.created_at
+FROM checkout_session cs
+WHERE cs.organization_id = $1
+  AND (cardinality($2::text[]) = 0
+    OR (CASE WHEN cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
+             THEN 'ABANDONED' ELSE cs.status::text END) = ANY ($2::text[]))
+  AND ($3::text IS NULL OR lower(cs.email) = lower($3::text))
+  AND ($4::text IS NULL OR cs.client_reference_id = $4::text)
+  AND ($5::timestamp IS NULL
+    OR (cs.created_at, cs.id) < ($5::timestamp, $6::uuid))
+ORDER BY cs.created_at DESC, cs.id DESC
+LIMIT $7::integer
+`
+
+type ListCheckoutSessionIDsParams struct {
+	OrganizationID    uuid.UUID        `json:"organization_id"`
+	Statuses          []string         `json:"statuses"`
+	Email             *string          `json:"email"`
+	ClientReferenceID *string          `json:"client_reference_id"`
+	CursorAt          pgtype.Timestamp `json:"cursor_at"`
+	CursorID          *uuid.UUID       `json:"cursor_id"`
+	RowLimit          *int32           `json:"row_limit"`
+}
+
+type ListCheckoutSessionIDsRow struct {
+	ID        uuid.UUID        `json:"id"`
+	CreatedAt pgtype.Timestamp `json:"created_at"`
+}
+
+// The vendor's list (§13.18), newest first, keyset-paged on (created_at, id).
+// A status filter reads a session OPEN past expires_at as ABANDONED, as every
+// read does; the e-mail is matched in its normalized form (INV-35).
+func (q *Queries) ListCheckoutSessionIDs(ctx context.Context, arg ListCheckoutSessionIDsParams) ([]ListCheckoutSessionIDsRow, error) {
+	rows, err := q.db.Query(ctx, listCheckoutSessionIDs,
+		arg.OrganizationID,
+		arg.Statuses,
+		arg.Email,
+		arg.ClientReferenceID,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCheckoutSessionIDsRow
+	for rows.Next() {
+		var i ListCheckoutSessionIDsRow
+		if err := rows.Scan(&i.ID, &i.CreatedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockAwaitingCheckoutSession = `-- name: LockAwaitingCheckoutSession :one
 SELECT cs.id
 FROM checkout_session cs

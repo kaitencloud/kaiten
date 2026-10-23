@@ -222,3 +222,21 @@ SET status     = 'EXPIRED',
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'AWAITING_PAYMENT';
+
+
+-- name: ListCheckoutSessionIDs :many
+-- The vendor's list (§13.18), newest first, keyset-paged on (created_at, id).
+-- A status filter reads a session OPEN past expires_at as ABANDONED, as every
+-- read does; the e-mail is matched in its normalized form (INV-35).
+SELECT cs.id, cs.created_at
+FROM checkout_session cs
+WHERE cs.organization_id = sqlc.arg(organization_id)
+  AND (cardinality(sqlc.arg(statuses)::text[]) = 0
+    OR (CASE WHEN cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
+             THEN 'ABANDONED' ELSE cs.status::text END) = ANY (sqlc.arg(statuses)::text[]))
+  AND (sqlc.narg(email)::text IS NULL OR lower(cs.email) = lower(sqlc.narg(email)::text))
+  AND (sqlc.narg(client_reference_id)::text IS NULL OR cs.client_reference_id = sqlc.narg(client_reference_id)::text)
+  AND (sqlc.narg(cursor_at)::timestamp IS NULL
+    OR (cs.created_at, cs.id) < (sqlc.narg(cursor_at)::timestamp, sqlc.narg(cursor_id)::uuid))
+ORDER BY cs.created_at DESC, cs.id DESC
+LIMIT sqlc.narg(row_limit)::integer;

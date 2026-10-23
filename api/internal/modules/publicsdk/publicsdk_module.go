@@ -23,9 +23,11 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsessionadmin"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getsessionportal"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listcheckoutsessions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
@@ -43,8 +45,11 @@ import (
 type UseCases struct {
 	CreatePublishableKey *createpublishablekey.UseCase
 	ListPublishableKeys  *listpublishablekeys.UseCase
-	UpdatePublishableKey *updatepublishablekey.UseCase
-	RevokePublishableKey *revokepublishablekey.UseCase
+	// The vendor's reads of its anonymous checkouts (§13.18).
+	ListCheckoutSessions    *listcheckoutsessions.UseCase
+	GetCheckoutSessionAdmin *getcheckoutsessionadmin.UseCase
+	UpdatePublishableKey    *updatepublishablekey.UseCase
+	RevokePublishableKey    *revokepublishablekey.UseCase
 
 	// AuthenticatePublishableKey backs auth.PublishableKeyMiddleware and appears
 	// on no surface of its own: authentication precedes a caller, so it cannot go
@@ -135,6 +140,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		AuthenticateCheckoutSession: authenticatecheckoutsession.NewUseCase(authenticatecheckoutsession.Deps{Uof: svc.Uof}),
 		CreatePublishableKey:        createpublishablekey.NewUseCase(deps),
 		ListPublishableKeys:         listpublishablekeys.NewUseCase(deps),
+		ListCheckoutSessions:        listcheckoutsessions.NewUseCase(deps, from.Activation),
+		GetCheckoutSessionAdmin:     getcheckoutsessionadmin.NewUseCase(deps, from.Activation),
 		UpdatePublishableKey:        updatepublishablekey.NewUseCase(deps),
 		RevokePublishableKey:        revokepublishablekey.NewUseCase(deps),
 		AuthenticatePublishableKey:  authenticatepublishablekey.NewUseCase(deps),

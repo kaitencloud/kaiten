@@ -15,9 +15,11 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createsessionportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsession"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsessionadmin"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getsessionportal"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listcheckoutsessions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listpublishablekeys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/listsessioninvoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/reactivatesessionsubscription"
@@ -35,6 +37,8 @@ import (
 func registerPublicSDK(core huma.API, app kaiten.PublicSDK) {
 	createpublishablekey.RegisterEndpoint(core, app)
 	listpublishablekeys.RegisterEndpoint(core, app)
+	listcheckoutsessions.RegisterEndpoint(core, app)
+	getcheckoutsessionadmin.RegisterEndpoint(core, app)
 	updatepublishablekey.RegisterEndpoint(core, app)
 	revokepublishablekey.RegisterEndpoint(core, app)
 	getpubliccatalog.RegisterEndpoint(core, app)

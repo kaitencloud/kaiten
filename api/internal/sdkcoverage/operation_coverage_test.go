@@ -162,6 +162,9 @@ var awaitingSDKOperations = map[string]string{
 	"updatePublishableKey": awaitsBilling,
 	"revokePublishableKey": awaitsBilling,
 
+	"listCheckoutSessions":    awaitsBilling,
+	"getCheckoutSessionAdmin": awaitsBilling,
+
 	"createCustomerSession": awaitsBilling,
 	"revokeCustomerSession": awaitsBilling,
 }
