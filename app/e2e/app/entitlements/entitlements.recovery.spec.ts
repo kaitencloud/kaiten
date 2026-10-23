@@ -69,6 +69,43 @@ test('offers back a half-filled creation after a reload, restores both steps, an
   await expect(form.nameField()).toHaveValue('');
 });
 
+test('draws the sale units that a resume brings back, and sends them', async ({
+  page,
+}) => {
+  const form = new EntitlementFormDriver(page);
+
+  await installEntitlementAppMocks(page, createEmptyEntitlementsModel());
+  await page.goto('/catalog/entitlements/new');
+  await form.expectLoaded('create');
+  await form.fill({ name: 'Seats' });
+  await form.clickNext();
+  await form.fillUnits({
+    saleUnitFactor: 3,
+    saleUnitPlural: 'packs',
+    saleUnitSingular: 'pack',
+    unitPlural: 'seats',
+    unitSingular: 'seat',
+  });
+  await expect.poll(() => readConsoleStorage(page)).toContain('packs');
+
+  await page.reload();
+  await expect(form.recoveryOffer()).toBeVisible();
+  await form.resumeButton().click();
+
+  // What the request carries is on the screen, and can be edited.
+  await expect(form.saleUnitsToggle()).toBeChecked();
+  await expect(form.saleUnitSingularField()).toHaveValue('pack');
+  await expect(form.saleUnitPluralField()).toHaveValue('packs');
+  await expect(form.saleUnitFactorField()).toHaveValue('3');
+
+  await form.submitButton().click();
+  await expect(page).toHaveURL('/catalog/entitlements/seats');
+  await page.goto('/catalog/entitlements/seats?mode=configure');
+  await form.clickNext();
+  await expect(form.saleUnitSingularField()).toHaveValue('pack');
+  await expect(form.saleUnitFactorField()).toHaveValue('3');
+});
+
 test('starts over on a blank form and drops the entries when the person chooses to', async ({
   page,
 }) => {

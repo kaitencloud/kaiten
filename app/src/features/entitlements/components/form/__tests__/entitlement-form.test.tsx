@@ -481,6 +481,14 @@ describe('EntitlementForm', () => {
         createdAt: '2026-03-01T09:00:00.000Z',
         updatedAt: '2026-03-01T09:00:00.000Z',
       };
+      // The section follows the values of the form, which the mocked form does not
+      // derive from the entitlement: the real form is covered by the unit fields test.
+      formState.values = {
+        ...defaultFormValues,
+        saleUnitFactor: 3,
+        saleUnitPlural: 'packs',
+        saleUnitSingular: 'pack',
+      };
 
       render(<EntitlementForm entitlement={entitlementWithUnits} />, {
         wrapper: createWrapper(),

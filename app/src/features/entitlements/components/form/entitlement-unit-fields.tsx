@@ -1,7 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import type { Entitlement } from '@/api-client';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
 import { Switch } from '@/components/ui/switch';
@@ -202,26 +201,34 @@ function SaleUnitFields({ form }: SaleUnitSectionProps) {
 }
 
 type EntitlementUnitFieldsProps = {
-  entitlement?: Entitlement;
   form: any;
 };
 
-export function EntitlementUnitFields({
-  entitlement,
-  form,
-}: EntitlementUnitFieldsProps) {
-  const { t } = useTranslation();
-  const switchId = useId();
-  const [soldInDifferentUnits, setSoldInDifferentUnits] = useState(() =>
-    Boolean(
-      entitlement?.saleUnitSingular ||
-      entitlement?.saleUnitPlural ||
-      entitlement?.saleUnitFactor != null,
-    ),
+type SaleUnitValues = {
+  saleUnitSingular?: string;
+  saleUnitPlural?: string;
+  saleUnitFactor?: number;
+};
+
+// The values are the source of truth for what the request carries: any member of the
+// sale trio makes the section part of the form, whether it came from the stored
+// entitlement (an edit) or from restored input (a recovered creation), neither of
+// which is known when this component first renders.
+const hasSaleUnitValues = (values: SaleUnitValues): boolean =>
+  Boolean(
+    values.saleUnitSingular ||
+    values.saleUnitPlural ||
+    values.saleUnitFactor != null,
   );
 
+export function EntitlementUnitFields({ form }: EntitlementUnitFieldsProps) {
+  const { t } = useTranslation();
+  const switchId = useId();
+  // Only the wish to fill the section in while nothing is in it yet.
+  const [openedByPerson, setOpenedByPerson] = useState(false);
+
   const handleSoldInDifferentUnitsChange = (checked: boolean) => {
-    setSoldInDifferentUnits(checked);
+    setOpenedByPerson(checked);
     if (!checked) {
       form.setFieldValue('saleUnitSingular', '');
       form.setFieldValue('saleUnitPlural', '');
@@ -257,22 +264,34 @@ export function EntitlementUnitFields({
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
-        <Switch
-          id={switchId}
-          checked={soldInDifferentUnits}
-          onCheckedChange={handleSoldInDifferentUnitsChange}
-        />
-        <label
-          htmlFor={switchId}
-          className="text-sm font-medium whitespace-nowrap"
-        >
-          {t('Pages.Entitlements.Mutation.Form.Labels.saleUnitsToggle')}
-        </label>
-        <div aria-hidden="true" className="bg-border h-px flex-1" />
-      </div>
+      <form.Subscribe
+        selector={(state: any) => hasSaleUnitValues(state.values)}
+      >
+        {(hasSaleUnits: boolean) => {
+          const soldInDifferentUnits = openedByPerson || hasSaleUnits;
 
-      {soldInDifferentUnits && <SaleUnitFields form={form} />}
+          return (
+            <>
+              <div className="flex items-center gap-3">
+                <Switch
+                  id={switchId}
+                  checked={soldInDifferentUnits}
+                  onCheckedChange={handleSoldInDifferentUnitsChange}
+                />
+                <label
+                  htmlFor={switchId}
+                  className="text-sm font-medium whitespace-nowrap"
+                >
+                  {t('Pages.Entitlements.Mutation.Form.Labels.saleUnitsToggle')}
+                </label>
+                <div aria-hidden="true" className="bg-border h-px flex-1" />
+              </div>
+
+              {soldInDifferentUnits && <SaleUnitFields form={form} />}
+            </>
+          );
+        }}
+      </form.Subscribe>
     </div>
   );
 }

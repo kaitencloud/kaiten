@@ -301,7 +301,7 @@ export function EntitlementTypeFields({
                 entitlement={entitlement}
                 form={form}
               />
-              <EntitlementUnitFields entitlement={entitlement} form={form} />
+              <EntitlementUnitFields form={form} />
             </>
           ) : null
         }
