@@ -329,9 +329,9 @@ func CheckPlan(ctx context.Context, op string, catalogue *getpubliccatalog.UseCa
 		}
 	}
 	if plan.PricingType == "PAID" {
-		if _, captures := catalogue.CapturingProvider(ctx, organizationID); !captures {
+		if _, captures := catalogue.CapturingProviderIn(ctx, organizationID, price.Currency); !captures {
 			return kaitenerrors.UnprocessableEntity(op+".ProviderCannotCapturePayment",
-				"no billing provider that captures payment methods is connected: a paid plan cannot be checked out")
+				"no connected billing provider captures payment methods in "+price.Currency+": a paid plan cannot be checked out")
 		}
 	}
 	return nil

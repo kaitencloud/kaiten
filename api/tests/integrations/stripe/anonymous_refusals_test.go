@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe/stripefake"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
+	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	tier2 "github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	tier2events "github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/events"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -130,4 +132,39 @@ func planFamilySlugOf(t *testing.T, familyID string) string {
 	}
 	t.Fatalf("no family %s", familyID)
 	return ""
+}
+
+// TestAnonymousCheckoutFollowsStripeCurrencies: a public plan priced in a
+// currency outside Stripe's allow-list cannot be checked out, dryRun
+// included, as Stripe cannot charge it (§8.5 rule 6, §14.8 rule 5); HUF, which
+// Stripe charges in two-decimal amounts, can.
+func TestAnonymousCheckoutFollowsStripeCurrencies(t *testing.T) {
+	fresh(t)
+	s := newStorefront(t, nil)
+	priced := func(name, currency, amount string) prices.Price {
+		t.Helper()
+		license := commonfixture.AssertJSONResponse[licenseschema.License](t, call(t, "POST", "/api/licenses", map[string]any{
+			"name": name, "description": "d", "type": "PAID", "isDefault": true,
+			"lifecycleState": licenseschema.Published, "pricingType": "PAID",
+		}), fiber.StatusCreated)
+		require.Equal(t, fiber.StatusOK, call(t, "PATCH", "/api/license-families/"+planFamilySlugOf(t, license.FamilyID.String()), map[string]any{
+			"isPublic": true, "fallbackLicenseFamilySlug": planFamilySlugOf(t, s.starter.FamilyID.String()),
+		}).StatusCode)
+		return commonfixture.AssertJSONResponse[prices.Price](t, call(t, "POST", "/api/licenses/"+license.Slug+"/prices", map[string]any{
+			"billingModel": "FLAT_FEE", "billingPeriod": "MONTHLY", "currency": currency, "unitAmountDecimal": amount, "isDefault": true,
+		}), fiber.StatusCreated)
+	}
+	start := func(price prices.Price, status int) *http.Response {
+		t.Helper()
+		resp := anonymousCall(t, "POST", "/api/public/checkout-sessions", map[string]any{
+			"turnstileToken": "token", "priceId": price.ID, "email": "visitor@example.com", "returnUrl": returnURL, "dryRun": true,
+		}, map[string]string{"X-Kaiten-Publishable-Key": s.key})
+		require.Equal(t, status, resp.StatusCode)
+		return resp
+	}
+
+	ariary := priced("Ariary", "MGA", "5000000")
+	refused := commonfixture.AssertJSONResponse[map[string]any](t, start(ariary, fiber.StatusUnprocessableEntity), fiber.StatusUnprocessableEntity)
+	require.Equal(t, "CreateCheckoutSession.ProviderCannotCapturePayment", refused["code"], "MGA: zero-decimal at Stripe, two-decimal in ISO")
+	start(priced("Forint", "HUF", "1000000"), fiber.StatusOK)
 }

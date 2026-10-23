@@ -30,11 +30,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 )
 
-// RefusedCurrencies are the currencies on Stripe's special-case list, and the
-// three-decimal ones, whose minor units do not map onto Stripe's amounts at
-// tolerance 0 (§8.5 rule 6). To be confirmed by the Stripe sandbox spike.
-var RefusedCurrencies = []string{"BHD", "HUF", "ISK", "JOD", "KWD", "OMR", "TND", "TWD", "UGX"}
-
 // invoiceEvents are the event types sync reads.
 var invoiceEvents = []string{
 	"invoice.finalized", "invoice.paid", "invoice.payment_failed", "invoice.payment_action_required",
@@ -86,7 +81,7 @@ func (*Adapter) Capabilities() provider.Capabilities {
 	return provider.Capabilities{
 		PushesInvoices: true, EventFeed: true,
 		ChargeAutomatically: true, PaymentMethodCapture: true, BillingPortal: true,
-		Currencies: nil, RefusedCurrencies: RefusedCurrencies,
+		Currencies: Currencies, RefusedCurrencies: nil,
 	}
 }
 

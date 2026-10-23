@@ -173,12 +173,18 @@ func (u *UseCase) capturesPaymentMethods(ctx context.Context, organizationID uui
 // bills through. A provider that cannot be resolved reads as not connected:
 // the catalogue still answers, with self-serve off.
 func (u *UseCase) CapturingProvider(ctx context.Context, organizationID uuid.UUID) (string, bool) {
+	return u.CapturingProviderIn(ctx, organizationID, "")
+}
+
+// CapturingProviderIn is CapturingProvider for a price in currency: the
+// provider must also accept it (§8.5 rule 6). An empty currency is any.
+func (u *UseCase) CapturingProviderIn(ctx context.Context, organizationID uuid.UUID, currency string) (string, bool) {
 	if u.deps.Providers == nil {
 		return "", false
 	}
 	for _, kind := range u.deps.Providers.Kinds() {
 		capabilities, ok := u.deps.Providers.Capabilities(kind)
-		if !ok || !capabilities.PaymentMethodCapture {
+		if !ok || !capabilities.PaymentMethodCapture || (currency != "" && !capabilities.AcceptsCurrency(currency)) {
 			continue
 		}
 		_, err := u.deps.Providers.Resolve(ctx, organizationID, kind)

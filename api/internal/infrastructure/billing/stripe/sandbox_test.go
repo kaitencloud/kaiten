@@ -508,7 +508,9 @@ func (s *spike) refusedCurrencies(t *testing.T) {
 	ctx := context.Background()
 	ref := s.ref(Settings{AutomaticTax: false, TaxBehavior: TaxExclusive, AutoFinalize: true})
 	thirty := int32(30)
-	for _, currency := range RefusedCurrencies {
+	// The currencies §8.5 rule 6 refuses, and the two it accepts against the
+	// old deny-list.
+	for _, currency := range []string{"BHD", "ISK", "JOD", "KWD", "MGA", "OMR", "TND", "UGX", "HUF", "TWD"} {
 		in := invoiceFor(s.customer(t, ref), currency, "SEND_INVOICE", &thirty, lineOf(1, 12_345))
 		draft, err := s.adapter.CreateDraft(ctx, ref, in)
 		if err != nil {
