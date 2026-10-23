@@ -30,7 +30,11 @@ export {
   encodePayload,
   FormRecoverySerializationError,
 } from './form-recovery-payload';
-export { setPendingUndo, takePendingUndo } from './form-recovery-pending-undo';
+export {
+  peekPendingUndo,
+  setPendingUndo,
+  takePendingUndo,
+} from './form-recovery-pending-undo';
 export {
   FORM_RECOVERY_DEFAULT_RETENTION_DAYS,
   FORM_RECOVERY_ENVELOPE,

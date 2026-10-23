@@ -10,6 +10,11 @@ export function setPendingUndo(scopeKey: string, lineageId: string): void {
   pending.set(scopeKey, lineageId);
 }
 
+/** The lineage a scope is to restore directly, without taking it. */
+export function peekPendingUndo(scopeKey: string): string | null {
+  return pending.get(scopeKey) ?? null;
+}
+
 /** Takes the lineage a scope is to restore directly, once. */
 export function takePendingUndo(scopeKey: string): string | null {
   const lineageId = pending.get(scopeKey) ?? null;
