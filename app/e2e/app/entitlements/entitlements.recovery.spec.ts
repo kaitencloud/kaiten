@@ -170,6 +170,31 @@ test('offers the undo of a Cancel pressed right after typing', async ({
   await expect(form.nameField()).toHaveValue('Storage Reads');
 });
 
+// The create mutation no longer waits for the list to refetch before it resolves: the
+// page it leaves and the list it lands on must still end up showing the new entitlement.
+test('lists the entitlement that was created from the page', async ({
+  page,
+}) => {
+  const form = new EntitlementFormDriver(page);
+  const list = new EntitlementsListDriver(page);
+
+  await installEntitlementAppMocks(page, createEntitlementsListModel());
+  await list.goto();
+  await list.openCreatePage();
+  await form.expectLoaded('create');
+  await fillBothSteps(form);
+  await form.submitButton().click();
+  await expect(page).toHaveURL('/catalog/entitlements/storage-reads');
+
+  await page
+    .getByRole('link', { name: 'Entitlements', exact: true })
+    .first()
+    .click();
+  await list.expectLoaded();
+  await list.expectEntitlementVisible('Storage Reads');
+  await list.expectEntitlementVisible('API Calls');
+});
+
 test('keeps nothing of an edit, and never offers one', async ({ page }) => {
   const form = new EntitlementFormDriver(page);
 
