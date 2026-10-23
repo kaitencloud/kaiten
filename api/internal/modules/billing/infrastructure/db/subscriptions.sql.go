@@ -59,7 +59,7 @@ func (q *Queries) GetBillingCustomer(ctx context.Context, arg GetBillingCustomer
 }
 
 const getBillingLicense = `-- name: GetBillingLicense :one
-SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days, lf.trial_reminder_days
+SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days, lf.trial_reminder_days, lf.slug AS family_slug
 FROM license l
 JOIN license_family lf
   ON lf.id = l.family_id
@@ -80,6 +80,7 @@ type GetBillingLicenseRow struct {
 	LifecycleState    LicenseLifecycleState `json:"lifecycle_state"`
 	TrialPeriodDays   *int32                `json:"trial_period_days"`
 	TrialReminderDays int32                 `json:"trial_reminder_days"`
+	FamilySlug        string                `json:"family_slug"`
 }
 
 // A licence version, with its family's trial reminder lead (§5.1 rule 6),
@@ -94,6 +95,7 @@ func (q *Queries) GetBillingLicense(ctx context.Context, arg GetBillingLicensePa
 		&i.LifecycleState,
 		&i.TrialPeriodDays,
 		&i.TrialReminderDays,
+		&i.FamilySlug,
 	)
 	return i, err
 }

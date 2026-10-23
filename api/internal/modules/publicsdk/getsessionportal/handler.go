@@ -41,6 +41,7 @@ type SessionPortal struct {
 	Vouchers        []PortalVoucher                 `json:"vouchers" nullable:"false" doc:"The vouchers the instance redeemed. Never a code."`
 	PaymentMethod   *PortalPaymentMethod            `json:"paymentMethod" doc:"The payment method the customer's invoices are charged to; null when none is saved"`
 	UpcomingInvoice *PortalUpcomingInvoice          `json:"upcomingInvoice" doc:"What the next boundary will bill, on usage so far; null without a live subscription"`
+	Trial           *PortalTrial                    `json:"trial" doc:"TRIAL only: when the trial ends, when its reminder is due, what the conversion would charge and to which card (V32-09); null otherwise"`
 	Capabilities    PortalCapabilities              `json:"capabilities"`
 	Branding        getpubliccatalog.PublicBranding `json:"branding"`
 	UpdatedAt       time.Time                       `json:"updatedAt" doc:"When this snapshot was read"`
@@ -112,6 +113,27 @@ type PortalUpcomingInvoice struct {
 	DiscountTotal int64     `json:"discountTotal" doc:"Minor units"`
 	Total         int64     `json:"total" doc:"Minor units"`
 	BoundaryAt    time.Time `json:"boundaryAt" doc:"When it is issued"`
+}
+
+// PortalTrial is what the portal's trial banner shows (§14.4 portal rule 6).
+type PortalTrial struct {
+	EndsAt        time.Time           `json:"endsAt"`
+	ReminderAt    *time.Time          `json:"reminderAt" doc:"When trial_will_end is, or was, due"`
+	Charge        *PortalTrialCharge  `json:"charge" doc:"What the conversion would charge, discounts included, before any tax the provider adds; null when nothing would be"`
+	PaymentMethod *PortalTrialPayment `json:"paymentMethod" doc:"The ACTIVE card the conversion would be charged to; null without one: ask for a card"`
+}
+
+// PortalTrialCharge is an amount the conversion would charge, in minor units.
+type PortalTrialCharge struct {
+	Amount        int64  `json:"amount"`
+	Currency      string `json:"currency" example:"EUR"`
+	BillingPeriod string `json:"billingPeriod" enum:"MONTHLY,QUARTERLY,SEMI_ANNUAL,ANNUAL"`
+}
+
+// PortalTrialPayment is a card's labels.
+type PortalTrialPayment struct {
+	Brand *string `json:"brand" nullable:"true" example:"visa"`
+	Last4 *string `json:"last4" nullable:"true" example:"4242"`
 }
 
 // PortalCapabilities is what the portal may offer (§14.5).
@@ -195,7 +217,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 		Instance:  nil,
 		Instances: []PortalInstanceSummary{}, Subscription: nil,
 		Entitlements: []PortalEntitlement{}, AddOns: []sessions.SessionAddon{}, Vouchers: []PortalVoucher{},
-		PaymentMethod: nil, UpcomingInvoice: nil,
+		PaymentMethod: nil, UpcomingInvoice: nil, Trial: nil,
 		Capabilities: PortalCapabilities{PaymentMethods: catalog.Capabilities.PaymentMethods, Invoices: true, Unsubscribe: false, Checkout: false},
 		Branding:     catalog.Branding,
 		UpdatedAt:    time.Now().UTC().Truncate(time.Millisecond),
@@ -286,6 +308,15 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 			// ended since it was read, have no preview to show; anything else
 			// is a failure.
 			return nil, err
+		}
+	}
+	if subscription != nil && subscription.Status == subscriptions.StatusTrial && subscription.TrialEndsAt != nil {
+		out.Trial = &PortalTrial{EndsAt: *subscription.TrialEndsAt, ReminderAt: subscription.ReminderAt, Charge: nil, PaymentMethod: nil}
+		if upcoming := out.UpcomingInvoice; upcoming != nil && upcoming.Total > 0 {
+			out.Trial.Charge = &PortalTrialCharge{Amount: upcoming.Total, Currency: upcoming.Currency, BillingPeriod: subscription.BillingPeriod}
+		}
+		if method := out.PaymentMethod; method != nil && method.Status == "ACTIVE" {
+			out.Trial.PaymentMethod = &PortalTrialPayment{Brand: method.Brand, Last4: method.Last4}
 		}
 	}
 	return out, nil

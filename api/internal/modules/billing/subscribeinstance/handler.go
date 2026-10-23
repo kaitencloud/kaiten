@@ -114,10 +114,13 @@ type UseCase struct {
 	deps   access.Deps
 	outbox *outbox.ScopedRepository
 	pusher Pusher
+	trials *lifecycle.TrialAnnouncer
 }
 
-func NewUseCase(deps access.Deps, pusher Pusher) *UseCase {
-	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), pusher: pusher}
+// NewUseCase builds the subscribe; trials announces a trial no longer than
+// its reminder lead at once, and may be nil where a test needs none.
+func NewUseCase(deps access.Deps, pusher Pusher, trials *lifecycle.TrialAnnouncer) *UseCase {
+	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), pusher: pusher, trials: trials}
 }
 
 // errDryRun rolls a dry run's transaction back once its result is read.
@@ -438,8 +441,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			}
 			// A trial no longer than the lead announces its end at once
 			// (§9.2 rule 7); the others wait for billing-lifecycle step (e).
-			if !trialWillEndAt.Time.After(now) {
-				if _, err := lifecycle.AnnounceTrialWillEnd(ctx, q, u.outbox, u.deps.Catalogue, row, now); err != nil {
+			if u.trials != nil && !trialWillEndAt.Time.After(now) {
+				if _, err := u.trials.Announce(ctx, q, row, now); err != nil {
 					return err
 				}
 			}

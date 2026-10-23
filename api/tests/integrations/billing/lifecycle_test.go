@@ -367,7 +367,8 @@ func TestTrialReminder(t *testing.T) {
 	require.Equal(t, fiber.StatusOK, call(t, "PATCH", familyPath, map[string]any{"trialReminderDays": 5}).StatusCode)
 	require.True(t, readBilling(t, s.instance.Slug).ReminderAt.Equal(*started.ReminderAt), "a running trial keeps its lead")
 
-	reminders := lifecycle.NewTrialReminders(uow.NewUnitOfWork(testDb.DbPool), billablecatalogue.New(uow.NewUnitOfWork(testDb.DbPool)))
+	uof := uow.NewUnitOfWork(testDb.DbPool)
+	reminders := lifecycle.NewTrialReminders(uof, lifecycle.NewTrialAnnouncer(uof, billablecatalogue.New(uof), nil))
 	sent, err := reminders.Pass(t.Context(), 100)
 	require.NoError(t, err)
 	require.Zero(t, sent)
@@ -379,6 +380,13 @@ func TestTrialReminder(t *testing.T) {
 	require.Len(t, payloads, 1)
 	require.Equal(t, s.instance.Slug, payloads[0]["instanceSlug"])
 	require.NotNil(t, payloads[0]["reminderAt"])
+	// What the vendor's e-mail needs, read at emission (§15.2 rule 9).
+	require.Equal(t, map[string]any{"slug": s.instance.Slug, "name": s.instance.Name}, payloads[0]["instance"])
+	require.Equal(t, s.version.Name, payloads[0]["licenseName"])
+	require.Equal(t, families.Items[0].Slug, payloads[0]["familySlug"])
+	require.EqualValues(t, 2, payloads[0]["daysLeft"], "12 of 14 days are gone")
+	require.Contains(t, payloads[0]["customer"], "billingEmail")
+	require.Nil(t, payloads[0]["paymentMethod"], "NOOP: no card")
 	sent, err = reminders.Pass(t.Context(), 100)
 	require.NoError(t, err)
 	require.Zero(t, sent, "once per trial")
@@ -388,5 +396,18 @@ func TestTrialReminder(t *testing.T) {
 	short := newSold(t, flatFee("1900", "MONTHLY"))
 	quick := subscribe(t, short.instance.Slug, map[string]any{"basePriceId": short.monthly.ID, "trialDays": 2})
 	require.True(t, quick.ReminderAt.Before(quick.AnchorAt), "the lead is longer than the trial")
-	require.Len(t, outboxPayloads(t, event), 2)
+	payloads = outboxPayloads(t, event)
+	require.Len(t, payloads, 2)
+	var announced map[string]any
+	for _, p := range payloads {
+		if p["instanceSlug"] == short.instance.Slug {
+			announced = p
+		}
+	}
+	require.NotNil(t, announced)
+	require.EqualValues(t, 2, announced["daysLeft"])
+	charge, ok := announced["charge"].(map[string]any)
+	require.True(t, ok, "the conversion's ACTIVATION, as previewed")
+	require.EqualValues(t, 1900, charge["amount"])
+	require.Equal(t, "MONTHLY", charge["billingPeriod"])
 }

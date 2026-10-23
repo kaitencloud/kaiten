@@ -8398,6 +8398,79 @@ components:
       required:
         - url
       type: object
+    PortalTrial:
+      additionalProperties: false
+      properties:
+        charge:
+          description: What the conversion would charge, discounts included, before any tax the provider adds; null when nothing would be
+          oneOf:
+            - $ref: "#/components/schemas/PortalTrialCharge"
+            - enum:
+                - null
+              type: "null"
+        endsAt:
+          format: date-time
+          type: string
+        paymentMethod:
+          description: "The ACTIVE card the conversion would be charged to; null without one: ask for a card"
+          oneOf:
+            - $ref: "#/components/schemas/PortalTrialPayment"
+            - enum:
+                - null
+              type: "null"
+        reminderAt:
+          description: When trial_will_end is, or was, due
+          format: date-time
+          type:
+            - string
+            - "null"
+      required:
+        - endsAt
+        - reminderAt
+        - charge
+        - paymentMethod
+      type: object
+    PortalTrialCharge:
+      additionalProperties: false
+      properties:
+        amount:
+          format: int64
+          type: integer
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+      required:
+        - amount
+        - currency
+        - billingPeriod
+      type: object
+    PortalTrialPayment:
+      additionalProperties: false
+      properties:
+        brand:
+          examples:
+            - visa
+          type:
+            - string
+            - "null"
+        last4:
+          examples:
+            - "4242"
+          type:
+            - string
+            - "null"
+      required:
+        - brand
+        - last4
+      type: object
     PortalUpcomingInvoice:
       additionalProperties: false
       properties:
@@ -11410,6 +11483,13 @@ components:
             - enum:
                 - null
               type: "null"
+        trial:
+          description: "TRIAL only: when the trial ends, when its reminder is due, what the conversion would charge and to which card (V32-09); null otherwise"
+          oneOf:
+            - $ref: "#/components/schemas/PortalTrial"
+            - enum:
+                - null
+              type: "null"
         upcomingInvoice:
           description: What the next boundary will bill, on usage so far; null without a live subscription
           oneOf:
@@ -11436,6 +11516,7 @@ components:
         - vouchers
         - paymentMethod
         - upcomingInvoice
+        - trial
         - capabilities
         - branding
         - updatedAt
@@ -12158,6 +12239,289 @@ components:
       required:
         - kaitenTotal
         - providerTotalExcludingTax
+      type: object
+    TrialCharge:
+      additionalProperties: false
+      properties:
+        amount:
+          format: int64
+          type: integer
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+      required:
+        - amount
+        - currency
+        - billingPeriod
+      type: object
+    TrialCustomer:
+      additionalProperties: false
+      properties:
+        billingEmail:
+          description: "Personal data: the second payload that carries an e-mail (D-56)"
+          type:
+            - string
+            - "null"
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+        - slug
+        - name
+        - billingEmail
+      type: object
+    TrialInstance:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+      required:
+        - slug
+        - name
+      type: object
+    TrialPaymentMethod:
+      additionalProperties: false
+      properties:
+        brand:
+          examples:
+            - visa
+          type:
+            - string
+            - "null"
+        expMonth:
+          format: int64
+          type:
+            - integer
+            - "null"
+        expYear:
+          format: int64
+          type:
+            - integer
+            - "null"
+        last4:
+          examples:
+            - "4242"
+          type:
+            - string
+            - "null"
+      required:
+        - brand
+        - last4
+        - expMonth
+        - expYear
+      type: object
+    TrialWillEnd:
+      additionalProperties: false
+      properties:
+        anchorAt:
+          description: The instant its periods are counted from
+          format: date-time
+          type: string
+        basePrice:
+          $ref: "#/components/schemas/Price"
+          description: The FLAT_FEE price the subscription is pinned to, deprecated or not
+        billingPeriod:
+          enum:
+            - MONTHLY
+            - QUARTERLY
+            - SEMI_ANNUAL
+            - ANNUAL
+          type: string
+        cancelAtPeriodEnd:
+          type: boolean
+        cancelRequestedAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        canceledAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        cancellationReason:
+          type:
+            - string
+            - "null"
+        charge:
+          description: What the conversion would charge, as upcoming-invoice previews it, discounts included and before any tax the provider adds; null when nothing would be
+          oneOf:
+            - $ref: "#/components/schemas/TrialCharge"
+            - enum:
+                - null
+              type: "null"
+        collectionMethod:
+          description: "Effective: the subscription's own, else the organization's default"
+          enum:
+            - SEND_INVOICE
+            - CHARGE_AUTOMATICALLY
+          type: string
+        collectionMethodOverride:
+          description: The subscription's own collection method; null when it takes the organization's
+          type:
+            - string
+            - "null"
+        createdAt:
+          format: date-time
+          type: string
+        currency:
+          examples:
+            - EUR
+          type: string
+        currentPeriodEnd:
+          description: "The next boundary: the period closes, and its invoice is composed, after it"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          format: date-time
+          type: string
+        customer:
+          $ref: "#/components/schemas/TrialCustomer"
+        customerName:
+          type: string
+        customerSlug:
+          type: string
+        daysLeft:
+          description: Whole days from the event to trialEndsAt, rounded up; 0 once it passed
+          format: int64
+          type: integer
+        daysUntilDue:
+          description: "Effective: the subscription's own, else the organization's default"
+          format: int32
+          type: integer
+        daysUntilDueOverride:
+          description: The subscription's own payment terms; null when it takes the organization's
+          format: int32
+          type:
+            - integer
+            - "null"
+        familySlug:
+          description: Its family
+          type: string
+        id:
+          type: string
+        incompleteExpiresAt:
+          description: "When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"
+          format: date-time
+          type:
+            - string
+            - "null"
+        instance:
+          $ref: "#/components/schemas/TrialInstance"
+        instanceName:
+          type: string
+        instanceSlug:
+          description: As it was at the subscription's last write
+          type: string
+        licenseName:
+          description: The licence version of the base price
+          type: string
+        pastDueSince:
+          format: date-time
+          type:
+            - string
+            - "null"
+        paymentMethod:
+          description: The ACTIVE card the conversion would be charged to; null without one, or on NOOP
+          oneOf:
+            - $ref: "#/components/schemas/TrialPaymentMethod"
+            - enum:
+                - null
+              type: "null"
+        pendingLicenseSlug:
+          description: The licence version a checkout waiting for its payment moves the instance to once paid
+          type:
+            - string
+            - "null"
+        providerKind:
+          description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
+          enum:
+            - NOOP
+            - STRIPE
+          type: string
+        reminderAt:
+          description: "When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"
+          format: date-time
+          type:
+            - string
+            - "null"
+        scheduledChange:
+          description: A plan change waiting for the next boundary
+          oneOf:
+            - $ref: "#/components/schemas/ScheduledChange"
+            - enum:
+                - null
+              type: "null"
+        startedAt:
+          description: "When billing started: usage before it is never billed"
+          format: date-time
+          type: string
+        status:
+          enum:
+            - INCOMPLETE
+            - TRIAL
+            - ACTIVE
+            - PAST_DUE
+            - CANCELED
+          type: string
+        trialEndsAt:
+          description: "When the trial ends, or ended: usage before it is never billed"
+          format: date-time
+          type:
+            - string
+            - "null"
+        updatedAt:
+          format: date-time
+          type: string
+      required:
+        - customer
+        - instance
+        - licenseName
+        - familySlug
+        - daysLeft
+        - charge
+        - paymentMethod
+        - id
+        - instanceSlug
+        - instanceName
+        - customerSlug
+        - customerName
+        - status
+        - providerKind
+        - collectionMethod
+        - collectionMethodOverride
+        - daysUntilDue
+        - daysUntilDueOverride
+        - basePrice
+        - billingPeriod
+        - currency
+        - anchorAt
+        - startedAt
+        - currentPeriodStart
+        - currentPeriodEnd
+        - trialEndsAt
+        - reminderAt
+        - pendingLicenseSlug
+        - incompleteExpiresAt
+        - scheduledChange
+        - cancelAtPeriodEnd
+        - cancelRequestedAt
+        - canceledAt
+        - cancellationReason
+        - pastDueSince
+        - createdAt
+        - updatedAt
       type: object
     UncollectibleInvoice:
       additionalProperties: false
@@ -31948,7 +32312,7 @@ webhooks:
         - billing
   com.kaiten.instance.billing.v1.trial_will_end:
     post:
-      description: Triggered once per subscription, 3 days before its trial ends (trialEndsAt), or at once when the trial is shorter.
+      description: "Triggered once per trial, at reminderAt: its family's trialReminderDays before trialEndsAt (3 by default), or at once when the trial is shorter. Carries what a reminder e-mail needs, read when it is emitted: the customer and its billing e-mail, the instance, the plan, daysLeft, the charge the conversion would make and the card it would be made to."
       operationId: onInstanceBillingTrialWillEnd
       requestBody:
         content:
@@ -31957,7 +32321,7 @@ webhooks:
               additionalProperties: false
               properties:
                 data:
-                  $ref: "#/components/schemas/InstanceBilling"
+                  $ref: "#/components/schemas/TrialWillEnd"
                 headers:
                   $ref: "#/components/schemas/EventHeaders"
                 name:

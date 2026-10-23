@@ -33,7 +33,7 @@ WHERE c.organization_id = sqlc.arg(organization_id)
 -- name: GetBillingLicense :one
 -- A licence version, with its family's trial reminder lead (§5.1 rule 6),
 -- read when a trial starts.
-SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days, lf.trial_reminder_days
+SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days, lf.trial_reminder_days, lf.slug AS family_slug
 FROM license l
 JOIN license_family lf
   ON lf.id = l.family_id

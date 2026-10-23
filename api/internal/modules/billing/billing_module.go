@@ -137,6 +137,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	}
 	cfg := svc.Config.Billing
 	closer := closing.New(deps, cfg.CloseGrace)
+	// trial_will_end's charge is what upcoming-invoice previews (§15.2 rule 9).
+	trials := lifecycle.NewTrialAnnouncer(svc.Uof, from.Catalogue, closer)
 	pusher := pushing.New(deps, pushing.Config{
 		MaxBackoff: cfg.Push.MaxBackoff, AlertAfterAttempts: cfg.Push.AlertAfterAttempts,
 		Timeout: cfg.Provider.Timeout, BatchSize: cfg.Push.BatchSize,
@@ -145,7 +147,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	useCases := &UseCases{
 		GetBillingSettings:     getbillingsettings.NewUseCase(deps),
 		UpdateBillingSettings:  updatebillingsettings.NewUseCase(deps),
-		SubscribeInstance:      subscribeinstance.NewUseCase(deps, pusher),
+		SubscribeInstance:      subscribeinstance.NewUseCase(deps, pusher, trials),
 		GetInstanceBilling:     getinstancebilling.NewUseCase(deps),
 		CloseBillingPeriods:    closebillingperiods.NewUseCase(deps, closer, batchSize(cfg.PeriodClose.BatchSize)),
 		ListInvoices:           listinvoices.NewUseCase(deps),
@@ -200,7 +202,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
 		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, incomplete.NewExpiry(incomplete.NewEnder(deps)),
-			lifecycle.NewTrialReminders(svc.Uof, from.Catalogue), paymentmethods.NewExpiry(svc.Uof))
+			lifecycle.NewTrialReminders(svc.Uof, trials), paymentmethods.NewExpiry(svc.Uof))
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
 

@@ -148,12 +148,17 @@ var secretFieldNames = map[string]bool{
 	"signingkey": true, "credential": true,
 }
 
-// personalDataFieldNames are members the runtime strips from an event payload
-// because they hold personal or free-form customer data: billingEmail is a
+// personalDataFieldNames are members no event payload carries, because they
+// hold personal or free-form customer data (D-56): billingEmail is a
 // customer's invoice address, properties is whatever a usage report attached.
-// A published contract that declared one would advertise data the delivery never
-// carries.
 var personalDataFieldNames = map[string]bool{"billingemail": true, "properties": true}
+
+// personalDataExceptions are the payload fields D-56 lets carry personal data,
+// each with the decision that does: the vendor's reminder e-mail is sent to
+// the address trial_will_end carries, Kaiten sending none itself (V32-09).
+var personalDataExceptions = map[string]string{
+	"TrialWillEnd.Customer.BillingEmail": "V32-09: D-56's second exception",
+}
 
 // TestNoWebhookPayloadCanCarryASecret walks every published payload type, field by
 // field and into nested structs, and fails on a name that means "this is the
@@ -205,9 +210,9 @@ func assertNoSecretFields(t *testing.T, structType reflect.Type, path string, de
 		jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
 
 		for _, candidate := range []string{field.Name, jsonName} {
-			if personalDataFieldNames[strings.ToLower(strings.ReplaceAll(candidate, "_", ""))] {
+			if _, allowed := personalDataExceptions[name]; !allowed && personalDataFieldNames[strings.ToLower(strings.ReplaceAll(candidate, "_", ""))] {
 				t.Errorf("webhook payload field %s (json %q) is personal or free-form customer data; "+
-					"the runtime strips it from events, so the contract must not declare it", name, jsonName)
+					"no event carries it (D-56) unless a decision names it in personalDataExceptions", name, jsonName)
 			}
 			if secretFieldNames[strings.ToLower(strings.ReplaceAll(candidate, "_", ""))] {
 				t.Errorf("webhook payload field %s (json %q) is named like a credential; "+

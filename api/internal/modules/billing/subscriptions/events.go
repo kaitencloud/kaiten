@@ -75,8 +75,8 @@ type ProviderChange struct {
 func RegisterWebhooks(api huma.API) {
 	for _, d := range []webhook.Declaration{
 		{
-			Event: events.InstanceBillingTrialWillEnd, Data: (*InstanceBilling)(nil), OperationID: "onInstanceBillingTrialWillEnd",
-			Summary: "Instance Billing Trial Will End Webhook", Description: "Triggered once per subscription, 3 days before its trial ends (trialEndsAt), or at once when the trial is shorter.",
+			Event: events.InstanceBillingTrialWillEnd, Data: (*TrialWillEnd)(nil), OperationID: "onInstanceBillingTrialWillEnd",
+			Summary: "Instance Billing Trial Will End Webhook", Description: "Triggered once per trial, at reminderAt: its family's trialReminderDays before trialEndsAt (3 by default), or at once when the trial is shorter. Carries what a reminder e-mail needs, read when it is emitted: the customer and its billing e-mail, the instance, the plan, daysLeft, the charge the conversion would make and the card it would be made to.",
 		},
 		{
 			Event: events.InstanceBillingProviderChanged, Data: (*ProviderChange)(nil), OperationID: "onInstanceBillingProviderChanged",
