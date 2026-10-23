@@ -95,3 +95,13 @@ LIMIT sqlc.arg(batch_size);
 
 -- name: DeleteOutboxEvent :exec
 DELETE FROM outbox_events WHERE id = $1;
+
+
+-- name: GetSystemUserID :one
+-- system:kaiten's user, the actor of the work Kaiten does on its own behalf
+-- (platformidentity.ExternalID), resolved by its identity rather than by the
+-- constant id an older row may not have.
+SELECT id
+FROM "user"
+WHERE external_id = 'system:kaiten'
+  AND deleted_at IS NULL;

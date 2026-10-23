@@ -3,10 +3,14 @@ package outbox
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
+	"sync"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 )
 
@@ -27,18 +31,60 @@ const actorHeader = "actor_id"
 // session itself and carry no marker.
 const checkoutEventPrefix = "com.kaiten.checkout_session."
 
-// actorOf is the user the request's principal acts as, if any.
-func actorOf(ctx context.Context) (uuid.UUID, bool) {
-	p, ok := principal.FromContext(ctx)
-	if !ok || p == nil || p.UserID == uuid.Nil {
-		return uuid.Nil, false
+type (
+	systemWorkKey struct{}
+	actorKey      struct{}
+)
+
+// AsSystem records the events written with ctx under system:kaiten, whoever
+// triggered the work: the close and sync passes, which a vendor may start
+// from the console (§5 Conventions, "whoever triggers them").
+func AsSystem(ctx context.Context) context.Context {
+	return context.WithValue(ctx, systemWorkKey{}, true)
+}
+
+// systemUser is system:kaiten's id, read once per process: it never changes.
+var systemUser struct {
+	sync.Mutex
+	id uuid.UUID
+}
+
+// withActor resolves the actor the events written with ctx are recorded
+// under (§5 Conventions): the request's user -- the caller, the vendor
+// principal behind a kst_ session, system:kaiten for an anonymous checkout's
+// completion -- or system:kaiten when there is none, which is the case of
+// every job, of a pk_ or ksc_ request, and of the work AsSystem marks.
+func withActor(ctx context.Context, queries *db.Queries) (context.Context, error) {
+	if forced, _ := ctx.Value(systemWorkKey{}).(bool); !forced {
+		if p, ok := principal.FromContext(ctx); ok && p != nil && p.UserID != uuid.Nil {
+			return context.WithValue(ctx, actorKey{}, p.UserID), nil
+		}
 	}
-	return p.UserID, true
+	systemUser.Lock()
+	defer systemUser.Unlock()
+	if systemUser.id == uuid.Nil {
+		id, err := queries.GetSystemUserID(ctx)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return ctx, nil // a database without the platform identity records none
+		}
+		if err != nil {
+			return ctx, err
+		}
+		systemUser.id = id
+	}
+	return context.WithValue(ctx, actorKey{}, systemUser.id), nil
+}
+
+// actorOf is the actor withActor resolved, if any.
+func actorOf(ctx context.Context) (uuid.UUID, bool) {
+	actor, ok := ctx.Value(actorKey{}).(uuid.UUID)
+	return actor, ok && actor != uuid.Nil
 }
 
 // stampOrigin adds via and the session id to an object payload written
-// through a customer session or by an anonymous checkout, unless the payload
-// already names them. Any other payload is returned as it is.
+// through a customer session or for an anonymous checkout -- its completion,
+// or what its ksc_ read refreshes -- unless the payload already names them.
+// Any other payload is returned as it is.
 func stampOrigin(ctx context.Context, eventType string, data []byte) []byte {
 	p, ok := principal.FromContext(ctx)
 	if !ok || p == nil {
@@ -49,7 +95,7 @@ func stampOrigin(ctx context.Context, eventType string, data []byte) []byte {
 	switch {
 	case p.Kind == principal.KindCustomerSession && p.CustomerSession != nil:
 		via, key, id = ViaCustomerSession, "customerSessionId", p.CustomerSession.ID
-	case p.Kind == principal.KindSystem && p.CheckoutSessionID != uuid.Nil:
+	case (p.Kind == principal.KindSystem || p.Kind == principal.KindCheckoutSession) && p.CheckoutSessionID != uuid.Nil:
 		if strings.HasPrefix(eventType, checkoutEventPrefix) {
 			return data
 		}

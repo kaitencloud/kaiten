@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
@@ -45,6 +46,8 @@ func (u *UseCase) ExecuteFor(ctx context.Context, organizationID uuid.UUID, inst
 }
 
 func (u *UseCase) close(ctx context.Context, organizationID uuid.UUID, instanceSlug *string, actorFor closing.ActorFor) (*closing.ClosePeriodsReport, error) {
+	// Its events too are system:kaiten's, whoever triggered the pass.
+	ctx = outbox.AsSystem(ctx)
 	scope := closing.Scope{OrganizationID: &organizationID, InstanceID: nil}
 	if instanceSlug != nil {
 		instance, err := u.deps.Queries(ctx).GetInstanceBySlug(ctx, db.GetInstanceBySlugParams{OrganizationID: organizationID, Slug: *instanceSlug})

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
@@ -42,7 +43,8 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID) (*invoices.I
 	if row.ProviderKind == db.BillingProviderKindNOOP || row.ExternalInvoiceID == nil {
 		return nil, kaitenerrors.Conflict(operation+".NotPushed", "the invoice is not in a payment provider")
 	}
-	synced, err := u.syncer.Invoice(ctx, row)
+	// A sync is system:kaiten's, whoever triggers it (§5 Conventions).
+	synced, err := u.syncer.Invoice(outbox.AsSystem(ctx), row)
 	if err != nil {
 		var apiErr *kaitenerrors.Error
 		if errors.As(err, &apiErr) {

@@ -134,6 +134,23 @@ func (q *Queries) GetPendingOutboxEventsWithOrg(ctx context.Context, batchSize i
 	return items, nil
 }
 
+const getSystemUserID = `-- name: GetSystemUserID :one
+SELECT id
+FROM "user"
+WHERE external_id = 'system:kaiten'
+  AND deleted_at IS NULL
+`
+
+// system:kaiten's user, the actor of the work Kaiten does on its own behalf
+// (platformidentity.ExternalID), resolved by its identity rather than by the
+// constant id an older row may not have.
+func (q *Queries) GetSystemUserID(ctx context.Context) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getSystemUserID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const listOutboxEvents = `-- name: ListOutboxEvents :many
 SELECT id,
        organization_id,

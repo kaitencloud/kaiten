@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/syncing"
@@ -34,6 +35,8 @@ func (u *UseCase) Execute(ctx context.Context) (*SyncReport, error) {
 	if err != nil {
 		return nil, err
 	}
+	// A sync pass is system:kaiten's, whoever triggers it (§5 Conventions).
+	ctx = outbox.AsSystem(ctx)
 	report := &SyncReport{Providers: []syncing.Outcome{}}
 	if u.deps.Providers != nil {
 		for _, kind := range u.deps.Providers.Kinds() {

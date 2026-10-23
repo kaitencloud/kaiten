@@ -40,6 +40,11 @@ func TestStampOrigin(t *testing.T) {
 	require.Equal(t, map[string]any{"slug": "acme", "via": "checkout_session", "checkoutSessionId": checkout.String()},
 		decoded(t, stampOrigin(ksc, "com.kaiten.customer.v1.created", payload)))
 	require.JSONEq(t, string(payload), string(stampOrigin(ksc, "com.kaiten.checkout_session.v1.completed", payload)))
+	read := principal.ContextWithPrincipal(context.Background(), &principal.Principal{
+		Kind: principal.KindCheckoutSession, OrganizationID: uuid.New(), CheckoutSessionID: checkout,
+	})
+	require.Equal(t, "checkout_session", decoded(t, stampOrigin(read, "com.kaiten.instance.invoice.v1.paid", payload))["via"],
+		"what a ksc_ read refreshes")
 	require.JSONEq(t, string(payload), string(stampOrigin(console, "com.kaiten.customer.v1.created", payload)))
 	require.JSONEq(t, string(payload), string(stampOrigin(context.Background(), "com.kaiten.customer.v1.created", payload)))
 	require.Equal(t, `[1,2]`, string(stampOrigin(kst, "x", []byte(`[1,2]`))), "not an object")

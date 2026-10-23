@@ -90,6 +90,12 @@ func (r *outboxRepository) CreateOutboxEvent(ctx context.Context, event Outbox) 
 	)
 	defer span.End()
 
+	ctx, err := withActor(ctx, r.queries)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+
 	data, err := json.Marshal(event.Data)
 	if err != nil {
 		span.RecordError(err)
@@ -139,6 +145,11 @@ func (r *outboxRepository) CreateOutboxEvents(ctx context.Context, events []Outb
 
 	// One span names every event of the batch, so they share its context.
 	traceparent, tracestate := traceContext(ctx)
+	ctx, err := withActor(ctx, r.queries)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
 
 	// Events dated by the transaction and events carrying their own instant
 	// go through two COPY statements: COPY has no per-row column default.

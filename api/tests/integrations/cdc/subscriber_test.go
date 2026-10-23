@@ -9,6 +9,7 @@
 package cdc_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -350,4 +351,35 @@ func TestAuditTrailRecordsTheActor(t *testing.T) {
 		`SELECT actor_id FROM audit_trail WHERE organization_id = $1 AND event_name = $2`, organizationID, eventName).Scan(&actor))
 	require.NotNil(t, actor)
 	require.Equal(t, userID, *actor)
+}
+
+// TestAuditTrailRecordsKaitenItself: an event written with no user -- a job,
+// a pk_ or ksc_ request -- and one written by a pass a person triggered are
+// recorded under system:kaiten (§5 Conventions).
+func TestAuditTrailRecordsKaitenItself(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	organizationID := testDb.DefaultData.OrganizationID
+	var system uuid.UUID
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+		`SELECT id FROM "user" WHERE external_id = 'system:kaiten'`).Scan(&system))
+
+	person := principal.ContextWithPrincipal(t.Context(), &principal.Principal{
+		Kind: principal.KindOrganization, UserID: testDb.DefaultData.UserID, OrganizationID: organizationID,
+	})
+	for name, ctx := range map[string]context.Context{
+		"JOB_EVENT":  t.Context(),
+		"PASS_EVENT": outbox.AsSystem(person),
+	} {
+		require.NoError(t, outbox.NewOutboxRepository(outboxdb.New(testDb.DbPool)).CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+			organizationID, name, "1.0", map[string]string{"slug": "x"}, nil,
+		)))
+	}
+	for _, row := range commonfixture.ListOutboxEvents(t, testDb.DbPool, organizationID) {
+		require.Equal(t, "SUCCESS", deliver(t, cdcDelivery(t, row.ID, organizationID, row.EventName, row.Headers)))
+		var actor *uuid.UUID
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT actor_id FROM audit_trail WHERE organization_id = $1 AND event_name = $2`, organizationID, row.EventName).Scan(&actor))
+		require.NotNil(t, actor, row.EventName)
+		require.Equal(t, system, *actor, row.EventName)
+	}
 }
