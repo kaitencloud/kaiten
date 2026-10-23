@@ -279,9 +279,7 @@ export class SubscriptionLifecycle {
 
   // --- Plan change ----------------------------------------------------------
 
-  private priceOf(
-    id: string,
-  ): { license: string | undefined; price: Price } | undefined {
+  private priceOf(id: string): { license: string; price: Price } | undefined {
     const { prices } = this.host.catalogue();
     for (const [license, versionPrices] of Object.entries(prices)) {
       const price = versionPrices.find((candidate) => candidate.id === id);
@@ -393,7 +391,7 @@ export class SubscriptionLifecycle {
     const next = clone(subscription);
     next.scheduledChange = {
       effectiveAt: subscription.currentPeriodEnd,
-      licenseSlug: license ?? 'unknown',
+      licenseSlug: license,
       price: clone(price),
       scheduledAt: at,
     };
