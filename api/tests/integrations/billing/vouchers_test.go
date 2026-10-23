@@ -1,6 +1,7 @@
 package billing_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -363,4 +364,37 @@ func TestAnActiveVouchersTermsAreFixed(t *testing.T) {
 	require.Equal(t, "UpdateVoucher.NotEditable", problemCode(t, fiber.StatusConflict, "PUT", "/api/vouchers/"+price.ID.String(), minimum("100")))
 	stored := commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "GET", "/api/vouchers/"+price.ID.String(), nil), fiber.StatusOK)
 	require.Equal(t, "2900", stored.RedemptionRules.MinimumSubscriptionAmount.UnitAmountDecimal)
+}
+
+// TestDiscountLimit: a line of an instance's invoices bears at most 20
+// discounts, the most a Stripe invoice item takes; a 21st redemption covering
+// it is refused whatever the provider, and a voucher covering other lines is
+// not (§11.4 check 10, V31-53).
+func TestDiscountLimit(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+	published := func(payload map[string]any) string {
+		t.Helper()
+		voucher := newVoucher(t, payload)
+		publish(t, voucher)
+		return *voucher.Code
+	}
+	for i := range 20 {
+		redeem(t, s.instance.Slug, published(percentOff("1", map[string]any{"name": fmt.Sprintf("Base %d", i)})))
+	}
+	path := "/api/instances/" + s.instance.Slug + "/vouchers/redeem"
+
+	twentyFirst := published(percentOff("1", map[string]any{"name": "Base 21"}))
+	require.Equal(t, "RedeemVoucher.DiscountLimitExceeded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path, map[string]any{"code": twentyFirst}))
+	validity := commonfixture.AssertJSONResponse[validatevoucher.Validity](t, call(t, "POST", "/api/vouchers/validate",
+		map[string]any{"code": twentyFirst, "instanceSlug": s.instance.Slug}), fiber.StatusOK)
+	require.False(t, validity.Valid)
+	require.Equal(t, catalogue.ReasonDiscountLimitExceeded, *validity.Reason)
+	selected := published(percentOff("1", map[string]any{"name": "Selected", "priceAppliesTo": "SELECTED_PRICES", "applicableLicensePriceIds": []string{s.monthly.ID.String()}}))
+	require.Equal(t, "RedeemVoucher.DiscountLimitExceeded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path, map[string]any{"code": selected}),
+		"the same line, named")
+
+	addons := published(percentOff("1", map[string]any{"name": "Add-ons", "priceAppliesTo": "ADDONS"}))
+	require.Equal(t, "ACTIVE", redeem(t, s.instance.Slug, addons).Status, "no add-on line carries 20")
 }

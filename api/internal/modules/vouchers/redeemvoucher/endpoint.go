@@ -35,7 +35,7 @@ func RegisterEndpoint(api huma.API, app Redeemer) {
 		Method:        http.MethodPost,
 		Path:          "/instances/{instanceSlug}/vouchers/redeem",
 		Summary:       "Redeem a voucher",
-		Description:   "Redeems a voucher for an instance. A boost applies from the next read or report, for its duration; a PRICE voucher discounts the subscription's next invoices. Emits INSTANCE_VOUCHER_REDEEMED, and VOUCHER_EXHAUSTED with the last redemption. Requires billing to be enabled for the organization.",
+		Description:   "Redeems a voucher for an instance. A boost applies from the next read or report, for its duration; a PRICE voucher discounts the subscription's next invoices. 422 .DiscountLimitExceeded when a line of the instance's invoices would bear more than 20 discounts, whatever the provider (a Stripe invoice item takes 20). Emits INSTANCE_VOUCHER_REDEEMED, and VOUCHER_EXHAUSTED with the last redemption. Requires billing to be enabled for the organization.",
 		Tags:          []string{"vouchers"},
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},

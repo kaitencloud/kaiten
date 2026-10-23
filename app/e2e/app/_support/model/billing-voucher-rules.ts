@@ -617,6 +617,12 @@ export function redeemProblem(
         'CurrencyMismatch',
         "the voucher's amount is in another currency than the subscription's",
       );
+    case 'DISCOUNT_LIMIT_EXCEEDED':
+      return unprocessable(
+        operation,
+        'DiscountLimitExceeded',
+        "a line of the instance's invoices would bear more than 20 discounts, the most a payment provider's invoice item takes",
+      );
     case 'ALREADY_REDEEMED':
       return new BillingProblem(
         409,

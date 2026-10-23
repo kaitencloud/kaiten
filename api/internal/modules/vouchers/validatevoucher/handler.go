@@ -41,7 +41,7 @@ type VoucherCheck struct {
 // Validity is whether a code would redeem, and why not.
 type Validity struct {
 	Valid   bool               `json:"valid"`
-	Reason  *string            `json:"reason,omitempty" enum:"NOT_FOUND,NOT_ACTIVE,NOT_YET_VALID,EXPIRED,EXHAUSTED,ALREADY_REDEEMED,NOT_ELIGIBLE,CURRENCY_MISMATCH" doc:"The first failing check"`
+	Reason  *string            `json:"reason,omitempty" enum:"NOT_FOUND,NOT_ACTIVE,NOT_YET_VALID,EXPIRED,EXHAUSTED,ALREADY_REDEEMED,NOT_ELIGIBLE,CURRENCY_MISMATCH,DISCOUNT_LIMIT_EXCEEDED" doc:"The first failing check. DISCOUNT_LIMIT_EXCEEDED: a line of the instance's invoices would bear more than 20 discounts"`
 	Rule    *string            `json:"rule,omitempty" enum:"RESTRICTED_CUSTOMER,LICENSE_NOT_APPLICABLE,ADDON_NOT_APPLICABLE,FIRST_TIME_ONLY,ANNUAL_ONLY,MINIMUM_SUBSCRIPTION_AMOUNT,NOTHING_TO_BOOST" doc:"With NOT_ELIGIBLE: the eligibility rule"`
 	Voucher *catalogue.Voucher `json:"voucher,omitempty" doc:"The voucher, without its code, when the code names one"`
 }

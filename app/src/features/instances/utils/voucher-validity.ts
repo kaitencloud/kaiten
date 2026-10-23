@@ -6,6 +6,8 @@ const REASON_KEYS = {
     'Pages.Customers.Instances.Detail.Billing.Vouchers.Reasons.ALREADY_REDEEMED',
   CURRENCY_MISMATCH:
     'Pages.Customers.Instances.Detail.Billing.Vouchers.Reasons.CURRENCY_MISMATCH',
+  DISCOUNT_LIMIT_EXCEEDED:
+    'Pages.Customers.Instances.Detail.Billing.Vouchers.Reasons.DISCOUNT_LIMIT_EXCEEDED',
   EXHAUSTED:
     'Pages.Customers.Instances.Detail.Billing.Vouchers.Reasons.EXHAUSTED',
   EXPIRED: 'Pages.Customers.Instances.Detail.Billing.Vouchers.Reasons.EXPIRED',

@@ -1408,6 +1408,8 @@ export default {
                 NOT_ELIGIBLE: 'This instance is not eligible for this voucher.',
                 CURRENCY_MISMATCH:
                   'This discount is in a currency other than the one of the subscription.',
+                DISCOUNT_LIMIT_EXCEEDED:
+                  'A line of this instance’s invoices already bears 20 discounts, the most a payment provider takes on one item.',
               },
               Rules: {
                 RESTRICTED_CUSTOMER:

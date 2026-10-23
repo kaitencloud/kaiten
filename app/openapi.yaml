@@ -15223,7 +15223,7 @@ components:
       additionalProperties: false
       properties:
         reason:
-          description: The first failing check
+          description: "The first failing check. DISCOUNT_LIMIT_EXCEEDED: a line of the instance's invoices would bear more than 20 discounts"
           enum:
             - NOT_FOUND
             - NOT_ACTIVE
@@ -15233,6 +15233,7 @@ components:
             - ALREADY_REDEEMED
             - NOT_ELIGIBLE
             - CURRENCY_MISMATCH
+            - DISCOUNT_LIMIT_EXCEEDED
           type: string
         rule:
           description: "With NOT_ELIGIBLE: the eligibility rule"
@@ -24756,7 +24757,7 @@ paths:
         - vouchers
   /instances/{instanceSlug}/vouchers/redeem:
     post:
-      description: Redeems a voucher for an instance. A boost applies from the next read or report, for its duration; a PRICE voucher discounts the subscription's next invoices. Emits INSTANCE_VOUCHER_REDEEMED, and VOUCHER_EXHAUSTED with the last redemption. Requires billing to be enabled for the organization.
+      description: Redeems a voucher for an instance. A boost applies from the next read or report, for its duration; a PRICE voucher discounts the subscription's next invoices. 422 .DiscountLimitExceeded when a line of the instance's invoices would bear more than 20 discounts, whatever the provider (a Stripe invoice item takes 20). Emits INSTANCE_VOUCHER_REDEEMED, and VOUCHER_EXHAUSTED with the last redemption. Requires billing to be enabled for the organization.
       operationId: redeemVoucher
       parameters:
         - description: Instance slug

@@ -172,6 +172,77 @@ func (q *Queries) CustomerHasPaid(ctx context.Context, arg CustomerHasPaidParams
 	return paid, err
 }
 
+const discountLimitReached = `-- name: DiscountLimitReached :one
+WITH lines AS (SELECT 'BASE'::text AS kind, p.id AS license_price_id, NULL::uuid AS addon_price_id
+               FROM instance_billing ib
+               JOIN license_price p
+                 ON p.organization_id = ib.organization_id
+                AND (p.id = ib.base_license_price_id OR p.id = ib.scheduled_license_price_id)
+               WHERE ib.organization_id = $1
+                 AND ib.instance_id = $3
+                 AND ib.status <> 'CANCELED'
+               UNION ALL
+               SELECT 'LICENSE_METERED', p.id, NULL
+               FROM instance i
+               JOIN license_price p ON p.license_id = i.license_id AND p.organization_id = i.organization_id
+               WHERE i.organization_id = $1
+                 AND i.id = $3
+                 AND p.billing_model IN ('USAGE_BASED', 'OVERAGE')
+                 AND p.status = 'ACTIVE'
+               UNION ALL
+               SELECT 'ADDON', NULL, ap.id
+               FROM instance_addon ia
+               JOIN addon_price ap ON ap.addon_id = ia.addon_id AND ap.organization_id = ia.organization_id
+               WHERE ia.organization_id = $1
+                 AND ia.instance_id = $3
+                 AND ia.removed_at IS NULL
+                 AND ap.status = 'ACTIVE')
+SELECT EXISTS (SELECT 1
+               FROM lines l
+               JOIN voucher n
+                 ON n.organization_id = $1
+                AND n.id = $2
+                AND n.price_discount_type IS NOT NULL
+               WHERE ((n.price_applies_to IN ('LICENSE_BASE', 'BOTH') AND l.kind = 'BASE')
+                   OR (n.price_applies_to IN ('ADDONS', 'BOTH') AND l.kind = 'ADDON')
+                   OR (n.price_applies_to = 'SELECTED_PRICES'
+                       AND (l.license_price_id = ANY (n.applicable_license_price_ids)
+                         OR l.addon_price_id = ANY (n.applicable_addon_price_ids))))
+                 AND (SELECT count(*)
+                      FROM instance_voucher iv
+                      JOIN voucher v ON v.id = iv.voucher_id AND v.organization_id = iv.organization_id
+                      WHERE iv.organization_id = $1
+                        AND iv.instance_id = $3
+                        AND iv.status = 'ACTIVE'
+                        AND v.price_discount_type IS NOT NULL
+                        AND ((v.price_applies_to IN ('LICENSE_BASE', 'BOTH') AND l.kind = 'BASE')
+                          OR (v.price_applies_to IN ('ADDONS', 'BOTH') AND l.kind = 'ADDON')
+                          OR (v.price_applies_to = 'SELECTED_PRICES'
+                              AND (l.license_price_id = ANY (v.applicable_license_price_ids)
+                                OR l.addon_price_id = ANY (v.applicable_addon_price_ids))))) >= 20)::boolean AS reached
+`
+
+type DiscountLimitReachedParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	VoucherID      uuid.UUID `json:"voucher_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+// Whether redeeming the voucher would put a 21st discount on one line of the
+// instance's invoices, one Stripe invoice item (§11.4 check 10, V31-53): for
+// a price that can produce a line -- the live subscription's base and
+// scheduled prices, the licence's metered prices, the attached add-ons'
+// prices -- the voucher's PRICE part covers it, and so do 20 ACTIVE
+// redemptions already (§8.4 rule 6: LICENSE_BASE the BASE lines, ADDONS the
+// add-on lines, BOTH both, SELECTED_PRICES the prices it names). False for a
+// voucher without a PRICE part.
+func (q *Queries) DiscountLimitReached(ctx context.Context, arg DiscountLimitReachedParams) (bool, error) {
+	row := q.db.QueryRow(ctx, discountLimitReached, arg.OrganizationID, arg.VoucherID, arg.InstanceID)
+	var reached bool
+	err := row.Scan(&reached)
+	return reached, err
+}
+
 const expireRedemption = `-- name: ExpireRedemption :execrows
 UPDATE instance_voucher
 SET status     = 'EXPIRED',

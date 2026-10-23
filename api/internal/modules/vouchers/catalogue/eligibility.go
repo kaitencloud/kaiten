@@ -27,6 +27,9 @@ const (
 	ReasonAlreadyRedeemed  = "ALREADY_REDEEMED"
 	ReasonNotEligible      = "NOT_ELIGIBLE"
 	ReasonCurrencyMismatch = "CURRENCY_MISMATCH"
+	// ReasonDiscountLimitExceeded: a line of the instance's invoices would
+	// bear a 21st discount, more than a Stripe item takes (V31-53).
+	ReasonDiscountLimitExceeded = "DISCOUNT_LIMIT_EXCEEDED"
 
 	RuleRestrictedCustomer = "RESTRICTED_CUSTOMER"
 	RuleLicense            = "LICENSE_NOT_APPLICABLE"
@@ -122,6 +125,8 @@ type facts struct {
 	sub        *db.GetRedeemSubscriptionRow
 	boostable  bool
 	redeemed   bool
+	// discountLimit: the redemption would put a 21st discount on a line.
+	discountLimit bool
 }
 
 // gather reads the facts with the same queries whatever the voucher says --
@@ -156,13 +161,19 @@ func (c Candidate) gather(ctx context.Context, q *db.Queries, organizationID uui
 	}); err != nil {
 		return f, err
 	}
-	f.redeemed, err = q.InstanceRedeemed(ctx, db.InstanceRedeemedParams{InstanceID: instanceID, VoucherID: c.Row.ID})
+	if f.redeemed, err = q.InstanceRedeemed(ctx, db.InstanceRedeemedParams{InstanceID: instanceID, VoucherID: c.Row.ID}); err != nil {
+		return f, err
+	}
+	f.discountLimit, err = q.DiscountLimitReached(ctx, db.DiscountLimitReachedParams{
+		OrganizationID: organizationID, VoucherID: c.Row.ID, InstanceID: instanceID,
+	})
 	return f, err
 }
 
 // Check runs the checks of §11.4 that need the subject, in order: the
 // customer, the licence, the add-ons, the redemption rules, the currency, a
-// boost's targets, and a previous redemption.
+// boost's targets, a previous redemption, and the 20 discounts a line takes
+// (check 10, whatever the provider: it can change before the next invoice).
 func (c Candidate) Check(ctx context.Context, q *db.Queries, organizationID uuid.UUID, s Subject) (*Refusal, error) {
 	f, err := c.gather(ctx, q, organizationID, s)
 	if err != nil {
@@ -234,6 +245,9 @@ func (c Candidate) decide(s Subject, f facts) *Refusal {
 	if s.Instance != nil && f.redeemed {
 		return &Refusal{Reason: ReasonAlreadyRedeemed, Rule: ""}
 	}
+	if s.Instance != nil && f.discountLimit {
+		return &Refusal{Reason: ReasonDiscountLimitExceeded, Rule: ""}
+	}
 	return nil
 }
 
@@ -254,6 +268,9 @@ func (r Refusal) Error(operation string) error {
 		return kaitenerrors.UnprocessableEntity(operation+".CurrencyMismatch", "the voucher's amount is in another currency than the subscription's")
 	case ReasonAlreadyRedeemed:
 		return kaitenerrors.Conflict(operation+".AlreadyRedeemed", "the instance already redeemed this voucher")
+	case ReasonDiscountLimitExceeded:
+		return kaitenerrors.UnprocessableEntity(operation+".DiscountLimitExceeded",
+			"a line of the instance's invoices would bear more than 20 discounts, the most a payment provider's invoice item takes")
 	default:
 		return kaitenerrors.UnprocessableEntityWithErrors(operation+".NotEligible", "the instance is not eligible for this voucher",
 			&kaitenerrors.ErrorDetail{Message: "eligibility rule", Location: "rule", Value: map[string]string{"rule": r.Rule}})

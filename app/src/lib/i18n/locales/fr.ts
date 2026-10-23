@@ -1433,6 +1433,8 @@ export default {
                   'Cette instance n’est pas éligible à ce code promo.',
                 CURRENCY_MISMATCH:
                   'Cette remise est dans une autre devise que celle de l’abonnement.',
+                DISCOUNT_LIMIT_EXCEEDED:
+                  'Une ligne des factures de cette instance porte déjà 20 remises, le maximum qu’un fournisseur de paiement accepte sur un article.',
               },
               Rules: {
                 RESTRICTED_CUSTOMER:
