@@ -251,7 +251,7 @@ describe('FormRecoveryAlert, the notices', () => {
   ] as const)('says why an input is no longer kept here (%s) and offers to keep it', async (reason, text) => {
     const recovery = noticeAlert([{ kind: 'notKept', reason }]);
 
-    expect(screen.getByText(new RegExp(text.replace(/[.]/g, '\\.')))).toBeInTheDocument();
+    expect(screen.getByText(text, { exact: false })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Keep them here' }));
     expect(recovery.keepHere).toHaveBeenCalledTimes(1);
   });
