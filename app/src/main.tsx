@@ -12,16 +12,16 @@ import '@/lib/api/bootstrap';
 import { routeTree } from './routeTree.gen';
 
 import './styles.css';
-import { Show, useAuth } from '@clerk/react';
-import { ClerkProvider } from './components/clerk-provider';
+import { useAuth } from '@clerk/react';
+import { ClerkGate } from './components/clerk-gate';
 import { LocalAuthGate } from './components/dev-auth-switcher';
 import { RouteError } from './components/route';
-import { SignedOutGate } from './components/signed-out-gate';
 import { NotFound } from './components/route/not-found';
 import { RoutePending } from './components/route/route-pending';
 import { ThemeProvider } from './components/theme-provider';
 import { TooltipProvider } from './components/ui/tooltip';
 import { trackLastUsedControl } from './lib/dialog-opener';
+import { usePruneFormRecoveryAtStartup } from './hooks/use-form-recovery-startup';
 import { pruneFormRecoveryAtStartup } from './lib/form-recovery';
 import { subscribeFeatureFlagRefresh } from './lib/feature-flags';
 import { syncSessionCookie } from './lib/local-auth';
@@ -91,9 +91,7 @@ function AuthenticatedApp() {
   const { orgId } = useAuth();
 
   // Once the person is known: drop what expired and what another user left.
-  useEffect(() => {
-    void pruneFormRecoveryAtStartup(getSessionIdentity());
-  }, []);
+  usePruneFormRecoveryAtStartup();
 
   return <RoutedApp key={orgId ?? 'no-organization'} />;
 }
@@ -177,14 +175,9 @@ async function bootstrapApp() {
         ) : bypassAuthForE2E ? (
           <RoutedApp />
         ) : (
-          <ClerkProvider>
-            <Show when="signed-in">
-              <AuthenticatedApp />
-            </Show>
-            <Show when="signed-out">
-              <SignedOutGate />
-            </Show>
-          </ClerkProvider>
+          <ClerkGate>
+            <AuthenticatedApp />
+          </ClerkGate>
         )}
       </ThemeProvider>
     </StrictMode>,

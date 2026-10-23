@@ -117,6 +117,19 @@ send made of several requests.
 | Steps                                           | Restores the stored step by id, or an earlier one holding a field to correct or a never-kept field that was filled                                                                               |
 | StrictMode                                      | A mount may start, stop and start again; a late report of a replaced subtree is ignored                                                                                                          |
 
+## What is not proven yet
+
+The sign-out purge relies on one ordering of Clerk's: on an explicit sign-out it
+navigates to `afterSignOutUrl` (`/signed-out`, `SIGNED_OUT_PATH`) before it
+renders the signed-out state, so that `SignedOutGate` finds that URL and purges.
+The unit tests cover each side of it: `ClerkProvider` passes `SIGNED_OUT_PATH`,
+`ClerkGate` draws the gate for a signed-out session, the gate purges when it
+finds the path, and the startup prune removes what another user left. None of
+them runs Clerk, so the ordering itself, and the two-tab case (a tab left open
+across a sign-out writes nothing once the mark exists), are **unverified** until
+an end-to-end test runs on the authenticated stack, which needs a Clerk
+development instance.
+
 ## Tests and stories
 
 Unit tests are in `__tests__/` and `app/src/lib/form-recovery/__tests__/`; the

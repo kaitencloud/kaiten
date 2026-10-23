@@ -9,6 +9,11 @@ the product flag vocabulary and provider lifecycle are owned by
 `lib/feature-flags.ts`. `use-app-settings.ts` bridges persisted settings.
 The side-navigation viewport lock is private to `routes/-components/side-nav`.
 
+`use-form-recovery-startup.ts` runs the prune of the stored input of creation
+forms once the person is known: what expired and what another user of the
+browser left (`lib/form-recovery`). The signed-in shell calls it; accounts
+without a provider run the same prune from `main.tsx` before the first render.
+
 `use-focus-leave.ts` tells when focus leaves a control made of several elements,
 popups that sit elsewhere in the DOM included (`DateTimePicker`, `TimeField`).
 It decides one task after the focus moves, so a move from one part to another,
