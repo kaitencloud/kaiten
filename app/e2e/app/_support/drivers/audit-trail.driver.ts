@@ -42,4 +42,9 @@ export class AuditTrailDriver {
   async expectEventStatus(eventLabel: string, status: string) {
     await expect(this.eventRow(eventLabel)).toContainText(status);
   }
+
+  /** Who the row says the event is recorded under. */
+  async expectEventActor(eventLabel: string, actor: string) {
+    await expect(this.eventRow(eventLabel)).toContainText(actor);
+  }
 }

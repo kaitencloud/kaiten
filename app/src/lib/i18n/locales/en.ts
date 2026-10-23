@@ -1639,6 +1639,7 @@ export default {
                 id: '#',
                 event: 'Event',
                 entitlement: 'Entitlement',
+                actor: 'Actor',
                 status: 'Status',
                 timestamp: 'Timestamp',
               },
@@ -1663,6 +1664,7 @@ export default {
               status: 'Status',
               timestamp: 'Timestamp',
               instance: 'Instance',
+              actor: 'Actor',
               eventName: 'Event Name',
               entitlement: 'Entitlement',
               fullPayload: 'Full Payload',
@@ -5547,7 +5549,7 @@ export default {
       table: {
         title: 'Event log',
         description: 'Events across all instances, newest first.',
-        searchPlaceholder: 'Search by event, instance or customer…',
+        searchPlaceholder: 'Search by event, instance, customer or actor…',
         empty: 'No audit trail entries found',
         actions: {
           viewDetails: 'View details',
@@ -5556,6 +5558,7 @@ export default {
           event: 'Event',
           instance: 'Instance',
           customer: 'Customer',
+          actor: 'Actor',
           status: 'Status',
           timestamp: 'Time',
         },
@@ -5594,6 +5597,7 @@ export default {
         timestamp: 'Timestamp',
         instance: 'Instance',
         customer: 'Customer',
+        actor: 'Actor',
         fullPayload: 'Full payload',
       },
       feed: {

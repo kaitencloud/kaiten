@@ -17,6 +17,11 @@ export const GET_GLOBAL_AUDIT_TRAIL = graphql(`
         customerName
         payload
         timestamp
+        actor {
+          id
+          name
+          kind
+        }
       }
     }
   }

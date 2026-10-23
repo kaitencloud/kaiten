@@ -1,4 +1,5 @@
 import Papa from 'papaparse';
+import { getAuditDisplayName } from '@/lib/detail';
 import { saveBlob } from '@/lib/download-blob';
 import type { GlobalAuditEntry } from './audit-trail.types';
 import { getEventCategory } from './audit-trail.utils';
@@ -14,6 +15,8 @@ const toCsvRow = (
   instance: entry.instanceName ?? '',
   instance_slug: entry.instanceSlug ?? '',
   customer: entry.customerName ?? '',
+  actor: getAuditDisplayName({ actor: entry.actor }),
+  actor_kind: entry.actor?.kind ?? '',
   status: getEventCategory(entry.eventName),
   timestamp: entry.timestamp,
   payload: entry.payload == null ? '' : JSON.stringify(entry.payload),

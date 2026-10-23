@@ -1,4 +1,4 @@
-import type { GlobalAuditEntry } from './audit-trail.types';
+import type { AuditEntryActor, GlobalAuditEntry } from './audit-trail.types';
 
 // Minimal structural shape of the GraphQL response, kept local so this module
 // does not depend on the generated query type name.
@@ -12,6 +12,7 @@ interface RawOrganizationAuditTrail {
   customerName?: string | null;
   payload?: unknown;
   timestamp: string;
+  actor?: AuditEntryActor | null;
 }
 
 // Normalizes the org-wide feed into `GlobalAuditEntry` values (null → absent)
@@ -30,6 +31,7 @@ export const toGlobalAuditEntries = (
       customerName: trail.customerName ?? undefined,
       payload: trail.payload ?? undefined,
       timestamp: trail.timestamp,
+      actor: trail.actor ?? undefined,
     }))
     .sort(
       (left, right) =>

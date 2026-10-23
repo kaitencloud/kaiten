@@ -26,6 +26,9 @@ function FeedColumnHeader({ t }: { t: TFunction }) {
         {t('Pages.AuditTrail.table.headers.customer')}
       </span>
       <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+        {t('Pages.AuditTrail.table.headers.actor')}
+      </span>
+      <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {t('Pages.AuditTrail.table.headers.status')}
       </span>
       <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">

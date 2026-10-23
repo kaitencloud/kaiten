@@ -29,6 +29,24 @@ test.describe('audit trail read', () => {
     await auditTrail.expectEventStatus('Usage reported', 'Accepted');
   });
 
+  test('names who each event is recorded under', async ({ page }) => {
+    const auditTrail = new AuditTrailDriver(page);
+
+    await installAuditTrailAppMocks(page, createUsageEventsAuditTrailModel());
+    await auditTrail.goto();
+
+    await auditTrail.expectEventActor('Feature flag updated', 'Ada Lovelace');
+    await auditTrail.expectEventActor('Usage reported', 'ci-robot');
+    await auditTrail.expectEventActor(
+      'License version published',
+      'Kaiten (system)',
+    );
+    // An entry recorded before the API kept actors names no one.
+    await expect(auditTrail.eventRow('Usage rejected')).not.toContainText(
+      'Kaiten (system)',
+    );
+  });
+
   test('the Warning status keeps the warnings and nothing else', async ({
     page,
   }) => {

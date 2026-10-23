@@ -1664,6 +1664,7 @@ export default {
                 id: '#',
                 event: 'Événement',
                 entitlement: 'Droit',
+                actor: 'Acteur',
                 status: 'Statut',
                 timestamp: 'Horodatage',
               },
@@ -1688,6 +1689,7 @@ export default {
               status: 'Statut',
               timestamp: 'Horodatage',
               instance: 'Instance',
+              actor: 'Acteur',
               eventName: "Nom de l'événement",
               entitlement: 'Droit',
               fullPayload: 'Payload complet',
@@ -5626,7 +5628,8 @@ export default {
         title: 'Journal des événements',
         description:
           'Événements de toutes les instances, les plus récents en premier.',
-        searchPlaceholder: 'Rechercher par événement, instance ou client…',
+        searchPlaceholder:
+          'Rechercher par événement, instance, client ou acteur…',
         empty: "Aucune entrée du journal d'audit",
         actions: {
           viewDetails: 'Voir les détails',
@@ -5635,6 +5638,7 @@ export default {
           event: 'Événement',
           instance: 'Instance',
           customer: 'Client',
+          actor: 'Acteur',
           status: 'Statut',
           timestamp: 'Heure',
         },
@@ -5673,6 +5677,7 @@ export default {
         timestamp: 'Horodatage',
         instance: 'Instance',
         customer: 'Client',
+        actor: 'Acteur',
         fullPayload: 'Charge utile complète',
       },
       feed: {

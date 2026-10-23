@@ -1,4 +1,4 @@
-import type { PageAuditTrail, Webhooks } from '@/api-client';
+import type { AuditActor, PageAuditTrail, Webhooks } from '@/api-client';
 import type { GetGlobalAuditTrailQuery } from '@/api-client/graphql/graphql';
 import { zPageAuditTrail } from '@/api-client/zod.gen';
 import { parseAuditEventContract } from '../contracts/audit-event-contract';
@@ -13,13 +13,16 @@ type AuditTrailRow =
  * `payload` is what that event carries: the model checks the name, the
  * versioned type and the payload against the event's schema. Whatever else the
  * event leaves out, such as an instance for an organization-level event, the
- * API answers as null.
+ * API answers as null. `actor` is who the event is recorded under, typed as the
+ * REST contract declares it so that both reads can serve it; null, as for an
+ * entry recorded before the API kept actors, when the seed names none.
  */
 export type AuditTrailSeedEntry = Pick<
   AuditTrailRow,
   'eventType' | 'id' | 'timestamp'
 > &
-  Partial<Omit<AuditTrailRow, 'eventName' | 'payload'>> & {
+  Partial<Omit<AuditTrailRow, 'actor' | 'eventName' | 'payload'>> & {
+    actor?: AuditActor | null;
     eventName: Webhooks['body']['name'];
     payload: Record<string, unknown>;
   };
@@ -32,6 +35,7 @@ export type SerializedAuditTrailAppModel = {
 const DEFAULT_LIMIT = 500;
 
 const toRow = (entry: AuditTrailSeedEntry): AuditTrailRow => ({
+  actor: null,
   customerName: null,
   instanceId: null,
   instanceName: null,
@@ -101,7 +105,7 @@ export class AuditTrailAppModel {
       {
         hasMore: events.length > limit,
         items: events.slice(0, limit).map((entry) => ({
-          actor: null,
+          actor: entry.actor ?? null,
           eventName: entry.eventName,
           eventType: entry.eventType,
           id: entry.id,

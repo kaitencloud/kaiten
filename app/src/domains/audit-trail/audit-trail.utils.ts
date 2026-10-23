@@ -1,4 +1,5 @@
 import type { AuditEventName } from './audit-trail-events';
+import { getAuditDisplayName } from '@/lib/detail';
 import { groupItemsByDay } from '@/lib/feed-time';
 import type {
   AuditDayGroup,
@@ -231,6 +232,7 @@ export const filterAuditEntries = (
       entry.instanceName,
       entry.instanceSlug,
       entry.customerName,
+      getAuditDisplayName({ actor: entry.actor }),
     ]
       .filter(Boolean)
       .join(' ')
