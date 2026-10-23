@@ -395,4 +395,3 @@ describe('React', () => {
     expect(await screen.findByRole('button', { name: 'Send' })).toBeEnabled();
   });
 });
-
