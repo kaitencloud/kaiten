@@ -99,7 +99,7 @@ func TestValidateConnectorSettings_NeverRepeatsASecret(t *testing.T) {
 			"region": map[string]any{"type": "string", "enum": []any{"eu", "us"}},
 		},
 	}
-	err := ValidateConnectorSettings("test", schema, map[string]any{"apiKey": "sk_live_SECRETVALUE", "region": "mars"}, "Test.Invalid")
+	err := ValidateConnectorSettings("test", schema, map[string]any{"apiKey": "wrong-shape-SECRETVALUE", "region": "mars"}, "Test.Invalid")
 	if err == nil {
 		t.Fatal("expected a refusal")
 	}
