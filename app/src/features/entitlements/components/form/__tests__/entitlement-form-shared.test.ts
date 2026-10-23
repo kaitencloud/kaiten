@@ -6,7 +6,11 @@ import {
   getEntitlementFormDefaults,
   initialEntitlementFormValues,
 } from '../entitlement-form.shared';
-import { conditionUnitFields, entitlementToUpdateBody } from '../../../utils/entitlement-writable';
+import {
+  conditionUnitFields,
+  entitlementToUpdateBody,
+  isNumberFamily,
+} from '../../../utils/entitlement-writable';
 
 const numberEntitlementWithUnits: Entitlement = {
   id: 'entitlement-seats',
@@ -65,17 +69,36 @@ describe('entitlementToUpdateBody', () => {
     expect(body.saleUnitFactor).toBe(3);
   });
 
-  it('strips every unit field for non-NUMBER entitlements', () => {
-    const body = entitlementToUpdateBody({
-      ...numberEntitlementWithUnits,
-      type: 'BOOLEAN',
-    });
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'strips every unit field for a %s entitlement',
+    (type) => {
+      const body = entitlementToUpdateBody({
+        ...numberEntitlementWithUnits,
+        type,
+      });
 
-    expect(body.unitSingular).toBeUndefined();
-    expect(body.unitPlural).toBeUndefined();
-    expect(body.saleUnitSingular).toBeUndefined();
-    expect(body.saleUnitPlural).toBeUndefined();
-    expect(body.saleUnitFactor).toBeUndefined();
+      expect(body.unitSingular).toBeUndefined();
+      expect(body.unitPlural).toBeUndefined();
+      expect(body.saleUnitSingular).toBeUndefined();
+      expect(body.saleUnitPlural).toBeUndefined();
+      expect(body.saleUnitFactor).toBeUndefined();
+    },
+  );
+
+  // The PUT replaces the entitlement as a whole, and the API accepts units on the whole
+  // number family: leaving them out of a rename would erase them.
+  it('keeps the units and the sale trio of an AI credit entitlement through a rename', () => {
+    const body = entitlementToUpdateBody(
+      { ...numberEntitlementWithUnits, type: 'NUMBER_AI_CREDIT' },
+      { name: 'Renamed credits' },
+    );
+
+    expect(body.name).toBe('Renamed credits');
+    expect(body.unitSingular).toBe('seat');
+    expect(body.unitPlural).toBe('seats');
+    expect(body.saleUnitSingular).toBe('pack');
+    expect(body.saleUnitPlural).toBe('packs');
+    expect(body.saleUnitFactor).toBe(3);
   });
 
   it('strips the sale unit trio when the base pair is missing', () => {
@@ -285,6 +308,54 @@ describe('conditionUnitFields', () => {
         saleUnitFactor: 2.5,
       }),
     );
+  });
+});
+
+describe('conditionUnitFields by type', () => {
+  const carrier = (type: EntitlementWritable['type']) => ({
+    saleUnitFactor: 3,
+    saleUnitPlural: 'packs',
+    saleUnitSingular: 'pack',
+    type,
+    unitPlural: 'credits',
+    unitSingular: 'credit',
+  });
+
+  it.each(['NUMBER', 'NUMBER_AI_CREDIT'] as const)(
+    'keeps a complete unit configuration on a %s entitlement',
+    (type) => {
+      const body = carrier(type);
+
+      conditionUnitFields(body);
+
+      expect(body).toEqual(carrier(type));
+    },
+  );
+
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'drops the units a %s entitlement cannot carry',
+    (type) => {
+      const body = carrier(type);
+
+      conditionUnitFields(body);
+
+      expect(body).toEqual({
+        saleUnitFactor: undefined,
+        saleUnitPlural: undefined,
+        saleUnitSingular: undefined,
+        type,
+        unitPlural: undefined,
+        unitSingular: undefined,
+      });
+    },
+  );
+
+  it('tells the number family from the other types', () => {
+    expect(isNumberFamily('NUMBER')).toBe(true);
+    expect(isNumberFamily('NUMBER_AI_CREDIT')).toBe(true);
+    expect(isNumberFamily('BOOLEAN')).toBe(false);
+    expect(isNumberFamily('CONFIG')).toBe(false);
+    expect(isNumberFamily(undefined)).toBe(false);
   });
 });
 

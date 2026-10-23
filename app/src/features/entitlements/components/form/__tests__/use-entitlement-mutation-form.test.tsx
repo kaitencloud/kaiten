@@ -125,6 +125,38 @@ describe('the form that edits an entitlement', () => {
     );
   });
 
+  it('sends the units of an AI credit entitlement along with an edit that does not touch them', async () => {
+    const credits = {
+      ...opened,
+      aggregationMethod: 'SUM',
+      saleUnitFactor: 100,
+      saleUnitPlural: 'packs',
+      saleUnitSingular: 'pack',
+      slug: 'ai-credits',
+      type: 'NUMBER_AI_CREDIT',
+      unitPlural: 'credits',
+      unitSingular: 'credit',
+    } as Entitlement;
+    stored = credits;
+    renderHook(() => useEntitlementMutationForm(credits), { wrapper });
+
+    await submit({ description: 'Credits of the assistant' });
+
+    expect(updates).toEqual([
+      {
+        body: expect.objectContaining({
+          description: 'Credits of the assistant',
+          saleUnitFactor: 100,
+          saleUnitPlural: 'packs',
+          saleUnitSingular: 'pack',
+          unitPlural: 'credits',
+          unitSingular: 'credit',
+        }),
+        entitlementSlug: 'ai-credits',
+      },
+    ]);
+  });
+
   it('says the entitlement is gone when it was deleted meanwhile, and writes nothing', async () => {
     renderHook(() => useEntitlementMutationForm(opened), { wrapper });
     server.use(

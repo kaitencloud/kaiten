@@ -15,7 +15,19 @@ type UnitFieldsCarrier = Pick<
   | 'saleUnitFactor'
 >;
 
-/** Normalizes NUMBER units: an all-or-none base pair and optional sale trio. */
+/**
+ * The types that report a numeric meter: the ones that may carry units, a periodic
+ * window and an early-warning threshold. Mirrors the API's number-family check.
+ */
+export const isNumberFamily = (
+  type: EntitlementWritable['type'] | undefined,
+): boolean => type === 'NUMBER' || type === 'NUMBER_AI_CREDIT';
+
+/**
+ * Normalizes the units of a numeric entitlement: an all-or-none base pair and an
+ * optional sale trio. Any other type carries none. The full-replace PUT erases what
+ * it leaves out, so a number-family entitlement keeps its units through every edit.
+ */
 export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
   body.unitSingular = normalizeUnitLabel(body.unitSingular);
   body.unitPlural = normalizeUnitLabel(body.unitPlural);
@@ -29,7 +41,7 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
     body.saleUnitFactor = undefined;
   }
 
-  if (body.type !== 'NUMBER' || !body.unitSingular || !body.unitPlural) {
+  if (!isNumberFamily(body.type) || !body.unitSingular || !body.unitPlural) {
     body.unitSingular = undefined;
     body.unitPlural = undefined;
     body.saleUnitSingular = undefined;
@@ -48,10 +60,6 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
     body.saleUnitFactor = undefined;
   }
 };
-
-/** The types that carry a numeric usage cap, the only ones that may have a threshold. */
-const isNumberFamily = (type: Entitlement['type']): boolean =>
-  type === 'NUMBER' || type === 'NUMBER_AI_CREDIT';
 
 /**
  * Builds the complete replacement PUT for the form and for inline rename, icon and

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { EntitlementWritable, Entitlement } from '@/api-client';
+import { isNumberFamily } from '../../utils/entitlement-writable';
 
 // The select cannot hold an empty value, so "no period at all" travels through
 // the form as an explicit sentinel and is mapped back to an absent field on
@@ -50,13 +51,6 @@ type ResetFields = {
   resetPeriod: EntitlementWritable['resetPeriod'];
   resetAnchor: EntitlementWritable['resetAnchor'];
 };
-
-/**
- * Mirrors the API's number-family check: a periodic window is only meaningful
- * for a type that reports a numeric meter.
- */
-const isNumberFamily = (type: EntitlementWritable['type']): boolean =>
-  type === 'NUMBER' || type === 'NUMBER_AI_CREDIT';
 
 /**
  * Resolves the periodic-window pair of a writable payload.
