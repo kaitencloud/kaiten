@@ -50,8 +50,10 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
 };
 
 /**
- * Builds the complete replacement PUT for inline rename, icon and group edits.
- * Echoes immutable resetPeriod/resetAnchor: omission would attempt removal.
+ * Builds the complete replacement PUT for the form and for inline rename, icon and
+ * group edits. Echoes immutable resetPeriod/resetAnchor: omission would attempt
+ * removal. Echoes the early-warning threshold too, which no screen edits: the API
+ * stores 0 (the warning off) for a numeric entitlement sent without one.
  */
 export const entitlementToUpdateBody = (
   entitlement: Entitlement,
@@ -76,6 +78,7 @@ export const entitlementToUpdateBody = (
     saleUnitFactor: entitlement.saleUnitFactor ?? undefined,
     resetPeriod: entitlement.resetPeriod,
     resetAnchor: entitlement.resetAnchor,
+    warningThresholdPercent: entitlement.warningThresholdPercent ?? undefined,
     ...overrides,
   };
 

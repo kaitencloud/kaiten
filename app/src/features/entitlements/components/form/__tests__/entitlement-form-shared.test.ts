@@ -112,6 +112,35 @@ describe('entitlementToUpdateBody', () => {
     expect(body.resetPeriod).toBeUndefined();
     expect(body.resetAnchor).toBeUndefined();
   });
+
+  // The API stores 0 (the warning off) for a numeric entitlement sent without the
+  // threshold, and no screen edits it: every update has to echo what is stored.
+  it('echoes the early-warning threshold of a numeric entitlement', () => {
+    const body = entitlementToUpdateBody(
+      { ...numberEntitlementWithUnits, warningThresholdPercent: 80 },
+      { name: 'Renamed seats' },
+    );
+
+    expect(body.warningThresholdPercent).toBe(80);
+  });
+
+  it('keeps a threshold of 0, which is a stored value and not an absent one', () => {
+    const body = entitlementToUpdateBody({
+      ...numberEntitlementWithUnits,
+      warningThresholdPercent: 0,
+    });
+
+    expect(body.warningThresholdPercent).toBe(0);
+  });
+
+  it('sends no threshold for an entitlement that has none', () => {
+    const body = entitlementToUpdateBody({
+      ...numberEntitlementWithUnits,
+      type: 'BOOLEAN',
+    });
+
+    expect(body.warningThresholdPercent).toBeUndefined();
+  });
 });
 
 describe('getEntitlementFormDefaults', () => {
