@@ -147,15 +147,14 @@ export function formRecoveryCollectionExists(): boolean {
   return runtime !== null;
 }
 
-/** True when the storage holds the key, without creating the collection. */
+/**
+ * True when the storage holds the key, without creating the collection and
+ * without writing: it runs on every page load, and a write would fire a
+ * `storage` event in every tab that is open.
+ */
 export function formRecoveryStorageHasData(): boolean {
-  const { storage, persistent } = getProbe();
-  if (!persistent) {
-    return false;
-  }
-
   try {
-    return storage.getItem(FORM_RECOVERY_STORAGE_KEY) !== null;
+    return window.localStorage.getItem(FORM_RECOVERY_STORAGE_KEY) !== null;
   } catch {
     return false;
   }

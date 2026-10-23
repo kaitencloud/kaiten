@@ -202,6 +202,38 @@ describe('write machine under quota', () => {
   });
 });
 
+describe('limits while the page lives', () => {
+  it('evicts the oldest lineages beyond three when a new one is created', async () => {
+    const day = 24 * 3_600_000;
+    for (let i = 0; i < 4; i += 1) {
+      seedEntry(
+        makeEntry({
+          lineageId: `old-${i}`,
+          formId: 'things.create',
+          updatedAt: new Date(Date.now() - (10 - i) * 1_000).toISOString(),
+          expiresAt: new Date(Date.now() + 7 * day).toISOString(),
+        }),
+      );
+    }
+    const h = mountSession();
+    await advance(0);
+
+    track(h, snapshotOf([['name', 'Gold']]), true);
+    await advance(50);
+
+    const records = Object.values(storedRecords());
+    expect(records.filter((record) => record.kind === 'entry')).toHaveLength(3);
+    expect(records.find((record) => record.lineageId === h.state().lineageId)).toMatchObject({
+      kind: 'entry',
+    });
+    expect(records.find((record) => record.lineageId === 'old-0')).toMatchObject({
+      kind: 'tombstone',
+      reason: 'evicted',
+    });
+    h.dispose();
+  });
+});
+
 describe('tabs', () => {
   it('goes to sentElsewhere when another tab sent this lineage', async () => {
     const h = mountSession();

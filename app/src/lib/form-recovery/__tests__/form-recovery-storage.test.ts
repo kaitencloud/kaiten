@@ -73,6 +73,19 @@ describe('the collection singleton', () => {
     expect(formRecoveryStorageHasData()).toBe(false);
   });
 
+  it('looks for data without writing anything, so that no other tab hears of it', () => {
+    const setItem = vi.spyOn(Storage.prototype, 'setItem');
+    const removeItem = vi.spyOn(Storage.prototype, 'removeItem');
+
+    expect(formRecoveryStorageHasData()).toBe(false);
+    window.localStorage.setItem(FORM_RECOVERY_STORAGE_KEY, '{}');
+    setItem.mockClear();
+    expect(formRecoveryStorageHasData()).toBe(true);
+
+    expect(setItem).not.toHaveBeenCalled();
+    expect(removeItem).not.toHaveBeenCalled();
+  });
+
   it('is created at the first use, not before', () => {
     expect(formRecoveryCollectionExists()).toBe(false);
     expect(isFormRecoveryPersistent()).toBe(true);

@@ -2,6 +2,8 @@ import {
   buildRecordKey,
   evictOldestEntry,
   holdLineage,
+  liveLineages,
+  pruneRecords,
   readFormRecoveryRecord,
   removeRecord,
   replaceRecord,
@@ -163,6 +165,22 @@ async function recoverFromFailure(
   }
 }
 
+/**
+ * The limits (lineages per form, records in all) are also kept while the page
+ * lives: a tab that starts over again and again would otherwise pile up
+ * lineages until the storage is full. Run when a lineage is created, and never
+ * on one a tab holds, this one included.
+ */
+async function enforceLimits(ctx: SessionContext): Promise<void> {
+  const live = await liveLineages();
+  if (!ctx.runtime.alive) return;
+  await pruneRecords(
+    ctx.now(),
+    null,
+    new Set([...live, ownRecordKey(ctx)]),
+  );
+}
+
 type WriteOptions = {
   status: FormRecoveryEntry['status'];
   /** Write even if nothing changed since the last write. */
@@ -227,11 +245,13 @@ export function writeSnapshot(
     return handle;
   }
 
+  const createsLineage = !runtime.ownRecordExpected;
   runtime.createdAt = entry.createdAt;
   runtime.ownRecordExpected = true;
   runtime.lastSeenAt = now.getTime();
   if (options.status === 'editing') runtime.lastWritten = signature;
   void ensureHold(ctx);
+  if (createsLineage) void enforceLimits(ctx);
   void handle.persisted.then((result) => {
     if (!result.ok) void recoverFromFailure(ctx, entry);
   });

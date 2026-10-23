@@ -191,7 +191,7 @@ Business or API data, state of one component and feature-specific UI orchestrati
 The one business data the console keeps in the browser is what a person typed in a **creation** form and did not send: it is offered back the next time they open that form (a crash, an expired session, a deploy, a closed tab). It lives in a TanStack DB collection in `localStorage` too, under its own key, with one record per unsent input. The storage is `app/src/lib/form-recovery/`; the hooks and the components are the `form-recovery` functional, and the [forms guide](./forms.md#recovering-an-unsent-creation-form) says how a form adopts it.
 
 - It is a patch against the initial values, so a value the person never touched (today's date, a translated name) is never frozen as if they had typed it.
-- It is bounded: 7 days, 64 KB a record, 20 records, 3 a form. Secrets, codes entered once and files never reach it (`omit`).
+- It is bounded: 7 days, 64 KB a record, 20 records, 3 a form, kept at startup and each time a new input is created. Secrets, codes entered once and files never reach it (`omit`).
 - It is purged on an explicit sign-out and, at startup, of the other users of the browser.
 - An edit form never reads or writes it, and does not even create the collection.
 
