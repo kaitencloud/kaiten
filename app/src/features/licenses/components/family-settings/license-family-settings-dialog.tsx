@@ -24,6 +24,7 @@ import {
   getFallbackOptions,
   getFamilyName,
 } from '../../utils/license-family-settings.utils';
+import { hasFallbackGap } from '../../utils/license-family-fallback-gap.utils';
 import { LicenseFamilySettingsFields } from './license-family-settings-fields';
 import { useLicenseFamilySettingsForm } from './use-license-family-settings-form';
 
@@ -39,9 +40,16 @@ type SettingsFormProps = {
   fallbackOptions: FallbackOption[];
   family: LicenseFamilyView;
   onClose: () => void;
+  /** Whether choosing no fallback is warned about: the family is public and has a paid version. */
+  warnWithoutFallback: boolean;
 };
 
-function SettingsForm({ fallbackOptions, family, onClose }: SettingsFormProps) {
+function SettingsForm({
+  fallbackOptions,
+  family,
+  onClose,
+  warnWithoutFallback,
+}: SettingsFormProps) {
   const { t } = useTranslation();
   const formId = useId();
   const { failure, form } = useLicenseFamilySettingsForm({
@@ -66,6 +74,7 @@ function SettingsForm({ fallbackOptions, family, onClose }: SettingsFormProps) {
             <LicenseFamilySettingsFields
               fallbackOptions={fallbackOptions}
               form={form}
+              warnWithoutFallback={warnWithoutFallback}
             />
             {failure ? <ProblemAlert error={failure} /> : null}
           </div>
@@ -147,6 +156,11 @@ export function LicenseFamilySettingsDialog({
         fallbackOptions={fallbackOptions}
         family={family}
         onClose={onClose}
+        warnWithoutFallback={hasFallbackGap({
+          family,
+          fallbackSlug: null,
+          licenses: licenses ?? [],
+        })}
       />
     </StackedFormDialog>
   );

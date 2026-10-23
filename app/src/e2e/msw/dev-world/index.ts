@@ -314,8 +314,9 @@ export function createDevMockConfig({
       grants: world.licenseEntitlements,
       licenses: world.licenses,
       prices: world.licensePrices,
-      // The family sold self-serve is the one a buyer finds in the public catalog.
-      publicFamilyIds: ['family-starter'],
+      // The family sold self-serve is the one a buyer finds in the public catalog. Business
+      // is listed too, with a paid version and no fallback, which the console warns about.
+      publicFamilyIds: ['family-starter', 'family-business'],
     }).serializeForMsw(),
     notifications: new NotificationAppModel({
       notifications: createNotifications(world.instances),

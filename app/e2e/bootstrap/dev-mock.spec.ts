@@ -423,6 +423,11 @@ test('dev:mock serves the settings of a family and an entitlement on the billing
 
   // Starter falls back to the free Trial license and reminds of a trial's end five days before.
   await page.goto('/catalog/licenses');
+  // Business is public, has a paid version and names no fallback: its row warns about
+  // it, and Starter, which falls back to Trial, does not.
+  const warnings = page.getByTestId('license-family-fallback-warning');
+  await expect(warnings).toHaveCount(1);
+  await expect(warnings).toContainText('FallbackRequired');
   await page.getByRole('link', { name: 'Settings of Starter' }).click();
   const dialog = page.getByRole('dialog');
   await expect(

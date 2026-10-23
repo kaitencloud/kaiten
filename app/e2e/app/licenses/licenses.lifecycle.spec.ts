@@ -5,7 +5,10 @@ import { LicensesListDriver } from '../_support/drivers/licenses-list.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
 import { createBillingStackModel } from '../billing/billing.scenarios';
-import { createLicenseCatalogModel } from './licenses.scenarios';
+import {
+  createLicenseCatalogModel,
+  createPublicPaidCatalogModel,
+} from './licenses.scenarios';
 
 test('publishes a draft version from the versions table', async ({ page }) => {
   const list = new LicensesListDriver(page);
@@ -145,6 +148,45 @@ test.describe('the confirmation to publish', () => {
     await expect(note).toContainText(
       'Subscriptions on other versions are not affected, and nothing is archived.',
     );
+  });
+
+  test('warns that a public paid license with no fallback cannot be sold through an anonymous checkout', async ({
+    page,
+  }) => {
+    const list = new LicensesListDriver(page);
+    const dialog = new LicenseLifecycleDialogDriver(page);
+
+    await installBillingAppMocks(page, createBillingStackModel());
+    await installLicenseAppMocks(page, createPublicPaidCatalogModel());
+    await list.goto();
+    await list.expandFamily('Starter');
+    await list.lifecycleAction('Starter', 'Next', 'Publish').click();
+
+    await dialog.expectTitle('Publish Starter v4?');
+    // A warning and not a refusal: the version still publishes.
+    await expect(
+      dialog.dialog().getByTestId('license-family-fallback-warning'),
+    ).toContainText('FallbackRequired');
+    await dialog.confirm('Publish');
+    await expectToast(page, 'Version published');
+  });
+
+  test('does not warn about a private license when a version is published', async ({
+    page,
+  }) => {
+    const list = new LicensesListDriver(page);
+    const dialog = new LicenseLifecycleDialogDriver(page);
+
+    await installBillingAppMocks(page, createBillingStackModel());
+    await installLicenseAppMocks(page, createLicenseCatalogModel());
+    await list.goto();
+    await list.expandFamily('Starter');
+    await list.lifecycleAction('Starter', 'Next', 'Publish').click();
+
+    await dialog.expectTitle('Publish Starter v4?');
+    await expect(
+      dialog.dialog().getByTestId('license-family-fallback-warning'),
+    ).toHaveCount(0);
   });
 
   test('says nothing of prices where billing is not there', async ({

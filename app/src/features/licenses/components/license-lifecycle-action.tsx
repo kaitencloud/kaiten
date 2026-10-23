@@ -6,6 +6,8 @@ import {
   useCanPerform,
   VersionLifecycleAction,
 } from '@/domains/billing';
+import { getLicenseFamilyKey } from '../utils/license-list.utils';
+import { LicenseFamilyFallbackGapNote } from './family-settings';
 import { useLicenseLifecycleTransition } from '../hooks/use-license-lifecycle-transition';
 import { LIFECYCLE_ACTION_KEYS } from '../utils/license-lifecycle-keys';
 import {
@@ -25,7 +27,13 @@ type LicenseLifecycleActionProps = {
   appearance: RowActionAppearance;
   license: Pick<
     License,
-    'isDefault' | 'lifecycleState' | 'name' | 'slug' | 'version'
+    | 'familyId'
+    | 'id'
+    | 'isDefault'
+    | 'lifecycleState'
+    | 'name'
+    | 'slug'
+    | 'version'
   >;
 };
 
@@ -67,7 +75,17 @@ export function LicenseLifecycleAction({
       onConfirm={({ slug, transition: asked }) =>
         run({ licenseSlug: slug, transition: asked })
       }
-      publishNote={hasBilling ? <PublishBillingNote /> : undefined}
+      publishNote={
+        hasBilling ? (
+          <>
+            <PublishBillingNote />
+            <LicenseFamilyFallbackGapNote
+              className="text-left"
+              familyId={getLicenseFamilyKey(license)}
+            />
+          </>
+        ) : undefined
+      }
       slug={license.slug}
       transition={transition}
       version={license.version}

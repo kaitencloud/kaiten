@@ -325,6 +325,63 @@ test.describe('the link to the settings of a family', () => {
   });
 
   test('is not there for a session that may only read', async ({ page }) => {
+// A public family that has a paid version and names no fallback: the customer whose
+// subscription ends keeps a paid version unbilled, and the family cannot be sold
+// through an anonymous checkout with an amount due today. The console warns, and
+// refuses nothing.
+test.describe('the warning about a public family with a paid version and no fallback', () => {
+  const warning = (page: import('@playwright/test').Page) =>
+    page.getByTestId('license-family-fallback-warning');
+
+  test.beforeEach(async ({ page }) => {
+    await installBillingAppMocks(page, createBillingStackModel());
+  });
+
+  test('is on the family and in its settings, and goes once a fallback is saved', async ({
+    page,
+  }) => {
+    const list = new LicensesListDriver(page);
+    const settings = new LicenseFamilySettingsDriver(page);
+    await installLicenseAppMocks(
+      page,
+      createFamilySettingsCatalogModel({
+        publicFamilyIds: ['family-pro', 'family-enterprise'],
+      }),
+    );
+    await list.goto();
+
+    // Pro names no fallback, Enterprise falls back to Community.
+    await list.expandFamily('Pro');
+    await expect(warning(page)).toHaveCount(1);
+    await expect(warning(page)).toContainText('FallbackRequired');
+    await expect(warning(page)).toContainText(
+      'keeps a paid version of the license without being billed',
+    );
+
+    await settings.open('Pro');
+    await expect(
+      settings.dialog().getByTestId('license-family-fallback-warning'),
+    ).toBeVisible();
+    await settings.choose(settings.fallback(), 'Community');
+    await expect(
+      settings.dialog().getByTestId('license-family-fallback-warning'),
+    ).toHaveCount(0);
+    await settings.save().click();
+    await expectToast(page, 'The license settings were saved');
+
+    await expect(warning(page)).toHaveCount(0);
+  });
+
+  test('is not there for a private family', async ({ page }) => {
+    const list = new LicensesListDriver(page);
+    await installLicenseAppMocks(page, createFamilySettingsCatalogModel());
+    await list.goto();
+
+    await list.expandFamily('Pro');
+    await expect(warning(page)).toHaveCount(0);
+  });
+});
+
     const list = new LicensesListDriver(page);
     const settings = new LicenseFamilySettingsDriver(page);
     await signInWithScopes(page, SESSION_SCOPES.reader);

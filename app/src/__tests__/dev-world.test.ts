@@ -200,19 +200,30 @@ describe('dev world', () => {
     }
   });
 
-  it('lists in the public catalog the family that is sold self-serve, and no other', () => {
-    const { licenses, publicFamilyIds } = slot(config.licenses);
+  it('lists in the public catalog the family that is sold self-serve, and Business, which names no fallback', () => {
+    const { familySettings, licenses, publicFamilyIds } = slot(config.licenses);
     const families = new Set(licenses.map(({ familyId }) => familyId));
 
-    expect(publicFamilyIds).toEqual(['family-starter']);
-    expect(families).toContain('family-starter');
-    // It has a published default version, which is what the catalogue serves.
+    expect(publicFamilyIds).toEqual(['family-starter', 'family-business']);
+    for (const familyId of publicFamilyIds ?? []) {
+      expect(families).toContain(familyId);
+      // It has a published default version, which is what the catalogue serves.
+      expect(
+        licenses.some(
+          (license) =>
+            license.familyId === familyId &&
+            license.isDefault &&
+            license.lifecycleState === 'PUBLISHED',
+        ),
+      ).toBe(true);
+    }
+    // Starter falls back to Trial. Business is public and paid with no fallback, so that the
+    // console shows what it says of a family that cannot be sold through an anonymous checkout.
+    expect(familySettings?.['family-starter']?.fallbackLicenseFamilySlug).toBe('trial');
+    expect(familySettings?.['family-business']).toBeUndefined();
     expect(
       licenses.some(
-        (license) =>
-          license.familyId === 'family-starter' &&
-          license.isDefault &&
-          license.lifecycleState === 'PUBLISHED',
+        (license) => license.familyId === 'family-business' && license.pricingType === 'PAID',
       ),
     ).toBe(true);
   });

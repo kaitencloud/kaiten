@@ -1604,6 +1604,12 @@ export default {
         listed: 'The license is listed in the public catalog',
         unlisted: 'The license is no longer listed in the public catalog',
       },
+      FallbackWarning: {
+        ending:
+          'This license is public and has a paid version, but names no fallback. When a subscription to it ends, the instance keeps a paid version of the license without being billed.',
+        anonymousCheckout:
+          'It also cannot be sold through an anonymous checkout with an amount due today: that checkout is refused with FallbackRequired. Choose a free license to fall back to in the settings of the license.',
+      },
       FamilySettings: {
         link: 'Settings',
         linkLabel: 'Settings of {{name}}',

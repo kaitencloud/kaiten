@@ -3,8 +3,10 @@ import { withForm } from '@/hooks/form';
 import {
   MAX_TRIAL_REMINDER_DAYS,
   MIN_TRIAL_REMINDER_DAYS,
+  NO_FALLBACK,
 } from '../../schemas/license-family-settings.schema';
 import type { FallbackOption } from '../../utils/license-family-settings.utils';
+import { LicenseFamilyFallbackWarning } from './license-family-fallback-warning';
 import { familySettingsFormOpts } from './license-family-settings-form-options';
 
 const TRIAL_END_BEHAVIORS = ['CANCEL', 'CONVERT'] as const;
@@ -25,10 +27,15 @@ const TRIAL_END_LABEL_KEYS = {
  */
 export const LicenseFamilySettingsFields = withForm({
   ...familySettingsFormOpts,
-  props: { fallbackOptions: [] as FallbackOption[] },
+  props: {
+    fallbackOptions: [] as FallbackOption[],
+    /** The family is public and has a paid version: it is sold, so a fallback matters. */
+    warnWithoutFallback: false,
+  },
   render: function LicenseFamilySettingsFieldsRender({
     fallbackOptions,
     form,
+    warnWithoutFallback,
   }) {
     const { t } = useTranslation();
 
@@ -47,6 +54,15 @@ export const LicenseFamilySettingsFields = withForm({
             />
           )}
         </form.AppField>
+        {warnWithoutFallback ? (
+          <form.Subscribe
+            selector={(state) =>
+              state.values.fallbackLicenseFamilySlug === NO_FALLBACK
+            }
+          >
+            {(hasNone) => (hasNone ? <LicenseFamilyFallbackWarning /> : null)}
+          </form.Subscribe>
+        ) : null}
         <form.AppField name="trialEndWithoutPaymentMethod">
           {(field) => (
             <field.SelectField

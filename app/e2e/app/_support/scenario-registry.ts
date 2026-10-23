@@ -105,6 +105,7 @@ import {
   createNumberedLicenseFamilyModel,
   createPricedCatalogModel,
   createPricedFamiliesModel,
+  createPublicPaidCatalogModel,
   createTwoFlatFeesModel,
 } from '../licenses/licenses.scenarios';
 import {
@@ -327,6 +328,7 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createEmptyPublishableKeysBillingModel,
   ],
   ['licenses/createLicenseCatalogModel', createLicenseCatalogModel],
+  ['licenses/createPublicPaidCatalogModel', createPublicPaidCatalogModel],
   [
     'release-management/createReleaseManagementReadModel',
     createReleaseManagementReadModel,

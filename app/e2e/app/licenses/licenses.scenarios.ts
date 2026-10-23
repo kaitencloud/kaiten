@@ -45,6 +45,22 @@ export function createLicenseCatalogModel() {
 }
 
 /**
+ * The same family, sold: listed in the public catalog and priced PAID, with no
+ * fallback, so that publishing its draft is warned about.
+ */
+export function createPublicPaidCatalogModel() {
+  return new LicenseAppModel({
+    licenses: [
+      starterVersion(1, 'Legacy', 'ARCHIVED'),
+      starterVersion(2, 'GA', 'PUBLISHED', true),
+      starterVersion(3, 'Spring', 'PUBLISHED'),
+      starterVersion(4, 'Next', 'DRAFT'),
+    ].map((license) => ({ ...license, pricingType: 'PAID' as const })),
+    publicFamilyIds: ['family-starter'],
+  });
+}
+
+/**
  * A family whose version names end in a number, so the version form suggests
  * the next one ("Starter v3") and comes complete without any edit.
  */
@@ -506,8 +522,11 @@ const familyVersionOf = (
  * and Basic, which a family can fall back to. Pro and Enterprise are the ones that
  * cannot be fallen back to: they are paid.
  */
-export function createFamilySettingsCatalogModel() {
+export function createFamilySettingsCatalogModel(
+  options: { publicFamilyIds?: string[] } = {},
+) {
   return new LicenseAppModel({
+    publicFamilyIds: options.publicFamilyIds,
     familySettings: {
       'family-enterprise': {
         fallbackLicenseFamilySlug: 'community',

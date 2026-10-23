@@ -236,3 +236,48 @@ describe('the settings of a family of licenses', () => {
     expect(screen.queryByLabelText(/^Trial reminder/)).not.toBeInTheDocument();
   });
 });
+  it('warns that a public family with a paid version and no fallback cannot be sold anonymously, until a fallback is chosen', async () => {
+    families[0] = family('pro', { isPublic: true });
+    renderDialog();
+    await reminder();
+
+    expect(
+      await screen.findByTestId('license-family-fallback-warning'),
+    ).toHaveTextContent('FallbackRequired');
+
+    await userEvent.click(
+      screen.getByRole('combobox', {
+        name: /When a subscription ends, fall back to/,
+      }),
+    );
+    await userEvent.click(await screen.findByRole('option', { name: 'Community' }));
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('license-family-fallback-warning'),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it('does not warn about a family that is private', async () => {
+    renderDialog();
+    await reminder();
+
+    expect(
+      screen.queryByTestId('license-family-fallback-warning'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not warn about a public family that has a fallback', async () => {
+    families[0] = family('pro', {
+      fallbackLicenseFamilySlug: 'community',
+      isPublic: true,
+    });
+    renderDialog();
+    await reminder();
+
+    expect(
+      screen.queryByTestId('license-family-fallback-warning'),
+    ).not.toBeInTheDocument();
+  });
+

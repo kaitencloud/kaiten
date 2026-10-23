@@ -1627,6 +1627,12 @@ export default {
         listed: 'La licence est listée dans le catalogue public',
         unlisted: 'La licence n’est plus listée dans le catalogue public',
       },
+      FallbackWarning: {
+        ending:
+          'Cette licence est publique et a une version payante, mais ne nomme aucun repli. Quand un abonnement à cette licence se termine, l’instance garde une version payante de la licence sans être facturée.',
+        anonymousCheckout:
+          'Elle ne peut pas non plus être vendue par un paiement anonyme avec un montant dû aujourd’hui : ce paiement est refusé avec FallbackRequired. Choisissez une licence gratuite de repli dans les réglages de la licence.',
+      },
       FamilySettings: {
         link: 'Réglages',
         linkLabel: 'Réglages de {{name}}',
