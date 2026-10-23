@@ -2,7 +2,8 @@ import i18n from 'i18next';
 
 /**
  * The identities that stand for Kaiten itself: the external id of the platform user,
- * `system:kaiten`, and the id its row is pinned to. It is the actor of what no person
+ * `system:kaiten`, and the id its row is pinned to. An actor the API gives the kind
+ * `SYSTEM` is Kaiten as well, whatever its id. It is the actor of what no person
  * of the organization did: the jobs of billing, and the writes of an anonymous checkout,
  * which no principal of the vendor initiates.
  *
@@ -18,8 +19,12 @@ const SYSTEM_ACTOR_IDS: ReadonlySet<string> = new Set([
 
 type ActorRecord = {
   id?: unknown;
+  kind?: unknown;
   name?: unknown;
 };
+
+/** The kind the API gives the actor that is Kaiten itself (`AuditActor.kind`). */
+const SYSTEM_ACTOR_KIND = 'SYSTEM';
 
 type GetAuditDisplayNameParams = {
   actor: unknown;
@@ -32,13 +37,22 @@ type GetAuditDisplayNameParams = {
   unknownLabel?: string;
 };
 
-const isSystemActor = (actor: unknown) =>
-  typeof actor === 'string'
-    ? SYSTEM_ACTOR_IDS.has(actor)
-    : typeof actor === 'object' &&
-      actor !== null &&
-      typeof (actor as ActorRecord).id === 'string' &&
-      SYSTEM_ACTOR_IDS.has((actor as ActorRecord).id as string);
+const isSystemActor = (actor: unknown) => {
+  if (typeof actor === 'string') {
+    return SYSTEM_ACTOR_IDS.has(actor);
+  }
+
+  if (typeof actor !== 'object' || actor === null) {
+    return false;
+  }
+
+  const { id, kind } = actor as ActorRecord;
+
+  return (
+    kind === SYSTEM_ACTOR_KIND ||
+    (typeof id === 'string' && SYSTEM_ACTOR_IDS.has(id))
+  );
+};
 
 /**
  * The name to show for who created or last changed a record. The system actor reads as

@@ -55,6 +55,19 @@ describe('getAuditDisplayName', () => {
       );
     });
 
+    it('reads as Kaiten (system) by the kind the API gives it, whatever its id', () => {
+      expect(
+        getAuditDisplayName({
+          actor: { id: 'other-id', kind: 'SYSTEM', name: 'Kaiten (system)' },
+        }),
+      ).toBe('Kaiten (system)');
+      expect(
+        getAuditDisplayName({
+          actor: { id: 'user-7', kind: 'USER', name: 'Kaiten' },
+        }),
+      ).toBe('Kaiten');
+    });
+
     it('reads in the language of the console', async () => {
       await testI18n.changeLanguage('fr');
 
