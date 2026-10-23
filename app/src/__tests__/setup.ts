@@ -1,7 +1,14 @@
 import '@testing-library/jest-dom';
 import { act, cleanup, configure } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vite-plus/test';
+import { resetFormRecoveryForTests } from '@/lib/form-recovery/form-recovery-collection';
 import './test-i18n';
+
+// The stored input of a creation form lives in a module singleton over
+// localStorage, which nothing else empties between two tests.
+afterEach(() => {
+  resetFormRecoveryForTests();
+});
 
 // Every form field is code-split (see src/hooks/form.ts), so the first
 // `findBy*` of a cold run waits on a dynamic import while Vite is still
