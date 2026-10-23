@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import { getFormRecoveryRuntime } from '@/lib/form-recovery';
+import { logger } from '@/lib/logger';
 import { makeEntry } from '@/lib/form-recovery/__tests__/test-records';
 import {
   IDENTITY,
@@ -187,18 +187,64 @@ describe('write machine under quota', () => {
   it('gives up quietly when nothing can be freed: the lineage is removed and the writer paused', async () => {
     const h = mountSession();
     await advance(0);
-    getFormRecoveryRuntime();
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
-      throw new DOMException('full', 'QuotaExceededError');
-    });
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-
+    // A first version is stored: the failure of the next write must not leave it behind.
     track(h, snapshotOf([['name', 'Gold']]), true);
+    await advance(50);
+    const { lineageId } = h.state();
+    expect(storedRecords()[lineageId]).toMatchObject({ kind: 'entry' });
+
+    // The storage refuses what holds the new value and takes what frees space.
+    const real = Storage.prototype.setItem;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      key: string,
+      value: string,
+    ) {
+      if (value.includes('Golden')) throw new DOMException('full', 'QuotaExceededError');
+      return real.call(this, key, value);
+    });
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    track(h, snapshotOf([['name', 'Golden']]), true);
     await advance(100);
 
     expect(h.state().writer).toEqual({ status: 'paused', reason: 'quota' });
-    expect(h.state().writer.status).toBe('paused');
-    expect(warn).toBeDefined();
+    expect(storedRecords()).toEqual({});
+    // Said once, with the form and nothing of what was typed.
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(warn).toHaveBeenCalledWith(expect.any(String), { formId: 'things.create' });
+  });
+
+  it('keeps an entry for the evicted one to take the place of when the retry fits', async () => {
+    seedEntry(makeEntry({ lineageId: 'stale', formId: 'other.create' }));
+    const h = mountSession();
+    await advance(0);
+    track(h, snapshotOf([['name', 'Gold']]), true);
+    await advance(0);
+    const { lineageId } = h.state();
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+
+    const real = Storage.prototype.setItem;
+    let refused = 0;
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (
+      this: Storage,
+      key: string,
+      value: string,
+    ) {
+      if (value.includes('Golden') && refused === 0) {
+        refused += 1;
+        throw new DOMException('full', 'QuotaExceededError');
+      }
+      return real.call(this, key, value);
+    });
+
+    track(h, snapshotOf([['name', 'Golden']]), true);
+    await advance(100);
+
+    // Room was made: the entry is the new version, not removed, and nothing is said.
+    expect(storedRecords()[lineageId]).toMatchObject({ kind: 'entry', payload: '[["name","Golden"]]' });
+    expect(h.state().writer.status).toBe('saved');
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 

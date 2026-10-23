@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { z } from 'zod';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
+import { logger } from '@/lib/logger';
 import {
   defineFormRecovery,
   useFormRecovery,
@@ -308,5 +309,128 @@ describe('the adapter and the state outside the form', () => {
     expect(screen.getByTestId('rows')).toHaveTextContent(/^copied from the base$/);
     expect(screen.getByTestId('notes').textContent).toContain('The base license');
     expect(screen.getByTestId('notes').textContent).toContain('sourceChanged');
+  });
+});
+
+describe('the adapter and the form it restores into', () => {
+  type Values = { name: string; attachment: unknown };
+
+  const recoveryOfNames = defineFormRecovery<Values>({
+    formId: 'names.create',
+    version: 1,
+    omit: [],
+    fieldLabels: { name: { text: 'Name' }, attachment: { text: 'Attachment' } },
+  });
+
+  const resets: Array<{ keepDefaultValues?: boolean } | undefined> = [];
+
+  beforeEach(() => {
+    resets.length = 0;
+  });
+
+  function NamesForm() {
+    const recovery = useFormRecovery(recoveryOfNames, {
+      enabled: true,
+      pristine: { name: '', attachment: undefined },
+    });
+    return <NamesBody key={recovery.sessionKey} recovery={recovery} />;
+  }
+
+  function NamesBody({
+    recovery,
+  }: {
+    recovery: ReturnType<typeof useFormRecovery<Values>>;
+  }) {
+    const form = useAppForm({
+      defaultValues: recovery.pristine,
+      onSubmit: async () => {},
+    });
+    // What the adapter asks of the form is what the test looks at.
+    const api = useMemo(
+      () => ({
+        store: form.store,
+        get state() {
+          return form.state;
+        },
+        reset: (values: Values | undefined, options?: { keepDefaultValues?: boolean }) => {
+          if (values) resets.push(options);
+          form.reset(values, options);
+        },
+        setFieldMeta: (field: any, updater: any) => form.setFieldMeta(field, updater),
+        setFieldValue: (field: any, value: any) => form.setFieldValue(field, value),
+        validate: (cause: any) => form.validate(cause),
+      }),
+      [form],
+    );
+    useFormRecoveryForm(recovery, api, {});
+
+    return (
+      <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+        <button type="button" onClick={recovery.resume}>
+          resume
+        </button>
+        <button type="button" onClick={() => form.reset()}>
+          reset
+        </button>
+        <button
+          type="button"
+          onClick={() => form.setFieldValue('attachment', new File(['x'], 'a.txt'))}
+        >
+          attach
+        </button>
+        <form.AppField name="name">{(field) => <field.TextField label="Name" />}</form.AppField>
+        <form.Subscribe selector={(state) => state.isDirty}>
+          {(isDirty) => <output data-testid="dirty">{String(isDirty)}</output>}
+        </form.Subscribe>
+
+      </form>
+    );
+  }
+
+  async function leaveWith(name: string) {
+    const user = setupUser();
+    const first = render(<NamesForm />);
+    await user.type(input('Name'), name);
+    await elapse();
+    first.unmount();
+
+    return user;
+  }
+
+  it('restores into a form that knows it differs from its initial values, and a reset goes back to them', async () => {
+    const user = await leaveWith('Gold');
+
+    render(<NamesForm />);
+    await user.click(await screen.findByRole('button', { name: 'resume' }));
+    await elapse(300);
+
+    // A close prompt would still see the restored input as unsaved...
+    expect(input('Name')).toHaveValue('Gold');
+    expect(screen.getByTestId('dirty')).toHaveTextContent('true');
+    // The form was told to keep its initial values, not to take the restored ones for them.
+    expect(resets).toEqual([{ keepDefaultValues: true }]);
+
+    // ...and a plain reset empties the form instead of restoring the same input again.
+    await user.click(screen.getByRole('button', { name: 'reset' }));
+    expect(input('Name')).toHaveValue('');
+    expect(screen.getByTestId('dirty')).toHaveTextContent('false');
+  });
+
+  it('warns, instead of failing, for a value that cannot be kept, and writes nothing', async () => {
+    const user = setupUser();
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    render(<NamesForm />);
+
+    await user.click(screen.getByRole('button', { name: 'attach' }));
+    await elapse();
+
+    expect(warn).toHaveBeenCalledWith(expect.any(String), {
+      formId: 'names.create',
+      path: expect.any(String),
+    });
+    expect(only()).toEqual([]);
+    // The form is still alive.
+    await user.type(input('Name'), 'Gold');
+    expect(input('Name')).toHaveValue('Gold');
   });
 });

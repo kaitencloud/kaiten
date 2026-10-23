@@ -484,6 +484,22 @@ describe('discard', () => {
     kept.session.dispose();
   });
 
+  it('restores an undone input for one mount only', async () => {
+    const h = await typed();
+    h.session.actions.discard({ undo: vi.fn() });
+    h.dispose();
+    (h.notify.mock.calls[0]![1] as () => void)();
+
+    const first = mountSession();
+    await advance(0);
+    expect(first.state().restored?.values).toMatchObject({ name: 'Gold' });
+
+    // The intention was taken when the first mount started.
+    const second = createSession();
+    expect(second.session.store.state.restored).toBeNull();
+    first.dispose();
+  });
+
   it('says nothing when nothing was stored', async () => {
     const h = mountSession();
     await advance(0);

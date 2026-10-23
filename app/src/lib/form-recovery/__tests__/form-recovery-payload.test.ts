@@ -69,15 +69,24 @@ describe('form recovery payload codec', () => {
   });
 
   it('reads a date at local midnight as that civil day even when the time zone moved', () => {
-    // Written in a zone ahead of UTC, where midnight of the 22nd is the evening
-    // of the 21st in UTC; read back anywhere, it is still the 22nd.
-    const text = '{"date":{"$date":"2026-10-21T22:00:00.000Z","$day":"2026-10-22"}}';
+    // The instant is the one of a midnight in a zone the reader is not in, and in no zone
+    // is it a midnight of the 22nd (it is 03:17 UTC): the civil day alone makes the date
+    // the 22nd at midnight, wherever and whenever the payload is read.
+    const text = '{"date":{"$date":"2026-10-22T03:17:00.000Z","$day":"2026-10-22"}}';
     const decoded = decodePayload(text) as { date: Date };
 
     expect(decoded.date.getFullYear()).toBe(2026);
     expect(decoded.date.getMonth()).toBe(9);
     expect(decoded.date.getDate()).toBe(22);
     expect(decoded.date.getHours()).toBe(0);
+    expect(decoded.date.getMinutes()).toBe(0);
+  });
+
+  it('falls back to the instant when the civil day is not a day', () => {
+    const text = '{"date":{"$date":"2026-10-22T03:17:00.000Z","$day":"22/10/2026"}}';
+    const decoded = decodePayload(text) as { date: Date };
+
+    expect(decoded.date.toISOString()).toBe('2026-10-22T03:17:00.000Z');
   });
 
   it('does not tag a date that is not at local midnight', () => {
