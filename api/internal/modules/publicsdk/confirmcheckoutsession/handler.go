@@ -103,18 +103,47 @@ func NewUseCase(deps Deps) *UseCase {
 // session repriced without it.
 var errTrialTaken = errors.New("confirm: the trial was consumed meanwhile")
 
+// errNothingToComplete is a job's completion that has nothing to do: the
+// session is no longer OPEN, has no setup, or its setup is not complete.
+var errNothingToComplete = errors.New("confirm: nothing to complete")
+
 // Execute confirms the session. The principal ctx carries is system:kaiten
 // in the session's organization: the completion's rows are its.
 func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UUID) (*checkout.CheckoutConfirmation, error) {
-	out, err := u.confirm(ctx, organizationID, sessionID)
+	out, err := u.confirm(ctx, organizationID, sessionID, false)
 	if errors.Is(err, errTrialTaken) {
 		// Once: the session now has no trial to lose.
-		return u.confirm(ctx, organizationID, sessionID)
+		return u.confirm(ctx, organizationID, sessionID, false)
 	}
 	return out, err
 }
 
-func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UUID) (*checkout.CheckoutConfirmation, error) {
+// Complete is the completion a job runs (§12.9 step 3): the sync backstop,
+// for a setup the visitor finished without coming back, and billing-lifecycle
+// step (f), for a session OPEN past its expiry. It completes only a session
+// whose hosted setup the provider reports complete; it opens no setup page,
+// accepts a session past its expiry, and leaves the ACTIVATION to the push
+// queue. Whether it completed the session; a refusal is returned as the
+// confirm would answer it, the session left OPEN.
+func (u *UseCase) Complete(ctx context.Context, organizationID, sessionID uuid.UUID) (bool, error) {
+	_, err := u.confirm(ctx, organizationID, sessionID, true)
+	if errors.Is(err, errTrialTaken) {
+		_, err = u.confirm(ctx, organizationID, sessionID, true)
+	}
+	if errors.Is(err, errNothingToComplete) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	row, err := db.New(u.deps.Uof.DBTX(ctx)).GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
+	if err != nil {
+		return false, err
+	}
+	return row.Status != db.CheckoutSessionStatusOPEN, nil
+}
+
+func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UUID, job bool) (*checkout.CheckoutConfirmation, error) {
 	q := db.New(u.deps.Uof.DBTX(ctx))
 	row, err := q.GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -123,13 +152,20 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	if err != nil {
 		return nil, err
 	}
+	if job && row.Status != db.CheckoutSessionStatusOPEN {
+		return nil, errNothingToComplete
+	}
 	if row.Status == db.CheckoutSessionStatusAWAITINGPAYMENT {
 		// Completed already, the session waits for its payment: answered as
 		// it now is.
 		return u.answer(ctx, organizationID, sessionID, nil)
 	}
-	if err := closed(row); err != nil {
-		return nil, err
+	// A job completes a session past its expiry (step (f)); a visitor's
+	// confirm does not.
+	if !job {
+		if err := closed(row); err != nil {
+			return nil, err
+		}
 	}
 	key, err := q.GetPublishableKeyCheckout(ctx, db.GetPublishableKeyCheckoutParams{OrganizationID: organizationID, ID: row.PublishableKeyID})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -182,7 +218,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			if err := u.dropTrial(ctx, q, row, selection, addOns); err != nil {
 				return nil, err
 			}
-			return u.confirm(ctx, organizationID, sessionID)
+			return u.confirm(ctx, organizationID, sessionID, job)
 		}
 	}
 	var trialDays *int32
@@ -212,8 +248,11 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	}
 	requiresMethod := !free && (due > 0 || plan.RequiresPaymentMethod)
 	var adopted *checkoutsetup.Adopted
+	if job && (!requiresMethod || row.ExternalSetupSessionID == nil) {
+		return nil, errNothingToComplete // completed at its confirm, or never set up
+	}
 	if requiresMethod {
-		setup, page, err := u.setup(ctx, q, row)
+		setup, page, err := u.setup(ctx, q, row, job)
 		if err != nil {
 			return nil, err
 		}
@@ -305,7 +344,8 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			cmd.ProviderKind, cmd.CollectionMethod = providerKind, ptr("CHARGE_AUTOMATICALLY")
 		}
 		if due > 0 {
-			cmd.Incomplete, cmd.MoveToLicenseID, cmd.CallerPushes = true, &licenseID, true
+			// A job leaves the ACTIVATION to the push queue (§12.9 step 3.5).
+			cmd.Incomplete, cmd.MoveToLicenseID, cmd.CallerPushes = true, &licenseID, !job
 		}
 		if started, err = u.deps.Subscriber.Execute(ctx, instance.Slug, cmd); err != nil {
 			return err
@@ -347,10 +387,13 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 				slog.WarnContext(ctx, "anonymous checkout: the provider customer will be ensured later", "session_id", sessionID, "error", err)
 			}
 		}
-		if started != nil && due > 0 {
+		if started != nil && due > 0 && !job {
 			// Its payment, when it is immediate, completes the session.
 			u.deps.Subscriber.PushInline(ctx, started)
 		}
+	}
+	if job {
+		return nil, nil //nolint:nilnil // a job reads the session itself
 	}
 	return u.answer(ctx, organizationID, sessionID, nil)
 }
@@ -359,7 +402,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 // steps 1 and 3.1): opened when there is none, or a replacement when it
 // expired, and answered as a page while the visitor has not completed it.
 // Once completed, the setup is returned for the completion.
-func (u *UseCase) setup(ctx context.Context, q *db.Queries, row db.GetCheckoutSessionRow) (checkoutsetup.Setup, *checkoutsetup.Page, error) {
+func (u *UseCase) setup(ctx context.Context, q *db.Queries, row db.GetCheckoutSessionRow, job bool) (checkoutsetup.Setup, *checkoutsetup.Page, error) {
 	replaces := ""
 	if row.ExternalSetupSessionID != nil {
 		setup, err := u.deps.Setup.Read(ctx, row.OrganizationID, operation, row.ID, *row.ExternalSetupSessionID)
@@ -374,6 +417,8 @@ func (u *UseCase) setup(ctx context.Context, q *db.Queries, row db.GetCheckoutSe
 				}
 			}
 			return setup, nil, nil
+		case job:
+			return checkoutsetup.Setup{}, nil, errNothingToComplete // a job never opens a page
 		case !setup.Expired:
 			return setup, &setup.Page, nil
 		}

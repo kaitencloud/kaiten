@@ -1,6 +1,11 @@
 package kaiten
 
 import (
+	"context"
+	"sync"
+
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider/noop"
 	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
@@ -32,10 +37,12 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkoutprogress"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkoutsweep"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/billablediscounts"
+	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
 )
 
 // modules is every module, constructed. It is what the facade namespaces read
@@ -184,6 +191,9 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// makes a subscribe's writes in the modules that own them the same way;
 	// those modules implement them. Built before the map because the public SDK
 	// surface runs its subscribe and reads its invoices.
+	// The checkout sweep runs the public SDK's completion, built after
+	// billing: billing's jobs reach it through this handle, bound below.
+	checkoutSweep := &lateCheckoutSweeper{}
 	billingModule := billing.NewUseCases(svc, billing.Ports{
 		Catalogue: billablecatalogue.New(svc.Uof),
 		Usage:     instanceModule.BillableUsage,
@@ -194,6 +204,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Mover:     instanceModule.UpdateInstance,
 		Expiry:    voucherModule.Expiry,
 		Checkouts: checkoutprogress.New(svc.Uof),
+		Sweeper:   checkoutSweep,
 	})
 	customerModule := customers.NewUseCases(svc)
 
@@ -262,6 +273,19 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	}
 	built.CDC = dispatcher
 
+	// The completions a job runs are system:kaiten's, naming the session.
+	checkoutSweep.bind(checkoutsweep.New(checkoutsweep.Deps{
+		Uof: svc.Uof, Completer: built.PublicSDK.ConfirmCheckoutSession, Setup: billingModule.CheckoutSetup,
+		Bind: func(ctx context.Context, organizationID, sessionID uuid.UUID) (context.Context, error) {
+			actorID, err := built.Organization.SystemActor.SystemActorInOrganization(ctx, organizationID, platformidentity.ExternalID)
+			if err != nil {
+				return nil, err
+			}
+			return bindCheckoutCompletion(ctx, actorID, organizationID, sessionID)
+		},
+		Retention: svc.Config.Billing.Lifecycle.CheckoutSessionRetention,
+	}))
+
 	return built, nil
 }
 
@@ -307,4 +331,52 @@ func deref(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+// lateCheckoutSweeper is billing's CheckoutSweeper before the public SDK
+// module exists: billing is built first, its jobs start with a delay, and the
+// sweep is bound once the module map is complete. Unbound, it does nothing.
+type lateCheckoutSweeper struct {
+	mu     sync.RWMutex
+	target *checkoutsweep.Sweep
+}
+
+func (l *lateCheckoutSweeper) bind(target *checkoutsweep.Sweep) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.target = target
+}
+
+func (l *lateCheckoutSweeper) get() *checkoutsweep.Sweep {
+	l.mu.RLock()
+	defer l.mu.RUnlock()
+	return l.target
+}
+
+func (l *lateCheckoutSweeper) Complete(ctx context.Context, organizationID, checkoutSessionID uuid.UUID) error {
+	if t := l.get(); t != nil {
+		return t.Complete(ctx, organizationID, checkoutSessionID)
+	}
+	return nil
+}
+
+func (l *lateCheckoutSweeper) RetryCompleted(ctx context.Context, organizationID uuid.UUID, limit int) ([]uuid.UUID, error) {
+	if t := l.get(); t != nil {
+		return t.RetryCompleted(ctx, organizationID, limit)
+	}
+	return nil, nil
+}
+
+func (l *lateCheckoutSweeper) Abandon(ctx context.Context, limit int) (int, error) {
+	if t := l.get(); t != nil {
+		return t.Abandon(ctx, limit)
+	}
+	return 0, nil
+}
+
+func (l *lateCheckoutSweeper) Purge(ctx context.Context, limit int) (int, error) {
+	if t := l.get(); t != nil {
+		return t.Purge(ctx, limit)
+	}
+	return 0, nil
 }

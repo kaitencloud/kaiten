@@ -96,48 +96,72 @@ func (o *Overdue) one(ctx context.Context, id, organizationID uuid.UUID) (change
 	return changed, err
 }
 
-// NewJob is the billing-lifecycle job.
-// daily is work the job does on its first pass of each UTC day (payment
+// Daily is work the job does on its first pass of each UTC day (payment
 // methods expiring).
-type daily interface {
+type Daily interface {
 	Pass(ctx context.Context) (int, error)
 }
 
-// vouchers is the voucher bookkeeping of every pass (§16.2 (b)).
-type vouchers interface {
+// Pass is one bounded step of a pass.
+type Pass interface {
 	Pass(ctx context.Context, limit int) (int, error)
 }
 
-func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, expiry, incompletes, reminders vouchers, everyDay ...daily) *sweep.Job {
+// PassFunc is a function as a Pass.
+type PassFunc func(ctx context.Context, limit int) (int, error)
+
+// Pass implements Pass.
+func (f PassFunc) Pass(ctx context.Context, limit int) (int, error) { return f(ctx, limit) }
+
+// Steps are the steps of a pass after (a), the overdue re-evaluation (§16.2).
+// A nil step is not run.
+type Steps struct {
+	// Expiry is (b): vouchers and redemptions past their dates.
+	Expiry Pass
+	// Incompletes is (d): the INCOMPLETE checkouts never paid in their 23 h.
+	Incompletes Pass
+	// Reminders is (e): trial_will_end for the trials whose reminder is due.
+	Reminders Pass
+	// Abandoned is (f): the anonymous checkouts still OPEN at their expiry.
+	Abandoned Pass
+	// Purged is (h): the checkout sessions closed past their retention.
+	Purged Pass
+	// EveryDay is (c): the first pass of each UTC day.
+	EveryDay []Daily
+}
+
+// NewJob is the billing-lifecycle job. overdue nil skips (a): with billing
+// off, a pass runs (h) alone (§16.1 rule 6).
+func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, steps Steps) *sweep.Job {
 	return sweep.NewPoolPass("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context) error {
-		moved, err := overdue.Pass(ctx, batchSize)
-		if moved > 0 {
-			slog.InfoContext(ctx, "subscriptions moved in or out of PAST_DUE", "moved", moved)
-		}
-		// Step (d): the INCOMPLETE checkouts never paid in their 23 h.
-		if incompletes != nil {
-			ended, incompleteErr := incompletes.Pass(ctx, batchSize)
-			if ended > 0 {
-				slog.InfoContext(ctx, "incomplete checkouts expired", "count", ended)
+		var err error
+		if overdue != nil {
+			moved, overdueErr := overdue.Pass(ctx, batchSize)
+			if moved > 0 {
+				slog.InfoContext(ctx, "subscriptions moved in or out of PAST_DUE", "moved", moved)
 			}
-			err = errors.Join(err, incompleteErr)
+			err = overdueErr
 		}
-		// Step (e): trial_will_end for the trials whose reminder is due.
-		if reminders != nil {
-			sent, reminderErr := reminders.Pass(ctx, batchSize)
-			if sent > 0 {
-				slog.InfoContext(ctx, "trial reminders announced", "count", sent)
+		for _, step := range []struct {
+			pass Pass
+			done string
+		}{
+			{steps.Incompletes, "incomplete checkouts expired"},
+			{steps.Reminders, "trial reminders announced"},
+			{steps.Abandoned, "anonymous checkouts completed or abandoned at their expiry"},
+			{steps.Expiry, "vouchers and redemptions expired"},
+			{steps.Purged, "closed checkout sessions deleted"},
+		} {
+			if step.pass == nil {
+				continue
 			}
-			err = errors.Join(err, reminderErr)
-		}
-		if expiry != nil {
-			expired, expiryErr := expiry.Pass(ctx, batchSize)
-			if expired > 0 {
-				slog.InfoContext(ctx, "vouchers and redemptions expired", "count", expired)
+			n, stepErr := step.pass.Pass(ctx, batchSize)
+			if n > 0 {
+				slog.InfoContext(ctx, step.done, "count", n)
 			}
-			err = errors.Join(err, expiryErr)
+			err = errors.Join(err, stepErr)
 		}
-		for _, work := range everyDay {
+		for _, work := range steps.EveryDay {
 			n, dailyErr := work.Pass(ctx)
 			if n > 0 {
 				slog.InfoContext(ctx, "payment methods announced as expiring", "count", n)

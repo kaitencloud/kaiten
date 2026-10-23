@@ -213,7 +213,9 @@ LIMIT sqlc.arg(batch);
 
 -- name: ListSyncTargets :many
 -- The (organization, provider) pairs sync visits: those with a provider
--- invoice still open, or a sync state already.
+-- invoice still open, a sync state already, or the provider's connector
+-- activated -- so that a setup completed for a customer, or an anonymous
+-- checkout, with no invoice yet converges within one interval (Δ4.11).
 SELECT DISTINCT i.organization_id, i.provider_kind
 FROM instance_invoice i
 WHERE i.provider_kind <> 'NOOP'
@@ -221,7 +223,12 @@ WHERE i.provider_kind <> 'NOOP'
   AND (i.status IN ('PUSHED', 'PAYMENT_FAILED', 'DRAFT') OR i.reconciliation_status IS NULL)
 UNION
 SELECT s.organization_id, s.provider_kind
-FROM billing_sync_state s;
+FROM billing_sync_state s
+UNION
+SELECT oc.organization_id,
+       ((sqlc.arg(provider_kinds)::text[])[array_position(sqlc.arg(connector_names)::text[], oc.connector_name)])::billing_provider_kind
+FROM organization_connector oc
+WHERE oc.connector_name = ANY (sqlc.arg(connector_names)::text[]);
 
 
 -- name: GetSyncState :one

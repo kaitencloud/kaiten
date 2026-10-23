@@ -144,6 +144,9 @@ type BillingLifecycle struct {
 	// Interval below 0 disables the pass; settling an invoice still clears
 	// PAST_DUE at once.
 	Interval time.Duration
+	// CheckoutSessionRetention is how long a closed anonymous checkout session
+	// is kept before step (h) deletes it (v3.2 ruling: 90 days).
+	CheckoutSessionRetention time.Duration `mapstructure:"checkout_session_retention" validate:"gte=0"`
 }
 
 // BillingPeriodClose schedules the pass that closes the subscriptions whose
@@ -416,6 +419,7 @@ var settings = []struct {
 	{"billing.period_close.interval", "KAITEN_BILLING_PERIOD_CLOSE_INTERVAL", "1m", false},
 	{"billing.period_close.batch_size", "KAITEN_BILLING_CLOSE_BATCH_SIZE", 100, false},
 	{"billing.lifecycle.interval", "KAITEN_BILLING_LIFECYCLE_INTERVAL", "15m", false},
+	{"billing.lifecycle.checkout_session_retention", "KAITEN_BILLING_CHECKOUT_SESSION_RETENTION", "2160h", false},
 	{"billing.invoice_push.interval", "KAITEN_BILLING_INVOICE_PUSH_INTERVAL", "1m", false},
 	{"billing.invoice_push.batch_size", "KAITEN_BILLING_PUSH_BATCH_SIZE", 50, false},
 	{"billing.invoice_push.max_backoff", "KAITEN_BILLING_PUSH_MAX_BACKOFF", "6h", false},

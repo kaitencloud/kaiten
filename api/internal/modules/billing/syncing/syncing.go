@@ -66,6 +66,9 @@ type Syncer struct {
 }
 
 // New returns a syncer whose provider calls are bounded by timeout.
+// checkoutRetries bounds the completions one pass retries (§12.6 rule 4).
+const checkoutRetries = 100
+
 func New(deps access.Deps, timeout time.Duration) *Syncer {
 	return &Syncer{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), timeout: timeout}
 }
@@ -83,7 +86,13 @@ type Outcome struct {
 // Pass syncs every (organization, provider) with something to mirror.
 func (s *Syncer) Pass(ctx context.Context) error {
 	q := s.deps.Queries(ctx)
-	targets, err := q.ListSyncTargets(ctx)
+	var names, kinds []string
+	if namer, ok := s.deps.Providers.(provider.ConnectorNamer); ok {
+		for kind, name := range namer.Connectors() {
+			names, kinds = append(names, name), append(kinds, string(kind))
+		}
+	}
+	targets, err := q.ListSyncTargets(ctx, db.ListSyncTargetsParams{ConnectorNames: names, ProviderKinds: kinds})
 	if err != nil {
 		return err
 	}
@@ -145,6 +154,7 @@ func (s *Syncer) Organization(ctx context.Context, organizationID uuid.UUID, kin
 		outcome.Applied++
 	}
 
+	retried := map[string]bool{} // the checkout sessions an event already tried
 	cursor, cursorAt := deref(state.Cursor), state.CursorCreatedAt
 	if conn.Adapter.Capabilities().EventFeed {
 		since := time.Time{}
@@ -158,9 +168,24 @@ func (s *Syncer) Organization(ctx context.Context, organizationID uuid.UUID, kin
 			return s.record(ctx, organizationID, kind, state, outcome, StatusFailed, provider.Summary(err), now)
 		}
 		customers := map[string]bool{}
+		checkouts := map[string]bool{}
 		for _, event := range feed {
 			if event.ExternalInvoiceID != "" {
 				apply(event.ExternalInvoiceID)
+			}
+			// An anonymous checkout's setup, finished without the visitor
+			// coming back: its completion runs here, before the customer's
+			// labels are read (§12.6 rule 4). Selected by its metadata only.
+			if event.CheckoutSessionID != "" && event.OrganizationID == organizationID.String() && !checkouts[event.CheckoutSessionID] {
+				checkouts[event.CheckoutSessionID] = true
+				if id, err := uuid.Parse(event.CheckoutSessionID); err == nil && s.deps.CheckoutSweeper != nil {
+					if err := s.deps.CheckoutSweeper.Complete(ctx, organizationID, id); err != nil {
+						retried[id.String()] = true
+						outcome.Failed++
+						failedIDs = append(failedIDs, "checkout session "+id.String())
+						slog.WarnContext(ctx, "anonymous checkout could not be completed", "checkout_session_id", id, "error", err)
+					}
+				}
 			}
 			if event.ExternalCustomerID != "" && !customers[event.ExternalCustomerID+"\x00"+event.ExternalSessionID] {
 				customers[event.ExternalCustomerID+"\x00"+event.ExternalSessionID] = true
@@ -186,6 +211,20 @@ func (s *Syncer) Organization(ctx context.Context, organizationID uuid.UUID, kin
 			apply(deref(row.ExternalInvoiceID))
 		}
 		sweptAt = invoices.Timestamp(now)
+	}
+	// The completions that failed are not found again through their event:
+	// every pass retries them by id, oldest first (§12.6 rule 4).
+	if s.deps.CheckoutSweeper != nil {
+		failed, err := s.deps.CheckoutSweeper.RetryCompleted(ctx, organizationID, checkoutRetries)
+		if err != nil {
+			return Outcome{}, err
+		}
+		for _, id := range failed {
+			if !retried[id.String()] {
+				outcome.Failed++
+				failedIDs = append(failedIDs, "checkout session "+id.String())
+			}
+		}
 	}
 	state.Cursor, state.CursorCreatedAt, state.LastFullSweepAt = optional(cursor), cursorAt, sweptAt
 	if len(failedIDs) > 0 {

@@ -187,7 +187,9 @@ func (f *Fake) CompleteSetupSession(accountID, sessionID, brand, last4 string, e
 	}
 	a.events = append(a.events, &event{
 		ID: f.next("evt"), Object: "event", Type: "checkout.session.completed", Created: f.clock().Unix(),
-		Data: map[string]any{"object": map[string]any{"id": session.ID, "object": "checkout.session", "mode": "setup", "customer": session.Customer}},
+		Data: map[string]any{"object": map[string]any{
+			"id": session.ID, "object": "checkout.session", "mode": "setup", "customer": session.Customer, "metadata": session.Metadata,
+		}},
 	})
 	return pmID
 }

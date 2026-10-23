@@ -352,6 +352,10 @@ type Event struct {
 	// changed); ExternalSessionID on a completed setup session.
 	ExternalCustomerID string
 	ExternalSessionID  string
+	// CheckoutSessionID and OrganizationID are the metadata an anonymous
+	// checkout's completed setup session carries (§12.9, §12.6 rule 4).
+	CheckoutSessionID string
+	OrganizationID    string
 }
 
 // SetupSession asks for a hosted page saving a customer's payment method.

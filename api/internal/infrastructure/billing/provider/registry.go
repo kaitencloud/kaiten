@@ -31,14 +31,31 @@ type Static struct {
 	adapters     map[Kind]Adapter
 	resolvers    map[Kind]Resolver
 	availability map[Kind]func(context.Context, uuid.UUID) (Availability, error)
+	connectors   map[Kind]string
 	order        []Kind
+}
+
+// ConnectorNamer is a registry that knows which connector activates each of
+// its providers: what lets the sync visit every connected organization, an
+// invoice open or not (Δ4.11).
+type ConnectorNamer interface {
+	Connectors() map[Kind]string
+}
+
+// Connectors implements ConnectorNamer: the providers a connector activates.
+func (s *Static) Connectors() map[Kind]string {
+	out := make(map[Kind]string, len(s.connectors))
+	for kind, name := range s.connectors {
+		out[kind] = name
+	}
+	return out
 }
 
 // NewStatic returns a registry knowing NOOP only.
 func NewStatic(noop Adapter) *Static {
 	s := &Static{
 		adapters: map[Kind]Adapter{}, resolvers: map[Kind]Resolver{},
-		availability: map[Kind]func(context.Context, uuid.UUID) (Availability, error){}, order: nil,
+		availability: map[Kind]func(context.Context, uuid.UUID) (Availability, error){}, connectors: map[Kind]string{}, order: nil,
 	}
 	s.Register(noop, func(_ context.Context, organizationID uuid.UUID) (*Connection, error) {
 		return &Connection{Adapter: noop, Ref: Ref{OrganizationID: organizationID, Settings: nil}, AutoFinalize: true, InclusiveTax: false}, nil

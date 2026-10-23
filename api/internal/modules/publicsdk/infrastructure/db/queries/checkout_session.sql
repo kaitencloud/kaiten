@@ -240,3 +240,53 @@ WHERE cs.organization_id = sqlc.arg(organization_id)
     OR (cs.created_at, cs.id) < (sqlc.narg(cursor_at)::timestamp, sqlc.narg(cursor_id)::uuid))
 ORDER BY cs.created_at DESC, cs.id DESC
 LIMIT sqlc.narg(row_limit)::integer;
+
+
+-- name: ListSetupCompletedCheckoutSessions :many
+-- The sync backstop's retries (§12.6 rule 4): an organization's OPEN sessions
+-- whose setup the provider reported complete and whose completion has not
+-- run, oldest first (idx_checkout_session_setup_completed).
+SELECT cs.id
+FROM checkout_session cs
+WHERE cs.organization_id = sqlc.arg(organization_id)
+  AND cs.status = 'OPEN'
+  AND cs.setup_completed_at IS NOT NULL
+ORDER BY cs.setup_completed_at, cs.id
+LIMIT sqlc.arg(row_limit)::integer;
+
+
+-- name: ListLapsedCheckoutSessions :many
+-- billing-lifecycle step (f): the sessions still OPEN at expires_at, in every
+-- organization, oldest first (idx_checkout_session_open_expires_at).
+SELECT cs.id, cs.organization_id, cs.external_setup_session_id
+FROM checkout_session cs
+WHERE cs.status = 'OPEN'
+  AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
+ORDER BY cs.expires_at, cs.id
+LIMIT sqlc.arg(row_limit)::integer;
+
+
+-- name: AbandonCheckoutSession :one
+-- Reaped by step (f): ABANDONED, closed, still OPEN when locked.
+UPDATE checkout_session
+SET status       = 'ABANDONED',
+    abandoned_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+RETURNING id;
+
+
+-- name: PurgeClosedCheckoutSessions :execrows
+-- billing-lifecycle step (h): the sessions closed longer ago than the
+-- retention, deleted in batches with no event (idx_checkout_session_closed_at).
+-- The customer and the instance a session created are untouched.
+DELETE FROM checkout_session
+WHERE id IN (SELECT cs.id
+             FROM checkout_session cs
+             WHERE cs.closed_at IS NOT NULL
+               AND cs.closed_at < sqlc.arg(closed_before)::timestamp
+             ORDER BY cs.closed_at
+             LIMIT sqlc.arg(row_limit)::integer);

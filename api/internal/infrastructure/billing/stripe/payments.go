@@ -315,6 +315,13 @@ func eventOf(event *stripego.Event) provider.Event {
 	case "checkout.session":
 		out.ExternalSessionID = id
 		out.ExternalCustomerID, _ = object["customer"].(string)
+		// An anonymous checkout's setup names its checkout session and its
+		// organization, which select the event for the sync backstop (§12.6
+		// rule 4); nothing else is read from them.
+		if metadata, ok := object["metadata"].(map[string]any); ok {
+			out.CheckoutSessionID, _ = metadata["kaiten_checkout_session_id"].(string)
+			out.OrganizationID, _ = metadata["kaiten_organization_id"].(string)
+		}
 	case "payment_method":
 		out.ExternalCustomerID, _ = event.Data.PreviousAttributes["customer"].(string)
 		if customer, ok := object["customer"].(string); ok && customer != "" {

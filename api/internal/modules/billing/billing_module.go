@@ -69,6 +69,7 @@ type Ports struct {
 	Mover     ports.InstanceVersionMover
 	Expiry    ports.VoucherExpiry
 	Checkouts ports.CheckoutFollower
+	Sweeper   ports.CheckoutSweeper
 }
 
 type UseCases struct {
@@ -130,6 +131,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Redeemer:        from.Redeemer,
 		Mover:           from.Mover,
 		Checkouts:       from.Checkouts,
+		CheckoutSweeper: from.Sweeper,
 		Providers:       svc.BillingProviders,
 		ProviderTimeout: svc.Config.Billing.Provider.Timeout,
 
@@ -201,8 +203,13 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof, cfg.AutoCollectionGrace), sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
-		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, incomplete.NewExpiry(incomplete.NewEnder(deps)),
-			lifecycle.NewTrialReminders(svc.Uof, trials), paymentmethods.NewExpiry(svc.Uof))
+		}, batchSize(cfg.PeriodClose.BatchSize), lifecycle.Steps{
+			Expiry: from.Expiry, Incompletes: incomplete.NewExpiry(incomplete.NewEnder(deps)),
+			Reminders: lifecycle.NewTrialReminders(svc.Uof, trials),
+			Abandoned: sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Abandon }),
+			Purged:    sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Purge }),
+			EveryDay:  []lifecycle.Daily{paymentmethods.NewExpiry(svc.Uof)},
+		})
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
 
@@ -219,8 +226,28 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		})
 		sync.Start(context.Background())
 		svc.WorkerRegistry.OnStop(sync.Stop)
+	} else if svc.BackgroundWorkers && svc.Pool != nil && from.Sweeper != nil {
+		// With billing off, the pass runs step (h) alone (§16.1 rule 6): a
+		// closed checkout session is still deleted after its retention.
+		retention := lifecycle.NewJob(svc.Pool, nil, sweep.Config{
+			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
+			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
+		}, batchSize(cfg.PeriodClose.BatchSize), lifecycle.Steps{
+			Purged: sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Purge }),
+		})
+		retention.Start(context.Background())
+		svc.WorkerRegistry.OnStop(retention.Stop)
 	}
 	return useCases
+}
+
+// sweeperPass is one of the sweeper's steps as a lifecycle pass; nil without
+// a sweeper.
+func sweeperPass(sweeper ports.CheckoutSweeper, step func(ports.CheckoutSweeper) lifecycle.PassFunc) lifecycle.Pass {
+	if sweeper == nil {
+		return nil
+	}
+	return step(sweeper)
 }
 
 // orDefault is a configured duration, or the billing default when it is 0: the

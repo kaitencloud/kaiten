@@ -104,6 +104,7 @@ type ConnectorDeps struct {
 // parse; entitlement gates activation and availability only, so that a
 // downgrade never strands the invoices already issued through the provider.
 func (s *Static) RegisterConnector(binding ConnectorBinding, deps ConnectorDeps) {
+	s.connectors[binding.Adapter.Kind()] = binding.ConnectorName
 	vaultConfigured := deps.VaultConfigured
 	if vaultConfigured == nil {
 		vaultConfigured = func() bool { return true }

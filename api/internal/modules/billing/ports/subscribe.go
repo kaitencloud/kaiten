@@ -53,3 +53,19 @@ type CheckoutFollower interface {
 	Paid(ctx context.Context, organizationID, instanceID uuid.UUID) error
 	Ended(ctx context.Context, organizationID, instanceID uuid.UUID) error
 }
+
+// CheckoutSweeper is the work on anonymous checkout sessions the billing jobs
+// drive (§12.6 rule 4, §16.2): the sync backstop's completions, and
+// billing-lifecycle steps (f) and (h). Implemented by the public SDK module.
+type CheckoutSweeper interface {
+	// Complete runs the completion of a session whose setup the provider
+	// reported complete; one already applied changes nothing.
+	Complete(ctx context.Context, organizationID, checkoutSessionID uuid.UUID) error
+	// RetryCompleted retries the organization's OPEN sessions whose setup
+	// completed, at most limit; the ones that failed.
+	RetryCompleted(ctx context.Context, organizationID uuid.UUID, limit int) ([]uuid.UUID, error)
+	// Abandon completes or reaps the sessions OPEN past their expiry (f).
+	Abandon(ctx context.Context, limit int) (int, error)
+	// Purge deletes the sessions closed longer ago than the retention (h).
+	Purge(ctx context.Context, limit int) (int, error)
+}

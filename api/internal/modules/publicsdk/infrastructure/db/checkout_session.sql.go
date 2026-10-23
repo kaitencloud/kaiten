@@ -12,6 +12,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const abandonCheckoutSession = `-- name: AbandonCheckoutSession :one
+UPDATE checkout_session
+SET status       = 'ABANDONED',
+    abandoned_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = $1
+  AND id = $2
+  AND status = 'OPEN'
+RETURNING id
+`
+
+type AbandonCheckoutSessionParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+// Reaped by step (f): ABANDONED, closed, still OPEN when locked.
+func (q *Queries) AbandonCheckoutSession(ctx context.Context, arg AbandonCheckoutSessionParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, abandonCheckoutSession, arg.OrganizationID, arg.ID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const authenticateCheckoutSession = `-- name: AuthenticateCheckoutSession :one
 SELECT cs.id, cs.organization_id, cs.publishable_key_id, pk.allowed_origins
 FROM checkout_session cs
@@ -485,6 +510,81 @@ func (q *Queries) ListCheckoutSessionIDs(ctx context.Context, arg ListCheckoutSe
 	return items, nil
 }
 
+const listLapsedCheckoutSessions = `-- name: ListLapsedCheckoutSessions :many
+SELECT cs.id, cs.organization_id, cs.external_setup_session_id
+FROM checkout_session cs
+WHERE cs.status = 'OPEN'
+  AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
+ORDER BY cs.expires_at, cs.id
+LIMIT $1::integer
+`
+
+type ListLapsedCheckoutSessionsRow struct {
+	ID                     uuid.UUID `json:"id"`
+	OrganizationID         uuid.UUID `json:"organization_id"`
+	ExternalSetupSessionID *string   `json:"external_setup_session_id"`
+}
+
+// billing-lifecycle step (f): the sessions still OPEN at expires_at, in every
+// organization, oldest first (idx_checkout_session_open_expires_at).
+func (q *Queries) ListLapsedCheckoutSessions(ctx context.Context, rowLimit int32) ([]ListLapsedCheckoutSessionsRow, error) {
+	rows, err := q.db.Query(ctx, listLapsedCheckoutSessions, rowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLapsedCheckoutSessionsRow
+	for rows.Next() {
+		var i ListLapsedCheckoutSessionsRow
+		if err := rows.Scan(&i.ID, &i.OrganizationID, &i.ExternalSetupSessionID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSetupCompletedCheckoutSessions = `-- name: ListSetupCompletedCheckoutSessions :many
+SELECT cs.id
+FROM checkout_session cs
+WHERE cs.organization_id = $1
+  AND cs.status = 'OPEN'
+  AND cs.setup_completed_at IS NOT NULL
+ORDER BY cs.setup_completed_at, cs.id
+LIMIT $2::integer
+`
+
+type ListSetupCompletedCheckoutSessionsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	RowLimit       int32     `json:"row_limit"`
+}
+
+// The sync backstop's retries (§12.6 rule 4): an organization's OPEN sessions
+// whose setup the provider reported complete and whose completion has not
+// run, oldest first (idx_checkout_session_setup_completed).
+func (q *Queries) ListSetupCompletedCheckoutSessions(ctx context.Context, arg ListSetupCompletedCheckoutSessionsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listSetupCompletedCheckoutSessions, arg.OrganizationID, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockAwaitingCheckoutSession = `-- name: LockAwaitingCheckoutSession :one
 SELECT cs.id
 FROM checkout_session cs
@@ -613,6 +713,32 @@ type PayCheckoutSessionParams struct {
 func (q *Queries) PayCheckoutSession(ctx context.Context, arg PayCheckoutSessionParams) error {
 	_, err := q.db.Exec(ctx, payCheckoutSession, arg.OrganizationID, arg.ID)
 	return err
+}
+
+const purgeClosedCheckoutSessions = `-- name: PurgeClosedCheckoutSessions :execrows
+DELETE FROM checkout_session
+WHERE id IN (SELECT cs.id
+             FROM checkout_session cs
+             WHERE cs.closed_at IS NOT NULL
+               AND cs.closed_at < $1::timestamp
+             ORDER BY cs.closed_at
+             LIMIT $2::integer)
+`
+
+type PurgeClosedCheckoutSessionsParams struct {
+	ClosedBefore pgtype.Timestamp `json:"closed_before"`
+	RowLimit     int32            `json:"row_limit"`
+}
+
+// billing-lifecycle step (h): the sessions closed longer ago than the
+// retention, deleted in batches with no event (idx_checkout_session_closed_at).
+// The customer and the instance a session created are untouched.
+func (q *Queries) PurgeClosedCheckoutSessions(ctx context.Context, arg PurgeClosedCheckoutSessionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeClosedCheckoutSessions, arg.ClosedBefore, arg.RowLimit)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const repriceCheckoutSession = `-- name: RepriceCheckoutSession :exec

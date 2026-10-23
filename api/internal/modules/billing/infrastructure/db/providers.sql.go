@@ -1374,7 +1374,17 @@ WHERE i.provider_kind <> 'NOOP'
 UNION
 SELECT s.organization_id, s.provider_kind
 FROM billing_sync_state s
+UNION
+SELECT oc.organization_id,
+       (($1::text[])[array_position($2::text[], oc.connector_name)])::billing_provider_kind
+FROM organization_connector oc
+WHERE oc.connector_name = ANY ($2::text[])
 `
+
+type ListSyncTargetsParams struct {
+	ProviderKinds  []string `json:"provider_kinds"`
+	ConnectorNames []string `json:"connector_names"`
+}
 
 type ListSyncTargetsRow struct {
 	OrganizationID uuid.UUID           `json:"organization_id"`
@@ -1382,9 +1392,11 @@ type ListSyncTargetsRow struct {
 }
 
 // The (organization, provider) pairs sync visits: those with a provider
-// invoice still open, or a sync state already.
-func (q *Queries) ListSyncTargets(ctx context.Context) ([]ListSyncTargetsRow, error) {
-	rows, err := q.db.Query(ctx, listSyncTargets)
+// invoice still open, a sync state already, or the provider's connector
+// activated -- so that a setup completed for a customer, or an anonymous
+// checkout, with no invoice yet converges within one interval (Δ4.11).
+func (q *Queries) ListSyncTargets(ctx context.Context, arg ListSyncTargetsParams) ([]ListSyncTargetsRow, error) {
+	rows, err := q.db.Query(ctx, listSyncTargets, arg.ProviderKinds, arg.ConnectorNames)
 	if err != nil {
 		return nil, err
 	}
