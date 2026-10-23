@@ -166,6 +166,21 @@ export class EntitlementFormDriver {
     await this.page.getByRole('option', { name: label, exact: true }).click();
   }
 
+  /** The offer to take back what was typed and not sent (creation page only). */
+  recoveryOffer(): Locator {
+    return this.page
+      .getByRole('status')
+      .filter({ hasText: 'Pick up where you left off?' });
+  }
+
+  resumeButton(): Locator {
+    return this.page.getByRole('button', { name: 'Resume', exact: true });
+  }
+
+  startOverButton(): Locator {
+    return this.page.getByRole('button', { name: 'Start over', exact: true });
+  }
+
   async expectLoaded(mode: 'create' | 'update' = 'create') {
     const heading =
       mode === 'create' ? 'New Entitlement' : 'Update Entitlement';
