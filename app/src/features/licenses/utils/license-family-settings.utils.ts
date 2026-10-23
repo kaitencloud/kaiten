@@ -2,6 +2,7 @@ import type { License, LicenseFamilyView } from '@/api-client';
 import { NO_FALLBACK } from '../schemas/license-family-settings.schema';
 import {
   getFamilyHeadLicense,
+  getLicenseFamilyKey,
   groupLicensesByFamily,
 } from './license-list.utils';
 
@@ -11,7 +12,7 @@ export function getFamilyName(
   licenses: License[],
 ): string {
   const versions = licenses.filter(
-    (license) => (license.familyId ?? license.id) === family.id,
+    (license) => getLicenseFamilyKey(license) === family.id,
   );
 
   return getFamilyHeadLicense(family, versions)?.name?.trim() || family.slug;
