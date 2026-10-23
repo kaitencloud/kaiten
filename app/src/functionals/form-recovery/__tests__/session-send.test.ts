@@ -440,6 +440,26 @@ describe('discard', () => {
     expect(offerOf(next)).toBeNull();
   });
 
+  it('offers the undo for what was typed in the last second, before the debounce wrote it', async () => {
+    const h = mountSession();
+    await advance(0);
+    track(h, snapshotOf([['name', 'Gold']]), false);
+    expect(Object.values(storedRecords())).toEqual([]);
+    const undo = vi.fn();
+
+    h.session.actions.discard({ undo });
+
+    expect(Object.values(storedRecords())[0]).toMatchObject({ kind: 'tombstone', reason: 'discarded' });
+    expect(h.notify).toHaveBeenCalledWith('cancelled', expect.any(Function));
+    h.dispose();
+    (h.notify.mock.calls[0]![1] as () => void)();
+    expect(undo).toHaveBeenCalledTimes(1);
+
+    const next = mountSession();
+    await advance(0);
+    expect(next.state().restored?.values).toMatchObject({ name: 'Gold' });
+  });
+
   it('restores an undone input at creation without writing, and writes it once the mount starts', async () => {
     const h = await typed();
     h.session.actions.discard({ undo: vi.fn() });

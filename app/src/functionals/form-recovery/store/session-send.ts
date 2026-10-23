@@ -24,6 +24,7 @@ import {
   ownRecordKey,
   releaseHold,
   setWriter,
+  writeNow,
   writeSnapshot,
 } from './session-writer';
 
@@ -218,7 +219,10 @@ export function discardOwn(
   if (status === 'paused') return;
   if (PASS_THROUGH.has(status) && status !== 'discarded') return;
 
+  // What was typed in the last second is written first: the copy the toast can bring
+  // back must be what is on screen, and a cancel within the debounce has one too.
   ctx.cancelWrite();
+  writeNow(ctx);
   const key = ownRecordKey(ctx);
   const stored = runtime.ownRecordExpected ? readFormRecoveryRecord(key) : null;
   const copy = stored?.kind === 'entry' ? stored : null;

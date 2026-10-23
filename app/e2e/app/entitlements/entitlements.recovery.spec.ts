@@ -150,6 +150,26 @@ test('discards the entries on Cancel, and brings them back from the toast', asyn
   await form.expectFocusOnAField();
 });
 
+test('offers the undo of a Cancel pressed right after typing', async ({
+  page,
+}) => {
+  const form = new EntitlementFormDriver(page);
+  const list = new EntitlementsListDriver(page);
+
+  await installEntitlementAppMocks(page, createEntitlementsListModel());
+  await page.goto('/catalog/entitlements/new');
+  await form.expectLoaded('create');
+  // No wait for the first write: the cancel comes within the debounce of the module.
+  await form.fill({ name: 'Storage Reads' });
+  await page.getByRole('button', { name: 'Cancel' }).click();
+  await list.expectLoaded();
+  await expectToast(page, 'Entries discarded');
+
+  await page.getByRole('button', { name: 'Undo' }).click();
+  await form.expectLoaded('create');
+  await expect(form.nameField()).toHaveValue('Storage Reads');
+});
+
 test('keeps nothing of an edit, and never offers one', async ({ page }) => {
   const form = new EntitlementFormDriver(page);
 

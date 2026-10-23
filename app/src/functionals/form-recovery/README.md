@@ -76,6 +76,8 @@ const saved = await r.send(() => mutation.mutateAsync({ body }), { created });
 
 `recovery.discard({ undo })` is for a deliberate abandon (the "Cancel" of a
 page): a toast offers **Undo**, which brings back the entries and calls `undo()`.
+What was typed within the write debounce is written first, so that a cancel right after
+typing still has something to bring back.
 `restart()` begins a new input after a success. `begin()` / `complete()` serve a
 send made of several requests.
 
