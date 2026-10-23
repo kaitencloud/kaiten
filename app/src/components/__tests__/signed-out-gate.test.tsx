@@ -18,6 +18,9 @@ const identity = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/session-identity', () => ({
   getLastKnownIdentity: () => identity.last,
+  clearLastKnownIdentity: () => {
+    identity.last = null;
+  },
 }));
 
 function stored() {
@@ -58,6 +61,17 @@ describe('SignedOutGate', () => {
     render(<SignedOutGate />);
 
     expect(stored()).toEqual([]);
+  });
+
+  it('marks the user it remembered across the reload, and forgets them', () => {
+    window.history.replaceState(null, '', SIGNED_OUT_PATH);
+
+    render(<SignedOutGate />);
+
+    expect(Object.values(JSON.parse(window.localStorage.getItem(FORM_RECOVERY_STORAGE_KEY)!)).map(
+      (item) => (item as { data: { userId: string } }).data.userId,
+    )).toEqual(['user_1']);
+    expect(identity.last).toBeNull();
   });
 
   it('keeps everything when the session merely expired, and leaves the URL alone', () => {

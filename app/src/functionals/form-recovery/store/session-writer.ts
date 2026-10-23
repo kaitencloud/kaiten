@@ -182,7 +182,6 @@ export function writeSnapshot(
 ): SaveHandle | null {
   const { runtime, config } = ctx;
   if (!runtime.snapshot) return null;
-  if (config.stillSignedIn && !config.stillSignedIn()) return null;
 
   // The never-kept fields still to enter stay in the record until they are.
   const snapshot = {

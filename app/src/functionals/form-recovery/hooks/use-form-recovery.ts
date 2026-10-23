@@ -76,7 +76,6 @@ export function useFormRecovery<
       context: options.context ?? '',
       pristine,
       steps: options.steps ?? descriptor.steps ?? [],
-      stillSignedIn: () => getSessionIdentity() !== null,
       notify: (kind, undo) => showUndoToast(i18n, kind, undo),
     }),
   );

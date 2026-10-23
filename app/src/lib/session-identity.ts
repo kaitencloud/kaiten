@@ -27,11 +27,60 @@ const BYPASS_IDENTITY: SessionIdentity = {
 let lastKnown: SessionIdentity | null = null;
 
 /**
- * Who was last seen signed in by this page, if anyone: what a sign-out screen
- * can still know of the person after Clerk has forgotten them.
+ * Clerk ends a sign-out with a full page navigation, which empties the module:
+ * the last identity is kept for the tab in its session storage, so that the
+ * sign-out screen can still tell whose stored input to mark.
+ */
+const LAST_KNOWN_KEY = 'kaiten:last-identity';
+
+function isIdentity(value: unknown): value is SessionIdentity {
+  const candidate = value as Partial<SessionIdentity> | null;
+  return (
+    typeof candidate?.userId === 'string' &&
+    typeof candidate.organizationId === 'string'
+  );
+}
+
+function rememberIdentity(identity: SessionIdentity) {
+  if (
+    lastKnown?.userId === identity.userId &&
+    lastKnown.organizationId === identity.organizationId
+  ) {
+    return;
+  }
+  lastKnown = identity;
+  try {
+    window.sessionStorage.setItem(LAST_KNOWN_KEY, JSON.stringify(identity));
+  } catch {
+    // Blocked storage: the sign-out screen then has no one to mark.
+  }
+}
+
+/**
+ * Who was last seen signed in by this tab, if anyone: what a sign-out screen
+ * can still know of the person after Clerk has forgotten them, even across the
+ * navigation that ends the sign-out.
  */
 export function getLastKnownIdentity(): SessionIdentity | null {
-  return lastKnown;
+  if (lastKnown) return lastKnown;
+
+  try {
+    const raw = window.sessionStorage.getItem(LAST_KNOWN_KEY);
+    const parsed: unknown = raw ? JSON.parse(raw) : null;
+    return isIdentity(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Forgets who was signed in, once the sign-out has been dealt with. */
+export function clearLastKnownIdentity(): void {
+  lastKnown = null;
+  try {
+    window.sessionStorage.removeItem(LAST_KNOWN_KEY);
+  } catch {
+    // Nothing to forget.
+  }
 }
 
 /**
@@ -49,7 +98,7 @@ export function getLastKnownIdentity(): SessionIdentity | null {
  */
 export function getSessionIdentity(): SessionIdentity | null {
   const identity = readSessionIdentity();
-  if (identity) lastKnown = identity;
+  if (identity) rememberIdentity(identity);
   return identity;
 }
 

@@ -97,3 +97,36 @@ describe('getSessionIdentity', () => {
     });
   });
 });
+
+describe('getLastKnownIdentity', () => {
+  it('survives the page navigation that ends a Clerk sign-out', async () => {
+    (window as ClerkWindow).Clerk = {
+      user: { id: 'user_1' },
+      organization: { id: 'org_1' },
+    };
+    const first = await import('../session-identity');
+    first.getSessionIdentity();
+
+    // A full page load empties the module; the tab's session storage stays.
+    vi.resetModules();
+    (window as ClerkWindow).Clerk = undefined;
+    const second = await import('../session-identity');
+
+    expect(second.getSessionIdentity()).toBeNull();
+    expect(second.getLastKnownIdentity()).toEqual({
+      userId: 'user_1',
+      organizationId: 'org_1',
+    });
+
+    second.clearLastKnownIdentity();
+    expect(second.getLastKnownIdentity()).toBeNull();
+  });
+
+  it('knows no one when the storage holds something else', async () => {
+    window.sessionStorage.setItem('kaiten:last-identity', '{"userId":4}');
+    vi.resetModules();
+
+    expect((await import('../session-identity')).getLastKnownIdentity()).toBeNull();
+    window.sessionStorage.clear();
+  });
+});

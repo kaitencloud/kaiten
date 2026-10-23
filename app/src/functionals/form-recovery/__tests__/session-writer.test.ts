@@ -300,18 +300,32 @@ describe('tabs', () => {
     expect(Object.values(storedRecords()).every((record) => record.kind === 'userMark')).toBe(true);
   });
 
-  it('writes nothing once the person has signed out, even on the flush of the unmount', async () => {
-    let signedIn = true;
-    const h = mountSession({ stillSignedIn: () => signedIn });
+  it('flushes the last input of a session that merely expired, as nothing marks a sign-out', async () => {
+    const h = mountSession();
     await advance(0);
     track(h, snapshotOf([['name', 'Gold']]));
 
-    // Another tab signed out explicitly: this one unmounts, and flushes.
-    signedIn = false;
+    // The session expired: the app unmounts, and the typed input is kept.
+    h.session.actions.flushOnUnmount(h.session.actions.getEpoch());
+
+    expect(Object.values(storedRecords())[0]).toMatchObject({
+      kind: 'entry',
+      payload: '[["name","Gold"]]',
+    });
+  });
+
+  it('writes nothing once a sign-out marked the user, even on the flush of the unmount', async () => {
+    const h = mountSession();
+    await advance(0);
+    track(h, snapshotOf([['name', 'Gold']]));
+    await advance(10);
+
+    const { purgeAllFormRecovery } = await import('@/lib/form-recovery');
+    purgeAllFormRecovery(IDENTITY.userId, new Date());
     h.session.actions.flushOnUnmount(h.session.actions.getEpoch());
     await advance(5_000);
 
-    expect(storedRecords()).toEqual({});
+    expect(Object.values(storedRecords()).every((record) => record.kind === 'userMark')).toBe(true);
   });
 
   it('does not touch a lineage another tab sends or discards', async () => {

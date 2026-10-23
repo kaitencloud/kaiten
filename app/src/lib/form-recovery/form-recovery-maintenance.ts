@@ -141,9 +141,10 @@ export async function evictOldestEntry(
 
 /**
  * An explicit sign-out: removes everything, then leaves a mark for the user
- * that no write older than it may pass. Without a user (the page reloaded
- * after the sign-out) there is no one to mark, and the tabs that still hold
- * the old session skip their final flush when no identity resolves.
+ * that no write older than it may pass. The sign-out screen reads the user
+ * from the tab's session storage, which outlives the navigation that ends a
+ * Clerk sign-out; without one there is no one to mark, and the purge alone
+ * protects the storage. A session that merely expired marks nothing.
  */
 export function purgeAllFormRecovery(
   userId: string | null,
