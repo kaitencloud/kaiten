@@ -717,6 +717,7 @@ var legitimateQueries = map[string]string{
 			items {
 				id eventName eventType instanceId instanceSlug instanceName customerName
 				payload timestamp
+				actor { id name kind }
 			}
 		}
 	}`,
