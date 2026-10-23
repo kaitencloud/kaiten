@@ -393,6 +393,7 @@ export class SubscriptionLifecycle {
     const next = clone(subscription);
     next.scheduledChange = {
       effectiveAt: subscription.currentPeriodEnd,
+      licenseSlug: license ?? 'unknown',
       price: clone(price),
       scheduledAt: at,
     };

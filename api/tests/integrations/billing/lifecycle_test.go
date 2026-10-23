@@ -12,7 +12,9 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -35,7 +37,8 @@ func backdateTrial(t *testing.T, subscriptionID any, days int) {
 	            SET anchor_at = anchor_at - make_interval(days => $2), started_at = started_at - make_interval(days => $2),
 	                current_period_start = current_period_start - make_interval(days => $2),
 	                current_period_end = current_period_end - make_interval(days => $2),
-	                trial_ends_at = trial_ends_at - make_interval(days => $2)
+	                trial_ends_at = trial_ends_at - make_interval(days => $2),
+	                trial_will_end_at = trial_will_end_at - make_interval(days => $2)
 	          WHERE id = $1`, subscriptionID, days)
 }
 
@@ -339,4 +342,51 @@ func TestSubscriptionTerms(t *testing.T) {
 	require.Equal(t, "UpdateInstanceBilling.InvalidDaysUntilDue", problemCode(t, fiber.StatusUnprocessableEntity, "PATCH",
 		"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"daysUntilDue": 400}))
 	_ = invoices.StatusManual
+}
+
+// TestTrialReminder: trial_will_end fires the family's trialReminderDays
+// before the trial ends (V32-07): the subscribe stores reminderAt from the
+// lead as it is then, a later change of the family moves no running trial,
+// step (e) announces it once, and a trial no longer than the lead announces
+// it at once (§9.2 rule 7).
+func TestTrialReminder(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	const event = "INSTANCE_BILLING_TRIAL_WILL_END"
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	families := commonfixture.AssertJSONResponse[pagination.Page[licenseschema.LicenseFamilyView]](t,
+		call(t, "GET", "/api/license-families", nil), fiber.StatusOK)
+	require.Len(t, families.Items, 1)
+	familyPath := "/api/license-families/" + families.Items[0].Slug
+	require.Equal(t, fiber.StatusOK, call(t, "PATCH", familyPath, map[string]any{"trialReminderDays": 2}).StatusCode)
+
+	started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 14})
+	require.NotNil(t, started.ReminderAt)
+	require.True(t, started.ReminderAt.Equal(started.TrialEndsAt.Add(-2*24*time.Hour)), "the family's lead")
+	require.Empty(t, outboxPayloads(t, event), "not due yet")
+
+	require.Equal(t, fiber.StatusOK, call(t, "PATCH", familyPath, map[string]any{"trialReminderDays": 5}).StatusCode)
+	require.True(t, readBilling(t, s.instance.Slug).ReminderAt.Equal(*started.ReminderAt), "a running trial keeps its lead")
+
+	reminders := lifecycle.NewTrialReminders(uow.NewUnitOfWork(testDb.DbPool), billablecatalogue.New(uow.NewUnitOfWork(testDb.DbPool)))
+	sent, err := reminders.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Zero(t, sent)
+	backdateTrial(t, started.ID, 12)
+	sent, err = reminders.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Equal(t, 1, sent)
+	payloads := outboxPayloads(t, event)
+	require.Len(t, payloads, 1)
+	require.Equal(t, s.instance.Slug, payloads[0]["instanceSlug"])
+	require.NotNil(t, payloads[0]["reminderAt"])
+	sent, err = reminders.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Zero(t, sent, "once per trial")
+
+	// A trial shorter than the lead (another family: the default 3 days)
+	// announces its end at once.
+	short := newSold(t, flatFee("1900", "MONTHLY"))
+	quick := subscribe(t, short.instance.Slug, map[string]any{"basePriceId": short.monthly.ID, "trialDays": 2})
+	require.True(t, quick.ReminderAt.Before(quick.AnchorAt), "the lead is longer than the trial")
+	require.Len(t, outboxPayloads(t, event), 2)
 }

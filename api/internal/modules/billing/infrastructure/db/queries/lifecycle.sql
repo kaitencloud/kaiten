@@ -257,3 +257,26 @@ WHERE ib.organization_id = sqlc.arg(organization_id)
   AND i.kind = 'ACTIVATION'
 ORDER BY i.created_at DESC, i.id DESC
 LIMIT 1;
+
+
+-- name: ListDueTrialReminders :many
+-- billing-lifecycle step (e): the trials whose reminder is due and not sent
+-- (§9.2 rule 7), oldest first. Each is announced in its own transaction, under
+-- MarkTrialReminderSent's condition, so a replica racing it announces nothing.
+SELECT *
+FROM instance_billing
+WHERE status = 'TRIAL'
+  AND trial_will_end_notified_at IS NULL
+  AND trial_will_end_at <= sqlc.arg(now)
+ORDER BY trial_will_end_at, id
+LIMIT sqlc.arg(page_size);
+
+
+-- name: MarkTrialReminderSent :one
+-- The once-only marker of trial_will_end, set in the transaction that emits it.
+UPDATE instance_billing
+SET trial_will_end_notified_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status = 'TRIAL'
+  AND trial_will_end_notified_at IS NULL
+RETURNING *;

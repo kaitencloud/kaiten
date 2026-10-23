@@ -966,10 +966,19 @@ export class BillingSubscriptions {
       daysUntilDue: body.daysUntilDue ?? this.settings.defaultDaysUntilDue,
       daysUntilDueOverride: body.daysUntilDue ?? null,
       id: existing?.id ?? `sub-${slug}`,
+      incompleteExpiresAt: null,
       instanceName: instance.instanceName,
       instanceSlug: instance.instanceSlug,
       pastDueSince: null,
+      pendingLicenseSlug: null,
       providerKind: 'NOOP',
+      // trial_will_end fires the family's lead before the end: 3 days by default.
+      reminderAt:
+        trialDays > 0
+          ? new Date(
+              periodEnd.getTime() - 3 * 24 * 60 * 60 * 1000,
+            ).toISOString()
+          : null,
       scheduledChange: null,
       startedAt: at,
       status: trialDays > 0 ? 'TRIAL' : 'ACTIVE',

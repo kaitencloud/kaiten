@@ -69,7 +69,7 @@ describe('when the first invoice of a trial is issued', () => {
 });
 
 describe('which notices a subscription calls for', () => {
-  const change = { effectiveAt: '2027-04-01T00:00:00.000Z', price: buildPrice({ id: 'p', unitAmountDecimal: '1' }), scheduledAt: '2027-03-01T00:00:00.000Z' };
+  const change = { effectiveAt: '2027-04-01T00:00:00.000Z', licenseSlug: 'pro-v1', price: buildPrice({ id: 'p', unitAmountDecimal: '1' }), scheduledAt: '2027-03-01T00:00:00.000Z' };
 
   it('has none while it just runs, and none once it ended, whatever else it still carries', () => {
     expect(getSubscriptionNotices({ cancelAtPeriodEnd: false, scheduledChange: NO_CHANGE, status: 'ACTIVE' })).toEqual([]);

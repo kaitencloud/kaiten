@@ -326,6 +326,7 @@ export function createLifecycleBillingModel(
         scheduledChange: {
           effectiveAt: '2026-10-15T00:00:00.000Z',
           price: PRO_V3_MONTHLY,
+          licenseSlug: 'pro-v3',
           scheduledAt: '2026-10-03T09:00:00.000Z',
         },
       }),

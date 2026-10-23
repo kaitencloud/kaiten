@@ -76,9 +76,9 @@ func TestLicenseFamilySettings(t *testing.T) {
 	}
 	require.Equal(t, "UpdateLicenseFamily.InvalidTrialEndBehavior", problemCode(t, fiber.StatusUnprocessableEntity, "PATCH", path,
 		map[string]any{"trialEndWithoutPaymentMethod": "EXTEND"}))
-	for _, days := range []int{0, 31} {
+	for _, days := range []any{0, 31, -1, 2.5} {
 		require.Equal(t, "UpdateLicenseFamily.InvalidTrialReminderDays", problemCode(t, fiber.StatusUnprocessableEntity, "PATCH", path,
-			map[string]any{"trialReminderDays": days}))
+			map[string]any{"trialReminderDays": days}), days)
 	}
 
 	// The fallback stays FREE while it is one.

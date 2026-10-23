@@ -372,6 +372,7 @@ export const ChangePlanAlreadyScheduled: Story = {
           scheduledChange: {
             effectiveAt: '2027-03-15T00:00:00.000Z',
             price: ENTERPRISE_V4_MONTHLY,
+            licenseSlug: 'enterprise-v4',
             scheduledAt: '2027-03-01T00:00:00.000Z',
           },
         }),

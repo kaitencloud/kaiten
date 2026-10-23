@@ -252,6 +252,7 @@ export const ScheduledChange: Story = {
         scheduledChange: {
           effectiveAt: '2027-03-15T00:00:00.000Z',
           price: ANNUAL,
+          licenseSlug: 'enterprise-v1',
           scheduledAt: '2027-03-01T00:00:00.000Z',
         },
       })}

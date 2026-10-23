@@ -192,6 +192,7 @@ export function createBillingSubscriptions(world: SubscriptionsWorld): {
           daysUntilDueOverride: 45,
           scheduledChange: {
             effectiveAt: built.currentPeriodEnd,
+            licenseSlug: 'business',
             price: priceOf(world, 'business', 'annual'),
             scheduledAt: dayStart(5),
           },

@@ -197,7 +197,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof, cfg.AutoCollectionGrace), sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
-		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, incomplete.NewExpiry(incomplete.NewEnder(deps)), paymentmethods.NewExpiry(svc.Uof))
+		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, incomplete.NewExpiry(incomplete.NewEnder(deps)),
+			lifecycle.NewTrialReminders(svc.Uof, from.Catalogue), paymentmethods.NewExpiry(svc.Uof))
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
 

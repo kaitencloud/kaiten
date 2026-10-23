@@ -177,28 +177,30 @@ ALTER TABLE "license_family"
 --
 -- trial_will_end_at: when the trial_will_end event is due (V32-07), set when a
 -- trial starts to trial_ends_at minus the family's trial_reminder_days, so a
--- later change to the family moves no running trial; NULL outside TRIAL.
--- Backfilled on TRIAL rows from their family (3 days, the DEFAULT).
+-- later change to the family moves no running trial. It is set and cleared
+-- with trial_ends_at and stays as history with it (§5.7); it may fall before
+-- anchor_at for a trial shorter than the lead. Backfilled on every row with a
+-- trial_ends_at with the 3 days those trials started under (V31-69).
 ALTER TABLE "instance_billing"
   ADD COLUMN "live_ended_at" TIMESTAMP(3),
   ADD COLUMN "trial_will_end_at" TIMESTAMP(3);
 UPDATE "instance_billing"
 SET "live_ended_at" = "canceled_at"
 WHERE "status" = 'CANCELED';
-UPDATE "instance_billing" ib
-SET "trial_will_end_at" = ib."trial_ends_at" - make_interval(days => lf."trial_reminder_days")
-FROM "license_price" lp
-JOIN "license" l
-  ON l."id" = lp."license_id"
- AND l."organization_id" = lp."organization_id"
-JOIN "license_family" lf
-  ON lf."id" = l."family_id"
- AND lf."organization_id" = l."organization_id"
-WHERE ib."status" = 'TRIAL'
-  AND lp."id" = ib."base_license_price_id"
-  AND lp."organization_id" = ib."organization_id";
+UPDATE "instance_billing"
+SET "trial_will_end_at" = "trial_ends_at" - interval '3 days'
+WHERE "trial_ends_at" IS NOT NULL;
 ALTER TABLE "instance_billing"
-  ADD CONSTRAINT "instance_billing_trial_will_end_at_check" CHECK ("trial_will_end_at" IS NULL OR "status" = 'TRIAL');
+  ADD CONSTRAINT "instance_billing_trial_will_end_check" CHECK (
+    ("trial_ends_at" IS NULL AND "trial_will_end_at" IS NULL)
+      OR ("trial_ends_at" IS NOT NULL AND "trial_will_end_at" IS NOT NULL AND "trial_will_end_at" < "trial_ends_at")
+    );
+-- billing-lifecycle step (e): the trials whose reminder is due and not sent,
+-- in place of M19's index on trial_ends_at.
+DROP INDEX "idx_instance_billing_trial_ends_at";
+CREATE INDEX "idx_instance_billing_trial_will_end_at"
+  ON "instance_billing" ("trial_will_end_at")
+  WHERE "status" = 'TRIAL' AND "trial_will_end_notified_at" IS NULL;
 
 -- A checkout waiting on a free subscription (lead's ruling on V31-68): with an
 -- amount due today the free subscription stays live until the ACTIVATION is
@@ -270,7 +272,11 @@ ALTER TABLE "instance_billing"
       AND ("pending_selection" IS NULL OR jsonb_typeof("pending_selection") = 'object')
     );
 
-ALTER TABLE "instance_billing" DROP CONSTRAINT IF EXISTS "instance_billing_trial_will_end_at_check";
+DROP INDEX IF EXISTS "idx_instance_billing_trial_will_end_at";
+CREATE INDEX IF NOT EXISTS "idx_instance_billing_trial_ends_at"
+  ON "instance_billing" ("trial_ends_at")
+  WHERE "status" = 'TRIAL' AND "trial_will_end_notified_at" IS NULL;
+ALTER TABLE "instance_billing" DROP CONSTRAINT IF EXISTS "instance_billing_trial_will_end_check";
 ALTER TABLE "instance_billing"
   DROP COLUMN IF EXISTS "trial_will_end_at",
   DROP COLUMN IF EXISTS "live_ended_at";

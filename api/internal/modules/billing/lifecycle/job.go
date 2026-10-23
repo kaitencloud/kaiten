@@ -108,7 +108,7 @@ type vouchers interface {
 	Pass(ctx context.Context, limit int) (int, error)
 }
 
-func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, expiry, incompletes vouchers, everyDay ...daily) *sweep.Job {
+func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, expiry, incompletes, reminders vouchers, everyDay ...daily) *sweep.Job {
 	return sweep.NewPoolPass("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context) error {
 		moved, err := overdue.Pass(ctx, batchSize)
 		if moved > 0 {
@@ -121,6 +121,14 @@ func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize in
 				slog.InfoContext(ctx, "incomplete checkouts expired", "count", ended)
 			}
 			err = errors.Join(err, incompleteErr)
+		}
+		// Step (e): trial_will_end for the trials whose reminder is due.
+		if reminders != nil {
+			sent, reminderErr := reminders.Pass(ctx, batchSize)
+			if sent > 0 {
+				slog.InfoContext(ctx, "trial reminders announced", "count", sent)
+			}
+			err = errors.Join(err, reminderErr)
 		}
 		if expiry != nil {
 			expired, expiryErr := expiry.Pass(ctx, batchSize)

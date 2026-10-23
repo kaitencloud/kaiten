@@ -815,6 +815,12 @@ components:
             - "null"
         id:
           type: string
+        incompleteExpiresAt:
+          description: "When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"
+          format: date-time
+          type:
+            - string
+            - "null"
         instanceName:
           type: string
         instanceSlug:
@@ -825,12 +831,23 @@ components:
           type:
             - string
             - "null"
+        pendingLicenseSlug:
+          description: The licence version a checkout waiting for its payment moves the instance to once paid
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
             - NOOP
             - STRIPE
           type: string
+        reminderAt:
+          description: "When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"
+          format: date-time
+          type:
+            - string
+            - "null"
         resubscribed:
           description: Set when a CANCELED subscription was subscribed again
           type: boolean
@@ -883,6 +900,9 @@ components:
         - currentPeriodStart
         - currentPeriodEnd
         - trialEndsAt
+        - reminderAt
+        - pendingLicenseSlug
+        - incompleteExpiresAt
         - scheduledChange
         - cancelAtPeriodEnd
         - cancelRequestedAt
@@ -1007,6 +1027,12 @@ components:
           description: The FINAL invoice of an immediate cancellation
         id:
           type: string
+        incompleteExpiresAt:
+          description: "When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"
+          format: date-time
+          type:
+            - string
+            - "null"
         instanceName:
           type: string
         instanceSlug:
@@ -1017,12 +1043,23 @@ components:
           type:
             - string
             - "null"
+        pendingLicenseSlug:
+          description: The licence version a checkout waiting for its payment moves the instance to once paid
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
             - NOOP
             - STRIPE
           type: string
+        reminderAt:
+          description: "When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"
+          format: date-time
+          type:
+            - string
+            - "null"
         scheduledChange:
           description: A plan change waiting for the next boundary
           oneOf:
@@ -1071,6 +1108,9 @@ components:
         - currentPeriodStart
         - currentPeriodEnd
         - trialEndsAt
+        - reminderAt
+        - pendingLicenseSlug
+        - incompleteExpiresAt
         - scheduledChange
         - cancelAtPeriodEnd
         - cancelRequestedAt
@@ -1159,6 +1199,12 @@ components:
             - "null"
         id:
           type: string
+        incompleteExpiresAt:
+          description: "When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"
+          format: date-time
+          type:
+            - string
+            - "null"
         instanceName:
           type: string
         instanceSlug:
@@ -1175,12 +1221,23 @@ components:
           type:
             - string
             - "null"
+        pendingLicenseSlug:
+          description: The licence version a checkout waiting for its payment moves the instance to once paid
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
             - NOOP
             - STRIPE
           type: string
+        reminderAt:
+          description: "When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"
+          format: date-time
+          type:
+            - string
+            - "null"
         scheduledChange:
           description: A plan change waiting for the next boundary
           oneOf:
@@ -1231,6 +1288,9 @@ components:
         - currentPeriodStart
         - currentPeriodEnd
         - trialEndsAt
+        - reminderAt
+        - pendingLicenseSlug
+        - incompleteExpiresAt
         - scheduledChange
         - cancelAtPeriodEnd
         - cancelRequestedAt
@@ -1318,6 +1378,12 @@ components:
           type: string
         id:
           type: string
+        incompleteExpiresAt:
+          description: "When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"
+          format: date-time
+          type:
+            - string
+            - "null"
         instanceName:
           type: string
         instanceSlug:
@@ -1328,12 +1394,23 @@ components:
           type:
             - string
             - "null"
+        pendingLicenseSlug:
+          description: The licence version a checkout waiting for its payment moves the instance to once paid
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
             - NOOP
             - STRIPE
           type: string
+        reminderAt:
+          description: "When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"
+          format: date-time
+          type:
+            - string
+            - "null"
         scheduledChange:
           description: A plan change waiting for the next boundary
           oneOf:
@@ -1383,6 +1460,9 @@ components:
         - currentPeriodStart
         - currentPeriodEnd
         - trialEndsAt
+        - reminderAt
+        - pendingLicenseSlug
+        - incompleteExpiresAt
         - scheduledChange
         - cancelAtPeriodEnd
         - cancelRequestedAt
@@ -3896,6 +3976,12 @@ components:
             - "null"
         id:
           type: string
+        incompleteExpiresAt:
+          description: "When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"
+          format: date-time
+          type:
+            - string
+            - "null"
         instanceName:
           type: string
         instanceSlug:
@@ -3906,12 +3992,23 @@ components:
           type:
             - string
             - "null"
+        pendingLicenseSlug:
+          description: The licence version a checkout waiting for its payment moves the instance to once paid
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
             - NOOP
             - STRIPE
           type: string
+        reminderAt:
+          description: "When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"
+          format: date-time
+          type:
+            - string
+            - "null"
         scheduledChange:
           description: A plan change waiting for the next boundary
           oneOf:
@@ -3960,6 +4057,9 @@ components:
         - currentPeriodStart
         - currentPeriodEnd
         - trialEndsAt
+        - reminderAt
+        - pendingLicenseSlug
+        - incompleteExpiresAt
         - scheduledChange
         - cancelAtPeriodEnd
         - cancelRequestedAt
@@ -5655,7 +5755,7 @@ components:
           description: "CANCEL or CONVERT: what a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method. CANCEL cancels it; CONVERT makes it ACTIVE, whose first charge then fails. Any other value answers 422 .InvalidTrialEndBehavior."
           type: string
         trialReminderDays:
-          description: How many days before a trial's end trial_will_end fires, from 1 to 30, for the trials started after the change
+          description: "How many days before a trial's end trial_will_end fires: an integer from 1 to 30 (else 422 .InvalidTrialReminderDays), for the trials started after the change"
           format: int32
           type: integer
       type: object
@@ -10552,6 +10652,9 @@ components:
           description: "The boundary it applies at: the current period's end"
           format: date-time
           type: string
+        licenseSlug:
+          description: The licence version of that price
+          type: string
         price:
           $ref: "#/components/schemas/Price"
           description: The FLAT_FEE price the subscription moves to
@@ -10560,6 +10663,7 @@ components:
           type: string
       required:
         - price
+        - licenseSlug
         - scheduledAt
         - effectiveAt
       type: object
@@ -11294,6 +11398,12 @@ components:
             - "null"
         id:
           type: string
+        incompleteExpiresAt:
+          description: "When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"
+          format: date-time
+          type:
+            - string
+            - "null"
         instanceName:
           type: string
         instanceSlug:
@@ -11304,12 +11414,23 @@ components:
           type:
             - string
             - "null"
+        pendingLicenseSlug:
+          description: The licence version a checkout waiting for its payment moves the instance to once paid
+          type:
+            - string
+            - "null"
         providerKind:
           description: "Who collects its invoices. NOOP: the organization itself, through the handoff queue"
           enum:
             - NOOP
             - STRIPE
           type: string
+        reminderAt:
+          description: "When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"
+          format: date-time
+          type:
+            - string
+            - "null"
         scheduledChange:
           description: A plan change waiting for the next boundary
           oneOf:
@@ -11358,6 +11479,9 @@ components:
         - currentPeriodStart
         - currentPeriodEnd
         - trialEndsAt
+        - reminderAt
+        - pendingLicenseSlug
+        - incompleteExpiresAt
         - scheduledChange
         - cancelAtPeriodEnd
         - cancelRequestedAt

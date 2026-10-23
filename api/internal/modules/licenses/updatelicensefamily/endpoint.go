@@ -22,7 +22,7 @@ type LicenseFamilyUpdate struct {
 	IsPublic                     *bool   `json:"isPublic,omitempty" doc:"List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue"`
 	FallbackLicenseFamilySlug    *string `json:"fallbackLicenseFamilySlug,omitempty" maxLength:"255" doc:"Another FREE family of the organization (every version of it priced FREE), whose default PUBLISHED version an instance moves to when its subscription ends. \"\" removes the fallback. Anything else answers 422 .InvalidFallback, an unknown family included."`
 	TrialEndWithoutPaymentMethod *string `json:"trialEndWithoutPaymentMethod,omitempty" doc:"CANCEL or CONVERT: what a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method. CANCEL cancels it; CONVERT makes it ACTIVE, whose first charge then fails. Any other value answers 422 .InvalidTrialEndBehavior."`
-	TrialReminderDays            *int32  `json:"trialReminderDays,omitempty" doc:"How many days before a trial's end trial_will_end fires, from 1 to 30, for the trials started after the change"`
+	TrialReminderDays            *int32  `json:"trialReminderDays,omitempty" doc:"How many days before a trial's end trial_will_end fires: an integer from 1 to 30 (else 422 .InvalidTrialReminderDays), for the trials started after the change"`
 }
 
 type Request struct {
@@ -44,6 +44,9 @@ func RegisterEndpoint(api huma.API, app Updater) {
 			"404 .NotFound; 422 .InvalidFallback, .InvalidTrialEndBehavior, .InvalidTrialReminderDays.",
 		Tags:   []string{"licenses"},
 		Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},
+		// A value that is not an integer is refused by the schema, under the
+		// same code as one outside 1-30 (E-28).
+		Metadata: kaitenhuma.SchemaCodes(map[string]string{"body.trialReminderDays": "UpdateLicenseFamily.InvalidTrialReminderDays"}),
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

@@ -133,6 +133,7 @@ const WITH_CHANGE = () =>
     scheduledChange: {
       effectiveAt: '2026-10-27T00:00:00.000Z',
       price: BUSINESS_V3_MONTHLY,
+      licenseSlug: 'business-v3',
       scheduledAt: '2026-10-01T00:00:00.000Z',
     },
   });
