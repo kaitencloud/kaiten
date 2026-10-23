@@ -16,14 +16,31 @@ import {
 import { resolveResetFields } from './entitlement-reset-period.shared';
 import { toOptionalSlug } from './entitlement-slug.shared';
 
-// The refusals of the API that are about one field of the form, by their code:
-// the API names the field in prose, in `detail`, and does not locate it. Each is
-// shown on its field, where the person is looking, and with the API's own words.
-const FIELD_BY_CODE: Record<string, 'resetAnchor' | 'resetPeriod'> = {
-  'CreateEntitlement.InvalidResetAnchor': 'resetAnchor',
-  'UpdateEntitlement.ImmutableResetAnchor': 'resetAnchor',
-  'UpdateEntitlement.ImmutableResetPeriod': 'resetPeriod',
-  'UpdateEntitlement.InvalidResetAnchor': 'resetAnchor',
+type Refusal = { field?: 'resetAnchor' | 'resetPeriod'; messageKey: string };
+
+// The refusals of the API about the reset pair, by their code. The API names the
+// field in prose, in `detail`, and does not locate it, and its words are English
+// and its own: each code has a sentence of the locales. A refusal of what the person
+// chose is shown on its field. One about a field that is read-only is shown above the
+// buttons (`field` absent): the form sends the pair it read back, so the person cannot
+// change it to mend it, and a refusal pinned to a disabled control would never go.
+const REFUSALS: Record<string, Refusal> = {
+  'CreateEntitlement.InvalidResetAnchor': {
+    field: 'resetAnchor',
+    messageKey: 'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
+  },
+  'UpdateEntitlement.ImmutableResetAnchor': {
+    messageKey:
+      'Pages.Entitlements.Mutation.Form.Refusals.immutableResetAnchor',
+  },
+  'UpdateEntitlement.ImmutableResetPeriod': {
+    messageKey:
+      'Pages.Entitlements.Mutation.Form.Refusals.immutableResetPeriod',
+  },
+  'UpdateEntitlement.InvalidResetAnchor': {
+    field: 'resetAnchor',
+    messageKey: 'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
+  },
 };
 
 /**
@@ -54,6 +71,10 @@ const entitlementFormValuesToBody = (
   return body;
 };
 
+/**
+ * The form of an entitlement, and the sentence of the locales for a refusal that
+ * has no field to be shown on (`refusal`, a translation key, or none).
+ */
 export const useEntitlementMutationForm = (
   entitlement?: Entitlement,
   onSuccess?: (entitlement: Entitlement) => void,
@@ -68,13 +89,15 @@ export const useEntitlementMutationForm = (
   const [openedValues] = useState(() =>
     getEntitlementFormDefaults(entitlement),
   );
+  const [refusal, setRefusal] = useState<string | null>(null);
 
-  return useAppForm({
+  const form = useAppForm({
     defaultValues: openedValues,
     validators: {
       onChange: entitlementFormSchema,
     },
     onSubmit: async ({ formApi, value }) => {
+      setRefusal(null);
       try {
         const body = entitlementFormValuesToBody(value, openedEntitlement);
 
@@ -108,11 +131,19 @@ export const useEntitlementMutationForm = (
 
         navigate({ to: '/catalog/entitlements' });
       } catch (error) {
-        const problem = handleBillingProblem(error);
-        const field = FIELD_BY_CODE[problem.code ?? ''];
-        // A field that is not on screen has nowhere to show the refusal.
-        if (field && problem.detail && formApi.getFieldMeta(field)) {
-          setProblemFieldError(formApi, field, problem.detail);
+        const known = REFUSALS[handleBillingProblem(error).code ?? ''];
+        if (known && !known.field) {
+          setRefusal(known.messageKey);
+
+          return;
+        }
+        if (known?.field) {
+          // A field that is not on screen has nowhere to show the refusal.
+          if (formApi.getFieldMeta(known.field)) {
+            setProblemFieldError(formApi, known.field, t(known.messageKey));
+          } else {
+            toast.error(t(known.messageKey));
+          }
 
           return;
         }
@@ -120,4 +151,6 @@ export const useEntitlementMutationForm = (
       }
     },
   });
+
+  return { form, refusal };
 };

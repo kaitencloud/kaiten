@@ -63,6 +63,8 @@ test('keeps the stored window when editing a periodic entitlement', async ({
 test.describe('the billing date as the alignment of a window', () => {
   const hint = (page: import('@playwright/test').Page) =>
     page.getByTestId('reset-anchor-billing-period-hint');
+  const backToCalendar = (page: import('@playwright/test').Page) =>
+    page.getByTestId('reset-anchor-back-to-calendar');
 
   test('is chosen on a monthly cadence, said before it is sent, and fixed once set', async ({
     page,
@@ -155,9 +157,17 @@ test.describe('the billing date as the alignment of a window', () => {
     await form.selectResetAnchor('Billing date');
     await expect(form.resetAnchorTrigger()).toContainText('Billing date');
 
+    await expect(backToCalendar(page)).toHaveCount(0);
+
     await form.selectResetPeriod('Every week');
     await expect(form.resetAnchorTrigger()).toContainText('Calendar');
     await expect(hint(page)).toHaveCount(0);
+    // The person is told their choice was changed, until they choose again.
+    await expect(backToCalendar(page)).toContainText(
+      'The alignment was set back to Calendar',
+    );
+    await form.selectResetAnchor('License start date');
+    await expect(backToCalendar(page)).toHaveCount(0);
   });
 
   test('is adopted once by a lifetime counter, with the anchor chosen then', async ({
@@ -185,13 +195,15 @@ test.describe('the billing date as the alignment of a window', () => {
     await expect(form.resetAnchorTrigger()).toBeDisabled();
   });
 
-  test('shows the refusal of the API on the anchor, and lets it be sent again once the anchor changes', async ({
+  test('shows the refusal of the API on the anchor in the words of the console, and lets it be sent again once the anchor changes', async ({
     page,
   }) => {
     const model = createEmptyEntitlementsModel();
     const list = new EntitlementsListDriver(page);
     const form = new EntitlementFormDriver(page);
     const detail = 'resetAnchor BILLING_PERIOD takes resetPeriod MONTH or YEAR';
+    const sentence =
+      'The billing date needs a monthly or yearly cadence. Choose another alignment or another cadence.';
     model.setNextProblem('create', {
       code: 'CreateEntitlement.InvalidResetAnchor',
       detail,
@@ -208,15 +220,50 @@ test.describe('the billing date as the alignment of a window', () => {
     await form.submitButton().click();
 
     await expect(page.locator('[data-field-name="resetAnchor"]')).toContainText(
-      detail,
+      sentence,
     );
+    await expect(
+      page.locator('[data-field-name="resetAnchor"]'),
+    ).not.toContainText(detail);
     await expect(page).toHaveURL(/\/catalog\/entitlements\/new/);
 
     await form.selectResetAnchor('Calendar');
     await expect(
       page.locator('[data-field-name="resetAnchor"]'),
-    ).not.toContainText(detail);
+    ).not.toContainText(sentence);
     await form.submitButton().click();
+    await expect(page).toHaveURL('/catalog/entitlements/api-calls');
+  });
+
+  test('says a refusal about a read-only pair above the buttons, and lets the form be sent again', async ({
+    page,
+  }) => {
+    const model = createPeriodicEntitlementModel();
+    const form = new EntitlementFormDriver(page);
+    model.setNextProblem('update', {
+      code: 'UpdateEntitlement.ImmutableResetAnchor',
+      detail: 'resetAnchor cannot be changed once set',
+      status: 400,
+    });
+
+    await installEntitlementAppMocks(page, model);
+    await page.goto('/catalog/entitlements/api-calls?mode=configure');
+    await form.fill({ name: 'API Calls Renamed' });
+    await form.clickNext();
+    await form.updateButton().click();
+
+    // The field is read-only, so the refusal is not pinned to it: it is said in the
+    // words of the console, and the form is not stuck.
+    await expect(page.getByTestId('entitlement-refusal')).toContainText(
+      'The alignment of the usage windows was set once and cannot be changed',
+    );
+    await expect(
+      page.getByText('resetAnchor cannot be changed once set'),
+    ).toHaveCount(0);
+    await expect(form.updateButton()).toBeEnabled();
+    await expect(page).toHaveURL(/mode=configure/);
+
+    await form.updateButton().click();
     await expect(page).toHaveURL('/catalog/entitlements/api-calls');
   });
 });

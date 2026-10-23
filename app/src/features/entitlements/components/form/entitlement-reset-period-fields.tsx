@@ -1,4 +1,5 @@
 import { Info } from 'lucide-react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -43,6 +44,28 @@ function BillingPeriodHint() {
   );
 }
 
+/**
+ * Says that the alignment the person had chosen was changed for them: the billing
+ * date follows a month or a year, and the cadence just moved off both. Without it
+ * the form would be sent believing the billing date is kept.
+ */
+function BackToCalendarNotice() {
+  const { t } = useTranslation();
+
+  return (
+    <Alert data-testid="reset-anchor-back-to-calendar" role="status">
+      <Info />
+      <AlertDescription>
+        <p>
+          {t(
+            'Pages.Entitlements.Mutation.Form.Notices.resetAnchorBackToCalendar',
+          )}
+        </p>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
 type EntitlementResetPeriodFieldsProps = {
   entitlement?: Entitlement;
   form: any;
@@ -63,6 +86,8 @@ export function EntitlementResetPeriodFields({
 }: EntitlementResetPeriodFieldsProps) {
   const { t } = useTranslation();
   const locked = hasImmutableResetPeriod(entitlement);
+  // Whether the last move of the cadence took the alignment back to the calendar.
+  const [anchorWasReset, setAnchorWasReset] = useState(false);
 
   const periodOptions: ResetSelectOption[] = RESET_PERIOD_VALUES.map(
     (value) => ({
@@ -107,14 +132,15 @@ export function EntitlementResetPeriodFields({
                   clearProblemFieldError(fieldApi.form, 'resetAnchor');
                   // The billing date follows a month or a year and nothing shorter:
                   // a cadence it cannot follow takes the default alignment back,
-                  // instead of leaving a refusal on a field that may be out of sight.
-                  if (
+                  // instead of leaving a refusal on a field that may be out of sight,
+                  // and the person is told.
+                  const mustReset =
                     fieldApi.form.getFieldValue('resetAnchor') ===
-                      BILLING_PERIOD &&
-                    !isBillingPeriodCadence(value)
-                  ) {
+                      BILLING_PERIOD && !isBillingPeriodCadence(value);
+                  if (mustReset) {
                     fieldApi.form.setFieldValue('resetAnchor', 'CALENDAR');
                   }
+                  setAnchorWasReset(mustReset);
                 },
               }}
             >
@@ -144,7 +170,14 @@ export function EntitlementResetPeriodFields({
               {(resetPeriod: string) =>
                 !resetPeriod || resetPeriod === RESET_PERIOD_NONE ? null : (
                   <>
-                    <form.AppField name="resetAnchor">
+                    <form.AppField
+                      name="resetAnchor"
+                      listeners={{
+                        // The person chose an alignment: what was said of the one
+                        // taken from them is over.
+                        onChange: () => setAnchorWasReset(false),
+                      }}
+                    >
                       {(field: any) => (
                         <field.SelectField
                           label={t(
@@ -169,6 +202,7 @@ export function EntitlementResetPeriodFields({
                         />
                       )}
                     </form.AppField>
+                    {anchorWasReset ? <BackToCalendarNotice /> : null}
                     <form.Subscribe
                       selector={(state: any) =>
                         state.values.resetAnchor as string

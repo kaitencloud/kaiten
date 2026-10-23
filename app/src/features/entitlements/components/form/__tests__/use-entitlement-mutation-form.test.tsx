@@ -143,4 +143,51 @@ describe('the form that edits an entitlement', () => {
     expect(toast.success).not.toHaveBeenCalled();
     expect(navigate).not.toHaveBeenCalled();
   });
+
+  it('says a refusal about a read-only pair above the buttons, in the words of the console, and clears it on the next send', async () => {
+    const { result } = renderHook(() => useEntitlementMutationForm(opened), {
+      wrapper,
+    });
+    const setFieldMeta = vi.fn();
+    let refuse = true;
+    server.use(
+      handleUpdateEntitlement(() =>
+        refuse
+          ? HttpResponse.json(
+              {
+                code: 'UpdateEntitlement.ImmutableResetAnchor',
+                detail: 'resetAnchor cannot be changed once set',
+                status: 400,
+                title: 'Bad Request',
+              },
+              { status: 400 },
+            )
+          : new HttpResponse(null, { status: 204 }),
+      ),
+    );
+
+    await act(() =>
+      captured.options.onSubmit({
+        formApi: { getFieldMeta: () => ({}), setFieldMeta },
+        value: { ...captured.options.defaultValues, description: 'Changed' },
+      }),
+    );
+
+    expect(result.current.refusal).toBe(
+      'Pages.Entitlements.Mutation.Form.Refusals.immutableResetAnchor',
+    );
+    // Not on a field: the field is read-only, and nothing to edit would mend it.
+    expect(setFieldMeta).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
+
+    refuse = false;
+    await act(() =>
+      captured.options.onSubmit({
+        formApi: { getFieldMeta: () => ({}), setFieldMeta },
+        value: { ...captured.options.defaultValues, description: 'Changed' },
+      }),
+    );
+
+    expect(result.current.refusal).toBeNull();
+  });
 });

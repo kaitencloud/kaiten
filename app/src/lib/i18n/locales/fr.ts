@@ -2771,9 +2771,19 @@ export default {
             resetAnchorCadence:
               'La date de facturation demande une cadence mensuelle ou annuelle. Choisissez un autre alignement ou une autre cadence.',
           },
+          Refusals: {
+            immutableResetAnchor:
+              "L'alignement des fenêtres d'usage a été posé une fois et ne peut plus changer. Fermez le formulaire et rouvrez le droit pour voir ce qu'il contient maintenant.",
+            immutableResetPeriod:
+              "La cadence de remise à zéro a été posée une fois et ne peut ni changer ni être retirée. Fermez le formulaire et rouvrez le droit pour voir ce qu'il contient maintenant.",
+          },
+          Notices: {
+            resetAnchorBackToCalendar:
+              "L'alignement est revenu sur le calendrier : la date de facturation demande une cadence mensuelle ou annuelle.",
+          },
           Hints: {
             resetAnchorBillingPeriod:
-              "Ses fenêtres suivent la date de facturation d'une instance qui a un abonnement en cours, et la date de début de licence sinon. Quand la date de facturation change, par exemple à la conversion d'un essai, à un nouvel abonnement ou à une annulation, la fenêtre en cours se termine plus tôt et l'usage repart de zéro dans la suivante.",
+              "Avec la date de facturation, les fenêtres suivent la date de facturation d'une instance qui a un abonnement en cours, et la date de début de licence sinon. Quand la date de facturation change, par exemple à la conversion d'un essai, à un nouvel abonnement ou à une annulation, la fenêtre en cours se termine plus tôt et l'usage repart de zéro dans la suivante.",
           },
           Steps: {
             identity: 'Informations du droit',
@@ -2968,7 +2978,8 @@ export default {
         CALENDAR: 'Calendrier',
         LICENSE_START: 'Date de début de licence',
         BILLING_PERIOD: 'Date de facturation',
-        billingPeriodUnavailable: 'Date de facturation (mensuelle ou annuelle)',
+        billingPeriodUnavailable:
+          'Date de facturation (mensuelle ou annuelle seulement)',
       },
     },
     FeatureFlags: {

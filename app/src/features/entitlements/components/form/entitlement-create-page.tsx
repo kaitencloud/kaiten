@@ -36,7 +36,7 @@ export function EntitlementCreatePage({
 }: EntitlementCreatePageProps) {
   const { t } = useTranslation();
   const formId = useId();
-  const form = useEntitlementMutationForm(undefined, onSuccess);
+  const { form } = useEntitlementMutationForm(undefined, onSuccess);
   const [activeStep, setActiveStep] = useState(0);
   const [furthestStep, setFurthestStep] = useState(0);
   // How many times the stepper took the person back to the identity because it was broken.

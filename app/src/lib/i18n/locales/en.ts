@@ -2737,9 +2737,19 @@ export default {
             resetAnchorCadence:
               'The billing date needs a monthly or yearly cadence. Choose another alignment or another cadence.',
           },
+          Refusals: {
+            immutableResetAnchor:
+              'The alignment of the usage windows was set once and cannot be changed. Close the form and open the entitlement again to see what it holds now.',
+            immutableResetPeriod:
+              'The reset cadence was set once and can be neither changed nor removed. Close the form and open the entitlement again to see what it holds now.',
+          },
+          Notices: {
+            resetAnchorBackToCalendar:
+              'The alignment was set back to Calendar: the billing date needs a monthly or yearly cadence.',
+          },
           Hints: {
             resetAnchorBillingPeriod:
-              'Its windows follow the billing date of an instance with a live subscription, and the license start date otherwise. When the billing date changes, for instance when a trial converts, a customer subscribes again or a subscription is canceled, the current window closes early and the usage counts from zero in the next one.',
+              'With the billing date, windows follow the billing date of an instance with a live subscription, and the license start date otherwise. When the billing date changes, for instance when a trial converts, a customer subscribes again or a subscription is canceled, the current window closes early and the usage counts from zero in the next one.',
           },
           Steps: {
             identity: 'Entitlement information',
