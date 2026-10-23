@@ -4,6 +4,11 @@ import { useLicenseFamilyFallbackGap } from '../../hooks/use-license-family-fall
 
 type LicenseFamilyFallbackWarningProps = {
   className?: string;
+  /**
+   * The warning sits under the fallback select of the settings dialog: it then
+   * points at that field instead of at the settings, where the person already is.
+   */
+  inSettingsDialog?: boolean;
 };
 
 /**
@@ -14,6 +19,7 @@ type LicenseFamilyFallbackWarningProps = {
  */
 export function LicenseFamilyFallbackWarning({
   className,
+  inSettingsDialog = false,
 }: LicenseFamilyFallbackWarningProps) {
   const { t } = useTranslation();
 
@@ -23,7 +29,14 @@ export function LicenseFamilyFallbackWarning({
       testId="license-family-fallback-warning"
     >
       <p>{t('Pages.Licenses.FallbackWarning.ending')}</p>
-      <p>{t('Pages.Licenses.FallbackWarning.anonymousCheckout')}</p>
+      <p>
+        {t('Pages.Licenses.FallbackWarning.anonymousCheckout')}{' '}
+        {t(
+          inSettingsDialog
+            ? 'Pages.Licenses.FallbackWarning.chooseInField'
+            : 'Pages.Licenses.FallbackWarning.chooseInSettings',
+        )}
+      </p>
     </LicenseGrantWarning>
   );
 }

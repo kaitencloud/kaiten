@@ -60,7 +60,9 @@ export const LicenseFamilySettingsFields = withForm({
               state.values.fallbackLicenseFamilySlug === NO_FALLBACK
             }
           >
-            {(hasNone) => (hasNone ? <LicenseFamilyFallbackWarning /> : null)}
+            {(hasNone) =>
+              hasNone ? <LicenseFamilyFallbackWarning inSettingsDialog /> : null
+            }
           </form.Subscribe>
         ) : null}
         <form.AppField name="trialEndWithoutPaymentMethod">

@@ -427,7 +427,9 @@ test('dev:mock serves the settings of a family and an entitlement on the billing
   // it, and Starter, which falls back to Trial, does not.
   const warnings = page.getByTestId('license-family-fallback-warning');
   await expect(warnings).toHaveCount(1);
-  await expect(warnings).toContainText('FallbackRequired');
+  await expect(warnings).toContainText(
+    'anonymous checkout with an amount due today',
+  );
   await page.getByRole('link', { name: 'Settings of Starter' }).click();
   const dialog = page.getByRole('dialog');
   await expect(

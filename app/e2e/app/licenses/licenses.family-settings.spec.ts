@@ -353,7 +353,10 @@ test.describe('the warning about a public family with a paid version and no fall
     // Pro names no fallback, Enterprise falls back to Community.
     await list.expandFamily('Pro');
     await expect(warning(page)).toHaveCount(1);
-    await expect(warning(page)).toContainText('FallbackRequired');
+    await expect(warning(page)).toContainText(
+      'anonymous checkout with an amount due today',
+    );
+    await expect(warning(page)).toContainText('in the settings of the license');
     await expect(warning(page)).toContainText(
       'keeps a paid version of the license without being billed',
     );
@@ -362,6 +365,10 @@ test.describe('the warning about a public family with a paid version and no fall
     await expect(
       settings.dialog().getByTestId('license-family-fallback-warning'),
     ).toBeVisible();
+    // The select is just above: the note points at it and not at the settings.
+    await expect(
+      settings.dialog().getByTestId('license-family-fallback-warning'),
+    ).toContainText('in the field above');
     await settings.choose(settings.fallback(), 'Community');
     await expect(
       settings.dialog().getByTestId('license-family-fallback-warning'),

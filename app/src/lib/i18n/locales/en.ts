@@ -1708,7 +1708,11 @@ export default {
         ending:
           'This license is public and has a paid version, but names no fallback. When a subscription to it ends, the instance keeps a paid version of the license without being billed.',
         anonymousCheckout:
-          'It also cannot be sold through an anonymous checkout with an amount due today: that checkout is refused with FallbackRequired. Choose a free license to fall back to in the settings of the license.',
+          'It also cannot be sold through an anonymous checkout with an amount due today: that checkout is refused until the license names a fallback.',
+        chooseInSettings:
+          'Choose a free license to fall back to in the settings of the license.',
+        chooseInField:
+          'Choose a free license to fall back to in the field above.',
       },
       FamilySettings: {
         link: 'Settings',
@@ -1729,7 +1733,7 @@ export default {
           trialEnd:
             'What a trial that is charged automatically, for a total above 0, becomes at its end when the customer has no active payment method. If it is canceled, the subscription is canceled. If it is converted, the subscription becomes active, and its first charge then fails.',
           trialReminder:
-            'How many days before a trial ends it announces its end, from 1 to 30. A trial no longer than that announces it at once. It applies to the trials that start after the change: a trial already running keeps the lead it started with.',
+            'How many days before a trial ends it announces its end, from 1 to 30. The default is 3. A trial no longer than that announces it at once. It applies to the trials that start after the change: a trial already running keeps the lead it started with.',
         },
         TrialEnd: {
           CANCEL: 'Cancel it',
@@ -2794,7 +2798,7 @@ export default {
             displayOrder:
               'Sort order in customer-facing components (lower values appear first)',
             resetPeriod:
-              'How often the usage counter goes back to zero. A lifetime counter never resets, and the cadence can be set once but never changed.',
+              'How often the usage counter goes back to zero. A lifetime counter never resets, and the cadence and its alignment can be set once but never changed.',
             resetPeriodLocked:
               'The reset cadence is fixed once set: stored usage would become impossible to interpret if it changed.',
             resetAnchor:
@@ -3447,7 +3451,8 @@ export default {
       title: 'Integrations',
       PublishableKeys: {
         title: 'Publishable keys',
-        subtitle: 'The keys a web page reads your public catalog with',
+        subtitle:
+          'The keys a web page uses to read your public catalog and, if you allow it, to start anonymous checkouts',
         Intro: {
           purpose:
             'A publishable key lets a web page read your public catalog: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret. It reads nothing else, and starts anonymous checkouts only if you allow it to.',
@@ -3589,7 +3594,7 @@ export default {
         Revoke: {
           title: 'Revoke {{label}}?',
           description:
-            'The key ending in {{hint}} stops working on the next request, and every page that sends it stops reading your catalog. A revoked key cannot be restored: create a new one to replace it.',
+            'The key ending in {{hint}} stops working on the next request: every page that sends it stops reading your catalog and can no longer start an anonymous checkout. A revoked key cannot be restored: create a new one to replace it.',
           confirm: 'Revoke key',
           success: '{{label}} revoked',
         },

@@ -1733,7 +1733,11 @@ export default {
         ending:
           'Cette licence est publique et a une version payante, mais ne nomme aucun repli. Quand un abonnement à cette licence se termine, l’instance garde une version payante de la licence sans être facturée.',
         anonymousCheckout:
-          'Elle ne peut pas non plus être vendue par un paiement anonyme avec un montant dû aujourd’hui : ce paiement est refusé avec FallbackRequired. Choisissez une licence gratuite de repli dans les réglages de la licence.',
+          'Elle ne peut pas non plus être vendue par un paiement anonyme avec un montant dû aujourd’hui : ce paiement est refusé tant que la licence ne nomme pas de repli.',
+        chooseInSettings:
+          'Choisissez une licence gratuite de repli dans les réglages de la licence.',
+        chooseInField:
+          'Choisissez une licence gratuite de repli dans le champ ci-dessus.',
       },
       FamilySettings: {
         link: 'Réglages',
@@ -1754,7 +1758,7 @@ export default {
           trialEnd:
             'Ce que devient, à sa fin, un essai prélevé automatiquement pour un total supérieur à 0 quand le client n’a aucun moyen de paiement actif. S’il est annulé, l’abonnement est annulé. S’il est converti, l’abonnement devient actif, et son premier prélèvement échoue alors.',
           trialReminder:
-            'Combien de jours avant la fin d’un essai il annonce sa fin, de 1 à 30. Un essai qui n’est pas plus long que cela l’annonce tout de suite. Le réglage vaut pour les essais qui commencent après le changement : un essai déjà en cours garde l’avance avec laquelle il a commencé.',
+            'Combien de jours avant la fin d’un essai il annonce sa fin, de 1 à 30. La valeur par défaut est 3. Un essai qui n’est pas plus long que cela l’annonce tout de suite. Le réglage vaut pour les essais qui commencent après le changement : un essai déjà en cours garde l’avance avec laquelle il a commencé.',
         },
         TrialEnd: {
           CANCEL: 'L’annuler',
@@ -2829,7 +2833,7 @@ export default {
             displayOrder:
               'Ordre de tri dans les composants destinés aux clients (les valeurs les plus basses apparaissent en premier)',
             resetPeriod:
-              "À quelle fréquence le compteur d'usage repart de zéro. Un compteur à vie ne se réinitialise jamais, et la cadence ne peut être posée qu'une seule fois.",
+              "À quelle fréquence le compteur d'usage repart de zéro. Un compteur à vie ne se réinitialise jamais, et la cadence et son alignement ne peuvent être posés qu'une seule fois, sans jamais changer.",
             resetPeriodLocked:
               "La cadence est figée une fois posée : l'usage déjà stocké deviendrait ininterprétable si elle changeait.",
             resetAnchor:
@@ -3497,7 +3501,7 @@ export default {
       PublishableKeys: {
         title: 'Clés publiables',
         subtitle:
-          'Les clés avec lesquelles une page web lit votre catalogue public',
+          'Les clés qu’une page web utilise pour lire votre catalogue public et, si vous l’autorisez, démarrer des paiements anonymes',
         Intro: {
           purpose:
             'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret. Elle ne lit rien d’autre, et ne démarre de paiements anonymes que si vous l’y autorisez.',
@@ -3642,7 +3646,7 @@ export default {
         Revoke: {
           title: 'Révoquer {{label}} ?',
           description:
-            'La clé qui se termine par {{hint}} cesse de fonctionner à la requête suivante, et toute page qui l’envoie cesse de lire votre catalogue. Une clé révoquée ne peut pas être rétablie : créez-en une nouvelle pour la remplacer.',
+            'La clé qui se termine par {{hint}} cesse de fonctionner à la requête suivante : toute page qui l’envoie cesse de lire votre catalogue et ne peut plus démarrer de paiement anonyme. Une clé révoquée ne peut pas être rétablie : créez-en une nouvelle pour la remplacer.',
           confirm: 'Révoquer la clé',
           success: '{{label}} révoquée',
         },

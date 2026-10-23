@@ -166,7 +166,7 @@ test.describe('the confirmation to publish', () => {
     // A warning and not a refusal: the version still publishes.
     await expect(
       dialog.dialog().getByTestId('license-family-fallback-warning'),
-    ).toContainText('FallbackRequired');
+    ).toContainText('anonymous checkout with an amount due today');
     await dialog.confirm('Publish');
     await expectToast(page, 'Version published');
   });

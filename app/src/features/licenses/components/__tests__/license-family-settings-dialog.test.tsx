@@ -249,7 +249,12 @@ describe('the settings of a family of licenses', () => {
 
     expect(
       await screen.findByTestId('license-family-fallback-warning'),
-    ).toHaveTextContent('FallbackRequired');
+    ).toHaveTextContent('anonymous checkout with an amount due today');
+    // Under the select it is about: it points at it, not at the settings the person is in.
+    const warning = screen.getByTestId('license-family-fallback-warning');
+    expect(warning).toHaveTextContent('in the field above');
+    expect(warning).not.toHaveTextContent('in the settings of the license');
+    expect(warning).not.toHaveTextContent('FallbackRequired');
 
     await userEvent.click(
       screen.getByRole('combobox', {
