@@ -20,8 +20,9 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof)}
 }
 
-// Execute changes the quantity. Repeating the current one changes nothing and
-// records nothing.
+// Execute changes the quantity, at once: the vendor's write. Repeating the
+// current one changes nothing and records nothing, unless a public decrease
+// was scheduled, which any vendor write cancels (V31-67).
 func (u *UseCase) Execute(ctx context.Context, instanceSlug, addonSlug string, quantity int32) (*catalogue.InstanceAddon, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
@@ -41,6 +42,10 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, addonSlug string, q
 			return err
 		}
 		previous := write.Attachment.Quantity
+		if previous == quantity && write.Attachment.PendingQuantity != nil {
+			attached, err = u.schedule(ctx, q, user.OrganizationID, user.ID, instanceSlug, write, nil)
+			return err
+		}
 		if previous == quantity {
 			id := write.Attachment.ID
 			list, err := catalogue.InstanceAddons(ctx, q, user.OrganizationID, write.Instance.ID, write.Subscription, false, &id)

@@ -22720,7 +22720,7 @@ paths:
         - instances
   /instances/{instanceSlug}/addons/{addonSlug}:
     delete:
-      description: Removes an add-on from an instance. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.
+      description: Removes an add-on from an instance, at once, a removal the customer scheduled included. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.
       operationId: detachInstanceAddon
       parameters:
         - description: Instance slug
@@ -22811,7 +22811,7 @@ paths:
       tags:
         - instances
     patch:
-      description: Changes how many units of an add-on an instance holds. The entitlements follow at once; the next invoice bills the new quantity. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.
+      description: Changes how many units of an add-on an instance holds, at once, a decrease included. The entitlements follow at once; the next invoice bills the new quantity. It cancels a decrease the customer scheduled (pendingQuantity), even when the quantity is the one held. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.
       operationId: setInstanceAddonQuantity
       parameters:
         - description: Instance slug
@@ -29098,7 +29098,7 @@ paths:
         - public
   /public/session/addons/{addonSlug}:
     put:
-      description: Attaches the add-on to the session's instance, changes its quantity, or removes it with 0. Entitlements change at once; the subscription bills the quantity held at each renewal, with no proration. Setting the quantity held changes nothing. 409 .OtherVersionAttached when another version of the same add-on is held, .BoundaryPending while the period that ended is being closed (Retry-After); 422 .AddonNotPublic, .Incompatible, .QuantityExceedsMax, .CurrencyMismatch, .InstanceRequired.
+      description: "Attaches the add-on to the session's instance, changes its quantity, or removes it with 0. An attach or an increase changes the entitlements at once. With a live subscription a lower quantity, or 0, is scheduled for the next renewal: pendingQuantity shows it, and the quantity held, its entitlements and its billing stay until then; the quantity held cancels it, and so does an increase. Without a live subscription every change applies at once. The subscription bills the quantity held at each renewal, with no proration. Setting the quantity held, with nothing scheduled, changes nothing. 409 .OtherVersionAttached when another version of the same add-on is held, .BoundaryPending while the period that ended is being closed (Retry-After); 422 .AddonNotPublic, .Incompatible, .QuantityExceedsMax, .CurrencyMismatch, .InstanceRequired."
       operationId: setSessionAddonQuantity
       parameters:
         - description: "An add-on version: the public one, or the one the instance holds"

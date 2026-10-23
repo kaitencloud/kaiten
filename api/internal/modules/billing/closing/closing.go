@@ -79,6 +79,15 @@ type Closer struct {
 	heldCursor *heldCursor
 }
 
+// ApplyScheduled applies the public add-on decreases scheduled on the
+// subscription's instance, at that instant (§10.2, V31-67).
+func (c *Closer) ApplyScheduled(ctx context.Context, sub db.InstanceBilling, actor uuid.UUID, at time.Time) error {
+	if sub.InstanceID == nil || c.deps.Scheduled == nil {
+		return nil
+	}
+	return c.deps.Scheduled.ApplyScheduled(ctx, sub.OrganizationID, actor, *sub.InstanceID, at)
+}
+
 // Fallback is the fallback move's writes outside billing (§9.11).
 func (c *Closer) Fallback() lifecycle.Fallback {
 	return lifecycle.Fallback{Mover: c.deps.Mover, Addons: c.deps.Fallback}
@@ -256,6 +265,12 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 	}
 	composition, hold, err := c.compose(ctx, q, sub, plan, boundary, boundary)
 	if err != nil {
+		return Outcome{}, err
+	}
+	// The public decreases scheduled for B take effect at B: the arrears just
+	// composed billed the quantity held before it, the advance the one
+	// scheduled (§10.2, V31-67).
+	if err := c.ApplyScheduled(ctx, sub, actor, boundary); err != nil {
 		return Outcome{}, err
 	}
 

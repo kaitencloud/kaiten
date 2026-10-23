@@ -68,6 +68,7 @@ type Ports struct {
 	Redeemer  ports.VoucherRedeemer
 	Mover     ports.InstanceVersionMover
 	Fallback  ports.AddonFallback
+	Scheduled ports.AddonSchedule
 	Expiry    ports.VoucherExpiry
 	Checkouts ports.CheckoutFollower
 	Sweeper   ports.CheckoutSweeper
@@ -132,6 +133,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Redeemer:        from.Redeemer,
 		Mover:           from.Mover,
 		Fallback:        from.Fallback,
+		Scheduled:       from.Scheduled,
 		Checkouts:       from.Checkouts,
 		CheckoutSweeper: from.Sweeper,
 		Providers:       svc.BillingProviders,

@@ -26,7 +26,7 @@ func RegisterEndpoint(api huma.API, app Detacher) {
 		Method:        http.MethodDelete,
 		Path:          "/instances/{instanceSlug}/addons/{addonSlug}",
 		Summary:       "Remove an add-on from an instance",
-		Description:   "Removes an add-on from an instance. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.",
+		Description:   "Removes an add-on from an instance, at once, a removal the customer scheduled included. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.",
 		Tags:          []string{"instances"},
 		Metadata:      kaitenhuma.BoundaryPending(),
 		DefaultStatus: http.StatusNoContent,

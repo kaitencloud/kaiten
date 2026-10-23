@@ -39,6 +39,9 @@ type Deps struct {
 	// Fallback removes the attachments a fallback move strands (§9.11 rule
 	// 3). Nil: none removed.
 	Fallback ports.AddonFallback
+	// Scheduled applies the public add-on decreases a boundary or a
+	// cancellation reaches (§10.2). Nil: none applied.
+	Scheduled ports.AddonSchedule
 	// Checkouts follows an INCOMPLETE subscription's anonymous checkout
 	// session to its payment or its end (§9.12 rule 5). Nil: none followed.
 	Checkouts ports.CheckoutFollower

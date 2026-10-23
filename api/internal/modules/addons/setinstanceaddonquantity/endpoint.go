@@ -36,7 +36,7 @@ func RegisterEndpoint(api huma.API, app Setter) {
 		Method:      http.MethodPatch,
 		Path:        "/instances/{instanceSlug}/addons/{addonSlug}",
 		Summary:     "Change an instance add-on's quantity",
-		Description: "Changes how many units of an add-on an instance holds. The entitlements follow at once; the next invoice bills the new quantity. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.",
+		Description: "Changes how many units of an add-on an instance holds, at once, a decrease included. The entitlements follow at once; the next invoice bills the new quantity. It cancels a decrease the customer scheduled (pendingQuantity), even when the quantity is the one held. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.",
 		Tags:        []string{"instances"},
 		Metadata:    kaitenhuma.BoundaryPending(),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},

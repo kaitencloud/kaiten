@@ -147,6 +147,38 @@ func (q *Queries) AddonsIncompatibleWith(ctx context.Context, arg AddonsIncompat
 	return items, nil
 }
 
+const applyPendingQuantity = `-- name: ApplyPendingQuantity :exec
+UPDATE instance_addon
+SET quantity         = CASE WHEN pending_quantity > 0 THEN pending_quantity ELSE quantity END,
+    removed_at       = CASE WHEN pending_quantity = 0 THEN GREATEST(created_at, $1::timestamp) END,
+    removed_by_id    = CASE WHEN pending_quantity = 0 THEN $2::uuid END,
+    pending_quantity = NULL,
+    updated_at       = CURRENT_TIMESTAMP,
+    updated_by_id    = $2::uuid
+WHERE organization_id = $3
+  AND id = $4
+  AND pending_quantity IS NOT NULL
+`
+
+type ApplyPendingQuantityParams struct {
+	At             pgtype.Timestamp `json:"at"`
+	UserID         uuid.UUID        `json:"user_id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	ID             uuid.UUID        `json:"id"`
+}
+
+// The boundary at applies a scheduled decrease: the quantity becomes the
+// scheduled one, or the attachment is removed at the boundary for 0.
+func (q *Queries) ApplyPendingQuantity(ctx context.Context, arg ApplyPendingQuantityParams) error {
+	_, err := q.db.Exec(ctx, applyPendingQuantity,
+		arg.At,
+		arg.UserID,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	return err
+}
+
 const getInstanceIDBySlug = `-- name: GetInstanceIDBySlug :one
 SELECT i.id
 FROM instance i
@@ -370,7 +402,8 @@ func (q *Queries) ListActiveInstanceAddonsByInstances(ctx context.Context, arg L
 }
 
 const listBillableAddons = `-- name: ListBillableAddons :many
-SELECT ia.id AS instance_addon_id, ia.addon_id, ia.quantity, a.slug AS addon_slug, a.name AS addon_name,
+SELECT ia.id AS instance_addon_id, ia.addon_id, COALESCE(ia.pending_quantity, ia.quantity)::integer AS quantity,
+       a.slug AS addon_slug, a.name AS addon_name,
        p.id AS price_id, p.billing_timing, p.unit_amount_decimal::text AS unit_amount_decimal,
        p.currency::text AS currency, p.display_label
 FROM instance_addon ia
@@ -384,6 +417,7 @@ JOIN addon_price p
 WHERE ia.organization_id = $2
   AND ia.instance_id = $3
   AND ia.removed_at IS NULL
+  AND COALESCE(ia.pending_quantity, 1) > 0
 ORDER BY ia.created_at, ia.id
 `
 
@@ -406,9 +440,11 @@ type ListBillableAddonsRow struct {
 	DisplayLabel      *string       `json:"display_label"`
 }
 
-// What billing reads at a boundary: the add-ons an instance holds, each with
-// its default FLAT_FEE price for the subscription's period. A held add-on
-// without one bills nothing.
+// What billing reads at a boundary: the add-ons an instance holds there, each
+// with its default FLAT_FEE price for the subscription's period. A held add-on
+// without one bills nothing. The quantity at the boundary is the scheduled
+// public decrease when there is one, and one scheduled for removal is not
+// held there (V31-67, §10.4).
 func (q *Queries) ListBillableAddons(ctx context.Context, arg ListBillableAddonsParams) ([]ListBillableAddonsRow, error) {
 	rows, err := q.db.Query(ctx, listBillableAddons, arg.BillingPeriod, arg.OrganizationID, arg.InstanceID)
 	if err != nil {
@@ -642,7 +678,7 @@ func (q *Queries) ListInstanceAddons(ctx context.Context, arg ListInstanceAddons
 }
 
 const lockActiveInstanceAddon = `-- name: LockActiveInstanceAddon :one
-SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 WHERE ia.organization_id = $1
@@ -659,10 +695,11 @@ type LockActiveInstanceAddonParams struct {
 }
 
 type LockActiveInstanceAddonRow struct {
-	ID          uuid.UUID `json:"id"`
-	AddonID     uuid.UUID `json:"addon_id"`
-	Quantity    int32     `json:"quantity"`
-	MaxQuantity *int32    `json:"max_quantity"`
+	ID              uuid.UUID `json:"id"`
+	AddonID         uuid.UUID `json:"addon_id"`
+	Quantity        int32     `json:"quantity"`
+	MaxQuantity     *int32    `json:"max_quantity"`
+	PendingQuantity *int32    `json:"pending_quantity"`
 }
 
 func (q *Queries) LockActiveInstanceAddon(ctx context.Context, arg LockActiveInstanceAddonParams) (LockActiveInstanceAddonRow, error) {
@@ -673,12 +710,13 @@ func (q *Queries) LockActiveInstanceAddon(ctx context.Context, arg LockActiveIns
 		&i.AddonID,
 		&i.Quantity,
 		&i.MaxQuantity,
+		&i.PendingQuantity,
 	)
 	return i, err
 }
 
 const lockAttachmentsIncompatibleWith = `-- name: LockAttachmentsIncompatibleWith :many
-SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 WHERE ia.organization_id = $1
@@ -700,10 +738,11 @@ type LockAttachmentsIncompatibleWithParams struct {
 }
 
 type LockAttachmentsIncompatibleWithRow struct {
-	ID          uuid.UUID `json:"id"`
-	AddonID     uuid.UUID `json:"addon_id"`
-	Quantity    int32     `json:"quantity"`
-	MaxQuantity *int32    `json:"max_quantity"`
+	ID              uuid.UUID `json:"id"`
+	AddonID         uuid.UUID `json:"addon_id"`
+	Quantity        int32     `json:"quantity"`
+	MaxQuantity     *int32    `json:"max_quantity"`
+	PendingQuantity *int32    `json:"pending_quantity"`
 }
 
 // The active attachments a fallback move strands (§9.11 rule 3): their add-on
@@ -722,6 +761,7 @@ func (q *Queries) LockAttachmentsIncompatibleWith(ctx context.Context, arg LockA
 			&i.AddonID,
 			&i.Quantity,
 			&i.MaxQuantity,
+			&i.PendingQuantity,
 		); err != nil {
 			return nil, err
 		}
@@ -760,6 +800,92 @@ func (q *Queries) LockInstanceForAddons(ctx context.Context, arg LockInstanceFor
 	var i LockInstanceForAddonsRow
 	err := row.Scan(&i.ID, &i.LicenseID, &i.LicenseFamilyID)
 	return i, err
+}
+
+const lockInstanceForAddonsByID = `-- name: LockInstanceForAddonsByID :one
+SELECT i.id, i.slug, i.license_id, l.family_id AS license_family_id
+FROM instance i
+JOIN license l ON l.id = i.license_id AND l.organization_id = i.organization_id
+WHERE i.organization_id = $1
+  AND i.id = $2
+FOR NO KEY UPDATE OF i
+`
+
+type LockInstanceForAddonsByIDParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+type LockInstanceForAddonsByIDRow struct {
+	ID              uuid.UUID `json:"id"`
+	Slug            string    `json:"slug"`
+	LicenseID       uuid.UUID `json:"license_id"`
+	LicenseFamilyID uuid.UUID `json:"license_family_id"`
+}
+
+// LockInstanceForAddons, by id: the instance a boundary of billing names.
+func (q *Queries) LockInstanceForAddonsByID(ctx context.Context, arg LockInstanceForAddonsByIDParams) (LockInstanceForAddonsByIDRow, error) {
+	row := q.db.QueryRow(ctx, lockInstanceForAddonsByID, arg.OrganizationID, arg.ID)
+	var i LockInstanceForAddonsByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.LicenseID,
+		&i.LicenseFamilyID,
+	)
+	return i, err
+}
+
+const lockScheduledInstanceAddons = `-- name: LockScheduledInstanceAddons :many
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = $1
+  AND ia.instance_id = $2
+  AND ia.removed_at IS NULL
+  AND ia.pending_quantity IS NOT NULL
+ORDER BY ia.created_at, ia.id
+FOR UPDATE OF ia
+`
+
+type LockScheduledInstanceAddonsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+type LockScheduledInstanceAddonsRow struct {
+	ID              uuid.UUID `json:"id"`
+	AddonID         uuid.UUID `json:"addon_id"`
+	Quantity        int32     `json:"quantity"`
+	MaxQuantity     *int32    `json:"max_quantity"`
+	PendingQuantity *int32    `json:"pending_quantity"`
+}
+
+// The attachments with a public decrease scheduled, which a boundary applies.
+func (q *Queries) LockScheduledInstanceAddons(ctx context.Context, arg LockScheduledInstanceAddonsParams) ([]LockScheduledInstanceAddonsRow, error) {
+	rows, err := q.db.Query(ctx, lockScheduledInstanceAddons, arg.OrganizationID, arg.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockScheduledInstanceAddonsRow
+	for rows.Next() {
+		var i LockScheduledInstanceAddonsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AddonID,
+			&i.Quantity,
+			&i.MaxQuantity,
+			&i.PendingQuantity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const meteredEntitlementConflicts = `-- name: MeteredEntitlementConflicts :many
@@ -815,8 +941,9 @@ func (q *Queries) MeteredEntitlementConflicts(ctx context.Context, arg MeteredEn
 
 const removeInstanceAddon = `-- name: RemoveInstanceAddon :exec
 UPDATE instance_addon
-SET removed_at    = CURRENT_TIMESTAMP,
-    removed_by_id = $1::uuid,
+SET removed_at       = CURRENT_TIMESTAMP,
+    removed_by_id    = $1::uuid,
+    pending_quantity = NULL,
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = $1::uuid
 WHERE organization_id = $2
@@ -836,8 +963,9 @@ func (q *Queries) RemoveInstanceAddon(ctx context.Context, arg RemoveInstanceAdd
 
 const removeInstanceAddonAt = `-- name: RemoveInstanceAddonAt :exec
 UPDATE instance_addon
-SET removed_at    = GREATEST(created_at, $1::timestamp),
-    removed_by_id = $2::uuid,
+SET removed_at       = GREATEST(created_at, $1::timestamp),
+    removed_by_id    = $2::uuid,
+    pending_quantity = NULL,
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = $2::uuid
 WHERE organization_id = $3
@@ -864,10 +992,39 @@ func (q *Queries) RemoveInstanceAddonAt(ctx context.Context, arg RemoveInstanceA
 	return err
 }
 
+const schedulePendingQuantity = `-- name: SchedulePendingQuantity :exec
+UPDATE instance_addon
+SET pending_quantity = $1::integer,
+    updated_at       = CURRENT_TIMESTAMP,
+    updated_by_id    = $2::uuid
+WHERE organization_id = $3
+  AND id = $4
+`
+
+type SchedulePendingQuantityParams struct {
+	PendingQuantity *int32    `json:"pending_quantity"`
+	UserID          uuid.UUID `json:"user_id"`
+	OrganizationID  uuid.UUID `json:"organization_id"`
+	ID              uuid.UUID `json:"id"`
+}
+
+// A public decrease or removal (0) scheduled for the next boundary, or NULL
+// to cancel it (V31-67): the quantity stays until the close applies it.
+func (q *Queries) SchedulePendingQuantity(ctx context.Context, arg SchedulePendingQuantityParams) error {
+	_, err := q.db.Exec(ctx, schedulePendingQuantity,
+		arg.PendingQuantity,
+		arg.UserID,
+		arg.OrganizationID,
+		arg.ID,
+	)
+	return err
+}
+
 const setInstanceAddonQuantity = `-- name: SetInstanceAddonQuantity :exec
 UPDATE instance_addon
 SET quantity            = $1,
     period_max_quantity = GREATEST(period_max_quantity, $1),
+    pending_quantity    = NULL,
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = $2
 WHERE organization_id = $3
@@ -883,7 +1040,7 @@ type SetInstanceAddonQuantityParams struct {
 
 // An increase raises period_max_quantity in the same statement, as the CHECK
 // requires; a decrease leaves it, so the true-up still sees the high point
-// (V31-70).
+// (V31-70). It clears a scheduled public decrease (V31-67).
 func (q *Queries) SetInstanceAddonQuantity(ctx context.Context, arg SetInstanceAddonQuantityParams) error {
 	_, err := q.db.Exec(ctx, setInstanceAddonQuantity,
 		arg.Quantity,

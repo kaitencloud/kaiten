@@ -24,6 +24,14 @@ type AddonFallback interface {
 	RemoveForFallback(ctx context.Context, organizationID, actorID uuid.UUID, instanceSlug string, licenseID uuid.UUID, at time.Time) error
 }
 
+// AddonSchedule applies, inside the caller's transaction, the public add-on
+// decreases scheduled on an instance (§10.2, V31-67): at a boundary, after
+// its composition read the quantities it bills, or at a cancellation, after
+// which no boundary is left to wait for. Implemented by the add-ons module.
+type AddonSchedule interface {
+	ApplyScheduled(ctx context.Context, organizationID, actorID, instanceID uuid.UUID, at time.Time) error
+}
+
 // VoucherRedeemer redeems a voucher for an instance, inside the caller's
 // transaction, under every rule of §11. Implemented by the vouchers module.
 type VoucherRedeemer interface {

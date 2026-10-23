@@ -112,7 +112,7 @@ ORDER BY ia.created_at, ia.id;
 
 
 -- name: LockActiveInstanceAddon :one
-SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 WHERE ia.organization_id = sqlc.arg(organization_id)
@@ -125,20 +125,71 @@ FOR UPDATE OF ia;
 -- name: SetInstanceAddonQuantity :exec
 -- An increase raises period_max_quantity in the same statement, as the CHECK
 -- requires; a decrease leaves it, so the true-up still sees the high point
--- (V31-70).
+-- (V31-70). It clears a scheduled public decrease (V31-67).
 UPDATE instance_addon
 SET quantity            = sqlc.arg(quantity),
     period_max_quantity = GREATEST(period_max_quantity, sqlc.arg(quantity)),
+    pending_quantity    = NULL,
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = sqlc.arg(user_id)
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id);
 
 
+-- name: SchedulePendingQuantity :exec
+-- A public decrease or removal (0) scheduled for the next boundary, or NULL
+-- to cancel it (V31-67): the quantity stays until the close applies it.
+UPDATE instance_addon
+SET pending_quantity = sqlc.narg(pending_quantity)::integer,
+    updated_at       = CURRENT_TIMESTAMP,
+    updated_by_id    = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
+
+
+-- name: LockInstanceForAddonsByID :one
+-- LockInstanceForAddons, by id: the instance a boundary of billing names.
+SELECT i.id, i.slug, i.license_id, l.family_id AS license_family_id
+FROM instance i
+JOIN license l ON l.id = i.license_id AND l.organization_id = i.organization_id
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.id = sqlc.arg(id)
+FOR NO KEY UPDATE OF i;
+
+
+-- name: LockScheduledInstanceAddons :many
+-- The attachments with a public decrease scheduled, which a boundary applies.
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND ia.pending_quantity IS NOT NULL
+ORDER BY ia.created_at, ia.id
+FOR UPDATE OF ia;
+
+
+-- name: ApplyPendingQuantity :exec
+-- The boundary at applies a scheduled decrease: the quantity becomes the
+-- scheduled one, or the attachment is removed at the boundary for 0.
+UPDATE instance_addon
+SET quantity         = CASE WHEN pending_quantity > 0 THEN pending_quantity ELSE quantity END,
+    removed_at       = CASE WHEN pending_quantity = 0 THEN GREATEST(created_at, sqlc.arg(at)::timestamp) END,
+    removed_by_id    = CASE WHEN pending_quantity = 0 THEN sqlc.arg(user_id)::uuid END,
+    pending_quantity = NULL,
+    updated_at       = CURRENT_TIMESTAMP,
+    updated_by_id    = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND pending_quantity IS NOT NULL;
+
+
 -- name: RemoveInstanceAddon :exec
 UPDATE instance_addon
-SET removed_at    = CURRENT_TIMESTAMP,
-    removed_by_id = sqlc.arg(user_id)::uuid,
+SET removed_at       = CURRENT_TIMESTAMP,
+    removed_by_id    = sqlc.arg(user_id)::uuid,
+    pending_quantity = NULL,
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = sqlc.arg(user_id)::uuid
 WHERE organization_id = sqlc.arg(organization_id)
@@ -148,7 +199,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: LockAttachmentsIncompatibleWith :many
 -- The active attachments a fallback move strands (§9.11 rule 3): their add-on
 -- version is not compatible with the family of the licence version.
-SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 WHERE ia.organization_id = sqlc.arg(organization_id)
@@ -167,8 +218,9 @@ FOR UPDATE OF ia;
 -- A removal billing makes at an instant of its own: the cancellation that
 -- moves the instance to its fallback, never before the attachment began.
 UPDATE instance_addon
-SET removed_at    = GREATEST(created_at, sqlc.arg(at)::timestamp),
-    removed_by_id = sqlc.arg(user_id)::uuid,
+SET removed_at       = GREATEST(created_at, sqlc.arg(at)::timestamp),
+    removed_by_id    = sqlc.arg(user_id)::uuid,
+    pending_quantity = NULL,
     updated_at    = CURRENT_TIMESTAMP,
     updated_by_id = sqlc.arg(user_id)::uuid
 WHERE organization_id = sqlc.arg(organization_id)
@@ -177,10 +229,13 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: ListBillableAddons :many
--- What billing reads at a boundary: the add-ons an instance holds, each with
--- its default FLAT_FEE price for the subscription's period. A held add-on
--- without one bills nothing.
-SELECT ia.id AS instance_addon_id, ia.addon_id, ia.quantity, a.slug AS addon_slug, a.name AS addon_name,
+-- What billing reads at a boundary: the add-ons an instance holds there, each
+-- with its default FLAT_FEE price for the subscription's period. A held add-on
+-- without one bills nothing. The quantity at the boundary is the scheduled
+-- public decrease when there is one, and one scheduled for removal is not
+-- held there (V31-67, §10.4).
+SELECT ia.id AS instance_addon_id, ia.addon_id, COALESCE(ia.pending_quantity, ia.quantity)::integer AS quantity,
+       a.slug AS addon_slug, a.name AS addon_name,
        p.id AS price_id, p.billing_timing, p.unit_amount_decimal::text AS unit_amount_decimal,
        p.currency::text AS currency, p.display_label
 FROM instance_addon ia
@@ -194,6 +249,7 @@ JOIN addon_price p
 WHERE ia.organization_id = sqlc.arg(organization_id)
   AND ia.instance_id = sqlc.arg(instance_id)
   AND ia.removed_at IS NULL
+  AND COALESCE(ia.pending_quantity, 1) > 0
 ORDER BY ia.created_at, ia.id;
 
 
