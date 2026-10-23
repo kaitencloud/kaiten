@@ -46,6 +46,7 @@ import {
   moveInvoiceToStripe,
   moveSubscriptionToStripe,
 } from './stripe';
+import { createCheckoutSessions } from './checkout-sessions';
 import { createPublishableKeys } from './publishable-keys';
 import { createVouchers } from './vouchers';
 import { bySlug } from './by-slug';
@@ -240,6 +241,7 @@ export function createDevMockConfig({
     addonCatalogue,
     addons: attachments,
     capabilities: createBillingCapabilities(stripe),
+    checkoutSessions: createCheckoutSessions(),
     ...billingInvoices,
     ...billingSubscriptions,
     providerTruth: stripeWorld.providerTruth,

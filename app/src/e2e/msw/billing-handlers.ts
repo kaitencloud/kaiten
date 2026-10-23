@@ -12,6 +12,7 @@ import {
   type EntitlementEffects,
   billingAddonHandlers,
 } from './billing-addon-handlers';
+import { billingCheckoutSessionHandlers } from './billing-checkout-session-handlers';
 import { billingInvoiceHandlers } from './billing-invoice-handlers';
 import { billingProviderHandlers } from './billing-provider-handlers';
 import { billingPublishableKeyHandlers } from './billing-publishable-key-handlers';
@@ -64,6 +65,7 @@ export const billingHandlers = (
         }
       : {}),
   }),
+  ...billingCheckoutSessionHandlers(model),
   ...billingInvoiceHandlers(model, persist),
   ...billingProviderHandlers(model, persist),
   ...billingPublishableKeyHandlers(model, persist),

@@ -44,12 +44,14 @@ function decodeCursor(cursor: string, code: string): string {
  * The page of a list the API pages: `rows` are the whole list in its order, newest
  * first, and the page is the rows after the cursor, `limit` of them (fifty unless
  * asked, at most two hundred). `resource` names the list in the refusal of a cursor
- * that is not one the list returned (`400 <resource>.InvalidCursor`).
+ * that is not one the list returned (`400 <resource>.InvalidCursor`). A row is told apart
+ * by its `id` unless `idOf` says otherwise.
  */
-export function pageOfRows<T extends { id: string }>(
+export function pageOfRows<T>(
   rows: readonly T[],
   request: PageRequest,
   resource: string,
+  idOf: (row: T) => string = (row) => (row as { id: string }).id,
 ): Page<T> {
   const size = Math.min(
     request.limit && request.limit > 0 ? request.limit : DEFAULT_PAGE_SIZE,
@@ -58,7 +60,7 @@ export function pageOfRows<T extends { id: string }>(
   let start = 0;
   if (request.cursor) {
     const id = decodeCursor(request.cursor, `${resource}.InvalidCursor`);
-    const position = rows.findIndex((row) => row.id === id);
+    const position = rows.findIndex((row) => idOf(row) === id);
     start = position === -1 ? rows.length : position + 1;
   }
   const items = rows.slice(start, start + size);
@@ -68,6 +70,6 @@ export function pageOfRows<T extends { id: string }>(
   return {
     hasMore,
     items,
-    ...(hasMore ? { nextCursor: encodeCursor(last.id) } : {}),
+    ...(hasMore ? { nextCursor: encodeCursor(idOf(last)) } : {}),
   };
 }

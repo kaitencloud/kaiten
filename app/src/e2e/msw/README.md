@@ -86,6 +86,8 @@ change, a revocation is final and answers the same again, and the key itself is 
 answer to its creation and nowhere else, so that the state a page persists never holds one.
 `src/__tests__/billing-publishable-key-mocks.test.ts` reads these answers off the wire.
 
+The anonymous checkouts are `BillingCheckoutSessions` (`billing-checkout-sessions.ts`, served by `billing-checkout-session-handlers.ts`): newest first, a cursor per page, the filters the API applies (`status` repeated, the e-mail in any case, the reference exactly), a checkout left open past its expiry read as abandoned from the clock of the page, and 404 `GetCheckoutSessionAdmin.NotFound` for an unknown or a deleted one. The model only reads, because a checkout is started, confirmed and completed on the public surface, which the console does not use. `buildCheckoutSession` (`e2e/app/_support/fixtures`) builds one as the vendor reads it.
+
 Stripe's connector is served by `connector-handlers.ts` over the operations of Attio's, told apart
 by the name in the path (`ConnectorAppModel`: the key is write-only and redacted, a save
 activates the connector after the checks the API makes in its order, the Vault, the plan, the

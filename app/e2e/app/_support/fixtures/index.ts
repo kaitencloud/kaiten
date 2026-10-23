@@ -10,6 +10,7 @@
  * ```
  */
 export { buildAddon, buildAddonGrant, buildInstanceAddon } from './build-addon';
+export { buildCheckoutSession } from './build-checkout-session';
 export { buildCustomer, SYSTEM_USER, TEST_USER } from './build-customer';
 export { buildDeploymentZone } from './build-deployment-zone';
 export { NULL_LINE_MEMBERS } from './build-invoice';

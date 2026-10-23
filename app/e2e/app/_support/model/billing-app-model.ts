@@ -8,6 +8,11 @@ import {
 } from './billing-addon-catalogue';
 import { billingCapabilitiesProfiles } from './billing-capabilities';
 import {
+  BillingCheckoutSessions,
+  type BillingCheckoutSessionsSeed,
+  type SerializedBillingCheckoutSessions,
+} from './billing-checkout-sessions';
+import {
   BillingInvoices,
   type BillingInvoicesSeed,
   type SerializedBillingInvoices,
@@ -84,6 +89,8 @@ export type BillingAppModelSeed = BillingInvoicesSeed &
     addonCatalogue?: AddonCatalogueSeed;
     /** What `GET /billing/capabilities` answers; billing on with NoOp by default. */
     capabilities?: BillingCapabilities;
+    /** The anonymous checkouts of the organization: what a vendor reads to link a buyer to its own account. */
+    checkoutSessions?: BillingCheckoutSessionsSeed;
     /** The customers as the payment provider holds them, the health of billing and the provider's pass. */
     providers?: BillingProvidersSeed;
     /** The publishable keys of the organization: the keys a web page reads the public catalog with. */
@@ -96,6 +103,8 @@ export type SerializedBillingAppModel = {
   /** The add-on catalogue; a state stored before it existed has none. */
   addonCatalogue?: SerializedAddonCatalogue;
   capabilities: BillingCapabilities;
+  /** The anonymous checkouts; a state stored before they existed has none. */
+  checkoutSessions?: SerializedBillingCheckoutSessions;
   /** The invoices and their queue; a state stored before they existed has none. */
   invoices?: SerializedBillingInvoices;
   outage: CapabilitiesOutage | null;
@@ -132,6 +141,8 @@ export class BillingAppModel {
   providers: BillingProviders;
   /** The publishable keys: issued once, listed by their last four characters, edited and revoked. */
   publishableKeys: BillingPublishableKeys;
+  /** The anonymous checkouts: read newest first, filtered as the API filters, never changed from the console. */
+  checkoutSessions: BillingCheckoutSessions;
   /** The billing e-mail of a customer as the customers of the organization hold it, once the page serves them. */
   private emailOf: ((customerSlug: string) => string | undefined) | undefined;
 
@@ -164,6 +175,11 @@ export class BillingAppModel {
       );
       model.wirePublishableKeys();
     }
+    if (state.checkoutSessions) {
+      model.checkoutSessions = BillingCheckoutSessions.fromSerialized(
+        state.checkoutSessions,
+      );
+    }
     model.subscriptions = state.subscriptions
       ? BillingSubscriptions.fromSerialized(
           model.invoices,
@@ -187,6 +203,7 @@ export class BillingAppModel {
     return {
       addonCatalogue: this.addons.serialize(),
       capabilities: clone(this.capabilities),
+      checkoutSessions: this.checkoutSessions.serialize(),
       invoices: this.invoices.serialize(),
       outage: clone(this.outage),
       providers: this.providers.serialize(),
@@ -207,6 +224,7 @@ export class BillingAppModel {
     this.vouchers = new BillingVouchers(seed.voucherCatalogue);
     this.publishableKeys = new BillingPublishableKeys(seed.publishableKeys);
     this.wirePublishableKeys();
+    this.checkoutSessions = new BillingCheckoutSessions(seed.checkoutSessions);
     this.subscriptions = new BillingSubscriptions(
       this.invoices,
       seed,

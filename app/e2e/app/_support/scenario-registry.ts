@@ -50,6 +50,11 @@ import {
   createVouchersNotShippedBillingModel,
 } from '../vouchers/vouchers.scenarios';
 import {
+  createCheckoutSessionsBillingModel,
+  createCheckoutSessionsCustomersModel,
+  createEmptyCheckoutSessionsBillingModel,
+} from '../customers/checkout-sessions.scenarios';
+import {
   createAnonymousCheckoutCustomerModel,
   createBillingCustomersModel,
   createCustomersListModel,
@@ -260,6 +265,18 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['billing/createDeletedInstanceModel', createDeletedInstanceModel],
   ['billing/createMismatchedTotalsModel', createMismatchedTotalsModel],
   ['customers/createCustomersListModel', createCustomersListModel],
+  [
+    'customers/createCheckoutSessionsBillingModel',
+    createCheckoutSessionsBillingModel,
+  ],
+  [
+    'customers/createEmptyCheckoutSessionsBillingModel',
+    createEmptyCheckoutSessionsBillingModel,
+  ],
+  [
+    'customers/createCheckoutSessionsCustomersModel',
+    createCheckoutSessionsCustomersModel,
+  ],
   [
     'customers/createAnonymousCheckoutCustomerModel',
     createAnonymousCheckoutCustomerModel,
