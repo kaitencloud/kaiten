@@ -160,12 +160,16 @@ function DemoWizard({
             Back
           </Button>
         )}
+        {/* Two keys: the same button in the same place would be one DOM node,
+            flipped from `button` to `submit` during the click that moves on. */}
         {step < 1 ? (
-          <Button type="button" onClick={() => goTo(step + 1)}>
+          <Button key="next" type="button" onClick={() => goTo(step + 1)}>
             Next
           </Button>
         ) : (
-          <Button type="submit">Send</Button>
+          <Button key="send" type="submit">
+            Send
+          </Button>
         )}
       </div>
     </form>

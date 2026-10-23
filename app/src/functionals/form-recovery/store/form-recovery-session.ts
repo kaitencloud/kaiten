@@ -72,6 +72,7 @@ export type FormRecoverySession = {
     ) => void;
     flushOnUnmount: (epoch: number) => void;
     getEpoch: () => number;
+    sendStarted: () => boolean;
     addNotes: (notes: readonly FormRecoveryNote[]) => void;
     clearOmitted: (paths: readonly string[]) => void;
     resume: () => void;
@@ -154,6 +155,7 @@ function createRuntime(
     openElsewhereDismissed: false,
     unsubscribe: null,
     pendingAdoption: null,
+    sendStarted: false,
   };
 }
 
@@ -271,6 +273,7 @@ export function createFormRecoverySession(
       },
       flushOnUnmount: (epoch) => flushOnUnmount(ctx, epoch),
       getEpoch: () => runtime.epoch,
+      sendStarted: () => runtime.sendStarted,
       addNotes: (notes) => addNotes(ctx, notes),
       clearOmitted: (paths) => clearOmitted(ctx, paths),
       resume: () => void resume(ctx),

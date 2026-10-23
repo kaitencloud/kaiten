@@ -199,6 +199,8 @@ export type FormRecoveryInternals = {
   steps: readonly string[];
   /** Raised each time the subtree is replaced: tells a stale adapter from the live one. */
   epoch: () => number;
+  /** `send` or `begin` was called for the input now on screen. */
+  sendStarted: () => boolean;
   /** Raised when the focus must move to the form. */
   focusToken: number;
   /** `epoch` is the one the adapter was mounted with: a stale one is ignored. */

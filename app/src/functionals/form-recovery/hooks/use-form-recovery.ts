@@ -122,6 +122,7 @@ export function useFormRecovery<
         descriptor,
         steps,
         epoch: actions.getEpoch,
+        sendStarted: actions.sendStarted,
         focusToken: state.focusToken,
         track: actions.track,
         flushOnUnmount: actions.flushOnUnmount,

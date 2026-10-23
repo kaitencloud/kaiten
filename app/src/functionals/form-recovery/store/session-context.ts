@@ -90,6 +90,8 @@ export type SessionRuntime = {
    * `start` writes it, once the mount is committed.
    */
   pendingAdoption: FormRecoveryEntry | null;
+  /** `send` or `begin` was called for this input: a submit went through the recovery. */
+  sendStarted: boolean;
 };
 
 export type SessionContext = {

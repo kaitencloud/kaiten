@@ -204,10 +204,14 @@ export function useFormRecoveryForm<
     return () => {
       subscription.unsubscribe();
       recoveryRef.current.internals.flushOnUnmount(epoch);
-      const { writer } = recoveryRef.current;
+      const { writer, internals } = recoveryRef.current;
+      // `isSubmitSuccessful` is true after any submit whose handler returned,
+      // a refused send included (the handler catches its error): the check is
+      // whether `send` was ever called, not how the submit ended.
       if (
         import.meta.env.DEV &&
         form.state.isSubmitSuccessful &&
+        !internals.sendStarted() &&
         (writer.status === 'dirty' || writer.status === 'saved')
       ) {
         logger.warn(

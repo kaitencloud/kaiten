@@ -1,7 +1,9 @@
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
+import { ApiError } from '@/lib/errors';
 import { formRecoveryCollectionExists } from '@/lib/form-recovery';
-import { useFormRecovery } from '..';
+import { logger } from '@/lib/logger';
+import { useFormRecovery, useFormRecoveryForm } from '..';
 import { installRecoveryTranslations } from './recovery-test-utils';
 import { demoDefaults, demoRecovery } from '../stories/recovery-demo-form';
 
@@ -88,5 +90,61 @@ describe('useFormRecovery', () => {
 
     expect(result.current.persistent).toBe(false);
     expect(formRecoveryCollectionExists()).toBe(false);
+  });
+});
+
+describe('the warning for a submit that skipped send', () => {
+  function mountWithForm(isSubmitSuccessful: boolean) {
+    let notify = () => {};
+    const form = {
+      store: {
+        subscribe: (listener: () => void) => {
+          notify = listener;
+          return { unsubscribe: () => {} };
+        },
+      },
+      state: { values: demoDefaults(), isSubmitSuccessful },
+      reset: vi.fn(),
+      setFieldMeta: vi.fn(),
+      setFieldValue: vi.fn(),
+      validate: vi.fn(),
+    };
+    const view = renderHook(() => {
+      const recovery = useFormRecovery(demoRecovery, {
+        enabled: true,
+        pristine: demoDefaults(),
+      });
+      useFormRecoveryForm(recovery, form);
+      return recovery;
+    });
+    form.state.values = { ...demoDefaults(), name: 'Gold' };
+    act(() => notify());
+    return view;
+  }
+
+  it('warns when a typed form was submitted without going through send', () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const view = mountWithForm(true);
+
+    view.unmount();
+
+    expect(warn).toHaveBeenCalledWith(
+      'A recovered form was submitted without going through send',
+      { formId: 'demo.create' },
+    );
+  });
+
+  it('does not warn after a refused send, which also leaves isSubmitSuccessful true', async () => {
+    const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const view = mountWithForm(true);
+
+    await act(async () => {
+      await view.result.current
+        .send(() => Promise.reject(new ApiError({ status: 422, data: null })))
+        .catch(() => {});
+    });
+    view.unmount();
+
+    expect(warn).not.toHaveBeenCalled();
   });
 });

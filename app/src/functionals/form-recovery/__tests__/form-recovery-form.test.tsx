@@ -47,6 +47,26 @@ async function fillAndLeave(user: ReturnType<typeof setupUser>) {
 }
 
 describe('a form that uses the recovery', () => {
+  it('moves to the next step with "Next" without sending, and sends with "Send"', async () => {
+    const user = setupUser();
+    const request = vi.fn().mockResolvedValue({});
+    mountDemo({ request });
+
+    await user.type(input('Name'), 'Gold');
+    await user.click(screen.getByRole('button', { name: 'Next' }));
+    await elapse(300);
+
+    expect(request).not.toHaveBeenCalled();
+    expect(screen.queryByText('Sent')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Send' })).toHaveAttribute('type', 'submit');
+
+    await user.type(input('Count'), '12');
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(await screen.findByText('Sent')).toBeInTheDocument();
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
   it('writes nothing and shows nothing while the person has typed nothing', async () => {
     const user = setupUser();
     mountDemo();

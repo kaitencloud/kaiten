@@ -65,6 +65,7 @@ function fakeRecovery(
       descriptor,
       steps: descriptor.steps ?? [],
       epoch: () => 0,
+      sendStarted: () => true,
       focusToken: 0,
       track: vi.fn(),
       flushOnUnmount: vi.fn(),

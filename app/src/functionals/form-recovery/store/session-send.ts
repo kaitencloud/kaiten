@@ -89,6 +89,7 @@ async function settleAccepted(
  */
 export function beginAttempt(ctx: SessionContext): FormRecoveryAttempt {
   const { runtime, store } = ctx;
+  runtime.sendStarted = true;
   if (PASS_THROUGH.has(store.state.writer.status)) {
     return PASS_THROUGH_ATTEMPT;
   }
@@ -254,6 +255,7 @@ export function restart(ctx: SessionContext) {
   runtime.attempt = 0;
   runtime.attemptedAt = null;
   runtime.ownRecordExpected = false;
+  runtime.sendStarted = false;
 
   ctx.setState({
     lineageId: newLineageId(),

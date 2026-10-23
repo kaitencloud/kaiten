@@ -140,3 +140,18 @@ export const StartOver: Story = {
     await expect(canvas.getByLabelText('Name')).toHaveValue('');
   },
 };
+
+/** "Next" only moves to the second step; the form is sent by "Send". */
+export const NextThenSend: Story = {
+  loaders: [() => seed(null)],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.type(await canvas.findByLabelText('Name'), 'Gold');
+    await userEvent.click(canvas.getByRole('button', { name: 'Next' }));
+    await expect(await canvas.findByLabelText('Count')).toBeVisible();
+    await expect(canvas.queryByText('Sent')).toBeNull();
+    await userEvent.type(canvas.getByLabelText('Count'), '12');
+    await userEvent.click(canvas.getByRole('button', { name: 'Send' }));
+    await expect(await canvas.findByText('Sent')).toBeVisible();
+  },
+};
