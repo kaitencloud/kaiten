@@ -81,6 +81,12 @@ const awaitsBilling = "billing: the SDK models it in its billing release"
 const awaitsExceptions = "entitlement exceptions: the SDK models them after the contract"
 
 var awaitingSDKOperations = map[string]string{
+	// The AI companion SDK pin predates the billing usage-history services.
+	// Keep these as explicit billing-release debt until that SDK maps them.
+	"listUsageReports":               awaitsBilling,
+	"exportUsageReports":             awaitsBilling,
+	"exportOrganizationUsageReports": awaitsBilling,
+
 	"listLicensePrices":        awaitsBilling,
 	"getLicensePrice":          awaitsBilling,
 	"createLicensePrice":       awaitsBilling,
@@ -242,9 +248,6 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		"getEntitlementsUsageMetrics":        {receiver: client.Instances, method: "ListEntitlementUsageMetrics"},
 		"getEntitlementUsageMetrics":         {receiver: client.Instances, method: "GetEntitlementUsageMetric"},
 		"reportEntitlementUsageMetric":       {receiver: client.Instances, method: "ReportEntitlementUsageMetric"},
-		"listUsageReports":                   {receiver: client.Instances, method: "ListUsageReports"},
-		"exportUsageReports":                 {receiver: client.Instances, method: "ExportUsageReports"},
-		"exportOrganizationUsageReports":     {receiver: client.Instances, method: "ExportOrganizationUsageReports"},
 		"get-licenses":                       {receiver: client.Licenses, method: "List"},
 		"create-license":                     {receiver: client.Licenses, method: "Create"},
 		"delete-license":                     {receiver: client.Licenses, method: "Delete"},

@@ -117,6 +117,7 @@ export default {
     },
     Usage: {
       title: 'AI usage',
+      allStatuses: 'All statuses',
       record: 'Immutable record',
       time: 'Reported at',
       requestStatus: 'Request status',

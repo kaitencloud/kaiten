@@ -185,7 +185,7 @@ func newEntitlementWithType(t *testing.T, entitlementType entitlementschema.Type
 
 	description := "Test entitlement description"
 	var aggregationMethod *entitlementschema.AggregationMethod
-	if entitlementType == entitlementschema.Number {
+	if entitlementType == entitlementschema.Number || entitlementType == entitlementschema.NumberAICredit {
 		aggregationMethod = ptr.To(entitlementschema.Sum)
 	}
 

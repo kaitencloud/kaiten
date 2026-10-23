@@ -12,10 +12,7 @@ import {
   listAiInferencesQueryKey,
   listAiReservationsOptions,
 } from '@/api-client/@tanstack/react-query.gen';
-import {
-  allEntitlementsOptions,
-  allLicenseEntitlementsOptions,
-} from '@/lib/api/all-pages-query-options';
+import { allEntitlementsOptions } from '@/lib/api/all-pages-query-options';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -124,13 +121,8 @@ function PoolUsage({
     getNextPageParam: (page) => (page.hasMore ? page.nextCursor : undefined),
   });
   const reservations = useQuery(listAiReservationsOptions({ path }));
-  const { data: grants } = useSuspenseQuery(
-    allLicenseEntitlementsOptions(usage.licenseSlug),
-  );
-  const percent =
-    grants.items.find(
-      (grant) => grant.entitlementSlug === usage.entitlementSlug,
-    )?.limitCapExceededOveragePercent ?? 0;
+  // The gauge includes billing's add-on and boost policy, not just the licence.
+  const percent = usage.limitCapExceededOveragePercent ?? 0;
   const consumed = usage.value.type === 'number' ? usage.value.value : 0;
   const limit = usage.limit?.type === 'number' ? usage.limit.value : -1;
   const maximum =
@@ -195,7 +187,7 @@ function PoolUsage({
             value={status}
             onChange={(event) => setStatus(event.target.value)}
           >
-            <option value="">{t('AI.any')}</option>
+            <option value="">{t('AI.Usage.allStatuses')}</option>
             <option>RESERVED</option>
             <option>COMMITTED</option>
             <option>RELEASED</option>

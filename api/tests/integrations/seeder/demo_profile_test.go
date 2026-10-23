@@ -505,7 +505,7 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 	// by demo instances. Titles repeat within a family, but notification IDs
 	// and version-specific links must remain distinct.
 	expectedLinks := map[string]string{
-		"AI credits was assigned to Starter":                "/licenses/starter",
+		"AI credits was assigned to Starter":                "/catalog/licenses/starter",
 		"Sakura Tokyo Production was created":               "/customers/instances/sakura-tokyo-prod",
 		"Sakura Tokyo Demo was created":                     "/customers/instances/sakura-tokyo-demo",
 		"Ninja Osaka Production was created":                "/customers/instances/ninja-osaka-prod",

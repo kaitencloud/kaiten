@@ -81,5 +81,5 @@ ORDER BY a.reported_at DESC,a.id DESC;
 -- name: ResolveAIReadPair :one
 SELECT i.id AS instance_id,e.id AS entitlement_id FROM instance i
 JOIN entitlement e ON e.organization_id=i.organization_id AND e.slug=sqlc.arg(entitlement_slug)
-JOIN license_entitlement le ON le.organization_id=i.organization_id AND le.license_id=i.license_id AND le.entitlement_id=e.id
+JOIN instance_effective_entitlement iee ON iee.organization_id=i.organization_id AND iee.instance_id=i.id AND iee.entitlement_id=e.id
 WHERE i.organization_id=sqlc.arg(organization_id) AND i.slug=sqlc.arg(instance_slug) AND e.type='NUMBER_AI_CREDIT';

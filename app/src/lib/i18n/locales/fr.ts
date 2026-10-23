@@ -121,6 +121,7 @@ export default {
     },
     Usage: {
       title: 'Usage IA',
+      allStatuses: 'Tous les statuts',
       record: 'Enregistrement immuable',
       time: 'Date du rapport',
       requestStatus: 'État de la requête',

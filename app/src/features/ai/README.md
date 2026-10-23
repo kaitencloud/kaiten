@@ -23,6 +23,8 @@ The matrix omits archived rules, but retains rules whose pool is not granted.
 
 Instance AI usage lives in the instances feature, with status, date range and
 transaction filters supported by the read API. Two-decimal summaries are paired
-with the complete stored inference record. Lean V1 records do not carry pricing
+with the complete stored inference record. Limits and soft maxima use the effective
+usage gauge, including billing add-on/boost policy; an add-on-only pool needs no
+licence grant lookup. Lean V1 records do not carry pricing
 snapshots or persisted warnings, so the console does not invent them. Reservations
 are read-only; no provider request or usage-report write is made by the UI.
