@@ -19,6 +19,17 @@ describe('where a customer comes back to from a page Stripe hosts', () => {
   });
 });
 
+describe('where a customer whose slug a static route of /customers takes comes back to', () => {
+  it.each(['checkout-sessions', 'new'])(
+    'is the page of %s under /overview, not the list or the dialog its slug alone would reach',
+    (slug) => {
+      expect(getCustomerReturnUrl(slug)).toBe(
+        `${window.location.origin}/customers/${slug}/overview`,
+      );
+    },
+  );
+});
+
 describe('leaving for a page Stripe hosts', () => {
   it('sends the whole page there, since the page comes back to the console', () => {
     const assign = vi.fn();

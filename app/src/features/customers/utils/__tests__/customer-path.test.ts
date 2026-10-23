@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
+  getCustomerDetailPath,
   getCustomerDetailTarget,
   isShadowedCustomerSlug,
   SHADOWED_CUSTOMER_SLUGS,
@@ -39,6 +40,23 @@ describe('getCustomerDetailTarget', () => {
   it('has no address under /overview for instances, whose static route takes a segment of its own', () => {
     expect(getCustomerDetailTarget('instances').to).toBe(
       '/customers/$customerSlug',
+    );
+  });
+});
+
+describe('getCustomerDetailPath', () => {
+  it('is the address getCustomerDetailTarget leads to, written out', () => {
+    expect(getCustomerDetailPath('acme-corp')).toBe('/customers/acme-corp');
+    expect(getCustomerDetailPath('checkout-sessions')).toBe(
+      '/customers/checkout-sessions/overview',
+    );
+    expect(getCustomerDetailPath('new')).toBe('/customers/new/overview');
+    expect(getCustomerDetailPath('instances')).toBe('/customers/instances');
+  });
+
+  it('writes a slug as it goes in an address', () => {
+    expect(getCustomerDetailPath('acme corp/eu')).toBe(
+      '/customers/acme%20corp%2Feu',
     );
   });
 });

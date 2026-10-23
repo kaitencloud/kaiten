@@ -22,6 +22,8 @@ const OVERVIEW_SLUGS: ReadonlySet<string> = new Set([
   'new',
 ]);
 
+const OVERVIEW_SUFFIX = '/overview';
+
 export const isShadowedCustomerSlug = (slug: string): boolean =>
   SHADOWED_CUSTOMER_SLUGS.has(slug);
 
@@ -38,3 +40,13 @@ export function getCustomerDetailTarget(customerSlug: string) {
       : ('/customers/$customerSlug' as const),
   };
 }
+
+/**
+ * The same address as a string, for a place that has no router to build it: the page
+ * the payment provider sends a customer back to. `/customers/<slug>` would be the list of
+ * checkouts, or the creation dialog, for a slug that a static route takes.
+ */
+export const getCustomerDetailPath = (customerSlug: string): string =>
+  `/customers/${encodeURIComponent(customerSlug)}${
+    OVERVIEW_SLUGS.has(customerSlug) ? OVERVIEW_SUFFIX : ''
+  }`;

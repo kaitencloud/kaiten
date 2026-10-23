@@ -103,6 +103,35 @@ describe('createCustomerFormSchema', () => {
     },
   );
 
+  it.each(['Checkout Sessions', 'New', 'Instances'])(
+    'refuses the name %s with the slug cleared, the slug the API would make from it',
+    (name) => {
+      const result = createCustomerFormSchema.safeParse({
+        ...values,
+        name,
+        slug: '',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          message: 'Pages.Customers.Mutation.Form.Errors.slugShadowed',
+          path: ['slug'],
+        }),
+      ]);
+    },
+  );
+
+  it('accepts a name that merely starts like such a slug, with the slug cleared', () => {
+    expect(
+      createCustomerFormSchema.safeParse({
+        ...values,
+        name: 'New Horizons',
+        slug: '',
+      }).success,
+    ).toBe(true);
+  });
+
   it('accepts an empty slug, a slug that only starts like one, and any other', () => {
     for (const slug of ['', 'checkout-sessions-ltd', 'newsletter', 'acme']) {
       expect(createCustomerFormSchema.safeParse({ ...values, slug }).success).toBe(

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { CustomerWritable, Customer } from '@/api-client';
 import { zCustomer } from '@/api-client/zod.gen';
 import { billingEmailSchema } from '@/domains/customer-management';
+import { generateSlug } from '@/functionals/slug';
 import { isShadowedCustomerSlug } from '../utils/customer-path';
 
 const customerDomainSchema = z
@@ -41,12 +42,15 @@ export type CustomerFormValues = z.infer<typeof customerFormSchema>;
 /**
  * What a new customer is checked against: the schema above, and a slug that no static
  * route of `/customers` takes. Such a slug would make the page of the customer
- * unreachable at its own address. An edit keeps `customerFormSchema`: the slug is locked
+ * unreachable at its own address. A slug left blank is the one the API makes from the
+ * name, by the rule of the field, so that is the one checked then. An edit keeps `customerFormSchema`: the slug is locked
  * there, and a customer an API client made with one stays editable.
  */
 export const createCustomerFormSchema = customerFormSchema.superRefine(
   (values, context) => {
-    if (isShadowedCustomerSlug(values.slug)) {
+    const slug = values.slug === '' ? generateSlug(values.name) : values.slug;
+
+    if (isShadowedCustomerSlug(slug)) {
       context.addIssue({
         code: 'custom',
         message: 'Pages.Customers.Mutation.Form.Errors.slugShadowed',
