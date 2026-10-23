@@ -303,11 +303,13 @@ export function useFormRecoveryForm<
   const { focusToken } = recovery.internals;
   useEffect(() => {
     if (!active || focusToken <= focusedToken.current) return;
-    focusedToken.current = focusToken;
 
-    // A field may still be on its way (they are code-split): ask again.
+    // A field may still be on its way (they are code-split): ask again. The token is
+    // spent when an attempt runs, not when they are armed: StrictMode runs an effect,
+    // cleans it up and runs it again, and the second run must still find it unspent.
     const timers = FOCUS_ATTEMPTS_MS.map((delay) =>
       setTimeout(() => {
+        focusedToken.current = focusToken;
         if (
           containerRef.current &&
           !containerRef.current.contains(document.activeElement)

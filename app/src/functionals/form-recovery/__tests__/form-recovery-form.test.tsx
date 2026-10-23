@@ -121,6 +121,23 @@ describe('a form that uses the recovery', () => {
     expect(document.body).not.toBe(document.activeElement);
   });
 
+  // StrictMode runs an effect, cleans it up and runs it again: the focus attempts armed
+  // by the first run are cleared, and the second must arm them again.
+  it('moves the focus into the form after "Resume" when effects run twice', async () => {
+    const user = setupUser();
+    await fillAndLeave(user);
+
+    mountDemo({}, { strict: true });
+    await user.click(await screen.findByRole('button', { name: 'Resume' }));
+    await screen.findByLabelText('Count');
+    await elapse(300);
+
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.querySelector('form')).toContainElement(
+      document.activeElement as HTMLElement,
+    );
+  });
+
   it('never stores a secret, reminds of it after "Resume", and lets go of the reminder once it is entered', async () => {
     const user = setupUser();
     await fillAndLeave(user);

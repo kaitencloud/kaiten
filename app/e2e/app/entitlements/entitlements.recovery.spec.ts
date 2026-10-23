@@ -43,8 +43,11 @@ test('offers back a half-filled creation after a reload, restores both steps, an
   await expect(form.unitSingularField()).toHaveCount(0);
   await expect(form.nameField()).toHaveValue('');
 
-  await form.resumeButton().click();
+  // By the keyboard: the button leaves the page, and the focus has to follow into the form.
+  await form.resumeButton().focus();
+  await page.keyboard.press('Enter');
   await expect(form.recoveryOffer()).toHaveCount(0);
+  await form.expectFocusOnAField();
   // Resume lands on the step it was left on, with its fields...
   await expect(form.unitSingularField()).toHaveValue('read');
   await expect(form.unitPluralField()).toHaveValue('reads');
@@ -83,6 +86,7 @@ test('starts over on a blank form and drops the entries when the person chooses 
 
   await expect(form.recoveryOffer()).toHaveCount(0);
   await expect(form.nameField()).toHaveValue('');
+  await form.expectFocusOnAField();
 
   await page.reload();
   await form.expectLoaded('create');
@@ -143,6 +147,7 @@ test('discards the entries on Cancel, and brings them back from the toast', asyn
   await form.expectLoaded('create');
   await expect(form.nameField()).toHaveValue('Storage Reads');
   await expect(form.recoveryOffer()).toHaveCount(0);
+  await form.expectFocusOnAField();
 });
 
 test('keeps nothing of an edit, and never offers one', async ({ page }) => {

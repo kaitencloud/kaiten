@@ -181,6 +181,27 @@ export class EntitlementFormDriver {
     return this.page.getByRole('button', { name: 'Start over', exact: true });
   }
 
+  /**
+   * The keyboard is on a field of the form: neither on the page body, which is where it
+   * falls when the button that was pressed leaves the page, nor on the alert.
+   */
+  async expectFocusOnAField() {
+    await expect
+      .poll(() =>
+        this.page.evaluate(() => {
+          const active = document.activeElement;
+
+          return (
+            active?.closest('form') !== null &&
+            active?.closest('[data-slot="alert"]') === null &&
+            active?.matches('input, textarea, select, [role="combobox"]') ===
+              true
+          );
+        }),
+      )
+      .toBe(true);
+  }
+
   async expectLoaded(mode: 'create' | 'update' = 'create') {
     const heading =
       mode === 'create' ? 'New Entitlement' : 'Update Entitlement';
