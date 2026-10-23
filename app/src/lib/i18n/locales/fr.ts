@@ -197,6 +197,7 @@ export default {
           'Valeur initiale rétablie pour {{field}} : le formulaire a changé depuis.',
         itemRemoved:
           'Un élément de {{field}} a été retiré : le formulaire a changé depuis.',
+        sourceFallback: 'La source de ces valeurs',
         sourceChanged:
           '{{source}} a changé depuis : ses valeurs ont été rechargées.',
       },

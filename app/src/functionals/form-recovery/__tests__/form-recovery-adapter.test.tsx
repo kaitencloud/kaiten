@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { z } from 'zod';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
@@ -193,5 +194,113 @@ describe('the adapter and the lists of references', () => {
     await elapse(300);
 
     expect(screen.getByTestId('live').textContent).toContain('"licenseId":"l1"');
+  });
+});
+
+describe('the adapter and the state outside the form', () => {
+  type Values = { name: string };
+  type Extra = { rows: string[] };
+  type Refs = { base: { updatedAt: string } };
+
+  const recoveryWithRows: FormRecoveryDescriptor<Values, Refs, Extra> =
+    defineFormRecovery<Values, Refs, Extra>({
+      formId: 'rows.create',
+      version: 1,
+      omit: [],
+      extraSchema: z.object({ rows: z.array(z.string()) }),
+      extraSource: (references) => references.base?.updatedAt ?? null,
+      extraSourceLabel: { text: 'The base license' },
+    });
+
+  const BASE_ROWS = ['copied from the base'];
+  const discarded = vi.fn();
+
+  function RowsForm({ source }: { source: string }) {
+    const recovery = useFormRecovery(recoveryWithRows, {
+      enabled: true,
+      pristine: { name: '' },
+    });
+    return <RowsBody key={recovery.sessionKey} recovery={recovery} source={source} />;
+  }
+
+  function RowsBody({
+    recovery,
+    source,
+  }: {
+    recovery: ReturnType<typeof useFormRecovery<Values, Refs, Extra>>;
+    source: string;
+  }) {
+    const [rows, setRows] = useState(recovery.restored?.extra?.rows ?? BASE_ROWS);
+    const form = useAppForm({ defaultValues: recovery.pristine, onSubmit: async () => {} });
+    useFormRecoveryForm(recovery, form, {
+      extra: () => ({ rows }),
+      references: { base: { updatedAt: source } },
+      onExtraDiscarded: () => {
+        discarded();
+        setRows(BASE_ROWS);
+      },
+    });
+
+    return (
+      <div>
+        <button type="button" onClick={() => setRows([...rows, 'added'])}>
+          add row
+        </button>
+        <button type="button" onClick={recovery.resume}>
+          resume
+        </button>
+        <output data-testid="rows">{rows.join(',')}</output>
+        <output data-testid="notes">{recovery.notes.map((n) => JSON.stringify(n)).join('')}</output>
+      </div>
+    );
+  }
+
+  async function leave(source: string) {
+    const user = setupUser();
+    const view = render(<RowsForm source={source} />);
+    await user.click(screen.getByRole('button', { name: 'add row' }));
+    await elapse();
+    view.unmount();
+  }
+
+  it('stores the state outside the form only when it changed, with the fingerprint of its source', async () => {
+    const user = setupUser();
+    const view = render(<RowsForm source="v1" />);
+    await elapse(3_000);
+    expect(only()).toEqual([]);
+
+    await user.click(screen.getByRole('button', { name: 'add row' }));
+    await elapse();
+
+    const [record] = only();
+    expect(record).toMatchObject({ extraSource: 'v1' });
+    expect(JSON.parse(record!.extra as string)).toMatchObject({ rows: ['copied from the base', 'added'] });
+    view.unmount();
+  });
+
+  it('gives it back when its source has not changed', async () => {
+    const user = setupUser();
+    await leave('v1');
+
+    render(<RowsForm source="v1" />);
+    await user.click(await screen.findByRole('button', { name: 'resume' }));
+    await elapse(300);
+
+    expect(screen.getByTestId('rows')).toHaveTextContent('copied from the base,added');
+    expect(screen.getByTestId('notes').textContent).toBe('');
+  });
+
+  it('drops it, says so and lets the feature start it afresh when its source has changed', async () => {
+    const user = setupUser();
+    discarded.mockClear();
+    await leave('v1');
+
+    render(<RowsForm source="v2" />);
+    await user.click(await screen.findByRole('button', { name: 'resume' }));
+
+    await waitFor(() => expect(discarded).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId('rows')).toHaveTextContent(/^copied from the base$/);
+    expect(screen.getByTestId('notes').textContent).toContain('The base license');
+    expect(screen.getByTestId('notes').textContent).toContain('sourceChanged');
   });
 });

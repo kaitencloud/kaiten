@@ -132,6 +132,26 @@ function Notice({
   }
 }
 
+function NoticeList({
+  notices,
+  recovery,
+  finishLink,
+  children,
+}: Pick<FormRecoveryAlertProps, 'recovery' | 'finishLink' | 'children'> & {
+  notices: readonly FormRecoveryNotice[];
+}) {
+  return notices.map((notice) => (
+    <Notice
+      key={notice.kind}
+      notice={notice}
+      recovery={recovery}
+      finishLink={finishLink}
+    >
+      {children}
+    </Notice>
+  ));
+}
+
 /** The notices that belong at the head of the form, outside what scrolls. */
 const HEAD_NOTICES = new Set<FormRecoveryNotice['kind']>([
   'lost',
@@ -161,16 +181,13 @@ export function FormRecoveryAlert(props: FormRecoveryAlertProps) {
   return (
     <div className={cn('flex flex-col gap-2', className)}>
       {recovery.offer && <Offer {...props} offer={recovery.offer} />}
-      {notices.map((notice) => (
-        <Notice
-          key={notice.kind}
-          notice={notice}
-          recovery={recovery}
-          finishLink={props.finishLink}
-        >
-          {props.children}
-        </Notice>
-      ))}
+      <NoticeList
+        notices={notices}
+        recovery={recovery}
+        finishLink={props.finishLink}
+      >
+        {props.children}
+      </NoticeList>
     </div>
   );
 }

@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { FormRecoverySerializationError } from '@/lib/form-recovery';
+import {
+  encodePayload,
+  FormRecoverySerializationError,
+} from '@/lib/form-recovery';
 import { logger } from '@/lib/logger';
 import { buildSnapshot } from '../logic/snapshot';
 import {
@@ -77,6 +80,16 @@ function restoreInto<TValues extends object, TExtra>(
       (pristine as Record<string, unknown>)[key],
     );
     if (differs) form.setFieldMeta(key, restoredMeta);
+  }
+}
+
+/** The state outside the form, encoded; null when there is none or it cannot be. */
+function extraFingerprint(extra: (() => unknown) | undefined): string | null {
+  if (!extra) return null;
+  try {
+    return encodePayload(extra());
+  } catch {
+    return null;
   }
 }
 
@@ -213,6 +226,13 @@ export function useFormRecoveryForm<
     if (active) report(true);
   }, [active, stepIndex, furthestIndex, report]);
 
+  // The state outside the form moves without the form's store knowing: the
+  // feature re-renders, and its new value is what this effect looks at.
+  const extraKey = extraFingerprint(progress.extra);
+  useEffect(() => {
+    if (active && extraKey !== null) report(false);
+  }, [active, extraKey, report]);
+
   useEffect(() => {
     if (active && restored) void form.validate('change');
   }, [active, form]);
@@ -262,7 +282,9 @@ export function useFormRecoveryForm<
     recoveryRef.current.internals.addNotes([
       {
         kind: 'sourceChanged',
-        source: descriptor.extraSourceLabel ?? { text: 'source' },
+        source: descriptor.extraSourceLabel ?? {
+          key: 'Functionals.FormRecovery.notes.sourceFallback',
+        },
       },
     ]);
     reference.current.extra = undefined;

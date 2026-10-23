@@ -2,7 +2,7 @@ import { CircleCheck, Info } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import type { FormRecovery } from '../types';
+import type { FormRecovery, FormRecoveryNote } from '../types';
 import { useRecoveryText } from './use-recovery-text';
 
 export type FormRecoveryNotesProps = {
@@ -11,6 +11,18 @@ export type FormRecoveryNotesProps = {
   fieldLabels?: Partial<Record<string, string>>;
   className?: string;
 };
+
+function NoteList({ notes }: { notes: readonly FormRecoveryNote[] }) {
+  const text = useRecoveryText();
+
+  return (
+    <ul className="list-disc pl-5">
+      {notes.map((note) => (
+        <li key={JSON.stringify(note)}>{text.note(note)}</li>
+      ))}
+    </ul>
+  );
+}
 
 /**
  * In the step, where the person corrects: what the restore removed or reset,
@@ -51,11 +63,7 @@ export function FormRecoveryNotes({
           </AlertTitle>
           <AlertDescription>
             <p>{t('Functionals.FormRecovery.notes.intro')}</p>
-            <ul className="list-disc pl-5">
-              {recovery.notes.map((note) => (
-                <li key={JSON.stringify(note)}>{text.note(note)}</li>
-              ))}
-            </ul>
+            <NoteList notes={recovery.notes} />
           </AlertDescription>
           <div className="col-start-2 mt-2">
             <Button
