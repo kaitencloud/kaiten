@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { EntitlementWritable, Entitlement } from '@/api-client';
 import { handleBillingProblem, setProblemFieldError } from '@/domains/billing';
+import type { FormRecovery } from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
 import { getApiErrorMessage } from '@/lib/errors';
 import { useEntitlementFormMutations } from '../../hooks';
@@ -74,10 +75,16 @@ const entitlementFormValuesToBody = (
 /**
  * The form of an entitlement, and the sentence of the locales for a refusal that
  * has no field to be shown on (`refusal`, a translation key, or none).
+ *
+ * `recovery` is the one of the creation page: the form then starts from its
+ * values (the restored ones are put in by `useFormRecoveryForm`), and a creation
+ * is sent through it, so that an accepted one is never offered again. The edit
+ * form and the dialog do not pass it.
  */
 export const useEntitlementMutationForm = (
   entitlement?: Entitlement,
   onSuccess?: (entitlement: Entitlement) => void,
+  recovery?: FormRecovery<EntitlementFormValues>,
 ) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -86,10 +93,22 @@ export const useEntitlementMutationForm = (
   // sends the fields that differ from them, and takes the others from the
   // entitlement as the API holds it.
   const [openedEntitlement] = useState(entitlement);
-  const [openedValues] = useState(() =>
-    getEntitlementFormDefaults(entitlement),
+  const [openedValues] = useState(
+    () => recovery?.pristine ?? getEntitlementFormDefaults(entitlement),
   );
   const [refusal, setRefusal] = useState<string | null>(null);
+
+  // The body is built before the request, outside `send`: an error thrown while
+  // building it is not an answer that never came.
+  const createEntitlement = (body: EntitlementWritable) =>
+    recovery
+      ? recovery.send(() => createMutation.mutateAsync({ body }), {
+          created: (created) => ({
+            id: created.slug ?? created.id,
+            label: created.name,
+          }),
+        })
+      : createMutation.mutateAsync({ body });
 
   const form = useAppForm({
     defaultValues: openedValues,
@@ -112,9 +131,7 @@ export const useEntitlementMutationForm = (
                 openedEntitlement,
               ),
             })) ?? entitlement)
-          : await createMutation.mutateAsync({
-              body,
-            });
+          : await createEntitlement(body);
 
         toast.success(
           t(

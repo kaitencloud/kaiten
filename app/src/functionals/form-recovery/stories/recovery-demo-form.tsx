@@ -15,8 +15,8 @@ import {
 
 /**
  * A two-step creation form that uses the recovery, for the stories and the
- * tests of the module: no feature adopts it yet. It is what a feature does,
- * in the order it does it.
+ * tests of the module. It is what a feature does, in the order it does it
+ * (see `EntitlementCreatePage` for a real one).
  */
 export const demoSchema = z.object({
   name: z.string().min(3),

@@ -26,8 +26,10 @@ consumers, which are known:
 | 3     | feature flag, instance (stacked dialog), release (after its non-atomic creation is fixed) |
 | 4     | license, license version                                                                  |
 
-No form uses it yet. The stories and the tests drive it through
-`stories/recovery-demo-form.tsx`.
+The entitlement is the first to adopt it
+(`features/entitlements/components/form/entitlement-create-page.tsx`, declared
+in `entitlement-recovery.ts`); the others follow in the order above. The stories
+and the tests of the module drive it through `stories/recovery-demo-form.tsx`.
 
 ## Layers
 

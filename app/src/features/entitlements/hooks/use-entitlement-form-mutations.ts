@@ -32,7 +32,10 @@ export function useEntitlementFormMutations() {
           };
         },
       );
-      await invalidateEntitlements();
+      // Not awaited: `mutateAsync` resolves after this callback, and a creation
+      // that is recovered writes its tombstone when it resolves, before the page
+      // goes. The list refetches in the background.
+      void invalidateEntitlements();
     },
   });
 

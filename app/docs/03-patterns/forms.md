@@ -247,6 +247,7 @@ The rules of adoption:
 - **No navigation, and no awaited invalidation, in the `onSuccess` of the `useMutation`** of an adopted creation: `mutateAsync` resolves only after it, so the page would be gone before `send` wrote the tombstone. Navigate in `onSubmit`, after `send`, and `void` the invalidation.
 - A send made of several requests uses `recovery.begin()` and `attempt.accepted()` at the first irreversible write, or `followUp` and `complete()` when the main object exists and the next request may still fail.
 - **A version rule.** Raise `version` when the shape of the values changes; the entry is then offered with a warning that the form changed. Declare `incompatibleBelow` when the meaning changed without the type (an amount that moves from major to minor units): the entry is then dropped, and the person told once.
+- The first form to adopt it is the entitlement creation page: `features/entitlements/components/form/entitlement-recovery.ts` declares it, `entitlement-create-page.tsx` opens the door and mounts the wizard by `key`, and `use-entitlement-mutation-form.ts` sends through `recovery.send` (the edit dialog shares that hook and passes no recovery). Its tests are the model for the next.
 - Each adopted form has a test that sends, mounts again and finds no offer; one that finds no omitted path in `localStorage`; and, for an edit form, one that finds `localStorage` empty.
 
 ## Updating an object the API replaces as a whole

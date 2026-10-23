@@ -2891,6 +2891,9 @@ export default {
             identity: 'Informations du droit',
             type: 'Configuration du type',
           },
+          Recovery: {
+            viewList: 'Voir la liste',
+          },
           createButton: 'Créer le Droit',
           updateButton: 'Mettre à jour le Droit',
           createSuccess: 'Droit créé avec succès',

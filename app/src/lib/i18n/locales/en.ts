@@ -2855,6 +2855,9 @@ export default {
             identity: 'Entitlement information',
             type: 'Type configuration',
           },
+          Recovery: {
+            viewList: 'View the list',
+          },
           createButton: 'Create Entitlement',
           updateButton: 'Update Entitlement',
           createSuccess: 'Entitlement created successfully',
