@@ -44,6 +44,8 @@ func NewUseCase(deps access.Deps, closer *closing.Closer) *UseCase {
 	return &UseCase{deps: deps, closer: closer, outbox: outbox.NewScopedRepository(deps.Uof)}
 }
 
+func (u *UseCase) fallback() lifecycle.Fallback { return u.closer.Fallback() }
+
 // Execute cancels a subscription. A trial is canceled at once, with no
 // invoice. AT_PERIOD_END lets the period paid for run out: the close then
 // issues the FINAL invoice and cancels. IMMEDIATE issues the FINAL invoice
@@ -118,6 +120,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, mode string, reason
 			if err := lifecycle.AnnounceCanceled(ctx, q, u.outbox, u.deps.Catalogue, updated, mode, nil); err != nil {
 				return err
 			}
+			if err := u.fallback().Move(ctx, q, updated, user.ID); err != nil {
+				return err
+			}
 		case mode == ModeImmediate:
 			final, updated, err = u.closer.Finalize(ctx, q, sub, at, reason, user.ID, now)
 			if err != nil {
@@ -127,6 +132,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, mode string, reason
 				return err
 			}
 			if err := lifecycle.AnnounceCanceled(ctx, q, u.outbox, u.deps.Catalogue, updated, mode, &final.ID); err != nil {
+				return err
+			}
+			if err := u.fallback().Move(ctx, q, updated, user.ID); err != nil {
 				return err
 			}
 		case sub.CancelAtPeriodEnd:

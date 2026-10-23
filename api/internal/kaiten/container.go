@@ -202,6 +202,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Attacher:  addonModule.AttachInstanceAddon,
 		Redeemer:  voucherModule.RedeemVoucher,
 		Mover:     instanceModule.UpdateInstance,
+		Fallback:  addonModule.DetachInstanceAddon,
 		Expiry:    voucherModule.Expiry,
 		Checkouts: checkoutprogress.New(svc.Uof),
 		Sweeper:   checkoutSweep,

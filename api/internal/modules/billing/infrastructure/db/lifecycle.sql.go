@@ -428,6 +428,57 @@ func (q *Queries) EndIncomplete(ctx context.Context, arg EndIncompleteParams) (I
 	return i, err
 }
 
+const getFallbackTarget = `-- name: GetFallbackTarget :one
+SELECT i.slug                                          AS instance_slug,
+       NOT EXISTS (SELECT 1
+                   FROM license v
+                   WHERE v.organization_id = fallback.organization_id
+                     AND v.family_id = fallback.id
+                     AND v.pricing_type <> 'FREE')::boolean AS free,
+       target.id                                       AS license_id
+FROM instance i
+JOIN license l
+  ON l.id = i.license_id
+ AND l.organization_id = i.organization_id
+JOIN license_family f
+  ON f.id = l.family_id
+ AND f.organization_id = l.organization_id
+JOIN license_family fallback
+  ON fallback.id = f.fallback_license_family_id
+ AND fallback.organization_id = f.organization_id
+LEFT JOIN license target
+  ON target.family_id = fallback.id
+ AND target.organization_id = fallback.organization_id
+ AND target.is_default
+ AND target.lifecycle_state = 'PUBLISHED'
+WHERE i.organization_id = $1
+  AND i.id = $2
+FOR SHARE OF fallback
+`
+
+type GetFallbackTargetParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+type GetFallbackTargetRow struct {
+	InstanceSlug string     `json:"instance_slug"`
+	Free         *bool      `json:"free"`
+	LicenseID    *uuid.UUID `json:"license_id"`
+}
+
+// The fallback the family of the instance's licence names, re-checked at the
+// move (§9.11 rule 6): whether every version of it is still FREE, and its
+// default PUBLISHED version, NULL without one. No row: the family names none,
+// or the instance is gone. The share lock holds the fallback family there, as
+// a version write locks it before checking FallbackMustBeFree.
+func (q *Queries) GetFallbackTarget(ctx context.Context, arg GetFallbackTargetParams) (GetFallbackTargetRow, error) {
+	row := q.db.QueryRow(ctx, getFallbackTarget, arg.OrganizationID, arg.InstanceID)
+	var i GetFallbackTargetRow
+	err := row.Scan(&i.InstanceSlug, &i.Free, &i.LicenseID)
+	return i, err
+}
+
 const getInstanceSlug = `-- name: GetInstanceSlug :one
 SELECT i.slug, i.license_id
 FROM instance i
@@ -622,6 +673,43 @@ func (q *Queries) GetOpenActivation(ctx context.Context, instanceBillingID uuid.
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
 	)
+	return i, err
+}
+
+const getTrialEndBehavior = `-- name: GetTrialEndBehavior :one
+SELECT f.trial_end_without_payment_method,
+       EXISTS (SELECT 1
+               FROM customer_billing cb
+               WHERE cb.organization_id = ib.organization_id
+                 AND cb.customer_id = ib.customer_id
+                 AND cb.provider_kind = ib.provider_kind
+                 AND cb.payment_method_status = 'ACTIVE')::boolean AS has_active_payment_method
+FROM instance_billing ib
+JOIN license_price p
+  ON p.id = ib.base_license_price_id
+ AND p.organization_id = ib.organization_id
+JOIN license l
+  ON l.id = p.license_id
+ AND l.organization_id = p.organization_id
+JOIN license_family f
+  ON f.id = l.family_id
+ AND f.organization_id = l.organization_id
+WHERE ib.id = $1
+`
+
+type GetTrialEndBehaviorRow struct {
+	TrialEndWithoutPaymentMethod TrialEndWithoutPaymentMethod `json:"trial_end_without_payment_method"`
+	HasActivePaymentMethod       bool                         `json:"has_active_payment_method"`
+}
+
+// What a trial ending under CHARGE_AUTOMATICALLY with an amount due does
+// without a card (§9.2 rule 4, V31-65): the setting of the family of the base
+// price's version, and whether the customer's payment method on the
+// subscription's provider is ACTIVE.
+func (q *Queries) GetTrialEndBehavior(ctx context.Context, id uuid.UUID) (GetTrialEndBehaviorRow, error) {
+	row := q.db.QueryRow(ctx, getTrialEndBehavior, id)
+	var i GetTrialEndBehaviorRow
+	err := row.Scan(&i.TrialEndWithoutPaymentMethod, &i.HasActivePaymentMethod)
 	return i, err
 }
 

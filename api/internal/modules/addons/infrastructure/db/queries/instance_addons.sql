@@ -145,6 +145,37 @@ WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id);
 
 
+-- name: LockAttachmentsIncompatibleWith :many
+-- The active attachments a fallback move strands (§9.11 rule 3): their add-on
+-- version is not compatible with the family of the licence version.
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1
+                  FROM addon_compatible_license c
+                  JOIN license l ON l.family_id = c.license_family_id AND l.organization_id = c.organization_id
+                  WHERE c.addon_id = ia.addon_id
+                    AND l.id = sqlc.arg(license_id))
+ORDER BY ia.created_at, ia.id
+FOR UPDATE OF ia;
+
+
+-- name: RemoveInstanceAddonAt :exec
+-- A removal billing makes at an instant of its own: the cancellation that
+-- moves the instance to its fallback, never before the attachment began.
+UPDATE instance_addon
+SET removed_at    = GREATEST(created_at, sqlc.arg(at)::timestamp),
+    removed_by_id = sqlc.arg(user_id)::uuid,
+    updated_at    = CURRENT_TIMESTAMP,
+    updated_by_id = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND removed_at IS NULL;
+
+
 -- name: ListBillableAddons :many
 -- What billing reads at a boundary: the add-ons an instance holds, each with
 -- its default FLAT_FEE price for the subscription's period. A held add-on

@@ -677,6 +677,62 @@ func (q *Queries) LockActiveInstanceAddon(ctx context.Context, arg LockActiveIns
 	return i, err
 }
 
+const lockAttachmentsIncompatibleWith = `-- name: LockAttachmentsIncompatibleWith :many
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = $1
+  AND ia.instance_id = $2
+  AND ia.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1
+                  FROM addon_compatible_license c
+                  JOIN license l ON l.family_id = c.license_family_id AND l.organization_id = c.organization_id
+                  WHERE c.addon_id = ia.addon_id
+                    AND l.id = $3)
+ORDER BY ia.created_at, ia.id
+FOR UPDATE OF ia
+`
+
+type LockAttachmentsIncompatibleWithParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+	LicenseID      uuid.UUID `json:"license_id"`
+}
+
+type LockAttachmentsIncompatibleWithRow struct {
+	ID          uuid.UUID `json:"id"`
+	AddonID     uuid.UUID `json:"addon_id"`
+	Quantity    int32     `json:"quantity"`
+	MaxQuantity *int32    `json:"max_quantity"`
+}
+
+// The active attachments a fallback move strands (§9.11 rule 3): their add-on
+// version is not compatible with the family of the licence version.
+func (q *Queries) LockAttachmentsIncompatibleWith(ctx context.Context, arg LockAttachmentsIncompatibleWithParams) ([]LockAttachmentsIncompatibleWithRow, error) {
+	rows, err := q.db.Query(ctx, lockAttachmentsIncompatibleWith, arg.OrganizationID, arg.InstanceID, arg.LicenseID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockAttachmentsIncompatibleWithRow
+	for rows.Next() {
+		var i LockAttachmentsIncompatibleWithRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.AddonID,
+			&i.Quantity,
+			&i.MaxQuantity,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const lockInstanceForAddons = `-- name: LockInstanceForAddons :one
 SELECT i.id, i.license_id, l.family_id AS license_family_id
 FROM instance i
@@ -775,6 +831,36 @@ type RemoveInstanceAddonParams struct {
 
 func (q *Queries) RemoveInstanceAddon(ctx context.Context, arg RemoveInstanceAddonParams) error {
 	_, err := q.db.Exec(ctx, removeInstanceAddon, arg.UserID, arg.OrganizationID, arg.ID)
+	return err
+}
+
+const removeInstanceAddonAt = `-- name: RemoveInstanceAddonAt :exec
+UPDATE instance_addon
+SET removed_at    = GREATEST(created_at, $1::timestamp),
+    removed_by_id = $2::uuid,
+    updated_at    = CURRENT_TIMESTAMP,
+    updated_by_id = $2::uuid
+WHERE organization_id = $3
+  AND id = $4
+  AND removed_at IS NULL
+`
+
+type RemoveInstanceAddonAtParams struct {
+	At             pgtype.Timestamp `json:"at"`
+	UserID         uuid.UUID        `json:"user_id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	ID             uuid.UUID        `json:"id"`
+}
+
+// A removal billing makes at an instant of its own: the cancellation that
+// moves the instance to its fallback, never before the attachment began.
+func (q *Queries) RemoveInstanceAddonAt(ctx context.Context, arg RemoveInstanceAddonAtParams) error {
+	_, err := q.db.Exec(ctx, removeInstanceAddonAt,
+		arg.At,
+		arg.UserID,
+		arg.OrganizationID,
+		arg.ID,
+	)
 	return err
 }
 

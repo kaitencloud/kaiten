@@ -79,6 +79,11 @@ type Closer struct {
 	heldCursor *heldCursor
 }
 
+// Fallback is the fallback move's writes outside billing (§9.11).
+func (c *Closer) Fallback() lifecycle.Fallback {
+	return lifecycle.Fallback{Mover: c.deps.Mover, Addons: c.deps.Fallback}
+}
+
 func New(deps access.Deps, grace time.Duration) *Closer {
 	return &Closer{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), grace: grace, m: newMetrics()}
 }
@@ -266,6 +271,12 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 	if err != nil {
 		return Outcome{}, err
 	}
+	if plan.kind == rating.KindActivation {
+		ended, err := c.endTrialWithoutCard(ctx, q, sub, composition, terms, boundary, actor, now)
+		if err != nil || ended {
+			return Outcome{Closed: ended, Invoice: nil, SkipReason: ""}, err
+		}
+	}
 	// The invoice is filed under the version it billed arrears for, or the
 	// version it starts when it bills none.
 	filedUnder := base
@@ -315,6 +326,47 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		}
 	}
 	return outcome, nil
+}
+
+// ReasonTrialEndedWithoutPaymentMethod is the cancellation_reason of a trial
+// that ended without a card on its family's CANCEL (§9.2 rule 4).
+const ReasonTrialEndedWithoutPaymentMethod = "TRIAL_ENDED_WITHOUT_PAYMENT_METHOD"
+
+// endTrialWithoutCard is the trial end without a payment method (§9.2 rule 4,
+// V31-65): under CHARGE_AUTOMATICALLY, with an ACTIVATION total > 0 and no
+// ACTIVE payment method, a family on CANCEL does not convert. The composed
+// ACTIVATION is discarded -- no invoice, no voucher application consumed --
+// the subscription is CANCELED at trial_ends_at with
+// TRIAL_ENDED_WITHOUT_PAYMENT_METHOD, announced IMMEDIATE with no final
+// invoice, and the fallback move follows. Whether it ended the trial; a
+// family on CONVERT converts, its charge then failing.
+func (c *Closer) endTrialWithoutCard(ctx context.Context, q *db.Queries, sub db.InstanceBilling, composition rating.Composition,
+	terms invoices.Terms, boundary time.Time, actor uuid.UUID, now time.Time,
+) (bool, error) {
+	if terms.CollectionMethod != string(db.CollectionMethodCHARGEAUTOMATICALLY) || composition.Total <= 0 {
+		return false, nil
+	}
+	behavior, err := q.GetTrialEndBehavior(ctx, sub.ID)
+	if err != nil {
+		return false, err
+	}
+	if behavior.HasActivePaymentMethod || behavior.TrialEndWithoutPaymentMethod != db.TrialEndWithoutPaymentMethodCANCEL {
+		return false, nil
+	}
+	reason := ReasonTrialEndedWithoutPaymentMethod
+	canceled, err := q.CancelSubscription(ctx, db.CancelSubscriptionParams{
+		CanceledAt: invoices.Timestamp(boundary), Reason: &reason, UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID,
+	})
+	if err != nil {
+		return false, err
+	}
+	if err := lifecycle.AnnouncePlanChangeDropped(ctx, c.outbox, sub); err != nil {
+		return false, err
+	}
+	if err := lifecycle.AnnounceCanceled(ctx, q, c.outbox, c.deps.Catalogue, canceled, "IMMEDIATE", nil); err != nil {
+		return false, err
+	}
+	return true, c.Fallback().Move(ctx, q, canceled, actor)
 }
 
 // plan is what a boundary bills: which base's metered prices and arrears
@@ -388,7 +440,10 @@ func (c *Closer) transition(ctx context.Context, q *db.Queries, sub db.InstanceB
 		if err != nil {
 			return err
 		}
-		return lifecycle.AnnounceCanceled(ctx, q, c.outbox, c.deps.Catalogue, canceled, "AT_PERIOD_END", invoiceID)
+		if err := lifecycle.AnnounceCanceled(ctx, q, c.outbox, c.deps.Catalogue, canceled, "AT_PERIOD_END", invoiceID); err != nil {
+			return err
+		}
+		return c.Fallback().Move(ctx, q, canceled, actor)
 	case p.changing:
 		if sub.InstanceID != nil {
 			if err := q.AllowPlanChange(ctx); err != nil {

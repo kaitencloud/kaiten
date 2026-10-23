@@ -2,6 +2,7 @@ package ports
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -13,6 +14,14 @@ type AddonAttacher interface {
 	// AttachPaid creates an attachment an INCOMPLETE checkout's payment
 	// applies, under its pending id, never refused (§9.10 rule 3).
 	AttachPaid(ctx context.Context, organizationID, actorID uuid.UUID, instanceSlug string, id uuid.UUID, addonSlug string, quantity int32) error
+}
+
+// AddonFallback removes, inside the caller's transaction, the attachments a
+// fallback move strands: those whose add-on version is not compatible with
+// the family of licenseID, removed at the given instant by actorID, each announced (§9.11
+// rule 3). Implemented by the add-ons module.
+type AddonFallback interface {
+	RemoveForFallback(ctx context.Context, organizationID, actorID uuid.UUID, instanceSlug string, licenseID uuid.UUID, at time.Time) error
 }
 
 // VoucherRedeemer redeems a voucher for an instance, inside the caller's

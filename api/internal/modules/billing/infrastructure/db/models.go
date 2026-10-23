@@ -535,6 +535,48 @@ func (ns NullReconciliationStatus) Value() (driver.Value, error) {
 	return string(ns.ReconciliationStatus), nil
 }
 
+type TrialEndWithoutPaymentMethod string
+
+const (
+	TrialEndWithoutPaymentMethodCANCEL  TrialEndWithoutPaymentMethod = "CANCEL"
+	TrialEndWithoutPaymentMethodCONVERT TrialEndWithoutPaymentMethod = "CONVERT"
+)
+
+func (e *TrialEndWithoutPaymentMethod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = TrialEndWithoutPaymentMethod(s)
+	case string:
+		*e = TrialEndWithoutPaymentMethod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for TrialEndWithoutPaymentMethod: %T", src)
+	}
+	return nil
+}
+
+type NullTrialEndWithoutPaymentMethod struct {
+	TrialEndWithoutPaymentMethod TrialEndWithoutPaymentMethod `json:"trial_end_without_payment_method"`
+	Valid                        bool                         `json:"valid"` // Valid is true if TrialEndWithoutPaymentMethod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullTrialEndWithoutPaymentMethod) Scan(value interface{}) error {
+	if value == nil {
+		ns.TrialEndWithoutPaymentMethod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.TrialEndWithoutPaymentMethod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullTrialEndWithoutPaymentMethod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.TrialEndWithoutPaymentMethod), nil
+}
+
 type BillingSyncState struct {
 	OrganizationID       uuid.UUID           `json:"organization_id"`
 	ProviderKind         BillingProviderKind `json:"provider_kind"`

@@ -36,6 +36,9 @@ type Deps struct {
 	Attacher ports.AddonAttacher
 	Redeemer ports.VoucherRedeemer
 	Mover    ports.InstanceVersionMover
+	// Fallback removes the attachments a fallback move strands (§9.11 rule
+	// 3). Nil: none removed.
+	Fallback ports.AddonFallback
 	// Checkouts follows an INCOMPLETE subscription's anonymous checkout
 	// session to its payment or its end (§9.12 rule 5). Nil: none followed.
 	Checkouts ports.CheckoutFollower

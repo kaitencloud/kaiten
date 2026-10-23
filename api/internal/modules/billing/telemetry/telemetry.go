@@ -45,6 +45,7 @@ type instruments struct {
 	leaseExpired  metric.Int64Counter
 	negative      metric.Int64Counter
 	skipped       metric.Int64Counter
+	fallbacks     metric.Int64Counter
 }
 
 var get = sync.OnceValue(func() *instruments {
@@ -84,6 +85,8 @@ var get = sync.OnceValue(func() *instruments {
 			"Usage segments that went down and were billed as 0 (D-06)", "{segment}"),
 		skipped: counter("kaiten.billing.voucher_currency_skipped",
 			"Fixed-amount vouchers left out of an invoice in another currency (§8.4 rule 5)", "{voucher}"),
+		fallbacks: counter("kaiten.billing.fallback.skipped",
+			"Fallback moves skipped at a cancellation, by reason (NOT_FREE, NO_DEFAULT_VERSION): the instance kept its licence (§9.11 rule 6)", "{move}"),
 	}
 })
 
@@ -281,5 +284,12 @@ func NegativeSegments(ctx context.Context, n int) {
 func VoucherCurrencySkipped(ctx context.Context, n int) {
 	if c := get().skipped; c != nil && n > 0 {
 		c.Add(ctx, int64(n))
+	}
+}
+
+// FallbackSkipped records a fallback move skipped for reason.
+func FallbackSkipped(ctx context.Context, reason string) {
+	if c := get().fallbacks; c != nil {
+		c.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", reason)))
 	}
 }
