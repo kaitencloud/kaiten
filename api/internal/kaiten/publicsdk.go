@@ -216,7 +216,7 @@ func (p PublicSDK) ConfirmCheckoutSession(ctx context.Context, cl caller.Checkou
 	if err != nil {
 		return nil, err
 	}
-	ctx, err = bindSystem(ctx, actorID, cl.OrganizationID())
+	ctx, err = bindCheckoutCompletion(ctx, actorID, cl.OrganizationID(), cl.SessionID())
 	if err != nil {
 		return nil, err
 	}

@@ -19,6 +19,7 @@ package webhook
 
 import (
 	"reflect"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -47,6 +48,15 @@ type EventHeaders struct {
 	Baggage     string `json:"baggage,omitempty" doc:"W3C baggage of that request, when it carried any"`
 
 	_ struct{} `additionalProperties:"true"`
+}
+
+// EventOrigin is what every payload adds when no person of the vendor's
+// organization made the write (§15.2 rule 6): a customer session's, or an
+// anonymous checkout's, which the three checkout_session events do not carry.
+type EventOrigin struct {
+	Via               string `json:"via,omitempty" enum:"customer_session,checkout_session" doc:"customer_session: written through a kst_ customer session, under the vendor principal that minted it. checkout_session: written by an anonymous checkout, under system:kaiten. Absent otherwise"`
+	CustomerSessionID string `json:"customerSessionId,omitempty" format:"uuid" doc:"With via customer_session: the session"`
+	CheckoutSessionID string `json:"checkoutSessionId,omitempty" format:"uuid" doc:"With via checkout_session: the session"`
 }
 
 // Declaration describes one webhook contract to write into the OpenAPI
@@ -90,6 +100,7 @@ func Declare(api huma.API, declarations ...Declaration) {
 
 	// One schema for every envelope: the headers do not depend on the event.
 	headersSchema := registry.Schema(reflect.TypeFor[EventHeaders](), true, "EventHeaders")
+	origin := registry.Schema(reflect.TypeFor[EventOrigin](), false, "EventOrigin")
 
 	for _, d := range declarations {
 		dataSchema := registry.Schema(reflect.TypeOf(d.Data), true, d.OperationID+"Data")
@@ -97,9 +108,10 @@ func Declare(api huma.API, declarations ...Declaration) {
 		envelope := &huma.Schema{
 			Type: huma.TypeObject,
 			Properties: map[string]*huma.Schema{
-				"name":    enumProperty("Event name", d.Event.Name),
-				"type":    enumProperty("Event type", d.Event.Type),
-				"data":    dataSchema,
+				"name": enumProperty("Event name", d.Event.Name),
+				"type": enumProperty("Event type", d.Event.Type),
+				// The payload, with the origin members the outbox adds to it.
+				"data":    withOrigin(registry, dataSchema, origin),
 				"headers": headersSchema,
 			},
 			// headers is optional: an event published outside a request
@@ -127,6 +139,44 @@ func Declare(api huma.API, declarations ...Declaration) {
 			},
 		}
 	}
+}
+
+// OriginExtension names, on a webhook's data schema, the payload schema it
+// extends with the EventOrigin members.
+const OriginExtension = "x-kaiten-payload"
+
+// withOrigin is the payload's schema published once more for webhooks, with
+// the EventOrigin members added: payload schemas are closed, so a marked
+// payload would otherwise break its own contract. The payload's component,
+// which REST shares, is left as it is.
+func withOrigin(registry huma.Registry, payload, origin *huma.Schema) *huma.Schema {
+	if payload.Ref == "" {
+		return payload
+	}
+	resolved := registry.SchemaFromRef(payload.Ref)
+	if resolved == nil || resolved.Type != huma.TypeObject {
+		return payload
+	}
+	name := strings.TrimPrefix(payload.Ref, "#/components/schemas/") + "Delivered"
+	if _, done := registry.Map()[name]; !done {
+		copied := *resolved
+		copied.Properties = make(map[string]*huma.Schema, len(resolved.Properties)+len(origin.Properties))
+		for key, value := range resolved.Properties {
+			copied.Properties[key] = value
+		}
+		for key, value := range origin.Properties {
+			if _, taken := copied.Properties[key]; !taken {
+				copied.Properties[key] = value
+			}
+		}
+		copied.Extensions = map[string]any{OriginExtension: payload.Ref}
+		for key, value := range resolved.Extensions {
+			copied.Extensions[key] = value
+		}
+		copied.PrecomputeMessages()
+		registry.Map()[name] = &copied
+	}
+	return &huma.Schema{Ref: "#/components/schemas/" + name}
 }
 
 // enumProperty builds a string property whose only permitted value is the

@@ -101,6 +101,7 @@ export class AuditTrailAppModel {
       {
         hasMore: events.length > limit,
         items: events.slice(0, limit).map((entry) => ({
+          actor: null,
           eventName: entry.eventName,
           eventType: entry.eventType,
           id: entry.id,

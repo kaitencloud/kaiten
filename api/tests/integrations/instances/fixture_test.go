@@ -356,6 +356,7 @@ func newAuditTrailEntry(t *testing.T, instanceSlug, eventName string) {
 	_, err = queries.CreateAuditTrail(t.Context(), auditdb.CreateAuditTrailParams{
 		OrganizationID: testDb.DefaultData.OrganizationID,
 		InstanceID:     &instance.ID,
+		ActorID:        &testDb.DefaultData.UserID,
 		EventName:      eventName,
 		EventType:      "com.kaiten.instance.entitlement.v1.value_get",
 		OccurredAt:     pgtime.TimePtrToPgTimestamptz(&now),

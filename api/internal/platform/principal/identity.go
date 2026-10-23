@@ -118,9 +118,10 @@ type Principal struct {
 	// PublishableKeyID is the key that authenticated the request, set if and
 	// only if Kind is KindPublishableKey or KindCheckoutSession.
 	PublishableKeyID uuid.UUID `json:"-"`
-	// CheckoutSessionID is the session a ksc_ authenticates, set if and only
-	// if Kind is KindCheckoutSession; PublishableKeyID is then the key that
-	// started it.
+	// CheckoutSessionID is the session a ksc_ authenticates when Kind is
+	// KindCheckoutSession, PublishableKeyID then being the key that started
+	// it; on the KindSystem principal that completes that session, it names
+	// the session its events carry as checkoutSessionId (§24 #76).
 	CheckoutSessionID uuid.UUID `json:"-"`
 	// ClientAddress is the visitor's address as the gateway saw it, on the
 	// public surface only, read from X-Envoy-External-Address and never from

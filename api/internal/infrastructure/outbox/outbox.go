@@ -95,6 +95,7 @@ func (r *outboxRepository) CreateOutboxEvent(ctx context.Context, event Outbox) 
 		span.RecordError(err)
 		return err
 	}
+	data = stampOrigin(ctx, event.EventType, data)
 
 	headersJSON, err := marshalHeaders(ctx, event.Headers)
 	if err != nil {
@@ -149,6 +150,7 @@ func (r *outboxRepository) CreateOutboxEvents(ctx context.Context, events []Outb
 			span.RecordError(err)
 			return err
 		}
+		data = stampOrigin(ctx, event.EventType, data)
 
 		headersJSON, err := marshalHeaders(ctx, event.Headers)
 		if err != nil {

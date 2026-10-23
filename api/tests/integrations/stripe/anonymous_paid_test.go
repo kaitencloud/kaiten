@@ -1,6 +1,7 @@
 package stripe_test
 
 import (
+	"encoding/json"
 	"net/url"
 	"strings"
 	"testing"
@@ -249,6 +250,20 @@ func TestAnonymousCheckoutTrialWithCard(t *testing.T) {
 		call(t, "GET", "/api/customers/"+*done.Session.CustomerSlug+"/billing", nil), fiber.StatusOK)
 	link := billing["providers"].([]any)[0].(map[string]any)
 	require.Equal(t, "ACTIVE", link["paymentMethod"].(map[string]any)["status"], "the trial's card is the default")
+
+	// Written by the anonymous checkout under system:kaiten: its events name
+	// the session, except the checkout_session events themselves (§24 #76).
+	for _, event := range commonfixture.ListOutboxEvents(t, testServer.Dependencies.DB, testDb.DefaultData.OrganizationID) {
+		var payload map[string]any
+		require.NoError(t, json.Unmarshal(event.Data, &payload))
+		switch {
+		case strings.HasPrefix(event.EventType, "com.kaiten.checkout_session."):
+			require.NotContains(t, payload, "via", event.EventType)
+		case event.EventName == "CUSTOMER_CREATED" || event.EventName == "INSTANCE_BILLING_STARTED":
+			require.Equal(t, "checkout_session", payload["via"], event.EventName)
+			require.Equal(t, opened.SessionID.String(), payload["checkoutSessionId"], event.EventName)
+		}
+	}
 
 	// One trial per e-mail and family, in any letter case (INV-35): the next
 	// checkout is a paid one, and says why.

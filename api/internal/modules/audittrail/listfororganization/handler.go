@@ -64,6 +64,7 @@ func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
 			EventType:    row.EventType,
 			OccurredAt:   row.OccurredAt.Time,
 			Payload:      row.Payload,
+			Actor:        schema.ActorOf(row.ActorID, row.ActorName, row.ActorType, row.ActorExternalID),
 		})
 	}
 	return result, nil

@@ -61,6 +61,18 @@ func bindSystem(ctx context.Context, userID, organizationID uuid.UUID) (context.
 	}), nil
 }
 
+// bindCheckoutCompletion is bindSystem for an anonymous checkout's completion:
+// system:kaiten writes it, and its events name the session (§24 #76).
+func bindCheckoutCompletion(ctx context.Context, userID, organizationID, sessionID uuid.UUID) (context.Context, error) {
+	ctx, err := bindSystem(ctx, userID, organizationID)
+	if err != nil {
+		return nil, err
+	}
+	p, _ := principal.FromContext(ctx)
+	p.CheckoutSessionID = sessionID
+	return ctx, nil
+}
+
 // ErrIncompleteSystemPrincipal is returned by bindSystem when it is asked to build a
 // principal that names no actor or no organization. It is a programming error, not a
 // refusal a client could ever see, which is why it is a plain error rather than an

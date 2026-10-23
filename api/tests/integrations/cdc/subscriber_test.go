@@ -26,6 +26,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	outboxdb "github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/subscriber"
+	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -323,4 +324,30 @@ func execSQL(t *testing.T, sql string) {
 
 	_, err := testDb.DbPool.Exec(t.Context(), sql)
 	require.NoError(t, err)
+}
+
+// TestAuditTrailRecordsTheActor: the outbox carries the request's actor in
+// the event headers, and the audit trail records it (E-27): the console shows
+// who made a change, "Kaiten (system)" included.
+func TestAuditTrailRecordsTheActor(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	organizationID, userID := testDb.DefaultData.OrganizationID, testDb.DefaultData.UserID
+	eventName := "INSTANCE_CREATION"
+
+	ctx := principal.ContextWithPrincipal(t.Context(), &principal.Principal{
+		Kind: principal.KindOrganization, UserID: userID, OrganizationID: organizationID,
+	})
+	require.NoError(t, outbox.NewOutboxRepository(outboxdb.New(testDb.DbPool)).CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+		organizationID, eventName, "1.0", map[string]string{"slug": "test-instance"}, outbox.AuditHeaders{},
+	)))
+	rows := commonfixture.ListOutboxEvents(t, testDb.DbPool, organizationID)
+	require.Len(t, rows, 1)
+	require.Contains(t, string(rows[0].Headers), userID.String())
+
+	require.Equal(t, "SUCCESS", deliver(t, cdcDelivery(t, rows[0].ID, organizationID, eventName, rows[0].Headers)))
+	var actor *uuid.UUID
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+		`SELECT actor_id FROM audit_trail WHERE organization_id = $1 AND event_name = $2`, organizationID, eventName).Scan(&actor))
+	require.NotNil(t, actor)
+	require.Equal(t, userID, *actor)
 }

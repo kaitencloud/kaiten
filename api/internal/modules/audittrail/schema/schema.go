@@ -11,6 +11,40 @@ import (
 	"github.com/google/uuid"
 )
 
+// Actor kinds an entry names.
+const (
+	ActorUser    = "USER"
+	ActorService = "SERVICE"
+	ActorSystem  = "SYSTEM"
+)
+
+// systemExternalID is system:kaiten's (platformidentity.ExternalID).
+const systemExternalID = "system:kaiten"
+
+// Actor is the user an entry was recorded under (§5 Conventions): a person,
+// a service account, or Kaiten itself, shown as "Kaiten (system)".
+type Actor struct {
+	ID   uuid.UUID
+	Name string
+	Kind string
+}
+
+// ActorOf builds an entry's actor from its row; nil when the entry names none
+// (written before the actor was recorded, or the user is gone).
+func ActorOf(id *uuid.UUID, name *string, userType string, externalID *string) *Actor {
+	if id == nil || name == nil {
+		return nil
+	}
+	actor := &Actor{ID: *id, Name: *name, Kind: ActorUser}
+	switch {
+	case externalID != nil && *externalID == systemExternalID:
+		actor.Name, actor.Kind = "Kaiten (system)", ActorSystem
+	case userType == "machine":
+		actor.Kind = ActorService
+	}
+	return actor
+}
+
 // Entry is one instance-scoped audit trail record.
 type Entry struct {
 	ID           uuid.UUID
@@ -20,6 +54,7 @@ type Entry struct {
 	EventType    string
 	OccurredAt   time.Time
 	Payload      []byte
+	Actor        *Actor
 }
 
 // OrganizationEntry is one organization-wide audit trail record. Instance
@@ -36,4 +71,5 @@ type OrganizationEntry struct {
 	EventType    string
 	OccurredAt   time.Time
 	Payload      []byte
+	Actor        *Actor
 }

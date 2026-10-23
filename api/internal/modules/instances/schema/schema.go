@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 )
 
@@ -175,13 +176,27 @@ type EntitlementUsage struct {
 }
 
 type AuditTrail struct {
-	ID           uuid.UUID  `json:"id" doc:"Unique audit trail entry ID"`
-	InstanceID   *uuid.UUID `json:"instanceId,omitempty" doc:"Instance UUID (present for instance-scoped events)"`
-	InstanceSlug string     `json:"instanceSlug" doc:"Instance slug"`
-	EventName    string     `json:"eventName" doc:"Event name (e.g. ENTITLEMENT_VALUE_GET)"`
-	EventType    string     `json:"eventType" doc:"Event type identifier (e.g. com.kaiten.instance.entitlement.v1.value_get)"`
-	Timestamp    time.Time  `json:"timestamp" doc:"When the event occurred"`
-	Payload      any        `json:"payload,omitempty" doc:"Event payload (JSON)"`
+	ID           uuid.UUID   `json:"id" doc:"Unique audit trail entry ID"`
+	InstanceID   *uuid.UUID  `json:"instanceId,omitempty" doc:"Instance UUID (present for instance-scoped events)"`
+	InstanceSlug string      `json:"instanceSlug" doc:"Instance slug"`
+	EventName    string      `json:"eventName" doc:"Event name (e.g. ENTITLEMENT_VALUE_GET)"`
+	EventType    string      `json:"eventType" doc:"Event type identifier (e.g. com.kaiten.instance.entitlement.v1.value_get)"`
+	Timestamp    time.Time   `json:"timestamp" doc:"When the event occurred"`
+	Payload      any         `json:"payload,omitempty" doc:"Event payload (JSON)"`
+	Actor        *AuditActor `json:"actor" doc:"Who the event is recorded under; null for an entry recorded before actors were (E-27), or whose user is gone"`
+}
+
+// TransformSchema publishes AuditTrail's actor as null when the entry names
+// none (§13.15).
+func (AuditTrail) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, AuditTrail{})
+}
+
+// AuditActor is the user an audit entry is recorded under (§5 Conventions).
+type AuditActor struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name" doc:"The user's name; \"Kaiten (system)\" for the work Kaiten does itself"`
+	Kind string    `json:"kind" enum:"USER,SERVICE,SYSTEM" doc:"USER: a person. SERVICE: a service account. SYSTEM: Kaiten itself -- jobs, and the anonymous checkouts no one of the organization makes"`
 }
 
 // AuditTrailPage is a cursor-paginated page of instance-scoped audit trail
@@ -219,6 +234,7 @@ type OrganizationAuditTrail struct {
 	EventType    string
 	Timestamp    time.Time
 	Payload      map[string]any
+	Actor        *AuditActor
 }
 
 type InstanceStatus string

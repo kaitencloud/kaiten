@@ -47,6 +47,12 @@ models:
   AuditTrail:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditTrail
+  AuditActor:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditActor
+  OrganizationAuditActor:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditActor
   AuditTrailPage:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditTrailPage

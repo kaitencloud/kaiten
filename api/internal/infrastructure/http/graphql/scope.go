@@ -72,6 +72,7 @@ var typeScopes = map[string]string{
 	"Addon":          listaddons.RequiredScope,
 	"AddonPage":      listaddons.RequiredScope,
 	"AddonPrice":     listaddonprices.RequiredScope,
+	"AuditActor":     getaudittrails.RequiredScope,
 	"AuditTrail":     getaudittrails.RequiredScope,
 	"AuditTrailPage": getaudittrails.RequiredScope,
 	"Component":      getcomponent.RequiredScope,
@@ -108,6 +109,7 @@ var typeScopes = map[string]string{
 	// license that changed. So no single resource's scope stands for it, and the
 	// scope it takes is enough to read, through those payloads, what happened to
 	// every other resource. It takes the organization's own.
+	"OrganizationAuditActor":     organizationAuditTrailScope,
 	"OrganizationAuditTrail":     organizationAuditTrailScope,
 	"OrganizationAuditTrailPage": organizationAuditTrailScope,
 	"Release":                    getrelease.RequiredScope,

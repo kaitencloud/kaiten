@@ -341,14 +341,14 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			instances(limit: 5) {
 				items {
 					slug
-					auditTrails(limit: 5) { items { id payload } }
+					auditTrails(limit: 5) { items { id payload actor { id name kind } } }
 					billing { status }
 					addons { addonSlug }
 				}
 			}
 			instance(slug: $instance) { slug }
-			auditTrails(instanceSlug: $instance, limit: 5) { items { id payload } }
-			organizationAuditTrails(limit: 5) { items { id payload } }
+			auditTrails(instanceSlug: $instance, limit: 5) { items { id payload actor { id name kind } } }
+			organizationAuditTrails(limit: 5) { items { id payload actor { id name kind } } }
 		}`,
 		"licenses": `query ($license: String!) {
 			licenses(limit: 5) {

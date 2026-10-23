@@ -48,6 +48,11 @@ func TestSessionCheckoutFreePlan(t *testing.T) {
 	require.Equal(t, "ACTIVE", done.Subscription.Status)
 	require.Equal(t, "NOOP", done.Subscription.ProviderKind)
 	require.Equal(t, createsessioncheckout.PaymentNotRequired, done.Payment.Status)
+	// Written through the kst_: the event names the session (§15.2 rule 6).
+	started := outboxPayloads(t, "INSTANCE_BILLING_STARTED")
+	require.NotEmpty(t, started)
+	require.Equal(t, "customer_session", started[len(started)-1]["via"])
+	require.Equal(t, session.ID.String(), started[len(started)-1]["customerSessionId"])
 
 	moved = commonfixture.AssertJSONResponse[instanceschema.Instance](t, call(t, "GET", "/api/instances/"+instance.Slug, nil), fiber.StatusOK)
 	require.Equal(t, community.ID, moved.LicenseID, "the checkout moved the instance to the plan's version")

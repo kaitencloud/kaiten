@@ -82,17 +82,18 @@ func (c *Consumer) Consume(ctx context.Context, event debezium.Event) error {
 		return err
 	}
 
-	var instanceID *uuid.UUID
+	var instanceID, actorID *uuid.UUID
 	if len(event.Headers) > 0 {
 		var headers outbox.AuditHeaders
 		if err := debezium.UnmarshalHeaders(event.Headers, &headers); err == nil {
-			instanceID = headers.InstanceID
+			instanceID, actorID = headers.InstanceID, headers.ActorID
 		}
 	}
 
 	auditTrailID, err := db.New(c.uof.DBTX(ctx)).CreateAuditTrail(ctx, db.CreateAuditTrailParams{
 		OrganizationID: user.OrganizationID,
 		InstanceID:     instanceID,
+		ActorID:        actorID,
 		EventName:      event.EventName,
 		EventType:      event.EventType,
 		OccurredAt:     pgtype.Timestamptz{Time: event.OccurredAt.UTC(), Valid: true},

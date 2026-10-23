@@ -22,6 +22,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events/webhook"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/server"
 	ffschema "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -90,7 +91,7 @@ func TestEveryWebhookPayloadValidatesAgainstItsSchema(t *testing.T) {
 		t.Run(eventType, func(t *testing.T) {
 			envelope := envelopeSchema(t, eventType, item)
 
-			data, ok := envelope.Properties["data"]
+			data, ok := payloadOf(registry, envelope)
 			if !ok || data.Ref == "" {
 				t.Fatalf("webhook %q does not declare its payload as a named schema; declare Data as the type the handler emits", eventType)
 			}
@@ -176,7 +177,7 @@ func TestNoWebhookPayloadCanCarryASecret(t *testing.T) {
 		t.Run(eventType, func(t *testing.T) {
 			envelope := envelopeSchema(t, eventType, item)
 
-			data, ok := envelope.Properties["data"]
+			data, ok := payloadOf(registry, envelope)
 			if !ok || data.Ref == "" {
 				t.Fatalf("webhook %q does not declare its payload as a named schema", eventType)
 			}
@@ -458,4 +459,19 @@ func jsonName(field reflect.StructField) string {
 		return field.Name
 	}
 	return name
+}
+
+// payloadOf is an envelope's payload schema: the one its data schema
+// extends with the EventOrigin members.
+func payloadOf(registry huma.Registry, envelope *huma.Schema) (*huma.Schema, bool) {
+	data, ok := envelope.Properties["data"]
+	if !ok {
+		return nil, false
+	}
+	if delivered := registry.SchemaFromRef(data.Ref); delivered != nil {
+		if ref, extended := delivered.Extensions[webhook.OriginExtension].(string); extended {
+			return &huma.Schema{Ref: ref}, true
+		}
+	}
+	return data, true
 }

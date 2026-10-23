@@ -83,6 +83,7 @@ export const storyEntitlementUsages = [
 
 export const storyAuditEntries = [
   {
+    actor: null,
     eventName: 'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
     eventType: 'com.kaiten.instance.entitlement.v1.usage_report_accepted',
     id: '101',
@@ -96,6 +97,7 @@ export const storyAuditEntries = [
     timestamp: '2026-04-21T08:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_VALUE_GET',
     eventType: 'com.kaiten.instance.entitlement.v1.value_get',
     id: '102',
@@ -109,6 +111,7 @@ export const storyAuditEntries = [
     timestamp: '2026-04-22T08:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_USAGE_REPORT_REJECTED',
     eventType: 'com.kaiten.instance.entitlement.v1.usage_report_rejected',
     id: '103',
@@ -123,6 +126,7 @@ export const storyAuditEntries = [
   },
   // The early warning of the soft limit above: 90% of the granted 1,000,000.
   {
+    actor: null,
     eventName: 'INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED',
     eventType:
       'com.kaiten.instance.entitlement.v1.usage_warning_threshold_reached',

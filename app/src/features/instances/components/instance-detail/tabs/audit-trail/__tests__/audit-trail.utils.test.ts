@@ -57,6 +57,7 @@ const entitlementsRows: InstanceEntitlementRow[] = [
 
 const entries: AuditTrail[] = [
   {
+    actor: null,
     eventName: 'ENTITLEMENT_VALUE_GET',
     eventType: 'com.kaiten.instance.entitlement.v1.value_get',
     id: '1',
@@ -70,6 +71,7 @@ const entries: AuditTrail[] = [
     timestamp: '2026-03-24T10:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
     eventType: 'com.kaiten.instance.entitlement.v1.usage_report_accepted',
     id: '2',
@@ -83,6 +85,7 @@ const entries: AuditTrail[] = [
     timestamp: '2026-03-24T11:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_USAGE_REPORT_REJECTED',
     eventType: 'com.kaiten.instance.entitlement.v1.usage_report_rejected',
     id: '3',
@@ -96,6 +99,7 @@ const entries: AuditTrail[] = [
     timestamp: '2026-03-25T09:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_VALUE_GET',
     eventType: 'com.kaiten.instance.entitlement.v1.value_get',
     id: '4',
@@ -109,6 +113,7 @@ const entries: AuditTrail[] = [
     timestamp: '2026-03-25T10:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_VALUE_GET',
     eventType: 'com.kaiten.instance.entitlement.v1.value_get',
     id: '5',
@@ -268,6 +273,7 @@ describe('audit-trail utils', () => {
     ];
     const groupEntries: AuditTrail[] = [
       {
+        actor: null,
         eventName: 'ENTITLEMENT_VALUE_GET',
         eventType: 'com.kaiten.instance.entitlement.v1.value_get',
         id: '11',
@@ -281,6 +287,7 @@ describe('audit-trail utils', () => {
         timestamp: '2026-03-24T10:00:00.000Z',
       },
       {
+        actor: null,
         eventName: 'ENTITLEMENT_VALUE_GET',
         eventType: 'com.kaiten.instance.entitlement.v1.value_get',
         id: '12',
@@ -294,6 +301,7 @@ describe('audit-trail utils', () => {
         timestamp: '2026-03-25T10:00:00.000Z',
       },
       {
+        actor: null,
         eventName: 'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
         eventType: 'com.kaiten.instance.entitlement.v1.usage_report_accepted',
         id: '13',
@@ -307,6 +315,7 @@ describe('audit-trail utils', () => {
         timestamp: '2026-03-26T10:00:00.000Z',
       },
       {
+        actor: null,
         eventName: 'ENTITLEMENT_VALUE_GET',
         eventType: 'com.kaiten.instance.entitlement.v1.value_get',
         id: '14',
@@ -379,6 +388,7 @@ describe('audit-trail utils', () => {
       day: string,
       id: string,
     ): AuditTrail => ({
+      actor: null,
       eventName: 'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
       eventType: 'com.kaiten.instance.entitlement.v1.usage_report_accepted',
       id,

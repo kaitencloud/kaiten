@@ -28,6 +28,7 @@ func toAuditTrailSchema(entry *auditschema.Entry) (*schema.AuditTrail, error) {
 		EventType:    entry.EventType,
 		Timestamp:    entry.OccurredAt,
 		Payload:      payload,
+		Actor:        auditActor(entry.Actor),
 	}, nil
 }
 
@@ -55,6 +56,7 @@ func toOrganizationAuditTrailSchema(entry *auditschema.OrganizationEntry) (*sche
 		EventType:    entry.EventType,
 		Timestamp:    entry.OccurredAt,
 		Payload:      payload,
+		Actor:        auditActor(entry.Actor),
 	}, nil
 }
 
@@ -194,4 +196,11 @@ func toInstanceSchemasFromLicenseRows(instances []db.GetInstancesByLicenseIDsRow
 		result = append(result, *inst)
 	}
 	return result, nil
+}
+
+func auditActor(actor *auditschema.Actor) *schema.AuditActor {
+	if actor == nil {
+		return nil
+	}
+	return &schema.AuditActor{ID: actor.ID, Name: actor.Name, Kind: actor.Kind}
 }

@@ -36,6 +36,7 @@ const entry = (
   eventName: string,
   timestamp = '2026-03-24T10:00:00.000Z',
 ): AuditTrail => ({
+  actor: null,
   eventName,
   eventType: `com.kaiten.test.${eventName.toLowerCase()}`,
   id,

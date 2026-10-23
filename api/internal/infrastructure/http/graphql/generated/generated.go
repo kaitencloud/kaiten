@@ -101,7 +101,14 @@ type ComplexityRoot struct {
 		UnitAmountDecimal  func(childComplexity int) int
 	}
 
+	AuditActor struct {
+		ID   func(childComplexity int) int
+		Kind func(childComplexity int) int
+		Name func(childComplexity int) int
+	}
+
 	AuditTrail struct {
+		Actor        func(childComplexity int) int
 		EventName    func(childComplexity int) int
 		EventType    func(childComplexity int) int
 		ID           func(childComplexity int) int
@@ -382,7 +389,14 @@ type ComplexityRoot struct {
 		NextCursor func(childComplexity int) int
 	}
 
+	OrganizationAuditActor struct {
+		ID   func(childComplexity int) int
+		Kind func(childComplexity int) int
+		Name func(childComplexity int) int
+	}
+
 	OrganizationAuditTrail struct {
+		Actor        func(childComplexity int) int
 		CustomerID   func(childComplexity int) int
 		CustomerName func(childComplexity int) int
 		CustomerSlug func(childComplexity int) int
@@ -741,6 +755,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.AddonPrice.UnitAmountDecimal(childComplexity), true
 
+	case "AuditActor.id":
+		if e.ComplexityRoot.AuditActor.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AuditActor.ID(childComplexity), true
+	case "AuditActor.kind":
+		if e.ComplexityRoot.AuditActor.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AuditActor.Kind(childComplexity), true
+	case "AuditActor.name":
+		if e.ComplexityRoot.AuditActor.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AuditActor.Name(childComplexity), true
+
+	case "AuditTrail.actor":
+		if e.ComplexityRoot.AuditTrail.Actor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.AuditTrail.Actor(childComplexity), true
 	case "AuditTrail.eventName":
 		if e.ComplexityRoot.AuditTrail.EventName == nil {
 			break
@@ -2012,6 +2051,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.MetadataFieldPage.NextCursor(childComplexity), true
 
+	case "OrganizationAuditActor.id":
+		if e.ComplexityRoot.OrganizationAuditActor.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OrganizationAuditActor.ID(childComplexity), true
+	case "OrganizationAuditActor.kind":
+		if e.ComplexityRoot.OrganizationAuditActor.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OrganizationAuditActor.Kind(childComplexity), true
+	case "OrganizationAuditActor.name":
+		if e.ComplexityRoot.OrganizationAuditActor.Name == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OrganizationAuditActor.Name(childComplexity), true
+
+	case "OrganizationAuditTrail.actor":
+		if e.ComplexityRoot.OrganizationAuditTrail.Actor == nil {
+			break
+		}
+
+		return e.ComplexityRoot.OrganizationAuditTrail.Actor(childComplexity), true
 	case "OrganizationAuditTrail.customerId":
 		if e.ComplexityRoot.OrganizationAuditTrail.CustomerID == nil {
 			break
@@ -2935,6 +2999,19 @@ type AuditTrail {
   timestamp: Time!
   """Event payload as a JSON object. Event-specific data such as status lives here."""
   payload: Map
+  """Who the event is recorded under; null for an entry recorded before actors were."""
+  actor: AuditActor
+}
+
+"""
+The user an audit entry is recorded under: a person, a service account, or
+Kaiten itself ("Kaiten (system)"), which records jobs and anonymous checkouts.
+"""
+type AuditActor {
+  id: UUID!
+  name: String!
+  """USER, SERVICE or SYSTEM."""
+  kind: String!
 }
 
 """
@@ -2997,6 +3074,18 @@ type OrganizationAuditTrail {
   timestamp: Time!
   """Event payload as a JSON object. Event-specific data such as status lives here."""
   payload: Map
+  """Who the event is recorded under; null for an entry recorded before actors were."""
+  actor: OrganizationAuditActor
+}
+
+"""
+The user an organization-wide audit entry is recorded under, as AuditActor.
+"""
+type OrganizationAuditActor {
+  id: UUID!
+  name: String!
+  """USER, SERVICE or SYSTEM."""
+  kind: String!
 }
 
 """
@@ -3621,6 +3710,18 @@ func (ec *executionContext) childFields_AddonPrice(ctx context.Context, field gr
 	return nil, fmt.Errorf("no field named %q was found under type AddonPrice", field.Name)
 }
 
+func (ec *executionContext) childFields_AuditActor(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_AuditActor_id(ctx, field)
+	case "name":
+		return ec.fieldContext_AuditActor_name(ctx, field)
+	case "kind":
+		return ec.fieldContext_AuditActor_kind(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type AuditActor", field.Name)
+}
+
 func (ec *executionContext) childFields_AuditTrail(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -3637,6 +3738,8 @@ func (ec *executionContext) childFields_AuditTrail(ctx context.Context, field gr
 		return ec.fieldContext_AuditTrail_timestamp(ctx, field)
 	case "payload":
 		return ec.fieldContext_AuditTrail_payload(ctx, field)
+	case "actor":
+		return ec.fieldContext_AuditTrail_actor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type AuditTrail", field.Name)
 }
@@ -4183,6 +4286,18 @@ func (ec *executionContext) childFields_MetadataFieldPage(ctx context.Context, f
 	return nil, fmt.Errorf("no field named %q was found under type MetadataFieldPage", field.Name)
 }
 
+func (ec *executionContext) childFields_OrganizationAuditActor(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_OrganizationAuditActor_id(ctx, field)
+	case "name":
+		return ec.fieldContext_OrganizationAuditActor_name(ctx, field)
+	case "kind":
+		return ec.fieldContext_OrganizationAuditActor_kind(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type OrganizationAuditActor", field.Name)
+}
+
 func (ec *executionContext) childFields_OrganizationAuditTrail(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -4207,6 +4322,8 @@ func (ec *executionContext) childFields_OrganizationAuditTrail(ctx context.Conte
 		return ec.fieldContext_OrganizationAuditTrail_timestamp(ctx, field)
 	case "payload":
 		return ec.fieldContext_OrganizationAuditTrail_payload(ctx, field)
+	case "actor":
+		return ec.fieldContext_OrganizationAuditTrail_actor(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type OrganizationAuditTrail", field.Name)
 }
@@ -5739,6 +5856,75 @@ func (ec *executionContext) fieldContext_AddonPrice_deprecatedAt(_ context.Conte
 	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
+func (ec *executionContext) _AuditActor_id(ctx context.Context, field graphql.CollectedField, obj *schema.AuditActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AuditActor_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AuditActor_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AuditActor", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _AuditActor_name(ctx context.Context, field graphql.CollectedField, obj *schema.AuditActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AuditActor_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AuditActor_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AuditActor", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _AuditActor_kind(ctx context.Context, field graphql.CollectedField, obj *schema.AuditActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AuditActor_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_AuditActor_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("AuditActor", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _AuditTrail_id(ctx context.Context, field graphql.CollectedField, obj *schema.AuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -5898,6 +6084,38 @@ func (ec *executionContext) _AuditTrail_payload(ctx context.Context, field graph
 }
 func (ec *executionContext) fieldContext_AuditTrail_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("AuditTrail", field, true, true, errors.New("field of type Map does not have child fields"))
+}
+
+func (ec *executionContext) _AuditTrail_actor(ctx context.Context, field graphql.CollectedField, obj *schema.AuditTrail) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_AuditTrail_actor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Actor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.AuditActor) graphql.Marshaler {
+			return ec.marshalOAuditActor2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditActor(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_AuditTrail_actor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "AuditTrail",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_AuditActor(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _AuditTrailPage_items(ctx context.Context, field graphql.CollectedField, obj *schema.AuditTrailPage) (ret graphql.Marshaler) {
@@ -10807,6 +11025,75 @@ func (ec *executionContext) fieldContext_MetadataFieldPage_hasMore(_ context.Con
 	return graphql.NewScalarFieldContext("MetadataFieldPage", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
+func (ec *executionContext) _OrganizationAuditActor_id(ctx context.Context, field graphql.CollectedField, obj *schema.AuditActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_OrganizationAuditActor_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_OrganizationAuditActor_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OrganizationAuditActor", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _OrganizationAuditActor_name(ctx context.Context, field graphql.CollectedField, obj *schema.AuditActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_OrganizationAuditActor_name(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Name, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_OrganizationAuditActor_name(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OrganizationAuditActor", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _OrganizationAuditActor_kind(ctx context.Context, field graphql.CollectedField, obj *schema.AuditActor) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_OrganizationAuditActor_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_OrganizationAuditActor_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("OrganizationAuditActor", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _OrganizationAuditTrail_id(ctx context.Context, field graphql.CollectedField, obj *schema.OrganizationAuditTrail) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11058,6 +11345,38 @@ func (ec *executionContext) _OrganizationAuditTrail_payload(ctx context.Context,
 }
 func (ec *executionContext) fieldContext_OrganizationAuditTrail_payload(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("OrganizationAuditTrail", field, false, false, errors.New("field of type Map does not have child fields"))
+}
+
+func (ec *executionContext) _OrganizationAuditTrail_actor(ctx context.Context, field graphql.CollectedField, obj *schema.OrganizationAuditTrail) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_OrganizationAuditTrail_actor(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Actor, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.AuditActor) graphql.Marshaler {
+			return ec.marshalOOrganizationAuditActor2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditActor(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_OrganizationAuditTrail_actor(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "OrganizationAuditTrail",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_OrganizationAuditActor(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _OrganizationAuditTrailPage_items(ctx context.Context, field graphql.CollectedField, obj *schema.OrganizationAuditTrailPage) (ret graphql.Marshaler) {
@@ -13843,6 +14162,54 @@ func (ec *executionContext) _AddonPrice(ctx context.Context, sel ast.SelectionSe
 	return out
 }
 
+var auditActorImplementors = []string{"AuditActor"}
+
+func (ec *executionContext) _AuditActor(ctx context.Context, sel ast.SelectionSet, obj *schema.AuditActor) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, auditActorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("AuditActor")
+		case "id":
+			out.Values[i] = ec._AuditActor_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._AuditActor_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "kind":
+			out.Values[i] = ec._AuditActor_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var auditTrailImplementors = []string{"AuditTrail"}
 
 func (ec *executionContext) _AuditTrail(ctx context.Context, sel ast.SelectionSet, obj *schema.AuditTrail) graphql.Marshaler {
@@ -13923,6 +14290,11 @@ func (ec *executionContext) _AuditTrail(ctx context.Context, sel ast.SelectionSe
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "actor":
+			out.Values[i] = ec._AuditTrail_actor(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -16556,6 +16928,54 @@ func (ec *executionContext) _MetadataFieldPage(ctx context.Context, sel ast.Sele
 	return out
 }
 
+var organizationAuditActorImplementors = []string{"OrganizationAuditActor"}
+
+func (ec *executionContext) _OrganizationAuditActor(ctx context.Context, sel ast.SelectionSet, obj *schema.AuditActor) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, organizationAuditActorImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("OrganizationAuditActor")
+		case "id":
+			out.Values[i] = ec._OrganizationAuditActor_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "name":
+			out.Values[i] = ec._OrganizationAuditActor_name(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "kind":
+			out.Values[i] = ec._OrganizationAuditActor_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var organizationAuditTrailImplementors = []string{"OrganizationAuditTrail"}
 
 func (ec *executionContext) _OrganizationAuditTrail(ctx context.Context, sel ast.SelectionSet, obj *schema.OrganizationAuditTrail) graphql.Marshaler {
@@ -16620,6 +17040,11 @@ func (ec *executionContext) _OrganizationAuditTrail(ctx context.Context, sel ast
 			}
 		case "payload":
 			out.Values[i] = ec._OrganizationAuditTrail_payload(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "actor":
+			out.Values[i] = ec._OrganizationAuditTrail_actor(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
@@ -18741,6 +19166,13 @@ func (ec *executionContext) marshalN__TypeKind2string(ctx context.Context, sel a
 	return res
 }
 
+func (ec *executionContext) marshalOAuditActor2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditActor(ctx context.Context, sel ast.SelectionSet, v *schema.AuditActor) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._AuditActor(ctx, sel, v)
+}
+
 func (ec *executionContext) unmarshalOBoolean2bool(ctx context.Context, v any) (bool, error) {
 	res, err := graphql.UnmarshalBoolean(v)
 	return res, graphql.ErrorOnPath(ctx, err)
@@ -18983,6 +19415,13 @@ func (ec *executionContext) marshalOMap2map(ctx context.Context, sel ast.Selecti
 	_ = ctx
 	res := graphql.MarshalMap(v)
 	return res
+}
+
+func (ec *executionContext) marshalOOrganizationAuditActor2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐAuditActor(ctx context.Context, sel ast.SelectionSet, v *schema.AuditActor) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._OrganizationAuditActor(ctx, sel, v)
 }
 
 func (ec *executionContext) marshalORelease2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋreleasesᚋschemaᚐRelease(ctx context.Context, sel ast.SelectionSet, v *schema7.Release) graphql.Marshaler {
