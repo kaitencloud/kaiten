@@ -49,11 +49,17 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
   }
 };
 
+/** The types that carry a numeric usage cap, the only ones that may have a threshold. */
+const isNumberFamily = (type: Entitlement['type']): boolean =>
+  type === 'NUMBER' || type === 'NUMBER_AI_CREDIT';
+
 /**
  * Builds the complete replacement PUT for the form and for inline rename, icon and
  * group edits. Echoes immutable resetPeriod/resetAnchor: omission would attempt
  * removal. Echoes the early-warning threshold too, which no screen edits: the API
- * stores 0 (the warning off) for a numeric entitlement sent without one.
+ * stores 0 (the warning off) for a numeric entitlement sent without one. Only a
+ * numeric entitlement echoes it: the API returns 0 for every type but refuses any
+ * threshold on the others, so a boolean or a config entitlement sends none.
  */
 export const entitlementToUpdateBody = (
   entitlement: Entitlement,
@@ -78,7 +84,12 @@ export const entitlementToUpdateBody = (
     saleUnitFactor: entitlement.saleUnitFactor ?? undefined,
     resetPeriod: entitlement.resetPeriod,
     resetAnchor: entitlement.resetAnchor,
-    warningThresholdPercent: entitlement.warningThresholdPercent ?? undefined,
+    ...(isNumberFamily(entitlement.type)
+      ? {
+          warningThresholdPercent:
+            entitlement.warningThresholdPercent ?? undefined,
+        }
+      : {}),
     ...overrides,
   };
 

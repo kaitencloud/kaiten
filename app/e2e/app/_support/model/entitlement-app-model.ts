@@ -51,17 +51,37 @@ export type SerializedEntitlementAppModel =
     sequence: number;
   };
 
+const isNumberFamily = (type: EntitlementRecord['type'] | undefined) =>
+  type === 'NUMBER' || type === 'NUMBER_AI_CREDIT';
+
 /**
  * The early-warning threshold the API stores for an entitlement written from `body`:
- * only a numeric entitlement has one, and one sent without it has 0 (the warning is
- * off), never the value it had before.
+ * a numeric one sent without it has 0 (the warning is off), never the value it had
+ * before, and every other type reads 0 too, as the API always returns the field.
  */
 function warningThresholdOf(
   body: Pick<Partial<EntitlementRecord>, 'type' | 'warningThresholdPercent'>,
-): number | undefined {
-  return body.type === 'NUMBER' || body.type === 'NUMBER_AI_CREDIT'
-    ? (body.warningThresholdPercent ?? 0)
-    : undefined;
+): number {
+  return isNumberFamily(body.type) ? (body.warningThresholdPercent ?? 0) : 0;
+}
+
+/**
+ * The refusal of a threshold on a type that has none, as the API words it: a 422 on
+ * a write that carries a threshold for a boolean or a config entitlement, 0 included.
+ * `type` is the type the entitlement has (the stored one on an update).
+ */
+function refuseThresholdOnNonNumeric(
+  operation: 'CreateEntitlement' | 'UpdateEntitlement',
+  type: EntitlementRecord['type'] | undefined,
+  body: Pick<Partial<EntitlementRecord>, 'warningThresholdPercent'>,
+) {
+  if (body.warningThresholdPercent != null && !isNumberFamily(type)) {
+    throw new BillingProblem(
+      422,
+      `${operation}.InvalidEnforcementPolicyConfiguration`,
+      'warningThresholdPercent is only allowed when type is NUMBER or NUMBER_AI_CREDIT',
+    );
+  }
 }
 
 /**
@@ -121,11 +141,15 @@ export class EntitlementAppModel {
 
   constructor(seed: EntitlementAppModelSeed = {}) {
     this.references = clone(seed.references ?? {});
+    // The API always returns the threshold, 0 when none is set, for every type.
     this.entitlements = parseContract(
       z.array(zEntitlement),
       seed.entitlements ?? [],
       'EntitlementAppModel seed.entitlements',
-    );
+    ).map((entitlement) => ({
+      ...entitlement,
+      warningThresholdPercent: entitlement.warningThresholdPercent ?? 0,
+    }));
     this.sequence = this.entitlements.length + 1;
 
     const timestamps = this.entitlements.flatMap((entitlement) => [
@@ -190,6 +214,11 @@ export class EntitlementAppModel {
     }
 
     refuseBillingPeriodCadence('CreateEntitlement', body);
+    refuseThresholdOnNonNumeric(
+      'CreateEntitlement',
+      body.type ?? 'NUMBER',
+      body,
+    );
 
     const timestamp = this.nextTimestamp();
     const entitlement: EntitlementRecord = {
@@ -270,6 +299,7 @@ export class EntitlementAppModel {
       );
     }
     refuseBillingPeriodCadence('UpdateEntitlement', body);
+    refuseThresholdOnNonNumeric('UpdateEntitlement', current.type, body);
 
     const updated: EntitlementRecord = {
       ...current,

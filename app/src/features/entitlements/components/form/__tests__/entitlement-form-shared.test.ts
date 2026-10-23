@@ -133,14 +133,30 @@ describe('entitlementToUpdateBody', () => {
     expect(body.warningThresholdPercent).toBe(0);
   });
 
-  it('sends no threshold for an entitlement that has none', () => {
+  it('echoes the threshold of an AI credit entitlement as well', () => {
     const body = entitlementToUpdateBody({
       ...numberEntitlementWithUnits,
-      type: 'BOOLEAN',
+      type: 'NUMBER_AI_CREDIT',
+      warningThresholdPercent: 70,
     });
 
-    expect(body.warningThresholdPercent).toBeUndefined();
+    expect(body.warningThresholdPercent).toBe(70);
   });
+
+  // The API returns 0 for every type but refuses any threshold on the ones that have
+  // none, so echoing that 0 back would fail the save with a 422.
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'sends no threshold for a %s entitlement, which the API returns as 0',
+    (type) => {
+      const body = entitlementToUpdateBody({
+        ...numberEntitlementWithUnits,
+        type,
+        warningThresholdPercent: 0,
+      });
+
+      expect(body).not.toHaveProperty('warningThresholdPercent');
+    },
+  );
 });
 
 describe('getEntitlementFormDefaults', () => {

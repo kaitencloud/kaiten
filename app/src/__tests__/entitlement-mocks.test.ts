@@ -82,7 +82,7 @@ describe('the warning threshold of an entitlement, as the mocks keep it', () => 
     expect((await read('qa-requests')).warningThresholdPercent).toBe(60);
   });
 
-  it('gives an AI credit the same replacement, and a boolean no threshold at all', async () => {
+  it('gives an AI credit the same replacement, and a boolean the 0 the API returns for every type', async () => {
     install(
       entitlement('qa-ai-credits', 'NUMBER_AI_CREDIT', {
         warningThresholdPercent: 80,
@@ -101,7 +101,37 @@ describe('the warning threshold of an entitlement, as the mocks keep it', () => 
     });
 
     expect((await read('qa-ai-credits')).warningThresholdPercent).toBe(0);
-    expect(await read('qa-flag')).not.toHaveProperty('warningThresholdPercent');
+    expect((await read('qa-flag')).warningThresholdPercent).toBe(0);
+  });
+
+  it('refuses a threshold on a boolean or a config entitlement, 0 included, as the API does', async () => {
+    install(entitlement('qa-flag', 'BOOLEAN'), entitlement('qa-config', 'CONFIG'));
+
+    for (const [slug, type] of [
+      ['qa-flag', 'BOOLEAN'],
+      ['qa-config', 'CONFIG'],
+    ] as const) {
+      const response = await send('PUT', `/entitlements/${slug}`, {
+        name: slug,
+        type,
+        warningThresholdPercent: 0,
+      });
+
+      expect(response.status).toBe(422);
+      expect(await response.json()).toMatchObject({
+        code: 'UpdateEntitlement.InvalidEnforcementPolicyConfiguration',
+      });
+    }
+
+    const created = await send('POST', '/entitlements', {
+      name: 'Flag',
+      type: 'BOOLEAN',
+      warningThresholdPercent: 0,
+    });
+    expect(created.status).toBe(422);
+    expect(await created.json()).toMatchObject({
+      code: 'CreateEntitlement.InvalidEnforcementPolicyConfiguration',
+    });
   });
 
   it('stores the threshold of an entitlement made with one', async () => {
