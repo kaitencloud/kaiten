@@ -103,7 +103,7 @@ export class PublishableKeysDriver {
   /** The switch that opens the anonymous checkout to the key, in either language. */
   anonymousCheckout(): Locator {
     return this.dialog().getByRole('switch', {
-      name: /^(Allow anonymous checkout|Autoriser le paiement anonyme)$/,
+      name: /^(Allow anonymous checkout|Autoriser le checkout anonyme)$/,
     });
   }
 

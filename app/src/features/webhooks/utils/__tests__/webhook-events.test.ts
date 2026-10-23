@@ -94,7 +94,7 @@ describe('webhook events', () => {
         'com.kaiten.checkout_session.v1.abandoned',
         translatorFor(fr),
       ),
-    ).toBe('Paiements en ligne – Paiement abandonné');
+    ).toBe('Checkouts – Checkout abandonné');
   });
 
   it('reads an event by its type, with its audit-trail label', () => {

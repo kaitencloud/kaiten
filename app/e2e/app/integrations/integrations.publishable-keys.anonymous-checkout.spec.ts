@@ -519,19 +519,19 @@ test.describe('the anonymous checkout of a key, read in French', () => {
       page.getByRole('heading', { level: 1, name: 'Clés publiables' }),
     ).toBeVisible();
     await expect(keys.anonymousBadge('Checkout page')).toHaveText(
-      'Paiement anonyme',
+      'Checkout anonyme',
     );
     await page.getByRole('link', { name: 'Modifier Checkout page' }).click();
-    await expect(keys.dialog()).toContainText('Paiement anonyme');
+    await expect(keys.dialog()).toContainText('Checkout anonyme');
     await expect(keys.secretStatus()).toHaveText(
       'Un secret est stocké pour cette clé. Il n’est jamais affiché.',
     );
     await keys.removeSecret().click();
     await expect(keys.secretStatus()).toHaveText(
-      'Le secret sera retiré à l’enregistrement, mais le paiement anonyme en a besoin. Gardez le secret, ou désactivez le paiement anonyme.',
+      'Le secret sera retiré à l’enregistrement, mais le checkout anonyme en a besoin. Gardez le secret, ou désactivez le checkout anonyme.',
     );
     await expect(keys.dialog()).toContainText(
-      'Le paiement anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
+      'Le checkout anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
     );
   });
 
@@ -555,7 +555,7 @@ test.describe('the anonymous checkout of a key, read in French', () => {
     await keys.dialog().getByRole('button', { name: 'Enregistrer' }).click();
 
     await expect(keys.dialog()).toContainText(
-      'Le paiement anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
+      'Le checkout anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
     );
     await expect(keys.dialog()).not.toContainText('anonymousCheckout needs');
   });

@@ -1733,7 +1733,7 @@ export default {
         ending:
           'Cette licence est publique et a une version payante, mais ne nomme aucun repli. Quand un abonnement à cette licence se termine, l’instance garde une version payante de la licence sans être facturée.',
         anonymousCheckout:
-          'Elle ne peut pas non plus être vendue par un paiement anonyme avec un montant dû aujourd’hui : ce paiement est refusé tant que la licence ne nomme pas de repli.',
+          'Elle ne peut pas non plus être vendue par un checkout anonyme avec un montant dû aujourd’hui : ce checkout est refusé tant que la licence ne nomme pas de repli.',
         chooseInSettings:
           'Choisissez une licence gratuite de repli dans les réglages de la licence.',
         chooseInField:
@@ -3501,10 +3501,10 @@ export default {
       PublishableKeys: {
         title: 'Clés publiables',
         subtitle:
-          'Les clés qu’une page web utilise pour lire votre catalogue public et, si vous l’autorisez, démarrer des paiements anonymes',
+          'Les clés qu’une page web utilise pour lire votre catalogue public et, si vous l’autorisez, démarrer des checkouts anonymes',
         Intro: {
           purpose:
-            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret. Elle ne lit rien d’autre, et ne démarre de paiements anonymes que si vous l’y autorisez.',
+            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret. Elle ne lit rien d’autre, et ne démarre de checkouts anonymes que si vous l’y autorisez.',
           listing:
             'Ce que le catalogue liste est décidé par l’interrupteur « Catalogue public » de chaque licence et de chaque add-on :',
           licenses: 'Licences',
@@ -3529,7 +3529,7 @@ export default {
           Status: {
             live: 'Active',
             revoked: 'Révoquée',
-            anonymousCheckout: 'Paiement anonyme',
+            anonymousCheckout: 'Checkout anonyme',
           },
           Actions: {
             edit: 'Modifier {{label}}',
@@ -3576,7 +3576,7 @@ export default {
         Edit: {
           title: 'Modifier {{label}}',
           description:
-            'Changez à quoi sert la clé, les origines qui peuvent l’envoyer et si elle ouvre le paiement anonyme. La clé elle-même ne change pas.',
+            'Changez à quoi sert la clé, les origines qui peuvent l’envoyer et si elle ouvre le checkout anonyme. La clé elle-même ne change pas.',
           save: 'Enregistrer',
           saved: '{{label}} enregistrée',
           revoked:
@@ -3586,7 +3586,7 @@ export default {
           Labels: {
             label: 'Libellé',
             origins: 'Origines autorisées',
-            anonymousCheckout: 'Autoriser le paiement anonyme',
+            anonymousCheckout: 'Autoriser le checkout anonyme',
             turnstileSiteKey: 'Clé de site Turnstile',
             turnstileSecret: 'Secret Turnstile',
           },
@@ -3601,16 +3601,16 @@ export default {
             origins:
               'Une origine par ligne, {{max}} au plus : https://hôte, ou http://localhost, avec un port s’il y en a un. Sans chemin. Laissez vide pour n’autoriser aucune origine de navigateur.',
             anonymousCheckout:
-              'Une fois activé, tout visiteur des origines de cette clé peut démarrer un paiement et créer un client. Il faut une clé de site et un secret.',
+              'Une fois activé, tout visiteur des origines de cette clé peut démarrer un checkout et créer un client. Il faut une clé de site et un secret.',
             turnstileSiteKey:
               'La clé publique de votre widget Turnstile : lettres, chiffres, tirets et tirets bas. La page dessine le widget avec elle.',
             turnstileSecret:
               'Le secret du même widget. Kaiten le stocke dans Vault et ne l’affiche plus jamais.',
             vaultMissing:
-              'Le paiement anonyme nécessite un Vault configuré : ce déploiement ne peut pas stocker de secret Turnstile.',
+              'Le checkout anonyme nécessite un Vault configuré : ce déploiement ne peut pas stocker de secret Turnstile.',
           },
           Anonymous: {
-            title: 'Paiement anonyme',
+            title: 'Checkout anonyme',
             description:
               'Permet à un visiteur sans compte d’acheter depuis votre page. Cloudflare Turnstile le protège, avec la clé de site et le secret d’un widget enregistré pour les origines ci-dessus.',
           },
@@ -3619,7 +3619,7 @@ export default {
               'Un secret est stocké pour cette clé. Il n’est jamais affiché.',
             removing: 'Le secret sera retiré à l’enregistrement.',
             removingWhileOn:
-              'Le secret sera retiré à l’enregistrement, mais le paiement anonyme en a besoin. Gardez le secret, ou désactivez le paiement anonyme.',
+              'Le secret sera retiré à l’enregistrement, mais le checkout anonyme en a besoin. Gardez le secret, ou désactivez le checkout anonyme.',
             replace: 'Remplacer',
             remove: 'Retirer',
             undo: 'Garder le secret',
@@ -3638,15 +3638,15 @@ export default {
             turnstileSecretRequired:
               'Saisissez le nouveau secret, ou gardez l’actuel',
             turnstileRequired:
-              'Le paiement anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
+              'Le checkout anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
             vaultNotConfigured:
-              'Ce déploiement n’a pas de Vault : il ne peut pas stocker de secret Turnstile. Configurez un Vault, ou laissez le paiement anonyme désactivé.',
+              'Ce déploiement n’a pas de Vault : il ne peut pas stocker de secret Turnstile. Configurez un Vault, ou laissez le checkout anonyme désactivé.',
           },
         },
         Revoke: {
           title: 'Révoquer {{label}} ?',
           description:
-            'La clé qui se termine par {{hint}} cesse de fonctionner à la requête suivante : toute page qui l’envoie cesse de lire votre catalogue et ne peut plus démarrer de paiement anonyme. Une clé révoquée ne peut pas être rétablie : créez-en une nouvelle pour la remplacer.',
+            'La clé qui se termine par {{hint}} cesse de fonctionner à la requête suivante : toute page qui l’envoie cesse de lire votre catalogue et ne peut plus démarrer de checkout anonyme. Une clé révoquée ne peut pas être rétablie : créez-en une nouvelle pour la remplacer.',
           confirm: 'Révoquer la clé',
           success: '{{label}} révoquée',
         },
@@ -4187,7 +4187,7 @@ export default {
           invoice: 'Factures',
           voucher: 'Codes promo',
           payment: 'Paiements',
-          checkout: 'Paiements en ligne',
+          checkout: 'Checkouts',
           featureFlag: 'Feature flags',
           release: 'Releases',
           deploymentZone: 'Zones de déploiement',
@@ -6743,9 +6743,9 @@ export default {
         BILLING_PROVIDER_DISCONNECTED: 'Fournisseur de paiement déconnecté',
         BILLING_PROVIDER_SYNC_FAILED:
           'Échec de synchronisation du fournisseur de paiement',
-        CHECKOUT_SESSION_ABANDONED: 'Paiement abandonné',
-        CHECKOUT_SESSION_COMPLETED: 'Paiement terminé',
-        CHECKOUT_SESSION_STARTED: 'Paiement commencé',
+        CHECKOUT_SESSION_ABANDONED: 'Checkout abandonné',
+        CHECKOUT_SESSION_COMPLETED: 'Checkout terminé',
+        CHECKOUT_SESSION_STARTED: 'Checkout commencé',
         COMPONENT_CREATED: 'Component ajouté',
         COMPONENT_DELETED: 'Component supprimé',
         COMPONENT_UPDATED: 'Component mis à jour',
