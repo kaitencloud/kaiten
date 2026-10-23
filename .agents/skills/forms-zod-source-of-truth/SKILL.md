@@ -24,6 +24,7 @@ Build forms from generated schemas and keep validation synchronized with API con
    - `try/catch` in `onSubmit` for form flows.
    - Keep mutation invalidation in mutation callbacks.
 6. Ensure all labels, placeholders, descriptions, and messages are translated via i18n keys.
+7. A long or multi-step creation form declares its recovery (`defineFormRecovery`, with `omit`, `stepFields` and a schema), sends through `recovery.send`, and follows the rules of adoption in `app/docs/03-patterns/forms.md#recovering-an-unsent-creation-form`.
 
 ## Useful commands
 

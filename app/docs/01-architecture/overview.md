@@ -154,6 +154,7 @@ pnpm run generate
 | Server state | TanStack Query | API data, cache, invalidation | `useSuspenseQuery(customersWithInstancesQueryOptions)` |
 | Feature UI state | TanStack Store | UI state of one feature | `useLicenseVersionFormStore()` |
 | App settings | TanStack DB, in `localStorage` | Theme, language, side navigation | `useAppSettings()` |
+| Unsent creation input | TanStack DB, in `localStorage` | What was typed in a creation form and not sent | `useFormRecovery()` |
 
 Details and the decision tree are in [state-management.md](../03-patterns/state-management.md). After a mutation, invalidate with the generated query key functions: see [query-key-invalidation.md](../02-conventions/query-key-invalidation.md).
 

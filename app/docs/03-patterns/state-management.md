@@ -11,12 +11,13 @@ State lives in three layers, each with one job, plus two places beside them: the
 | Local state | React `useState` | State of one component, shared with nobody | `const [isExpanded, setIsExpanded] = useState(false)` |
 | URL state | TanStack Router search params | What a user can share or find again after a refresh | `?status=unread` on `/notifications` |
 | Persisted settings | TanStack DB, in `localStorage` | Settings of the whole frontend | the theme, the language, whether the side navigation is expanded |
+| Recoverable input of a creation form | TanStack DB, in `localStorage` | What a person typed in a creation form and did not send | `useFormRecovery()` from `@/functionals/form-recovery` |
 
 ## Rules
 
 No command checks these rules; they are reviewed in pull requests.
 
-1. **The server state stays in TanStack Query.** Do not copy it into a store or into `useState`. Data that comes from an API goes through Query, the single source of truth. This avoids the fragile synchronisation of `useEffect(() => setState(query.data), [query.data])`, and keeps cache bugs apart from UI bugs.
+1. **The server state stays in TanStack Query.** Do not copy it into a store or into `useState`. Data that comes from an API goes through Query, the single source of truth. This avoids the fragile synchronisation of `useEffect(() => setState(query.data), [query.data])`, and keeps cache bugs apart from UI bugs. There is one named exception, in [Recoverable input of a creation form](#recoverable-input-of-a-creation-form): the stored input keeps the display names of catalog objects, to name what later disappears. They are never a source of truth, for display or for a decision.
 2. **Invalidate from the mutation hooks.** The hooks of a feature update or invalidate the cache; components do not call `invalidateQueries`.
 3. **Compute derived values at render.** Do not synchronise them with `useEffect`. Use store actions for the transitions of the UI.
 4. **Prefer a store with named actions** once a feature has several coupled UI transitions (dialogs, selection, inline editing, navigation inside the feature). Do not stack `useState` or `useReducer` and `useEffect` to orchestrate them.
@@ -185,6 +186,15 @@ Some UI settings belong to the whole frontend and must survive a refresh: the th
 
 Business or API data, state of one component and feature-specific UI orchestration do not belong there.
 
+## Recoverable input of a creation form
+
+The one business data the console keeps in the browser is what a person typed in a **creation** form and did not send: it is offered back the next time they open that form (a crash, an expired session, a deploy, a closed tab). It lives in a TanStack DB collection in `localStorage` too, under its own key, with one record per unsent input. The storage is `app/src/lib/form-recovery/`; the hooks and the components are the `form-recovery` functional, and the [forms guide](./forms.md#recovering-an-unsent-creation-form) says how a form adopts it.
+
+- It is a patch against the initial values, so a value the person never touched (today's date, a translated name) is never frozen as if they had typed it.
+- It is bounded: 7 days, 64 KB a record, 20 records, 3 a form. Secrets, codes entered once and files never reach it (`omit`).
+- It is purged on an explicit sign-out and, at startup, of the other users of the browser.
+- An edit form never reads or writes it, and does not even create the collection.
+
 ## Deciding
 
 ```txt
@@ -198,6 +208,9 @@ A new piece of data to manage?
 │
 ├─ Is it a setting of the whole frontend that survives a refresh?
 │   └─ Yes → persisted settings (TanStack DB)
+│
+├─ Is it what a person typed in a creation form and has not sent?
+│   └─ Yes → form recovery (TanStack DB), through useFormRecovery
 │
 ├─ Is it shared between several components of a feature?
 │   └─ Yes → TanStack Store (named actions when the transitions are complex)

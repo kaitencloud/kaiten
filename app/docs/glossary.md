@@ -116,6 +116,10 @@ A named, versioned piece that releases bundle. Updating a component that a relea
 
 A typed field that an organization declares for a resource type, `DEPLOYMENT_ZONE` or `INSTANCE`: a `key`, a `label` and a JSON Schema 2020-12 document. The values live in the resource's `metadata` and are validated against the schema. A field is archived, not deleted. Code: `app/src/domains/metadata-fields/` and `app/src/functionals/metadata-fields/`.
 
+### Unsent input
+
+*Saisie non envoyée.* What a person typed in a creation form and did not send, kept in the browser (7 days) and offered back as "Resume" or "Start over" the next time they open the same form. It is not a draft: a draft is a server object in the `DRAFT` state, visible to colleagues and listed; an unsent input exists only on the device. Module: `app/src/functionals/form-recovery/`.
+
 ### Connector
 
 A registered integration with an external system, identified by a stable name such as `kaiten.integration.crm.attio`. An organization activates a connector and stores its settings, validated against the connector's settings schema. The console sets up the Attio connector, which syncs customers and instances with a CRM. Feature: `app/src/features/connectors/`.

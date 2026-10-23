@@ -99,6 +99,7 @@ no route or page.
 | `detail-card` | `DetailCard`, the card of an entity detail page: header, action, title, rows | [detail-cards.md](../03-patterns/detail-cards.md) |
 | `detail-entity-layout` | Composed detail shell: Top, Body, Tabs and scrollable Content; tab implementation is internal | [README](../../src/functionals/detail-entity-layout/README.md) |
 | `filters` | Client-side filters: state hook and toolbar (pinned, quick-access, normal and advanced filters) | [README](../../src/functionals/filters/README.md) |
+| `form-recovery` | Offers back what a person typed in a creation form and did not send: the declaration of a form, the door and the adapter hooks, and the alert, notes, warning and announcer. A deliberately generic primitive shared before its second consumer, as "Extract late" allows; the README lists the forms it is meant for | [README](../../src/functionals/form-recovery/README.md), [forms.md](../03-patterns/forms.md#recovering-an-unsent-creation-form) |
 | `metadata-fields` | Turns JSON Schema metadata field descriptors into columns, filters and form inputs, with `DynamicForm` | [README](../../src/functionals/metadata-fields/README.md) |
 | `page` | `Page` compound component for headers and layouts, and `EditableTitle` | [README](../../src/functionals/page/README.md) |
 | `progress-stepper` | Numbered step strip and progress bar for full-page create wizards | |

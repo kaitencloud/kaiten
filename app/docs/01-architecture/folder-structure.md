@@ -171,6 +171,7 @@ Where things go:
 | Route tabs, active tab by path prefix and by search | `functionals/route-tabs/` |
 | Shared business shell of `/releases/**` | `domains/release-management/components/` |
 | Large form dialog with a discard confirmation | `functionals/stacked-form-dialog/` |
+| Offer to resume an unsent creation form | `functionals/form-recovery/` |
 | CEL editor with Monaco completion | `functionals/cel-editor/` |
 | Targeting rules list and editor | `features/feature-flags/targeting/` |
 | Variants list and editor | `features/feature-flags/variants/` |
@@ -196,6 +197,7 @@ A hook used by one feature stays in `features/<name>/hooks/` and moves here when
 | `errors/` | `ApiError`, `handleApiError`, `getApiErrorMessage`, error codes |
 | `i18n/` | i18next configuration and the `en` and `fr` locales |
 | `settings/` | Settings persisted in `localStorage` through TanStack DB |
+| `form-recovery/`, `session-identity.ts` | The storage of what a person typed in a creation form and did not send (a TanStack DB collection in `localStorage`, Web Locks, housekeeping), with no React; and the signed-in user and organization, read synchronously, that it keys on |
 | `detail/`, `navigation/` | Helpers for detail pages and breadcrumbs. `getAuditDisplayName` (`detail/audit.ts`) names who created or last changed a record, and reads the platform user (`system:kaiten`, the actor of what no person of the organization did, such as the customer an anonymous checkout creates) as "Kaiten (system)" |
 | `feature-flags.ts` | Evaluation of the flags the app gates its own features on, through OpenFeature and its OFREP web provider |
 | `external-id.ts` | Browser-side derivation of an organization id, which has to match the server's (`api/pkg/externalid`) |

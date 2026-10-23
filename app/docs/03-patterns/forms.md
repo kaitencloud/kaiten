@@ -223,6 +223,32 @@ The form values and the request body are different shapes: the values keep an em
 - **Cache.** After a successful mutation, invalidate the affected queries with the generated query key functions. See [query key invalidation](../02-conventions/query-key-invalidation.md).
 - **Navigation.** A page form navigates with `useRouter` (`features/licenses/components/forms/license-form.tsx`) or `useNavigate` (`features/customers/components/customer-form.tsx`). A form shown in a dialog takes one of two shapes. Either it takes `onSuccess` and `onCancel` callbacks and a wrapper closes the dialog: `CustomerForm` inside `CustomerFormDialog` (`features/customers/components/customer-form-dialog.tsx`); `CustomerForm` navigates to the list when a callback is absent. Or it receives `onOpenChange` and calls it with `false` after a successful submit, as the example above does. See [dialog via route](./dialog-via-route.md).
 
+## Recovering an unsent creation form
+
+A long or multi-step **creation** form offers back what the person typed and did not send: after a crash, an expired session, a deploy or a closed tab, an `Alert` proposes **Resume** or **Start over**. Nothing is restored without the click. An edit form never uses it: it starts from server data, which changes. The module is [`functionals/form-recovery`](../../src/functionals/form-recovery/README.md); the screen says "entries" (*saisie*), never "draft", which in the console is a server object in the `DRAFT` state.
+
+A form adopts it in four steps.
+
+1. **Declare it next to the schema of the form**, with `defineFormRecovery`: the `formId` (`<feature>.create`), the `version`, and `omit`, which is required (`[]` included) and lists the paths never stored: a code entered once, a token, a password, a file. `omitWhen` decides from the data (a metadata field whose JSON Schema is `writeOnly`). `steps` and `stepFields` say which step holds which field, so that a restore lands on the first step with something to correct. `schema` is the schema of the form, derived from the generated one.
+2. **Open the door outside the subtree of the form** with `useFormRecovery(descriptor, { enabled: !entity, pristine })`, and give the subtree `key={recovery.sessionKey}`: restoring is mounting it again. `enabled` is false for an edit form and for a wizard that finishes a server draft. `context` separates inputs whose meaning differs (a locked customer, the voucher a boost is made for). `pristine` is frozen at the first render.
+3. **Wire the form** with `useFormRecoveryForm(recovery, form, { stepIndex, furthestIndex, references, ready })` and put `FormRecoveryAlert` under the title, `FormRecoveryNotes` in the step, `FormRecoverySubmitWarning` above the submit button and `FormRecoveryAnnouncer` beside the subtree. `ready` is false while the feature fills values itself after the mount, which is then not an input.
+4. **Send through `recovery.send`**. It is the one place that decides an input was sent: a tombstone replaces the entry when the server accepts, and nothing is offered again.
+
+```tsx
+const savedEntitlement = await recovery.send(
+  () => createMutation.mutateAsync({ body }),
+  { created: (created) => ({ id: created.slug, label: created.name }) },
+);
+```
+
+The rules of adoption:
+
+- The body is built **outside** the request: `request` holds only the network call. An error thrown while building the body would be taken for an answer that never came, and warn of a duplicate that does not exist.
+- **No navigation, and no awaited invalidation, in the `onSuccess` of the `useMutation`** of an adopted creation: `mutateAsync` resolves only after it, so the page would be gone before `send` wrote the tombstone. Navigate in `onSubmit`, after `send`, and `void` the invalidation.
+- A send made of several requests uses `recovery.begin()` and `attempt.accepted()` at the first irreversible write, or `followUp` and `complete()` when the main object exists and the next request may still fail.
+- **A version rule.** Raise `version` when the shape of the values changes; the entry is then offered with a warning that the form changed. Declare `incompatibleBelow` when the meaning changed without the type (an amount that moves from major to minor units): the entry is then dropped, and the person told once.
+- Each adopted form has a test that sends, mounts again and finds no offer; one that finds no omitted path in `localStorage`; and, for an edit form, one that finds `localStorage` empty.
+
 ## Updating an object the API replaces as a whole
 
 Most `PUT` operations of the API replace the object: they require its required members (`PUT /customers/{slug}` requires the name, `PUT /licenses/{slug}` and `PUT /addons/{slug}` the name, the description and `isDefault`) and clear or reset the optional ones left out. A form that sends the object it read when it opened therefore also sends back, unasked, every member somebody else changed since: a rename made in another tab, a default moved to another version of a family. The API has no version check, so nothing refuses the write and nobody is told.
