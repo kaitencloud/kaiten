@@ -37,13 +37,20 @@ const (
 	metaCustomer        = "kaiten_customer_id"
 )
 
-type UseCase struct {
-	deps   access.Deps
-	outbox *outbox.ScopedRepository
+// Refresher reads an invoice from its provider while it awaits its payment.
+type Refresher interface {
+	Refresh(ctx context.Context, row db.InstanceInvoice) bool
 }
 
-func NewUseCase(deps access.Deps) *UseCase {
-	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof)}
+type UseCase struct {
+	deps      access.Deps
+	outbox    *outbox.ScopedRepository
+	refresher Refresher
+}
+
+// NewUseCase builds the use case; refresher may be nil (no refresh on read).
+func NewUseCase(deps access.Deps, refresher Refresher) *UseCase {
+	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), refresher: refresher}
 }
 
 // Request is the setup page a checkout session asks for.
@@ -208,16 +215,23 @@ func (u *UseCase) Stamp(ctx context.Context, organizationID, checkoutSessionID, 
 }
 
 // Activation is the newest ACTIVATION of an instance's subscription; nil
-// when there is none.
+// when there is none. One still awaiting its payment is read from its
+// provider first, as the session's invoice list does (E-5): a 3-D Secure
+// confirmed on the hosted page shows, and completes the session, at once.
 func (u *UseCase) Activation(ctx context.Context, organizationID, instanceID uuid.UUID) (*invoices.Invoice, error) {
-	row, err := u.deps.Queries(ctx).GetLatestInstanceActivation(ctx, db.GetLatestInstanceActivationParams{
-		OrganizationID: organizationID, InstanceID: &instanceID,
-	})
+	q := u.deps.Queries(ctx)
+	params := db.GetLatestInstanceActivationParams{OrganizationID: organizationID, InstanceID: &instanceID}
+	row, err := q.GetLatestInstanceActivation(ctx, params)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil //nolint:nilnil // no ACTIVATION is an answer
 	}
 	if err != nil {
 		return nil, err
+	}
+	if u.refresher != nil && u.refresher.Refresh(ctx, row) {
+		if row, err = q.GetLatestInstanceActivation(ctx, params); err != nil {
+			return nil, err
+		}
 	}
 	invoice, err := invoices.FromRow(row)
 	if err != nil {

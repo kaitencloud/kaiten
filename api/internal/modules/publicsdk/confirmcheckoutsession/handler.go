@@ -41,6 +41,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -397,7 +398,7 @@ func (u *UseCase) setup(ctx context.Context, q *db.Queries, row db.GetCheckoutSe
 // answer is the session as it now reads, with the setup page to send the
 // visitor to when there is one.
 func (u *UseCase) answer(ctx context.Context, organizationID, sessionID uuid.UUID, page *checkoutsetup.Page) (*checkout.CheckoutConfirmation, error) {
-	final, err := db.New(u.deps.Uof.DBTX(ctx)).GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
+	final, err := getcheckoutsession.Load(ctx, db.New(u.deps.Uof.DBTX(ctx)), u.deps.Setup, organizationID, sessionID)
 	if err != nil {
 		return nil, err
 	}
@@ -456,6 +457,10 @@ func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetChecko
 		return err
 	}
 	selection.TrialEndsAt = nil
+	selection.DueToday = &sessions.DueToday{
+		Currency: preview.Currency, Subtotal: preview.Composition.Subtotal, DiscountTotal: preview.Composition.DiscountTotal,
+		Total: preview.Composition.Total, Lines: sessions.LinesFrom(preview.Composition.Lines),
+	}
 	stored, err := json.Marshal(selection)
 	if err != nil {
 		return err

@@ -5,8 +5,11 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 )
 
 // MoveToVersion pins an instance to another licence version and changes
@@ -40,6 +43,18 @@ func (h *UseCase) MoveToVersion(ctx context.Context, instanceSlug string, licens
 		Slug:             nil,
 	}, instanceSlug)
 	return err
+}
+
+// AnnounceUpdated records INSTANCE_UPDATED for a licence move billing made in
+// the caller's transaction, under its freeze escape (§9.10 rule 3, §9.11),
+// with reason, when there is one.
+func (h *UseCase) AnnounceUpdated(ctx context.Context, organizationID uuid.UUID, instanceSlug string, reason *string) error {
+	instance, err := h.repo.GetInstance(ctx, instanceSlug, organizationID)
+	if err != nil {
+		return err
+	}
+	return h.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(organizationID, events.InstanceUpdated.Name, events.InstanceUpdated.Type,
+		schema.InstanceUpdate{Instance: *instance, LicenseChangeReason: reason}, outbox.AuditHeaders{InstanceID: &instance.ID}))
 }
 
 // OverQuota is the entitlements whose usage in their current window is above

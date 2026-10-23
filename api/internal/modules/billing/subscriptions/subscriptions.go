@@ -55,6 +55,9 @@ type InstanceBilling struct {
 	CurrentPeriodStart       time.Time        `json:"currentPeriodStart"`
 	CurrentPeriodEnd         time.Time        `json:"currentPeriodEnd" doc:"The next boundary: the period closes, and its invoice is composed, after it"`
 	TrialEndsAt              *time.Time       `json:"trialEndsAt" doc:"When the trial ends, or ended: usage before it is never billed"`
+	ReminderAt               *time.Time       `json:"reminderAt" doc:"When trial_will_end is (or was) emitted: trialEndsAt minus the family's trialReminderDays as it was when the trial started; set with trialEndsAt"`
+	PendingLicenseSlug       *string          `json:"pendingLicenseSlug" doc:"The licence version a checkout waiting for its payment moves the instance to once paid"`
+	IncompleteExpiresAt      *time.Time       `json:"incompleteExpiresAt" doc:"When a checkout waiting for its payment ends unpaid: INCOMPLETE, or a free subscription that carries one"`
 	ScheduledChange          *ScheduledChange `json:"scheduledChange" doc:"A plan change waiting for the next boundary"`
 	CancelAtPeriodEnd        bool             `json:"cancelAtPeriodEnd"`
 	CancelRequestedAt        *time.Time       `json:"cancelRequestedAt"`
@@ -73,6 +76,7 @@ func (InstanceBilling) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Sc
 // ScheduledChange is a plan change waiting for the next boundary.
 type ScheduledChange struct {
 	Price       prices.Price `json:"price" doc:"The FLAT_FEE price the subscription moves to"`
+	LicenseSlug string       `json:"licenseSlug" doc:"The licence version of that price"`
 	ScheduledAt time.Time    `json:"scheduledAt"`
 	EffectiveAt time.Time    `json:"effectiveAt" doc:"The boundary it applies at: the current period's end"`
 }
@@ -130,6 +134,9 @@ func Build(ctx context.Context, q *db.Queries, catalogue ports.CatalogueSource, 
 		CurrentPeriodStart:       row.CurrentPeriodStart.Time.UTC(),
 		CurrentPeriodEnd:         row.CurrentPeriodEnd.Time.UTC(),
 		TrialEndsAt:              invoices.TimePtr(row.TrialEndsAt),
+		ReminderAt:               invoices.TimePtr(row.TrialWillEndAt),
+		PendingLicenseSlug:       nil,
+		IncompleteExpiresAt:      invoices.TimePtr(row.IncompleteExpiresAt),
 		ScheduledChange:          nil,
 		CancelAtPeriodEnd:        row.CancelAtPeriodEnd,
 		CancelRequestedAt:        invoices.TimePtr(row.CancelRequestedAt),
@@ -150,9 +157,16 @@ func Build(ctx context.Context, q *db.Queries, catalogue ports.CatalogueSource, 
 		}
 		if target != nil {
 			out.ScheduledChange = &ScheduledChange{
-				Price: target.Price, ScheduledAt: row.ScheduledAt.Time.UTC(), EffectiveAt: row.CurrentPeriodEnd.Time.UTC(),
+				Price: target.Price, LicenseSlug: target.LicenseSlug, ScheduledAt: row.ScheduledAt.Time.UTC(), EffectiveAt: row.CurrentPeriodEnd.Time.UTC(),
 			}
 		}
+	}
+	if row.PendingLicenseID != nil {
+		pending, err := q.GetBillingLicense(ctx, db.GetBillingLicenseParams{OrganizationID: row.OrganizationID, ID: *row.PendingLicenseID})
+		if err != nil {
+			return nil, err
+		}
+		out.PendingLicenseSlug = &pending.Slug
 	}
 	return out, nil
 }

@@ -21,6 +21,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/config"
 	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe/stripefake"
+	dogfoodinginfra "github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
@@ -43,6 +45,9 @@ var (
 	testServer   *tests.TestServer
 	fake         *stripefake.Fake
 	entitlements = &switchableEntitlements{}
+	// quotas stands for the vendor's own KbK plan: every creation is allowed
+	// until a test refuses one slug.
+	quotas = &switchableQuotas{}
 )
 
 func TestMain(m *testing.M) {
@@ -82,6 +87,7 @@ func TestMain(m *testing.M) {
 			cfg.Billing.TurnstileVerifyURL = turnstile.URL
 		},
 		ConnectorEntitlements: entitlements,
+		UsageReporter:         quotas,
 		Stripe:                billingstripe.Options{BaseURL: fake.URL(), HTTPClient: fake.Client()},
 	})
 
@@ -111,6 +117,56 @@ func fresh(t *testing.T) {
 		fake.Reset()
 		require.NoError(t, testDb.Reset())
 	})
+}
+
+// switchableQuotas reports nothing and refuses the slugs a test refuses,
+// counting the reports given back.
+type switchableQuotas struct {
+	services.NoopUsageReporter
+	mu          sync.Mutex
+	refused     map[string]bool
+	compensated map[string]int
+}
+
+func (q *switchableQuotas) ReportAndEnforce(_ context.Context, _ uuid.UUID, slug string) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.refused[slug] {
+		return dogfoodinginfra.ErrThresholdExceeded
+	}
+	return nil
+}
+
+func (q *switchableQuotas) Decrement(_ context.Context, _ uuid.UUID, slug string) error {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	if q.compensated == nil {
+		q.compensated = map[string]int{}
+	}
+	q.compensated[slug]++
+	return nil
+}
+
+// refuse makes the vendor's plan refuse one more creation of slug, for the test.
+func (q *switchableQuotas) refuse(t *testing.T, slug string) {
+	t.Helper()
+	q.mu.Lock()
+	if q.refused == nil {
+		q.refused = map[string]bool{}
+	}
+	q.refused[slug], q.compensated = true, map[string]int{}
+	q.mu.Unlock()
+	t.Cleanup(func() {
+		q.mu.Lock()
+		delete(q.refused, slug)
+		q.mu.Unlock()
+	})
+}
+
+func (q *switchableQuotas) compensations(slug string) int {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+	return q.compensated[slug]
 }
 
 type switchableEntitlements struct {

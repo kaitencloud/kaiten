@@ -137,6 +137,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	}
 	cfg := svc.Config.Billing
 	closer := closing.New(deps, cfg.CloseGrace)
+	// trial_will_end's charge is what upcoming-invoice previews (§15.2 rule 9).
+	trials := lifecycle.NewTrialAnnouncer(svc.Uof, from.Catalogue, closer)
 	pusher := pushing.New(deps, pushing.Config{
 		MaxBackoff: cfg.Push.MaxBackoff, AlertAfterAttempts: cfg.Push.AlertAfterAttempts,
 		Timeout: cfg.Provider.Timeout, BatchSize: cfg.Push.BatchSize,
@@ -145,7 +147,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 	useCases := &UseCases{
 		GetBillingSettings:     getbillingsettings.NewUseCase(deps),
 		UpdateBillingSettings:  updatebillingsettings.NewUseCase(deps),
-		SubscribeInstance:      subscribeinstance.NewUseCase(deps, pusher),
+		SubscribeInstance:      subscribeinstance.NewUseCase(deps, pusher, trials),
 		GetInstanceBilling:     getinstancebilling.NewUseCase(deps),
 		CloseBillingPeriods:    closebillingperiods.NewUseCase(deps, closer, batchSize(cfg.PeriodClose.BatchSize)),
 		ListInvoices:           listinvoices.NewUseCase(deps),
@@ -180,8 +182,10 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CompletePaymentMethodSession: completepaymentmethodsession.NewUseCase(deps),
 		CreatePortalSession:          createportalsession.NewUseCase(deps),
 		DetachPaymentMethod:          detachpaymentmethod.NewUseCase(deps),
-		CheckoutSetup:                checkoutsetup.NewUseCase(deps),
 	}
+	// The anonymous checkout's read refreshes its ACTIVATION as the session's
+	// invoice list does, under the same throttle.
+	useCases.CheckoutSetup = checkoutsetup.NewUseCase(deps, useCases.SessionInvoices)
 
 	// The billing jobs run only where billing is on and background work runs.
 	if cfg.Enabled && svc.BackgroundWorkers && svc.Pool != nil {
@@ -197,7 +201,8 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		overdue := lifecycle.NewJob(svc.Pool, lifecycle.NewOverdue(svc.Uof, cfg.AutoCollectionGrace), sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
-		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, incomplete.NewExpiry(incomplete.NewEnder(deps)), paymentmethods.NewExpiry(svc.Uof))
+		}, batchSize(cfg.PeriodClose.BatchSize), from.Expiry, incomplete.NewExpiry(incomplete.NewEnder(deps)),
+			lifecycle.NewTrialReminders(svc.Uof, trials), paymentmethods.NewExpiry(svc.Uof))
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
 

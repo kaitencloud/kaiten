@@ -38,6 +38,7 @@ const family = (
 ): AddonFamily => ({
   currentVersion,
   id: `addon-family-${slug}`,
+  increaseBilling: 'TRUE_UP',
   isPublic: false,
   lastVersion: Math.max(0, ...(versions ?? []).map(({ version }) => version)),
   slug,

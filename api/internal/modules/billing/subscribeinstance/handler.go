@@ -17,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/metering"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providers"
@@ -113,10 +114,13 @@ type UseCase struct {
 	deps   access.Deps
 	outbox *outbox.ScopedRepository
 	pusher Pusher
+	trials *lifecycle.TrialAnnouncer
 }
 
-func NewUseCase(deps access.Deps, pusher Pusher) *UseCase {
-	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), pusher: pusher}
+// NewUseCase builds the subscribe; trials announces a trial no longer than
+// its reminder lead at once, and may be nil where a test needs none.
+func NewUseCase(deps access.Deps, pusher Pusher, trials *lifecycle.TrialAnnouncer) *UseCase {
+	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof), pusher: pusher, trials: trials}
 }
 
 // errDryRun rolls a dry run's transaction back once its result is read.
@@ -284,12 +288,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		anchor = anchor.Truncate(time.Second)
 		periodEnd := rating.AddMonthsClamped(anchor, months)
 		status := db.InstanceBillingStatusACTIVE
-		var trialEndsAt pgtype.Timestamp
+		var trialEndsAt, trialWillEndAt pgtype.Timestamp
 		if trialDays > 0 {
 			// During the trial the period is the trial; nothing is billed
-			// before it ends.
+			// before it ends. Its reminder takes the family's lead as it is
+			// now: a later change moves no running trial (V32-07).
 			periodEnd = anchor.Add(time.Duration(trialDays) * 24 * time.Hour)
 			status, trialEndsAt = db.InstanceBillingStatusTRIAL, invoices.Timestamp(periodEnd)
+			trialWillEndAt = invoices.Timestamp(lifecycle.TrialWillEndAt(periodEnd, license.TrialReminderDays))
 		}
 		// INCOMPLETE: nothing applied, the selection stored with the ids its
 		// rows take at payment, the ACTIVATION composed from it (§9.10 rule 1).
@@ -352,7 +358,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				CustomerSlug: customer.Slug, CustomerName: customer.Name, Status: status,
 				ProviderKind: kind, CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue,
 				BaseLicensePriceID: base.ID, BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
-				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
+				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt, TrialWillEndAt: trialWillEndAt,
 				PendingLicenseID: pendingLicenseID, PendingSelection: pendingSelection, IncompleteExpiresAt: incompleteExpiresAt,
 				UserID: user.ID, Now: invoices.Timestamp(now), ID: existing.ID, OrganizationID: user.OrganizationID,
 			})
@@ -363,7 +369,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				CustomerName: customer.Name, Status: status, ProviderKind: kind,
 				CollectionMethod: method, DaysUntilDue: cmd.DaysUntilDue, BaseLicensePriceID: base.ID,
 				BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
-				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt,
+				AnchorAt: invoices.Timestamp(anchor), CurrentPeriodEnd: invoices.Timestamp(periodEnd), TrialEndsAt: trialEndsAt, TrialWillEndAt: trialWillEndAt,
 				PendingLicenseID: pendingLicenseID, PendingSelection: pendingSelection, IncompleteExpiresAt: incompleteExpiresAt,
 				UserID: user.ID,
 			})
@@ -420,9 +426,27 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			if cmd.DryRun {
 				return errDryRun
 			}
-			return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
+			// The trial is consumed, whatever happens next (INV-32): the next
+			// anonymous checkout with this e-mail reads it (INV-35).
+			if err := q.RecordCustomerTrial(ctx, db.RecordCustomerTrialParams{
+				CustomerID: customer.ID, InstanceID: &instance.ID, Now: invoices.Timestamp(now),
+				OrganizationID: user.OrganizationID, LicenseID: targetLicenseID,
+			}); err != nil {
+				return err
+			}
+			if err := u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 				user.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
-				BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil))
+				BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil)); err != nil {
+				return err
+			}
+			// A trial no longer than the lead announces its end at once
+			// (§9.2 rule 7); the others wait for billing-lifecycle step (e).
+			if u.trials != nil && !trialWillEndAt.Time.After(now) {
+				if _, err := u.trials.Announce(ctx, q, row, now); err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 		var held []ports.BillableAddon
 		if u.deps.Addons != nil {

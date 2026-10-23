@@ -44,6 +44,7 @@ export const addon = (addonSlug: string, quantity = 1): InstanceAddon => ({
   familySlug: 'extras',
   id: `attachment-${addonSlug}`,
   name: addonSlug,
+  pendingQuantity: null,
   prices: [],
   quantity,
 });

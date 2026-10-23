@@ -308,7 +308,7 @@ func (q *Queries) InstanceCheckoutPending(ctx context.Context, arg InstanceCheck
 
 const listActiveInstanceAddonsByInstances = `-- name: ListActiveInstanceAddonsByInstances :many
 SELECT ia.id, ia.instance_id, ia.addon_id, ia.quantity, ia.created_at,
-       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id
@@ -324,15 +324,16 @@ type ListActiveInstanceAddonsByInstancesParams struct {
 }
 
 type ListActiveInstanceAddonsByInstancesRow struct {
-	ID          uuid.UUID        `json:"id"`
-	InstanceID  uuid.UUID        `json:"instance_id"`
-	AddonID     uuid.UUID        `json:"addon_id"`
-	Quantity    int32            `json:"quantity"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	AddonSlug   string           `json:"addon_slug"`
-	AddonName   string           `json:"addon_name"`
-	MaxQuantity *int32           `json:"max_quantity"`
-	FamilySlug  string           `json:"family_slug"`
+	ID              uuid.UUID        `json:"id"`
+	InstanceID      uuid.UUID        `json:"instance_id"`
+	AddonID         uuid.UUID        `json:"addon_id"`
+	Quantity        int32            `json:"quantity"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+	AddonSlug       string           `json:"addon_slug"`
+	AddonName       string           `json:"addon_name"`
+	MaxQuantity     *int32           `json:"max_quantity"`
+	FamilySlug      string           `json:"family_slug"`
+	PendingQuantity *int32           `json:"pending_quantity"`
 }
 
 // The add-ons instances hold now, oldest attachment first, for GraphQL's
@@ -356,6 +357,7 @@ func (q *Queries) ListActiveInstanceAddonsByInstances(ctx context.Context, arg L
 			&i.AddonName,
 			&i.MaxQuantity,
 			&i.FamilySlug,
+			&i.PendingQuantity,
 		); err != nil {
 			return nil, err
 		}
@@ -570,7 +572,7 @@ func (q *Queries) ListHeldAddonsInvalidForSubscription(ctx context.Context, arg 
 
 const listInstanceAddons = `-- name: ListInstanceAddons :many
 SELECT ia.id, ia.addon_id, ia.quantity, ia.created_at, ia.removed_at, ia.updated_at,
-       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id
@@ -589,16 +591,17 @@ type ListInstanceAddonsParams struct {
 }
 
 type ListInstanceAddonsRow struct {
-	ID          uuid.UUID        `json:"id"`
-	AddonID     uuid.UUID        `json:"addon_id"`
-	Quantity    int32            `json:"quantity"`
-	CreatedAt   pgtype.Timestamp `json:"created_at"`
-	RemovedAt   pgtype.Timestamp `json:"removed_at"`
-	UpdatedAt   pgtype.Timestamp `json:"updated_at"`
-	AddonSlug   string           `json:"addon_slug"`
-	AddonName   string           `json:"addon_name"`
-	MaxQuantity *int32           `json:"max_quantity"`
-	FamilySlug  string           `json:"family_slug"`
+	ID              uuid.UUID        `json:"id"`
+	AddonID         uuid.UUID        `json:"addon_id"`
+	Quantity        int32            `json:"quantity"`
+	CreatedAt       pgtype.Timestamp `json:"created_at"`
+	RemovedAt       pgtype.Timestamp `json:"removed_at"`
+	UpdatedAt       pgtype.Timestamp `json:"updated_at"`
+	AddonSlug       string           `json:"addon_slug"`
+	AddonName       string           `json:"addon_name"`
+	MaxQuantity     *int32           `json:"max_quantity"`
+	FamilySlug      string           `json:"family_slug"`
+	PendingQuantity *int32           `json:"pending_quantity"`
 }
 
 func (q *Queries) ListInstanceAddons(ctx context.Context, arg ListInstanceAddonsParams) ([]ListInstanceAddonsRow, error) {
@@ -626,6 +629,7 @@ func (q *Queries) ListInstanceAddons(ctx context.Context, arg ListInstanceAddons
 			&i.AddonName,
 			&i.MaxQuantity,
 			&i.FamilySlug,
+			&i.PendingQuantity,
 		); err != nil {
 			return nil, err
 		}

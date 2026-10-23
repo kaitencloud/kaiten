@@ -76,8 +76,11 @@ func effective(t *testing.T, instanceID any, entitlementSlug string) (float64, i
 func TestAddonCatalogue(t *testing.T) {
 	t.Run("Versions_FamiliesAndTheirLifecycle", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		require.Equal(t, "CreateAddon.InvalidIncreaseBilling", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/addons",
+			map[string]any{"name": "x", "description": "", "pricingType": "FREE", "increaseBilling": "PRORATE"}))
 		first := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats", "isDefault": true, "maxQuantity": 10})
 		require.Equal(t, "extra-seats", first.FamilySlug)
+		require.Equal(t, "TRUE_UP", first.IncreaseBilling, "the default (V31-70)")
 		require.EqualValues(t, 1, first.Version)
 		require.Equal(t, "Version - 1", first.VersionName)
 		second := newAddon(t, map[string]any{"name": "Extra seats", "familySlug": "extra-seats", "lifecycleState": "DRAFT"})
@@ -121,7 +124,16 @@ func TestAddonCatalogue(t *testing.T) {
 		visible := commonfixture.AssertJSONResponse[catalogue.AddonFamily](t,
 			call(t, "PATCH", "/api/addon-families/extra-seats", map[string]any{"isPublic": true}), fiber.StatusOK)
 		require.True(t, visible.IsPublic)
+		require.Equal(t, "TRUE_UP", visible.IncreaseBilling, "an absent member keeps the stored value")
 		require.Len(t, outboxPayloads(t, "ADDON_UPDATED"), 3, "one per version of the family")
+		boundary := commonfixture.AssertJSONResponse[catalogue.AddonFamily](t,
+			call(t, "PATCH", "/api/addon-families/extra-seats", map[string]any{"increaseBilling": "NEXT_BOUNDARY"}), fiber.StatusOK)
+		require.True(t, boundary.IsPublic)
+		require.Equal(t, "NEXT_BOUNDARY", boundary.IncreaseBilling)
+		require.Equal(t, "NEXT_BOUNDARY", boundary.Versions[0].IncreaseBilling, "every version reads its family's")
+		require.Len(t, outboxPayloads(t, "ADDON_UPDATED"), 5)
+		require.Equal(t, "UpdateAddonFamily.InvalidIncreaseBilling", problemCode(t, fiber.StatusUnprocessableEntity, "PATCH",
+			"/api/addon-families/extra-seats", map[string]any{"increaseBilling": "LATER"}))
 
 		require.Equal(t, fiber.StatusNoContent, call(t, "DELETE", "/api/addons/extra-seats", nil).StatusCode)
 		require.Equal(t, fiber.StatusNoContent, call(t, "DELETE", "/api/addons/extra-seats-v2", nil).StatusCode)
@@ -211,6 +223,7 @@ func TestInstanceAddons(t *testing.T) {
 
 		attached := attach(t, s.instance.Slug, addon.Slug, 3)
 		require.EqualValues(t, 3, attached.Quantity)
+		require.Nil(t, attached.PendingQuantity, "no decrease scheduled")
 		require.Empty(t, attached.Prices, "an unbilled instance is billed nothing")
 		value, grants, ok := effective(t, s.instance.ID, "seats")
 		require.True(t, ok)

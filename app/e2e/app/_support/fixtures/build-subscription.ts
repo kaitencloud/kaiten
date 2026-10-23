@@ -1,6 +1,8 @@
 import type { InstanceBilling, InvoicePreview, Price } from '@/api-client';
 import { buildPrice } from './build-pricing';
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 /** The base price the subscriptions of the fixtures are pinned to: $29.00 a month. */
 export const PRO_MONTHLY_PRICE: Price = buildPrice({
   billingPeriod: 'MONTHLY',
@@ -101,10 +103,16 @@ export function buildSubscription({
     daysUntilDue: daysUntilDueOverride ?? defaultDaysUntilDue,
     daysUntilDueOverride: daysUntilDueOverride ?? null,
     id: id ?? `sub-${instanceSlug}`,
+    incompleteExpiresAt: null,
     instanceName,
     instanceSlug,
     pastDueSince: pastDueSince ?? null,
+    pendingLicenseSlug: null,
     providerKind: 'NOOP',
+    // trial_will_end fires the family's lead before the end: 3 days by default.
+    reminderAt: trialEndsAt
+      ? new Date(Date.parse(trialEndsAt) - 3 * DAY_MS).toISOString()
+      : null,
     scheduledChange: scheduledChange ?? null,
     startedAt: startedAt ?? anchorAt,
     status,

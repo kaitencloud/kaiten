@@ -40,7 +40,7 @@ func List(ctx context.Context, q *db.Queries, organizationID uuid.UUID, lifecycl
 			Description: r.Description, Version: r.Version, VersionName: r.VersionName, IsDefault: r.IsDefault,
 			LifecycleState: r.LifecycleState, PricingType: r.PricingType, MaxQuantity: r.MaxQuantity,
 			CreatedAt: r.CreatedAt, CreatedByID: r.CreatedByID, UpdatedAt: r.UpdatedAt, UpdatedByID: r.UpdatedByID,
-		}, r.FamilySlug)
+		}, r.FamilySlug, r.FamilyIncreaseBilling)
 	}
 	return pagination.KeysetPage(addons, page, func(a Addon) (time.Time, uuid.UUID) { return a.CreatedAt, a.ID })
 }
@@ -63,12 +63,12 @@ func Families(ctx context.Context, q *db.Queries, organizationID uuid.UUID, rows
 			Description: v.Description, Version: v.Version, VersionName: v.VersionName, IsDefault: v.IsDefault,
 			LifecycleState: v.LifecycleState, PricingType: v.PricingType, MaxQuantity: v.MaxQuantity,
 			CreatedAt: v.CreatedAt, CreatedByID: v.CreatedByID, UpdatedAt: v.UpdatedAt, UpdatedByID: v.UpdatedByID,
-		}, v.FamilySlug))
+		}, v.FamilySlug, v.FamilyIncreaseBilling))
 	}
 	families := make([]AddonFamily, len(rows))
 	for i, row := range rows {
 		family := AddonFamily{
-			ID: row.ID, Slug: row.Slug, IsPublic: row.IsPublic, LastVersion: row.LastVersion,
+			ID: row.ID, Slug: row.Slug, IsPublic: row.IsPublic, IncreaseBilling: string(row.IncreaseBilling), LastVersion: row.LastVersion,
 			CurrentVersion: nil, Versions: byFamily[row.ID],
 		}
 		if family.Versions == nil {

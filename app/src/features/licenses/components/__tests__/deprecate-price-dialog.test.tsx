@@ -72,6 +72,7 @@ const SUBSCRIPTIONS: Record<string, InstanceBilling | null> = {
     scheduledChange: {
       effectiveAt: '2026-11-01T00:00:00.000Z',
       price: PRICE,
+      licenseSlug: 'business-v1',
       scheduledAt: '2026-10-01T00:00:00.000Z',
     },
   }),
@@ -83,6 +84,7 @@ const SUBSCRIPTIONS: Record<string, InstanceBilling | null> = {
     scheduledChange: {
       effectiveAt: '2026-10-27T00:00:00.000Z',
       price: PRICE,
+      licenseSlug: 'business-v1',
       scheduledAt: '2026-10-01T00:00:00.000Z',
     },
   }),
@@ -94,6 +96,7 @@ const SUBSCRIPTIONS: Record<string, InstanceBilling | null> = {
     scheduledChange: {
       effectiveAt: '2026-11-01T00:00:00.000Z',
       price: OTHER,
+      licenseSlug: 'starter-v1',
       scheduledAt: '2026-10-01T00:00:00.000Z',
     },
   }),

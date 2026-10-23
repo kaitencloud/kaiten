@@ -100,7 +100,7 @@ RETURNING id;
 
 -- name: ListInstanceAddons :many
 SELECT ia.id, ia.addon_id, ia.quantity, ia.created_at, ia.removed_at, ia.updated_at,
-       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id
@@ -227,7 +227,7 @@ ORDER BY a.slug;
 -- The add-ons instances hold now, oldest attachment first, for GraphQL's
 -- Instance.addons.
 SELECT ia.id, ia.instance_id, ia.addon_id, ia.quantity, ia.created_at,
-       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug, ia.pending_quantity
 FROM instance_addon ia
 JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
 JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id

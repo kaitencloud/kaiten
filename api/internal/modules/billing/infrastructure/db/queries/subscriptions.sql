@@ -31,8 +31,13 @@ WHERE c.organization_id = sqlc.arg(organization_id)
 
 
 -- name: GetBillingLicense :one
-SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days
+-- A licence version, with its family's trial reminder lead (§5.1 rule 6),
+-- read when a trial starts.
+SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days, lf.trial_reminder_days, lf.slug AS family_slug
 FROM license l
+JOIN license_family lf
+  ON lf.id = l.family_id
+ AND lf.organization_id = l.organization_id
 WHERE l.organization_id = sqlc.arg(organization_id)
   AND l.id = sqlc.arg(id);
 
@@ -82,14 +87,14 @@ INSERT INTO instance_billing (organization_id, instance_id, customer_id, instanc
                               customer_slug, customer_name, status, provider_kind, collection_method,
                               days_until_due, base_license_price_id, billing_period, currency, anchor_at,
                               started_at, current_period_start, current_period_end, trial_ends_at,
-                              pending_license_id, pending_selection, incomplete_expires_at,
+                              trial_will_end_at, pending_license_id, pending_selection, incomplete_expires_at,
                               created_by_id, updated_by_id)
 VALUES (sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(customer_id), sqlc.arg(instance_slug),
         sqlc.arg(instance_name), sqlc.arg(customer_slug), sqlc.arg(customer_name), sqlc.arg(status),
         sqlc.arg(provider_kind), sqlc.narg(collection_method), sqlc.narg(days_until_due),
         sqlc.arg(base_license_price_id), sqlc.arg(billing_period), sqlc.arg(currency), sqlc.arg(anchor_at),
         sqlc.arg(anchor_at), sqlc.arg(anchor_at), sqlc.arg(current_period_end), sqlc.narg(trial_ends_at),
-        sqlc.narg(pending_license_id), sqlc.narg(pending_selection), sqlc.narg(incomplete_expires_at),
+        sqlc.narg(trial_will_end_at), sqlc.narg(pending_license_id), sqlc.narg(pending_selection), sqlc.narg(incomplete_expires_at),
         sqlc.arg(user_id), sqlc.arg(user_id))
 RETURNING *;
 
@@ -115,6 +120,8 @@ SET customer_id           = sqlc.arg(customer_id),
     current_period_start  = sqlc.arg(anchor_at),
     current_period_end    = sqlc.arg(current_period_end),
     trial_ends_at         = sqlc.narg(trial_ends_at),
+    trial_will_end_at     = sqlc.narg(trial_will_end_at),
+    trial_will_end_notified_at = NULL,
     pending_license_id    = sqlc.narg(pending_license_id),
     pending_selection     = sqlc.narg(pending_selection),
     incomplete_expires_at = sqlc.narg(incomplete_expires_at),
@@ -164,3 +171,14 @@ UPDATE instance_billing
 SET started_at = sqlc.arg(started_at)
 WHERE id = sqlc.arg(id)
 RETURNING *;
+
+
+-- name: RecordCustomerTrial :exec
+-- A trial consumed (INV-32): the subscribe that starts one records it for the
+-- customer and the licence's family; the first record stays.
+INSERT INTO customer_trial (customer_id, license_family_id, organization_id, instance_id, consumed_at)
+SELECT sqlc.arg(customer_id), l.family_id, l.organization_id, sqlc.arg(instance_id), sqlc.arg(now)
+FROM license l
+WHERE l.organization_id = sqlc.arg(organization_id)
+  AND l.id = sqlc.arg(license_id)
+ON CONFLICT (customer_id, license_family_id) DO NOTHING;

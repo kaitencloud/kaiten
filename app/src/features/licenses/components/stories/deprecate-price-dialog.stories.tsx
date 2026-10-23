@@ -39,7 +39,7 @@ const movingTo = (slug: string, name: string, customer: string, effectiveAt: str
     customerName: customer,
     instanceName: name,
     instanceSlug: slug,
-    scheduledChange: { effectiveAt, price: PRICE, scheduledAt: '2027-03-01T00:00:00.000Z' },
+    scheduledChange: { effectiveAt, licenseSlug: 'enterprise-v1', price: PRICE, scheduledAt: '2027-03-01T00:00:00.000Z' },
   });
 
 const SUBSCRIPTIONS: Record<string, InstanceBilling> = {

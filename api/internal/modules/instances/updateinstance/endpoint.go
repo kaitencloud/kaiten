@@ -96,10 +96,10 @@ func RegisterWebhook(api huma.API) {
 		api,
 		webhook.Declaration{
 			Event:       events.InstanceUpdated,
-			Data:        (*schema.Instance)(nil),
+			Data:        (*schema.InstanceUpdate)(nil),
 			OperationID: "onInstanceUpdated",
 			Summary:     "Instance Updated Webhook",
-			Description: "Triggered when an instance is updated.",
+			Description: "Triggered when an instance is updated, by a write or by billing: the licence version a paid checkout bought, or the fallback a subscription that ended moves it to (licenseChangeReason BILLING_FALLBACK).",
 			Tags:        []string{"webhooks", "instances"},
 		},
 		webhook.Declaration{

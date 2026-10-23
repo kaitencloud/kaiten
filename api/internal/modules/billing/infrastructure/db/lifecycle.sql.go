@@ -625,6 +625,82 @@ func (q *Queries) GetOpenActivation(ctx context.Context, instanceBillingID uuid.
 	return i, err
 }
 
+const listDueTrialReminders = `-- name: ListDueTrialReminders :many
+SELECT id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
+FROM instance_billing
+WHERE status = 'TRIAL'
+  AND trial_will_end_notified_at IS NULL
+  AND trial_will_end_at <= $1
+ORDER BY trial_will_end_at, id
+LIMIT $2
+`
+
+type ListDueTrialRemindersParams struct {
+	Now      pgtype.Timestamp `json:"now"`
+	PageSize int32            `json:"page_size"`
+}
+
+// billing-lifecycle step (e): the trials whose reminder is due and not sent
+// (§9.2 rule 7), oldest first. Each is announced in its own transaction, under
+// MarkTrialReminderSent's condition, so a replica racing it announces nothing.
+func (q *Queries) ListDueTrialReminders(ctx context.Context, arg ListDueTrialRemindersParams) ([]InstanceBilling, error) {
+	rows, err := q.db.Query(ctx, listDueTrialReminders, arg.Now, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InstanceBilling
+	for rows.Next() {
+		var i InstanceBilling
+		if err := rows.Scan(
+			&i.ID,
+			&i.OrganizationID,
+			&i.InstanceID,
+			&i.CustomerID,
+			&i.InstanceSlug,
+			&i.InstanceName,
+			&i.CustomerSlug,
+			&i.CustomerName,
+			&i.Status,
+			&i.ProviderKind,
+			&i.CollectionMethod,
+			&i.DaysUntilDue,
+			&i.BaseLicensePriceID,
+			&i.BillingPeriod,
+			&i.Currency,
+			&i.AnchorAt,
+			&i.StartedAt,
+			&i.CurrentPeriodStart,
+			&i.CurrentPeriodEnd,
+			&i.CancelAtPeriodEnd,
+			&i.CancelRequestedAt,
+			&i.CanceledAt,
+			&i.CancellationReason,
+			&i.PastDueSince,
+			&i.ScheduledLicensePriceID,
+			&i.ScheduledAt,
+			&i.CreatedAt,
+			&i.CreatedByID,
+			&i.UpdatedAt,
+			&i.UpdatedByID,
+			&i.TrialEndsAt,
+			&i.PendingLicenseID,
+			&i.PendingSelection,
+			&i.IncompleteExpiresAt,
+			&i.TrialWillEndNotifiedAt,
+			&i.LiveEndedAt,
+			&i.TrialWillEndAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpiredIncomplete = `-- name: ListExpiredIncomplete :many
 SELECT ib.id, ib.organization_id, ib.instance_id, ib.customer_id, ib.instance_slug, ib.instance_name, ib.customer_slug, ib.customer_name, ib.status, ib.provider_kind, ib.collection_method, ib.days_until_due, ib.base_license_price_id, ib.billing_period, ib.currency, ib.anchor_at, ib.started_at, ib.current_period_start, ib.current_period_end, ib.cancel_at_period_end, ib.cancel_requested_at, ib.canceled_at, ib.cancellation_reason, ib.past_due_since, ib.scheduled_license_price_id, ib.scheduled_at, ib.created_at, ib.created_by_id, ib.updated_at, ib.updated_by_id, ib.trial_ends_at, ib.pending_license_id, ib.pending_selection, ib.incomplete_expires_at, ib.trial_will_end_notified_at, ib.live_ended_at, ib.trial_will_end_at
 FROM instance_billing ib
@@ -757,6 +833,66 @@ func (q *Queries) ListOverdueCandidates(ctx context.Context, arg ListOverdueCand
 		return nil, err
 	}
 	return items, nil
+}
+
+const markTrialReminderSent = `-- name: MarkTrialReminderSent :one
+UPDATE instance_billing
+SET trial_will_end_notified_at = $1
+WHERE id = $2
+  AND status = 'TRIAL'
+  AND trial_will_end_notified_at IS NULL
+RETURNING id, organization_id, instance_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, status, provider_kind, collection_method, days_until_due, base_license_price_id, billing_period, currency, anchor_at, started_at, current_period_start, current_period_end, cancel_at_period_end, cancel_requested_at, canceled_at, cancellation_reason, past_due_since, scheduled_license_price_id, scheduled_at, created_at, created_by_id, updated_at, updated_by_id, trial_ends_at, pending_license_id, pending_selection, incomplete_expires_at, trial_will_end_notified_at, live_ended_at, trial_will_end_at
+`
+
+type MarkTrialReminderSentParams struct {
+	Now pgtype.Timestamp `json:"now"`
+	ID  uuid.UUID        `json:"id"`
+}
+
+// The once-only marker of trial_will_end, set in the transaction that emits it.
+func (q *Queries) MarkTrialReminderSent(ctx context.Context, arg MarkTrialReminderSentParams) (InstanceBilling, error) {
+	row := q.db.QueryRow(ctx, markTrialReminderSent, arg.Now, arg.ID)
+	var i InstanceBilling
+	err := row.Scan(
+		&i.ID,
+		&i.OrganizationID,
+		&i.InstanceID,
+		&i.CustomerID,
+		&i.InstanceSlug,
+		&i.InstanceName,
+		&i.CustomerSlug,
+		&i.CustomerName,
+		&i.Status,
+		&i.ProviderKind,
+		&i.CollectionMethod,
+		&i.DaysUntilDue,
+		&i.BaseLicensePriceID,
+		&i.BillingPeriod,
+		&i.Currency,
+		&i.AnchorAt,
+		&i.StartedAt,
+		&i.CurrentPeriodStart,
+		&i.CurrentPeriodEnd,
+		&i.CancelAtPeriodEnd,
+		&i.CancelRequestedAt,
+		&i.CanceledAt,
+		&i.CancellationReason,
+		&i.PastDueSince,
+		&i.ScheduledLicensePriceID,
+		&i.ScheduledAt,
+		&i.CreatedAt,
+		&i.CreatedByID,
+		&i.UpdatedAt,
+		&i.UpdatedByID,
+		&i.TrialEndsAt,
+		&i.PendingLicenseID,
+		&i.PendingSelection,
+		&i.IncompleteExpiresAt,
+		&i.TrialWillEndNotifiedAt,
+		&i.LiveEndedAt,
+		&i.TrialWillEndAt,
+	)
+	return i, err
 }
 
 const moveInstanceToLicense = `-- name: MoveInstanceToLicense :exec

@@ -74,7 +74,7 @@ func InstanceAddons(ctx context.Context, q *db.Queries, organizationID, instance
 	for i, row := range rows {
 		attached := InstanceAddon{
 			ID: row.ID, AddonID: row.AddonID, AddonSlug: row.AddonSlug, FamilySlug: row.FamilySlug, Name: row.AddonName,
-			Quantity: row.Quantity, MaxQuantity: row.MaxQuantity, AttachedAt: row.CreatedAt.Time.UTC(),
+			Quantity: row.Quantity, MaxQuantity: row.MaxQuantity, PendingQuantity: row.PendingQuantity, AttachedAt: row.CreatedAt.Time.UTC(),
 			RemovedAt: nil, Prices: billed[row.AddonID],
 		}
 		if row.RemovedAt.Valid {

@@ -75,6 +75,12 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 		}); err != nil {
 			return false, err
 		}
+		// The version it bought, announced like any other move (§9.10 rule 3).
+		if deps.Mover != nil {
+			if err := deps.Mover.AnnounceUpdated(ctx, sub.OrganizationID, instance.Slug, nil); err != nil {
+				return false, err
+			}
+		}
 	}
 	if err := apply(ctx, deps, sub, instance.Slug, selection, invoice, actor, now); err != nil {
 		return false, err
@@ -172,7 +178,7 @@ func replaceFree(ctx context.Context, deps access.Deps, box *outbox.ScopedReposi
 		CustomerSlug: sub.CustomerSlug, CustomerName: sub.CustomerName, Status: db.InstanceBillingStatusACTIVE,
 		ProviderKind: invoice.ProviderKind, CollectionMethod: &method, DaysUntilDue: nil,
 		BaseLicensePriceID: base.ID, BillingPeriod: db.BillingPeriod(*base.BillingPeriod), Currency: base.Currency,
-		AnchorAt: invoice.BoundaryAt, CurrentPeriodEnd: invoice.ServiceTo, TrialEndsAt: pgtype.Timestamp{},
+		AnchorAt: invoice.BoundaryAt, CurrentPeriodEnd: invoice.ServiceTo, TrialEndsAt: pgtype.Timestamp{}, TrialWillEndAt: pgtype.Timestamp{},
 		PendingLicenseID: nil, PendingSelection: nil, IncompleteExpiresAt: pgtype.Timestamp{},
 		UserID: actor, Now: invoices.Timestamp(now), ID: sub.ID, OrganizationID: sub.OrganizationID,
 	})

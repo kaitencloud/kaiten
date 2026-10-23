@@ -428,6 +428,7 @@ export class InstanceAddons implements AddonHolders {
       id: `instance-addon-${instanceSlug}-${this.sequence++}`,
       maxQuantity: addon.maxQuantity,
       name: addon.name,
+      pendingQuantity: null,
       prices: this.pricesFor(addon, subscription),
       quantity,
     };

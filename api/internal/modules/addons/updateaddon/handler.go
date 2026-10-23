@@ -72,7 +72,7 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 		if err != nil {
 			return err
 		}
-		updated = catalogue.ToAddon(row, locked.FamilySlug)
+		updated = catalogue.ToAddon(row, locked.FamilySlug, locked.FamilyIncreaseBilling)
 		changed := changedFields(before, updated)
 		if len(changed) == 0 {
 			return nil

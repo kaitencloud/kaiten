@@ -96,6 +96,9 @@ type Selection struct {
 	// TrialEndsAt is the end of the trial the start computed, kept so the
 	// session reads it as it was priced.
 	TrialEndsAt *time.Time `json:"trialEndsAt,omitempty"`
+	// DueToday is what the start (or the reprice of a trial consumed meanwhile)
+	// showed, lines included, so a reloaded page shows the same (E-26).
+	DueToday *sessions.DueToday `json:"dueToday,omitempty"`
 }
 
 // SelectedAddon is an add-on of a selection.

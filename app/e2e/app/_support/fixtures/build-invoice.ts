@@ -60,6 +60,7 @@ export const NULL_LINE_MEMBERS: Pick<
   | 'metering'
   | 'overage'
   | 'provider'
+  | 'trueUp'
   | 'unitAmountDecimal'
   | 'voucherId'
 > = {
@@ -76,6 +77,7 @@ export const NULL_LINE_MEMBERS: Pick<
   metering: null,
   overage: null,
   provider: null,
+  trueUp: null,
   unitAmountDecimal: null,
   voucherId: null,
 };
@@ -185,6 +187,7 @@ export function buildInvoiceLine({
     metering: isMetered ? (metering ?? null) : null,
     overage: type === 'OVERAGE' ? (overage ?? null) : null,
     provider: null,
+    trueUp: null,
     quantity,
     seq,
     serviceFrom,

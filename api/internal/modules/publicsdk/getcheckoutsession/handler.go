@@ -41,7 +41,7 @@ func NewUseCase(deps Deps) *UseCase { return &UseCase{deps: deps} }
 // so a missing row is one the retention removed since: the same 401 as an
 // unknown token.
 func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UUID) (*checkout.CheckoutSession, error) {
-	row, err := db.New(u.deps.Uof.DBTX(ctx)).GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
+	row, err := Load(ctx, db.New(u.deps.Uof.DBTX(ctx)), u.deps.Payments, organizationID, sessionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, kaitenerrors.Unauthorized("PublicAuth.InvalidCredential", "invalid credential")
 	}
@@ -49,6 +49,21 @@ func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UU
 		return nil, err
 	}
 	return Read(ctx, u.deps.Activation, u.deps.Payments, row)
+}
+
+// Load reads a session row. One waiting for its payment has its ACTIVATION
+// read from the provider first, which completes it when it was paid
+// meanwhile (E-5): the row is then read again.
+func Load(ctx context.Context, q *db.Queries, payments Payments, organizationID, sessionID uuid.UUID) (db.GetCheckoutSessionRow, error) {
+	params := db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID}
+	row, err := q.GetCheckoutSession(ctx, params)
+	if err != nil || row.Status != db.CheckoutSessionStatusAWAITINGPAYMENT || row.InstanceID == nil || payments == nil {
+		return row, err
+	}
+	if _, err := payments.Activation(ctx, organizationID, *row.InstanceID); err != nil {
+		return row, err
+	}
+	return q.GetCheckoutSession(ctx, params)
 }
 
 // Read shows a session row as the API returns it: an OPEN session past its
@@ -88,7 +103,10 @@ func Read(ctx context.Context, activation createcheckoutsession.Activation, paym
 		out.AddOns = append(out.AddOns, checkout.SessionAddonSelection{AddonSlug: addon.AddonSlug, Quantity: addon.Quantity})
 		addOns = append(addOns, subscribeinstance.SubscriptionAddon{AddonSlug: addon.AddonSlug, Quantity: addon.Quantity})
 	}
-	if selection.TrialEndsAt == nil && row.DueTodayMinor > 0 {
+	switch {
+	case selection.DueToday != nil:
+		out.DueToday = *selection.DueToday
+	case selection.TrialEndsAt == nil && row.DueTodayMinor > 0:
 		none := int32(0)
 		preview, err := activation.PreviewActivation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{
 			BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none,

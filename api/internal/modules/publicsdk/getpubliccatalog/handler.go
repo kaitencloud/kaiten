@@ -28,6 +28,8 @@ type Deps struct {
 	// Providers answers whether the organization sells through a provider that
 	// captures payment methods. Nil on a deployment without billing providers.
 	Providers provider.Registry
+	// Branding is the vendor plan's remove-powered-by.
+	Branding *gate.Feature
 }
 
 // Query narrows the catalogue.
@@ -59,6 +61,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 		Plans:        []PublicPlan{},
 		AddOns:       []PublicAddOn{},
 		Capabilities: PublicCatalogCapabilities{Checkout: false, PaymentMethods: captures, AnonymousCheckout: false, TurnstileSiteKey: nil},
+		Branding:     PublicBranding{PoweredByRemovable: u.deps.Branding.Granted(ctx, organizationID)},
 	}
 	if query.PublishableKeyID != nil {
 		// The anonymous checkout is open only with both Turnstile values,

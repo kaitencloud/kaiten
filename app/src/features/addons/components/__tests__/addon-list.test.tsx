@@ -62,6 +62,7 @@ for (const method of [
 const family = (slug: string, versions: Addon[], isPublic = false): AddonFamily => ({
   currentVersion: versions.find((version) => version.isDefault),
   id: `addon-family-${slug}`,
+  increaseBilling: 'TRUE_UP',
   isPublic,
   lastVersion: Math.max(...versions.map(({ version }) => version)),
   slug,

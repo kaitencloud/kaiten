@@ -172,6 +172,7 @@ describe('creating the next version of a family', () => {
   const family = {
     currentVersion: SEATS_V1,
     id: 'addon-family-extra-seats',
+    increaseBilling: 'TRUE_UP' as const,
     isPublic: false,
     lastVersion: 1,
     slug: 'extra-seats',

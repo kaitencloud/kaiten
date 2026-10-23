@@ -36,6 +36,9 @@ type VoucherExpiry interface {
 // the instances module.
 type InstanceVersionMover interface {
 	MoveToVersion(ctx context.Context, instanceSlug string, licenseID uuid.UUID) error
+	// AnnounceUpdated records INSTANCE_UPDATED for a move billing made itself,
+	// with the reason the event carries (nil, or BILLING_FALLBACK).
+	AnnounceUpdated(ctx context.Context, organizationID uuid.UUID, instanceSlug string, reason *string) error
 	// OverQuota is the entitlements whose current usage is above what the
 	// instance accepts now, in the caller's transaction.
 	OverQuota(ctx context.Context, instanceSlug string) ([]string, error)

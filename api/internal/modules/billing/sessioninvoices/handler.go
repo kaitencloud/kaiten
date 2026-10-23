@@ -119,6 +119,13 @@ func (u *UseCase) fetch(ctx context.Context, organizationID uuid.UUID, query Que
 	})
 }
 
+// Refresh reads one invoice from its provider when it still awaits its
+// payment's outcome, under the list's own throttle, and reports whether it
+// read it: an anonymous checkout session's read of its ACTIVATION (§14.8).
+func (u *UseCase) Refresh(ctx context.Context, row db.InstanceInvoice) bool {
+	return u.refresh(ctx, []db.InstanceInvoice{row})
+}
+
 // refresh reads from the provider the listed invoices still awaiting their
 // payment's outcome, and reports whether it read any.
 func (u *UseCase) refresh(ctx context.Context, rows []db.InstanceInvoice) bool {

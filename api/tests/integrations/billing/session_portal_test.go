@@ -56,6 +56,7 @@ func TestSessionPortal(t *testing.T) {
 	require.Empty(t, portal.Instances, "a bound session reads its instance")
 	require.Equal(t, "ACTIVE", portal.Subscription.Status)
 	require.True(t, portal.Subscription.CurrentPeriodEnd.Equal(started.CurrentPeriodEnd))
+	require.Nil(t, portal.Trial, "TRIAL only")
 
 	require.Len(t, portal.Entitlements, 1)
 	seats := portal.Entitlements[0]
@@ -107,4 +108,27 @@ func TestSessionPortal(t *testing.T) {
 	require.Equal(t, "ACTIVE", *wide.Instances[0].BillingStatus)
 	require.Equal(t, staging.Slug, wide.Instances[1].Slug)
 	require.Nil(t, wide.Instances[1].BillingStatus, "never subscribed")
+}
+
+// The portal's trial block (§14.4 portal rule 6, V32-09): when the trial
+// ends, when its reminder is due, what the conversion would charge, and no
+// card to charge it to on NOOP.
+func TestSessionPortalTrial(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	pro := newDefaultVersion(t, "Pro", "PAID")
+	makePublic(t, pro.FamilySlug)
+	monthly := createPrice(t, pro.Slug, defaultFlatFee("2900", "MONTHLY"))
+	customer := newCustomer(t, "acme")
+	prod := newInstance(t, "Acme prod", customer.ID, pro.ID)
+	started := subscribe(t, prod.Slug, map[string]any{"basePriceId": monthly.ID, "trialDays": 14})
+	newPublishableKey(t, storefront)
+
+	portal := portalOf(t, mintSession(t, testServer, customer.Slug, prod.Slug).Token)
+	require.NotNil(t, portal.Trial)
+	require.True(t, portal.Trial.EndsAt.Equal(*started.TrialEndsAt))
+	require.True(t, portal.Trial.ReminderAt.Equal(*started.ReminderAt))
+	require.NotNil(t, portal.Trial.Charge, "the conversion bills the first period")
+	require.EqualValues(t, 2900, portal.Trial.Charge.Amount)
+	require.Equal(t, "MONTHLY", portal.Trial.Charge.BillingPeriod)
+	require.Nil(t, portal.Trial.PaymentMethod, "NOOP: no card")
 }

@@ -17,6 +17,12 @@ type PublicCatalog struct {
 	Plans        []PublicPlan              `json:"plans" nullable:"false" doc:"The default version of each public licence family, by family slug"`
 	AddOns       []PublicAddOn             `json:"addOns" nullable:"false" doc:"The default version of each public add-on family; empty when include omits addons"`
 	Capabilities PublicCatalogCapabilities `json:"capabilities"`
+	Branding     PublicBranding            `json:"branding"`
+}
+
+// PublicBranding is what the vendor's plan lets its pages leave out (V31-E3).
+type PublicBranding struct {
+	PoweredByRemovable bool `json:"poweredByRemovable" doc:"Whether the vendor's plan lets its storefront and portal hide \"Powered by Kaiten\" (the remove-powered-by entitlement). False while Kaiten's licensing authority cannot answer; always true self-hosted"`
 }
 
 // Plan is one public licence family's default version.

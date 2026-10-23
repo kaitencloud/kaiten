@@ -21,10 +21,21 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 	return &UseCase{deps: deps, outbox: outbox.NewScopedRepository(deps.Uof)}
 }
 
-// Execute lists the family publicly, or takes it out. The change is recorded
-// as ADDON_UPDATED on each of the family's versions.
-func (u *UseCase) Execute(ctx context.Context, familySlug string, isPublic bool) (*catalogue.AddonFamily, error) {
+// Command is a family's settings to change; nil keeps the stored value.
+type Command struct {
+	IsPublic        *bool
+	IncreaseBilling *string
+}
+
+// Execute changes the family's settings: whether it is listed publicly, and
+// how a mid-period increase of its ADVANCE add-ons is billed (V31-70). A
+// change is recorded as ADDON_UPDATED on each of the family's versions.
+func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (*catalogue.AddonFamily, error) {
 	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	increase, err := catalogue.ParseIncreaseBilling("UpdateAddonFamily", cmd.IncreaseBilling)
 	if err != nil {
 		return nil, err
 	}
@@ -38,8 +49,8 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, isPublic bool)
 		if err != nil {
 			return err
 		}
-		row, err := q.SetAddonFamilyPublic(ctx, db.SetAddonFamilyPublicParams{
-			IsPublic: isPublic, OrganizationID: user.OrganizationID, Slug: familySlug,
+		row, err := q.UpdateAddonFamilySettings(ctx, db.UpdateAddonFamilySettingsParams{
+			IsPublic: cmd.IsPublic, IncreaseBilling: increase, OrganizationID: user.OrganizationID, Slug: familySlug,
 		})
 		if err != nil {
 			return err
@@ -49,11 +60,18 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, isPublic bool)
 			return err
 		}
 		family = families[0]
-		if before.IsPublic == isPublic {
+		var changed []string
+		if row.IsPublic != before.IsPublic {
+			changed = append(changed, "isPublic")
+		}
+		if row.IncreaseBilling != before.IncreaseBilling {
+			changed = append(changed, "increaseBilling")
+		}
+		if len(changed) == 0 {
 			return nil
 		}
 		for _, version := range family.Versions {
-			if err := catalogue.AnnounceUpdated(ctx, q, u.outbox, user.OrganizationID, version, []string{"isPublic"}); err != nil {
+			if err := catalogue.AnnounceUpdated(ctx, q, u.outbox, user.OrganizationID, version, changed); err != nil {
 				return err
 			}
 		}

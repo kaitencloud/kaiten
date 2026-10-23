@@ -14,16 +14,17 @@ import (
 
 // InstanceAddon is an add-on an instance holds, or held.
 type InstanceAddon struct {
-	ID          uuid.UUID      `json:"id" readOnly:"true"`
-	AddonID     uuid.UUID      `json:"addonId"`
-	AddonSlug   string         `json:"addonSlug" example:"extra-seats-v1"`
-	FamilySlug  string         `json:"familySlug" example:"extra-seats"`
-	Name        string         `json:"name" doc:"The add-on version's name" example:"Extra seats"`
-	Quantity    int32          `json:"quantity" example:"3"`
-	MaxQuantity *int32         `json:"maxQuantity,omitempty"`
-	AttachedAt  time.Time      `json:"attachedAt"`
-	RemovedAt   *time.Time     `json:"removedAt,omitempty"`
-	Prices      []prices.Price `json:"prices" nullable:"false" doc:"What the instance's subscription bills for it: the default FLAT_FEE price of the subscription's period and the ACTIVE metered prices. Empty when the instance is not billed."`
+	ID              uuid.UUID      `json:"id" readOnly:"true"`
+	AddonID         uuid.UUID      `json:"addonId"`
+	AddonSlug       string         `json:"addonSlug" example:"extra-seats-v1"`
+	FamilySlug      string         `json:"familySlug" example:"extra-seats"`
+	Name            string         `json:"name" doc:"The add-on version's name" example:"Extra seats"`
+	Quantity        int32          `json:"quantity" example:"3"`
+	MaxQuantity     *int32         `json:"maxQuantity,omitempty"`
+	PendingQuantity *int32         `json:"pendingQuantity" nullable:"true" doc:"A decrease scheduled for the next boundary, 0 for a removal; the current quantity holds until then. Null when nothing is scheduled (V31-67)"`
+	AttachedAt      time.Time      `json:"attachedAt"`
+	RemovedAt       *time.Time     `json:"removedAt,omitempty"`
+	Prices          []prices.Price `json:"prices" nullable:"false" doc:"What the instance's subscription bills for it: the default FLAT_FEE price of the subscription's period and the ACTIVE metered prices. Empty when the instance is not billed."`
 }
 
 // AddonUpdate is the payload of ADDON_UPDATED.
