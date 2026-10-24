@@ -1,0 +1,52 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of the add-on creation > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "createAsDraft": {
+      "type": "boolean",
+    },
+    "description": {
+      "type": "string",
+    },
+    "increaseBilling": {
+      "enum": [
+        "TRUE_UP",
+        "NEXT_BOUNDARY",
+      ],
+      "type": "string",
+    },
+    "maxQuantity": {},
+    "name": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "pricingType": {
+      "enum": [
+        "FREE",
+        "PAID",
+        "CUSTOM",
+      ],
+      "type": "string",
+    },
+    "slug": {
+      "type": "string",
+    },
+    "versionName": {
+      "type": "string",
+    },
+  },
+  "required": [
+    "description",
+    "name",
+    "pricingType",
+    "maxQuantity",
+    "slug",
+    "versionName",
+    "increaseBilling",
+    "createAsDraft",
+  ],
+  "type": "object",
+}
+`;

@@ -1,3 +1,4 @@
+import { Link, useNavigate } from '@tanstack/react-router';
 import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Addon, AddonFamily } from '@/api-client';
@@ -8,14 +9,25 @@ import {
   useLeaveRestrictedDialog,
 } from '@/domains/billing';
 import {
+  type FormRecovery,
+  FormRecoveryAlert,
+  FormRecoveryAnnouncer,
+  FormRecoveryNotes,
+  FormRecoverySubmitWarning,
+  useFormRecovery,
+  useFormRecoveryForm,
+} from '@/functionals/form-recovery';
+import {
   StackedFormDialog,
   StackedFormDialogFooter,
   StackedFormDialogPanel,
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler } from '@/hooks/form';
 import { useAddonForm } from '../../hooks/use-addon-form';
+import { type AddonFormValues, initialAddonFormValues } from '../../schemas';
 import { getFamilyHead } from '../../utils/addon-families.utils';
 import { AddonFormFields, type AddonFormMode } from './addon-form-fields';
+import { addonRecovery } from './addon-recovery';
 
 type AddonFormDialogProps = {
   /** The version being edited; a new one when left out. */
@@ -34,21 +46,46 @@ function AddonForm({
   mode,
   onClose,
   onSaved,
-}: AddonFormDialogProps & { mode: AddonFormMode }) {
+  recovery,
+}: AddonFormDialogProps & {
+  mode: AddonFormMode;
+  recovery: FormRecovery<AddonFormValues>;
+}) {
   const { t } = useTranslation();
   const formId = useId();
+  const navigate = useNavigate();
   const { failure, form } = useAddonForm({
     addon,
     base: family ? getFamilyHead(family) : undefined,
     familySlug: family?.slug,
     onSaved,
+    recovery: mode === 'edit' ? undefined : recovery,
   });
+  const { focusRef } = useFormRecoveryForm(recovery, form);
+
+  // A deliberate abandon of a creation: the entries go, and a toast brings them back.
+  const cancel = () => {
+    if (mode !== 'edit') {
+      recovery.discard({
+        undo: () =>
+          void navigate({
+            search: family ? { family: family.slug } : {},
+            to: '/catalog/addons/new',
+          }),
+      });
+    }
+    onClose();
+  };
 
   return (
-    <form id={formId} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+    <form
+      id={formId}
+      ref={focusRef}
+      onSubmit={createFormSubmitHandler(form.handleSubmit)}
+    >
       <form.AppForm>
         <StackedFormDialogFooter>
-          <Button onClick={onClose} type="button" variant="outline">
+          <Button onClick={cancel} type="button" variant="outline">
             {t('Common.cancel')}
           </Button>
           <form.SubmitButton
@@ -63,6 +100,10 @@ function AddonForm({
         </StackedFormDialogFooter>
         <StackedFormDialogPanel>
           <div className="space-y-6">
+            <FormRecoveryAlert recovery={recovery}>
+              <AddonListLink />
+            </FormRecoveryAlert>
+            <FormRecoveryNotes recovery={recovery} />
             <AddonFormFields form={form} mode={mode} />
             {failure ? (
               <ProblemAlert
@@ -71,10 +112,28 @@ function AddonForm({
                 onRetry={() => void form.handleSubmit()}
               />
             ) : null}
+            <FormRecoverySubmitWarning recovery={recovery}>
+              <AddonListLink />
+            </FormRecoverySubmitWarning>
           </div>
         </StackedFormDialogPanel>
       </form.AppForm>
     </form>
+  );
+}
+
+function AddonListLink() {
+  const { t } = useTranslation();
+
+  return (
+    <Button
+      nativeButton={false}
+      render={<Link to="/catalog/addons" />}
+      size="sm"
+      variant="outline"
+    >
+      {t('Common.viewList')}
+    </Button>
   );
 }
 
@@ -138,19 +197,62 @@ export function AddonFormDialog({
   }
 
   return (
+    <AddonFormDialogContent
+      addon={addon}
+      family={family}
+      mode={mode}
+      onClose={onClose}
+      onSaved={onSaved}
+      text={text}
+    />
+  );
+}
+
+/**
+ * The dialog of a session that may write add-ons. What a creation typed and did not
+ * send is offered back on the next visit, for the same family; the edit of a version
+ * keeps nothing. The door freezes at its mount whether it is on, so it is opened once
+ * the access is known, and the dialog opens once the device was read, so that its
+ * first focus lands on the offer when there is one.
+ */
+function AddonFormDialogContent({
+  addon,
+  family,
+  mode,
+  onClose,
+  onSaved,
+  text,
+}: AddonFormDialogProps & {
+  mode: AddonFormMode;
+  text: { description: string; title: string };
+}) {
+  const recovery = useFormRecovery(addonRecovery, {
+    context: family ? `family:${family.slug}` : '',
+    enabled: mode !== 'edit',
+    pristine: initialAddonFormValues(family ? getFamilyHead(family) : undefined),
+  });
+  if (recovery.writer.status === 'reading') {
+    return null;
+  }
+
+  return (
     <StackedFormDialog
       confirmOnClose={false}
       description={text.description}
+      initialFocus={recovery.offer ? recovery.focusOffer : undefined}
       onOpenChange={(open) => !open && onClose()}
       open
       title={text.title}
     >
+      <FormRecoveryAnnouncer recovery={recovery} />
       <AddonForm
+        key={recovery.sessionKey}
         addon={addon}
         family={family}
         mode={mode}
         onClose={onClose}
         onSaved={onSaved}
+        recovery={recovery}
       />
     </StackedFormDialog>
   );

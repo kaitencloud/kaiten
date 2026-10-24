@@ -9,6 +9,7 @@ import {
   updateAddonFamilyMutation,
 } from '@/api-client/@tanstack/react-query.gen';
 import { handleBillingProblem, setProblemFieldError } from '@/domains/billing';
+import type { FormRecovery } from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
 import {
   invalidateAddonDetails,
@@ -16,6 +17,7 @@ import {
   saveAddonOnFresh,
 } from '../queries';
 import {
+  type AddonFormValues,
   addonFormValuesToCreateBody,
   addonFormValuesToUpdateBody,
   addonToFormValues,
@@ -47,6 +49,11 @@ type UseAddonFormOptions = {
   familySlug?: string;
   /** Called once the API accepted the version, with what it answered. */
   onSaved: (saved: Addon) => void;
+  /**
+   * The recovery of a creation: the form starts from its values, and the creation is
+   * sent through it, so that an accepted one is never offered again.
+   */
+  recovery?: FormRecovery<AddonFormValues>;
 };
 
 /**
@@ -73,6 +80,7 @@ export function useAddonForm({
   base,
   familySlug,
   onSaved,
+  recovery,
 }: UseAddonFormOptions) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -88,7 +96,9 @@ export function useAddonForm({
   // compares the form with, to tell what was changed from what was not.
   const [openedAddon] = useState(addon);
   const [openedValues] = useState(() =>
-    addon ? addonToFormValues(addon) : initialAddonFormValues(base),
+    addon
+      ? addonToFormValues(addon)
+      : (recovery?.pristine ?? initialAddonFormValues(base)),
   );
   // How a mid-period increase is billed is the family's: the edit of a version sets it
   // on the family, before the version, and only when the form changed it.
@@ -139,10 +149,16 @@ export function useAddonForm({
 
           return;
         }
+        // The body is built before the request: an error while building it is not an
+        // answer that never came.
+        const body = addonFormValuesToCreateBody(value, { familySlug });
+        const request = () => create.mutateAsync({ body });
         onSaved(
-          await create.mutateAsync({
-            body: addonFormValuesToCreateBody(value, { familySlug }),
-          }),
+          await (recovery
+            ? recovery.send(request, {
+                created: (created) => ({ id: created.slug, label: created.name }),
+              })
+            : request()),
         );
       } catch (error) {
         const problem = handleBillingProblem(error);
