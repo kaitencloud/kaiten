@@ -895,6 +895,41 @@ func (q *Queries) LockInstanceVoucher(ctx context.Context, arg LockInstanceVouch
 	return i, err
 }
 
+const planHasBoostable = `-- name: PlanHasBoostable :one
+SELECT (EXISTS (SELECT 1
+                FROM license_entitlement le
+                WHERE le.organization_id = $1
+                  AND le.license_id = $2
+                  AND le.entitlement_id = ANY ($3::uuid[]))
+     OR EXISTS (SELECT 1
+                FROM addon_entitlement ae
+                WHERE ae.organization_id = $1
+                  AND ae.addon_id = ANY ($4::uuid[])
+                  AND ae.entitlement_id = ANY ($3::uuid[])))::boolean AS boostable
+`
+
+type PlanHasBoostableParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	LicenseID      uuid.UUID   `json:"license_id"`
+	EntitlementIds []uuid.UUID `json:"entitlement_ids"`
+	AddonIds       []uuid.UUID `json:"addon_ids"`
+}
+
+// Whether a licence version, or one of the add-ons selected with it, grants an
+// entitlement among those a boost targets: check 8 for a visitor's anonymous
+// checkout, which has no instance yet (§11.4).
+func (q *Queries) PlanHasBoostable(ctx context.Context, arg PlanHasBoostableParams) (bool, error) {
+	row := q.db.QueryRow(ctx, planHasBoostable,
+		arg.OrganizationID,
+		arg.LicenseID,
+		arg.EntitlementIds,
+		arg.AddonIds,
+	)
+	var boostable bool
+	err := row.Scan(&boostable)
+	return boostable, err
+}
+
 const revokeInstanceVoucher = `-- name: RevokeInstanceVoucher :exec
 UPDATE instance_voucher
 SET status         = 'REVOKED',

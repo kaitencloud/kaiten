@@ -34,6 +34,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/shared/random"
 	"github.com/kaitencloud/kaiten/api/internal/shared/token"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -59,6 +60,8 @@ type Deps struct {
 	// Limits bound the starts, dryRun included, before the Turnstile
 	// verification (§14.3).
 	Limits *checkout.Limits
+	// Vouchers checks a voucherCode against the selection (§14.8 rule 5).
+	Vouchers Vouchers
 }
 
 type UseCase struct {
@@ -126,12 +129,6 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 			return nil, invalidReturnURL()
 		}
 	}
-	if draft.VoucherCode != nil {
-		// An anonymous visitor has no customer to check a voucher's
-		// restrictions against yet: refused, opaquely, until that check
-		// exists, rather than letting a reserved code through.
-		return nil, kaitenerrors.UnprocessableEntity(operation+".VoucherInvalid", "this voucher cannot be applied")
-	}
 
 	licenseID, err := uuid.Parse(plan.LicenseID)
 	if err != nil {
@@ -140,6 +137,20 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	priceID, err := uuid.Parse(price.ID)
 	if err != nil {
 		return nil, err
+	}
+	selected, err := selectedAddOns(catalog, draft.AddOns)
+	if err != nil {
+		return nil, err
+	}
+	// The code, checked against the selection with no customer and no
+	// instance (§11.4): its discount counts in dueToday.
+	var voucher *catalogue.Voucher
+	var pricedCode *string
+	if draft.VoucherCode != nil {
+		if voucher, err = SelectedVoucher(ctx, u.deps.Vouchers, operation, start.OrganizationID, *draft.VoucherCode, priceID, selected); err != nil {
+			return nil, err
+		}
+		pricedCode = PricedCode(voucher, *draft.VoucherCode)
 	}
 	// The licence's trial, unless declined, and one per e-mail and family
 	// (INV-35): a preview without an e-mail shows it unchecked.
@@ -160,10 +171,15 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	}
 
 	preview, err := u.deps.Activation.PreviewActivation(ctx, start.OrganizationID, subscribeinstance.PreviewCommand{
-		BasePriceID: priceID, AddOns: draft.AddOns, TrialDays: trialDays,
+		BasePriceID: priceID, AddOns: draft.AddOns, TrialDays: trialDays, VoucherCode: pricedCode,
 	})
 	if err != nil {
 		return nil, rename(err)
+	}
+	if preview.Composition.Total > 0 && !RecordableAtPayment(voucher) {
+		// Its redemption would have to wait for the payment, which records
+		// only a voucher with a PRICE part (§9.10).
+		return nil, VoucherInvalid(operation)
 	}
 	due := sessions.DueToday{
 		Currency: preview.Currency, Subtotal: preview.Composition.Subtotal, DiscountTotal: preview.Composition.DiscountTotal,
@@ -194,18 +210,9 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	if err != nil {
 		return nil, fmt.Errorf("checkout session: %w", err)
 	}
-	selection := checkout.Selection{AddOns: []checkout.SelectedAddon{}, Voucher: nil, TrialEndsAt: preview.TrialEndsAt, DueToday: &due}
-	for _, addon := range draft.AddOns {
-		i := slices.IndexFunc(catalog.AddOns, func(a getpubliccatalog.PublicAddOn) bool { return a.AddonSlug == addon.AddonSlug })
-		addonID, err := uuid.Parse(catalog.AddOns[i].AddonID)
-		if err != nil {
-			return nil, err
-		}
-		quantity := addon.Quantity
-		if quantity == 0 {
-			quantity = 1
-		}
-		selection.AddOns = append(selection.AddOns, checkout.SelectedAddon{AddonID: addonID, AddonSlug: addon.AddonSlug, Quantity: quantity})
+	selection := checkout.Selection{AddOns: selected, Voucher: nil, TrialEndsAt: preview.TrialEndsAt, DueToday: &due}
+	if voucher != nil {
+		selection.Voucher = &checkout.SelectedVoucher{VoucherID: voucher.ID, Code: *draft.VoucherCode}
 	}
 	stored, err := json.Marshal(selection)
 	if err != nil {
@@ -338,6 +345,28 @@ func CheckPlan(ctx context.Context, op string, catalogue *getpubliccatalog.UseCa
 }
 
 // rename answers the subscribe's refusals under this use case.
+// selectedAddOns is the add-ons the request selects, as the session keeps
+// them; CheckPlan has checked each is in the catalogue.
+func selectedAddOns(catalog *getpubliccatalog.PublicCatalog, addOns []subscribeinstance.SubscriptionAddon) ([]checkout.SelectedAddon, error) {
+	out := []checkout.SelectedAddon{}
+	for _, addon := range addOns {
+		i := slices.IndexFunc(catalog.AddOns, func(a getpubliccatalog.PublicAddOn) bool { return a.AddonSlug == addon.AddonSlug })
+		if i < 0 {
+			return nil, kaitenerrors.UnprocessableEntity(operation+".AddonNotPublic", "an add-on is not offered")
+		}
+		addonID, err := uuid.Parse(catalog.AddOns[i].AddonID)
+		if err != nil {
+			return nil, err
+		}
+		quantity := addon.Quantity
+		if quantity == 0 {
+			quantity = 1
+		}
+		out = append(out, checkout.SelectedAddon{AddonID: addonID, AddonSlug: addon.AddonSlug, Quantity: quantity})
+	}
+	return out, nil
+}
+
 func rename(err error) error {
 	return sessions.Rename(err, "SubscribeInstance", operation)
 }

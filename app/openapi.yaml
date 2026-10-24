@@ -1991,7 +1991,7 @@ components:
           minLength: 1
           type: string
         voucherCode:
-          description: A code to apply; any refusal answers 422 .VoucherInvalid
+          description: "A code to apply, checked against the selection, with no customer yet: a voucher restricted to a customer never applies, and one without a PRICE part only when nothing is due today. Its discount counts in dueToday; the completion, or the payment, records its redemption. Any refusal answers 422 .VoucherInvalid"
           maxLength: 64
           type: string
       required:

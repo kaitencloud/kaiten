@@ -26,6 +26,10 @@ type PreviewCommand struct {
 	AddOns      []SubscriptionAddon
 	// TrialDays nil takes the licence's trial; 0 is none.
 	TrialDays *int32
+	// VoucherCode is the code of a voucher with a PRICE part whose discount
+	// applies to the ACTIVATION, as a redemption made now would; its
+	// eligibility is the caller's to check (§14.8 rule 5).
+	VoucherCode *string
 }
 
 // ActivationPreview is what the subscription would bill today: its
@@ -110,8 +114,35 @@ func (u *UseCase) PreviewActivation(ctx context.Context, organizationID uuid.UUI
 	if err != nil {
 		return nil, err
 	}
+	if cmd.VoucherCode != nil {
+		discount, err := u.previewDiscount(ctx, organizationID, *cmd.VoucherCode)
+		if err != nil {
+			return nil, err
+		}
+		if composition, err = rating.ApplyDiscounts(composition, metering.Discounts([]ports.Discount{*discount}), money.Currency(base.Currency)); err != nil {
+			return nil, err
+		}
+	}
 	out.Composition = composition
 	return out, nil
+}
+
+// previewDiscount is the discount of the voucher a code names, as a
+// redemption made now would apply it, consuming nothing; .VoucherInvalid when
+// it has no PRICE part, or is not ACTIVE.
+func (u *UseCase) previewDiscount(ctx context.Context, organizationID uuid.UUID, code string) (*ports.Discount, error) {
+	if u.deps.Discounts == nil {
+		return nil, errors.New("subscribe: no discount source is wired")
+	}
+	discount, found, err := u.deps.Discounts.PreviewDiscount(ctx, organizationID, code)
+	if err != nil {
+		return nil, err
+	}
+	if !found || discount == nil {
+		return nil, kaitenerrors.UnprocessableEntityWithErrors(operation+".VoucherInvalid", "the voucher cannot be redeemed",
+			&kaitenerrors.ErrorDetail{Message: "not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part", Location: "body.voucherCode", Value: map[string]any{"code": "RedeemVoucher.VoucherInvalid"}})
+	}
+	return discount, nil
 }
 
 // pendingCheckout is what an INCOMPLETE subscribe stores and bills of its
@@ -157,16 +188,9 @@ func (u *UseCase) pendingCheckout(ctx context.Context, organizationID uuid.UUID,
 		}
 	}
 	if cmd.VoucherCode != nil {
-		if u.deps.Discounts == nil {
-			return nil, errors.New("subscribe: no discount source is wired")
-		}
-		discount, found, err := u.deps.Discounts.PreviewDiscount(ctx, organizationID, *cmd.VoucherCode)
+		discount, err := u.previewDiscount(ctx, organizationID, *cmd.VoucherCode)
 		if err != nil {
 			return nil, err
-		}
-		if !found || discount == nil {
-			return nil, kaitenerrors.UnprocessableEntityWithErrors(operation+".VoucherInvalid", "the voucher cannot be redeemed",
-				&kaitenerrors.ErrorDetail{Message: "not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part", Location: "body.voucherCode", Value: map[string]any{"code": "RedeemVoucher.VoucherInvalid"}})
 		}
 		id := uuid.New()
 		discount.InstanceVoucherID = id

@@ -42,6 +42,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -90,6 +91,8 @@ type Deps struct {
 	// Limits bound the visitor's confirms (§14.3); a job's completion is not
 	// counted.
 	Limits *checkout.Limits
+	// Vouchers checks the selection's voucher again (§11.4, §14.8 rule 5).
+	Vouchers createcheckoutsession.Vouchers
 }
 
 type UseCase struct {
@@ -213,6 +216,18 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	if err != nil {
 		return nil, err
 	}
+	// The voucher, checked again against the selection: up to 24 h passed.
+	// What the completion redeems is what this check accepted; the
+	// redemption does not check it again (§11.4).
+	var voucherCode, pricedCode *string
+	var voucher *catalogue.Voucher
+	if selection.Voucher != nil {
+		code := selection.Voucher.Code
+		if voucher, err = createcheckoutsession.SelectedVoucher(ctx, u.deps.Vouchers, operation, organizationID, code, row.LicensePriceID, selection.AddOns); err != nil {
+			return nil, err
+		}
+		voucherCode, pricedCode = &code, createcheckoutsession.PricedCode(voucher, code)
+	}
 
 	// The trial, checked again before anything is captured: consumed
 	// meanwhile, the session goes on without it.
@@ -228,7 +243,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 				// amount shown: it is never charged another one.
 				return nil, dueTodayChanged()
 			}
-			if err := u.dropTrial(ctx, q, row, selection, addOns); err != nil {
+			if err := u.dropTrial(ctx, q, row, selection, addOns, pricedCode); err != nil {
 				return nil, err
 			}
 			return u.confirm(ctx, organizationID, sessionID, job)
@@ -239,11 +254,16 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		none := int32(0)
 		trialDays = &none
 	}
-	preview, err := u.deps.Activation.PreviewActivation(ctx, organizationID, subscribeinstance.PreviewCommand{BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: trialDays})
+	preview, err := u.deps.Activation.PreviewActivation(ctx, organizationID, subscribeinstance.PreviewCommand{
+		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: trialDays, VoucherCode: pricedCode,
+	})
 	if err != nil {
-		return nil, err
+		return nil, voucherRefusal(err)
 	}
 	due := preview.Composition.Total
+	if due > 0 && !createcheckoutsession.RecordableAtPayment(voucher) {
+		return nil, createcheckoutsession.VoucherInvalid(operation)
+	}
 	// With an amount due the instance starts on the fallback family's free
 	// version, and the payment moves it to the one bought (§9.12 rule 4
 	// step 3). Checked before any setup, so no card is asked for in vain.
@@ -351,7 +371,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		}
 		cmd := subscribeinstance.Command{
 			BasePriceID: row.LicensePriceID, ProviderKind: "NOOP", CollectionMethod: ptr("SEND_INVOICE"),
-			TrialDays: trialDays, AddOns: addOns, AllowMissingPaymentMethod: adopted == nil,
+			TrialDays: trialDays, AddOns: addOns, VoucherCode: voucherCode, AllowMissingPaymentMethod: adopted == nil,
 		}
 		if !free && providerKind != "" {
 			cmd.ProviderKind, cmd.CollectionMethod = providerKind, ptr("CHARGE_AUTOMATICALLY")
@@ -361,7 +381,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			cmd.Incomplete, cmd.MoveToLicenseID, cmd.CallerPushes = true, &licenseID, !job
 		}
 		if started, err = u.deps.Subscriber.Execute(ctx, instance.Slug, cmd); err != nil {
-			return err
+			return voucherRefusal(err)
 		}
 		if due > 0 {
 			_, err := q.AwaitCheckoutPayment(ctx, db.AwaitCheckoutPaymentParams{
@@ -508,11 +528,15 @@ func closed(row db.GetCheckoutSessionRow) error {
 }
 
 // dropTrial reprices an OPEN session without its trial, before any setup.
-func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetCheckoutSessionRow, selection checkout.Selection, addOns []subscribeinstance.SubscriptionAddon) error {
+func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetCheckoutSessionRow, selection checkout.Selection,
+	addOns []subscribeinstance.SubscriptionAddon, pricedCode *string,
+) error {
 	none := int32(0)
-	preview, err := u.deps.Activation.PreviewActivation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none})
+	preview, err := u.deps.Activation.PreviewActivation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{
+		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none, VoucherCode: pricedCode,
+	})
 	if err != nil {
-		return err
+		return voucherRefusal(err)
 	}
 	selection.TrialEndsAt = nil
 	selection.DueToday = &sessions.DueToday{
@@ -528,6 +552,15 @@ func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetChecko
 		TrialRefusedReason: &reason, Selection: stored, DueTodayMinor: preview.Composition.Total,
 		OrganizationID: row.OrganizationID, ID: row.ID,
 	})
+}
+
+// voucherRefusal answers the subscribe's refusal of the voucher as the
+// checkout's own, opaque (§14.8 rule 5).
+func voucherRefusal(err error) error {
+	if kaitenerrors.GetCode(err) == "SubscribeInstance.VoucherInvalid" {
+		return createcheckoutsession.VoucherInvalid(operation)
+	}
+	return err
 }
 
 // enforceLimits reports a customer and an instance to the organization's

@@ -361,3 +361,19 @@ SELECT EXISTS (SELECT 1
                           OR (v.price_applies_to = 'SELECTED_PRICES'
                               AND (l.license_price_id = ANY (v.applicable_license_price_ids)
                                 OR l.addon_price_id = ANY (v.applicable_addon_price_ids))))) >= 20)::boolean AS reached;
+
+
+-- name: PlanHasBoostable :one
+-- Whether a licence version, or one of the add-ons selected with it, grants an
+-- entitlement among those a boost targets: check 8 for a visitor's anonymous
+-- checkout, which has no instance yet (§11.4).
+SELECT (EXISTS (SELECT 1
+                FROM license_entitlement le
+                WHERE le.organization_id = sqlc.arg(organization_id)
+                  AND le.license_id = sqlc.arg(license_id)
+                  AND le.entitlement_id = ANY (sqlc.arg(entitlement_ids)::uuid[]))
+     OR EXISTS (SELECT 1
+                FROM addon_entitlement ae
+                WHERE ae.organization_id = sqlc.arg(organization_id)
+                  AND ae.addon_id = ANY (sqlc.arg(addon_ids)::uuid[])
+                  AND ae.entitlement_id = ANY (sqlc.arg(entitlement_ids)::uuid[])))::boolean AS boostable;

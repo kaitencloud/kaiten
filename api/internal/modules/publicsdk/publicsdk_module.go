@@ -98,26 +98,28 @@ type Ports struct {
 	CheckoutInstances  confirmcheckoutsession.InstanceCreator
 	CheckoutSubscriber confirmcheckoutsession.Subscriber
 	CheckoutSetup      confirmcheckoutsession.Setup
-	CustomerBilling    createsessioncheckout.CustomerBillingReader
-	OpenSetup          createsessioncheckout.SetupSessionOpener
-	CompleteSetup      createsessioncheckout.SetupSessionCompleter
-	Invoices           createsessioncheckout.InvoiceReader
-	BillingEmails      createsessioncheckout.BillingEmailSetter
-	SessionInvoices    listsessioninvoices.Invoices
-	OpenPortal         createsessionportalsession.Opener
-	Cancel             cancelsessionsubscription.Canceler
-	Reactivate         reactivatesessionsubscription.Reactivator
-	Vouchers           validatesessionvoucher.Validator
-	VoucherLimit       redeemsessionvoucher.Limiter
-	SessionRedeemer    redeemsessionvoucher.Redeemer
-	AddonList          setsessionaddonquantity.Lister
-	AddonAttach        setsessionaddonquantity.Attacher
-	AddonQuantity      setsessionaddonquantity.QuantitySetter
-	Subscription       getsessionportal.SubscriptionReader
-	Checkout           getsessionportal.CheckoutChecker
-	UpcomingInvoice    getsessionportal.UpcomingInvoiceReader
-	Entitlements       getsessionportal.EntitlementReader
-	Redemptions        getsessionportal.VoucherReader
+	// CheckoutVouchers checks an anonymous checkout's voucher (§11.4).
+	CheckoutVouchers createcheckoutsession.Vouchers
+	CustomerBilling  createsessioncheckout.CustomerBillingReader
+	OpenSetup        createsessioncheckout.SetupSessionOpener
+	CompleteSetup    createsessioncheckout.SetupSessionCompleter
+	Invoices         createsessioncheckout.InvoiceReader
+	BillingEmails    createsessioncheckout.BillingEmailSetter
+	SessionInvoices  listsessioninvoices.Invoices
+	OpenPortal       createsessionportalsession.Opener
+	Cancel           cancelsessionsubscription.Canceler
+	Reactivate       reactivatesessionsubscription.Reactivator
+	Vouchers         validatesessionvoucher.Validator
+	VoucherLimit     redeemsessionvoucher.Limiter
+	SessionRedeemer  redeemsessionvoucher.Redeemer
+	AddonList        setsessionaddonquantity.Lister
+	AddonAttach      setsessionaddonquantity.Attacher
+	AddonQuantity    setsessionaddonquantity.QuantitySetter
+	Subscription     getsessionportal.SubscriptionReader
+	Checkout         getsessionportal.CheckoutChecker
+	UpcomingInvoice  getsessionportal.UpcomingInvoiceReader
+	Entitlements     getsessionportal.EntitlementReader
+	Redemptions      getsessionportal.VoucherReader
 }
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
@@ -154,12 +156,14 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		CreateCheckoutSession: createcheckoutsession.NewUseCase(createcheckoutsession.Deps{
 			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
 			Turnstile: turnstile.NewClient(svc.TurnstileVerifyURL), Limits: checkout.StartLimits(svc.Config.Billing.CheckoutLimits),
+			Vouchers: from.CheckoutVouchers,
 		}),
 		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation, Payments: from.CheckoutSetup}),
 		ConfirmCheckoutSession: confirmcheckoutsession.NewUseCase(confirmcheckoutsession.Deps{
 			UserProvider: svc.UserProvider, Uof: svc.Uof, Catalog: catalog, Activation: from.Activation,
 			Customers: from.CheckoutCustomers, Instances: from.CheckoutInstances, Subscriber: from.CheckoutSubscriber,
 			Setup: from.CheckoutSetup, UsageReporter: svc.UsageReporter, Limits: checkout.ConfirmLimits(svc.Config.Billing.CheckoutLimits),
+			Vouchers: from.CheckoutVouchers,
 		}),
 		ListSessionInvoices: listsessioninvoices.NewUseCase(from.SessionInvoices),
 
