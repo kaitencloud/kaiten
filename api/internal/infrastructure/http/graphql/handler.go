@@ -293,6 +293,7 @@ func withOperationDeadline(next http.Handler) http.Handler {
 // Each module registers its own dataloaders.
 func (h *Handler) newLoaders() *dataloader.Loaders {
 	loaders := dataloader.NewLoaders()
+	resolver.RegisterBillingGate(loaders, h.config.BillingGate)
 	addonsGraphql.RegisterDataloaders(loaders, addonsdb.New(h.pool))
 	billingGraphql.RegisterDataloaders(loaders, billingdb.New(h.pool))
 	customersGraphql.RegisterDataloaders(loaders, customersdb.New(h.pool))

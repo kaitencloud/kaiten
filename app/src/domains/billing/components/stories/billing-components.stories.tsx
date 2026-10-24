@@ -20,6 +20,7 @@ import {
   INVOICE_LINE_TYPES,
   INVOICE_STATUSES,
   type InstanceBillingSummary,
+  type InstanceBillingSummaryInput,
   SUBSCRIPTION_STATUSES,
   toInstanceBillingSummary,
 } from '../../logic';
@@ -207,7 +208,7 @@ export const Statuses: Story = {
 };
 
 const summaryOf = (
-  status: string,
+  status: InstanceBillingSummaryInput['status'],
   cancelAtPeriodEnd = false,
 ): InstanceBillingSummary =>
   toInstanceBillingSummary({
@@ -220,9 +221,10 @@ const summaryOf = (
   });
 
 // The Billing column of the lists of instances: the state of the subscription
-// read from the GraphQL API, whose enums are plain strings the console checks
-// before it shows them. A dash for an instance nobody subscribed, and a state
-// it does not know as it was written, neutral.
+// read from the GraphQL API, whose enums the console checks before it shows
+// them, since a newer API may send a value it does not know. A dash for an
+// instance nobody subscribed, and a state it does not know as it was written,
+// neutral.
 export const InstanceListBadges: Story = {
   render: () => (
     <div className="flex flex-wrap items-center gap-2">
@@ -231,7 +233,7 @@ export const InstanceListBadges: Story = {
       ))}
       <InstanceBillingBadge summary={summaryOf('ACTIVE', true)} />
       <InstanceBillingBadge summary={null} />
-      <InstanceBillingBadge summary={summaryOf('PAUSED')} />
+      <InstanceBillingBadge summary={summaryOf('PAUSED' as never)} />
     </div>
   ),
   play: async ({ canvasElement }) => {

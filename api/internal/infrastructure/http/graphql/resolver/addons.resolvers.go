@@ -17,6 +17,9 @@ import (
 
 // Prices is the resolver for the prices field.
 func (r *addonResolver) Prices(ctx context.Context, obj *catalogue.Addon, status *string) ([]prices.Price, error) {
+	if err := requireBilling(ctx); err != nil {
+		return nil, err
+	}
 	return addonsGraphql.LoadAddonPrices(ctx, obj.ID, status)
 }
 
@@ -38,6 +41,9 @@ func (r *addonPriceResolver) SaleUnitFactor(ctx context.Context, obj *prices.Pri
 
 // Addons is the resolver for the addons field.
 func (r *instanceResolver) Addons(ctx context.Context, obj *schema.Instance) ([]catalogue.InstanceAddon, error) {
+	if err := requireBilling(ctx); err != nil {
+		return nil, err
+	}
 	return addonsGraphql.LoadInstanceAddons(ctx, obj.ID)
 }
 

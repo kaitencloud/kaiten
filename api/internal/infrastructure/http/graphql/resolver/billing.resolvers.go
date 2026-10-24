@@ -14,5 +14,8 @@ import (
 
 // Billing is the resolver for the billing field.
 func (r *instanceResolver) Billing(ctx context.Context, obj *schema.Instance) (*graphql1.InstanceBillingSummary, error) {
+	if err := requireBilling(ctx); err != nil {
+		return nil, err
+	}
 	return graphql1.LoadInstanceBilling(ctx, obj.ID)
 }

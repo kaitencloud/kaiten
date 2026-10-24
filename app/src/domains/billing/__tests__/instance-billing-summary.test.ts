@@ -29,21 +29,21 @@ describe('toInstanceBillingSummary', () => {
   );
 
   it('leaves a status the contract does not have out and keeps what was sent', () => {
-    const summary = toInstanceBillingSummary(input({ status: 'PAUSED' }));
+    const summary = toInstanceBillingSummary(input({ status: 'PAUSED' as never }));
 
     expect(summary.status).toBeUndefined();
     expect(summary.rawStatus).toBe('PAUSED');
   });
 
   it('does not take a status in another case or with a blank for one the contract has', () => {
-    expect(toInstanceBillingSummary(input({ status: 'active' })).status).toBeUndefined();
-    expect(toInstanceBillingSummary(input({ status: ' ACTIVE' })).status).toBeUndefined();
-    expect(toInstanceBillingSummary(input({ status: '' })).status).toBeUndefined();
+    expect(toInstanceBillingSummary(input({ status: 'active' as never })).status).toBeUndefined();
+    expect(toInstanceBillingSummary(input({ status: ' ACTIVE' as never })).status).toBeUndefined();
+    expect(toInstanceBillingSummary(input({ status: '' as never })).status).toBeUndefined();
   });
 
   it('checks the provider kind against the contract too', () => {
     expect(toInstanceBillingSummary(input({ providerKind: 'STRIPE' })).providerKind).toBe('STRIPE');
-    expect(toInstanceBillingSummary(input({ providerKind: 'PADDLE' })).providerKind).toBeUndefined();
+    expect(toInstanceBillingSummary(input({ providerKind: 'PADDLE' as never })).providerKind).toBeUndefined();
   });
 
   it('reads the dates the API sends, and drops the ones it sends as null', () => {

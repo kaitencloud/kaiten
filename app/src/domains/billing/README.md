@@ -180,7 +180,7 @@ page holds, or an export the API streams.
   refreshes it with the rest of a subscription.
 - `useLicensesWithPrices({ enabled })` reads every license version with the prices it is
   sold at now, in a GraphQL document of its own, `GetLicensesWithPrices`
-  (`queries/licenses-prices.queries.ts`): `licenses { prices(status: "ACTIVE") }`, a page
+  (`queries/licenses-prices.queries.ts`): `licenses { prices(status: ACTIVE) }`, a page
   of versions per request, where the REST API would take a read of the licenses and then
   one read of the prices of every version (it has no list of the prices of an
   organization). The list of licenses reads the summary of each family from it, and the

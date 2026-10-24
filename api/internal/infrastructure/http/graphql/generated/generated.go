@@ -98,7 +98,6 @@ type ComplexityRoot struct {
 		MeteredEntitlement func(childComplexity int) int
 		SaleUnitFactor     func(childComplexity int) int
 		Status             func(childComplexity int) int
-		UnitAmount         func(childComplexity int) int
 		UnitAmountDecimal  func(childComplexity int) int
 	}
 
@@ -381,7 +380,6 @@ type ComplexityRoot struct {
 		MeteredEntitlement func(childComplexity int) int
 		SaleUnitFactor     func(childComplexity int) int
 		Status             func(childComplexity int) int
-		UnitAmount         func(childComplexity int) int
 		UnitAmountDecimal  func(childComplexity int) int
 	}
 
@@ -759,12 +757,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.AddonPrice.Status(childComplexity), true
-	case "AddonPrice.unitAmount":
-		if e.ComplexityRoot.AddonPrice.UnitAmount == nil {
-			break
-		}
-
-		return e.ComplexityRoot.AddonPrice.UnitAmount(childComplexity), true
 	case "AddonPrice.unitAmountDecimal":
 		if e.ComplexityRoot.AddonPrice.UnitAmountDecimal == nil {
 			break
@@ -2047,12 +2039,6 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.LicensePrice.Status(childComplexity), true
-	case "LicensePrice.unitAmount":
-		if e.ComplexityRoot.LicensePrice.UnitAmount == nil {
-			break
-		}
-
-		return e.ComplexityRoot.LicensePrice.UnitAmount(childComplexity), true
 	case "LicensePrice.unitAmountDecimal":
 		if e.ComplexityRoot.LicensePrice.UnitAmountDecimal == nil {
 			break
@@ -2676,9 +2662,23 @@ type InstanceAddon {
 
 extend type Instance {
   """
-  The add-ons the instance holds now, oldest attachment first.
+  The add-ons the instance holds now, oldest attachment first. Like the REST
+  list, it needs billing to be enabled for the organization.
   """
   addons: [InstanceAddon!]!
+}
+
+"""The lifecycle of an add-on version."""
+enum AddonLifecycleState {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+"""How a mid-period increase of an add-on family's ADVANCE add-ons is billed."""
+enum IncreaseBilling {
+  TRUE_UP
+  NEXT_BOUNDARY
 }
 
 """
@@ -2698,39 +2698,28 @@ type Addon {
   versionName: String!
   """The version the family resolves to. Only a PUBLISHED version."""
   isDefault: Boolean!
-  """DRAFT, PUBLISHED or ARCHIVED."""
-  lifecycleState: String!
-  """FREE, PAID or CUSTOM: how this version is sold."""
-  pricingType: String!
+  lifecycleState: AddonLifecycleState!
+  """How this version is sold."""
+  pricingType: PricingType!
   """The most one instance may hold; null when unbounded."""
   maxQuantity: Int
-  """
-  The family's TRUE_UP or NEXT_BOUNDARY: how a mid-period increase of its
-  ADVANCE add-ons is billed.
-  """
-  increaseBilling: String!
-  """
-  The version's prices in display order; status ACTIVE or DEPRECATED narrows
-  them.
-  """
-  prices(status: String): [AddonPrice!]!
+  """The family's: how a mid-period increase of its ADVANCE add-ons is billed."""
+  increaseBilling: IncreaseBilling!
+  """The version's prices in display order; status narrows them."""
+  prices(status: PriceStatus): [AddonPrice!]!
 }
 
 """
 A price of an add-on version. It has the shape of a licence price.
-Amounts are in minor units of currency.
+Amounts are in minor units of currency; unitAmountDecimal is the amount.
 """
 type AddonPrice {
   id: UUID!
-  """FLAT_FEE, USAGE_BASED or OVERAGE."""
-  billingModel: String!
-  """ADVANCE or ARREARS."""
-  billingTiming: String!
-  """MONTHLY, QUARTERLY, SEMI_ANNUAL or ANNUAL; null on a metered price."""
-  billingPeriod: String
+  billingModel: PriceBillingModel!
+  billingTiming: PriceBillingTiming!
+  """Null on a metered price."""
+  billingPeriod: PriceBillingPeriod
   currency: String!
-  """The amount, when it is a whole number of minor units; null otherwise."""
-  unitAmount: Int
   """The amount in minor units, up to 12 decimal places."""
   unitAmountDecimal: String!
   """The slug of the entitlement a metered price measures; null on a flat fee."""
@@ -2740,8 +2729,7 @@ type AddonPrice {
   displayLabel: String
   displayOrder: Int!
   isDefault: Boolean!
-  """ACTIVE or DEPRECATED."""
-  status: String!
+  status: PriceStatus!
   deprecatedAt: Time
 }
 
@@ -2763,15 +2751,28 @@ extend type Query {
   addons(limit: Int, cursor: String): AddonPage!
 }
 `, BuiltIn: false},
-	{Name: "../../../../modules/billing/schema/billing.graphqls", Input: `"""
+	{Name: "../../../../modules/billing/schema/billing.graphqls", Input: `"""The status of a subscription. INCOMPLETE: a public checkout waiting for its first payment."""
+enum SubscriptionStatus {
+  INCOMPLETE
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+"""The payment provider a subscription's invoices go to."""
+enum ProviderKind {
+  NOOP
+  STRIPE
+}
+
+"""
 What the console's instance lists show of an instance's subscription. The
 whole subscription is GET /instances/{instanceSlug}/billing.
 """
 type InstanceBillingSummary {
-  """INCOMPLETE, TRIAL, ACTIVE, PAST_DUE or CANCELED. INCOMPLETE: a public checkout waiting for its first payment."""
-  status: String!
-  """NOOP or STRIPE."""
-  providerKind: String!
+  status: SubscriptionStatus!
+  providerKind: ProviderKind!
   currentPeriodEnd: Time!
   cancelAtPeriodEnd: Boolean!
   pastDueSince: Time
@@ -2781,7 +2782,8 @@ type InstanceBillingSummary {
 extend type Instance {
   """
   The instance's subscription; null when it was never subscribed. Requires
-  read:billing: fetch it in a document of its own, once billing is enabled.
+  read:billing and billing enabled for the organization: fetch it in a
+  document of its own, once billing is enabled.
   """
   billing: InstanceBillingSummary
 }
@@ -3270,7 +3272,17 @@ extend type Query {
   ): OrganizationAuditTrailPage!
 }
 `, BuiltIn: false},
-	{Name: "../../../../modules/instances/schema/entitlement_usage.graphqls", Input: `"""
+	{Name: "../../../../modules/instances/schema/entitlement_usage.graphqls", Input: `"""Where an entitlement of an instance comes from."""
+enum EntitlementUsageSource {
+  """The licence grants it; add-ons, boosts and an exception may change it."""
+  license
+  """An add-on attached grants it."""
+  addon
+  """Only the instance's exception grants it."""
+  exception
+}
+
+"""
 Current usage of an entitlement on an instance. One row per license grant:
 NUMBER entitlements carry the accumulated usage (zeroed when nothing has been
 reported yet); other types carry the license value.
@@ -3305,12 +3317,7 @@ type EntitlementUsage {
   """
   currentPeriodEnd: Time
 
-  """
-  license when the licence grants it (add-ons, boosts and an exception may
-  change it), addon when an add-on attached does, exception when only the
-  instance's exception does.
-  """
-  source: String!
+  source: EntitlementUsageSource!
 
   """
   How far above limit usage is still accepted, in percent: -1 unlimited, 0 a
@@ -3450,6 +3457,13 @@ type LicenseFamily {
   trialReminderDays: Int!
 }
 
+"""How a licence or add-on version is sold."""
+enum PricingType {
+  FREE
+  PAID
+  CUSTOM
+}
+
 """
 Whether a version of a license may be served.
 
@@ -3538,8 +3552,8 @@ type License {
   """
   instances: [Instance!]!
 
-  """FREE, PAID or CUSTOM: how this version is sold."""
-  pricingType: String!
+  """How this version is sold."""
+  pricingType: PricingType!
   """The trial a subscription starts with by default, in days; null when none."""
   trialPeriodDays: Int
   """Whether self-serve signup captures a payment method before activation."""
@@ -3547,10 +3561,10 @@ type License {
   """Where a buyer is sent when this version cannot be bought self-serve."""
   selfServeCtaUrl: String
   """
-  The version's prices in display order; status ACTIVE or DEPRECATED narrows
-  them.
+  The version's prices in display order; status narrows them. Like the REST
+  list, it needs billing to be enabled for the organization.
   """
-  prices(status: String): [LicensePrice!]!
+  prices(status: PriceStatus): [LicensePrice!]!
 }
 
 """
@@ -3628,20 +3642,44 @@ extend type License {
   entitlements: [LicenseEntitlement!]!
 }
 `, BuiltIn: false},
-	{Name: "../../../../modules/licenses/schema/license_price.graphqls", Input: `"""
+	{Name: "../../../../modules/licenses/schema/license_price.graphqls", Input: `"""How a price bills: a flat fee per period, or the usage of an entitlement."""
+enum PriceBillingModel {
+  FLAT_FEE
+  USAGE_BASED
+  OVERAGE
+}
+
+"""When a price bills: at the start of the period it covers, or at its end."""
+enum PriceBillingTiming {
+  ADVANCE
+  ARREARS
+}
+
+"""The length of a flat fee's period."""
+enum PriceBillingPeriod {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+"""Whether a price is still offered."""
+enum PriceStatus {
+  ACTIVE
+  DEPRECATED
+}
+
+"""
 A price of a licence version. Amounts are in minor units of currency.
+unitAmountDecimal is the amount: GraphQL has no Int wide enough for every one.
 """
 type LicensePrice {
   id: UUID!
-  """FLAT_FEE, USAGE_BASED or OVERAGE."""
-  billingModel: String!
-  """ADVANCE or ARREARS."""
-  billingTiming: String!
-  """MONTHLY, QUARTERLY, SEMI_ANNUAL or ANNUAL; null on a metered price."""
-  billingPeriod: String
+  billingModel: PriceBillingModel!
+  billingTiming: PriceBillingTiming!
+  """Null on a metered price."""
+  billingPeriod: PriceBillingPeriod
   currency: String!
-  """The amount, when it is a whole number of minor units; null otherwise."""
-  unitAmount: Int
   """The amount in minor units, up to 12 decimal places."""
   unitAmountDecimal: String!
   """The slug of the entitlement a metered price measures; null on a flat fee."""
@@ -3651,8 +3689,7 @@ type LicensePrice {
   displayLabel: String
   displayOrder: Int!
   isDefault: Boolean!
-  """ACTIVE or DEPRECATED."""
-  status: String!
+  status: PriceStatus!
   deprecatedAt: Time
 }
 `, BuiltIn: false},
@@ -3845,8 +3882,6 @@ func (ec *executionContext) childFields_AddonPrice(ctx context.Context, field gr
 		return ec.fieldContext_AddonPrice_billingPeriod(ctx, field)
 	case "currency":
 		return ec.fieldContext_AddonPrice_currency(ctx, field)
-	case "unitAmount":
-		return ec.fieldContext_AddonPrice_unitAmount(ctx, field)
 	case "unitAmountDecimal":
 		return ec.fieldContext_AddonPrice_unitAmountDecimal(ctx, field)
 	case "meteredEntitlement":
@@ -4411,8 +4446,6 @@ func (ec *executionContext) childFields_LicensePrice(ctx context.Context, field 
 		return ec.fieldContext_LicensePrice_billingPeriod(ctx, field)
 	case "currency":
 		return ec.fieldContext_LicensePrice_currency(ctx, field)
-	case "unitAmount":
-		return ec.fieldContext_LicensePrice_unitAmount(ctx, field)
 	case "unitAmountDecimal":
 		return ec.fieldContext_LicensePrice_unitAmountDecimal(ctx, field)
 	case "meteredEntitlement":
@@ -4696,7 +4729,7 @@ func (ec *executionContext) field_Addon_prices_args(ctx context.Context, rawArgs
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "status",
 		func(ctx context.Context, v any) (*string, error) {
-			return ec.unmarshalOString2ᚖstring(ctx, v)
+			return ec.unmarshalOPriceStatus2ᚖstring(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -4770,7 +4803,7 @@ func (ec *executionContext) field_License_prices_args(ctx context.Context, rawAr
 	args := map[string]any{}
 	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "status",
 		func(ctx context.Context, v any) (*string, error) {
-			return ec.unmarshalOString2ᚖstring(ctx, v)
+			return ec.unmarshalOPriceStatus2ᚖstring(ctx, v)
 		})
 	if err != nil {
 		return nil, err
@@ -5534,14 +5567,14 @@ func (ec *executionContext) _Addon_lifecycleState(ctx context.Context, field gra
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNAddonLifecycleState2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Addon_lifecycleState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type AddonLifecycleState does not have child fields"))
 }
 
 func (ec *executionContext) _Addon_pricingType(ctx context.Context, field graphql.CollectedField, obj *catalogue.Addon) (ret graphql.Marshaler) {
@@ -5557,14 +5590,14 @@ func (ec *executionContext) _Addon_pricingType(ctx context.Context, field graphq
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPricingType2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Addon_pricingType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type PricingType does not have child fields"))
 }
 
 func (ec *executionContext) _Addon_maxQuantity(ctx context.Context, field graphql.CollectedField, obj *catalogue.Addon) (ret graphql.Marshaler) {
@@ -5603,14 +5636,14 @@ func (ec *executionContext) _Addon_increaseBilling(ctx context.Context, field gr
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNIncreaseBilling2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_Addon_increaseBilling(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("Addon", field, false, false, errors.New("field of type IncreaseBilling does not have child fields"))
 }
 
 func (ec *executionContext) _Addon_prices(ctx context.Context, field graphql.CollectedField, obj *catalogue.Addon) (ret graphql.Marshaler) {
@@ -5771,14 +5804,14 @@ func (ec *executionContext) _AddonPrice_billingModel(ctx context.Context, field 
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPriceBillingModel2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_AddonPrice_billingModel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type PriceBillingModel does not have child fields"))
 }
 
 func (ec *executionContext) _AddonPrice_billingTiming(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -5794,14 +5827,14 @@ func (ec *executionContext) _AddonPrice_billingTiming(ctx context.Context, field
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPriceBillingTiming2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_AddonPrice_billingTiming(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type PriceBillingTiming does not have child fields"))
 }
 
 func (ec *executionContext) _AddonPrice_billingPeriod(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -5817,14 +5850,14 @@ func (ec *executionContext) _AddonPrice_billingPeriod(ctx context.Context, field
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
+			return ec.marshalOPriceBillingPeriod2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_AddonPrice_billingPeriod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type PriceBillingPeriod does not have child fields"))
 }
 
 func (ec *executionContext) _AddonPrice_currency(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -5848,29 +5881,6 @@ func (ec *executionContext) _AddonPrice_currency(ctx context.Context, field grap
 }
 func (ec *executionContext) fieldContext_AddonPrice_currency(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _AddonPrice_unitAmount(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_AddonPrice_unitAmount(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UnitAmount, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int64) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint64(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_AddonPrice_unitAmount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _AddonPrice_unitAmountDecimal(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -6024,14 +6034,14 @@ func (ec *executionContext) _AddonPrice_status(ctx context.Context, field graphq
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPriceStatus2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_AddonPrice_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("AddonPrice", field, false, false, errors.New("field of type PriceStatus does not have child fields"))
 }
 
 func (ec *executionContext) _AddonPrice_deprecatedAt(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -8519,14 +8529,14 @@ func (ec *executionContext) _EntitlementUsage_source(ctx context.Context, field 
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNEntitlementUsageSource2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_EntitlementUsage_source(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type EntitlementUsageSource does not have child fields"))
 }
 
 func (ec *executionContext) _EntitlementUsage_limitCapExceededOveragePercent(ctx context.Context, field graphql.CollectedField, obj *schema.EntitlementUsage) (ret graphql.Marshaler) {
@@ -9553,14 +9563,14 @@ func (ec *executionContext) _InstanceBillingSummary_status(ctx context.Context, 
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNSubscriptionStatus2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_InstanceBillingSummary_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("InstanceBillingSummary", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("InstanceBillingSummary", field, false, false, errors.New("field of type SubscriptionStatus does not have child fields"))
 }
 
 func (ec *executionContext) _InstanceBillingSummary_providerKind(ctx context.Context, field graphql.CollectedField, obj *graphql1.InstanceBillingSummary) (ret graphql.Marshaler) {
@@ -9576,14 +9586,14 @@ func (ec *executionContext) _InstanceBillingSummary_providerKind(ctx context.Con
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNProviderKind2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_InstanceBillingSummary_providerKind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("InstanceBillingSummary", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("InstanceBillingSummary", field, false, false, errors.New("field of type ProviderKind does not have child fields"))
 }
 
 func (ec *executionContext) _InstanceBillingSummary_currentPeriodEnd(ctx context.Context, field graphql.CollectedField, obj *graphql1.InstanceBillingSummary) (ret graphql.Marshaler) {
@@ -10040,14 +10050,14 @@ func (ec *executionContext) _License_pricingType(ctx context.Context, field grap
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPricingType2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_License_pricingType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("License", field, true, true, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("License", field, true, true, errors.New("field of type PricingType does not have child fields"))
 }
 
 func (ec *executionContext) _License_trialPeriodDays(ctx context.Context, field graphql.CollectedField, obj *schema2.License) (ret graphql.Marshaler) {
@@ -10888,14 +10898,14 @@ func (ec *executionContext) _LicensePrice_billingModel(ctx context.Context, fiel
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPriceBillingModel2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_LicensePrice_billingModel(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type PriceBillingModel does not have child fields"))
 }
 
 func (ec *executionContext) _LicensePrice_billingTiming(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -10911,14 +10921,14 @@ func (ec *executionContext) _LicensePrice_billingTiming(ctx context.Context, fie
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPriceBillingTiming2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_LicensePrice_billingTiming(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type PriceBillingTiming does not have child fields"))
 }
 
 func (ec *executionContext) _LicensePrice_billingPeriod(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -10934,14 +10944,14 @@ func (ec *executionContext) _LicensePrice_billingPeriod(ctx context.Context, fie
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
-			return ec.marshalOString2ᚖstring(ctx, selections, v)
+			return ec.marshalOPriceBillingPeriod2ᚖstring(ctx, selections, v)
 		},
 		true,
 		false,
 	)
 }
 func (ec *executionContext) fieldContext_LicensePrice_billingPeriod(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type PriceBillingPeriod does not have child fields"))
 }
 
 func (ec *executionContext) _LicensePrice_currency(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -10965,29 +10975,6 @@ func (ec *executionContext) _LicensePrice_currency(ctx context.Context, field gr
 }
 func (ec *executionContext) fieldContext_LicensePrice_currency(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type String does not have child fields"))
-}
-
-func (ec *executionContext) _LicensePrice_unitAmount(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
-	return graphql.ResolveField(
-		ctx,
-		ec.OperationContext,
-		field,
-		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
-			return ec.fieldContext_LicensePrice_unitAmount(ctx, field)
-		},
-		func(ctx context.Context) (any, error) {
-			return obj.UnitAmount, nil
-		},
-		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *int64) graphql.Marshaler {
-			return ec.marshalOInt2ᚖint64(ctx, selections, v)
-		},
-		true,
-		false,
-	)
-}
-func (ec *executionContext) fieldContext_LicensePrice_unitAmount(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _LicensePrice_unitAmountDecimal(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -11141,14 +11128,14 @@ func (ec *executionContext) _LicensePrice_status(ctx context.Context, field grap
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
-			return ec.marshalNString2string(ctx, selections, v)
+			return ec.marshalNPriceStatus2string(ctx, selections, v)
 		},
 		true,
 		true,
 	)
 }
 func (ec *executionContext) fieldContext_LicensePrice_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
-	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type String does not have child fields"))
+	return graphql.NewScalarFieldContext("LicensePrice", field, false, false, errors.New("field of type PriceStatus does not have child fields"))
 }
 
 func (ec *executionContext) _LicensePrice_deprecatedAt(ctx context.Context, field graphql.CollectedField, obj *prices.Price) (ret graphql.Marshaler) {
@@ -14528,11 +14515,6 @@ func (ec *executionContext) _AddonPrice(ctx context.Context, sel ast.SelectionSe
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "unitAmount":
-			out.Values[i] = ec._AddonPrice_unitAmount(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "unitAmountDecimal":
 			out.Values[i] = ec._AddonPrice_unitAmountDecimal(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -17284,11 +17266,6 @@ func (ec *executionContext) _LicensePrice(ctx context.Context, sel ast.Selection
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
-		case "unitAmount":
-			out.Values[i] = ec._LicensePrice_unitAmount(ctx, field, obj)
-			if out.Values[i] == graphql.RequiredNull {
-				atomic.AddUint32(&out.Invalids, 1)
-			}
 		case "unitAmountDecimal":
 			out.Values[i] = ec._LicensePrice_unitAmountDecimal(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -18932,6 +18909,22 @@ func (ec *executionContext) marshalNAddon2ᚕgithubᚗcomᚋkaitencloudᚋkaiten
 	return ret
 }
 
+func (ec *executionContext) unmarshalNAddonLifecycleState2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNAddonLifecycleState2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) marshalNAddonPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐAddonPage(ctx context.Context, sel ast.SelectionSet, v graphql3.AddonPage) graphql.Marshaler {
 	return ec._AddonPage(ctx, sel, &v)
 }
@@ -19291,6 +19284,38 @@ func (ec *executionContext) marshalNEntitlementUsage2ᚕgithubᚗcomᚋkaitenclo
 	return ret
 }
 
+func (ec *executionContext) unmarshalNEntitlementUsageSource2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntitlementUsageSource2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNIncreaseBilling2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNIncreaseBilling2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) marshalNInstance2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstance(ctx context.Context, sel ast.SelectionSet, v schema.Instance) graphql.Marshaler {
 	return ec._Instance(ctx, sel, &v)
 }
@@ -19617,6 +19642,86 @@ func (ec *executionContext) marshalNOrganizationAuditTrailPage2ᚖgithubᚗcom�
 	return ec._OrganizationAuditTrailPage(ctx, sel, v)
 }
 
+func (ec *executionContext) unmarshalNPriceBillingModel2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPriceBillingModel2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNPriceBillingTiming2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPriceBillingTiming2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNPriceStatus2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPriceStatus2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNPricingType2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNPricingType2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNProviderKind2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNProviderKind2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) marshalNRelease2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋreleasesᚋschemaᚐRelease(ctx context.Context, sel ast.SelectionSet, v schema7.Release) graphql.Marshaler {
 	return ec._Release(ctx, sel, &v)
 }
@@ -19657,6 +19762,22 @@ func (ec *executionContext) unmarshalNString2string(ctx context.Context, v any) 
 }
 
 func (ec *executionContext) marshalNString2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNSubscriptionStatus2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNSubscriptionStatus2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(v)
 	if res == graphql.Null {
@@ -20078,24 +20199,6 @@ func (ec *executionContext) marshalOInt2ᚖint32(ctx context.Context, sel ast.Se
 	return res
 }
 
-func (ec *executionContext) unmarshalOInt2ᚖint64(ctx context.Context, v any) (*int64, error) {
-	if v == nil {
-		return nil, nil
-	}
-	res, err := graphql.UnmarshalInt64(v)
-	return &res, graphql.ErrorOnPath(ctx, err)
-}
-
-func (ec *executionContext) marshalOInt2ᚖint64(ctx context.Context, sel ast.SelectionSet, v *int64) graphql.Marshaler {
-	if v == nil {
-		return graphql.Null
-	}
-	_ = sel
-	_ = ctx
-	res := graphql.MarshalInt64(*v)
-	return res
-}
-
 func (ec *executionContext) marshalOLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx context.Context, sel ast.SelectionSet, v *schema2.License) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -20133,6 +20236,42 @@ func (ec *executionContext) marshalOOrganizationAuditActor2ᚖgithubᚗcomᚋkai
 		return graphql.Null
 	}
 	return ec._OrganizationAuditActor(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOPriceBillingPeriod2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalString(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOPriceBillingPeriod2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOPriceStatus2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalString(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOPriceStatus2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(*v)
+	return res
 }
 
 func (ec *executionContext) marshalORelease2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋreleasesᚋschemaᚐRelease(ctx context.Context, sel ast.SelectionSet, v *schema7.Release) graphql.Marshaler {

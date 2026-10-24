@@ -6,12 +6,12 @@ import type { SubscriptionStatus } from './subscription-status';
 type BillingItem =
   GetInstancesBillingQuery['instances']['items'][number]['billing'];
 
-/** What the GraphQL API sends of a subscription: the members, with their enums as plain strings. */
+/** What the GraphQL API sends of a subscription. */
 export type InstanceBillingSummaryInput = NonNullable<BillingItem>;
 
 /**
- * What the lists of instances show of a subscription (`Instance.billing`). Its
- * enums are strings on the GraphQL API and enums on the REST one, so each is
+ * What the lists of instances show of a subscription (`Instance.billing`). An API
+ * newer than this console may send an enum value it does not know, so each is
  * checked against the REST contract before the console reads it: a value it does
  * not know leaves `status` (or `providerKind`) out, and `rawStatus` keeps what was
  * sent, to be shown as it is.

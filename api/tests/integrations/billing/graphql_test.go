@@ -43,7 +43,7 @@ func TestGraphQLBillingFields(t *testing.T) {
 	    entitlementUsage { entitlementSlug source limitCapExceededOveragePercent provenance }
 	    customer { billingEmail }
 	    license { pricingType requiresPaymentMethod family { isPublic }
-	              prices(status: "ACTIVE") { id billingModel billingPeriod currency unitAmount unitAmountDecimal isDefault status } }
+	              prices(status: ACTIVE) { id billingModel billingPeriod currency unitAmountDecimal isDefault status } }
 	  }
 	}`, map[string]any{"slug": s.instance.Slug})
 	instance := data["instance"].(map[string]any)
@@ -64,6 +64,6 @@ func TestGraphQLBillingFields(t *testing.T) {
 	require.Equal(t, false, license["family"].(map[string]any)["isPublic"])
 	require.Equal(t, []any{map[string]any{
 		"id": s.monthly.ID.String(), "billingModel": "FLAT_FEE", "billingPeriod": "MONTHLY", "currency": "EUR",
-		"unitAmount": float64(2900), "unitAmountDecimal": "2900", "isDefault": false, "status": "ACTIVE",
+		"unitAmountDecimal": "2900", "isDefault": false, "status": "ACTIVE",
 	}}, license["prices"])
 }
