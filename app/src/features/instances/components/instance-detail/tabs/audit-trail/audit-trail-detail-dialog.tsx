@@ -13,7 +13,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import type { InstanceEntitlementRow } from '../../../../utils/instance-detail-entitlements.utils';
-import { getEventCategory, resolveEventLabel } from '@/domains/audit-trail';
+import {
+  getEventCategory,
+  resolveEventLabel,
+  resolveEventReason,
+} from '@/domains/audit-trail';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDateTime, getAuditDisplayName } from '@/lib/detail';
 import {
@@ -91,6 +95,7 @@ export function AuditDetailDialog({
       </Badge>
     );
   const payload = getPayload(entry);
+  const reason = resolveEventReason(entry.eventName, entry.payload, t);
   const entitlementLabel = payload.entitlement_slug
     ? getEntitlementLabelForAuditSlug(
         payload.entitlement_slug,
@@ -167,6 +172,14 @@ export function AuditDetailDialog({
               </p>
             </div>
           </div>
+          {reason ? (
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t('Pages.Customers.Instances.Detail.auditTrail.detail.reason')}
+              </span>
+              <p className="text-sm">{reason}</p>
+            </div>
+          ) : null}
           {payload.entitlement_slug && (
             <div className="space-y-1">
               <span className="text-xs font-medium text-muted-foreground">

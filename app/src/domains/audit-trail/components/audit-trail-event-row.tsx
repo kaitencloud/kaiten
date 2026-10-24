@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, getAuditDisplayName } from '@/lib/detail';
 import { cn } from '@/lib/utils';
-import { resolveEventLabel } from '../audit-trail-events';
+import { resolveEventLabel, resolveEventReason } from '../audit-trail-events';
 import type { GlobalAuditEntry } from '../audit-trail.types';
 import { formatRelativeTimeToNow, formatTimeOfDay } from '@/lib/feed-time';
 import { getEventCategory } from '../audit-trail.utils';
@@ -68,6 +68,8 @@ function AuditEventRowDetail({
   t: TFunction;
   locale: string;
 }) {
+  const reason = resolveEventReason(entry.eventName, entry.payload, t);
+
   return (
     <div className="border-t px-3 py-3 sm:pl-[3.75rem]">
       <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
@@ -97,6 +99,9 @@ function AuditEventRowDetail({
           label={t('Pages.AuditTrail.detail.timestamp')}
           value={formatDateTime(entry.timestamp, locale)}
         />
+        {reason ? (
+          <DetailItem label={t('Pages.AuditTrail.detail.reason')} value={reason} />
+        ) : null}
       </dl>
       {entry.payload != null && (
         <div className="mt-3">

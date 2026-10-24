@@ -1834,6 +1834,7 @@ export default {
               actor: 'Acteur',
               eventName: "Nom de l'événement",
               entitlement: 'Droit',
+              reason: 'Motif',
               fullPayload: 'Payload complet',
             },
             howItWorks: {
@@ -5833,6 +5834,7 @@ export default {
         instance: 'Instance',
         customer: 'Client',
         actor: 'Acteur',
+        reason: 'Motif',
         fullPayload: 'Charge utile complète',
       },
       feed: {
@@ -6893,6 +6895,10 @@ export default {
       },
     },
     AuditTrail: {
+      licenseChangeReasons: {
+        BILLING_FALLBACK:
+          'Passée sur la licence de repli : son abonnement a pris fin, par une annulation ou un essai terminé sans moyen de paiement.',
+      },
       events: {
         ADDON_ARCHIVED: "Version d'add-on archivée",
         ADDON_CREATED: 'Add-on créé',

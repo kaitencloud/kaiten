@@ -1808,6 +1808,7 @@ export default {
               actor: 'Actor',
               eventName: 'Event Name',
               entitlement: 'Entitlement',
+              reason: 'Reason',
               fullPayload: 'Full Payload',
             },
             howItWorks: {
@@ -5752,6 +5753,7 @@ export default {
         instance: 'Instance',
         customer: 'Customer',
         actor: 'Actor',
+        reason: 'Reason',
         fullPayload: 'Full payload',
       },
       feed: {
@@ -6785,6 +6787,10 @@ export default {
       },
     },
     AuditTrail: {
+      licenseChangeReasons: {
+        BILLING_FALLBACK:
+          'Moved to the fallback license: its subscription ended, by a cancellation or a trial that ended without a payment method.',
+      },
       events: {
         ADDON_ARCHIVED: 'Add-on version archived',
         ADDON_CREATED: 'Add-on created',

@@ -1,7 +1,10 @@
 import { expect, test } from '../_support/app-test';
 import { AuditTrailDriver } from '../_support/drivers/audit-trail.driver';
 import { installAuditTrailAppMocks } from '../_support/mocks/install-audit-trail-app-mocks';
-import { createUsageEventsAuditTrailModel } from './audit-trail.scenarios';
+import {
+  createFallbackMoveAuditTrailModel,
+  createUsageEventsAuditTrailModel,
+} from './audit-trail.scenarios';
 
 // The three events that say an entitlement's usage is approaching, at or past
 // its limit, while the API still accepts the usage.
@@ -83,5 +86,21 @@ test.describe('audit trail read', () => {
     await expect(page.getByText('Actor', { exact: true })).toBeHidden();
     await expect(auditTrail.eventRow('Usage rejected')).toHaveCount(1);
     await expect(auditTrail.eventRow('Usage rejected')).toBeVisible();
+  });
+
+  test('says why billing moved an instance to its fallback license, and only there', async ({
+    page,
+  }) => {
+    const auditTrail = new AuditTrailDriver(page);
+    const reason =
+      'Moved to the fallback license: its subscription ended, by a cancellation or a trial that ended without a payment method.';
+
+    await installAuditTrailAppMocks(page, createFallbackMoveAuditTrailModel());
+    await auditTrail.goto();
+
+    await auditTrail.eventRow('Usage reported').click();
+    await expect(page.getByText(reason)).toHaveCount(0);
+    await auditTrail.eventRow('Instance updated').click();
+    await expect(page.getByText(reason)).toBeVisible();
   });
 });

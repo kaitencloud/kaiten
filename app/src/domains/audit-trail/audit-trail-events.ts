@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { Webhooks } from '@/api-client';
+import type { InstanceUpdateDelivered, Webhooks } from '@/api-client';
 
 /** An event the API emits, named as the audit trail records it (`LICENSE_CREATED`). */
 export type AuditEventName = Webhooks['body']['name'];
@@ -197,3 +197,35 @@ export const resolveEventLabel = (eventName: string, t: TFunction): string =>
   isAuditEventName(eventName)
     ? t(AUDIT_EVENT_LABEL_KEYS[eventName])
     : humanizeEventName(eventName);
+
+type LicenseChangeReason = NonNullable<
+  InstanceUpdateDelivered['licenseChangeReason']
+>;
+
+// Why billing moved an instance to another license, as INSTANCE_UPDATED carries it.
+const LICENSE_CHANGE_REASON_KEYS = {
+  BILLING_FALLBACK: 'Features.AuditTrail.licenseChangeReasons.BILLING_FALLBACK',
+} as const satisfies Record<LicenseChangeReason, string>;
+
+/**
+ * The reason an entry gives for what it records, beside its label: today, the move of
+ * an instance to its family's fallback license when its subscription ended
+ * (`licenseChangeReason` of INSTANCE_UPDATED). Null for any other entry, and for a
+ * reason newer than this build.
+ */
+export const resolveEventReason = (
+  eventName: string,
+  payload: unknown,
+  t: TFunction,
+): string | null => {
+  if (eventName !== 'INSTANCE_UPDATED' || !payload || typeof payload !== 'object') {
+    return null;
+  }
+  const reason = (payload as { licenseChangeReason?: unknown })
+    .licenseChangeReason;
+
+  return typeof reason === 'string' &&
+    Object.hasOwn(LICENSE_CHANGE_REASON_KEYS, reason)
+    ? t(LICENSE_CHANGE_REASON_KEYS[reason as LicenseChangeReason])
+    : null;
+};

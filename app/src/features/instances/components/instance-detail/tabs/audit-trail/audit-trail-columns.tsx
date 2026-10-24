@@ -2,7 +2,11 @@ import { Badge } from '@/components/ui/badge';
 import type { TFunction } from 'i18next';
 import { AlertTriangle, CheckCircle, Eye, XCircle } from 'lucide-react';
 import type { AuditTrail } from '@/api-client/types.gen';
-import { getEventCategory, resolveEventLabel } from '@/domains/audit-trail';
+import {
+  getEventCategory,
+  resolveEventLabel,
+  resolveEventReason,
+} from '@/domains/audit-trail';
 import type { ColumnDef } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatDateTime, getAuditDisplayName } from '@/lib/detail';
@@ -59,6 +63,7 @@ function AuditTrailEventCell({
 }) {
   const category = getEventCategory(entry.eventName);
   const { Icon, iconClassName } = getEventIcon(category);
+  const reason = resolveEventReason(entry.eventName, entry.payload, t);
 
   return (
     <div className="flex items-center gap-2">
@@ -70,6 +75,9 @@ function AuditTrailEventCell({
         <span className="font-mono text-xs text-muted-foreground">
           {entry.eventName}
         </span>
+        {reason ? (
+          <span className="text-xs text-muted-foreground">{reason}</span>
+        ) : null}
       </div>
     </div>
   );

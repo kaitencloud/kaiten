@@ -176,3 +176,45 @@ const USAGE_ENTRIES: AuditTrailSeedEntry[] = [
 export function createUsageEventsAuditTrailModel() {
   return new AuditTrailAppModel(USAGE_ENTRIES);
 }
+
+/**
+ * Billing moved Acme Production to its family's fallback license when its
+ * subscription ended: INSTANCE_UPDATED says so with `licenseChangeReason`,
+ * recorded under Kaiten. The usage events beside it carry no reason. A change
+ * made by hand would carry `licenseChangeReason: null`, which the contract's
+ * enum does not admit yet, so it is not seeded.
+ */
+export function createFallbackMoveAuditTrailModel() {
+  const instance = {
+    createdAt: '2026-01-10T09:00:00.000Z',
+    createdBy: { id: ADA.id },
+    customerId: 'cust-acme',
+    customerSlug: 'acme-corp',
+    description: 'Production environment',
+    endLicenseDate: '2027-01-10T09:00:00.000Z',
+    id: ACME.instanceId,
+    licenseId: 'lic-starter-v1',
+    licenseSlug: 'starter-v1',
+    name: ACME.instanceName,
+    slug: ACME.instanceSlug,
+    startLicenseDate: '2026-01-10T09:00:00.000Z',
+    updatedBy: { id: KAITEN.id },
+  };
+
+  return new AuditTrailAppModel([
+    ...USAGE_ENTRIES,
+    {
+      ...ACME,
+      actor: KAITEN,
+      eventName: 'INSTANCE_UPDATED',
+      eventType: 'com.kaiten.instance.v1.updated',
+      id: '3001',
+      payload: {
+        ...instance,
+        licenseChangeReason: 'BILLING_FALLBACK',
+        updatedAt: '2026-10-01T00:00:00.000Z',
+      },
+      timestamp: '2026-10-01T00:00:00.000Z',
+    },
+  ]);
+}
