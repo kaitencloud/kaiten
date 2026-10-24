@@ -15,7 +15,11 @@ import (
 
 	kaitengraphql "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
+	entitlementsschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
 	"github.com/kaitencloud/kaiten/api/tests"
@@ -299,6 +303,18 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 	newDeployment(t, zone, release)
 	newMetadataField(t, "region")
 
+	// A real wildcard conversion rule ensures the nested rates resolver runs,
+	// not just that its selection is counted on an empty relation.
+	pool, err := createentitlement.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB)).CreateEntitlement(
+		t.Context(), createentitlement.CreateEntitlementInput{Name: "Read Everything AI Credits", Slug: "read-everything-ai-credits", Type: entitlementsschema.NumberAICredit, AggregationMethod: ptr.To(entitlementsschema.Sum)}, testDb.DefaultData.OrganizationID,
+	)
+	require.NoError(t, err)
+	associateNumberEntitlement(t, license.Slug, pool.Slug, 10)
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `
+		INSERT INTO credit_conversion_rule (organization_id, license_id, entitlement_id, rate_per_request, created_by_id, updated_by_id)
+		VALUES ($1, $2, $3, 0.25, $4, $4)`, testDb.DefaultData.OrganizationID, license.ID, pool.ID, testDb.DefaultData.UserID)
+	require.NoError(t, err)
+
 	// The add-on catalog is billing's, as it is over REST: it is read from a server that
 	// has billing on, and has an add-on with a price to read.
 	billing := newBillingServer(t, nil)
@@ -352,7 +368,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			organizationAuditTrails(limit: 5) { items { id payload actor { id name kind } } }
 		}`,
 		"licenses": `query ($license: String!) {
- models { slug }
+			models { slug }
 			licenses(limit: 5) {
 				items {
 					slug
@@ -365,7 +381,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 					}
 				}
 			}
-			license(slug: $license) { slug }
+			license(slug: $license) { slug conversionRules { entitlementSlug rates { perRequest } } }
 			licenseFamily(slug: $license) { slug currentVersion { slug } versions { slug } }
 			entitlements(limit: 5) { items { slug entitlementGroups { slug } } }
 		}`,
@@ -414,6 +430,22 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			answer.decodeData(t, &data)
 			for field, value := range data {
 				assert.NotEqual(t, "null", string(value), "%s came back null", field)
+			}
+			if name == "licenses" {
+				var result struct {
+					License struct {
+						ConversionRules []struct {
+							EntitlementSlug string `json:"entitlementSlug"`
+							Rates           struct {
+								PerRequest string `json:"perRequest"`
+							} `json:"rates"`
+						} `json:"conversionRules"`
+					} `json:"license"`
+				}
+				answer.decodeData(t, &result)
+				require.Len(t, result.License.ConversionRules, 1)
+				require.Equal(t, pool.Slug, result.License.ConversionRules[0].EntitlementSlug)
+				require.Equal(t, "0.25", result.License.ConversionRules[0].Rates.PerRequest)
 			}
 		})
 	}

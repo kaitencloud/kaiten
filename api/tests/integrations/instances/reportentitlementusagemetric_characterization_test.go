@@ -130,22 +130,48 @@ func newEntitlementForCharacterization(
 	return entitlement
 }
 
-// usageJSON is the EntitlementUsage body of a lifetime NUMBER entitlement, the
-// shape both the report and the gauges answer with.
-func usageJSON(entitlementID, entitlementSlug, licenseID, licenseSlug string, value float64, eventCount int32, limit float64) string {
+// usageJSON pins the complete gauge/event body for a direct licence grant.
+// The expected limit and overage policy come from the fixture, not the response.
+func usageJSON(t *testing.T, entitlementID, entitlementSlug, licenseID, licenseSlug string, value float64, eventCount int32, limit float64, overagePercent int16) string {
+	t.Helper()
 	body := map[string]any{
-		"entitlementId":   entitlementID,
-		"entitlementSlug": entitlementSlug,
-		"licenseId":       licenseID,
-		"licenseSlug":     licenseSlug,
-		"value":           map[string]any{"type": "number", "value": value},
-		"limit":           map[string]any{"type": "number", "value": limit},
+		"entitlementId":                  entitlementID,
+		"entitlementSlug":                entitlementSlug,
+		"licenseId":                      licenseID,
+		"licenseSlug":                    licenseSlug,
+		"value":                          map[string]any{"type": "number", "value": value},
+		"limit":                          map[string]any{"type": "number", "value": limit},
+		"limitCapExceededOveragePercent": overagePercent,
+		"source":                         instanceschema.SourceLicense,
+		"provenance":                     directLicenseProvenance(t, entitlementID, licenseID, map[string]any{"type": "number", "value": limit}, &overagePercent),
 	}
 	if eventCount != 0 {
 		body["value"].(map[string]any)["event_count"] = eventCount
 	}
 	out, _ := json.Marshal(body)
 	return string(out)
+}
+
+// The grant ID is random fixture identity; read it from the grant table, not
+// from the effective view or response under test. Every contribution is pinned.
+func directLicenseProvenance(t *testing.T, entitlementID, licenseID string, value map[string]any, overagePercent *int16) map[string]any {
+	t.Helper()
+	var grantID string
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(),
+		`SELECT id FROM license_entitlement WHERE entitlement_id=$1 AND license_id=$2`, entitlementID, licenseID).Scan(&grantID))
+	return map[string]any{
+		"license": map[string]any{"licenseEntitlementId": grantID, "value": value, "limitCapExceededOveragePercent": overagePercent},
+		"addons":  []any{}, "boosts": []any{}, "exception": nil, "number": nil,
+	}
+}
+
+func reportUsageJSON(t *testing.T, gaugeJSON string) string {
+	t.Helper()
+	var body map[string]any
+	require.NoError(t, json.Unmarshal([]byte(gaugeJSON), &body))
+	require.NotContains(t, body, "transactionId", "gauges and usage events do not carry report replay metadata")
+	body["transactionId"] = nil // These reports send no Idempotency-Key.
+	return mustJSON(t, body)
 }
 
 func mustJSON(t *testing.T, v any) string {
@@ -187,7 +213,7 @@ func TestUsageReportCharacterization_FoldsEveryAggregation(t *testing.T) {
 			resp := reportUsage(t, instance.Slug, entitlement.Slug, 4, tc.behavior)
 			require.Equal(t, fiber.StatusOK, resp.StatusCode)
 			require.JSONEq(t,
-				usageJSON(entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, tc.wantValue, tc.wantEventCount, -1),
+				reportUsageJSON(t, usageJSON(t, entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, tc.wantValue, tc.wantEventCount, -1, -1)),
 				readBody(t, resp))
 
 			row := getUsageRow(t, instance.ID, entitlement.ID)
@@ -216,7 +242,7 @@ func TestUsageReportCharacterization_FoldsEveryAggregation(t *testing.T) {
 		resp := reportUsage(t, instance.Slug, entitlement.Slug, 4, "append")
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
 		require.JSONEq(t,
-			usageJSON(entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 0, 1, -1),
+			reportUsageJSON(t, usageJSON(t, entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 0, 1, -1, -1)),
 			readBody(t, resp))
 	})
 }
@@ -231,10 +257,11 @@ func TestUsageReportCharacterization_Enforcement(t *testing.T) {
 
 		resp := reportUsage(t, instance.Slug, entitlement.Slug, 3, "append")
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
-		want := usageJSON(entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 10, 2, 10)
-		require.JSONEq(t, want, readBody(t, resp))
+		want := usageJSON(t, entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 10, 2, 10, 0)
+		require.JSONEq(t, reportUsageJSON(t, want), readBody(t, resp))
 
-		requireEvents(t,
+		requireEvents(
+			t,
 			pinnedEvent{Name: instanceEvents.EntitlementUsageReportAccepted.Name, Data: mustJSON(t, map[string]any{
 				"entitlement_slug": entitlement.Slug, "value": 3, "behavior": "append", "event_count": 2, "status": "ACCEPTED",
 			})},
@@ -276,9 +303,10 @@ func TestUsageReportCharacterization_Enforcement(t *testing.T) {
 		resp := reportUsage(t, instance.Slug, entitlement.Slug, 5, "append")
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
 		require.JSONEq(t,
-			usageJSON(entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 12, 2, 10),
+			reportUsageJSON(t, usageJSON(t, entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 12, 2, 10, 50)),
 			readBody(t, resp))
-		requireEvents(t,
+		requireEvents(
+			t,
 			pinnedEvent{Name: instanceEvents.EntitlementUsageReportAccepted.Name, Data: mustJSON(t, map[string]any{
 				"entitlement_slug": entitlement.Slug, "value": 5, "behavior": "append", "event_count": 2, "status": "ACCEPTED",
 			})},
@@ -342,7 +370,7 @@ func TestUsageReportCharacterization_Periodic(t *testing.T) {
 
 	periodicUsageJSON := func(entitlementID, entitlementSlug, licenseID, licenseSlug string, value float64, eventCount int32, limit float64) string {
 		var body map[string]any
-		require.NoError(t, json.Unmarshal([]byte(usageJSON(entitlementID, entitlementSlug, licenseID, licenseSlug, value, eventCount, limit)), &body))
+		require.NoError(t, json.Unmarshal([]byte(usageJSON(t, entitlementID, entitlementSlug, licenseID, licenseSlug, value, eventCount, limit, 0)), &body))
 		body["currentPeriodStart"] = currentWindow.Start.Format(time.RFC3339)
 		body["currentPeriodEnd"] = currentWindow.End.Format(time.RFC3339)
 		return mustJSON(t, body)
@@ -359,7 +387,7 @@ func TestUsageReportCharacterization_Periodic(t *testing.T) {
 		resp := reportUsage(t, instance.Slug, entitlement.Slug, 6, "append")
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
 		require.JSONEq(t,
-			periodicUsageJSON(entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 6, 1, 100),
+			reportUsageJSON(t, periodicUsageJSON(entitlement.ID.String(), entitlement.Slug, instance.LicenseID.String(), instance.LicenseSlug, 6, 1, 100)),
 			readBody(t, resp))
 
 		closure := func(start time.Time, value float64, eventCount int32, synthetic bool) pinnedEvent {
@@ -368,10 +396,11 @@ func TestUsageReportCharacterization_Periodic(t *testing.T) {
 				"entitlement_id": entitlement.ID, "entitlement_slug": entitlement.Slug, "instance_id": instance.ID,
 				"value": value, "event_count": eventCount,
 				"closed_period_start": start.Format(time.RFC3339), "closed_period_end": end.Format(time.RFC3339),
-				"new_period_start": end.Format(time.RFC3339), "is_synthetic": synthetic,
+				"new_period_start": end.Format(time.RFC3339), "is_synthetic": synthetic, "reason": "PERIOD_ENDED",
 			})}
 		}
-		requireEvents(t,
+		requireEvents(
+			t,
 			closure(staleStart, 50, 2, false),
 			closure(staleStart.AddDate(0, 1, 0), 0, 0, true),
 			closure(staleStart.AddDate(0, 2, 0), 0, 0, true),
@@ -403,12 +432,13 @@ func TestUsageReportCharacterization_Periodic(t *testing.T) {
 		require.EqualValues(t, 0, stored.EventCount)
 		require.True(t, row.PeriodStart.Time.Equal(currentWindow.Start))
 
-		requireEvents(t,
+		requireEvents(
+			t,
 			pinnedEvent{Name: instanceEvents.InstanceEntitlementUsagePeriodRolledOver.Name, Data: mustJSON(t, map[string]any{
 				"entitlement_id": entitlement.ID, "entitlement_slug": entitlement.Slug, "instance_id": instance.ID,
 				"value": 9, "event_count": 3,
 				"closed_period_start": staleStart.Format(time.RFC3339), "closed_period_end": currentWindow.Start.Format(time.RFC3339),
-				"new_period_start": currentWindow.Start.Format(time.RFC3339), "is_synthetic": false,
+				"new_period_start": currentWindow.Start.Format(time.RFC3339), "is_synthetic": false, "reason": "PERIOD_ENDED",
 			})},
 			pinnedEvent{Name: instanceEvents.EntitlementUsageReportRejected.Name, Data: mustJSON(t, map[string]any{
 				"entitlement_slug": entitlement.Slug, "value": 11, "behavior": "append", "event_count": 1, "status": "REJECTED",
@@ -453,10 +483,10 @@ func TestUsageGaugeCharacterization(t *testing.T) {
 		boolean := newEntitlementWithType(t, entitlementschema.Boolean)
 		assignBooleanEntitlementToLicense(t, instance.LicenseSlug, boolean.Slug, true)
 
-		lifetimeWant := usageJSON(lifetime.ID.String(), lifetime.Slug, instance.LicenseID.String(), instance.LicenseSlug, 42, 5, 100)
+		lifetimeWant := usageJSON(t, lifetime.ID.String(), lifetime.Slug, instance.LicenseID.String(), instance.LicenseSlug, 42, 5, 100, 0)
 
 		var periodicBody map[string]any
-		require.NoError(t, json.Unmarshal([]byte(usageJSON(periodic.ID.String(), periodic.Slug, instance.LicenseID.String(), instance.LicenseSlug, 0, 0, 100)), &periodicBody))
+		require.NoError(t, json.Unmarshal([]byte(usageJSON(t, periodic.ID.String(), periodic.Slug, instance.LicenseID.String(), instance.LicenseSlug, 0, 0, 100, 20)), &periodicBody))
 		periodicBody["currentPeriodStart"] = currentWindow.Start.Format(time.RFC3339)
 		periodicBody["currentPeriodEnd"] = currentWindow.End.Format(time.RFC3339)
 		periodicWant := mustJSON(t, periodicBody)
@@ -464,8 +494,10 @@ func TestUsageGaugeCharacterization(t *testing.T) {
 		booleanWant := mustJSON(t, map[string]any{
 			"entitlementId": boolean.ID, "entitlementSlug": boolean.Slug,
 			"licenseId": instance.LicenseID, "licenseSlug": instance.LicenseSlug,
-			"value": map[string]any{"type": "boolean", "value": true},
-			"limit": map[string]any{"type": "boolean", "value": true},
+			"value":      map[string]any{"type": "boolean", "value": true},
+			"limit":      map[string]any{"type": "boolean", "value": true},
+			"source":     instanceschema.SourceLicense,
+			"provenance": directLicenseProvenance(t, boolean.ID.String(), instance.LicenseID.String(), map[string]any{"type": "boolean", "value": true}, nil),
 		})
 
 		resp := getUsage(t, instance.Slug, lifetime.Slug)
@@ -512,7 +544,7 @@ func TestUsageGaugeCharacterization(t *testing.T) {
 
 		resp = getUsage(t, instance.Slug, entitlement.Slug)
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)
-		require.JSONEq(t, reported, readBody(t, resp))
+		require.JSONEq(t, reported, reportUsageJSON(t, readBody(t, resp)), "only the report adds the explicitly null transactionId")
 
 		var body instanceschema.EntitlementUsage
 		require.NoError(t, json.Unmarshal([]byte(reported), &body))
