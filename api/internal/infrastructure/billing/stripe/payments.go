@@ -76,6 +76,10 @@ func (a *Adapter) Pay(ctx context.Context, ref provider.Ref, externalInvoiceID s
 	paid, err := sc.V1Invoices.Pay(ctx, externalInvoiceID, params)
 	if err == nil {
 		read, err := a.read(ctx, sc, paid)
+		if paid.Status != stripego.InvoiceStatusPaid {
+			// Accepted, still open: its payment is processing (§12.6).
+			return provider.PaymentOutcome{Status: provider.PaymentProcessing, Code: "", Invoice: read}, err
+		}
 		return provider.PaymentOutcome{Status: provider.PaymentPaid, Code: "", Invoice: read}, err
 	}
 	var stripeErr *stripego.Error

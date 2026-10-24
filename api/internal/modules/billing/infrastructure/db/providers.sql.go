@@ -405,6 +405,29 @@ func (q *Queries) ApplyProviderVoid(ctx context.Context, arg ApplyProviderVoidPa
 	return i, err
 }
 
+const awaitChargeOutcome = `-- name: AwaitChargeOutcome :execrows
+UPDATE instance_invoice
+SET next_push_at = NULL,
+    updated_at   = $1
+WHERE id = $2
+  AND status = 'PUSHED'
+`
+
+type AwaitChargeOutcomeParams struct {
+	Now pgtype.Timestamp `json:"now"`
+	ID  uuid.UUID        `json:"id"`
+}
+
+// A charge the provider accepted with no outcome yet (processing): out of the
+// push queue, PUSHED, until sync learns it paid or refused (§12.6).
+func (q *Queries) AwaitChargeOutcome(ctx context.Context, arg AwaitChargeOutcomeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, awaitChargeOutcome, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const awaitFinalization = `-- name: AwaitFinalization :execrows
 UPDATE instance_invoice
 SET status          = 'DRAFT',

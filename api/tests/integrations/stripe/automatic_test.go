@@ -341,3 +341,66 @@ func TestChargeAfterMatch(t *testing.T) {
 		require.False(t, overdue.Valid, "parked, never overdue")
 	})
 }
+
+// V31-24 (c), §12.5-§12.6, A4 #6: what Stripe's own attempts did is read from
+// the invoice's payment. A charge left processing waits; a 3-D Secure
+// confirmation the customer owes is authentication_required, inside the
+// grace, not a refusal; a decline fails with its code and marks the card.
+func TestPaymentStateFromStripe(t *testing.T) {
+	// processing subscribes a sold instance whose charge Stripe accepts with
+	// no outcome yet.
+	processing := func(t *testing.T) (sold, string, invoices.Invoice) {
+		t.Helper()
+		fresh(t)
+		connect(t, nil)
+		s := newSold(t, "acme")
+		pm := saveCard(t, s, stripefake.CardProcessing)
+		started := subscribeAutomatic(t, s)
+		waiting := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
+			return i.Status == "PUSHED" && i.Provider != nil && i.Provider.NextPushAt == nil
+		}, "charged, processing, out of the queue")
+		return s, pm, waiting
+	}
+	sync := func(t *testing.T) {
+		t.Helper()
+		require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/billing/sync", nil).StatusCode)
+	}
+
+	t.Run("AProcessingCharge_Waits", func(t *testing.T) {
+		_, _, waiting := processing(t)
+		sync(t)
+		require.Equal(t, "PUSHED", invoice(t, waiting.ID).Status)
+		require.Len(t, fake.CallsOf(stripefake.OpPayInvoice), 1, "not charged again")
+	})
+
+	t.Run("A3DSecureConfirmation_IsAuthenticationRequired_NotARefusal", func(t *testing.T) {
+		s, pm, waiting := processing(t)
+		fake.SetCardOutcome(stripefake.DefaultAccount, pm, stripefake.CardAuthenticationRequire)
+		fake.StripeAttempt(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))
+		sync(t)
+		failed := invoice(t, waiting.ID)
+		require.Equal(t, "PAYMENT_FAILED", failed.Status)
+		require.Equal(t, "authentication_required", deref(failed.Provider.LastPaymentError))
+		require.NotEqual(t, "PAST_DUE", billing(t, s).Status, "inside the auto-collection grace")
+		require.Equal(t, "ACTIVE", customerBilling(t, s).Providers[0].PaymentMethod.Status, "the card is fine; the customer must confirm")
+	})
+
+	t.Run("ADecline_FailsWithItsCode_AndMarksTheCard", func(t *testing.T) {
+		s, pm, waiting := processing(t)
+		fake.SetCardOutcome(stripefake.DefaultAccount, pm, stripefake.CardInsufficientFunds)
+		fake.StripeAttempt(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))
+		sync(t)
+		failed := invoice(t, waiting.ID)
+		require.Equal(t, "PAYMENT_FAILED", failed.Status)
+		require.Equal(t, "insufficient_funds", deref(failed.Provider.LastPaymentError))
+		require.Equal(t, "FAILED", customerBilling(t, s).Providers[0].PaymentMethod.Status)
+	})
+
+	t.Run("ASuccess_IsPaid", func(t *testing.T) {
+		_, pm, waiting := processing(t)
+		fake.SetCardOutcome(stripefake.DefaultAccount, pm, stripefake.CardSucceeds)
+		fake.StripeAttempt(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))
+		sync(t)
+		require.Equal(t, "PAID", invoice(t, waiting.ID).Status)
+	})
+}

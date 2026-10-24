@@ -148,6 +148,17 @@ type invoice struct {
 	Sent                        int               `json:"-"`
 	deleted                     bool
 	itemIDs                     []string
+	// intent is the PaymentIntent of the invoice's last charge attempt, by
+	// Kaiten or by Stripe itself; nil before the first.
+	intent *paymentIntent
+}
+
+// paymentIntent is what invoice.payments shows of an attempt (Basil API).
+type paymentIntent struct {
+	ID          string
+	Status      string // succeeded, requires_action, processing, requires_payment_method
+	Code        string
+	DeclineCode string
 }
 
 type item struct {

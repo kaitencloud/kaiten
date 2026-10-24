@@ -187,6 +187,9 @@ const (
 	PaymentPaid PaymentStatus = "paid"
 	// PaymentFailed: the charge was declined, or there was nothing to charge.
 	PaymentFailed PaymentStatus = "failed"
+	// PaymentProcessing: the charge was accepted with no outcome yet (a bank
+	// debit, say); the provider settles or refuses it later.
+	PaymentProcessing PaymentStatus = "processing"
 	// PaymentRequiresAction: the customer must authenticate (3-D Secure)
 	// on the provider's hosted page.
 	PaymentRequiresAction PaymentStatus = "requires_action"
@@ -195,8 +198,13 @@ const (
 // Codes of a failed charge billing treats on their own.
 const (
 	PaymentCodeAuthenticationRequired = "authentication_required"
-	PaymentCodeExpiredCard            = "expired_card"
-	PaymentCodeNoPaymentMethod        = "no_payment_method"
+	// PaymentState* are what an invoice's last attempt is, read from the
+	// provider's own record of it (Stripe: invoice.payments, V31-24 (c)).
+	PaymentStateRequiresAction = "requires_action"
+	PaymentStateProcessing     = "processing"
+	PaymentStateFailed         = "failed"
+	PaymentCodeExpiredCard     = "expired_card"
+	PaymentCodeNoPaymentMethod = "no_payment_method"
 )
 
 // PaymentOutcome is what an automatic charge did.
@@ -317,9 +325,14 @@ type Invoice struct {
 	UncollectibleAt *time.Time
 	VoidedAt        *time.Time
 	// AttemptCount counts the provider's collection attempts;
-	// LastPaymentError is the latest one's failure code.
+	// LastPaymentError is the latest one's failure code, and PaymentState
+	// what that attempt is now (§12.5, §12.6): PaymentStateRequiresAction (a
+	// 3-D Secure confirmation, LastPaymentError authentication_required),
+	// PaymentStateProcessing (no outcome yet), PaymentStateFailed, or ""
+	// before any attempt and once paid.
 	AttemptCount     int
 	LastPaymentError string
+	PaymentState     string
 	// TotalExcludingTax (after discounts, before tax), Subtotal (before
 	// discounts) and TotalDiscount are compared by reconciliation.
 	TotalExcludingTax int64

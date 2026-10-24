@@ -568,3 +568,13 @@ WHERE cb.payment_method_status = 'ACTIVE'
   AND cb.payment_method_exp_year IS NOT NULL
   AND cb.payment_method_exp_month IS NOT NULL
   AND make_date(cb.payment_method_exp_year, cb.payment_method_exp_month, 1) + interval '1 month' <= sqlc.arg(day)::date;
+
+
+-- name: AwaitChargeOutcome :execrows
+-- A charge the provider accepted with no outcome yet (processing): out of the
+-- push queue, PUSHED, until sync learns it paid or refused (§12.6).
+UPDATE instance_invoice
+SET next_push_at = NULL,
+    updated_at   = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status = 'PUSHED';

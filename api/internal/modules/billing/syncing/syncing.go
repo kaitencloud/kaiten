@@ -390,19 +390,28 @@ func (s *Syncer) mirror(ctx context.Context, q *db.Queries, row db.InstanceInvoi
 				invoices.PaidInvoice{InvoiceSummary: invoice.InvoiceSummary, Source: "PROVIDER", ExternalReference: nil, Note: nil})
 		}
 	case read.Status == provider.StatusOpen && row.Status == db.InvoiceStatusPUSHED &&
-		row.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY && read.AttemptCount > 0 && !row.NextPushAt.Valid:
-		// The provider's own attempt failed (Kaiten's charge settled the
-		// invoice or recorded its outcome itself).
+		row.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY && read.AttemptCount > 0 && !row.NextPushAt.Valid &&
+		read.PaymentState != provider.PaymentStateProcessing:
+		// The provider's own attempt did not pay (Kaiten's charge settled the
+		// invoice or recorded its outcome itself), read from its payment
+		// (§12.5, §12.6, V31-24 (c)): a 3-D Secure confirmation the customer
+		// owes is authentication_required, inside the auto-collection grace;
+		// any other refusal fails with its code. One still processing waits
+		// for its outcome.
 		code := read.LastPaymentError
 		if code == "" {
 			code = "payment_failed"
 		}
+		requiresAction := read.PaymentState == provider.PaymentStateRequiresAction
 		updated, err = q.ApplyPaymentFailed(ctx, db.ApplyPaymentFailedParams{
 			FailedAt: invoices.Timestamp(now), LastPaymentError: &code, Now: invoices.Timestamp(now), ID: row.ID,
 		})
+		if err == nil {
+			err = pushing.PaymentMethodRefused(ctx, q, row, code, now)
+		}
 		announce = func(invoice invoices.Invoice) error {
 			return invoices.Announce(ctx, s.outbox, row.OrganizationID, events.InstanceInvoicePaymentFailed, invoices.PaymentFailedInvoice{
-				InvoiceSummary: invoice.InvoiceSummary, FailureCode: code, RequiresAction: false,
+				InvoiceSummary: invoice.InvoiceSummary, FailureCode: code, RequiresAction: requiresAction,
 			})
 		}
 	case read.Status == provider.StatusUncollectible:
