@@ -15,7 +15,7 @@ import {
   StackedFormDialogCard,
   StackedFormDialogFooter,
   StackedFormDialogPanel,
-} from '../stacked-form-dialog';
+} from '..';
 
 const meta = {
   title: 'Functionals/StackedFormDialog',
