@@ -109,6 +109,9 @@ func exceptionEvents(t *testing.T, name string, id uuid.UUID) []map[string]any {
 }
 
 func TestEntitlementExceptions(t *testing.T) {
+	// Its instances must not outlive it: the package's tests run shuffled, and
+	// some count every instance in the database.
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	license := newLicense(t)
 	sso := newEntitlementWithType(t, entitlementschema.Boolean)
 	seats := newEntitlement(t)
