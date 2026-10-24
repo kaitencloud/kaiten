@@ -2,14 +2,15 @@ package reportentitlementusagemetric
 
 import (
 	"context"
-	"github.com/google/uuid"
-	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	"net/http"
 	"testing"
 
-	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
-	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
+	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 func TestDirectAIReportRejectsGenericKeyBeforeAnyDependency(t *testing.T) {

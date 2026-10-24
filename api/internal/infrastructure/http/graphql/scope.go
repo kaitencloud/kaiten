@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/kaitencloud/kaiten/api/internal/modules/models/listmodels"
 	"slices"
 	"strings"
 
@@ -37,6 +36,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listconversionrules"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/getmetadatafields"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models/listmodels"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getrelease"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getreleases"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"

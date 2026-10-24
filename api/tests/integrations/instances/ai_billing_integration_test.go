@@ -7,11 +7,12 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/stretchr/testify/require"
+
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
-	"github.com/stretchr/testify/require"
 )
 
 func TestAIBillingJournalAndPhaseReplay(t *testing.T) {
@@ -141,7 +142,6 @@ func TestAIGateUsesBillingAddonLimit(t *testing.T) {
 	require.Empty(t, reservations.Items)
 	require.Equal(t, events, recordedEvents(t))
 	require.Equal(t, rows, ledgerRows(t, instance.ID, pool.ID))
-
 }
 
 // Billing checks the grant after replay lookup. AI must keep the same ordering
