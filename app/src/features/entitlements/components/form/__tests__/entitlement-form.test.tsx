@@ -34,6 +34,8 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
+    // The number fields group their digits in the console's language.
+    i18n: { resolvedLanguage: 'fr' },
     t: (key: string, options?: Record<string, string>) => {
       const translations: Record<string, string> = {
         'Pages.Entitlements.Mutation.Form.Labels.name': 'Nom',
@@ -78,6 +80,12 @@ vi.mock('react-i18next', () => ({
           "Remise à zéro de l'usage",
         'Pages.Entitlements.Mutation.Form.Labels.resetAnchor':
           'Fenêtre alignée sur',
+        'Pages.Entitlements.EntitlementTypes.BOOLEAN': 'Booléen',
+        'Pages.Entitlements.EntitlementTypes.NUMBER': 'Nombre',
+        'Pages.Entitlements.EntitlementTypes.CONFIG': 'Config',
+        'Pages.Entitlements.AggregationMethods.COUNT': 'Comptage',
+        'Pages.Entitlements.AggregationMethods.SUM': 'Somme',
+        'Pages.Entitlements.AggregationMethods.LATEST': 'Dernier',
         'Pages.Entitlements.Mutation.Form.Descriptions.resetPeriodLatest':
           '« Dernier » ne peut pas être combiné à une remise à zéro périodique.',
       };
@@ -282,6 +290,22 @@ describe('EntitlementForm', () => {
       expect(
         screen.getByRole('option', { name: 'Config' }),
       ).toBeInTheDocument();
+    });
+
+    it('names the Type and Aggregation options in the language of the console', () => {
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(
+        screen.getByRole('option', { name: 'Booléen' }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Nombre' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Somme' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'Comptage' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('option', { name: 'Sum' }),
+      ).not.toBeInTheDocument();
     });
   });
 
