@@ -179,17 +179,27 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	`, orgID))
 
 	// Every seeded counter comes with the usage_ledger row that explains it:
-	// report_seq 1, in the counter's own window, ending at the counter's value.
+	// snapshot counters have report_seq 1; AI counters have three real commits.
+	// The final row is in the counter's own window and ends at its value.
 	require.Zero(t, countRows(t, ctx, testDB, `
 		SELECT COUNT(*)
 		FROM entitlement_usage eu
+		JOIN entitlement e ON e.id = eu.entitlement_id AND e.organization_id = eu.organization_id
 		LEFT JOIN usage_ledger ul
 		  ON ul.instance_id = eu.instance_id AND ul.entitlement_id = eu.entitlement_id
 		 AND ul.report_seq = eu.report_seq
 		 AND ul.window_start IS NOT DISTINCT FROM eu.period_start
 		 AND ul.value_after = (eu.value->>'value')::numeric
-		WHERE eu.organization_id = $1 AND (eu.report_seq <> 1 OR ul.report_seq IS NULL)
+		WHERE eu.organization_id = $1
+		  AND (eu.report_seq <> CASE WHEN e.type = 'NUMBER_AI_CREDIT' THEN 3 ELSE 1 END OR ul.report_seq IS NULL)
 	`, orgID), "a seeded counter has no matching journal row")
+	// seedAI commits three synthetic calls for each of the six instances. Each
+	// call goes through the shared writer, so all eighteen need journal entries.
+	require.Equal(t, 18, countRows(t, ctx, testDB, `
+		SELECT COUNT(*) FROM usage_ledger ul
+		JOIN entitlement e ON e.id = ul.entitlement_id AND e.organization_id = ul.organization_id
+		WHERE ul.organization_id = $1 AND e.type = 'NUMBER_AI_CREDIT'
+	`, orgID))
 
 	// Sakura Dedicated stays on the July release -- the "pending upgrade"
 	// zone the deployment journal exists to show.

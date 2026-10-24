@@ -117,6 +117,7 @@ var ErrRolloverLimitExceeded = errors.New("rollover: more windows to close than 
 func Resolve(now time.Time, p *Periodicity, stored Stored) (Resolution, error) {
 	return ResolveWithLimit(context.Background(), DefaultMaxRolloverClosures, now, p, stored)
 }
+
 func ResolveWithLimit(ctx context.Context, maxClosures int, now time.Time, p *Periodicity, stored Stored) (Resolution, error) {
 	w, err := CurrentWindow(now, p)
 	if err != nil {

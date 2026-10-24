@@ -64,7 +64,6 @@ func TestAICreditsMigration_AppliesWhetherOrNotBillingAddedTheKeysFirst(t *testi
 	if viewBefore != viewAfter {
 		t.Fatal("AI reapply changed billing effective view")
 	}
-
 }
 
 // TestAICreditsMigration_ACreditPoolAggregatesBySum pins
