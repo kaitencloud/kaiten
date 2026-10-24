@@ -2096,6 +2096,12 @@ func (q *Queries) SetPaymentMethod(ctx context.Context, arg SetPaymentMethodPara
 const setReconciliation = `-- name: SetReconciliation :execrows
 UPDATE instance_invoice
 SET reconciliation_status              = $1,
+    next_push_at                       = CASE
+                                           WHEN $1::reconciliation_status = 'MISMATCH'
+                                            AND collection_method = 'CHARGE_AUTOMATICALLY' AND status = 'PUSHED'
+                                           THEN NULL
+                                           ELSE next_push_at
+                                         END,
     reconciliation_detail              = $2,
     reconciled_at                      = $3,
     provider_total_excluding_tax_minor = $4,
@@ -2115,7 +2121,10 @@ type SetReconciliationParams struct {
 	ID                             uuid.UUID             `json:"id"`
 }
 
-// An invoice is reconciled once, right after its finalization.
+// An invoice is reconciled once, right after its finalization. A MISMATCH of
+// an invoice charged automatically and not charged yet parks it: out of the
+// push queue, never charged, never overdue, until it is voided and
+// recomposed (§12.7 rule 8, V31-23).
 func (q *Queries) SetReconciliation(ctx context.Context, arg SetReconciliationParams) (int64, error) {
 	result, err := q.db.Exec(ctx, setReconciliation,
 		arg.ReconciliationStatus,

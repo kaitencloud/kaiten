@@ -346,7 +346,12 @@ func (a *Adapter) Finalize(ctx context.Context, ref provider.Ref, externalInvoic
 			return provider.Invoice{}, classify(err, objectInvoice)
 		}
 	}
-	params := &stripego.InvoiceFinalizeInvoiceParams{AutoAdvance: stripego.Bool(true)}
+	// Under automatic collection Stripe collects nothing before Kaiten has
+	// reconciled the invoice (§12.4 step 3, V31-23): Pay turns auto_advance on
+	// only after a MATCH. A SEND_INVOICE invoice is e-mailed and reminded by
+	// Stripe from its finalization.
+	autoAdvance := current.CollectionMethod != stripego.InvoiceCollectionMethodChargeAutomatically
+	params := &stripego.InvoiceFinalizeInvoiceParams{AutoAdvance: stripego.Bool(autoAdvance)}
 	params.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":finalize")
 	finalized, err := sc.V1Invoices.FinalizeInvoice(ctx, externalInvoiceID, params)
 	if err != nil {

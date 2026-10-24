@@ -62,6 +62,15 @@ func (a *Adapter) Pay(ctx context.Context, ref provider.Ref, externalInvoiceID s
 		return provider.PaymentOutcome{Status: provider.PaymentFailed, Code: provider.PaymentCodeNoPaymentMethod, Invoice: read}, err
 	}
 
+	// Reconciled and matched (§12.4 step 5): Stripe may now collect on its
+	// own too, so its retries follow a failure.
+	if !current.AutoAdvance {
+		advance := &stripego.InvoiceUpdateParams{AutoAdvance: stripego.Bool(true)}
+		advance.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":auto_advance")
+		if _, err := sc.V1Invoices.Update(ctx, externalInvoiceID, advance); err != nil {
+			return provider.PaymentOutcome{}, classify(err, objectInvoice)
+		}
+	}
 	params := &stripego.InvoicePayParams{OffSession: stripego.Bool(true)}
 	params.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":pay")
 	paid, err := sc.V1Invoices.Pay(ctx, externalInvoiceID, params)

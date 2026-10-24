@@ -424,6 +424,9 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		if d := form.Get("due_date"); d != "" {
 			inv.DueDate = asInt(d)
 		}
+		if v := form.Get("auto_advance"); v != "" {
+			inv.AutoAdvance = v == "true"
+		}
 		return http.StatusOK, mustJSON(f.render(a, inv))
 
 	case OpDeleteInvoice:

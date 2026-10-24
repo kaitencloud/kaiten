@@ -125,9 +125,18 @@ RETURNING *;
 
 
 -- name: SetReconciliation :execrows
--- An invoice is reconciled once, right after its finalization.
+-- An invoice is reconciled once, right after its finalization. A MISMATCH of
+-- an invoice charged automatically and not charged yet parks it: out of the
+-- push queue, never charged, never overdue, until it is voided and
+-- recomposed (§12.7 rule 8, V31-23).
 UPDATE instance_invoice
 SET reconciliation_status              = sqlc.arg(reconciliation_status),
+    next_push_at                       = CASE
+                                           WHEN sqlc.arg(reconciliation_status)::reconciliation_status = 'MISMATCH'
+                                            AND collection_method = 'CHARGE_AUTOMATICALLY' AND status = 'PUSHED'
+                                           THEN NULL
+                                           ELSE next_push_at
+                                         END,
     reconciliation_detail              = sqlc.narg(reconciliation_detail),
     reconciled_at                      = sqlc.arg(now),
     provider_total_excluding_tax_minor = sqlc.arg(provider_total_excluding_tax_minor),

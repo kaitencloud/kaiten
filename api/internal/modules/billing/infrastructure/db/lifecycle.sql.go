@@ -331,6 +331,9 @@ WHERE i.instance_billing_id = $3
   -- A checkout's ACTIVATION waiting for its payment is never overdue (§9.10
   -- rules 5 and 6): the free subscription it waits over goes on as it was.
   AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+  -- A charge parked on a reconciliation MISMATCH is Kaiten's to fix, never
+  -- the customer's debt (§9.6 rule 6, §12.7 rule 8).
+  AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
   AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $2::timestamp
@@ -887,6 +890,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
             AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+            AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $1::timestamp
@@ -897,6 +901,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
             AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+            AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $1::timestamp
