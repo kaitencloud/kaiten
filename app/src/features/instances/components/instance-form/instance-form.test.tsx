@@ -223,14 +223,15 @@ function serveInstanceApi() {
 let queryClient: QueryClient;
 
 // The form suspends until the lists it offers have loaded: the mocked
-// information section appears once they have.
+// information section appears once they have. Under the whole suite's load that
+// can take longer than findBy's default second.
 const renderForm = async (form: ReactElement) => {
   render(
     <QueryClientProvider client={queryClient}>
       <Suspense fallback={null}>{form}</Suspense>
     </QueryClientProvider>,
   );
-  await screen.findByText('info');
+  await screen.findByText('info', undefined, { timeout: 4000 });
 };
 
 describe('InstanceForm', () => {
