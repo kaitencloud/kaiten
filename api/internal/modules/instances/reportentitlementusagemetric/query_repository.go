@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
@@ -31,6 +32,10 @@ type UsageContext struct {
 	WarningThresholdPercent int32
 	ResetPeriod             *period.ResetPeriod
 	ResetAnchor             *period.ResetAnchor
+	// Basis is what the pair's windows are phased off: the licence start,
+	// and the subscription a BILLING_PERIOD window follows. LoadLimits reads
+	// it under the pair's lock with the reset settings (§6.7 rule 5).
+	Basis period.Basis
 	// ReportedAt is the instant the report is dated by: the usage clock, read
 	// once the pair's lock is held.
 	ReportedAt time.Time
@@ -184,6 +189,17 @@ func (r *QueryRepository) LoadLimits(ctx context.Context, result *UsageContext, 
 	// The version the limit was read under, not the one the slugs resolved to
 	// before the lock: a licence change may have committed in between.
 	result.LicenseID, result.LicenseSlug = limit.LicenseID, limit.LicenseSlug
+	// So is the window configuration: a report computing its window from
+	// facts read before the lock could reopen a window of the old
+	// configuration over one a concurrent report already moved (§6.7 rule 5).
+	result.ResetPeriod, result.ResetAnchor = nil, nil
+	if limit.ResetPeriod != nil && limit.ResetAnchor != nil {
+		resetPeriod, resetAnchor := period.ResetPeriod(*limit.ResetPeriod), period.ResetAnchor(*limit.ResetAnchor)
+		result.ResetPeriod, result.ResetAnchor = &resetPeriod, &resetAnchor
+	}
+	result.LicenseStart = limit.StartLicenseDate.Time.UTC()
+	result.Basis = period.NewBasis(result.LicenseStart, limit.BillingStatus,
+		pgtime.PgTimeStampToTimePtr(limit.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(limit.LiveEndedAt))
 	if limit.LimitCapExceededOveragePercent != nil {
 		result.OveragePercent = *limit.LimitCapExceededOveragePercent
 		result.LimitCapExceededOveragePercent = int32(result.OveragePercent)

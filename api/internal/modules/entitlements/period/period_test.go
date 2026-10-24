@@ -307,3 +307,82 @@ func TestAddMonths(t *testing.T) {
 		}
 	}
 }
+
+// BILLING_PERIOD follows the live subscription's anchor_at, else the licence
+// start, split at live_ended_at (§6.7 rules 2 and 3; the spec's examples).
+func TestBillingPeriodWindows(t *testing.T) {
+	at := func(s string) time.Time {
+		t.Helper()
+		v, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	ptrTo := func(v time.Time) *time.Time { return &v }
+	check := func(t *testing.T, got Window, start, end string) {
+		t.Helper()
+		if !got.Start.Equal(at(start)) || !got.End.Equal(at(end)) {
+			t.Fatalf("window [%s, %s), want [%s, %s)", got.Start, got.End, start, end)
+		}
+	}
+	licenseStart := at("2027-01-03T00:00:00Z")
+
+	t.Run("ALiveSubscriptionsAnchor_ClampedAtTheMonthsEnd", func(t *testing.T) {
+		basis := NewBasis(licenseStart, "ACTIVE", ptrTo(at("2027-01-31T10:00:00Z")), nil)
+		first, err := CurrentOn(at("2027-02-10T00:00:00Z"), Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, first, "2027-01-31T10:00:00Z", "2027-02-28T10:00:00Z")
+		second, err := NextOn(first, Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, second, "2027-02-28T10:00:00Z", "2027-03-31T10:00:00Z")
+	})
+
+	t.Run("NotLive_TheLicenceStartsWindows", func(t *testing.T) {
+		for _, s := range []string{"", "INCOMPLETE", "CANCELED"} {
+			basis := NewBasis(licenseStart, s, ptrTo(at("2027-01-08T10:00:00Z")), nil)
+			w, err := CurrentOn(at("2027-01-09T12:00:00Z"), Month, BillingPeriod, basis)
+			if err != nil {
+				t.Fatal(err)
+			}
+			check(t, w, "2027-01-03T00:00:00Z", "2027-02-03T00:00:00Z")
+		}
+	})
+
+	t.Run("ACancellationSplitsItsWindow", func(t *testing.T) {
+		basis := NewBasis(licenseStart, "CANCELED", nil, ptrTo(at("2027-03-20T16:00:00Z")))
+		after, err := CurrentOn(at("2027-03-25T00:00:00Z"), Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, after, "2027-03-20T16:00:00Z", "2027-04-03T00:00:00Z")
+		next, err := NextOn(after, Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, next, "2027-04-03T00:00:00Z", "2027-05-03T00:00:00Z")
+		before, err := CurrentOn(at("2027-03-10T00:00:00Z"), Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, before, "2027-03-03T00:00:00Z", "2027-03-20T16:00:00Z")
+		contiguous, err := NextOn(before, Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, contiguous, "2027-03-20T16:00:00Z", "2027-04-03T00:00:00Z")
+	})
+
+	t.Run("LicenseStartIgnoresTheSubscription", func(t *testing.T) {
+		basis := NewBasis(licenseStart, "ACTIVE", ptrTo(at("2027-01-31T10:00:00Z")), nil)
+		w, err := CurrentOn(at("2027-02-10T00:00:00Z"), Month, LicenseStart, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, w, "2027-02-03T00:00:00Z", "2027-03-03T00:00:00Z")
+	})
+}

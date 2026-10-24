@@ -62,7 +62,7 @@ func WriteSnapshot(ctx context.Context, uof *uow.UnitOfWork, s Snapshot) error {
 		valueBefore := stored.Value
 		var windowStart, windowEnd *time.Time
 		if usageCtx.ResetPeriod != nil {
-			window, _, err := period.ResolveCurrent(reportedAt, usageCtx.PeriodStart, *usageCtx.ResetPeriod, *usageCtx.ResetAnchor, usageCtx.LicenseStart)
+			window, _, err := period.ResolveCurrentOn(reportedAt, usageCtx.PeriodStart, *usageCtx.ResetPeriod, *usageCtx.ResetAnchor, usageCtx.Basis)
 			if err != nil {
 				return err
 			}

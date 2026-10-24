@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
@@ -84,7 +85,9 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 			if result.PeriodStart.Valid {
 				storedPeriodStart = ptr.To(result.PeriodStart.Time.UTC())
 			}
-			window, _, err := period.ResolveCurrent(result.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), result.StartLicenseDate.Time.UTC())
+			basis := period.NewBasis(result.StartLicenseDate.Time.UTC(), result.BillingStatus,
+				pgtime.PgTimeStampToTimePtr(result.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(result.LiveEndedAt))
+			window, _, err := period.ResolveCurrentOn(result.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), basis)
 			if err != nil {
 				return nil, err
 			}

@@ -107,6 +107,8 @@ const cancelSubscription = `-- name: CancelSubscription :one
 UPDATE instance_billing
 SET status                     = 'CANCELED',
     canceled_at                = $1,
+    live_ended_at              = CASE WHEN status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+                                      THEN $1 ELSE live_ended_at END,
     cancellation_reason        = coalesce($2, cancellation_reason),
     cancel_at_period_end       = FALSE,
     past_due_since             = NULL,
@@ -127,7 +129,9 @@ type CancelSubscriptionParams struct {
 }
 
 // Every column a transition to CANCELED writes, in one UPDATE: the row's
-// checks hold only together.
+// checks hold only together. A live subscription's cancellation also records
+// live_ended_at, which BILLING_PERIOD windows split at (§6.7 rule 3); an
+// INCOMPLETE one's never does.
 func (q *Queries) CancelSubscription(ctx context.Context, arg CancelSubscriptionParams) (InstanceBilling, error) {
 	row := q.db.QueryRow(ctx, cancelSubscription,
 		arg.CanceledAt,

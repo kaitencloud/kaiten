@@ -1,9 +1,13 @@
 -- name: CancelSubscription :one
 -- Every column a transition to CANCELED writes, in one UPDATE: the row's
--- checks hold only together.
+-- checks hold only together. A live subscription's cancellation also records
+-- live_ended_at, which BILLING_PERIOD windows split at (§6.7 rule 3); an
+-- INCOMPLETE one's never does.
 UPDATE instance_billing
 SET status                     = 'CANCELED',
     canceled_at                = sqlc.arg(canceled_at),
+    live_ended_at              = CASE WHEN status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+                                      THEN sqlc.arg(canceled_at) ELSE live_ended_at END,
     cancellation_reason        = coalesce(sqlc.narg(reason), cancellation_reason),
     cancel_at_period_end       = FALSE,
     past_due_since             = NULL,

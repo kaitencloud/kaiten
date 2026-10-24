@@ -249,9 +249,14 @@ SELECT pi.id            AS instance_id,
        e.reset_period,
        e.reset_anchor,
        pi.start_license_date,
-       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
        -- The instance's effective entitlements, as every reader of an
        -- instance's entitlement value reads them.
@@ -288,9 +293,14 @@ SELECT pi.id            AS instance_id,
        e.reset_period,
        e.reset_anchor,
        pi.start_license_date,
-       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
        -- The instance's effective entitlements, as every reader of an
        -- instance's entitlement value reads them.

@@ -565,9 +565,14 @@ SELECT pi.id            AS instance_id,
        e.reset_period,
        e.reset_anchor,
        pi.start_license_date,
-       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
        -- The instance's effective entitlements, as every reader of an
        -- instance's entitlement value reads them.
@@ -600,6 +605,9 @@ type GetTargetingFactsByCustomerSlugRow struct {
 	ResetAnchor       *EntitlementResetAnchor `json:"reset_anchor"`
 	StartLicenseDate  pgtype.Timestamp        `json:"start_license_date"`
 	Now               pgtype.Timestamp        `json:"now"`
+	BillingStatus     string                  `json:"billing_status"`
+	BillingAnchorAt   pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt       pgtype.Timestamp        `json:"live_ended_at"`
 }
 
 // Server-side facts for feature-flag targeting: the licence a customer's
@@ -657,6 +665,9 @@ func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTa
 			&i.ResetAnchor,
 			&i.StartLicenseDate,
 			&i.Now,
+			&i.BillingStatus,
+			&i.BillingAnchorAt,
+			&i.LiveEndedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -686,9 +697,14 @@ SELECT pi.id            AS instance_id,
        e.reset_period,
        e.reset_anchor,
        pi.start_license_date,
-       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
        -- The instance's effective entitlements, as every reader of an
        -- instance's entitlement value reads them.
@@ -721,6 +737,9 @@ type GetTargetingFactsByInstanceRow struct {
 	ResetAnchor       *EntitlementResetAnchor `json:"reset_anchor"`
 	StartLicenseDate  pgtype.Timestamp        `json:"start_license_date"`
 	Now               pgtype.Timestamp        `json:"now"`
+	BillingStatus     string                  `json:"billing_status"`
+	BillingAnchorAt   pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt       pgtype.Timestamp        `json:"live_ended_at"`
 }
 
 // The facts of one instance, the subject a caller names with
@@ -749,6 +768,9 @@ func (q *Queries) GetTargetingFactsByInstance(ctx context.Context, arg GetTarget
 			&i.ResetAnchor,
 			&i.StartLicenseDate,
 			&i.Now,
+			&i.BillingStatus,
+			&i.BillingAnchorAt,
+			&i.LiveEndedAt,
 		); err != nil {
 			return nil, err
 		}

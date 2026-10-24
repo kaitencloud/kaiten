@@ -72,10 +72,18 @@ SELECT iee.value,
        iee.provenance,
        iee.source,
        i.license_id,
-       l.slug AS license_slug
+       l.slug AS license_slug,
+       e.reset_period,
+       e.reset_anchor,
+       i.start_license_date,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM instance_effective_entitlement iee
 JOIN instance i ON i.id = iee.instance_id AND i.organization_id = iee.organization_id
+JOIN entitlement e ON e.id = iee.entitlement_id AND e.organization_id = iee.organization_id
 LEFT JOIN "license" l ON l.id = i.license_id
+LEFT JOIN instance_billing ib ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
 WHERE iee.instance_id = $1
   AND iee.entitlement_id = $2
   AND iee.organization_id = $3
@@ -88,13 +96,19 @@ type GetEffectiveEntitlementLimitParams struct {
 }
 
 type GetEffectiveEntitlementLimitRow struct {
-	Value                          []byte     `json:"value"`
-	LimitCapExceededOveragePercent *int16     `json:"limit_cap_exceeded_overage_percent"`
-	LicenseEntitlementID           *uuid.UUID `json:"license_entitlement_id"`
-	Provenance                     []byte     `json:"provenance"`
-	Source                         string     `json:"source"`
-	LicenseID                      uuid.UUID  `json:"license_id"`
-	LicenseSlug                    *string    `json:"license_slug"`
+	Value                          []byte                  `json:"value"`
+	LimitCapExceededOveragePercent *int16                  `json:"limit_cap_exceeded_overage_percent"`
+	LicenseEntitlementID           *uuid.UUID              `json:"license_entitlement_id"`
+	Provenance                     []byte                  `json:"provenance"`
+	Source                         string                  `json:"source"`
+	LicenseID                      uuid.UUID               `json:"license_id"`
+	LicenseSlug                    *string                 `json:"license_slug"`
+	ResetPeriod                    *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor                    *EntitlementResetAnchor `json:"reset_anchor"`
+	StartLicenseDate               pgtype.Timestamp        `json:"start_license_date"`
+	BillingStatus                  string                  `json:"billing_status"`
+	BillingAnchorAt                pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt                    pgtype.Timestamp        `json:"live_ended_at"`
 }
 
 // The limit and overage policy a report is gated on: the instance's effective
@@ -104,6 +118,9 @@ type GetEffectiveEntitlementLimitRow struct {
 // provenance from the very row the gate read (V31-55); license_id and its
 // slug are the instance's version as of the same read, which the ledger row
 // records (A2-12): the slug lookup before the lock may have seen an older one.
+// The window configuration comes from the same statement, under the lock
+// (§6.7 rule 5): the reset settings, the licence start, and the subscription
+// a BILLING_PERIOD window follows.
 func (q *Queries) GetEffectiveEntitlementLimit(ctx context.Context, arg GetEffectiveEntitlementLimitParams) (GetEffectiveEntitlementLimitRow, error) {
 	row := q.db.QueryRow(ctx, getEffectiveEntitlementLimit, arg.InstanceID, arg.EntitlementID, arg.OrganizationID)
 	var i GetEffectiveEntitlementLimitRow
@@ -115,6 +132,12 @@ func (q *Queries) GetEffectiveEntitlementLimit(ctx context.Context, arg GetEffec
 		&i.Source,
 		&i.LicenseID,
 		&i.LicenseSlug,
+		&i.ResetPeriod,
+		&i.ResetAnchor,
+		&i.StartLicenseDate,
+		&i.BillingStatus,
+		&i.BillingAnchorAt,
+		&i.LiveEndedAt,
 	)
 	return i, err
 }
@@ -283,7 +306,10 @@ SELECT
   eu.period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  coalesce(ib.status::text, '')::text AS billing_status,
+  ib.anchor_at      AS billing_anchor_at,
+  ib.live_ended_at
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -300,6 +326,9 @@ LEFT JOIN entitlement_usage eu
  AND eu.organization_id = $2
 LEFT JOIN "license" l
   ON l.id = i.license_id
+LEFT JOIN instance_billing ib
+  ON ib.instance_id = i.id
+ AND ib.organization_id = i.organization_id
 `
 
 type GetEntitlementUsageForInstanceOrDefaultParams struct {
@@ -327,6 +356,9 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	EntitlementSlug         *string                 `json:"entitlement_slug"`
 	LicenseSlug             *string                 `json:"license_slug"`
 	Now                     pgtype.Timestamp        `json:"now"`
+	BillingStatus           string                  `json:"billing_status"`
+	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
 }
 
 // Returns one row always. Nullable fields are nil when the entity is not found;
@@ -335,6 +367,7 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 // now is folded in here too, instead of a separate GetDatabaseNow
 // round trip -- it does not depend on any of the LEFT JOINs below, so it is
 // always populated even when the instance/entitlement/usage row is not found.
+// The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, arg GetEntitlementUsageForInstanceOrDefaultParams) (GetEntitlementUsageForInstanceOrDefaultRow, error) {
 	row := q.db.QueryRow(ctx, getEntitlementUsageForInstanceOrDefault, arg.InstanceSlug, arg.OrganizationID, arg.EntitlementSlug)
 	var i GetEntitlementUsageForInstanceOrDefaultRow
@@ -357,6 +390,9 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.EntitlementSlug,
 		&i.LicenseSlug,
 		&i.Now,
+		&i.BillingStatus,
+		&i.BillingAnchorAt,
+		&i.LiveEndedAt,
 	)
 	return i, err
 }
@@ -378,7 +414,10 @@ SELECT
   iee.source,
   eu.value          AS usage_value,
   eu.period_start,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  coalesce(ib.status::text, '')::text AS billing_status,
+  ib.anchor_at      AS billing_anchor_at,
+  ib.live_ended_at
 FROM instance i
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = i.id
@@ -387,6 +426,9 @@ JOIN entitlement e
   ON e.id = iee.entitlement_id
 LEFT JOIN "license" l
   ON l.id = i.license_id
+LEFT JOIN instance_billing ib
+  ON ib.instance_id = i.id
+ AND ib.organization_id = i.organization_id
 LEFT JOIN entitlement_usage eu
   ON eu.instance_id = i.id
  AND eu.entitlement_id = iee.entitlement_id
@@ -417,6 +459,9 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 	UsageValue              []byte                  `json:"usage_value"`
 	PeriodStart             pgtype.Timestamp        `json:"period_start"`
 	Now                     pgtype.Timestamp        `json:"now"`
+	BillingStatus           string                  `json:"billing_status"`
+	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
 }
 
 // One row per entitlement the instance is granted, read through
@@ -424,6 +469,7 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 // entitlement value. now is the same database-time value on every returned
 // row: folded into this query instead of a separate GetDatabaseNow round
 // trip, since every row in one call already agrees on "now" by construction.
+// The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Context, arg GetEntitlementsUsageForInstanceWithFallbackParams) ([]GetEntitlementsUsageForInstanceWithFallbackRow, error) {
 	rows, err := q.db.Query(ctx, getEntitlementsUsageForInstanceWithFallback, arg.OrganizationID, arg.InstanceID)
 	if err != nil {
@@ -450,6 +496,9 @@ func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Contex
 			&i.UsageValue,
 			&i.PeriodStart,
 			&i.Now,
+			&i.BillingStatus,
+			&i.BillingAnchorAt,
+			&i.LiveEndedAt,
 		); err != nil {
 			return nil, err
 		}

@@ -20,7 +20,10 @@ SELECT
   iee.source,
   eu.value          AS usage_value,
   eu.period_start,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  coalesce(ib.status::text, '')::text AS billing_status,
+  ib.anchor_at      AS billing_anchor_at,
+  ib.live_ended_at
 FROM instance i
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = i.id
@@ -29,6 +32,10 @@ JOIN entitlement e
   ON e.id = iee.entitlement_id
 LEFT JOIN "license" l
   ON l.id = i.license_id
+-- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+LEFT JOIN instance_billing ib
+  ON ib.instance_id = i.id
+ AND ib.organization_id = i.organization_id
 LEFT JOIN entitlement_usage eu
   ON eu.instance_id = i.id
  AND eu.entitlement_id = iee.entitlement_id
@@ -62,7 +69,10 @@ SELECT
   eu.period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  coalesce(ib.status::text, '')::text AS billing_status,
+  ib.anchor_at      AS billing_anchor_at,
+  ib.live_ended_at
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = sqlc.arg(instance_slug)
@@ -78,7 +88,11 @@ LEFT JOIN entitlement_usage eu
  AND eu.entitlement_id = e.id
  AND eu.organization_id = sqlc.arg(organization_id)
 LEFT JOIN "license" l
-  ON l.id = i.license_id;
+  ON l.id = i.license_id
+-- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+LEFT JOIN instance_billing ib
+  ON ib.instance_id = i.id
+ AND ib.organization_id = i.organization_id;
 
 
 -- name: GetEntitlementUsageForInstance :one
@@ -172,16 +186,27 @@ FROM (SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::t
 -- provenance from the very row the gate read (V31-55); license_id and its
 -- slug are the instance's version as of the same read, which the ledger row
 -- records (A2-12): the slug lookup before the lock may have seen an older one.
+-- The window configuration comes from the same statement, under the lock
+-- (§6.7 rule 5): the reset settings, the licence start, and the subscription
+-- a BILLING_PERIOD window follows.
 SELECT iee.value,
        iee.limit_cap_exceeded_overage_percent,
        iee.license_entitlement_id,
        iee.provenance,
        iee.source,
        i.license_id,
-       l.slug AS license_slug
+       l.slug AS license_slug,
+       e.reset_period,
+       e.reset_anchor,
+       i.start_license_date,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM instance_effective_entitlement iee
 JOIN instance i ON i.id = iee.instance_id AND i.organization_id = iee.organization_id
+JOIN entitlement e ON e.id = iee.entitlement_id AND e.organization_id = iee.organization_id
 LEFT JOIN "license" l ON l.id = i.license_id
+LEFT JOIN instance_billing ib ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
 WHERE iee.instance_id = sqlc.arg(instance_id)
   AND iee.entitlement_id = sqlc.arg(entitlement_id)
   AND iee.organization_id = sqlc.arg(organization_id);

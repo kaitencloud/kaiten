@@ -30,10 +30,11 @@ import (
 // the same responses.
 //
 // The two gauge reads have since gained the effective percent, the licence
-// grant's id, the provenance and the source (§7.4, §7.5). The legacy queries
-// below read those as the identity case has them -- the grant's own percent
-// and id, a provenance of the licence layer alone, the source license -- in
-// the new queries' positions.
+// grant's id, the provenance and the source (§7.4, §7.5), and with the group
+// usage the subscription a BILLING_PERIOD window follows (§6.7 rule 5). The
+// legacy queries below read those as the identity case has them -- the
+// grant's own percent and id, a provenance of the licence layer alone, the
+// source license, no subscription -- in the new queries' positions.
 
 // identityProvenance is the view's provenance of a licence grant that no add-on
 // and no boost changes: the licence layer alone.
@@ -61,7 +62,10 @@ SELECT
   'license'::text   AS source,
   eu.value          AS usage_value,
   eu.period_start,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  ''::text AS billing_status,
+  NULL::timestamp AS billing_anchor_at,
+  NULL::timestamp AS live_ended_at
 FROM instance i
 JOIN license_entitlement le
   ON le.license_id = i.license_id
@@ -103,7 +107,10 @@ SELECT
   eu.period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  ''::text AS billing_status,
+  NULL::timestamp AS billing_anchor_at,
+  NULL::timestamp AS live_ended_at
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -178,7 +185,10 @@ SELECT e.id              AS entitlement_id,
        eu.value          AS usage_value,
        eu.period_start,
        le.value          AS license_value,
-       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       ''::text AS billing_status,
+       NULL::timestamp AS billing_anchor_at,
+       NULL::timestamp AS live_ended_at
 FROM entitlement_group eg
 JOIN entitlement_group_membership egm ON egm.entitlement_group_id = eg.id
 JOIN entitlement e ON e.id = egm.entitlement_id

@@ -5574,6 +5574,11 @@ components:
         new_period_start:
           format: date-time
           type: string
+        reason:
+          enum:
+            - PERIOD_ENDED
+            - ANCHOR_CHANGED
+          type: string
         value:
           format: double
           type: number
@@ -5593,6 +5598,7 @@ components:
         - closed_period_end
         - new_period_start
         - is_synthetic
+        - reason
       type: object
       x-kaiten-payload: "#/components/schemas/InstanceEntitlementUsagePeriodRolledOver"
     InstanceEntitlementUsageReportAcceptedDelivered:
