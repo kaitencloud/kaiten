@@ -1039,19 +1039,19 @@ export default {
                 noExpiry:
                   'Si la facture d’activation n’est pas payée à temps, l’abonnement est annulé et l’instance garde sa licence.',
                 leftFree_one:
-                  'Il reste {{count}} heure pour payer la facture d’activation. Sans paiement d’ici là, le checkout expire et l’abonnement gratuit continue comme avant.',
+                  'Il reste {{count}} heure pour payer la facture d’activation. Si elle n’est pas payée d’ici là, le checkout expire et l’abonnement gratuit continue comme avant.',
                 leftFree_other:
-                  'Il reste {{count}} heures pour payer la facture d’activation. Sans paiement d’ici là, le checkout expire et l’abonnement gratuit continue comme avant.',
+                  'Il reste {{count}} heures pour payer la facture d’activation. Si elle n’est pas payée d’ici là, le checkout expire et l’abonnement gratuit continue comme avant.',
                 lapsingFree:
-                  'Le délai de paiement est écoulé : le prochain passage du cycle de facturation abandonne le checkout, et l’abonnement gratuit continue comme avant.',
+                  'Le délai pour payer est écoulé : le prochain passage du cycle de facturation abandonne le checkout, et l’abonnement gratuit continue comme avant.',
                 noExpiryFree:
                   'Si la facture d’activation n’est pas payée à temps, le checkout expire et l’abonnement gratuit continue comme avant.',
                 pending:
-                  'Le paiement fait passer l’instance à {{license}}. D’ici là elle garde sa licence, ses add-ons et ses codes promo actuels : rien de ce que le checkout a vendu ne s’applique.',
+                  'Une fois la facture payée, l’instance passe à {{license}}. D’ici là elle garde sa licence, ses add-ons et ses codes promo actuels : rien de ce que le checkout a vendu ne s’applique.',
                 pendingUnknown:
                   'Tant qu’il n’est pas payé, rien de ce que le checkout a vendu ne s’applique : l’instance garde sa licence, ses add-ons et ses codes promo.',
                 vendor:
-                  'Les add-ons et les changements de plan attendent le paiement. Vous pouvez annuler le checkout à tout moment : il prend fin aussitôt, la facture est annulée et ce qu’il avait vendu est abandonné.',
+                  'Les add-ons et les changements de plan attendent que la facture soit payée. Vous pouvez annuler le checkout à tout moment : il prend fin aussitôt, la facture est annulée et ce qu’il avait vendu est abandonné.',
                 invoice: 'Voir la facture d’activation',
                 hosted: 'Ouvrir la facture hébergée',
               },
