@@ -5926,7 +5926,7 @@ export default {
           INSTANCE_STATUS_CHANGED:
             'An instance reported a new operational status.',
           INSTANCE_UPDATED:
-            'An instance record was edited. Fires on every change.',
+            'An instance record was edited, through the console or the API, or by billing: the license a paid checkout bought, or the fallback license an ended subscription moves it to (licenseChangeReason BILLING_FALLBACK). Fires on every change.',
           CUSTOMER_CREATED: 'A new customer was added.',
           CUSTOMER_UPDATED: 'A customer record was edited.',
           CUSTOMER_DELETED: 'A customer was deleted.',

@@ -6018,7 +6018,7 @@ export default {
           INSTANCE_STATUS_CHANGED:
             'Une instance a signalé un nouveau statut opérationnel.',
           INSTANCE_UPDATED:
-            'Une instance a été modifiée. Se déclenche à chaque changement.',
+            'Une instance a été modifiée, depuis la console ou l’API, ou par la facturation : la licence achetée par un checkout payé, ou la licence de repli vers laquelle la fait passer un abonnement terminé (licenseChangeReason BILLING_FALLBACK). Se déclenche à chaque changement.',
           CUSTOMER_CREATED: 'Un nouveau client a été ajouté.',
           CUSTOMER_UPDATED: 'Une fiche client a été modifiée.',
           CUSTOMER_DELETED: 'Un client a été supprimé.',
