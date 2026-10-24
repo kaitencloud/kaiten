@@ -20,4 +20,3 @@ DROP INDEX IF EXISTS "idx_instance_invoice_org_handoff_reclaimed_at";
 ALTER TABLE "instance_invoice" DROP CONSTRAINT IF EXISTS "instance_invoice_handoff_reclaimed_at_check";
 ALTER TABLE "instance_invoice" DROP COLUMN IF EXISTS "handoff_reclaimed_at";
 -- +goose StatementEnd
-
