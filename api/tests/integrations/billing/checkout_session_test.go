@@ -276,7 +276,19 @@ func TestCheckoutSessionRateLimits(t *testing.T) {
 			require.Equal(t, "ConfirmCheckoutSession.SessionClosed", closed.Code)
 		}
 	}
-	limited = confirmCheckoutFrom(t, visitor, last.SessionID.String(), *last.Token)
+	// The bucket gives a confirm back every 20 seconds: a slow runner may be
+	// handed one or two before the 31st, never many.
+	limited = nil
+	for range 3 {
+		resp := confirmCheckoutFrom(t, visitor, last.SessionID.String(), *last.Token)
+		if resp.StatusCode == fiber.StatusTooManyRequests {
+			limited = resp
+			break
+		}
+		closed := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, resp, fiber.StatusConflict)
+		require.Equal(t, "ConfirmCheckoutSession.SessionClosed", closed.Code)
+	}
+	require.NotNil(t, limited, "the confirms past 30 from one address are refused")
 	problem = commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, limited, fiber.StatusTooManyRequests)
 	require.Equal(t, "ConfirmCheckoutSession.RateLimited", problem.Code)
 	require.NotEmpty(t, limited.Header.Get("Retry-After"))
