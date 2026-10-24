@@ -419,6 +419,7 @@ export class BillingVouchers {
       duration: draft.duration,
       durationInPeriods: draft.durationInPeriods,
       expiresAt: draft.expiresAt,
+      flagGrants: [...(draft.flagGrants ?? [])],
       grants: (draft.grants ?? []).map((grant) => ({
         entitlementSlug: grant.entitlementSlug,
         modifierType: grant.modifierType,
@@ -426,6 +427,7 @@ export class BillingVouchers {
           grant.modifierValue === undefined
             ? undefined
             : formatDecimal(grant.modifierValue),
+        value: grant.value,
       })),
       id: stored.id,
       maxRedemptions: draft.maxRedemptions,

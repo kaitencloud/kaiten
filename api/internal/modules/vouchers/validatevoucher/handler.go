@@ -200,7 +200,7 @@ func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Vou
 	if !found || !known || window != nil || refusal != nil {
 		return nil, nil
 	}
-	voucher := catalogue.ToVoucher(candidate.Row, candidate.Grants, false)
+	voucher := catalogue.ToVoucher(candidate.Row, candidate.Grants, candidate.FlagGrants, false)
 	return &voucher, nil
 }
 

@@ -6750,6 +6750,7 @@ export default {
       VoucherType: {
         PRICE: 'Remise',
         ENTITLEMENT_BOOST: 'Bonus de droits',
+        FLAG_GRANT: 'Activation de fonctionnalité',
       },
       RedemptionStatus: {
         ACTIVE: 'Active',

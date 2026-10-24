@@ -91,6 +91,9 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 			if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.Grants, resolved.Entitlements); err != nil {
 				return err
 			}
+			if err := catalogue.WriteFlagGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.FlagGrants, resolved.Flags); err != nil {
+				return err
+			}
 		}
 		updated, err = catalogue.One(ctx, q, user.OrganizationID, &voucherID, nil, true, nil)
 		if err != nil {
@@ -105,8 +108,8 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 }
 
 // onlyActiveMembersChange reports whether a draft changes nothing an active
-// voucher keeps: its code, discount, applicability, grants, rules, duration
-// and start.
+// voucher keeps: its code, discount, applicability, grants, flag grants,
+// rules, duration and start.
 func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft) bool {
 	same := func(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
 	sameInt := func(a, b *int32) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
@@ -140,8 +143,13 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 		}
 		return true
 	}
-	if len(stored.Grants) != len(d.Grants) {
+	if len(stored.Grants) != len(d.Grants) || len(stored.FlagGrants) != len(d.FlagGrants) {
 		return false
+	}
+	for _, g := range d.FlagGrants {
+		if !slices.Contains(stored.FlagGrants, g) {
+			return false
+		}
 	}
 	for i := range d.Grants {
 		if !slices.ContainsFunc(stored.Grants, func(g catalogue.Grant) bool {

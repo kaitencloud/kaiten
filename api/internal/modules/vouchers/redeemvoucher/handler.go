@@ -118,11 +118,12 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*cata
 	return &redemption, nil
 }
 
-// boostEnd is when a boost redeemed now stops applying: its duration in the
-// instance's billing periods (a calendar month without a live subscription);
-// never for FOREVER, and never for a PRICE voucher, counted in invoices.
+// boostEnd is when a boost or a flag grant redeemed now stops applying: its
+// duration in the instance's billing periods (a calendar month without a live
+// subscription); never for FOREVER, and never for a PRICE voucher, counted in
+// invoices.
 func (u *UseCase) boostEnd(ctx context.Context, q *db.Queries, voucher db.ListVouchersRow, organizationID, instanceID uuid.UUID, now time.Time) (pgtype.Timestamp, error) {
-	if voucher.VoucherType != db.VoucherTypeENTITLEMENTBOOST || voucher.Duration == db.VoucherDurationFOREVER {
+	if voucher.VoucherType == db.VoucherTypePRICE || voucher.Duration == db.VoucherDurationFOREVER {
 		return pgtype.Timestamp{}, nil
 	}
 	months := 1

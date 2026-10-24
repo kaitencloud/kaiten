@@ -4402,6 +4402,24 @@ components:
         - reason
       type: object
       x-kaiten-payload: "#/components/schemas/FeatureFlagEvaluated"
+    FlagGrant:
+      additionalProperties: false
+      properties:
+        flagSlug:
+          examples:
+            - new-dashboard
+          type: string
+        variant:
+          description: The name of one of the flag's variants
+          examples:
+            - "on"
+          maxLength: 255
+          minLength: 1
+          type: string
+      required:
+        - flagSlug
+        - variant
+      type: object
     Grant:
       additionalProperties: false
       properties:
@@ -12589,6 +12607,7 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
           type: string
       required:
         - id
@@ -12681,6 +12700,7 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
           type: string
       required:
         - id
@@ -13510,10 +13530,17 @@ components:
             - UNLIMITED
           type: string
         modifierValue:
-          description: Absent for UNLIMITED
+          description: Absent for UNLIMITED, and on a BOOLEAN or CONFIG boost
           examples:
             - "2"
           type: string
+        value:
+          anyOf:
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: "A BOOLEAN or CONFIG boost's value: true or false, or the document"
       required:
         - entitlementSlug
         - modifierType
@@ -14097,7 +14124,7 @@ components:
           $ref: "#/components/schemas/SessionDiscount"
           description: "PRICE: what it takes off"
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST: how long it lasts, in billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods."
           enum:
             - ONE_TIME
             - REPEATING
@@ -14106,6 +14133,13 @@ components:
         durationInPeriods:
           format: int32
           type: integer
+        flagGrants:
+          description: "FLAG_GRANT: the flag variants it grants"
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type:
+            - array
+            - "null"
         name:
           examples:
             - Summer launch
@@ -14114,6 +14148,7 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
           type: string
       required:
         - name
@@ -15677,7 +15712,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15689,6 +15724,11 @@ components:
         expiresAt:
           format: date-time
           type: string
+        flagGrants:
+          description: The flag variants a FLAG_GRANT grants
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type: array
         grants:
           description: What an ENTITLEMENT_BOOST changes
           items:
@@ -15748,6 +15788,7 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
           type: string
       required:
         - id
@@ -15760,6 +15801,7 @@ components:
         - applicableLicensePriceIds
         - applicableAddonPriceIds
         - grants
+        - flagGrants
         - applicableLicenseIds
         - applicableAddonIds
         - redemptionRules
@@ -15847,7 +15889,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15859,6 +15901,11 @@ components:
         expiresAt:
           format: date-time
           type: string
+        flagGrants:
+          description: The flag variants a FLAG_GRANT grants
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type: array
         grants:
           description: What an ENTITLEMENT_BOOST changes
           items:
@@ -15924,6 +15971,7 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
           type: string
       required:
         - id
@@ -15936,6 +15984,7 @@ components:
         - applicableLicensePriceIds
         - applicableAddonPriceIds
         - grants
+        - flagGrants
         - applicableLicenseIds
         - applicableAddonIds
         - redemptionRules
@@ -15998,8 +16047,15 @@ components:
         expiresAt:
           format: date-time
           type: string
+        flagGrants:
+          description: Required on a FLAG_GRANT, one per flag, refused otherwise
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type:
+            - array
+            - "null"
         grants:
-          description: Required on an ENTITLEMENT_BOOST, refused on a PRICE voucher
+          description: Required on an ENTITLEMENT_BOOST, refused otherwise
           items:
             $ref: "#/components/schemas/Grant"
           type:
@@ -16043,6 +16099,7 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
           type: string
       required:
         - name
@@ -22184,7 +22241,7 @@ paths:
         - featureflags
   /feature-flags/{featureFlagSlug}:
     delete:
-      description: Delete a featureflag with the provided details
+      description: Delete a featureflag with the provided details. A flag a voucher grants a variant of cannot be deleted (409 DeleteFeatureFlag.InUseConflict); it can be disabled.
       operationId: delete-feature-flag
       parameters:
         - in: path
@@ -22213,6 +22270,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:

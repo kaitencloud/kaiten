@@ -1,11 +1,7 @@
 import { useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
 import { ChoiceButton } from '@/components/choice-button';
-import {
-  getVoucherTypeLabelKey,
-  VOUCHER_TYPES,
-  type VoucherType,
-} from '@/domains/billing';
+import { getVoucherTypeLabelKey, VOUCHER_TYPES } from '@/domains/billing';
 import { withForm } from '@/hooks/form';
 import { voucherFormOpts } from '../../schemas';
 import { LATER_VOUCHER_TYPES } from '../../utils/voucher-labels';
@@ -13,7 +9,7 @@ import { LATER_VOUCHER_TYPES } from '../../utils/voucher-labels';
 const TYPE_DETAIL_KEYS = {
   ENTITLEMENT_BOOST: 'Pages.Vouchers.Wizard.Type.Detail.ENTITLEMENT_BOOST',
   PRICE: 'Pages.Vouchers.Wizard.Type.Detail.PRICE',
-} as const satisfies Record<VoucherType, string>;
+} as const satisfies Record<(typeof VOUCHER_TYPES)[number], string>;
 
 const LATER_TYPE_LABEL_KEYS = {
   COMPOSITE: 'Pages.Vouchers.Wizard.Type.COMPOSITE',
@@ -32,7 +28,7 @@ export const TypeStep = withForm({
     const { t } = useTranslation();
     const selected = useStore(form.store, (state) => state.values.voucherType);
 
-    function renderType(type: VoucherType) {
+    function renderType(type: (typeof VOUCHER_TYPES)[number]) {
       return (
         <ChoiceButton
           detail={t(TYPE_DETAIL_KEYS[type])}

@@ -28,10 +28,13 @@ type Customer struct {
 	Domain             *string
 }
 
-// TargetingFact is one licence-or-entitlement row for a customer's targeting
-// key: the customer's licence and its family (repeated once per row) plus, when
-// EntitlementSlug is set, one entitlement's recorded limit/usage on it.
+// TargetingFact is one licence-or-entitlement row of the subject instance:
+// the instance and its licence and family (repeated once per row) plus, when
+// EntitlementSlug is set, one entitlement's effective limit and usage on it.
 type TargetingFact struct {
+	// InstanceID is the subject the facts describe, whose flag grants apply
+	// too (§7.4 rules 5 and 6).
+	InstanceID        uuid.UUID
 	LicenseSlug       string
 	LicenseFamilySlug string
 	LicenseType       string
@@ -43,7 +46,12 @@ type TargetingFact struct {
 // Port is the read surface featureflags needs from the customers module.
 type Port interface {
 	GetOneCustomerBySlug(ctx context.Context, organizationID uuid.UUID, slug string) (*Customer, error)
+	// GetTargetingFactsByCustomerSlug is the facts of the customer's oldest
+	// instance, the subject when the caller names none.
 	GetTargetingFactsByCustomerSlug(ctx context.Context, organizationID uuid.UUID, customerSlug string) ([]TargetingFact, error)
+	// GetTargetingFactsByInstance is the facts of the instance the caller
+	// names (kaiten.instanceSlug, §7.4 rule 5).
+	GetTargetingFactsByInstance(ctx context.Context, organizationID, instanceID uuid.UUID) ([]TargetingFact, error)
 }
 
 type port struct {
@@ -81,7 +89,27 @@ func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organization
 	if err != nil {
 		return nil, err
 	}
+	return toFacts(rows)
+}
 
+func (p *port) GetTargetingFactsByInstance(ctx context.Context, organizationID, instanceID uuid.UUID) ([]TargetingFact, error) {
+	done := effectivelookup.Time(ctx, effectivelookup.ReaderOFREP)
+	defer done()
+	rows, err := p.queries.GetTargetingFactsByInstance(ctx, db.GetTargetingFactsByInstanceParams{
+		OrganizationID: organizationID,
+		InstanceID:     instanceID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	same := make([]db.GetTargetingFactsByCustomerSlugRow, len(rows))
+	for i, row := range rows {
+		same[i] = db.GetTargetingFactsByCustomerSlugRow(row)
+	}
+	return toFacts(same)
+}
+
+func toFacts(rows []db.GetTargetingFactsByCustomerSlugRow) ([]TargetingFact, error) {
 	facts := make([]TargetingFact, len(rows))
 	for i, row := range rows {
 		usage, err := currentUsage(row)
@@ -89,6 +117,7 @@ func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organization
 			return nil, err
 		}
 		facts[i] = TargetingFact{
+			InstanceID:        row.InstanceID,
 			LicenseSlug:       row.LicenseSlug,
 			LicenseFamilySlug: row.LicenseFamilySlug,
 			LicenseType:       string(row.LicenseType),

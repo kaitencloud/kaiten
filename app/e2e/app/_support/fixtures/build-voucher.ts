@@ -84,6 +84,7 @@ export function buildVoucher({
     duration,
     durationInPeriods,
     expiresAt,
+    flagGrants: [],
     grants: isPrice ? [] : grants,
     id,
     maxRedemptions,

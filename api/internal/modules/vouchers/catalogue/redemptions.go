@@ -20,7 +20,7 @@ type Redemption struct {
 	ID                 uuid.UUID  `json:"id" readOnly:"true"`
 	VoucherID          uuid.UUID  `json:"voucherId"`
 	VoucherName        string     `json:"voucherName"`
-	VoucherType        string     `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST"`
+	VoucherType        string     `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT"`
 	CodeHint           string     `json:"codeHint"`
 	InstanceSlug       string     `json:"instanceSlug"`
 	RedeemedAt         time.Time  `json:"redeemedAt"`

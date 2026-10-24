@@ -76,6 +76,7 @@ export const VOUCHER_TYPES = [
 
 const VOUCHER_TYPE_LABEL_KEYS = {
   ENTITLEMENT_BOOST: 'Features.Billing.VoucherType.ENTITLEMENT_BOOST',
+  FLAG_GRANT: 'Features.Billing.VoucherType.FLAG_GRANT',
   PRICE: 'Features.Billing.VoucherType.PRICE',
 } as const satisfies Record<VoucherType, string>;
 

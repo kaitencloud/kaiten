@@ -238,7 +238,47 @@ WITH primary_instance AS (
   ORDER BY i.created_at, i.id
   LIMIT 1
 )
-SELECT l.slug           AS license_slug,
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
+       lf.slug          AS license_family_slug,
+       l.type           AS license_type,
+       e.slug           AS entitlement_slug,
+       iee.value        AS limit_value,
+       eu.value         AS usage_value,
+       eu.period_start  AS usage_period_start,
+       e.reset_period,
+       e.reset_anchor,
+       pi.start_license_date,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+FROM primary_instance pi
+       JOIN "license" l ON l.id = pi.license_id
+       JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
+       -- The instance's effective entitlements, as every reader of an
+       -- instance's entitlement value reads them.
+       LEFT JOIN instance_effective_entitlement iee
+         ON iee.instance_id = pi.id AND iee.organization_id = sqlc.arg(organization_id)
+       LEFT JOIN entitlement e
+         ON e.id = iee.entitlement_id AND e.organization_id = sqlc.arg(organization_id)
+       LEFT JOIN entitlement_usage eu
+         ON eu.instance_id = pi.id
+        AND eu.entitlement_id = e.id
+        AND eu.organization_id = sqlc.arg(organization_id)
+ORDER BY e.slug;
+
+
+-- name: GetTargetingFactsByInstance :many
+-- The facts of one instance, the subject a caller names with
+-- kaiten.instanceSlug (§7.4 rule 5): the same shape as
+-- GetTargetingFactsByCustomerSlug, for that instance instead of the
+-- customer's oldest.
+WITH primary_instance AS (
+  SELECT i.id, i.license_id, i.start_license_date
+  FROM instance i
+  WHERE i.organization_id = sqlc.arg(organization_id)
+    AND i.id = sqlc.arg(instance_id)
+)
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
        lf.slug          AS license_family_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,

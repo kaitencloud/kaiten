@@ -6642,6 +6642,7 @@ export default {
       VoucherType: {
         PRICE: 'Discount',
         ENTITLEMENT_BOOST: 'Boost',
+        FLAG_GRANT: 'Feature grant',
       },
       RedemptionStatus: {
         ACTIVE: 'Active',

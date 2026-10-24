@@ -33,6 +33,10 @@ func (s stubReader) GetTargetingFactsByCustomerSlug(context.Context, uuid.UUID, 
 	return s.rows, s.err
 }
 
+func (s stubReader) GetTargetingFactsByInstance(context.Context, uuid.UUID, uuid.UUID) ([]customertargetingfacts.TargetingFact, error) {
+	return s.rows, s.err
+}
+
 func slug(s string) *string { return &s }
 
 // Values are stored as the JSON the entitlement module writes.
@@ -70,7 +74,7 @@ func kaitenFacts(ec openfeature.EvaluationContext) map[string]any {
 func enrichServerFacts(reader customertargetingfacts.Port, targetingKey string, inputs map[string]any) openfeature.EvaluationContext {
 	ec := openfeature.EvaluationContext{TargetingKey: targetingKey, Inputs: inputs}
 	ofrep.ResetKaitenFacts(&ec)
-	ofrep.EnrichWithServerFacts(context.Background(), reader, uuid.New(), &ec)
+	ofrep.EnrichWithServerFacts(context.Background(), reader, nil, uuid.New(), &ec)
 	return ec
 }
 
@@ -423,6 +427,10 @@ func (s instanceFactsStub) GetOneCustomerBySlug(_ context.Context, _ uuid.UUID, 
 }
 
 func (s instanceFactsStub) GetTargetingFactsByCustomerSlug(context.Context, uuid.UUID, string) ([]customertargetingfacts.TargetingFact, error) {
+	return nil, pgx.ErrNoRows
+}
+
+func (s instanceFactsStub) GetTargetingFactsByInstance(context.Context, uuid.UUID, uuid.UUID) ([]customertargetingfacts.TargetingFact, error) {
 	return nil, pgx.ErrNoRows
 }
 

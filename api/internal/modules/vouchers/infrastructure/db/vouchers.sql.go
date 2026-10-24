@@ -88,6 +88,22 @@ func (q *Queries) CountLicenses(ctx context.Context, arg CountLicensesParams) (i
 	return column_1, err
 }
 
+const deleteVoucherFlagGrants = `-- name: DeleteVoucherFlagGrants :exec
+DELETE FROM voucher_flag_grant
+WHERE organization_id = $1
+  AND voucher_id = $2
+`
+
+type DeleteVoucherFlagGrantsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	VoucherID      uuid.UUID `json:"voucher_id"`
+}
+
+func (q *Queries) DeleteVoucherFlagGrants(ctx context.Context, arg DeleteVoucherFlagGrantsParams) error {
+	_, err := q.db.Exec(ctx, deleteVoucherFlagGrants, arg.OrganizationID, arg.VoucherID)
+	return err
+}
+
 const deleteVoucherGrants = `-- name: DeleteVoucherGrants :exec
 DELETE
 FROM voucher_entitlement_grant
@@ -146,6 +162,33 @@ func (q *Queries) GetCustomerIDBySlug(ctx context.Context, arg GetCustomerIDBySl
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getGrantableFlag = `-- name: GetGrantableFlag :one
+SELECT f.id,
+       coalesce(array(SELECT v ->> 'name' FROM jsonb_array_elements(f.variants) v), '{}')::text[] AS variants
+FROM feature_flags f
+WHERE f.organization_id = $1
+  AND f.slug = $2
+`
+
+type GetGrantableFlagParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type GetGrantableFlagRow struct {
+	ID       uuid.UUID `json:"id"`
+	Variants []string  `json:"variants"`
+}
+
+// A flag a FLAG_GRANT voucher may name, with the names of its variants
+// (V32-03 c).
+func (q *Queries) GetGrantableFlag(ctx context.Context, arg GetGrantableFlagParams) (GetGrantableFlagRow, error) {
+	row := q.db.QueryRow(ctx, getGrantableFlag, arg.OrganizationID, arg.Slug)
+	var i GetGrantableFlagRow
+	err := row.Scan(&i.ID, &i.Variants)
+	return i, err
 }
 
 const insertVoucher = `-- name: InsertVoucher :one
@@ -217,6 +260,30 @@ func (q *Queries) InsertVoucher(ctx context.Context, arg InsertVoucherParams) (u
 	return id, err
 }
 
+const insertVoucherFlagGrant = `-- name: InsertVoucherFlagGrant :exec
+INSERT INTO voucher_flag_grant (organization_id, voucher_id, voucher_type, flag_id, variant)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type InsertVoucherFlagGrantParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	VoucherID      uuid.UUID   `json:"voucher_id"`
+	VoucherType    VoucherType `json:"voucher_type"`
+	FlagID         uuid.UUID   `json:"flag_id"`
+	Variant        string      `json:"variant"`
+}
+
+func (q *Queries) InsertVoucherFlagGrant(ctx context.Context, arg InsertVoucherFlagGrantParams) error {
+	_, err := q.db.Exec(ctx, insertVoucherFlagGrant,
+		arg.OrganizationID,
+		arg.VoucherID,
+		arg.VoucherType,
+		arg.FlagID,
+		arg.Variant,
+	)
+	return err
+}
+
 const insertVoucherGrant = `-- name: InsertVoucherGrant :exec
 INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value, value)
 VALUES ($1, $2, $3, $4,
@@ -244,6 +311,100 @@ func (q *Queries) InsertVoucherGrant(ctx context.Context, arg InsertVoucherGrant
 		arg.Value,
 	)
 	return err
+}
+
+const listActiveFlagGrants = `-- name: ListActiveFlagGrants :many
+SELECT g.flag_id, g.variant, iv.voucher_id, iv.id AS redemption_id
+FROM instance_voucher iv
+JOIN voucher_flag_grant g ON g.voucher_id = iv.voucher_id AND g.organization_id = iv.organization_id
+CROSS JOIN (SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS t) clock
+WHERE iv.organization_id = $1
+  AND iv.instance_id = $2
+  AND iv.status = 'ACTIVE'
+  AND iv.effective_starts_at <= clock.t
+  AND (iv.effective_expires_at IS NULL OR clock.t < iv.effective_expires_at)
+ORDER BY iv.redeemed_at DESC, iv.id DESC
+`
+
+type ListActiveFlagGrantsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+type ListActiveFlagGrantsRow struct {
+	FlagID       uuid.UUID `json:"flag_id"`
+	Variant      string    `json:"variant"`
+	VoucherID    uuid.UUID `json:"voucher_id"`
+	RedemptionID uuid.UUID `json:"redemption_id"`
+}
+
+// The flag grants an instance holds at the request's instant (§7.4 rule 6):
+// its ACTIVE redemptions in their window, the latest redeemed first. The
+// flag evaluator reads them through the vouchers module's read port, one
+// query per evaluation request; no billing table, no billing switch.
+func (q *Queries) ListActiveFlagGrants(ctx context.Context, arg ListActiveFlagGrantsParams) ([]ListActiveFlagGrantsRow, error) {
+	rows, err := q.db.Query(ctx, listActiveFlagGrants, arg.OrganizationID, arg.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveFlagGrantsRow
+	for rows.Next() {
+		var i ListActiveFlagGrantsRow
+		if err := rows.Scan(
+			&i.FlagID,
+			&i.Variant,
+			&i.VoucherID,
+			&i.RedemptionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listVoucherFlagGrants = `-- name: ListVoucherFlagGrants :many
+SELECT g.voucher_id, f.slug AS flag_slug, g.variant
+FROM voucher_flag_grant g
+JOIN feature_flags f ON f.id = g.flag_id AND f.organization_id = g.organization_id
+WHERE g.organization_id = $1
+  AND g.voucher_id = ANY ($2::uuid[])
+ORDER BY f.slug
+`
+
+type ListVoucherFlagGrantsParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	VoucherIds     []uuid.UUID `json:"voucher_ids"`
+}
+
+type ListVoucherFlagGrantsRow struct {
+	VoucherID uuid.UUID `json:"voucher_id"`
+	FlagSlug  string    `json:"flag_slug"`
+	Variant   string    `json:"variant"`
+}
+
+func (q *Queries) ListVoucherFlagGrants(ctx context.Context, arg ListVoucherFlagGrantsParams) ([]ListVoucherFlagGrantsRow, error) {
+	rows, err := q.db.Query(ctx, listVoucherFlagGrants, arg.OrganizationID, arg.VoucherIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListVoucherFlagGrantsRow
+	for rows.Next() {
+		var i ListVoucherFlagGrantsRow
+		if err := rows.Scan(&i.VoucherID, &i.FlagSlug, &i.Variant); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listVoucherGrants = `-- name: ListVoucherGrants :many

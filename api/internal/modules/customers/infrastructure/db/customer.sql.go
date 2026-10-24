@@ -554,7 +554,8 @@ WITH primary_instance AS (
   ORDER BY i.created_at, i.id
   LIMIT 1
 )
-SELECT l.slug           AS license_slug,
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
        lf.slug          AS license_family_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,
@@ -587,6 +588,7 @@ type GetTargetingFactsByCustomerSlugParams struct {
 }
 
 type GetTargetingFactsByCustomerSlugRow struct {
+	InstanceID        uuid.UUID               `json:"instance_id"`
 	LicenseSlug       string                  `json:"license_slug"`
 	LicenseFamilySlug string                  `json:"license_family_slug"`
 	LicenseType       LicenseType             `json:"license_type"`
@@ -643,6 +645,99 @@ func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTa
 	for rows.Next() {
 		var i GetTargetingFactsByCustomerSlugRow
 		if err := rows.Scan(
+			&i.InstanceID,
+			&i.LicenseSlug,
+			&i.LicenseFamilySlug,
+			&i.LicenseType,
+			&i.EntitlementSlug,
+			&i.LimitValue,
+			&i.UsageValue,
+			&i.UsagePeriodStart,
+			&i.ResetPeriod,
+			&i.ResetAnchor,
+			&i.StartLicenseDate,
+			&i.Now,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTargetingFactsByInstance = `-- name: GetTargetingFactsByInstance :many
+WITH primary_instance AS (
+  SELECT i.id, i.license_id, i.start_license_date
+  FROM instance i
+  WHERE i.organization_id = $1
+    AND i.id = $2
+)
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
+       lf.slug          AS license_family_slug,
+       l.type           AS license_type,
+       e.slug           AS entitlement_slug,
+       iee.value        AS limit_value,
+       eu.value         AS usage_value,
+       eu.period_start  AS usage_period_start,
+       e.reset_period,
+       e.reset_anchor,
+       pi.start_license_date,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+FROM primary_instance pi
+       JOIN "license" l ON l.id = pi.license_id
+       JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
+       -- The instance's effective entitlements, as every reader of an
+       -- instance's entitlement value reads them.
+       LEFT JOIN instance_effective_entitlement iee
+         ON iee.instance_id = pi.id AND iee.organization_id = $1
+       LEFT JOIN entitlement e
+         ON e.id = iee.entitlement_id AND e.organization_id = $1
+       LEFT JOIN entitlement_usage eu
+         ON eu.instance_id = pi.id
+        AND eu.entitlement_id = e.id
+        AND eu.organization_id = $1
+ORDER BY e.slug
+`
+
+type GetTargetingFactsByInstanceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+type GetTargetingFactsByInstanceRow struct {
+	InstanceID        uuid.UUID               `json:"instance_id"`
+	LicenseSlug       string                  `json:"license_slug"`
+	LicenseFamilySlug string                  `json:"license_family_slug"`
+	LicenseType       LicenseType             `json:"license_type"`
+	EntitlementSlug   *string                 `json:"entitlement_slug"`
+	LimitValue        []byte                  `json:"limit_value"`
+	UsageValue        []byte                  `json:"usage_value"`
+	UsagePeriodStart  pgtype.Timestamp        `json:"usage_period_start"`
+	ResetPeriod       *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor       *EntitlementResetAnchor `json:"reset_anchor"`
+	StartLicenseDate  pgtype.Timestamp        `json:"start_license_date"`
+	Now               pgtype.Timestamp        `json:"now"`
+}
+
+// The facts of one instance, the subject a caller names with
+// kaiten.instanceSlug (§7.4 rule 5): the same shape as
+// GetTargetingFactsByCustomerSlug, for that instance instead of the
+// customer's oldest.
+func (q *Queries) GetTargetingFactsByInstance(ctx context.Context, arg GetTargetingFactsByInstanceParams) ([]GetTargetingFactsByInstanceRow, error) {
+	rows, err := q.db.Query(ctx, getTargetingFactsByInstance, arg.OrganizationID, arg.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTargetingFactsByInstanceRow
+	for rows.Next() {
+		var i GetTargetingFactsByInstanceRow
+		if err := rows.Scan(
+			&i.InstanceID,
 			&i.LicenseSlug,
 			&i.LicenseFamilySlug,
 			&i.LicenseType,

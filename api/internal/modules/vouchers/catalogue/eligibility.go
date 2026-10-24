@@ -51,10 +51,12 @@ type Candidate struct {
 	Row          db.ListVouchersRow
 	Entitlements []uuid.UUID
 	Grants       []Grant
+	FlagGrants   []FlagGrant
 }
 
-// FindByCode reads the voucher a code names, with what a boost changes; nil
-// when the organization has none. It runs the same two queries either way.
+// FindByCode reads the voucher a code names, with what a boost changes and
+// the flag variants it grants; nil when the organization has none. It runs
+// the same three queries either way.
 func FindByCode(ctx context.Context, q *db.Queries, organizationID uuid.UUID, code string) (*Candidate, error) {
 	rows, err := q.ListVouchers(ctx, db.ListVouchersParams{
 		OrganizationID: organizationID, ID: nil, Code: &code, Status: nil, VoucherType: nil, CustomerSlug: nil,
@@ -68,13 +70,20 @@ func FindByCode(ctx context.Context, q *db.Queries, organizationID uuid.UUID, co
 		id = rows[0].ID
 	}
 	grants, err := q.ListVoucherGrants(ctx, db.ListVoucherGrantsParams{OrganizationID: organizationID, VoucherIds: []uuid.UUID{id}})
+	if err != nil {
+		return nil, err
+	}
+	flagGrants, err := q.ListVoucherFlagGrants(ctx, db.ListVoucherFlagGrantsParams{OrganizationID: organizationID, VoucherIds: []uuid.UUID{id}})
 	if err != nil || len(rows) == 0 {
 		return nil, err
 	}
-	candidate := &Candidate{Row: rows[0], Entitlements: nil, Grants: []Grant{}}
+	candidate := &Candidate{Row: rows[0], Entitlements: nil, Grants: []Grant{}, FlagGrants: []FlagGrant{}}
 	for _, g := range grants {
 		candidate.Entitlements = append(candidate.Entitlements, g.EntitlementID)
 		candidate.Grants = append(candidate.Grants, grantOf(g))
+	}
+	for _, g := range flagGrants {
+		candidate.FlagGrants = append(candidate.FlagGrants, FlagGrant{FlagSlug: g.FlagSlug, Variant: g.Variant})
 	}
 	return candidate, nil
 }

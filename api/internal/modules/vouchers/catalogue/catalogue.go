@@ -68,8 +68,9 @@ func Now(ctx context.Context, q *db.Queries) (time.Time, error) {
 
 // Types, statuses, durations and scopes, as the API spells them.
 const (
-	TypePrice = "PRICE"
-	TypeBoost = "ENTITLEMENT_BOOST"
+	TypePrice     = "PRICE"
+	TypeBoost     = "ENTITLEMENT_BOOST"
+	TypeFlagGrant = "FLAG_GRANT"
 
 	StatusDraft     = "DRAFT"
 	StatusActive    = "ACTIVE"
@@ -94,9 +95,9 @@ type Voucher struct {
 	CodeHint                  string          `json:"codeHint" doc:"The last four characters of the normalized code" example:"UNCH"`
 	Name                      string          `json:"name" example:"Summer launch"`
 	Description               *string         `json:"description,omitempty"`
-	VoucherType               string          `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST"`
+	VoucherType               string          `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT"`
 	Status                    string          `json:"status" enum:"DRAFT,ACTIVE,EXPIRED,EXHAUSTED,ARCHIVED"`
-	Duration                  string          `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST: how long a redemption lasts, in the subscription's billing periods."`
+	Duration                  string          `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."`
 	DurationInPeriods         *int32          `json:"durationInPeriods,omitempty"`
 	MaxRedemptions            *int32          `json:"maxRedemptions,omitempty"`
 	RedemptionsCount          int32           `json:"redemptionsCount"`
@@ -109,6 +110,7 @@ type Voucher struct {
 	ApplicableLicensePriceIDs []uuid.UUID     `json:"applicableLicensePriceIds" nullable:"false"`
 	ApplicableAddonPriceIDs   []uuid.UUID     `json:"applicableAddonPriceIds" nullable:"false"`
 	Grants                    []Grant         `json:"grants" nullable:"false" doc:"What an ENTITLEMENT_BOOST changes"`
+	FlagGrants                []FlagGrant     `json:"flagGrants" nullable:"false" doc:"The flag variants a FLAG_GRANT grants"`
 	ApplicableLicenseIDs      []uuid.UUID     `json:"applicableLicenseIds" nullable:"false" doc:"Only instances on these licence versions can redeem it; any when empty"`
 	ApplicableAddonIDs        []uuid.UUID     `json:"applicableAddonIds" nullable:"false" doc:"Only instances holding one of these add-on versions can redeem it; any when empty"`
 	RestrictedCustomerSlug    *string         `json:"restrictedCustomerSlug,omitempty" doc:"Only this customer's instances can redeem it"`
@@ -125,6 +127,14 @@ type Grant struct {
 	ModifierType    string     `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED" doc:"SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit. A BOOLEAN or CONFIG entitlement takes SET only"`
 	ModifierValue   *string    `json:"modifierValue,omitempty" doc:"A NUMBER grant's decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED; absent on a BOOLEAN or CONFIG grant" example:"2"`
 	Value           GrantValue `json:"value,omitempty" doc:"What a BOOLEAN or CONFIG SET grant sets: true or false, or the CONFIG document as an object; absent on a NUMBER grant"`
+}
+
+// FlagGrant is the variant a FLAG_GRANT voucher grants of one flag (V32-03
+// c): for its window, the flag answers this variant on the redeeming
+// instance, whatever its targeting rules say; a disabled flag still wins.
+type FlagGrant struct {
+	FlagSlug string `json:"flagSlug" example:"new-dashboard"`
+	Variant  string `json:"variant" minLength:"1" maxLength:"255" doc:"The name of one of the flag's variants" example:"on"`
 }
 
 // GrantValue is a BOOLEAN or CONFIG grant's value, raw JSON as sent: empty
@@ -190,7 +200,7 @@ func Hint(normalized string) string {
 }
 
 // ToVoucher maps a voucher row with its grants. withCode keeps the code.
-func ToVoucher(row db.ListVouchersRow, grants []Grant, withCode bool) Voucher {
+func ToVoucher(row db.ListVouchersRow, grants []Grant, flagGrants []FlagGrant, withCode bool) Voucher {
 	normalized := ""
 	if row.CodeNormalized != nil {
 		normalized = *row.CodeNormalized
@@ -202,7 +212,7 @@ func ToVoucher(row db.ListVouchersRow, grants []Grant, withCode bool) Voucher {
 		RedemptionsCount: row.RedemptionsCount, StartsAt: timePtr(row.StartsAt), ExpiresAt: timePtr(row.ExpiresAt),
 		PriceDiscountType: nil, PriceDiscountValue: nil, Currency: nil, PriceAppliesTo: nil,
 		ApplicableLicensePriceIDs: nonNil(row.ApplicableLicensePriceIds), ApplicableAddonPriceIDs: nonNil(row.ApplicableAddonPriceIds),
-		Grants: grants, ApplicableLicenseIDs: nonNil(row.ApplicableLicenseIds), ApplicableAddonIDs: nonNil(row.ApplicableAddonIds),
+		Grants: grants, FlagGrants: flagGrants, ApplicableLicenseIDs: nonNil(row.ApplicableLicenseIds), ApplicableAddonIDs: nonNil(row.ApplicableAddonIds),
 		RestrictedCustomerSlug: row.RestrictedCustomerSlug, RedemptionRules: RedemptionRules{},
 		CreatedAt: row.CreatedAt.Time.UTC(), UpdatedAt: row.UpdatedAt.Time.UTC(),
 	}
@@ -230,6 +240,9 @@ func ToVoucher(row db.ListVouchersRow, grants []Grant, withCode bool) Voucher {
 	if v.Grants == nil {
 		v.Grants = []Grant{}
 	}
+	if v.FlagGrants == nil {
+		v.FlagGrants = []FlagGrant{}
+	}
 	return v
 }
 
@@ -244,6 +257,7 @@ func List(ctx context.Context, q *db.Queries, params db.ListVouchersParams, with
 		ids[i] = row.ID
 	}
 	grants := map[uuid.UUID][]Grant{}
+	flagGrants := map[uuid.UUID][]FlagGrant{}
 	if len(ids) > 0 {
 		grantRows, err := q.ListVoucherGrants(ctx, db.ListVoucherGrantsParams{OrganizationID: params.OrganizationID, VoucherIds: ids})
 		if err != nil {
@@ -252,10 +266,17 @@ func List(ctx context.Context, q *db.Queries, params db.ListVouchersParams, with
 		for _, g := range grantRows {
 			grants[g.VoucherID] = append(grants[g.VoucherID], grantOf(g))
 		}
+		flagRows, err := q.ListVoucherFlagGrants(ctx, db.ListVoucherFlagGrantsParams{OrganizationID: params.OrganizationID, VoucherIds: ids})
+		if err != nil {
+			return nil, err
+		}
+		for _, g := range flagRows {
+			flagGrants[g.VoucherID] = append(flagGrants[g.VoucherID], FlagGrant{FlagSlug: g.FlagSlug, Variant: g.Variant})
+		}
 	}
 	out := make([]Voucher, len(rows))
 	for i, row := range rows {
-		out[i] = ToVoucher(row, grants[row.ID], withCode)
+		out[i] = ToVoucher(row, grants[row.ID], flagGrants[row.ID], withCode)
 	}
 	return out, nil
 }

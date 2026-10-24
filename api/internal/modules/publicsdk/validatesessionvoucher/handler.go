@@ -40,11 +40,13 @@ type SessionVoucherValidity struct {
 // SessionVoucher is a voucher as the customer sees it.
 type SessionVoucher struct {
 	Name              string           `json:"name" example:"Summer launch"`
-	VoucherType       string           `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST"`
-	Duration          string           `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST: how long it lasts, in billing periods."`
+	VoucherType       string           `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT"`
+	Duration          string           `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods."`
 	DurationInPeriods *int32           `json:"durationInPeriods,omitempty"`
 	Discount          *SessionDiscount `json:"discount,omitempty" doc:"PRICE: what it takes off"`
 	Boosts            []SessionBoost   `json:"boosts,omitempty" doc:"ENTITLEMENT_BOOST: what it raises"`
+	// FlagGrants is what a FLAG_GRANT turns on (V32-03 c).
+	FlagGrants []catalogue.FlagGrant `json:"flagGrants,omitempty" doc:"FLAG_GRANT: the flag variants it grants"`
 }
 
 // SessionDiscount is what a PRICE voucher takes off.
@@ -59,7 +61,9 @@ type SessionDiscount struct {
 type SessionBoost struct {
 	EntitlementSlug string  `json:"entitlementSlug" example:"tokens"`
 	ModifierType    string  `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED"`
-	ModifierValue   *string `json:"modifierValue,omitempty" doc:"Absent for UNLIMITED" example:"2"`
+	ModifierValue   *string `json:"modifierValue,omitempty" doc:"Absent for UNLIMITED, and on a BOOLEAN or CONFIG boost" example:"2"`
+	// Value is what a BOOLEAN or CONFIG SET boost sets (V32-03 b).
+	Value catalogue.GrantValue `json:"value,omitempty" doc:"A BOOLEAN or CONFIG boost's value: true or false, or the document"`
 }
 
 // Session is the customer session that checks.
@@ -98,7 +102,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionV
 func summary(v catalogue.Voucher) *SessionVoucher {
 	out := &SessionVoucher{
 		Name: v.Name, VoucherType: v.VoucherType, Duration: v.Duration, DurationInPeriods: v.DurationInPeriods,
-		Discount: nil, Boosts: nil,
+		Discount: nil, Boosts: nil, FlagGrants: nil,
 	}
 	if v.PriceDiscountType != nil && v.PriceDiscountValue != nil {
 		out.Discount = &SessionDiscount{Type: *v.PriceDiscountType, Value: *v.PriceDiscountValue, Currency: v.Currency, AppliesTo: ""}
@@ -107,7 +111,10 @@ func summary(v catalogue.Voucher) *SessionVoucher {
 		}
 	}
 	for _, g := range v.Grants {
-		out.Boosts = append(out.Boosts, SessionBoost{EntitlementSlug: g.EntitlementSlug, ModifierType: g.ModifierType, ModifierValue: g.ModifierValue})
+		out.Boosts = append(out.Boosts, SessionBoost{EntitlementSlug: g.EntitlementSlug, ModifierType: g.ModifierType, ModifierValue: g.ModifierValue, Value: g.Value})
+	}
+	if len(v.FlagGrants) > 0 {
+		out.FlagGrants = v.FlagGrants
 	}
 	return out
 }
