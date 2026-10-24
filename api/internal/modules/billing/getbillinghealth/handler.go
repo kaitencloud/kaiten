@@ -60,7 +60,7 @@ type ProviderSync struct {
 type HandoffBacklog struct {
 	Pending               int64      `json:"pending"`
 	OldestPendingIssuedAt *time.Time `json:"oldestPendingIssuedAt"`
-	ReclaimedLast24h      int64      `json:"reclaimedLast24h" doc:"PENDING invoices claimed again after a lease expired, whose latest lease runs or ended in the last 24 hours: a consumer that claims and does not acknowledge"`
+	ReclaimedLast24h      int64      `json:"reclaimedLast24h" doc:"Invoices claimed again after a lease expired, in the last 24 hours: a consumer that claims and does not acknowledge"`
 }
 
 // UsageLedger is the usage history the organization keeps (§6.5, V31-11).

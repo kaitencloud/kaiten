@@ -62,6 +62,11 @@ func TestBillingHealthShape(t *testing.T) {
 	exec(t, `UPDATE instance_invoice SET handoff_leased_until = now() - interval '1 minute' WHERE id = $1`, started.ActivationInvoice.ID)
 	claim()
 	require.EqualValues(t, 1, health()["handoff"].(map[string]any)["reclaimedLast24h"], "claimed again after its lease expired")
+	resp := call(t, "POST", "/api/billing/handoff/"+started.ActivationInvoice.ID.String()+"/ack", map[string]any{"externalReference": "ERP-1"})
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	require.EqualValues(t, 1, health()["handoff"].(map[string]any)["reclaimedLast24h"], "acknowledged since, it was still claimed again today")
+	exec(t, `UPDATE instance_invoice SET handoff_reclaimed_at = now() - interval '25 hours' WHERE id = $1`, started.ActivationInvoice.ID)
+	require.EqualValues(t, 0, health()["handoff"].(map[string]any)["reclaimedLast24h"], "a day ago")
 
 	// An ACTIVE card that expires at the end of this month, another next year.
 	now := time.Now().UTC()

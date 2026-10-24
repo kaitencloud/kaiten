@@ -379,12 +379,9 @@ SELECT
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.handoff_status = 'PENDING')::bigint AS handoff_pending,
   (SELECT min(i.issued_at) FROM instance_invoice i
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.handoff_status = 'PENDING')::timestamp AS oldest_pending_issued_at,
-  -- No claim is timestamped: a PENDING invoice claimed again after a lease
-  -- expired, whose latest lease runs or ended in the last 24 hours.
   (SELECT count(*) FROM instance_invoice i
-    WHERE i.organization_id = sqlc.arg(organization_id) AND i.handoff_status = 'PENDING'
-      AND i.handoff_claim_count > 1
-      AND i.handoff_leased_until > sqlc.arg(now)::timestamp - interval '24 hours')::bigint AS handoff_reclaimed_last_24h,
+    WHERE i.organization_id = sqlc.arg(organization_id)
+      AND i.handoff_reclaimed_at > sqlc.arg(now)::timestamp - interval '24 hours')::bigint AS handoff_reclaimed_last_24h,
   (SELECT count(*) FROM customer_billing c
     WHERE c.organization_id = sqlc.arg(organization_id) AND c.payment_method_status = 'ACTIVE'
       AND c.payment_method_exp_year IS NOT NULL AND c.payment_method_exp_month IS NOT NULL

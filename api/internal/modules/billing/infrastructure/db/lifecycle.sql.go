@@ -505,7 +505,7 @@ func (q *Queries) GetInstanceSlug(ctx context.Context, id uuid.UUID) (GetInstanc
 }
 
 const getLatestInstanceActivation = `-- name: GetLatestInstanceActivation :one
-SELECT i.id, i.organization_id, i.instance_billing_id, i.customer_id, i.instance_slug, i.instance_name, i.customer_slug, i.customer_name, i.license_id, i.license_slug, i.billing_email, i.kind, i.boundary_at, i.service_from, i.service_to, i.currency, i.subtotal_minor, i.discount_total_minor, i.total_minor, i.lines, i.status, i.hold_reason, i.hold_detail, i.held_at, i.hold_released_at, i.hold_released_by_id, i.hold_release_reason, i.provider_kind, i.collection_method, i.external_customer_id, i.external_invoice_id, i.provider_invoice_number, i.provider_status, i.hosted_invoice_url, i.invoice_pdf_url, i.provider_total_excluding_tax_minor, i.reconciliation_status, i.reconciliation_detail, i.reconciled_at, i.push_attempts, i.next_push_at, i.last_push_error, i.pushed_at, i.synced_at, i.issued_at, i.days_until_due, i.due_at, i.paid_at, i.marked_paid_by_id, i.payment_failed_at, i.last_payment_error, i.uncollectible_at, i.voided_at, i.voided_by_id, i.void_reason, i.replaces_invoice_id, i.handoff_status, i.handoff_lease_id, i.handoff_leased_until, i.handoff_claim_count, i.handoff_acknowledged_at, i.handoff_acknowledged_by_id, i.external_reference, i.created_at, i.updated_at, i.finalize_requested
+SELECT i.id, i.organization_id, i.instance_billing_id, i.customer_id, i.instance_slug, i.instance_name, i.customer_slug, i.customer_name, i.license_id, i.license_slug, i.billing_email, i.kind, i.boundary_at, i.service_from, i.service_to, i.currency, i.subtotal_minor, i.discount_total_minor, i.total_minor, i.lines, i.status, i.hold_reason, i.hold_detail, i.held_at, i.hold_released_at, i.hold_released_by_id, i.hold_release_reason, i.provider_kind, i.collection_method, i.external_customer_id, i.external_invoice_id, i.provider_invoice_number, i.provider_status, i.hosted_invoice_url, i.invoice_pdf_url, i.provider_total_excluding_tax_minor, i.reconciliation_status, i.reconciliation_detail, i.reconciled_at, i.push_attempts, i.next_push_at, i.last_push_error, i.pushed_at, i.synced_at, i.issued_at, i.days_until_due, i.due_at, i.paid_at, i.marked_paid_by_id, i.payment_failed_at, i.last_payment_error, i.uncollectible_at, i.voided_at, i.voided_by_id, i.void_reason, i.replaces_invoice_id, i.handoff_status, i.handoff_lease_id, i.handoff_leased_until, i.handoff_claim_count, i.handoff_acknowledged_at, i.handoff_acknowledged_by_id, i.external_reference, i.created_at, i.updated_at, i.finalize_requested, i.handoff_reclaimed_at
 FROM instance_invoice i
 JOIN instance_billing ib
   ON ib.id = i.instance_billing_id
@@ -593,12 +593,13 @@ func (q *Queries) GetLatestInstanceActivation(ctx context.Context, arg GetLatest
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
 
 const getOpenActivation = `-- name: GetOpenActivation :one
-SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 FROM instance_invoice i
 WHERE i.instance_billing_id = $1
   AND i.kind = 'ACTIVATION'
@@ -679,6 +680,7 @@ func (q *Queries) GetOpenActivation(ctx context.Context, instanceBillingID uuid.
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }

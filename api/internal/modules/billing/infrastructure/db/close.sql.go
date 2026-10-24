@@ -257,7 +257,7 @@ FROM instance_billing ib
 WHERE inv.id = $1
   AND inv.status = 'DRAFT'
   AND ib.id = inv.instance_billing_id
-RETURNING inv.id, inv.organization_id, inv.instance_billing_id, inv.customer_id, inv.instance_slug, inv.instance_name, inv.customer_slug, inv.customer_name, inv.license_id, inv.license_slug, inv.billing_email, inv.kind, inv.boundary_at, inv.service_from, inv.service_to, inv.currency, inv.subtotal_minor, inv.discount_total_minor, inv.total_minor, inv.lines, inv.status, inv.hold_reason, inv.hold_detail, inv.held_at, inv.hold_released_at, inv.hold_released_by_id, inv.hold_release_reason, inv.provider_kind, inv.collection_method, inv.external_customer_id, inv.external_invoice_id, inv.provider_invoice_number, inv.provider_status, inv.hosted_invoice_url, inv.invoice_pdf_url, inv.provider_total_excluding_tax_minor, inv.reconciliation_status, inv.reconciliation_detail, inv.reconciled_at, inv.push_attempts, inv.next_push_at, inv.last_push_error, inv.pushed_at, inv.synced_at, inv.issued_at, inv.days_until_due, inv.due_at, inv.paid_at, inv.marked_paid_by_id, inv.payment_failed_at, inv.last_payment_error, inv.uncollectible_at, inv.voided_at, inv.voided_by_id, inv.void_reason, inv.replaces_invoice_id, inv.handoff_status, inv.handoff_lease_id, inv.handoff_leased_until, inv.handoff_claim_count, inv.handoff_acknowledged_at, inv.handoff_acknowledged_by_id, inv.external_reference, inv.created_at, inv.updated_at, inv.finalize_requested
+RETURNING inv.id, inv.organization_id, inv.instance_billing_id, inv.customer_id, inv.instance_slug, inv.instance_name, inv.customer_slug, inv.customer_name, inv.license_id, inv.license_slug, inv.billing_email, inv.kind, inv.boundary_at, inv.service_from, inv.service_to, inv.currency, inv.subtotal_minor, inv.discount_total_minor, inv.total_minor, inv.lines, inv.status, inv.hold_reason, inv.hold_detail, inv.held_at, inv.hold_released_at, inv.hold_released_by_id, inv.hold_release_reason, inv.provider_kind, inv.collection_method, inv.external_customer_id, inv.external_invoice_id, inv.provider_invoice_number, inv.provider_status, inv.hosted_invoice_url, inv.invoice_pdf_url, inv.provider_total_excluding_tax_minor, inv.reconciliation_status, inv.reconciliation_detail, inv.reconciled_at, inv.push_attempts, inv.next_push_at, inv.last_push_error, inv.pushed_at, inv.synced_at, inv.issued_at, inv.days_until_due, inv.due_at, inv.paid_at, inv.marked_paid_by_id, inv.payment_failed_at, inv.last_payment_error, inv.uncollectible_at, inv.voided_at, inv.voided_by_id, inv.void_reason, inv.replaces_invoice_id, inv.handoff_status, inv.handoff_lease_id, inv.handoff_leased_until, inv.handoff_claim_count, inv.handoff_acknowledged_at, inv.handoff_acknowledged_by_id, inv.external_reference, inv.created_at, inv.updated_at, inv.finalize_requested, inv.handoff_reclaimed_at
 `
 
 // Copies a subscription's identity snapshot onto a held draft recomposed in
@@ -334,6 +334,7 @@ func (q *Queries) RefreshInvoiceIdentity(ctx context.Context, invoiceID uuid.UUI
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
