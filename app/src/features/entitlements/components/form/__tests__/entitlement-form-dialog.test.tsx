@@ -29,11 +29,11 @@ beforeEach(() => {
   server.use(handleListEntitlementGroups({ body: { hasMore: false, items: [] } }));
 });
 
-function DialogHarness({ onClose }: { onClose: () => void }) {
+function DialogHarness({ onClose, definition = entitlement }: { onClose: () => void; definition?: Entitlement }) {
   const [open, setOpen] = useState(true);
   const client = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } }))[0];
   function changeOpen(next: boolean) { setOpen(next); if (!next) onClose(); }
-  return <QueryClientProvider client={client}><EntitlementFormDialog open={open} onOpenChange={changeOpen} entitlement={entitlement} /></QueryClientProvider>;
+  return <QueryClientProvider client={client}><EntitlementFormDialog open={open} onOpenChange={changeOpen} entitlement={definition} /></QueryClientProvider>;
 }
 
 describe('AI entitlement dialog discard protection', () => {
@@ -75,5 +75,24 @@ describe('AI entitlement dialog discard protection', () => {
     await person.keyboard('{Escape}');
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('ordinary entitlement dialogs retain their existing dismissal', () => {
+  it.each(['BOOLEAN', 'NUMBER', 'CONFIG'] as const)('%s closes changed input on Cancel without an AI discard prompt', async (type) => {
+    const person = userEvent.setup(); const onClose = vi.fn();
+    render(<DialogHarness onClose={onClose} definition={{ ...entitlement, type }} />);
+    await person.type(await screen.findByLabelText('Description'), ' changed');
+    await person.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+  it.each(['BOOLEAN', 'NUMBER', 'CONFIG'] as const)('%s closes changed input on Escape without an AI discard prompt', async (type) => {
+    const person = userEvent.setup(); const onClose = vi.fn();
+    render(<DialogHarness onClose={onClose} definition={{ ...entitlement, type }} />);
+    await person.type(await screen.findByLabelText('Description'), ' changed');
+    await person.keyboard('{Escape}');
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });

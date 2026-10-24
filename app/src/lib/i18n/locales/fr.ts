@@ -15,7 +15,6 @@ export default {
       additionalRates: 'Tarifs supplémentaires',
       matchingHelp: 'Correspondance des règles',
       exampleDetails: 'Détails de l’exemple fictif',
-      presentation: 'Présentation',
       sumFixed: 'Somme · fixe',
       thresholdHelp:
         '0 ou vide = désactivé. Pas d’alerte pour les droits illimités.',

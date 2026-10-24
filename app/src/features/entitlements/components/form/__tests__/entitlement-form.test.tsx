@@ -271,6 +271,15 @@ describe('EntitlementForm', () => {
       expect(screen.getByText('Créer')).toBeInTheDocument();
     });
 
+    it('keeps ordinary identity and unit fields visible without AI disclosures', () => {
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+      expect(screen.getByTestId('field-description')).toBeVisible();
+      expect(screen.getByTestId('field-groupSlugs')).toBeVisible();
+      expect(screen.getByTestId('field-description').closest('details')).toBeNull();
+      expect(screen.getByTestId('field-unitSingular').closest('details')).toBeNull();
+      expect(screen.queryByTestId('field-warningThresholdPercent')).not.toBeInTheDocument();
+    });
+
     it('renders all form fields', () => {
       render(<EntitlementForm />, { wrapper: createWrapper() });
 
@@ -330,8 +339,11 @@ describe('EntitlementForm', () => {
 
     it('keeps the meter configuration step for an AI credit entitlement', () => {
       const pool = { id: 'ai-pool', name: 'AI pool', slug: 'ai-pool', type: 'NUMBER_AI_CREDIT', aggregationMethod: 'SUM' } as Entitlement;
+      formState.values.type = 'NUMBER_AI_CREDIT';
       render(<EntitlementForm layout="dialog" entitlement={pool} />, { wrapper: createWrapper() });
       expect(screen.getByText(/AI.Minimal.sumFixed/)).toBeInTheDocument();
+      expect(screen.getByTestId('field-warningThresholdPercent')).toBeInTheDocument();
+      expect(screen.getByTestId('field-unitSingular').closest('details')).not.toBeNull();
     });
 
     it('keeps the type step when editing a NUMBER entitlement', () => {

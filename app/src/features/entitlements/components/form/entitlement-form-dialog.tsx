@@ -23,6 +23,7 @@ export function EntitlementFormDialog({
       stacked
       loadingFields={4}
       className="sm:max-w-lg"
+      confirmOnClose={entitlement?.type === 'NUMBER_AI_CREDIT'}
       open={open}
       onOpenChange={onOpenChange}
       title={

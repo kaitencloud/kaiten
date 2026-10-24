@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import {
@@ -65,7 +65,6 @@ export function AddEntitlementDialog({
   selectedEntitlementId,
 }: AddEntitlementDialogProps) {
   const { t } = useTranslation();
-  const [adding, setAdding] = useState(false);
 
   const selectedEntitlement = useMemo(
     () =>
@@ -167,30 +166,24 @@ export function AddEntitlementDialog({
           ) : null}
 
           {showOveragePercent ? (
-            <details className="space-y-2">
-              <summary className="cursor-pointer text-sm font-medium">
-                {t('Pages.Licenses.Entitlements.Dialog.overagePercentLabel')} ·{' '}
-                {newOveragePercent ?? 0}%
-              </summary>
+            <div className="space-y-2">
               <Label htmlFor="overage-percent-input">
                 {t('Pages.Licenses.Entitlements.Dialog.overagePercentLabel')}
               </Label>
               <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
-                {selectedEntitlement?.type !== 'NUMBER_AI_CREDIT' ? (
-                  <Slider
-                    aria-label={t(
-                      'Pages.Licenses.Entitlements.Dialog.overagePercentLabel',
-                    )}
-                    className="min-w-40 flex-1"
-                    value={[newOveragePercent ?? 0]}
-                    min={0}
-                    max={100}
-                    step={1}
-                    onValueChange={([percent]) =>
-                      onNewOveragePercentChange(percent)
-                    }
-                  />
-                ) : null}
+                <Slider
+                  aria-label={t(
+                    'Pages.Licenses.Entitlements.Dialog.overagePercentLabel',
+                  )}
+                  className="min-w-40 flex-1"
+                  value={[newOveragePercent ?? 0]}
+                  min={0}
+                  max={100}
+                  step={1}
+                  onValueChange={([percent]) =>
+                    onNewOveragePercentChange(percent)
+                  }
+                />
                 {/* Wide enough for the three digits of a hundred percent, once
                     the two stepper buttons have taken their share. */}
                 <div className="w-36 shrink-0">
@@ -207,15 +200,6 @@ export function AddEntitlementDialog({
                   />
                 </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {t(
-                  'Pages.Licenses.Entitlements.Dialog.overagePercentDescription',
-                )}
-              </p>
-            </details>
-          ) : null}
-          {showOveragePercent ? (
-            <>
               {highestAcceptedUsage === null ? null : (
                 <p className="text-sm">
                   {t('Pages.Licenses.Entitlements.Dialog.maximumAllowedUsage', {
@@ -223,7 +207,12 @@ export function AddEntitlementDialog({
                   })}
                 </p>
               )}
-            </>
+              <p className="text-xs text-muted-foreground">
+                {t(
+                  'Pages.Licenses.Entitlements.Dialog.overagePercentDescription',
+                )}
+              </p>
+            </div>
           ) : null}
 
           {selectedEntitlement?.type === 'BOOLEAN' ? (
@@ -302,17 +291,10 @@ export function AddEntitlementDialog({
           </Button>
           <Button
             type="button"
-            onClick={async () => {
-              setAdding(true);
-              try {
-                await onAddEntitlement();
-              } catch {
-                // The owning mutation reports failure; keep the draft available.
-              } finally {
-                setAdding(false);
-              }
+            onClick={() => {
+              void onAddEntitlement();
             }}
-            disabled={!selectedEntitlementId || adding}
+            disabled={!selectedEntitlementId}
           >
             {t('Pages.Licenses.Entitlements.Dialog.addButton')}
           </Button>

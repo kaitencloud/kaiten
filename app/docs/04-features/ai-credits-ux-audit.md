@@ -88,10 +88,18 @@ The existing customer-domain test import warning was recorded as a separate task
 
 ## Minimalist forms and explicit OpenRouter refresh
 
-The follow-up puts essential inputs first in model, calculation, entitlement and
-grant forms. Optional pricing dimensions, policies, presentation and overage live
-in disclosures; existing values survive collapse and invalid fields reopen.
-Calculation editing now precedes the saved rule list, rather than appearing below it.
+The follow-up puts essential inputs first in AI model and calculation forms.
+Optional AI pricing dimensions and policies live in disclosures; existing values
+survive collapse and invalid fields reopen. Calculation editing now precedes the
+saved rule list, rather than appearing below it.
+
+The shared entitlement identity form retains its existing visible fields and help
+text, without a new “Presentation” section. Ordinary numeric units and licence
+grant/overage controls retain their pre-AI layout and interactions. Credit-specific
+warning controls, SUM-only configuration and optional credit units are restricted
+to `NUMBER_AI_CREDIT`; dirty-close confirmation is restricted to AI entitlement
+editing. These boundaries undo the earlier generic-form redesign and keep this PR
+focused on the AI control plane.
 
 The shared catalogue supports explicit OpenRouter import and source association.
 Source review offers individually selected prices and optional name/description
