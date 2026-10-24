@@ -74,7 +74,8 @@ func TestMain(m *testing.M) {
 	})
 
 	registry := provider.NewStatic(noop.New())
-	registry.Register(providers.fake, providers.resolve)
+	providers.registered = providers.fake
+	registry.Register(providers.registered, providers.resolve)
 	providerServer = tests.NewTestServer(testDb, tests.TestServerOptions{
 		ConfigOverride: func(cfg *config.Config) {
 			cfg.Billing.Enabled = true
@@ -96,8 +97,11 @@ func TestMain(m *testing.M) {
 // fakeProviders is the payment provider of providerServer: a fresh fake per
 // test, connected or not, finalizing at once or leaving drafts for review.
 type fakeProviders struct {
-	mu           sync.Mutex
-	fake         *fakeprovider.Fake
+	mu   sync.Mutex
+	fake *fakeprovider.Fake
+	// registered is the fake the registry answers capabilities from, which
+	// use does not replace.
+	registered   *fakeprovider.Fake
 	connected    bool
 	autoFinalize bool
 }

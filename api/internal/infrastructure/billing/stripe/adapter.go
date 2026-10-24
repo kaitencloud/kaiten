@@ -81,7 +81,7 @@ func (*Adapter) Capabilities() provider.Capabilities {
 	return provider.Capabilities{
 		PushesInvoices: true, EventFeed: true,
 		ChargeAutomatically: true, PaymentMethodCapture: true, BillingPortal: true,
-		Currencies: Currencies, RefusedCurrencies: nil,
+		Currencies: Currencies, RefusedCurrencies: nil, MaxInvoiceItems: MaxInvoiceItems,
 	}
 }
 

@@ -407,3 +407,51 @@ func TestProviderSwitch(t *testing.T) {
 			fiber.StatusUnprocessableEntity).Code)
 	})
 }
+
+// V31-61, §8.7: an invoice with more items than its provider takes is held
+// PROVIDER_ITEM_LIMIT at composition and never pushed; its hold cannot be
+// released (proposed #68); a switch to NoOp then a recompose in place, which
+// re-resolves the provider (§8.8), issues it.
+func TestProviderItemLimit(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	fake := providers.use(t, false)
+	s, started := pushedSubscription(t)
+	waitStatus(t, started.ActivationInvoice.ID, "PUSHED")
+	for _, slug := range []string{"seats", "support"} {
+		addon := newAddon(t, map[string]any{"name": slug, "slug": slug})
+		fits(t, addon.Slug, s.version.Slug)
+		addonPrice(t, addon.Slug, defaultFlatFee("900", "MONTHLY"))
+		attach(t, s.instance.Slug, addon.Slug, 1)
+	}
+	providers.registered.MaxInvoiceItems(2)
+	t.Cleanup(func() { providers.registered.MaxInvoiceItems(0) })
+	created := fake.Calls(fakeprovider.OpCreateDraft)
+
+	backdate(t, started.ID, 1)
+	report := commonfixture.AssertJSONResponse[closing.ClosePeriodsReport](t, pcall(t, "POST", "/api/billing/close-periods", map[string]any{}), fiber.StatusOK)
+	require.Equal(t, 1, report.Closed)
+	held := pinvoice(t, report.Invoices[0].ID)
+	require.Equal(t, "DRAFT", held.Status)
+	require.Equal(t, "PROVIDER_ITEM_LIMIT", *held.HoldReason)
+	require.NotNil(t, held.HoldDetail.ItemLimit)
+	require.Equal(t, "STRIPE", held.HoldDetail.ItemLimit.ProviderKind)
+	require.EqualValues(t, 2, held.HoldDetail.ItemLimit.Limit)
+	require.EqualValues(t, len(held.Lines), held.HoldDetail.ItemLimit.Items, "one item per line, no discount here")
+	require.Empty(t, held.HoldDetail.Pairs)
+	time.Sleep(200 * time.Millisecond) // a few push passes
+	require.Equal(t, created, fake.Calls(fakeprovider.OpCreateDraft), "never pushed as composed")
+
+	require.Equal(t, "ReleaseInvoiceHold.ProviderItemLimit", problemCodeOn(t, providerServer, fiber.StatusConflict, "POST",
+		"/api/invoices/"+held.ID.String()+"/release-hold", map[string]any{"reason": "push it anyway"}))
+	still := commonfixture.AssertJSONResponse[invoices.Invoice](t,
+		pcall(t, "POST", "/api/invoices/"+held.ID.String()+"/recompose", nil), fiber.StatusOK)
+	require.Equal(t, "PROVIDER_ITEM_LIMIT", *still.HoldReason, "recomposed against the same provider, still held")
+
+	commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t,
+		pcall(t, "PATCH", "/api/instances/"+s.instance.Slug+"/billing", map[string]any{"providerKind": "NOOP"}), fiber.StatusOK)
+	issued := commonfixture.AssertJSONResponse[invoices.Invoice](t,
+		pcall(t, "POST", "/api/invoices/"+held.ID.String()+"/recompose", nil), fiber.StatusOK)
+	require.Nil(t, issued.HoldReason)
+	require.Equal(t, "NOOP", issued.ProviderKind, "the recompose re-resolved the provider")
+	require.Equal(t, "MANUAL", issued.Status)
+}

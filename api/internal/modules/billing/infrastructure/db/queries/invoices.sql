@@ -171,9 +171,13 @@ RETURNING *;
 
 -- name: RewriteInvoice :one
 -- A held draft recomposed in place, or released: its lines and totals, its
--- hold, and -- when it leaves the hold -- its issue, written whole.
+-- hold, and -- when it leaves the hold -- its issue, written whole. A
+-- recompose also takes the subscription's current provider and collection
+-- method (§8.8); NULL keeps the invoice's.
 UPDATE instance_invoice
 SET lines                = sqlc.arg(lines),
+    provider_kind        = coalesce(sqlc.narg(provider_kind)::billing_provider_kind, provider_kind),
+    collection_method    = coalesce(sqlc.narg(collection_method)::collection_method, collection_method),
     service_from         = sqlc.arg(service_from),
     service_to           = sqlc.arg(service_to),
     subtotal_minor       = sqlc.arg(subtotal_minor),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +26,33 @@ type Hold struct {
 	Detail HoldDetail
 }
 
+// HoldProviderItemLimit is the hold of an invoice with more items than its
+// provider takes (§8.7, V31-61).
+const HoldProviderItemLimit = "PROVIDER_ITEM_LIMIT"
+
+// ItemLimitHold holds a composition its provider would refuse: when the
+// provider pushes invoices and caps their items, and the composition has
+// more non-DISCOUNT lines -- one item each, DISCOUNT lines becoming coupons
+// -- than the cap. It is checked after the journal's invariants, so it is
+// the hold only when they pass; nil otherwise.
+func ItemLimitHold(composition rating.Composition, providerKind string, pushes bool, limit int) *Hold {
+	if !pushes || limit <= 0 {
+		return nil
+	}
+	items := 0
+	for _, line := range composition.Lines {
+		if line.Type != rating.LineDiscount {
+			items++
+		}
+	}
+	if items <= limit {
+		return nil
+	}
+	return &Hold{Reason: HoldProviderItemLimit, Detail: HoldDetail{
+		Pairs: []HeldPair{}, ItemLimit: &ProviderLineLimit{ProviderKind: providerKind, Items: int32(min(items, math.MaxInt32)), Limit: int32(min(limit, math.MaxInt32))},
+	}}
+}
+
 // Draft is an invoice as composed, before it is written.
 type Draft struct {
 	Subscription      db.InstanceBilling
@@ -40,6 +68,9 @@ type Draft struct {
 	// Pushes: the subscription's provider pushes invoices, so the invoice
 	// waits in the push queue instead of being issued MANUAL.
 	Pushes bool
+	// MaxItems is the provider's item limit, 0 for none: a composition above
+	// it is held PROVIDER_ITEM_LIMIT when nothing else holds it (V31-61).
+	MaxItems int
 	// PushLeasedUntil composes a pushed invoice already leased, to the request
 	// that is about to push it inline (§12.4 rule 6): the queue leaves it alone
 	// until then, and takes it over after if that request never does.
@@ -78,6 +109,9 @@ func Insert(ctx context.Context, q *db.Queries, d Draft) (db.InstanceInvoice, er
 	}
 
 	sub := d.Subscription
+	if d.Hold == nil {
+		d.Hold = ItemLimitHold(d.Composition, string(sub.ProviderKind), d.Pushes, d.MaxItems)
+	}
 	params := db.InsertInvoiceParams{
 		OrganizationID:     sub.OrganizationID,
 		InstanceBillingID:  sub.ID,
@@ -179,10 +213,16 @@ type Release struct {
 // Rewrite writes a held draft again: with lines recomposed when composition
 // is given, else its own; still held when hold is given, else released and
 // issued.
+//
+// provider is the subscription's current provider a recompose re-resolves
+// (§8.8: provider, collection method and terms are the subscription's
+// current ones, in place too), with terms' collection method; nil keeps the
+// invoice's, as a release issues it as composed.
 func Rewrite(ctx context.Context, q *db.Queries, row db.InstanceInvoice, composition *rating.Composition,
-	hold *Hold, release Release, terms Terms, pushes bool, now time.Time,
+	hold *Hold, release Release, terms Terms, pushes bool, now time.Time, provider *db.BillingProviderKind,
 ) (db.InstanceInvoice, error) {
 	params := db.RewriteInvoiceParams{
+		ProviderKind: nil, CollectionMethod: nil,
 		Lines: row.Lines, ServiceFrom: row.ServiceFrom, ServiceTo: row.ServiceTo,
 		SubtotalMinor: row.SubtotalMinor, DiscountTotalMinor: row.DiscountTotalMinor, TotalMinor: row.TotalMinor,
 		Status: db.InvoiceStatusDRAFT, HoldReason: row.HoldReason, HoldDetail: row.HoldDetail, HeldAt: row.HeldAt,
@@ -216,6 +256,10 @@ func Rewrite(ctx context.Context, q *db.Queries, row db.InstanceInvoice, composi
 		params.Lines, params.ServiceFrom, params.ServiceTo = encoded, Timestamp(from), Timestamp(to)
 		params.SubtotalMinor, params.DiscountTotalMinor, params.TotalMinor = composition.Subtotal, composition.DiscountTotal, composition.Total
 		total = composition.Total
+	}
+	if provider != nil {
+		method := db.CollectionMethod(terms.CollectionMethod)
+		params.ProviderKind, params.CollectionMethod = provider, &method
 	}
 	if hold != nil {
 		reason := db.InvoiceHoldReason(hold.Reason)

@@ -80,6 +80,19 @@ func (d Deps) Queries(ctx context.Context) *db.Queries {
 	return db.New(d.Uof.DBTX(ctx))
 }
 
+// MaxItems is the most items the provider takes on one invoice, 0 for no
+// limit (§8.7, V31-61).
+func (d Deps) MaxItems(kind db.BillingProviderKind) int {
+	if d.Providers == nil {
+		return 0
+	}
+	capabilities, ok := d.Providers.Capabilities(provider.Kind(kind))
+	if !ok {
+		return 0
+	}
+	return capabilities.MaxInvoiceItems
+}
+
 // Pushes reports whether invoices issued through a provider wait in the push
 // queue rather than being issued MANUAL. A provider this deployment does not
 // know is taken to push: its invoices wait in the queue until a deployment

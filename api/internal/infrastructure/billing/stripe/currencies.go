@@ -2,6 +2,10 @@ package stripe
 
 import "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/money"
 
+// MaxInvoiceItems is the most invoice items Stripe takes on one invoice
+// (§8.7, V31-61).
+const MaxInvoiceItems = 250
+
 // presentment is Stripe's presentment currencies for an account outside the
 // United Arab Emirates (docs.stripe.com/currencies; FR and US accounts list
 // the same). The five three-decimal currencies, offered to UAE accounts only,

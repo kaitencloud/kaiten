@@ -32,7 +32,7 @@ func RegisterEndpoint(api huma.API, app Recomposer) {
 		Method:      http.MethodPost,
 		Path:        "/invoices/{invoiceId}/recompose",
 		Summary:     "Recompose an invoice",
-		Description: "Composes an invoice again from the usage journal as it is now, keeping its BASE lines as they were sold. A held DRAFT is rewritten in place (200): issued when its journal is now sound, held again otherwise. A VOID invoice gets a replacement for the same boundary (201), under the subscription's current terms and billing e-mail. Any other invoice must be voided first. Requires billing to be enabled for the organization.",
+		Description: "Composes an invoice again from the usage journal as it is now, keeping its BASE lines as they were sold. A held DRAFT is rewritten in place (200), under the subscription's current provider and terms: issued when its journal is now sound and its provider takes as many items, held again otherwise. A VOID invoice gets a replacement for the same boundary (201), under the subscription's current terms and billing e-mail. Any other invoice must be voided first. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
 		Metadata:    kaitenhuma.AlsoResponds(http.StatusCreated, "The replacement of a VOID invoice, for the same boundary"),
 		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},

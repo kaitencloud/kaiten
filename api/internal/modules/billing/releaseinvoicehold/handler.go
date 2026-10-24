@@ -43,6 +43,11 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, reason strin
 		if row.HoldReason == nil {
 			return kaitenerrors.Conflict(operation+".NotHeld", "the invoice is not held")
 		}
+		if string(*row.HoldReason) == invoices.HoldProviderItemLimit {
+			// Its provider would refuse the push (§8.7, proposed #68).
+			return kaitenerrors.Conflict(operation+".ProviderItemLimit",
+				"the payment provider takes fewer items than this invoice has: switch the subscription to NoOp and recompose it in place, or void it and recompose after that switch")
+		}
 		former, err := invoices.FromRow(row)
 		if err != nil {
 			return err
@@ -56,7 +61,7 @@ func (u *UseCase) Execute(ctx context.Context, invoiceID uuid.UUID, reason strin
 			return err
 		}
 		updated, err := invoices.Rewrite(ctx, q, row, nil, nil, invoices.Release{By: &user.ID, Reason: reason}, terms,
-			u.deps.Pushes(row.ProviderKind), clock.Time.UTC())
+			u.deps.Pushes(row.ProviderKind), clock.Time.UTC(), nil)
 		if err != nil {
 			return err
 		}

@@ -55,6 +55,9 @@ type Capabilities struct {
 	Currencies []string
 	// RefusedCurrencies the provider cannot collect, whatever Currencies says.
 	RefusedCurrencies []string
+	// MaxInvoiceItems is the most items one invoice takes there, one per
+	// non-DISCOUNT line; 0 is no limit (§8.7, V31-61).
+	MaxInvoiceItems int
 }
 
 // AcceptsCurrency reports whether the provider accepts a currency.
