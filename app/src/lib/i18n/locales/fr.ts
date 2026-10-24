@@ -6751,6 +6751,7 @@ export default {
         PRICE: 'Remise',
         ENTITLEMENT_BOOST: 'Bonus de droits',
         FLAG_GRANT: 'Activation de fonctionnalité',
+        COMPOSITE: 'Lot',
       },
       RedemptionStatus: {
         ACTIVE: 'Active',

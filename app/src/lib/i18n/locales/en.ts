@@ -6643,6 +6643,7 @@ export default {
         PRICE: 'Discount',
         ENTITLEMENT_BOOST: 'Boost',
         FLAG_GRANT: 'Feature grant',
+        COMPOSITE: 'Bundle',
       },
       RedemptionStatus: {
         ACTIVE: 'Active',

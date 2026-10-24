@@ -40,7 +40,7 @@ func (u *UseCase) Execute(ctx context.Context, draft catalogue.VoucherDraft) (*c
 		if err != nil {
 			return err
 		}
-		if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, id, draft.Grants, resolved.Entitlements); err != nil {
+		if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, id, draft.VoucherType, draft.Grants, resolved.Entitlements); err != nil {
 			return err
 		}
 		if err := catalogue.WriteFlagGrants(ctx, q, operation, user.OrganizationID, id, draft.VoucherType, draft.FlagGrants, resolved.Flags); err != nil {

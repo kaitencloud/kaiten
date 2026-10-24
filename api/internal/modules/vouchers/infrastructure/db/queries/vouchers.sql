@@ -52,8 +52,10 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: InsertVoucherGrant :exec
 -- value is what a BOOLEAN or CONFIG SET boost sets, raw: true or false, or
 -- the CONFIG document (V32-03 b); NULL on a NUMBER grant.
-INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value, value)
-VALUES (sqlc.arg(organization_id), sqlc.arg(voucher_id), sqlc.arg(entitlement_id), sqlc.arg(modifier_type),
+-- voucher_type is the voucher's, ENTITLEMENT_BOOST or COMPOSITE: part of the
+-- foreign key.
+INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, voucher_type, entitlement_id, modifier_type, modifier_value, value)
+VALUES (sqlc.arg(organization_id), sqlc.arg(voucher_id), sqlc.arg(voucher_type), sqlc.arg(entitlement_id), sqlc.arg(modifier_type),
         CAST(sqlc.narg(modifier_value)::text AS NUMERIC), sqlc.narg(value)::jsonb);
 
 

@@ -95,7 +95,8 @@ RETURNING id;
 -- name: ListRedemptions :many
 SELECT iv.id, iv.voucher_id, v.name AS voucher_name, v.voucher_type, v.code_normalized, i.slug AS instance_slug,
        iv.redeemed_at, iv.effective_starts_at, iv.effective_expires_at, iv.applications_count, iv.status,
-       iv.expired_at, iv.revoked_at, iv.revoked_reason, v.duration, v.duration_in_periods
+       iv.expired_at, iv.revoked_at, iv.revoked_reason, v.duration, v.duration_in_periods,
+       (v.price_discount_type IS NOT NULL)::boolean AS has_price_part
 FROM instance_voucher iv
 JOIN voucher v ON v.id = iv.voucher_id AND v.organization_id = iv.organization_id
 JOIN instance i ON i.id = iv.instance_id AND i.organization_id = iv.organization_id
@@ -132,8 +133,11 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: ListApplicableDiscounts :many
--- What billing reads at a boundary: the instance's PRICE redemptions that
--- may apply to an invoice composed at an instant, oldest first.
+-- What billing reads at a boundary: the instance's redemptions with a PRICE
+-- part that may apply to an invoice composed at an instant, oldest first
+-- (§8.4 rules 1, 3): a PRICE voucher, or a COMPOSITE with the PRICE members.
+-- A COMPOSITE's window is its grants'; it does not bound the PRICE part,
+-- which its applications bound (rule 4, checked by the composer).
 SELECT iv.id AS instance_voucher_id, iv.voucher_id, v.name, v.price_discount_type,
        coalesce(v.price_discount_value::text, '')::text AS price_discount_value, coalesce(v.currency::text, '')::text AS currency, v.price_applies_to,
        v.applicable_license_price_ids::uuid[] AS applicable_license_price_ids,
@@ -144,31 +148,38 @@ JOIN voucher v ON v.id = iv.voucher_id AND v.organization_id = iv.organization_i
 WHERE iv.organization_id = sqlc.arg(organization_id)
   AND iv.instance_id = sqlc.arg(instance_id)
   AND iv.status = 'ACTIVE'
-  AND v.voucher_type = 'PRICE'
+  AND (v.voucher_type = 'PRICE' OR (v.voucher_type = 'COMPOSITE' AND v.price_discount_type IS NOT NULL))
   AND iv.redeemed_at <= sqlc.arg(at)
   AND iv.effective_starts_at <= sqlc.arg(at)
-  AND (iv.effective_expires_at IS NULL OR sqlc.arg(at) < iv.effective_expires_at)
+  AND (v.voucher_type = 'COMPOSITE' OR iv.effective_expires_at IS NULL OR sqlc.arg(at) < iv.effective_expires_at)
 ORDER BY iv.redeemed_at, iv.id;
 
 
 -- name: ApplyDiscount :one
 -- One invoice received a DISCOUNT line from the redemption. Reaching the
--- duration's limit expires it.
+-- duration's limit expires it, unless the grants of a COMPOSITE still run:
+-- it then stays ACTIVE until step (b) finds its window over (§8.4
+-- Consumption).
 UPDATE instance_voucher iv
 SET applications_count = iv.applications_count + 1,
     status             = CASE
                            WHEN sqlc.narg(applications_max)::integer IS NOT NULL
                              AND iv.applications_count + 1 >= sqlc.narg(applications_max)::integer
+                             AND (v.voucher_type <> 'COMPOSITE' OR iv.effective_expires_at <= sqlc.arg(now)::timestamp)
                              THEN 'EXPIRED'::instance_voucher_status
                            ELSE iv.status END,
     expired_at         = CASE
                            WHEN sqlc.narg(applications_max)::integer IS NOT NULL
                              AND iv.applications_count + 1 >= sqlc.narg(applications_max)::integer
+                             AND (v.voucher_type <> 'COMPOSITE' OR iv.effective_expires_at <= sqlc.arg(now)::timestamp)
                              THEN sqlc.arg(now)::timestamp
                            ELSE iv.expired_at END,
     updated_at         = sqlc.arg(now)::timestamp
+FROM voucher v
 WHERE iv.organization_id = sqlc.arg(organization_id)
   AND iv.id = sqlc.arg(id)
+  AND v.id = iv.voucher_id
+  AND v.organization_id = iv.organization_id
 RETURNING iv.status;
 
 
@@ -199,25 +210,37 @@ RETURNING id, name, expires_at;
 
 
 -- name: ListExpiringRedemptions :many
--- ACTIVE redemptions past their effective_expires_at -- boosts whose window
--- ended -- oldest first (§11.5).
+-- ACTIVE redemptions past their effective_expires_at -- boosts and flag
+-- grants whose window ended -- oldest first (§11.5). A COMPOSITE with a PRICE
+-- part also waits for its last application.
 SELECT iv.id, iv.organization_id
 FROM instance_voucher iv
+JOIN voucher v ON v.id = iv.voucher_id AND v.organization_id = iv.organization_id
 WHERE iv.status = 'ACTIVE'
   AND iv.effective_expires_at <= sqlc.arg(now)::timestamp
+  AND NOT (v.voucher_type = 'COMPOSITE' AND v.price_discount_type IS NOT NULL
+           AND (v.duration = 'FOREVER'
+             OR iv.applications_count < CASE WHEN v.duration = 'ONE_TIME' THEN 1 ELSE v.duration_in_periods END))
 ORDER BY iv.effective_expires_at, iv.id
 LIMIT sqlc.arg(page_size);
 
 
 -- name: ExpireRedemption :execrows
-UPDATE instance_voucher
+-- Re-checks what ListExpiringRedemptions found, under the row's update.
+UPDATE instance_voucher iv
 SET status     = 'EXPIRED',
     expired_at = sqlc.arg(now)::timestamp,
     updated_at = sqlc.arg(now)::timestamp
-WHERE organization_id = sqlc.arg(organization_id)
-  AND id = sqlc.arg(id)
-  AND status = 'ACTIVE'
-  AND effective_expires_at <= sqlc.arg(now)::timestamp;
+FROM voucher v
+WHERE iv.organization_id = sqlc.arg(organization_id)
+  AND iv.id = sqlc.arg(id)
+  AND iv.status = 'ACTIVE'
+  AND iv.effective_expires_at <= sqlc.arg(now)::timestamp
+  AND v.id = iv.voucher_id
+  AND v.organization_id = iv.organization_id
+  AND NOT (v.voucher_type = 'COMPOSITE' AND v.price_discount_type IS NOT NULL
+           AND (v.duration = 'FOREVER'
+             OR iv.applications_count < CASE WHEN v.duration = 'ONE_TIME' THEN 1 ELSE v.duration_in_periods END));
 
 
 -- name: GetVoucherSystemActor :one

@@ -166,7 +166,7 @@ func (u *UseCase) pendingCheckout(ctx context.Context, organizationID uuid.UUID,
 		}
 		if !found || discount == nil {
 			return nil, kaitenerrors.UnprocessableEntityWithErrors(operation+".VoucherInvalid", "the voucher cannot be redeemed",
-				&kaitenerrors.ErrorDetail{Message: "not an ACTIVE PRICE voucher", Location: "body.voucherCode", Value: map[string]any{"code": "RedeemVoucher.VoucherInvalid"}})
+				&kaitenerrors.ErrorDetail{Message: "not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part", Location: "body.voucherCode", Value: map[string]any{"code": "RedeemVoucher.VoucherInvalid"}})
 		}
 		id := uuid.New()
 		discount.InstanceVoucherID = id

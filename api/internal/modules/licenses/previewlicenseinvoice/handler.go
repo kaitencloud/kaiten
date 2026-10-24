@@ -218,7 +218,7 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scen
 			return nil, kaitenerrors.NotFound(operation+".VoucherNotFound", "no voucher has this code")
 		}
 		if discount == nil {
-			return nil, kaitenerrors.UnprocessableEntity(operation+".VoucherInvalid", "the voucher is not an ACTIVE PRICE voucher")
+			return nil, kaitenerrors.UnprocessableEntity(operation+".VoucherInvalid", "the voucher is not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part")
 		}
 		if composition, err = rating.ApplyDiscounts(composition, []rating.Discount{*discount}, money.Currency(base.Currency)); err != nil {
 			return nil, err

@@ -6830,7 +6830,7 @@ components:
             - array
             - "null"
         voucherCode:
-          description: A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher).
+          description: A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part).
           type: string
       type: object
     InvoiceSummary:
@@ -12608,6 +12608,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -12701,6 +12702,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -14124,7 +14126,7 @@ components:
           $ref: "#/components/schemas/SessionDiscount"
           description: "PRICE: what it takes off"
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods. COMPOSITE: both, each for its part, which it carries each of."
           enum:
             - ONE_TIME
             - REPEATING
@@ -14149,6 +14151,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - name
@@ -15712,7 +15715,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15789,6 +15792,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -15889,7 +15893,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15972,6 +15976,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -16048,14 +16053,14 @@ components:
           format: date-time
           type: string
         flagGrants:
-          description: Required on a FLAG_GRANT, one per flag, refused otherwise
+          description: Required on a FLAG_GRANT, optional on a COMPOSITE, one per flag, refused otherwise
           items:
             $ref: "#/components/schemas/FlagGrant"
           type:
             - array
             - "null"
         grants:
-          description: Required on an ENTITLEMENT_BOOST, refused otherwise
+          description: Required on an ENTITLEMENT_BOOST, optional on a COMPOSITE, refused otherwise
           items:
             $ref: "#/components/schemas/Grant"
           type:
@@ -16100,6 +16105,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - name
