@@ -62,11 +62,6 @@ export const TurnstileSecretField = withForm({
       clearProblemFieldError(form, 'anonymousCheckout');
     };
 
-    // A secret taken away from a key that still opens the checkout cannot be saved: the
-    // line says so, since no field is left to carry the requirement.
-    const removingWords = anonymousCheckout
-      ? t(`${BASE}.Secret.removingWhileOn`)
-      : t(`${BASE}.Secret.removing`);
 
     if (action === 'set') {
       return (
@@ -113,7 +108,10 @@ export const TurnstileSecretField = withForm({
             className="text-sm text-muted-foreground"
             data-testid="turnstile-secret-status"
           >
-            {action === 'keep' ? t(`${BASE}.Secret.stored`) : removingWords}
+            {action === 'keep'
+              ? t(`${BASE}.Secret.stored`)
+              : // With the checkout still on, the switch says why it cannot be saved.
+                t(`${BASE}.Secret.removing`)}
           </p>
           <div className="flex gap-2">
             {action === 'keep' ? (

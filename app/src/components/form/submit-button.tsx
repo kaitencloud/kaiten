@@ -18,6 +18,12 @@ type SubmitButtonProps = Omit<
    * defaults are complete sets this.
    */
   allowPristine?: boolean;
+  /**
+   * The sentence next to the button while the form is invalid, when "fill in the
+   * required fields" would be wrong: nothing is empty, and a field already says
+   * what to change.
+   */
+  needsInputHint?: string;
 };
 
 type SubmitButtonState = {
@@ -35,6 +41,7 @@ type SubmitControlsProps = Omit<SubmitButtonProps, 'allowPristine'> & {
 const SubmitControls = ({
   disabled: disabledProp,
   label,
+  needsInputHint,
   ref,
   state,
   ...props
@@ -58,7 +65,7 @@ const SubmitControls = ({
           role="status"
           className="self-center text-xs text-muted-foreground"
         >
-          {t('Common.requiredFieldsHint')}
+          {needsInputHint ?? t('Common.requiredFieldsHint')}
         </span>
       ) : null}
       <Button

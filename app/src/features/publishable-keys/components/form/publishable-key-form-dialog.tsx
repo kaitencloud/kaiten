@@ -92,14 +92,27 @@ function PublishableKeyForm({
           <Button onClick={cancel} type="button" variant="outline">
             {t('Common.cancel')}
           </Button>
-          <form.SubmitButton
-            form={formId}
-            label={
-              publishableKey
-                ? t(`${BASE}.Edit.save`)
-                : t(`${BASE}.Create.submit`)
+          <form.Subscribe
+            selector={(state) =>
+              state.values.anonymousCheckout &&
+              state.values.turnstileSecretAction === 'remove'
             }
-          />
+          >
+            {(removingWhileOn) => (
+              <form.SubmitButton
+                form={formId}
+                // Nothing is empty: the switch says what to change.
+                needsInputHint={
+                  removingWhileOn ? t('Common.fixMarkedFieldHint') : undefined
+                }
+                label={
+                  publishableKey
+                    ? t(`${BASE}.Edit.save`)
+                    : t(`${BASE}.Create.submit`)
+                }
+              />
+            )}
+          </form.Subscribe>
         </StackedFormDialogFooter>
         <StackedFormDialogPanel>
           <div className="space-y-6">

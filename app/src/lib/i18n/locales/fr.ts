@@ -3,6 +3,7 @@ export default {
     stepOf: 'Étape {{current}} sur {{total}}',
     viewList: 'Voir la liste',
     requiredFieldsHint: 'Renseignez les champs obligatoires',
+    fixMarkedFieldHint: 'Modifiez ce qui est signalé plus haut pour enregistrer',
     edit: 'Modifier',
     delete: 'Supprimer',
     actions: 'Actions',
@@ -3765,8 +3766,6 @@ export default {
             stored:
               'Un secret est stocké pour cette clé. Il n’est jamais affiché.',
             removing: 'Le secret sera retiré à l’enregistrement.',
-            removingWhileOn:
-              'Le secret sera retiré à l’enregistrement, mais le checkout anonyme en a besoin. Gardez le secret, ou désactivez le checkout anonyme.',
             replace: 'Remplacer',
             remove: 'Retirer',
             undo: 'Garder le secret',
@@ -3784,6 +3783,8 @@ export default {
             turnstileSecretTooLong: 'Ce secret est trop long',
             turnstileSecretRequired:
               'Saisissez le nouveau secret, ou gardez l’actuel',
+            turnstileSecretRemoved:
+              'Le checkout anonyme a besoin d’un secret. Gardez le secret actuel, ou désactivez le checkout anonyme.',
             turnstileRequired:
               'Le checkout anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
             vaultNotConfigured:

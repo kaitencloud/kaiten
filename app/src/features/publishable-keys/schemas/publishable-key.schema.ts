@@ -94,9 +94,14 @@ export const publishableKeyFormSchema = z
       !canOpenAnonymousCheckout(values) &&
       !(replacing && typed === '')
     ) {
+      // A stored secret being removed is said here alone, in its own words: the line
+      // of the secret only says that it will be removed.
       ctx.addIssue({
         code: 'custom',
-        message: `${ERRORS}.turnstileRequired`,
+        message:
+          values.turnstileSecretAction === 'remove'
+            ? `${ERRORS}.turnstileSecretRemoved`
+            : `${ERRORS}.turnstileRequired`,
         path: ['anonymousCheckout'],
       });
     }

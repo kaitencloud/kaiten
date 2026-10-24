@@ -166,7 +166,7 @@ describe('publishableKeyFormSchema, Turnstile', () => {
     expect(messagesOf(stored)).toEqual([]);
     expect(
       messagesOf({ ...stored, turnstileSecretAction: 'remove' }),
-    ).toEqual([`${ERRORS}.turnstileRequired`]);
+    ).toEqual([`${ERRORS}.turnstileSecretRemoved`]);
     expect(
       messagesOf({
         ...stored,

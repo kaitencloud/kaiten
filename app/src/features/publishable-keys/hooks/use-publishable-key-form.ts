@@ -15,7 +15,10 @@ import {
 } from '@/domains/billing';
 import type { FormRecovery } from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
-import { invalidatePublishableKeyQueries } from '../queries';
+import {
+  invalidatePublishableKeyQueries,
+  publishableKeysQueryOptions,
+} from '../queries';
 import {
   initialPublishableKeyFormValues,
   type PublishableKeyFormValues,
@@ -174,6 +177,23 @@ export function usePublishableKeyForm({
             'Pages.Integrations.PublishableKeys.Form.Errors.vaultNotConfigured',
           );
         } else if (TURNSTILE_REFUSALS.has(getProblemCode(error) ?? '')) {
+          // A change that kept the secret is refused when the secret was taken away
+          // elsewhere in the meantime: the key is read again, and the form stops saying
+          // that one is stored. The PATCH reads the secret from the values alone, so the
+          // values the form opened with need no change.
+          if (publishableKey && formApi.state.values.turnstileSecretAction === 'keep') {
+            void invalidatePublishableKeyQueries(queryClient);
+            // A read that fails leaves the form as it was: the refusal is said anyway.
+            const keys = await queryClient
+              .fetchQuery({ ...publishableKeysQueryOptions(true), staleTime: 0 })
+              .catch(() => undefined);
+            const fresh = keys?.items.find(({ id }) => id === publishableKey.id);
+            if (fresh && !fresh.turnstileSecretConfigured) {
+              formApi.setFieldValue('turnstileSecretOnFile', false);
+              formApi.setFieldValue('turnstileSecretAction', 'set');
+              formApi.setFieldValue('turnstileSecret', '');
+            }
+          }
           setProblemFieldError(
             formApi,
             'anonymousCheckout',

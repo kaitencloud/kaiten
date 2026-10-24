@@ -419,15 +419,26 @@ describe('changing a key that opens the anonymous checkout', () => {
 
     await user.click(await screen.findByRole('button', { name: 'Remove' }));
 
+    // Said once, on the switch: the line of the secret only says what happens to it,
+    // and the hint by the button does not ask for a required field nobody left empty.
     expect(await screen.findByTestId('turnstile-secret-status')).toHaveTextContent(
-      'The secret will be removed when you save, but anonymous checkout needs one. Keep the secret, or turn anonymous checkout off.',
+      'The secret will be removed when you save.',
     );
     expect(
       await screen.findByText(
-        'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
+        'Anonymous checkout needs a secret. Keep the current one, or turn anonymous checkout off.',
       ),
     ).toBeVisible();
+    expect(
+      screen.queryByText(
+        'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
+      ),
+    ).toBeNull();
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(
+      await screen.findByText('Change what is marked above to save'),
+    ).toBeVisible();
+    expect(screen.queryByText('Fill in the required fields')).toBeNull();
     // The switch that is on can always be turned off.
     expectTurnable(await anonymousSwitch());
   });
@@ -553,6 +564,43 @@ describe('changing a key that opens the anonymous checkout', () => {
         'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
       ),
     ).toBeVisible();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('stops saying a secret is stored when the API refuses because it was removed elsewhere', async () => {
+    const user = userEvent.setup();
+    server.use(
+      handleUpdatePublishableKey(() =>
+        refusal(422, {
+          code: 'UpdatePublishableKey.TurnstileNotConfigured',
+          detail:
+            'anonymousCheckout needs a Turnstile site key and a Turnstile secret',
+        }),
+      ),
+      // Read again after the refusal: another tab took the secret away.
+      handleListPublishableKeys(() =>
+        HttpResponse.json({
+          hasMore: false,
+          items: [PRICING, { ...CHECKOUT, turnstileSecretConfigured: false }],
+        }),
+      ),
+    );
+    renderScreen(
+      <PublishableKeyFormDialog onClose={onClose} publishableKey={CHECKOUT} />,
+    );
+
+    await type(user, /^Label/, 'checkout page');
+    await user.click(await screen.findByRole('button', { name: 'Save' }));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId('turnstile-secret-status')).toBeNull(),
+    );
+    expect(
+      screen.queryByText('A secret is stored for this key. It is never shown.'),
+    ).toBeNull();
+    expect(
+      await screen.findByLabelText(/Turnstile secret/),
+    ).toHaveValue('');
     expect(onClose).not.toHaveBeenCalled();
   });
 

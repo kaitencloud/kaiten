@@ -369,12 +369,17 @@ test.describe('changing a key that opens the anonymous checkout', () => {
 
     await keys.removeSecret().click();
 
+    // Said once, on the switch; the hint by the button asks for no empty field.
     await expect(keys.secretStatus()).toHaveText(
-      'The secret will be removed when you save, but anonymous checkout needs one. Keep the secret, or turn anonymous checkout off.',
+      'The secret will be removed when you save.',
     );
     await expect(keys.dialog()).toContainText(
-      'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
+      'Anonymous checkout needs a secret. Keep the current one, or turn anonymous checkout off.',
     );
+    await expect(keys.dialog()).toContainText(
+      'Change what is marked above to save',
+    );
+    await expect(keys.dialog()).not.toContainText('Fill in the required fields');
     await expect(keys.saveButton()).toBeDisabled();
 
     await keys.anonymousCheckout().click();
@@ -528,10 +533,10 @@ test.describe('the anonymous checkout of a key, read in French', () => {
     );
     await keys.removeSecret().click();
     await expect(keys.secretStatus()).toHaveText(
-      'Le secret sera retiré à l’enregistrement, mais le checkout anonyme en a besoin. Gardez le secret, ou désactivez le checkout anonyme.',
+      'Le secret sera retiré à l’enregistrement.',
     );
     await expect(keys.dialog()).toContainText(
-      'Le checkout anonyme nécessite une clé de site et un secret. Renseignez les deux, ou désactivez-le.',
+      'Le checkout anonyme a besoin d’un secret. Gardez le secret actuel, ou désactivez le checkout anonyme.',
     );
   });
 

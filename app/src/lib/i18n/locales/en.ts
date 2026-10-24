@@ -3,6 +3,7 @@ export default {
     stepOf: 'Step {{current}} of {{total}}',
     viewList: 'View the list',
     requiredFieldsHint: 'Fill in the required fields',
+    fixMarkedFieldHint: 'Change what is marked above to save',
     edit: 'Edit',
     delete: 'Delete',
     actions: 'Actions',
@@ -3712,8 +3713,6 @@ export default {
           Secret: {
             stored: 'A secret is stored for this key. It is never shown.',
             removing: 'The secret will be removed when you save.',
-            removingWhileOn:
-              'The secret will be removed when you save, but anonymous checkout needs one. Keep the secret, or turn anonymous checkout off.',
             replace: 'Replace',
             remove: 'Remove',
             undo: 'Keep the secret',
@@ -3731,6 +3730,8 @@ export default {
             turnstileSecretTooLong: 'That secret is too long',
             turnstileSecretRequired:
               'Enter the new secret, or keep the current one',
+            turnstileSecretRemoved:
+              'Anonymous checkout needs a secret. Keep the current one, or turn anonymous checkout off.',
             turnstileRequired:
               'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
             vaultNotConfigured:
