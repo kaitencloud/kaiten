@@ -127,6 +127,8 @@ vi.mock('@/functionals/step-stack', () => ({
     goToStep: (...args: unknown[]) => goToStepSpy(...args),
     nextStep: vi.fn(),
   }),
+  useStepStackContext: () => ({ activeIndex: 0 }),
+  useStepStackStepState: () => ({ isActive: true }),
 }));
 
 vi.mock('./instance-form-sections', () => ({

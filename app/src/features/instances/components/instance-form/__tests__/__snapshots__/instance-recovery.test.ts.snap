@@ -1,0 +1,82 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of the instance creation > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "customerId": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "deploymentZoneId": {
+      "anyOf": [
+        {
+          "type": "string",
+        },
+        {
+          "const": "",
+          "type": "string",
+        },
+      ],
+    },
+    "description": {
+      "type": "string",
+    },
+    "licenseDate": {
+      "properties": {
+        "from": {},
+        "to": {},
+      },
+      "required": [
+        "from",
+        "to",
+      ],
+      "type": "object",
+    },
+    "licenseSlug": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "lifecycleStage": {
+      "type": "string",
+    },
+    "metadata": {
+      "additionalProperties": {},
+      "propertyNames": {
+        "type": "string",
+      },
+      "type": "object",
+    },
+    "name": {
+      "minLength": 3,
+      "type": "string",
+    },
+    "slug": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+          "type": "string",
+        },
+        {
+          "const": "",
+          "type": "string",
+        },
+      ],
+    },
+  },
+  "required": [
+    "name",
+    "description",
+    "customerId",
+    "licenseSlug",
+    "licenseDate",
+    "metadata",
+    "slug",
+    "deploymentZoneId",
+    "lifecycleStage",
+  ],
+  "type": "object",
+}
+`;

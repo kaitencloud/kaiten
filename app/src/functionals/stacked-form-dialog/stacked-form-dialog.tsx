@@ -92,6 +92,12 @@ export interface StackedFormDialogProps {
    * unsent input puts it on its "Resume" button. The first field by default.
    */
   initialFocus?: ComponentProps<typeof DialogContent>['initialFocus'];
+  /**
+   * Called when the person confirms that the changes are to be discarded: a creation
+   * form that keeps its unsent input on the device drops it then, whereas a dialog left
+   * by a navigation keeps it.
+   */
+  onDiscard?: () => void;
 }
 
 export interface StackedFormDialogPanelProps {
@@ -215,6 +221,7 @@ export function StackedFormDialog({
   title,
   finalFocus,
   initialFocus,
+  onDiscard,
 }: StackedFormDialogProps) {
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   // Reported by the form inside (StackedFormDialogDirtyState). Unknown means
@@ -347,7 +354,10 @@ export function StackedFormDialog({
       <DiscardChangesDialog
         open={confirmOnClose && confirmCloseOpen}
         onOpenChange={setConfirmCloseOpen}
-        onConfirm={() => onOpenChange(false)}
+        onConfirm={() => {
+          onDiscard?.();
+          onOpenChange(false);
+        }}
       />
     </StackedFormDialogContext.Provider>
   );

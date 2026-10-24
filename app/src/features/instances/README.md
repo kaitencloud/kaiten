@@ -134,6 +134,8 @@ Invalidation goes through `@/domains/customer-management` (`invalidateInstancesL
 
 On the first two steps, Next stays disabled until the step is valid. Instance metadata is tolerant: the API accepts keys that no active field declares and keeps the values of archived fields itself, but the PUT replaces the metadata as a whole. The metadata step therefore folds the undeclared keys back into the form value on every change, so that saving never drops them. A failed save shows a toast with the API message. After a save, a toast reads "Instance created successfully" or "Instance updated successfully".
 
+**An unsent creation is offered back.** What a creation typed and did not send is kept on the device (`instanceRecovery`, `functionals/form-recovery`) and offered on the next visit with Resume and Start over, on the step it was left on; a dialog opened for a customer offers only what was begun for that customer (the context holds its id, never its name). A metadata value stays off the device unless today's descriptor of its field says it is no secret (neither `writeOnly` nor `password`), so an undeclared key, or every key while the descriptors are unread, is asked again. The creation goes through the recovery, with the lifecycle stage as its follow-up; confirming that the changes are to be discarded drops the input, leaving by a link keeps it. The edit keeps nothing.
+
 ### Detail
 
 - **Header.** The instance name, editable in place (at least 3 characters); the status badge, which opens a list of the four statuses and applies the pick at once, with a toast that offers to put the previous status back; and the customer and license names. The actions are Edit (`?mode=configure`) and Delete.

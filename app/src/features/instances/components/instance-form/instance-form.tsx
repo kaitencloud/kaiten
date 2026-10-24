@@ -11,6 +11,7 @@ import {
   allLicensesOptions,
 } from '@/lib/api/all-pages-query-options';
 import type { MetadataFieldDescriptor } from '@/functionals/metadata-fields';
+import type { FormRecovery } from '@/functionals/form-recovery';
 import { StackedFormDialogDirtyState } from '@/functionals/stacked-form-dialog';
 import { StepStack, type StepStackOrientation } from '@/functionals/step-stack';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
@@ -32,6 +33,10 @@ import {
   type InstanceFormValues,
 } from '../../utils/instance-form.shared';
 import type { InstanceFormStepsHandle } from './instance-form-frozen-notice';
+import {
+  InstanceFormRecovery,
+  InstanceRecoveryProvider,
+} from './instance-form-recovery';
 import { InstanceFormSteps } from './instance-form-steps';
 import { useInstanceFormMutations } from './use-instance-form-mutations';
 
@@ -42,6 +47,11 @@ type InstanceFormProps = {
   instance?: Instance;
   lockedCustomer?: LockedCustomer;
   onSuccess?: (instance: Instance) => void;
+  /**
+   * The recovery of a creation, opened by the dialog outside this form: the form starts
+   * from its values and on its step, and the creation is sent through it.
+   */
+  recovery?: FormRecovery<InstanceFormValues>;
   stackOrientation?: StepStackOrientation;
 };
 
@@ -51,7 +61,7 @@ type InstanceFormContentProps = InstanceFormProps & {
   licenses: License[];
 };
 
-const getDefaultValues = (
+export const getInstanceFormDefaults = (
   instance?: Instance,
   lockedCustomer?: LockedCustomer,
 ) => {
@@ -74,15 +84,18 @@ const InstanceFormContent = ({
   deploymentZones,
   licenses,
   onSuccess,
+  recovery: givenRecovery,
   stackOrientation = 'top',
 }: InstanceFormContentProps) => {
+  // The edit keeps nothing: only a creation hands its recovery to the form.
+  const recovery = instance ? undefined : givenRecovery;
   const { t } = useTranslation();
   const router = useRouter();
   const formId = useId();
 
   // Soft-fetch, as on the instances table: a missing or 403'd response reads as
   // "no schema declared", and the form simply has one step fewer.
-  const { data: metadataFieldsData } = useQuery(
+  const { data: metadataFieldsData, isSuccess: metadataFieldsRead } = useQuery(
     metadataFieldsActiveQueryOptions('INSTANCE'),
   );
   const metadataFields = useMemo<MetadataFieldDescriptor[]>(
@@ -100,7 +113,9 @@ const InstanceFormContent = ({
   // the API holds it.
   const [openedInstance] = useState(instance);
   const [openedValues] = useState(() =>
-    getDefaultValues(instance, lockedCustomer),
+    instance || !recovery
+      ? getInstanceFormDefaults(instance, lockedCustomer)
+      : recovery.pristine,
   );
 
   const form = useAppForm({
@@ -146,15 +161,27 @@ const InstanceFormContent = ({
             });
           }
         } else {
-          savedInstance = await createMutation.mutateAsync({
-            body: instanceFormValuesToInstanceInput(value, licenses ?? []),
-          });
+          // The body is built before the request, outside `send`: an error while
+          // building it is not an answer that never came. The stage, when there is
+          // one, is the follow-up the recovery waits for.
+          const body = instanceFormValuesToInstanceInput(value, licenses ?? []);
+          const create = () => createMutation.mutateAsync({ body });
+          savedInstance = await (recovery
+            ? recovery.send(create, {
+                created: (created) => ({
+                  id: created.slug ?? created.id ?? '',
+                  label: created.slug ?? '',
+                }),
+                followUp: Boolean(nextLifecycleStage),
+              })
+            : create());
 
           if (nextLifecycleStage && savedInstance?.slug) {
             await lifecycleMutation.mutateAsync({
               path: { instanceSlug: savedInstance.slug },
               body: instanceLifecycleStageToPatchBody(nextLifecycleStage),
             });
+            recovery?.complete();
           }
         }
 
@@ -203,18 +230,34 @@ const InstanceFormContent = ({
             <StackedFormDialogDirtyState dirty={!isDefaultValue} />
           )}
         </form.Subscribe>
-        <StepStack embedded orientation={stackOrientation}>
-          <InstanceFormSteps
-            customers={customers}
-            deploymentZones={deploymentZones}
-            form={form}
-            formId={formId}
-            instance={instance}
-            licenses={licenses}
-            lockedCustomer={lockedCustomer}
-            metadataFields={metadataFields}
-            stepsRef={stepsRef}
-          />
+        <StepStack
+          defaultIndex={Math.min(
+            recovery?.restored?.stepIndex ?? 0,
+            metadataFields.length > 0 ? 3 : 2,
+          )}
+          embedded
+          orientation={stackOrientation}
+        >
+          {recovery ? (
+            <InstanceFormRecovery
+              form={form}
+              metadataFields={metadataFieldsRead ? metadataFields : undefined}
+              recovery={recovery}
+            />
+          ) : null}
+          <InstanceRecoveryProvider value={recovery ?? null}>
+            <InstanceFormSteps
+              customers={customers}
+              deploymentZones={deploymentZones}
+              form={form}
+              formId={formId}
+              instance={instance}
+              licenses={licenses}
+              lockedCustomer={lockedCustomer}
+              metadataFields={metadataFields}
+              stepsRef={stepsRef}
+            />
+          </InstanceRecoveryProvider>
         </StepStack>
       </form.AppForm>
     </form>

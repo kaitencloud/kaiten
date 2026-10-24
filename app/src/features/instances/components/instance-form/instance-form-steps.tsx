@@ -19,6 +19,7 @@ import {
   InstanceMetadataStepFooter,
 } from './instance-form-footers';
 import { InstanceDeploymentFields } from './instance-form-deployment-fields';
+import { InstanceRecoveryNotices } from './instance-form-recovery';
 import { InstanceMetadataFields } from './instance-form-metadata-fields';
 import {
   InstanceInformationFields,
@@ -72,6 +73,7 @@ export const InstanceFormSteps = ({
         footer={<InstanceDetailsStepFooter form={form} withSlug={!instance} />}
       >
         <div className="space-y-6">
+          <InstanceRecoveryNotices />
           <StepHeading>
             {t(
               'Pages.Customers.Instances.Mutation.Form.Steps.instanceInformations',
@@ -96,6 +98,7 @@ export const InstanceFormSteps = ({
         footer={<InstanceLicenseStepFooter form={form} />}
       >
         <div className="space-y-6">
+          <InstanceRecoveryNotices />
           <StepHeading>
             {t('Pages.Customers.Instances.Mutation.Form.Steps.chooseLicense')}
           </StepHeading>
@@ -123,6 +126,7 @@ export const InstanceFormSteps = ({
         }
       >
         <div className="space-y-6">
+          <InstanceRecoveryNotices />
           <StepHeading>
             {t('Pages.Customers.Instances.Mutation.Form.Steps.deployment')}
           </StepHeading>
@@ -151,6 +155,7 @@ export const InstanceFormSteps = ({
           }
         >
           <div className="space-y-6">
+            <InstanceRecoveryNotices />
             <StepHeading>
               {t('Pages.Customers.Instances.Mutation.Form.Steps.metadata')}
             </StepHeading>
