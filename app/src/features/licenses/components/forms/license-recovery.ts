@@ -15,6 +15,9 @@ const draftEntitlementSchema = z.object({
   threshold: z.number().nullable(),
 }) satisfies z.ZodType<EditableLicenseEntitlement>;
 
+/** The grant rows of a new license or version, as `extra` is read back. */
+export const draftEntitlementsSchema = z.array(draftEntitlementSchema);
+
 const FORM = 'Pages.Licenses.Mutation.Form';
 
 /**
@@ -34,7 +37,7 @@ export const licenseRecovery = defineFormRecovery<
   version: 1,
   omit: [],
   schema: licenseFormSchema,
-  extraSchema: z.array(draftEntitlementSchema),
+  extraSchema: draftEntitlementsSchema,
   fieldLabels: {
     createAsDraft: { key: `${FORM}.Labels.createAsDraft` },
     description: { key: `${FORM}.Labels.description` },
@@ -54,6 +57,7 @@ export function keepGrantableRows(
   entitlementIds: ReadonlySet<string>,
 ): EditableLicenseEntitlement[] {
   return (rows ?? []).filter(
-    (row) => row.entitlementId !== null && entitlementIds.has(row.entitlementId),
+    (row) =>
+      row.entitlementId !== null && entitlementIds.has(row.entitlementId),
   );
 }

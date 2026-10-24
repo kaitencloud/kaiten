@@ -3,7 +3,8 @@ export default {
     stepOf: 'Étape {{current}} sur {{total}}',
     viewList: 'Voir la liste',
     requiredFieldsHint: 'Renseignez les champs obligatoires',
-    fixMarkedFieldHint: 'Modifiez ce qui est signalé plus haut pour enregistrer',
+    fixMarkedFieldHint:
+      'Modifiez ce qui est signalé plus haut pour enregistrer',
     edit: 'Modifier',
     delete: 'Supprimer',
     actions: 'Actions',
@@ -2259,6 +2260,9 @@ export default {
             versionName: 'Nom de version',
             baseVersion: 'Version de base (existante)',
             copyPrices: 'Copier les prix de la version de base',
+          },
+          Recovery: {
+            baseSource: 'La version de base',
           },
           Descriptions: {
             copyPrices:
@@ -6560,7 +6564,8 @@ export default {
         Reasons: {
           trial: 'Indisponible pendant un essai',
           cancellationScheduled: 'Réactivez d’abord l’abonnement',
-          incomplete: 'Indisponible tant que le premier paiement n’est pas fait',
+          incomplete:
+            'Indisponible tant que le premier paiement n’est pas fait',
         },
       },
       InvoiceKind: {

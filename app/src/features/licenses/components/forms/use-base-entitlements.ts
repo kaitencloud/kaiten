@@ -72,17 +72,19 @@ export function getReadBaseEntitlements(
 }
 
 // Marks the base as initialized, and asks for its grants unless the draft started
-// with them (`startedWithBase`).
+// with them (`startedWithBase`); `onBaseLoaded` once they are on the draft.
 export function useInitializeBaseEntitlements({
   hasInitializedBaseEntitlements,
   initialBaseLicenseSlug,
   initializeBaseEntitlements,
+  onBaseLoaded,
   startedWithBase,
   syncDraftEntitlementsFromBase,
 }: {
   hasInitializedBaseEntitlements: boolean;
   initialBaseLicenseSlug: string;
   initializeBaseEntitlements: (baseLicenseSlug: string) => void;
+  onBaseLoaded?: () => void;
   startedWithBase: boolean;
   syncDraftEntitlementsFromBase: (baseLicenseSlug: string) => Promise<void>;
 }) {
@@ -93,12 +95,15 @@ export function useInitializeBaseEntitlements({
 
     initializeBaseEntitlements(initialBaseLicenseSlug);
     if (!startedWithBase) {
-      void syncDraftEntitlementsFromBase(initialBaseLicenseSlug);
+      void syncDraftEntitlementsFromBase(initialBaseLicenseSlug).then(
+        onBaseLoaded,
+      );
     }
   }, [
     hasInitializedBaseEntitlements,
     initialBaseLicenseSlug,
     initializeBaseEntitlements,
+    onBaseLoaded,
     startedWithBase,
     syncDraftEntitlementsFromBase,
   ]);

@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query';
-import { Link, useRouteContext, useRouter } from '@tanstack/react-router';
+import { useRouteContext, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
@@ -36,6 +36,7 @@ import {
   DraftEntitlementsSection,
   LicenseMainSection,
 } from './license-form-sections';
+import { LicenseListLink } from './license-list-link';
 import { keepGrantableRows, licenseRecovery } from './license-recovery';
 
 export { licenseFormValuesToLicenseInput } from './license-form.utils';
@@ -83,21 +84,6 @@ export const LicenseForm = (props: LicenseFormProps) => {
     </>
   );
 };
-
-function LicenseListLink() {
-  const { t } = useTranslation();
-
-  return (
-    <Button
-      nativeButton={false}
-      render={<Link to="/catalog/licenses" />}
-      size="sm"
-      variant="outline"
-    >
-      {t('Common.viewList')}
-    </Button>
-  );
-}
 
 const LicenseFormContent = ({
   license,

@@ -16,7 +16,11 @@ import {
   entitlementsQueryOptions,
   licenseEntitlementsQueryOptions,
 } from '../../queries';
-import { useLicenseVersionForm } from '../forms/use-license-version-form';
+import {
+  type LicenseVersionRecovery,
+  useLicenseVersionForm,
+} from '../forms/use-license-version-form';
+import { useLicenseVersionFormOptions } from '../forms/use-license-version-form-options';
 
 const queryClient = vi.hoisted(() => ({ current: undefined as unknown }));
 
@@ -24,6 +28,42 @@ vi.mock('@tanstack/react-router', () => ({
   useRouteContext: () => ({ queryClient: queryClient.current }),
   useRouter: () => ({ navigate: vi.fn() }),
 }));
+
+// The recovery is a stub that holds what a resume restores: what the recovery does
+// is tested with the functional, and on the page by the e2e.
+vi.mock('@/functionals/form-recovery', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/functionals/form-recovery')>()),
+  useFormRecoveryForm: () => ({ focusRef: () => {} }),
+}));
+
+function useVersionForm(
+  availableLicenses: License[],
+  restored: Partial<LicenseVersionRecovery['restored']> | null = null,
+) {
+  const formOptions = useLicenseVersionFormOptions({
+    availableFamilies: families,
+    availableLicenses,
+    selectedLicenseSlug: 'business',
+  });
+  const recovery = {
+    discard: () => {},
+    pristine: formOptions.initialValues,
+    restored: restored && {
+      furthestIndex: 0,
+      stepIndex: 0,
+      values: formOptions.initialValues,
+      ...restored,
+    },
+    send: <T,>(request: () => Promise<T>) => request(),
+  } as unknown as LicenseVersionRecovery;
+
+  return useLicenseVersionForm({
+    availableLicenses,
+    formOptions,
+    recovery,
+    selectedLicenseSlug: 'business',
+  });
+}
 
 const seats = buildEntitlement({ name: 'Seats', slug: 'seats' });
 const business = buildLicense({
@@ -58,16 +98,15 @@ function setup() {
   );
   const render = () =>
     renderHook(
-      () =>
-        useLicenseVersionForm({
-          availableFamilies: families,
-          availableLicenses: [business] as License[],
-          selectedLicenseSlug: 'business',
-        }),
+      () => useVersionForm([business] as License[]),
       { wrapper },
     );
+  const renderResumed = (restored: Parameters<typeof useVersionForm>[1]) =>
+    renderHook(() => useVersionForm([business] as License[], restored), {
+      wrapper,
+    });
 
-  return { client, render };
+  return { client, render, renderResumed };
 }
 
 beforeEach(() => {
@@ -115,5 +154,40 @@ describe('useLicenseVersionForm', () => {
         expect.objectContaining({ entitlementName: 'Seats', threshold: 25 }),
       ]),
     );
+  });
+
+  // A resume starts from the grants it kept, not from the base: asking the base again
+  // would replace them. A grant whose entitlement was deleted since is dropped, as it
+  // would leave the version a draft.
+  it('starts a resumed draft with the grants it kept, without asking the base again', async () => {
+    const { renderResumed } = setup();
+    let asked = 0;
+    server.use(
+      handleGetLicenseEntitlements(() => {
+        asked += 1;
+
+        return HttpResponse.json(pageOf(grants));
+      }),
+    );
+    const kept = {
+      enabled: null,
+      entitlementName: 'Seats',
+      entitlementType: 'NUMBER' as const,
+      limitCapExceededOveragePercent: 0,
+      threshold: 40,
+    };
+
+    const { result } = renderResumed({
+      extra: [
+        { ...kept, entitlementId: seats.id },
+        { ...kept, entitlementId: 'deleted-since', entitlementName: 'Gone' },
+      ],
+    });
+
+    expect(result.current.draftEntitlements).toEqual([
+      expect.objectContaining({ entitlementName: 'Seats', threshold: 40 }),
+    ]);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(asked).toBe(0);
   });
 });

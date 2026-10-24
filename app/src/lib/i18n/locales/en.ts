@@ -2232,6 +2232,9 @@ export default {
             baseVersion: 'Base version (existing)',
             copyPrices: 'Copy the prices of the base version',
           },
+          Recovery: {
+            baseSource: 'The base version',
+          },
           Descriptions: {
             copyPrices:
               'Each active price of the base version is added to the new one, in the same order, once its entitlements are. Subscriptions stay on their version until each one is scheduled onto the new one.',

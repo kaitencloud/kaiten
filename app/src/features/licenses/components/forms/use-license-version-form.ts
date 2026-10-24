@@ -1,16 +1,21 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
-import type { Entitlement, License, LicenseFamilyView } from '@/api-client';
+import type { Entitlement, License } from '@/api-client';
+import {
+  type FormRecovery,
+  useFormRecoveryForm,
+} from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
 import { useCreateLicenseVersion } from '../../hooks/use-create-license-version';
 import { useLicenseEntitlementsDraft } from '../../hooks/use-license-entitlements-draft';
 import { useLicenseVersionFormStore } from '../../hooks/use-license-version-form-store';
 import { entitlementsQueryOptions } from '../../queries';
 import { getCopyFailure } from '../../utils/license-price-copy.utils';
+import type { EditableLicenseEntitlement } from '../../utils';
 import { getCreatedVersionDestination } from '../../utils/license-version-destination.utils';
 import {
   type LicenseVersionFormValues,
@@ -22,16 +27,22 @@ import {
   useInitializeBaseEntitlements,
   useSyncDraftEntitlementsFromBase,
 } from './use-base-entitlements';
-import { useLicenseVersionFormOptions } from './use-license-version-form-options';
+import { keepGrantableRows } from './license-recovery';
+import type { useLicenseVersionFormOptions } from './use-license-version-form-options';
+
+export type LicenseVersionRecovery = FormRecovery<
+  LicenseVersionFormValues,
+  EditableLicenseEntitlement[]
+>;
 
 type UseLicenseVersionFormOptions = {
-  availableFamilies: LicenseFamilyView[];
   availableLicenses: License[];
-  baseLicense?: License;
   onCancel?: () => void;
   onSuccess?: () => void;
   selectedLicenseSlug?: string;
-  startAsDraft?: boolean;
+  /** What the form offers, computed once by the component that opens the recovery. */
+  formOptions: ReturnType<typeof useLicenseVersionFormOptions>;
+  recovery: LicenseVersionRecovery;
 };
 
 function getSelectedLicenseVersionsWithSlug(
@@ -53,13 +64,19 @@ function getInheritedType(
   )?.type;
 }
 
+// Cancelling is a deliberate abandon, unlike leaving by a link: the input is
+// discarded, and a toast offers to bring it back on the page it was typed on.
 function handleLicenseVersionFormCancel({
   onCancel,
+  recovery,
   router,
 }: {
   onCancel?: () => void;
+  recovery: LicenseVersionRecovery;
   router: ReturnType<typeof useRouter>;
 }) {
+  const { href } = router.state.location;
+  recovery.discard({ undo: () => void router.navigate({ href }) });
   if (onCancel) {
     onCancel();
     return;
@@ -72,6 +89,7 @@ type SubmitLicenseVersionOptions = Pick<
   UseLicenseVersionFormOptions,
   'availableLicenses' | 'onSuccess'
 > & {
+  recovery: LicenseVersionRecovery;
   draftEntitlements: ReturnType<
     typeof useLicenseEntitlementsDraft
   >['draftEntitlements'];
@@ -85,6 +103,7 @@ function useSubmitLicenseVersion({
   draftEntitlements,
   entitlements,
   onSuccess,
+  recovery,
 }: SubmitLicenseVersionOptions) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -102,12 +121,25 @@ function useSubmitLicenseVersion({
         );
       }
 
-      const { error, hasPrices, license } = await createVersion({
-        baseLicense,
-        body: licenseVersionFormValuesToLicenseInput(value, baseLicense),
-        copyPrices: value.copyPrices,
-        draftEntitlements,
-      });
+      // The body is built before the request, outside `send`. A version created and
+      // left a draft by a failed grant, price or publish is an accepted send: its own
+      // page is where the vendor finishes it, so the input is not offered again.
+      const body = licenseVersionFormValuesToLicenseInput(value, baseLicense);
+      const { error, hasPrices, license } = await recovery.send(
+        () =>
+          createVersion({
+            baseLicense,
+            body,
+            copyPrices: value.copyPrices,
+            draftEntitlements,
+          }),
+        {
+          created: (created) => ({
+            id: created.license.slug ?? created.license.id ?? '',
+            label: created.license.name,
+          }),
+        },
+      );
 
       // The version exists but stayed a draft: a grant, a price or the
       // publish failed. A copy of prices that stopped says why with the
@@ -144,36 +176,39 @@ function useSubmitLicenseVersion({
 }
 
 export function useLicenseVersionForm({
-  availableFamilies,
   availableLicenses,
-  baseLicense,
+  formOptions,
   onCancel,
   onSuccess,
+  recovery,
   selectedLicenseSlug,
-  startAsDraft,
 }: UseLicenseVersionFormOptions) {
   const { t } = useTranslation();
   const router = useRouter();
   const { queryClient } = useRouteContext({ from: '__root__' });
   const { data: entitlementsData } = useSuspenseQuery(entitlementsQueryOptions);
   const entitlements = entitlementsData?.items ?? [];
-  const { familyOptions, initialValues, licensesByFamily } =
-    useLicenseVersionFormOptions({
-      availableFamilies,
-      availableLicenses,
-      baseLicense,
-      selectedLicenseSlug,
-      startAsDraft,
-    });
+  const { familyOptions, initialValues, licensesByFamily } = formOptions;
+  // A resume starts from the base the input was typed on.
+  const startingBaseSlug =
+    recovery.restored?.values.baseLicenseSlug ?? initialValues.baseLicenseSlug;
   // Decided once, when the form opens: the draft is a buffer the person edits, not a
-  // view of the cache.
+  // view of the cache. Resumed rows are taken as they were kept, but for a grant whose
+  // entitlement was deleted since, which would leave the version a draft.
   const [startingRows] = useState(() =>
-    getReadBaseEntitlements(
-      queryClient,
-      initialValues.baseLicenseSlug,
-      entitlements,
-    ),
+    recovery.restored?.extra === undefined
+      ? getReadBaseEntitlements(queryClient, startingBaseSlug, entitlements)
+      : keepGrantableRows(
+          recovery.restored.extra,
+          new Set(entitlements.map((entitlement) => entitlement.id)),
+        ),
   );
+  // The rows of the base are on the draft: what the form set up itself from then on
+  // is not taken for an input.
+  const [baseRowsLoaded, setBaseRowsLoaded] = useState(
+    startingRows !== undefined || !startingBaseSlug,
+  );
+  const markBaseRowsLoaded = useCallback(() => setBaseRowsLoaded(true), []);
   const {
     addDraftEntitlement,
     draftEntitlements,
@@ -188,7 +223,7 @@ export function useLicenseVersionForm({
     selectedBaseLicenseSlug,
     initializeBaseEntitlements,
     setSelectedBaseLicenseSlug,
-  } = useLicenseVersionFormStore(initialValues.baseLicenseSlug);
+  } = useLicenseVersionFormStore(startingBaseSlug);
 
   const syncDraftEntitlementsFromBase = useSyncDraftEntitlementsFromBase({
     entitlements,
@@ -198,8 +233,9 @@ export function useLicenseVersionForm({
   });
   useInitializeBaseEntitlements({
     hasInitializedBaseEntitlements,
-    initialBaseLicenseSlug: initialValues.baseLicenseSlug,
+    initialBaseLicenseSlug: startingBaseSlug,
     initializeBaseEntitlements,
+    onBaseLoaded: markBaseRowsLoaded,
     startedWithBase: startingRows !== undefined,
     syncDraftEntitlementsFromBase,
   });
@@ -209,13 +245,32 @@ export function useLicenseVersionForm({
     draftEntitlements,
     entitlements,
     onSuccess,
+    recovery,
   });
   const form = useAppForm({
-    defaultValues: initialValues,
+    defaultValues: recovery.pristine,
     validators: {
       onChange: licenseVersionFormSchema,
     },
     onSubmit: ({ value }) => submit(value),
+  });
+
+  const baseLicense = useMemo(
+    () =>
+      availableLicenses.find(
+        (license) => license.slug === selectedBaseLicenseSlug,
+      ) ?? null,
+    [availableLicenses, selectedBaseLicenseSlug],
+  );
+  // A resume restores the rows it kept and skips the setup from the base, so it
+  // is ready at once. Rows kept from a base that changed since are dropped by the
+  // adapter: the base's own are loaded again.
+  const { focusRef } = useFormRecoveryForm(recovery, form, {
+    extra: () => draftEntitlements,
+    onExtraDiscarded: () =>
+      void syncDraftEntitlementsFromBase(selectedBaseLicenseSlug),
+    ready: recovery.restored !== null || baseRowsLoaded,
+    references: { baseLicense },
   });
 
   const selectedFamilyId =
@@ -242,10 +297,13 @@ export function useLicenseVersionForm({
     draftEntitlements,
     entitlements,
     familyOptions,
+    focusRef,
     form,
-    handleCancel: () => handleLicenseVersionFormCancel({ onCancel, router }),
+    handleCancel: () =>
+      handleLicenseVersionFormCancel({ onCancel, recovery, router }),
     inheritedType,
     licensesByFamily,
+    recovery,
     removeDraftEntitlement,
     resetDraftEntitlements,
     selectedLicenseSlug,
