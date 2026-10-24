@@ -50,9 +50,11 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: InsertVoucherGrant :exec
-INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value)
+-- value is what a BOOLEAN or CONFIG SET boost sets, raw: true or false, or
+-- the CONFIG document (V32-03 b); NULL on a NUMBER grant.
+INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value, value)
 VALUES (sqlc.arg(organization_id), sqlc.arg(voucher_id), sqlc.arg(entitlement_id), sqlc.arg(modifier_type),
-        CAST(sqlc.narg(modifier_value)::text AS NUMERIC));
+        CAST(sqlc.narg(modifier_value)::text AS NUMERIC), sqlc.narg(value)::jsonb);
 
 
 -- name: DeleteVoucherGrants :exec
@@ -99,7 +101,7 @@ FOR UPDATE;
 
 -- name: ListVoucherGrants :many
 SELECT g.voucher_id, g.modifier_type, coalesce(g.modifier_value::text, '')::text AS modifier_value, e.slug AS entitlement_slug,
-       g.entitlement_id
+       g.entitlement_id, g.value
 FROM voucher_entitlement_grant g
 JOIN entitlement e ON e.id = g.entitlement_id AND e.organization_id = g.organization_id
 WHERE g.organization_id = sqlc.arg(organization_id)

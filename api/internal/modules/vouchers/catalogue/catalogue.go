@@ -10,6 +10,7 @@
 package catalogue
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -115,11 +117,55 @@ type Voucher struct {
 	UpdatedAt                 time.Time       `json:"updatedAt" readOnly:"true"`
 }
 
-// Grant is one entitlement change of an ENTITLEMENT_BOOST.
+// Grant is one entitlement change of an ENTITLEMENT_BOOST. A NUMBER grant
+// carries modifierValue; a BOOLEAN or CONFIG one is a SET carrying value
+// (V32-03 b).
 type Grant struct {
-	EntitlementSlug string  `json:"entitlementSlug" example:"tokens"`
-	ModifierType    string  `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED" doc:"SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit"`
-	ModifierValue   *string `json:"modifierValue,omitempty" doc:"A decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED" example:"2"`
+	EntitlementSlug string     `json:"entitlementSlug" example:"tokens"`
+	ModifierType    string     `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED" doc:"SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit. A BOOLEAN or CONFIG entitlement takes SET only"`
+	ModifierValue   *string    `json:"modifierValue,omitempty" doc:"A NUMBER grant's decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED; absent on a BOOLEAN or CONFIG grant" example:"2"`
+	Value           GrantValue `json:"value,omitempty" doc:"What a BOOLEAN or CONFIG SET grant sets: true or false, or the CONFIG document as an object; absent on a NUMBER grant"`
+}
+
+// GrantValue is a BOOLEAN or CONFIG grant's value, raw JSON as sent: empty
+// when absent.
+type GrantValue json.RawMessage
+
+// UnmarshalJSON keeps the raw value; null is no value.
+func (v *GrantValue) UnmarshalJSON(raw []byte) error {
+	if string(bytes.TrimSpace(raw)) == "null" {
+		*v = nil
+		return nil
+	}
+	*v = append((*v)[:0], raw...)
+	return nil
+}
+
+// MarshalJSON writes the raw value, null when there is none.
+func (v GrantValue) MarshalJSON() ([]byte, error) {
+	if len(v) == 0 {
+		return []byte("null"), nil
+	}
+	return v, nil
+}
+
+// Schema is a boolean or an object. anyOf with any JSON accepted: the use
+// case matches the JSON type to the entitlement's (422 .InvalidGrant).
+func (GrantValue) Schema(huma.Registry) *huma.Schema {
+	return &huma.Schema{
+		Description: "true or false for a BOOLEAN entitlement, the document as an object for a CONFIG one",
+		AnyOf:       []*huma.Schema{{Type: huma.TypeBoolean}, {Type: huma.TypeObject, AdditionalProperties: true}, {Type: "null"}},
+	}
+}
+
+// grantOf is a stored grant as the API returns it.
+func grantOf(g db.ListVoucherGrantsRow) Grant {
+	grant := Grant{EntitlementSlug: g.EntitlementSlug, ModifierType: string(g.ModifierType), ModifierValue: nil, Value: GrantValue(g.Value)}
+	if g.ModifierValue != "" {
+		value := formatDecimal(g.ModifierValue)
+		grant.ModifierValue = &value
+	}
+	return grant
 }
 
 // RedemptionRules are the eligibility rules a redeeming instance must meet.
@@ -204,12 +250,7 @@ func List(ctx context.Context, q *db.Queries, params db.ListVouchersParams, with
 			return nil, err
 		}
 		for _, g := range grantRows {
-			grant := Grant{EntitlementSlug: g.EntitlementSlug, ModifierType: string(g.ModifierType), ModifierValue: nil}
-			if g.ModifierValue != "" {
-				value := formatDecimal(g.ModifierValue)
-				grant.ModifierValue = &value
-			}
-			grants[g.VoucherID] = append(grants[g.VoucherID], grant)
+			grants[g.VoucherID] = append(grants[g.VoucherID], grantOf(g))
 		}
 	}
 	out := make([]Voucher, len(rows))

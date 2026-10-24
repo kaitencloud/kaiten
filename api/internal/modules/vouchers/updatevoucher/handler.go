@@ -2,6 +2,8 @@ package updatevoucher
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"slices"
 	"time"
 
@@ -144,7 +146,7 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 	for i := range d.Grants {
 		if !slices.ContainsFunc(stored.Grants, func(g catalogue.Grant) bool {
 			return g.EntitlementSlug == d.Grants[i].EntitlementSlug && g.ModifierType == d.Grants[i].ModifierType &&
-				sameDecimal(g.ModifierValue, d.Grants[i].ModifierValue)
+				sameDecimal(g.ModifierValue, d.Grants[i].ModifierValue) && sameJSON(g.Value, d.Grants[i].Value)
 		}) {
 			return false
 		}
@@ -159,4 +161,17 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 		stored.RedemptionRules.FirstTimeOnly == d.RedemptionRules.FirstTimeOnly &&
 		stored.RedemptionRules.AnnualOnly == d.RedemptionRules.AnnualOnly &&
 		sameMinimum(stored.RedemptionRules.MinimumSubscriptionAmount, d.RedemptionRules.MinimumSubscriptionAmount)
+}
+
+// sameJSON is whether two grant values are the same JSON: the stored one is
+// jsonb's rendering, which orders keys and drops spaces.
+func sameJSON(a, b catalogue.GrantValue) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return len(a) == len(b)
+	}
+	var x, y any
+	if json.Unmarshal(a, &x) != nil || json.Unmarshal(b, &y) != nil {
+		return false
+	}
+	return reflect.DeepEqual(x, y)
 }

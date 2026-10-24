@@ -112,12 +112,42 @@ function checkDiscount(draft: VoucherDraft, operation: string) {
   }
 }
 
+/** A BOOLEAN or CONFIG grant is a SET carrying `value`, true or false, or an object. */
+function checkTypedGrant(
+  grant: Grant,
+  type: 'BOOLEAN' | 'CONFIG',
+  operation: string,
+) {
+  const refuse = (reason: string) =>
+    unprocessable(operation, 'InvalidGrant', reason);
+  if (grant.modifierType !== 'SET') {
+    throw refuse('a BOOLEAN or CONFIG grant is a SET');
+  }
+  if (grant.modifierValue !== undefined) {
+    throw refuse('a BOOLEAN or CONFIG grant carries value, not modifierValue');
+  }
+  if (type === 'BOOLEAN' && typeof grant.value !== 'boolean') {
+    throw refuse("a BOOLEAN grant's value is true or false");
+  }
+  if (
+    type === 'CONFIG' &&
+    (typeof grant.value !== 'object' ||
+      grant.value === null ||
+      Array.isArray(grant.value))
+  ) {
+    throw refuse("a CONFIG grant's value is the document, as an object");
+  }
+}
+
 function checkGrant(grant: Grant, operation: string) {
   const invalid = unprocessable(
     operation,
     'InvalidGrant',
-    'modifierValue is >= 0 for SET, > 0 for ADD and MULTIPLY, and absent for UNLIMITED',
+    'modifierValue is >= 0 for SET, > 0 for ADD and MULTIPLY, and absent for UNLIMITED; a NUMBER grant carries no value',
   );
+  if (grant.value !== undefined && grant.value !== null) {
+    throw invalid;
+  }
   if (grant.modifierType === 'UNLIMITED') {
     if (grant.modifierValue !== undefined) {
       throw invalid;
@@ -171,12 +201,9 @@ function checkBoost(
         `entitlement "${grant.entitlementSlug}" not found`,
       );
     }
-    if (type !== 'NUMBER' && type !== 'NUMBER_AI_CREDIT') {
-      throw unprocessable(
-        operation,
-        'BoostUnsupportedEntitlementType',
-        'a boost changes a NUMBER or NUMBER_AI_CREDIT entitlement only',
-      );
+    if (type === 'BOOLEAN' || type === 'CONFIG') {
+      checkTypedGrant(grant, type, operation);
+      continue;
     }
     checkGrant(grant, operation);
   }
