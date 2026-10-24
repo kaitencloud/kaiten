@@ -11,6 +11,7 @@ import (
 	componentevents "github.com/kaitencloud/kaiten/api/internal/modules/components/events"
 	customerevents "github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
 	deploymentzoneevents "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/events"
+	entitlementevents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
 	identityevents "github.com/kaitencloud/kaiten/api/internal/modules/identity/events"
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	licenseevents "github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
@@ -53,6 +54,7 @@ const (
 	invoicesPath        = "/invoices"
 	vouchersPath        = catalogPath + "/vouchers"
 	billingSettingsPath = "/settings/billing"
+	checkoutsPath       = customersPath + "/checkout-sessions"
 
 	// instanceEntitlementsTab is the instance page's usage tab, where whoever
 	// reads a usage notification has to look.
@@ -180,9 +182,20 @@ func init() {
 		renderer: renderProvider("%s was disconnected: its invoices are no longer pushed"),
 	})
 
+	// A self-serve customer exists: an anonymous checkout completed (§15.2
+	// rule 8, V32-01).
+	Register(Entry{
+		Event:    publicsdkevents.CheckoutSessionCompleted,
+		Group:    GroupBilling,
+		Object:   ObjectInstance,
+		Label:    "Checkout completed",
+		Defaults: map[Channel]bool{ChannelInApp: true},
+		renderer: renderCheckout("A checkout completed: %s is a new customer"),
+	})
+
 	// The rest of §15.1's billing events are off by default: routine changes a
 	// teammate makes, or the expected steps of an invoice. Discoverable in
-	// settings.
+	// settings. A public page starts and abandons checkouts in volume.
 	for _, entry := range []struct {
 		event    events.Metadata
 		object   Object
@@ -214,6 +227,9 @@ func init() {
 		{voucherevents.InstanceVoucherExpired, ObjectInstance, "Redeemed voucher expired", renderSubscription("A voucher of %s stopped applying")},
 		{publicsdkevents.PublishableKeyCreated, ObjectBilling, "Publishable key created", renderPublishableKey("Publishable key %s was created")},
 		{publicsdkevents.PublishableKeyRevoked, ObjectBilling, "Publishable key revoked", renderPublishableKey("Publishable key %s was revoked")},
+		{billingevents.InstanceBillingTrialWillEnd, ObjectInstance, "Trial ending soon", renderSubscription("%s's trial ends soon")},
+		{publicsdkevents.CheckoutSessionStarted, ObjectBilling, "Checkout started", renderCheckout("A checkout was started by %s")},
+		{publicsdkevents.CheckoutSessionAbandoned, ObjectBilling, "Checkout abandoned", renderCheckout("A checkout by %s was not completed")},
 	} {
 		Register(Entry{
 			Event: entry.event, Group: GroupBilling, Object: entry.object, Label: entry.label,
@@ -222,6 +238,23 @@ func init() {
 	}
 
 	// ── Instances ────────────────────────────────────────────────────────────
+
+	// An instance's entitlement exceptions (V32-03 a): the vendor's own
+	// decisions, off by default.
+	for _, entry := range []struct {
+		event events.Metadata
+		label string
+		title string
+	}{
+		{entitlementevents.InstanceEntitlementExceptionCreated, "Entitlement exception set", "An exception was set on %s of %s"},
+		{entitlementevents.InstanceEntitlementExceptionRevoked, "Entitlement exception revoked", "The exception on %s of %s was revoked"},
+		{entitlementevents.InstanceEntitlementExceptionExpired, "Entitlement exception ended", "The exception on %s of %s ended"},
+	} {
+		Register(Entry{
+			Event: entry.event, Group: GroupInstances, Object: ObjectInstance, Label: entry.label,
+			Defaults: map[Channel]bool{ChannelInApp: false}, renderer: renderException(entry.title),
+		})
+	}
 
 	Register(Entry{
 		Event:    instanceevents.InstanceCreated,
@@ -1010,6 +1043,49 @@ func renderVoucherExpired(payload []byte, _ Refs) Rendered {
 
 // renderPublishableKey renders a publishable key event, by its label. Never
 // the key.
+// renderCheckout renders an anonymous checkout's event with the visitor's
+// e-mail. A completed one links to the new instance's billing; the others to
+// the checkout sessions.
+func renderCheckout(titleFormat string) Renderer {
+	return func(payload []byte, _ Refs) Rendered {
+		var decoded struct {
+			Email        string  `json:"email"`
+			LicenseSlug  string  `json:"licenseSlug"`
+			InstanceSlug *string `json:"instanceSlug"`
+		}
+		_ = json.Unmarshal(payload, &decoded)
+		rendered := Rendered{Title: fmt.Sprintf(titleFormat, decoded.Email), Body: decoded.LicenseSlug, ActionURL: checkoutsPath}
+		if decoded.InstanceSlug != nil && *decoded.InstanceSlug != "" {
+			rendered.ActionURL = instancesPath + "/" + *decoded.InstanceSlug + "/billing"
+		}
+		return rendered
+	}
+}
+
+// renderException renders an entitlement exception's event; it links to the
+// instance's entitlements, where the exceptions panel is.
+func renderException(titleFormat string) Renderer {
+	return func(payload []byte, refs Refs) Rendered {
+		var decoded struct {
+			InstanceSlug    string `json:"instanceSlug"`
+			EntitlementSlug string `json:"entitlementSlug"`
+			Reason          string `json:"reason"`
+		}
+		_ = json.Unmarshal(payload, &decoded)
+		slug := decoded.InstanceSlug
+		if slug == "" && refs.Instance != nil {
+			slug = refs.Instance.Slug
+		}
+		if slug == "" {
+			return Rendered{ActionURL: instancesPath}
+		}
+		return Rendered{
+			Title: fmt.Sprintf(titleFormat, decoded.EntitlementSlug, slug), Body: decoded.Reason,
+			ActionURL: instancesPath + "/" + slug + "/" + instanceEntitlementsTab,
+		}
+	}
+}
+
 func renderPublishableKey(titleFormat string) Renderer {
 	return func(payload []byte, _ Refs) Rendered {
 		var decoded struct {
