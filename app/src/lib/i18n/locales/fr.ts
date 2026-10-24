@@ -6589,6 +6589,8 @@ export default {
           from: 'Provient de l’add-on {{name}}',
           fromRemoved: 'Provient de l’add-on {{name}}, retiré le {{date}}',
           fromUnknown: 'Provient d’un add-on',
+          trueUp:
+            'Régularisation de la période écoulée : jusqu’à {{max}} détenus, {{billed}} facturés d’avance',
         },
       },
       InvoiceTotals: {

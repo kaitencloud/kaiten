@@ -147,6 +147,32 @@ beforeEach(() => {
 });
 
 describe('the add-on an invoice line bills', () => {
+  it('says how many units a true-up line bills the elapsed period for, held and billed in advance', async () => {
+    answerAddons([SEATS]);
+    const seatsTrueUp: InvoiceLine = {
+      ...seatsFee,
+      amount: 2000,
+      description: '2 × 10.00 USD per month',
+      label: 'Extra seats, true-up',
+      quantity: '2',
+      seq: 6,
+      serviceFrom: FROM,
+      serviceTo: TO,
+      trueUp: { billedQuantity: 3, maxQuantity: 5 },
+    };
+
+    await renderLines([seatsFee, seatsTrueUp]);
+
+    expect(
+      await within(rowOf('Extra seats, true-up')).findByText(
+        'True-up for the elapsed period: up to 5 held, 3 billed in advance',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(rowOf('Extra seats × 3')).queryByTestId('invoice-line-addon'),
+    ).not.toBeInTheDocument();
+  });
+
   it('names the add-on whose usage a line rated, and asks the instance once for every line', async () => {
     answerAddons([TOKENS, SUPPORT, SEATS]);
 

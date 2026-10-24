@@ -18,7 +18,28 @@ const KEYS = {
   from: 'Features.Billing.InvoiceLines.Addon.from',
   fromRemoved: 'Features.Billing.InvoiceLines.Addon.fromRemoved',
   fromUnknown: 'Features.Billing.InvoiceLines.Addon.fromUnknown',
+  trueUp: 'Features.Billing.InvoiceLines.Addon.trueUp',
 } as const;
+
+/**
+ * The true-up of an ADVANCE add-on of a TRUE_UP family (V31-70): the elapsed period is
+ * billed, in full, for the units held above what its advance line billed.
+ */
+function TrueUpNote({ line }: { line: InvoiceLine }) {
+  const { t } = useTranslation();
+  if (!line.trueUp) {
+    return null;
+  }
+
+  return (
+    <AddonNote
+      text={t(KEYS.trueUp, {
+        billed: line.trueUp.billedQuantity,
+        max: line.trueUp.maxQuantity,
+      })}
+    />
+  );
+}
 
 // A line that names an attachment and a session that may read it: the add-on is
 // named, and said to be removed when it was taken off the instance before the
@@ -79,7 +100,8 @@ function AddonNote({ text }: { text: string }) {
  * is found by `instanceAddonId` among everything the instance has held, because an
  * add-on removed before the boundary is still billed on the invoice of that boundary
  * and is no longer in the list of the instance's add-ons. A fee of an add-on is named
- * by its own label, and says only that the add-on was removed.
+ * by its own label, and says only that the add-on was removed, and, on a true-up, how
+ * many units it was held at and how many were billed in advance.
  */
 export function InvoiceLineAddon({
   instanceSlug,
@@ -92,10 +114,17 @@ export function InvoiceLineAddon({
     return null;
   }
   if (instanceSlug && source.instanceAddonId !== null) {
-    return <AttachedAddonNote instanceSlug={instanceSlug} line={line} />;
+    return (
+      <>
+        <AttachedAddonNote instanceSlug={instanceSlug} line={line} />
+        <TrueUpNote line={line} />
+      </>
+    );
   }
 
-  return line.type === 'ADDON' ? null : (
+  return line.type === 'ADDON' ? (
+    <TrueUpNote line={line} />
+  ) : (
     <AddonNote text={t(KEYS.fromUnknown)} />
   );
 }

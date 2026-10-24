@@ -6484,6 +6484,8 @@ export default {
           from: 'From the add-on {{name}}',
           fromRemoved: 'From the add-on {{name}}, removed on {{date}}',
           fromUnknown: 'From an add-on',
+          trueUp:
+            'True-up for the elapsed period: up to {{max}} held, {{billed}} billed in advance',
         },
       },
       InvoiceTotals: {
