@@ -85,13 +85,14 @@ test.describe('where Stripe stands in the providers of the organization', () => 
     ).toHaveAttribute('href', '/integrations/connectors/stripe');
   });
 
-  test('warns when its passes keep failing, with how many, when the last was and what it said', async ({
+  test('warns when its passes keep failing, with how many, when the last was, when one last succeeded and what it said', async ({
     page,
   }) => {
     const settings = new BillingSettingsDriver(page);
     const model = createStripeBillingModel();
     model.providers.setSyncState({
       consecutiveFailures: 3,
+      lastSuccessfulSyncAt: '2026-10-07T09:00:00.000Z',
       lastSyncError: 'the payment provider could not be reached',
       lastSyncStatus: 'FAILED',
       lastSyncedAt: '2026-10-07T11:00:00.000Z',
@@ -106,6 +107,9 @@ test.describe('where Stripe stands in the providers of the organization', () => 
     );
     await expect(settings.stripeSync()).toContainText(
       '3 syncs in a row failed. The last was 1 hour ago.',
+    );
+    await expect(settings.stripeSync()).toContainText(
+      'Last successful sync 3 hours ago.',
     );
     await expect(settings.stripeSync()).toContainText(
       'Last error: the payment provider could not be reached',
@@ -133,6 +137,9 @@ test.describe('where Stripe stands in the providers of the organization', () => 
     );
     await expect(settings.stripeSync()).toContainText(
       'Last synced 30 minutes ago, but some invoices could not be applied.',
+    );
+    await expect(settings.stripeSync()).toContainText(
+      'No sync has succeeded yet.',
     );
   });
 

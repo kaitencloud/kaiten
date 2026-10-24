@@ -168,6 +168,32 @@ describe('how the last pass of a provider went', () => {
     });
   });
 
+  it('says when a pass last succeeded, beside the passes that failed or left invoices since', () => {
+    const lastSuccess = '2027-02-28T09:00:00Z';
+
+    expect(
+      getProviderSyncStanding(
+        sync({
+          consecutiveFailures: 2,
+          lastSuccessfulSyncAt: lastSuccess,
+          lastSyncStatus: 'FAILED',
+          lastSyncedAt: '2027-03-01T10:00:00Z',
+        }),
+        'STRIPE',
+      ),
+    ).toMatchObject({ kind: 'failing', lastSuccess });
+    expect(
+      getProviderSyncStanding(
+        sync({
+          lastSuccessfulSyncAt: lastSuccess,
+          lastSyncStatus: 'PARTIAL',
+          lastSyncedAt: '2027-03-01T10:00:00Z',
+        }),
+        'STRIPE',
+      ),
+    ).toMatchObject({ kind: 'partial', lastSuccess });
+  });
+
   it('counts a failed last pass as one failure when the count says none', () => {
     expect(
       getProviderSyncStanding(

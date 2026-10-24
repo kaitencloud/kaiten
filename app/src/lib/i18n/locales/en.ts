@@ -6027,6 +6027,8 @@ export default {
               failing_other:
                 '{{count}} syncs in a row failed. The last was {{ago}}.',
               error: 'Last error: {{error}}',
+              lastSuccess: 'Last successful sync {{ago}}.',
+              noSuccess: 'No sync has succeeded yet.',
             },
           },
         },

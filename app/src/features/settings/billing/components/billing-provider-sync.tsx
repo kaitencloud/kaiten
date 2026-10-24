@@ -17,7 +17,8 @@ type ProviderSyncLineProps = {
  * How the last pass of a payment provider went, under its name: when it ran, or
  * that the passes keep failing and what the last one said. A pass that failed
  * is the one thing on the card that is not a state of the connection, so it reads
- * as a warning. The health is read by the card of the health too and is shared with
+ * as a warning, with when a pass last succeeded, which says how stale the invoices
+ * mirrored from the provider may be. The health is read by the card of the health too and is shared with
  * it; a session that may not read it, or a read that failed (the health card says
  * why), shows no line rather than a guess.
  */
@@ -68,6 +69,22 @@ export function ProviderSyncLine({ kind }: ProviderSyncLineProps) {
         ) : null}
         <span title={standing.at}>{text}</span>
       </p>
+      {standing.kind === 'ok' ? null : (
+        <p className="pl-5.5 text-xs" data-testid="billing-provider-last-success">
+          {standing.lastSuccess ? (
+            <span title={standing.lastSuccess}>
+              {t(`${base}.lastSuccess`, {
+                ago: formatRelativeTimeToNow(
+                  standing.lastSuccess,
+                  i18n.language,
+                ),
+              })}
+            </span>
+          ) : (
+            t(`${base}.noSuccess`)
+          )}
+        </p>
+      )}
       {standing.error ? (
         <p className="break-words pl-5.5 text-xs">
           {t(`${base}.error`, { error: standing.error })}

@@ -6123,6 +6123,8 @@ export default {
               failing_other:
                 '{{count}} synchronisations de suite ont échoué. La dernière : {{ago}}.',
               error: 'Dernière erreur : {{error}}',
+              lastSuccess: 'Dernière synchronisation réussie : {{ago}}.',
+              noSuccess: 'Aucune synchronisation n’a encore réussi.',
             },
           },
         },

@@ -71,6 +71,8 @@ export type SetupSession = {
 export type ProviderSyncState = {
   consecutiveFailures: number;
   lastFullSweepAt?: string;
+  /** The end of the last pass that ended SUCCESS; absent before the first. */
+  lastSuccessfulSyncAt?: string;
   lastSyncError?: string;
   lastSyncStatus?: 'FAILED' | 'PARTIAL' | 'SUCCESS';
   lastSyncedAt?: string;
@@ -625,6 +627,7 @@ export class BillingProviders {
             )
           : undefined,
         lastFullSweepAt: this.sync.lastFullSweepAt,
+        lastSuccessfulSyncAt: this.sync.lastSuccessfulSyncAt,
         lastSyncError: this.sync.lastSyncError,
         lastSyncStatus: this.sync.lastSyncStatus,
         lastSyncedAt: this.sync.lastSyncedAt,
@@ -652,6 +655,8 @@ export class BillingProviders {
     this.sync = {
       consecutiveFailures: 0,
       lastFullSweepAt: at,
+      // A pass that left invoices keeps the last one that succeeded.
+      lastSuccessfulSyncAt: failed > 0 ? this.sync?.lastSuccessfulSyncAt : at,
       lastSyncStatus: failed > 0 ? 'PARTIAL' : 'SUCCESS',
       lastSyncedAt: at,
     };

@@ -94,16 +94,23 @@ export const isAllClear = (items: readonly HealthItem[]) =>
 /**
  * How the last pass of a payment provider went, from the sync state the health
  * carries. The health says when the last pass was (as an instant, and as the seconds
- * since) and how it ended, and how many passes failed in a row; it does not keep when
- * one last succeeded.
+ * since) and how it ended, how many passes failed in a row, and when one last ended
+ * in success (`lastSuccess`, absent before the first).
  * - `never`: no pass yet;
  * - `failing`: the last passes failed, and the last was at `at`;
  * - `partial`: the last pass read what it could and left some invoices;
  * - `ok`: the last pass ended well, at `at`.
  */
 export type ProviderSyncStanding =
-  | { at: string; error?: string; failures: number; kind: 'failing' }
-  | { at: string; error?: string; kind: 'ok' | 'partial' }
+  | {
+      at: string;
+      error?: string;
+      failures: number;
+      kind: 'failing';
+      lastSuccess?: string;
+    }
+  | { at: string; error?: string; kind: 'partial'; lastSuccess?: string }
+  | { at: string; error?: string; kind: 'ok' }
   | { kind: 'never' };
 
 export function getProviderSyncStanding(
@@ -127,12 +134,17 @@ export function getProviderSyncStanding(
       error: sync.lastSyncError,
       failures: Math.max(sync.consecutiveFailures, 1),
       kind: 'failing',
+      lastSuccess: sync.lastSuccessfulSyncAt,
+    };
+  }
+  if (sync.lastSyncStatus === 'PARTIAL') {
+    return {
+      at,
+      error: sync.lastSyncError,
+      kind: 'partial',
+      lastSuccess: sync.lastSuccessfulSyncAt,
     };
   }
 
-  return {
-    at,
-    error: sync.lastSyncError,
-    kind: sync.lastSyncStatus === 'PARTIAL' ? 'partial' : 'ok',
-  };
+  return { at, error: sync.lastSyncError, kind: 'ok' };
 }
