@@ -1,0 +1,45 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of the issue of a publishable key > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "anonymousCheckout": {
+      "type": "boolean",
+    },
+    "label": {
+      "type": "string",
+    },
+    "origins": {
+      "type": "string",
+    },
+    "turnstileSecret": {
+      "type": "string",
+    },
+    "turnstileSecretAction": {
+      "enum": [
+        "keep",
+        "remove",
+        "set",
+      ],
+      "type": "string",
+    },
+    "turnstileSecretOnFile": {
+      "type": "boolean",
+    },
+    "turnstileSiteKey": {
+      "type": "string",
+    },
+  },
+  "required": [
+    "anonymousCheckout",
+    "label",
+    "origins",
+    "turnstileSecret",
+    "turnstileSecretAction",
+    "turnstileSecretOnFile",
+    "turnstileSiteKey",
+  ],
+  "type": "object",
+}
+`;

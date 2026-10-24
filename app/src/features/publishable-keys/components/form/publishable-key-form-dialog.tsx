@@ -1,3 +1,4 @@
+import { Link, useNavigate } from '@tanstack/react-router';
 import type { TFunction } from 'i18next';
 import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +11,15 @@ import {
   useLeaveRestrictedDialog,
 } from '@/domains/billing';
 import {
+  type FormRecovery,
+  FormRecoveryAlert,
+  FormRecoveryAnnouncer,
+  FormRecoveryNotes,
+  FormRecoverySubmitWarning,
+  useFormRecovery,
+  useFormRecoveryForm,
+} from '@/functionals/form-recovery';
+import {
   StackedFormDialog,
   StackedFormDialogFooter,
   StackedFormDialogPanel,
@@ -19,9 +29,14 @@ import {
   REVOKED_REFUSAL,
   usePublishableKeyForm,
 } from '../../hooks/use-publishable-key-form';
+import {
+  initialPublishableKeyFormValues,
+  type PublishableKeyFormValues,
+} from '../../schemas';
 import { CreatedKeyView } from '../created/created-key-view';
 import { LeaveWithoutKeyDialog } from '../created/leave-without-key-dialog';
 import { PublishableKeyFields } from './publishable-key-fields';
+import { publishableKeyRecovery } from './publishable-key-recovery';
 
 const BASE = 'Pages.Integrations.PublishableKeys';
 
@@ -36,22 +51,45 @@ function PublishableKeyForm({
   onClose,
   onCreated,
   publishableKey,
+  recovery,
 }: PublishableKeyFormDialogProps & {
   onCreated: (created: PublishableKeyCreated) => void;
+  recovery: FormRecovery<PublishableKeyFormValues>;
 }) {
   const { t } = useTranslation();
   const formId = useId();
+  const navigate = useNavigate();
   const { failure, form } = usePublishableKeyForm({
     onCreated,
     onSaved: onClose,
     publishableKey,
+    recovery: publishableKey ? undefined : recovery,
   });
+  const { focusRef } = useFormRecoveryForm(recovery, form);
+  // The secret is never kept: the offer says it is to be entered again.
+  const omittedLabels = {
+    turnstileSecret: t(`${BASE}.Form.Labels.turnstileSecret`),
+  };
+
+  // A deliberate abandon of an issue: the entries go, and a toast brings them back.
+  const cancel = () => {
+    if (!publishableKey) {
+      recovery.discard({
+        undo: () => void navigate({ to: '/integrations/publishable-keys/new' }),
+      });
+    }
+    onClose();
+  };
 
   return (
-    <form id={formId} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+    <form
+      id={formId}
+      ref={focusRef}
+      onSubmit={createFormSubmitHandler(form.handleSubmit)}
+    >
       <form.AppForm>
         <StackedFormDialogFooter>
-          <Button onClick={onClose} type="button" variant="outline">
+          <Button onClick={cancel} type="button" variant="outline">
             {t('Common.cancel')}
           </Button>
           <form.SubmitButton
@@ -65,6 +103,10 @@ function PublishableKeyForm({
         </StackedFormDialogFooter>
         <StackedFormDialogPanel>
           <div className="space-y-6">
+            <FormRecoveryAlert fieldLabels={omittedLabels} recovery={recovery}>
+              <PublishableKeyListLink />
+            </FormRecoveryAlert>
+            <FormRecoveryNotes fieldLabels={omittedLabels} recovery={recovery} />
             <PublishableKeyFields form={form} />
             {failure ? (
               <FormFailure
@@ -72,10 +114,28 @@ function PublishableKeyForm({
                 onRetry={() => void form.handleSubmit()}
               />
             ) : null}
+            <FormRecoverySubmitWarning recovery={recovery}>
+              <PublishableKeyListLink />
+            </FormRecoverySubmitWarning>
           </div>
         </StackedFormDialogPanel>
       </form.AppForm>
     </form>
+  );
+}
+
+function PublishableKeyListLink() {
+  const { t } = useTranslation();
+
+  return (
+    <Button
+      nativeButton={false}
+      render={<Link to="/integrations/publishable-keys" />}
+      size="sm"
+      variant="outline"
+    >
+      {t('Common.viewList')}
+    </Button>
   );
 }
 
@@ -142,18 +202,45 @@ export function PublishableKeyFormDialog({
   onClose,
   publishableKey,
 }: PublishableKeyFormDialogProps) {
-  const { t } = useTranslation();
   const access = useActionAccess(
     publishableKey ? 'publishableKeys.update' : 'publishableKeys.create',
   );
-  const [created, setCreated] = useState<PublishableKeyCreated | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [askingToLeave, setAskingToLeave] = useState(false);
 
   // The dialog is opened by a link: for a session that may not write the keys the link
   // is inert, and a key that was revoked has nothing the API takes.
   useLeaveRestrictedDialog(access, onClose);
   if (!access.allowed || publishableKey?.revokedAt) {
+    return null;
+  }
+
+  return (
+    <PublishableKeyDialogContent
+      onClose={onClose}
+      publishableKey={publishableKey}
+    />
+  );
+}
+
+/**
+ * The dialog of a session that may write the keys. What an issue typed and did not send
+ * is offered back on the next visit, without the Turnstile secret; the change of a key
+ * keeps nothing. The door freezes at its mount whether it is on, so it is opened once the
+ * access is known, and the dialog opens once the device was read, so that its first
+ * focus lands on the offer when there is one.
+ */
+function PublishableKeyDialogContent({
+  onClose,
+  publishableKey,
+}: PublishableKeyFormDialogProps) {
+  const { t } = useTranslation();
+  const [created, setCreated] = useState<PublishableKeyCreated | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [askingToLeave, setAskingToLeave] = useState(false);
+  const recovery = useFormRecovery(publishableKeyRecovery, {
+    enabled: !publishableKey,
+    pristine: initialPublishableKeyFormValues,
+  });
+  if (recovery.writer.status === 'reading') {
     return null;
   }
 
@@ -175,10 +262,12 @@ export function PublishableKeyFormDialog({
       <StackedFormDialog
         confirmOnClose={false}
         description={words.description}
+        initialFocus={recovery.offer ? recovery.focusOffer : undefined}
         onOpenChange={(open) => !open && dismiss()}
         open
         title={words.title}
       >
+        <FormRecoveryAnnouncer recovery={recovery} />
         {created ? (
           <CreatedKeyView
             created={created}
@@ -187,7 +276,9 @@ export function PublishableKeyFormDialog({
           />
         ) : (
           <PublishableKeyForm
+            key={recovery.sessionKey}
             onClose={onClose}
+            recovery={recovery}
             onCreated={setCreated}
             publishableKey={publishableKey}
           />

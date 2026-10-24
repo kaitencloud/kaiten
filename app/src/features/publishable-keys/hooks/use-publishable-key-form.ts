@@ -13,10 +13,12 @@ import {
   placeRefusalOnFields,
   setProblemFieldError,
 } from '@/domains/billing';
+import type { FormRecovery } from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
 import { invalidatePublishableKeyQueries } from '../queries';
 import {
   initialPublishableKeyFormValues,
+  type PublishableKeyFormValues,
   publishableKeyFormOpts,
   publishableKeyFormSchema,
   publishableKeyFormValuesToCreateBody,
@@ -69,6 +71,11 @@ const VAULT_REFUSALS = new Set([
 const TURNSTILE_FIELDS = new Set(['turnstileSecret', 'turnstileSiteKey']);
 
 type UsePublishableKeyFormOptions = {
+  /**
+   * The recovery of an issue: the form starts from its values, and the issue is sent
+   * through it, so that a key issued is never offered again.
+   */
+  recovery?: FormRecovery<PublishableKeyFormValues>;
   /** Called once the API issued the key, with the only copy of it there will be. */
   onCreated?: (created: PublishableKeyCreated) => void;
   /** Called once the API accepted the change to the key. */
@@ -97,6 +104,7 @@ export function usePublishableKeyForm({
   onCreated,
   onSaved,
   publishableKey,
+  recovery,
 }: UsePublishableKeyFormOptions) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -107,7 +115,7 @@ export function usePublishableKeyForm({
   const [openedValues] = useState(() =>
     publishableKey
       ? publishableKeyToFormValues(publishableKey)
-      : initialPublishableKeyFormValues,
+      : (recovery?.pristine ?? initialPublishableKeyFormValues),
   );
 
   const form = useAppForm({
@@ -137,9 +145,15 @@ export function usePublishableKeyForm({
           );
           onSaved?.(saved);
         } else {
-          const created = await create.mutateAsync({
-            body: publishableKeyFormValuesToCreateBody(value),
-          });
+          // The body is built before the request: an error while building it is not
+          // an answer that never came. What was issued is named by its id and label.
+          const body = publishableKeyFormValuesToCreateBody(value);
+          const request = () => create.mutateAsync({ body });
+          const created = await (recovery
+            ? recovery.send(request, {
+                created: (issued) => ({ id: issued.id, label: issued.label }),
+              })
+            : request());
           // The only copy of the key goes first: whatever happens to the list after,
           // it is shown.
           onCreated?.(created);
