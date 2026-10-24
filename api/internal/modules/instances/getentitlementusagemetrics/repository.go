@@ -2,10 +2,10 @@ package getentitlementusagemetrics
 
 import (
 	"context"
-	"github.com/shopspring/decimal"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"

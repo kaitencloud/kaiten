@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/metric"
 )
 
 func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (result *Result, resultErr error) {

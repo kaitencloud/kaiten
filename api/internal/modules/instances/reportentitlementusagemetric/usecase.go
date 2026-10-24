@@ -2,15 +2,17 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"log/slog"
+	"time"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/metric"
-	"log/slog"
-	"time"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
