@@ -87,6 +87,11 @@ export interface StackedFormDialogProps {
   stacked?: boolean;
   title: string;
   finalFocus?: ComponentProps<typeof DialogContent>['finalFocus'];
+  /**
+   * Where the focus lands when the dialog opens: a creation form that offers back an
+   * unsent input puts it on its "Resume" button. The first field by default.
+   */
+  initialFocus?: ComponentProps<typeof DialogContent>['initialFocus'];
 }
 
 export interface StackedFormDialogPanelProps {
@@ -209,6 +214,7 @@ export function StackedFormDialog({
   stacked = false,
   title,
   finalFocus,
+  initialFocus,
 }: StackedFormDialogProps) {
   const [confirmCloseOpen, setConfirmCloseOpen] = useState(false);
   // Reported by the form inside (StackedFormDialogDirtyState). Unknown means
@@ -279,6 +285,7 @@ export function StackedFormDialog({
         {stacked ? (
           <DialogContent
             finalFocus={finalFocus}
+            initialFocus={initialFocus}
             {...contentProps}
             showCloseButton={false}
             overlayClassName="bg-black/60"
@@ -305,6 +312,7 @@ export function StackedFormDialog({
         ) : (
           <DialogContent
             finalFocus={finalFocus}
+            initialFocus={initialFocus}
             {...contentProps}
             className={cn('sm:max-w-lg', className)}
             variant="form"

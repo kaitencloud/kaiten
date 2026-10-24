@@ -1,6 +1,7 @@
 export default {
   Common: {
     stepOf: 'Step {{current}} of {{total}}',
+    viewList: 'View the list',
     requiredFieldsHint: 'Fill in the required fields',
     edit: 'Edit',
     delete: 'Delete',
