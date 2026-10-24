@@ -1,6 +1,7 @@
 import type { AuditTrail } from '@/api-client/types.gen';
 import { getEventCategory } from '@/domains/audit-trail';
 import { isPeriodicEntitlement } from '@/domains/entitlement-usage';
+import { getAuditDisplayName } from '@/lib/detail';
 import {
   type InstanceEntitlementRow,
   isEntitlementInGroup,
@@ -302,6 +303,7 @@ export const filterAuditTrailEntries = (
       payload.entitlement_slug,
       entitlementLabel,
       getEventLabel(entry.eventName),
+      getAuditDisplayName({ actor: entry.actor }),
     ];
 
     return searchValues.some((value) =>

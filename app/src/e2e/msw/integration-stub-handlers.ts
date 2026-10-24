@@ -48,8 +48,7 @@ export function integrationStubHandlers(
                 status: 403,
                 title: 'Forbidden',
                 code: 'Webhooks.NotEntitled',
-                detail:
-                  "This organization's licence allows no webhook events",
+                detail: "This organization's licence allows no webhook events",
               },
               { status: 403 },
             ),

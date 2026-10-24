@@ -2,6 +2,7 @@ package createinstance
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -164,6 +165,22 @@ func (h *UseCase) persistInstance(ctx context.Context, userID, orgID uuid.UUID, 
 	}
 
 	return createdInstance, nil
+}
+
+// Persist creates the instance, with a slug derived from its name, in the
+// transaction ctx carries, and enforces no creation limit: its caller, an
+// anonymous checkout's completion, enforced it before its transaction, which
+// makes no outside call (§9.12 rules 3 and 9). The slug is not retried: a
+// conflict aborts the caller's transaction anyway.
+func (h *UseCase) Persist(ctx context.Context, orgID, userID uuid.UUID, command *Command) (*schema.Instance, error) {
+	slug, err := slugutil.GenerateUnique(command.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate slug: %w", err)
+	}
+	if command.Metadata == nil {
+		command.Metadata = map[string]interface{}{}
+	}
+	return h.persistInstance(ctx, userID, orgID, command, slug)
 }
 
 // EntitlementLimitReachedCode is the error code EnforceCreationLimit returns

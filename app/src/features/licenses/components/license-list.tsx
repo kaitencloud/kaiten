@@ -11,6 +11,7 @@ import {
   FilterToolbarProvider,
   useFilterBuilder,
 } from '@/functionals/filters';
+import { useCanPerform } from '@/domains/billing';
 import type { LicenseWithInstances } from '../types';
 import {
   buildLicenseGroups,
@@ -25,6 +26,7 @@ type LicenseListProps = {
 
 export const LicenseList = ({ families, licenses }: LicenseListProps) => {
   const { t } = useTranslation();
+  const mayCreate = useCanPerform('license.create');
   const unknownVersionLabel = t('Pages.Licenses.List.unknownVersion');
   const licenseNameLabel = t('Pages.Licenses.List.licenseName');
   const typeOptions = useMemo(() => {
@@ -114,10 +116,12 @@ export const LicenseList = ({ families, licenses }: LicenseListProps) => {
               <FilterToolbarFilterButton className="sm:shrink-0" />
             </div>
             <div className="flex items-center md:ml-auto">
-              <GradientButton
-                to="/licenses/new"
-                label={t('Pages.Licenses.Mutation.titleNew')}
-              />
+              {mayCreate ? (
+                <GradientButton
+                  to="/catalog/licenses/new"
+                  label={t('Pages.Licenses.Mutation.titleNew')}
+                />
+              ) : null}
             </div>
           </div>
           <FilterToolbarFiltersRow />

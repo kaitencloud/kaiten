@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"maps"
 
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/featureflag"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/openfeature"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
@@ -69,6 +71,52 @@ func (e *Evaluator) Evaluate(
 	reportBrokenRules(ctx, flag, brokenRules, &details)
 
 	return details, nil
+}
+
+// FlagGrant is a variant of the flag that a voucher redeemed on the subject
+// instance grants (V32-03 c).
+type FlagGrant struct {
+	Variant      string
+	VoucherID    uuid.UUID
+	RedemptionID uuid.UUID
+}
+
+// Metadata keys of an answer a grant decided, beside the flag's own.
+const (
+	GrantVoucherIDMetadataKey    = "voucherId"
+	GrantRedemptionIDMetadataKey = "redemptionId"
+)
+
+// EvaluateWithGrants is Evaluate for a subject holding grants of the flag,
+// the latest redemption first (§7.4 rule 6). A disabled flag answers as it
+// always does: a grant never turns the kill switch off. Otherwise the first
+// grant whose variant the flag still defines is the answer, with reason
+// VOUCHER_GRANT, and the targeting rules are not evaluated; a grant of a
+// variant the flag no longer has is skipped with a warning. With none left,
+// the rules and the default variant apply.
+func (e *Evaluator) EvaluateWithGrants(
+	ctx context.Context,
+	flag schema.FeatureFlag,
+	evalCtx openfeature.EvaluationContext,
+	grants []FlagGrant,
+) (openfeature.ResolutionDetails, error) {
+	if !flag.Enabled {
+		return e.handleDisabledFlag(flag, evalCtx), nil
+	}
+	variants := flag.GetVariantSet()
+	for _, grant := range grants {
+		if _, ok := variants[grant.Variant]; !ok {
+			slog.WarnContext(ctx, "feature flag grant names a variant the flag no longer has",
+				"flag", flag.Slug, "variant", grant.Variant, "redemption_id", grant.RedemptionID)
+			continue
+		}
+		metadata := make(map[string]any, len(flag.Metadata)+2)
+		maps.Copy(metadata, flag.Metadata)
+		metadata[GrantVoucherIDMetadataKey] = grant.VoucherID.String()
+		metadata[GrantRedemptionIDMetadataKey] = grant.RedemptionID.String()
+		return openfeature.NewSuccessResolutionDetails(variants, metadata, flag.Type, grant.Variant, openfeature.ReasonVoucherGrant), nil
+	}
+	return e.Evaluate(ctx, flag, evalCtx)
 }
 
 // BrokenRule is a targeting rule that could not be evaluated: a syntax error, a

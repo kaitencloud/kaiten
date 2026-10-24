@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { Customer } from '@/api-client';
+import { useActionAccess, useLeaveRestrictedDialog } from '@/domains/billing';
 import { StackedFormDialog } from '@/functionals/stacked-form-dialog';
 import { CustomerForm } from './customer-form';
 
@@ -17,19 +18,19 @@ export function CustomerFormDialog({
   onSuccess,
 }: CustomerFormDialogProps) {
   const { t } = useTranslation();
+  const access = useActionAccess(
+    customer ? 'customers.update' : 'customers.create',
+  );
+
+  // The addresses of the forms are opened by hand as well as from their buttons: a session
+  // that may not write customers is not given a form that ends in a refusal.
+  useLeaveRestrictedDialog(access, () => onOpenChange(false), open);
+  if (!access.allowed) {
+    return null;
+  }
 
   return (
     <StackedFormDialog
-      finalFocus={() => {
-        // Closing a route dialog replaces its opener's DOM node. Restore the
-        // equivalent list action after the navigation has committed.
-        requestAnimationFrame(() =>
-          document
-            .querySelector<HTMLAnchorElement>('a[href="/customers/new"]')
-            ?.focus(),
-        );
-        return false;
-      }}
       confirmOnClose={false}
       open={open}
       onOpenChange={onOpenChange}

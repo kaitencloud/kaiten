@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useActionAccess, useCanPerform } from '@/domains/billing';
 import { IntegrationSyncBadge } from '@/domains/crm-sync';
 import { GradientButton } from '@/components/gradient-button';
 import {
@@ -17,6 +18,7 @@ import {
 } from '@/functionals/table';
 import { capitalizeFromUpperCase } from '@/lib/utils';
 import type { Customer } from '../types';
+import { getCustomerDetailTarget } from '../utils/customer-path';
 import { CustomerInstancesDisplay } from './customer-instances-display';
 import { CustomerTableActions } from './customer-table-actions';
 
@@ -50,6 +52,11 @@ function CustomerLicenseTypesCell({
 
 export const CustomersTable = ({ customers }: CustomersTableProps) => {
   const { t } = useTranslation();
+  const mayCreate = useCanPerform('customers.create');
+  const deletion = useActionAccess('customers.delete');
+  // There until the token says the session may not delete: drawn once the scopes are known it
+  // would rebuild the columns under whatever is open.
+  const withActions = deletion.isPending || deletion.allowed;
   const router = useRouter();
   const columns = useMemo<ColumnDef<Customer>[]>(
     () => [
@@ -115,11 +122,17 @@ export const CustomersTable = ({ customers }: CustomersTableProps) => {
           <CustomerInstancesDisplay instances={row.original.instances} />
         ),
       },
-      createActionsColumn<Customer>((customer: Customer) => (
-        <CustomerTableActions customer={customer} />
-      )),
+      // The only action of a row is the deletion: a session that may not delete is given no
+      // column of empty cells under a header that says Actions.
+      ...(withActions
+        ? [
+            createActionsColumn<Customer>((customer: Customer) => (
+              <CustomerTableActions customer={customer} />
+            )),
+          ]
+        : []),
     ],
-    [t],
+    [t, withActions],
   );
   const licenseTypeOptions = useMemo(() => {
     return [...new Set(customers.flatMap((customer) => customer.licenseTypes))]
@@ -173,10 +186,7 @@ export const CustomersTable = ({ customers }: CustomersTableProps) => {
   });
 
   const getCustomerPath = (customer: Customer) =>
-    router.buildLocation({
-      to: '/customers/$customerSlug',
-      params: { customerSlug: customer.slug },
-    }).pathname;
+    router.buildLocation(getCustomerDetailTarget(customer.slug)).pathname;
 
   return (
     <FilterTableLayout controller={filterController}>
@@ -184,10 +194,12 @@ export const CustomersTable = ({ customers }: CustomersTableProps) => {
         <FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Search filterId="name" />
           <FilterTableLayout.Actions>
-            <GradientButton
-              to="/customers/new"
-              label={t('Pages.Customers.Mutation.titleNew')}
-            />
+            {mayCreate ? (
+              <GradientButton
+                to="/customers/new"
+                label={t('Pages.Customers.Mutation.titleNew')}
+              />
+            ) : null}
           </FilterTableLayout.Actions>
         </FilterTableLayout.ToolbarRow>
         <FilterTableLayout.Filters />

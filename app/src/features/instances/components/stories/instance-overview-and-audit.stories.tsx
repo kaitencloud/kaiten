@@ -1,34 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import {
-  handleGetCustomer,
-  handleGetEntitlementsUsageMetrics,
-  handleGetInstance,
-  handleGetLicense,
-  handleGetLicenseEntitlements,
-  handleGetLicenses,
-  handleListCustomers,
-  handleListDeploymentZones,
-  handleListEntitlements,
-  handleListReleases,
-} from '@/api-client/msw.gen';
-import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
-import {
   storyAuditEntries,
-  storyCustomers,
-  storyDeploymentZones,
-  storyEntitlements,
   storyEntitlementUsages,
-  storyInstanceMetadataFields,
   storyInstances,
   storyLicenseEntitlements,
-  storyLicenses,
-  storyOverviewReleases,
-  storyReleases,
 } from '@/test-fixtures/storybook-fixtures';
-import {
-  metadataFieldsHandler,
-  onePage,
-} from '@/test-fixtures/storybook-handlers';
+import { instanceDetailHandlers } from '@/test-fixtures/storybook-handlers';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { buildEntitlementsRows } from '../../utils/instance-detail-entitlements.utils';
 import { InstanceDetailProvider } from '../instance-detail/instance-detail-context';
@@ -43,32 +20,6 @@ const entitlementsRows = buildEntitlementsRows(
   storyEntitlementUsages,
   'Unknown entitlement',
 );
-
-// Everything the instance detail reads: the instance with its customer and
-// license, the usage and the grants, the catalogues, the zones and releases,
-// and the instance metadata fields.
-const instanceDetailHandlers = [
-  handleGetInstance({ body: instance }),
-  handleGetCustomer({ body: storyCustomers[0] }),
-  handleGetLicense({ body: storyLicenses[0] }),
-  handleGetEntitlementsUsageMetrics({ body: storyEntitlementUsages }),
-  handleGetLicenseEntitlements(onePage(storyLicenseEntitlements)),
-  handleListEntitlements(onePage(storyEntitlements)),
-  handleListDeploymentZones(onePage(storyDeploymentZones)),
-  handleListReleases(onePage(storyReleases)),
-  handleListCustomers(onePage(storyCustomers)),
-  handleGetLicenses(onePage(storyLicenses)),
-  graphqlOperationHandler({
-    GetReleaseManagementOverview: () => ({
-      releases: {
-        hasMore: false,
-        items: storyOverviewReleases,
-        nextCursor: null,
-      },
-    }),
-  }),
-  metadataFieldsHandler({ INSTANCE: storyInstanceMetadataFields }),
-];
 
 function InstanceDetailStoryFrame({ children }: { children: React.ReactNode }) {
   return (

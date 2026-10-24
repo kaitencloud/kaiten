@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HttpResponse } from 'msw/http';
 import { server } from '@/__tests__/msw-server';
 import { handleDeleteCustomer, handleGetCustomer } from '@/api-client/msw.gen';
+import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
 import { customerQueryOptions } from '../../queries/customer-query-options';
 import userEvent from '@testing-library/user-event';
@@ -154,6 +155,8 @@ describe('CustomerDetailPageContent', () => {
         name: 'Other customer instance', slug: 'instance-other', startLicenseDate: '2026-01-01T00:00:00.000Z' },
     ];
     queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+    // The token says nothing of scopes: every action is offered.
+    queryClient.setQueryData(grantedScopesQueryKey, null);
     server.use(handleGetCustomer(() => {
       detailReads++;
       return deleted ? new HttpResponse(null, { status: 404 }) : HttpResponse.json(customer);
@@ -225,8 +228,8 @@ describe('CustomerDetailPageContent', () => {
     expect(editLink).toHaveAttribute('data-to', '/customers/$customerSlug');
 
     expect(
-      screen.getByRole('button', { name: 'Edit name' }),
-    ).toBeInTheDocument();
+      screen.getByRole('button', { name: 'Acme Corp' }),
+    ).toHaveAccessibleDescription('Edit name');
 
     // No inline edit on the details card anymore.
     expect(
@@ -248,6 +251,45 @@ describe('CustomerDetailPageContent', () => {
     await waitFor(() => expect(queryClient.getQueryData(customerQueryOptions('acme').queryKey)).toBeUndefined());
     expect(mockNavigate).toHaveBeenCalledWith({ to: '/customers' });
     expect(detailReads).toBe(1);
+  });
+
+  // A customer that bills cannot be deleted. The API says what stands in the way,
+  // and the page explains it in a dialog instead of a toast that says nothing.
+  it('explains a refused delete in a dialog, keeps the customer and stays on the page', async () => {
+    instances = [];
+    server.use(
+      handleDeleteCustomer(() =>
+        HttpResponse.json(
+          {
+            code: 'DeleteCustomer.BillingActive',
+            detail: 'Customer "acme" is billed',
+            errors: [
+              {
+                location: 'customer',
+                message: 'what keeps it',
+                value: { live: false, unpaidInvoiceIds: ['inv-1', 'inv-2'] },
+              },
+            ],
+            status: 409,
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderDetail();
+    const button = screen.getByRole('button', { name: 'Delete' });
+    await waitFor(() => expect(button).toBeEnabled());
+
+    await userEvent.setup().click(button);
+
+    const refusal = await screen.findByTestId('deletion-refusal');
+    expect(refusal).toBeInTheDocument();
+    expect(screen.getByText('Customer "acme" is billed')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('deletion-refusal-invoices').querySelectorAll('li'),
+    ).toHaveLength(2);
+    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(deleted).toBe(false);
   });
 
   it('navigates to the customer-scoped instance creation route from the instances card', async () => {

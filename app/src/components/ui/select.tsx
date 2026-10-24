@@ -3,13 +3,42 @@ import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@/lib/utils"
 import { ChevronDownIcon, CheckIcon, ChevronUpIcon } from "lucide-react"
 
+// The list a select opens is a `listbox` in a portal, and Base UI gives it no name. Only the
+// `aria-controls` of the open trigger spares it from axe's `aria-input-field-name`, and that
+// attribute arrives a render after the list mounts; a screen reader has nothing to read
+// either way. The trigger already has a name, from its `<label>` or its `aria-label`, so the
+// list is named after it with `aria-labelledby`. A trigger inside a `FormControl` takes the
+// id of the field, not the one Base UI would pick, which is why the trigger reports the id
+// it ended up with.
+type SelectTriggerIdContextValue = {
+  triggerId: string | undefined
+  setTriggerId: (id: string | undefined) => void
+}
+
+const SelectTriggerIdContext =
+  React.createContext<SelectTriggerIdContextValue | null>(null)
+
 /**
  * Base UI appends a visually hidden `<input>` after the trigger, so the trigger is
  * never the last child of its container. Stack a Select with `grid grid-cols-1 gap-*`
  * (or give it its own wrapper), not `space-y-*`, which would put a margin under the
  * trigger. Keep `grid-cols-1`: a bare `grid` lets a long value widen the column.
  */
-const Select = SelectPrimitive.Root
+function Select<Value, Multiple extends boolean | undefined = false>(
+  props: SelectPrimitive.Root.Props<Value, Multiple>
+) {
+  const [triggerId, setTriggerId] = React.useState<string | undefined>()
+  const context = React.useMemo(
+    () => ({ triggerId, setTriggerId }),
+    [triggerId]
+  )
+
+  return (
+    <SelectTriggerIdContext value={context}>
+      <SelectPrimitive.Root {...props} />
+    </SelectTriggerIdContext>
+  )
+}
 
 function SelectGroup({ className, ...props }: SelectPrimitive.Group.Props) {
   return (
@@ -35,12 +64,24 @@ function SelectTrigger({
   className,
   size = "default",
   children,
+  ref,
   ...props
 }: SelectPrimitive.Trigger.Props & {
   size?: "sm" | "default"
 }) {
+  const setTriggerId = React.use(SelectTriggerIdContext)?.setTriggerId
+  const mergedRef = React.useCallback(
+    (element: HTMLButtonElement | null) => {
+      setTriggerId?.(element?.id || undefined)
+      if (typeof ref === "function") ref(element)
+      else if (ref) ref.current = element
+    },
+    [ref, setTriggerId]
+  )
+
   return (
     <SelectPrimitive.Trigger
+      ref={mergedRef}
       data-slot="select-trigger"
       data-size={size}
       className={cn(
@@ -71,6 +112,8 @@ function SelectContent({
     SelectPrimitive.Positioner.Props,
     "align" | "alignOffset" | "side" | "sideOffset" | "alignItemWithTrigger"
   >) {
+  const triggerId = React.use(SelectTriggerIdContext)?.triggerId
+
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Positioner
@@ -84,13 +127,16 @@ function SelectContent({
         <SelectPrimitive.Popup
           data-slot="select-content"
           className={cn(
-            "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--available-height) min-w-[max(8rem,var(--anchor-width))] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
+            "bg-popover text-popover-foreground data-open:animate-in data-closed:animate-out data-closed:fade-out-0 data-open:fade-in-0 data-closed:zoom-out-95 data-open:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 relative z-50 max-h-(--available-height) max-w-(--available-width) min-w-[max(8rem,var(--anchor-width))] origin-(--transform-origin) overflow-x-hidden overflow-y-auto rounded-md border shadow-md",
             className
           )}
           {...props}
         >
           <SelectScrollUpButton />
-          <SelectPrimitive.List className="scroll-my-1 p-1">{children}</SelectPrimitive.List>
+          <SelectPrimitive.List
+            aria-labelledby={triggerId}
+            className="scroll-my-1 p-1"
+          >{children}</SelectPrimitive.List>
           <SelectScrollDownButton />
         </SelectPrimitive.Popup>
       </SelectPrimitive.Positioner>

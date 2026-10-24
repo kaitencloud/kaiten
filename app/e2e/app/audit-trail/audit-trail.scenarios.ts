@@ -22,6 +22,24 @@ const GLOBEX = {
   instanceSlug: 'globex-prod',
 };
 
+// Who the API records an event under: a member of the organization, a service
+// account, and Kaiten itself, which the API names "Kaiten (system)".
+const ADA = {
+  id: '6f1c2a54-0b8e-4f53-9d2a-1f7e3c9b8a01',
+  kind: 'USER',
+  name: 'Ada Lovelace',
+} as const;
+const CI_ROBOT = {
+  id: '9a4e7d20-3c61-4b8f-a2d5-6e0b1c7f4d92',
+  kind: 'SERVICE',
+  name: 'ci-robot',
+} as const;
+const KAITEN = {
+  id: '00000000-0000-0000-0000-000000000001',
+  kind: 'SYSTEM',
+  name: 'Kaiten (system)',
+} as const;
+
 /**
  * One event of every status the page shows. Three of them tell a user that an
  * entitlement's usage is approaching, at or past its limit, while the API still
@@ -61,6 +79,7 @@ const USAGE_ENTRIES: AuditTrailSeedEntry[] = [
       licenseId: 'lic-business',
       licenseSlug: 'business',
       limit: { type: 'number', value: 50 },
+      source: 'license',
       value: { event_count: 12, type: 'number', value: 50 },
     },
     timestamp: '2026-09-29T10:04:00.000Z',
@@ -94,6 +113,7 @@ const USAGE_ENTRIES: AuditTrailSeedEntry[] = [
   },
   {
     ...ACME,
+    actor: CI_ROBOT,
     eventName: 'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
     eventType: 'com.kaiten.instance.entitlement.v1.usage_report_accepted',
     id: '2005',
@@ -108,6 +128,7 @@ const USAGE_ENTRIES: AuditTrailSeedEntry[] = [
   },
   {
     ...TECHSTART,
+    actor: ADA,
     eventName: 'FEATURE_FLAG_UPDATED',
     eventType: 'com.kaiten.feature_flag.v1.updated',
     id: '2006',
@@ -130,6 +151,7 @@ const USAGE_ENTRIES: AuditTrailSeedEntry[] = [
   },
   {
     // Organization-level: no instance, no customer.
+    actor: KAITEN,
     customerName: null,
     eventName: 'LICENSE_PUBLISHED',
     eventType: 'com.kaiten.license.v1.published',

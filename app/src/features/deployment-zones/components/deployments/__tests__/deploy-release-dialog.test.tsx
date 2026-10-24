@@ -83,12 +83,13 @@ describe('DeployReleaseDialog', () => {
     expect(deployButton).toBeEnabled();
     await user.click(deployButton);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ releaseId: 'release-2' }),
-        path: { deploymentZoneSlug: 'production-eu' },
-      }),
-    );
+    // The release is the one thing the deployment changes: the zone is read
+    // again before it is written, and the rest of it is left as the API holds it.
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      deploymentZoneSlug: 'production-eu',
+      edited: expect.objectContaining({ releaseId: 'release-2' }),
+      opened: expect.not.objectContaining({ releaseId: expect.anything() }),
+    });
   });
 
   it('opens on the running release and offers only releases, never a way to undeploy', async () => {
@@ -121,11 +122,12 @@ describe('DeployReleaseDialog', () => {
     expect(deployButton).toBeEnabled();
     await user.click(deployButton);
 
-    expect(mockMutateAsync).toHaveBeenCalledWith(
-      expect.objectContaining({
-        body: expect.objectContaining({ releaseId: 'release-2' }),
-        path: { deploymentZoneSlug: 'production-eu' },
-      }),
-    );
+    // The release is the one thing the deployment changes: the zone is read
+    // again before it is written, and the rest of it is left as the API holds it.
+    expect(mockMutateAsync).toHaveBeenCalledWith({
+      deploymentZoneSlug: 'production-eu',
+      edited: expect.objectContaining({ releaseId: 'release-2' }),
+      opened: expect.not.objectContaining({ releaseId: expect.anything() }),
+    });
   });
 });

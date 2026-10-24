@@ -126,7 +126,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        # About 150 tests a shard: a shard ran past 30 minutes at 190 when the runner was slow to install its packages.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     defaults:
       run:
         working-directory: app

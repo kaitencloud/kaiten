@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
+	auditschema "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
@@ -57,7 +58,15 @@ func (r *QueryRepository) List(ctx context.Context, instanceSlug string, orgID u
 			EventType:    entry.EventType,
 			Timestamp:    entry.OccurredAt,
 			Payload:      payload,
+			Actor:        auditActor(entry.Actor),
 		})
 	}
 	return result, nil
+}
+
+func auditActor(actor *auditschema.Actor) *schema.AuditActor {
+	if actor == nil {
+		return nil
+	}
+	return &schema.AuditActor{ID: actor.ID, Name: actor.Name, Kind: actor.Kind}
 }

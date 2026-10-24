@@ -2,6 +2,7 @@ import { z } from 'zod';
 import type { Entitlement } from '@/api-client';
 import { zEntitlementWritable } from '@/api-client/zod.gen';
 import {
+  hasBillingPeriodOnWrongCadence,
   RESET_PERIOD_NONE,
   resetAnchorSchema,
   resetPeriodSchema,
@@ -26,18 +27,33 @@ const unitLabelSchema = z
 
 const isLabelSet = (value?: string) => Boolean(value && value.trim() !== '');
 
+// The order is a whole number, and the message for a fraction says so: the one of the generated
+// schema is the bare type check of the validator. The generated schema still decides the range.
+const displayOrderSchema = z
+  .custom<number>((value) => Number.isInteger(value), {
+    error: 'Pages.Entitlements.Mutation.Form.Errors.displayOrder',
+  })
+  .optional()
+  .pipe(zEntitlementWritable.shape.displayOrder);
+
 // Creating a schema for entitlement form based on the available fields
-// Step 1 of both create wizards, dialog and page, stops at the group selection.
+// Step 1 of both create wizards, dialog and page, holds every field of the identity: the
+// name, the slug, the description, the groups, the icon, whether it is shown to customers and
+// where it comes in the list. Next opens the second step only when all of them are valid; a
+// field left out here would let an error through to the end, where nothing points at it.
 export const entitlementIdentityStepSchema = zEntitlementWritable
   .pick({
     name: true,
     description: true,
     groupSlugs: true,
     icon: true,
+    userFacing: true,
+    displayOrder: true,
   })
   .extend({
     name: entitlementNameSchema,
     slug: entitlementSlugSchema,
+    displayOrder: displayOrderSchema,
   });
 
 export const entitlementFormSchema = zEntitlementWritable
@@ -55,6 +71,7 @@ export const entitlementFormSchema = zEntitlementWritable
     name: entitlementNameSchema,
     // Optional: left blank, the API generates the slug from the name.
     slug: entitlementSlugSchema,
+    displayOrder: displayOrderSchema,
     unitSingular: unitLabelSchema,
     unitPlural: unitLabelSchema,
     saleUnitSingular: unitLabelSchema,
@@ -69,6 +86,14 @@ export const entitlementFormSchema = zEntitlementWritable
     resetAnchor: resetAnchorSchema,
   })
   .superRefine((values, ctx) => {
+    if (hasBillingPeriodOnWrongCadence(values)) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['resetAnchor'],
+        message: 'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
+      });
+    }
+
     const baseSingular = isLabelSet(values.unitSingular);
     const basePlural = isLabelSet(values.unitPlural);
     const saleFlags = [
@@ -111,6 +136,17 @@ export const entitlementFormSchema = zEntitlementWritable
   });
 
 export type EntitlementFormValues = z.infer<typeof entitlementFormSchema>;
+
+/** The values of the form that the first step asks for, as its schema reads them. */
+export const getIdentityStepValues = (values: EntitlementFormValues) => ({
+  description: values.description,
+  displayOrder: values.displayOrder,
+  groupSlugs: values.groupSlugs,
+  icon: values.icon,
+  name: values.name,
+  slug: values.slug,
+  userFacing: values.userFacing,
+});
 export type EntitlementSelectOption = {
   label: string;
   value: string;

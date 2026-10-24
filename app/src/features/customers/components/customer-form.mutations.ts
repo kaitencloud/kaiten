@@ -3,12 +3,12 @@ import { useRouteContext } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Customer } from '@/api-client';
-import {
-  createCustomerMutation,
-  updateCustomerMutation,
-} from '@/api-client/@tanstack/react-query.gen';
+import { createCustomerMutation } from '@/api-client/@tanstack/react-query.gen';
 import { startAttioSyncWatcher } from '@/domains/crm-sync';
-import { invalidateCustomerQueries } from '@/domains/customer-management';
+import {
+  invalidateCustomerQueries,
+  saveCustomerOnFresh,
+} from '@/domains/customer-management';
 
 export function useCustomerFormMutations(customer?: Customer) {
   const { t } = useTranslation();
@@ -28,12 +28,12 @@ export function useCustomerFormMutations(customer?: Customer) {
     },
   });
 
+  // The update replaces the customer as a whole: it reads the customer again and
+  // applies on top of it only what the form changed.
   const updateMutation = useMutation({
-    ...updateCustomerMutation({
-      path: { customerSlug: customer?.slug ?? '' },
-    }),
+    mutationFn: saveCustomerOnFresh,
     onSuccess: async (_updatedCustomer, variables) => {
-      const customerSlug = variables.path.customerSlug;
+      const customerSlug = variables.customerSlug;
       const syncWatcher = startAttioSyncWatcher({
         queryClient,
         entityKind: 'customer',

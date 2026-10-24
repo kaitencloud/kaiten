@@ -13,3 +13,11 @@ export {
   isDefaultLifecycleStage,
   LIFECYCLE_STAGE_DEFAULTS,
 } from './instance-lifecycle-stage';
+export {
+  BILLING_EMAIL_ERROR_KEYS,
+  BILLING_EMAIL_MAX_LENGTH,
+  billingEmailSchema,
+  customerBillingEmailToUpdateBody,
+  customerToUpdateBody,
+  isValidBillingEmail,
+} from './customer-billing-email';

@@ -129,6 +129,53 @@ const paginatedRows: EditableLicenseEntitlement[] = Array.from(
 );
 
 describe('LicenseEntitlementsCard', () => {
+  it('offers a reader no way to add, edit or remove a grant', () => {
+    render(
+      <LicenseEntitlementsCard
+        entitlements={entitlements}
+        readOnly
+        rows={rows}
+        onAddEntitlement={vi.fn()}
+        onDeleteEntitlement={vi.fn()}
+        onUpdateEntitlementGrant={vi.fn()}
+      />,
+    );
+
+    // The grants are there to read: the cap of a number grant is text, not a button.
+    expect(screen.getByText('Seats')).toBeInTheDocument();
+    expect(screen.getByText('10')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '10' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Add entitlement' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /remove/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('columnheader', { name: 'Actions' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers a writer the add button, the inline edit and the removal of a grant', () => {
+    render(
+      <LicenseEntitlementsCard
+        entitlements={entitlements}
+        rows={rows}
+        onAddEntitlement={vi.fn()}
+        onDeleteEntitlement={vi.fn()}
+        onUpdateEntitlementGrant={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: '10' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Add entitlement' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('columnheader', { name: 'Actions' }),
+    ).toBeInTheDocument();
+  });
+
   it('keeps inline edition behavior with save on enter for number entitlements', async () => {
     const user = userEvent.setup();
     const onUpdateEntitlementGrant = vi.fn().mockResolvedValue(undefined);

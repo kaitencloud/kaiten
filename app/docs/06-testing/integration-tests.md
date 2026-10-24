@@ -75,12 +75,12 @@ const meta = {
 ```
 
 - A REST endpoint takes its generated handler from `@/api-client/msw.gen`, whose body has the type of the operation's response. `onePage(items)` is the body of a list that fits on one page.
-- GraphQL goes through `graphqlOperationHandler` from `@/e2e/msw/handler-factory`, keyed by operation name; `metadataFieldsHandler(...)` (`src/test-fixtures/storybook-handlers.ts`) serves the active metadata fields of each resource type, none by default.
-- A request to `/api/` that no handler answers fails with a network error, and a console error names it: the story shows the error state its component has for an API that is down. It never reaches the Storybook server or a running stack.
+- GraphQL goes through `graphqlOperationHandler` from `@/e2e/msw/handler-factory`, keyed by operation name, and refuses the three documents of billing whole to a request whose token lacks a scope they need (see [unit tests](./unit-tests.md)); `metadataFieldsHandler(...)` (`src/test-fixtures/storybook-handlers.ts`) serves the active metadata fields of each resource type, none by default.
+- A request to `/api/` that no handler answers fails with a network error, and a console error names it: the story shows the error state its component has for an API that is down. It never reaches the Storybook server or a running stack. The defaults are the billing capabilities, answered with billing off because the app shell reads them, and the three GraphQL documents of billing that screens send once it is on (`GetInstancesBilling`, `GetLicensesWithPrices`, `GetCatalogPrices`), answered with a page with nothing in it (`emptyBillingDocuments` of `e2e/app/_support/model/graphql-operations.ts`): a story that needs billing on declares `handleGetBillingCapabilities` itself, with a profile of `e2e/app/_support/model/billing-capabilities.ts`, and one that is about the subscriptions or the prices declares their documents too.
 - The data arrives after the first render: a `play` function waits for it with `findBy*`, as it would for any data loaded over the network.
 - The handlers belong to the page, not to a story: a docs page that renders several stories at once serves them all with the last one's.
 - Mock Service Worker patches `fetch` and `XMLHttpRequest` in the page (`createPageNetwork`, `src/e2e/msw/page-network.ts`, over `msw/experimental`), with no service worker: a service worker would also route every module the Storybook tests import through a round trip to the page, and some of those imports failed under that load.
-- `StorybookRouter`'s `seed` fills the cache with what no request answers in Storybook: whether webhooks are served, which only Kaiten Cloud's saas-api answers (`side-nav.stories.tsx`).
+- `StorybookRouter`'s `seed` fills the cache with what no request answers in Storybook: whether webhooks are served, which only Kaiten Cloud's saas-api answers, and the billing capabilities the side navigation reads, which a story that shows the Invoices entry, or the add-ons and the vouchers of the Catalog section, seeds with a profile of `billingCapabilitiesProfiles` (`side-nav.stories.tsx`).
 
 In App CI, the `stories` job runs the suite after a throwaway pass that fills Vite's dependency-optimizer cache: on a cold cache the browser runner reloads in the middle of a run and drops stories. It then runs the project in three shards, each retried once. A local run has a warm cache after its first pass; if the first one fails with "Cannot connect to the iframe" or "Failed to fetch dynamically imported module", run it again.
 
@@ -100,7 +100,7 @@ The application suite runs the real console in Chromium with the sign-in bypasse
 `pnpm run test:e2e:app` reads `playwright.app.config.ts`, which starts its own dev server:
 
 ```bash
-VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true pnpm exec vp dev --host 127.0.0.1 --port 3100
+VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true VITE_KAITEN_WEBHOOKS=true pnpm exec vp dev --host 127.0.0.1 --port 3100
 ```
 
 Locally, the suite needs the installed dependencies, the generated client, Chromium and a free port 3100. It refuses to reuse a server that already runs there (`reuseExistingServer: false`). It needs no backend, no Docker and no Clerk key: `VITE_LOCAL_AUTH=false` prevents a local setting from selecting the sign-in gate, `VITE_E2E_BYPASS_AUTH=true` renders the console without signing in, and `VITE_E2E_MSW=true` serves the API from the mocks below. The server also disables dev mocks and clears the platform flag service settings. A test has 60 seconds, because the dev server transforms modules on demand.
@@ -114,7 +114,7 @@ pnpm exec playwright test -c playwright.app.config.ts e2e/app/customers/customer
 
 `test:e2e:ui`, `test:e2e:headed`, `test:e2e:debug`, `test:e2e:report` and `test:e2e:all` use the default config, `playwright.config.ts`, which is the Storybook suite. To debug an application spec, pass `-c playwright.app.config.ts` and `--ui`, `--headed` or `--debug` to `pnpm exec playwright test` as above.
 
-A failed test keeps its trace, screenshot and video, and Playwright writes an HTML report to `playwright-report/`; `pnpm run test:e2e:report` opens the last one. CI runs the suite in three shards, retries a failure once and uploads the report of a failed shard. [CI/CD](../07-deployment/ci-cd.md) describes the workflow.
+A failed test keeps its trace, screenshot and video, and Playwright writes an HTML report to `playwright-report/`; `pnpm run test:e2e:report` opens the last one. CI runs the suite in seven shards, retries a failure once and uploads the report of a failed shard. [CI/CD](../07-deployment/ci-cd.md) describes the workflow.
 
 ## Network mocks (MSW)
 

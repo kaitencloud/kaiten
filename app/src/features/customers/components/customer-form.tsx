@@ -1,17 +1,21 @@
 import { Button } from '@/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
-import { useId } from 'react';
+import { useId, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import type { Customer } from '@/api-client';
+import { placeRefusalOnFields } from '@/domains/billing';
 import {
   StackedFormDialogFooter,
   StackedFormDialogPanel,
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
+import { useCustomerBilling } from '../hooks/use-customer-billing';
 import { useCustomerFormMutations } from './customer-form.mutations';
 import {
+  CUSTOMER_REFUSAL_FIELDS,
+  createCustomerFormSchema,
   customerFormSchema,
   customerFormValuesToCreateBody,
   customerFormValuesToUpdateBody,
@@ -37,6 +41,12 @@ export const CustomerForm = ({
   const navigate = useNavigate();
   const formId = useId();
   const { createMutation, updateMutation } = useCustomerFormMutations(customer);
+  const { isBillingEnabled } = useCustomerBilling();
+  // What the form opened with, kept as it was: an update sends the fields that
+  // differ from it, and takes the others from the customer as the API holds it.
+  const [openedValues] = useState(() =>
+    customer ? customerToFormValues(customer) : initialCustomerFormValues,
+  );
 
   function backToList() {
     navigate({ to: '/customers' });
@@ -61,27 +71,28 @@ export const CustomerForm = ({
   }
 
   const form = useAppForm({
-    defaultValues: customer
-      ? customerToFormValues(customer)
-      : initialCustomerFormValues,
+    defaultValues: openedValues,
     validators: {
-      onChange: customerFormSchema,
+      onChange: customer ? customerFormSchema : createCustomerFormSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ formApi, value }) => {
       try {
         // An update may answer with no body; the customer being edited then
         // stands in, since only its slug is needed downstream.
         const savedCustomer = customer
           ? ((await updateMutation.mutateAsync({
-              path: { customerSlug: customer.slug! },
-              body: customerFormValuesToUpdateBody(value),
+              customerSlug: customer.slug!,
+              edited: customerFormValuesToUpdateBody(value),
+              opened: customerFormValuesToUpdateBody(openedValues),
             })) ?? customer)
           : await createMutation.mutateAsync({
               body: customerFormValuesToCreateBody(value),
             });
         handleSuccess(savedCustomer);
       } catch (e) {
-        toast.error(getApiErrorMessage(e));
+        if (!placeRefusalOnFields(formApi, e, CUSTOMER_REFUSAL_FIELDS)) {
+          toast.error(getApiErrorMessage(e));
+        }
       }
     },
   });
@@ -104,7 +115,11 @@ export const CustomerForm = ({
         </StackedFormDialogFooter>
         <StackedFormDialogPanel className={panelClassName}>
           <div className="space-y-6">
-            <CustomerFormFields form={form} isEditing={!!customer} />
+            <CustomerFormFields
+              form={form}
+              isEditing={!!customer}
+              showBillingEmail={isBillingEnabled}
+            />
           </div>
         </StackedFormDialogPanel>
       </form.AppForm>

@@ -13,9 +13,9 @@ import (
 
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/createcomponent"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/createdeploymentzone"
@@ -24,7 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
-	instancesdb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
@@ -1022,21 +1022,16 @@ func (p *Profile) seedUsageMetrics(
 
 				seed := p.buildUsageAuditSeed(now, threshold, idx*len(entitlements)+entIdx)
 
-				usageValue, err := entitlementvalue.ToBytes(&entitlementvalue.NumberUsageValue{
-					Type:       entitlementvalue.TypeNumber,
-					Value:      float64(seed.finalValue),
-					EventCount: seed.acceptedCount,
-				})
-				if err != nil {
-					return err
-				}
-
-				if err := instancesdb.New(sc.Pool()).ReportEntitlementUsage(egCtx, instancesdb.ReportEntitlementUsageParams{
-					EntitlementID:  entitlementID,
-					InstanceID:     instance.ID,
-					Value:          usageValue,
-					OrganizationID: orgID,
-					PeriodStart:    pgtype.Timestamp{}, // lifetime entitlement: no configured reset period
+				// The final counter, written with its usage_ledger row. The
+				// seeded history below goes to the audit trail only: its
+				// reports are dated days back, before the journal of a fresh
+				// database begins.
+				if err := reportentitlementusagemetric.WriteSnapshot(egCtx, uow.NewUnitOfWork(sc.Pool()), reportentitlementusagemetric.Snapshot{
+					OrganizationID:  orgID,
+					InstanceSlug:    instance.Slug,
+					EntitlementSlug: ent.Slug,
+					Value:           float64(seed.finalValue),
+					EventCount:      seed.acceptedCount,
 				}); err != nil {
 					return err
 				}

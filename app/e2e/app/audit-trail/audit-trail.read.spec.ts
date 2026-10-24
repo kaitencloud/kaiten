@@ -29,6 +29,24 @@ test.describe('audit trail read', () => {
     await auditTrail.expectEventStatus('Usage reported', 'Accepted');
   });
 
+  test('names who each event is recorded under', async ({ page }) => {
+    const auditTrail = new AuditTrailDriver(page);
+
+    await installAuditTrailAppMocks(page, createUsageEventsAuditTrailModel());
+    await auditTrail.goto();
+
+    await auditTrail.expectEventActor('Feature flag updated', 'Ada Lovelace');
+    await auditTrail.expectEventActor('Usage reported', 'ci-robot');
+    await auditTrail.expectEventActor(
+      'License version published',
+      'Kaiten (system)',
+    );
+    // An entry recorded before the API kept actors names no one.
+    await expect(auditTrail.eventRow('Usage rejected')).not.toContainText(
+      'Kaiten (system)',
+    );
+  });
+
   test('the Warning status keeps the warnings and nothing else', async ({
     page,
   }) => {
@@ -49,5 +67,21 @@ test.describe('audit trail read', () => {
     ]) {
       await expect(auditTrail.eventRow(label)).toHaveCount(0);
     }
+  });
+
+  test('draws each event once on a phone, as a row made for it, with no column header', async ({
+    page,
+  }) => {
+    const auditTrail = new AuditTrailDriver(page);
+
+    await page.setViewportSize({ width: 390, height: 800 });
+    await installAuditTrailAppMocks(page, createUsageEventsAuditTrailModel());
+    await auditTrail.goto();
+
+    // The desktop header and rows are hidden below the sm breakpoint; only the
+    // rows of the phone are drawn.
+    await expect(page.getByText('Actor', { exact: true })).toBeHidden();
+    await expect(auditTrail.eventRow('Usage rejected')).toHaveCount(1);
+    await expect(auditTrail.eventRow('Usage rejected')).toBeVisible();
   });
 });

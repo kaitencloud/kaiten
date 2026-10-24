@@ -33,19 +33,21 @@ func (p ResetPeriod) Valid() bool {
 }
 
 // ResetAnchor determines the phase of a periodic usage window: aligned to
-// the UTC calendar (Calendar) or phased off the instance's license start
-// date (LicenseStart).
+// the UTC calendar (Calendar), phased off the instance's license start date
+// (LicenseStart), or off its live subscription's billing anchor
+// (BillingPeriod, V32-04).
 type ResetAnchor string
 
 const (
-	Calendar     ResetAnchor = "CALENDAR"
-	LicenseStart ResetAnchor = "LICENSE_START"
+	Calendar      ResetAnchor = "CALENDAR"
+	LicenseStart  ResetAnchor = "LICENSE_START"
+	BillingPeriod ResetAnchor = "BILLING_PERIOD"
 )
 
 // Valid reports whether a is one of the supported anchors.
 func (a ResetAnchor) Valid() bool {
 	switch a {
-	case Calendar, LicenseStart:
+	case Calendar, LicenseStart, BillingPeriod:
 		return true
 	default:
 		return false
@@ -60,12 +62,115 @@ type Window struct {
 	End   time.Time
 }
 
+// Basis is what an instance's windows are phased off (§6.7): its licence
+// start, and, for BILLING_PERIOD, its subscription.
+type Basis struct {
+	LicenseStart time.Time
+	// LiveAnchor is the anchor_at of the instance's TRIAL, ACTIVE or PAST_DUE
+	// subscription; nil without one (none, INCOMPLETE or CANCELED), which is
+	// LICENSE_START's windows (rule 3, INV-39).
+	LiveAnchor *time.Time
+	// LiveEndedAt is instance_billing.live_ended_at, the instant the last
+	// live subscription of the row became CANCELED: without a live one, it
+	// splits the LICENSE_START window that contains it (rule 3).
+	LiveEndedAt *time.Time
+}
+
+// LicenseStartBasis is the basis of an instance with no subscription facts.
+func LicenseStartBasis(licenseStart time.Time) Basis {
+	return Basis{LicenseStart: licenseStart, LiveAnchor: nil, LiveEndedAt: nil}
+}
+
+// Live is whether a subscription status anchors BILLING_PERIOD's windows:
+// TRIAL, ACTIVE and PAST_DUE do; INCOMPLETE and CANCELED do not (§6.7 rule 2).
+func Live(status string) bool {
+	return status == "TRIAL" || status == "ACTIVE" || status == "PAST_DUE"
+}
+
+// NewBasis is the basis of an instance: the anchor of its subscription when
+// status is live, else its licence start, split at liveEndedAt. status is ""
+// without a subscription.
+func NewBasis(licenseStart time.Time, status string, anchorAt, liveEndedAt *time.Time) Basis {
+	b := Basis{LicenseStart: licenseStart, LiveAnchor: nil, LiveEndedAt: nil}
+	if Live(status) && anchorAt != nil {
+		anchor := anchorAt.UTC()
+		b.LiveAnchor = &anchor
+		return b
+	}
+	if liveEndedAt != nil {
+		ended := liveEndedAt.UTC()
+		b.LiveEndedAt = &ended
+	}
+	return b
+}
+
 // Current returns the window containing now for the given cadence/anchor.
 // now (and licenseStart, when resetAnchor is LicenseStart) must be database
 // time, not application-node wall clock, so reads and reports computed on
 // different replicas always agree on window boundaries.
 func Current(now time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, licenseStart time.Time) (Window, error) {
-	return windowContaining(now.UTC(), resetPeriod, resetAnchor, licenseStart.UTC())
+	return CurrentOn(now, resetPeriod, resetAnchor, LicenseStartBasis(licenseStart))
+}
+
+// CurrentOn is Current over a full basis: BILLING_PERIOD follows the live
+// subscription's anchor.
+func CurrentOn(now time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, basis Basis) (Window, error) {
+	return windowContaining(now.UTC(), resetPeriod, resetAnchor, basis.utc())
+}
+
+func (b Basis) utc() Basis {
+	out := Basis{LicenseStart: b.LicenseStart.UTC(), LiveAnchor: nil, LiveEndedAt: nil}
+	if b.LiveAnchor != nil {
+		anchor := b.LiveAnchor.UTC()
+		out.LiveAnchor = &anchor
+	}
+	if b.LiveEndedAt != nil {
+		ended := b.LiveEndedAt.UTC()
+		out.LiveEndedAt = &ended
+	}
+	return out
+}
+
+// ResolveCurrent returns the window a stored usage bucket is read and
+// written in at now. It is Current(now) except in one case: the bucket's
+// stored window starts after Current(now) and is itself a window of this
+// cadence, anchor and licenseStart. Such a bucket was opened by a report
+// whose clock had already passed a boundary that now has not reached yet --
+// a database clock that stepped back across a failover, or a report that
+// read the clock before waiting for the pair's lock. That window is then
+// kept as the current one: reading it as stale would show 0 for usage that
+// was counted, and rolling it over would mean walking forward from a window
+// that is already ahead of now, which never meets now's window.
+//
+// A stored start that is not a window boundary under the current
+// configuration is a phase shift (start_license_date or the anchor changed
+// since the bucket was written), not a clock lead: Current(now) applies and
+// the report path closes the old bucket. A nil storedPeriodStart (no stored
+// row, or a lifetime bucket) also gets Current(now).
+//
+// storedAhead reports whether the stored window was kept.
+func ResolveCurrent(now time.Time, storedPeriodStart *time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, licenseStart time.Time) (window Window, storedAhead bool, err error) {
+	return ResolveCurrentOn(now, storedPeriodStart, resetPeriod, resetAnchor, LicenseStartBasis(licenseStart))
+}
+
+// ResolveCurrentOn is ResolveCurrent over a full basis.
+func ResolveCurrentOn(now time.Time, storedPeriodStart *time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, basis Basis) (window Window, storedAhead bool, err error) {
+	current, err := CurrentOn(now, resetPeriod, resetAnchor, basis)
+	if err != nil {
+		return Window{}, false, err
+	}
+	if storedPeriodStart == nil || !storedPeriodStart.After(current.Start) {
+		return current, false, nil
+	}
+
+	stored, err := CurrentOn(*storedPeriodStart, resetPeriod, resetAnchor, basis)
+	if err != nil {
+		return Window{}, false, err
+	}
+	if !stored.Start.Equal(*storedPeriodStart) {
+		return current, false, nil
+	}
+	return stored, true, nil
 }
 
 // Next returns the window immediately following w for the same
@@ -73,18 +178,47 @@ func Current(now time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, li
 // arithmetic as Current, so windows are always contiguous: Next(w).Start is
 // always equal to w.End, with no gap and no overlap.
 func Next(w Window, resetPeriod ResetPeriod, resetAnchor ResetAnchor, licenseStart time.Time) (Window, error) {
-	return windowContaining(w.End.UTC(), resetPeriod, resetAnchor, licenseStart.UTC())
+	return NextOn(w, resetPeriod, resetAnchor, LicenseStartBasis(licenseStart))
 }
 
-func windowContaining(t time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, licenseStart time.Time) (Window, error) {
+// NextOn is Next over a full basis.
+func NextOn(w Window, resetPeriod ResetPeriod, resetAnchor ResetAnchor, basis Basis) (Window, error) {
+	return windowContaining(w.End.UTC(), resetPeriod, resetAnchor, basis.utc())
+}
+
+func windowContaining(t time.Time, resetPeriod ResetPeriod, resetAnchor ResetAnchor, basis Basis) (Window, error) {
 	switch resetAnchor {
 	case Calendar:
 		return calendarWindow(t, resetPeriod)
 	case LicenseStart:
-		return licenseStartWindow(t, resetPeriod, licenseStart)
+		return licenseStartWindow(t, resetPeriod, basis.LicenseStart)
+	case BillingPeriod:
+		return billingPeriodWindow(t, resetPeriod, basis)
 	default:
 		return Window{}, fmt.Errorf("period: unsupported reset anchor %q", resetAnchor)
 	}
+}
+
+// billingPeriodWindow is BILLING_PERIOD's window (§6.7 rules 2, 3): the live
+// subscription's anchor_at in place of the licence start, else the licence
+// start's, the one containing live_ended_at split there, so that the windows
+// after a cancellation never reopen bounds the subscription's windows used.
+func billingPeriodWindow(t time.Time, resetPeriod ResetPeriod, basis Basis) (Window, error) {
+	if basis.LiveAnchor != nil {
+		return licenseStartWindow(t, resetPeriod, *basis.LiveAnchor)
+	}
+	w, err := licenseStartWindow(t, resetPeriod, basis.LicenseStart)
+	if err != nil || basis.LiveEndedAt == nil {
+		return w, err
+	}
+	split := *basis.LiveEndedAt
+	if !split.After(w.Start) || !split.Before(w.End) {
+		return w, nil
+	}
+	if t.Before(split) {
+		return Window{Start: w.Start, End: split}, nil
+	}
+	return Window{Start: split, End: w.End}, nil
 }
 
 // calendarWindow computes UTC-calendar-aligned windows. Only Month and Year
@@ -183,6 +317,14 @@ func yearIndex(anchor, t time.Time) int64 {
 		n--
 	}
 	return n
+}
+
+// AddMonths adds n calendar months to t (n may be negative), clamping the day
+// to the target month's last day: 2026-05-31 minus 3 months is 2026-02-28. The
+// same arithmetic as the monthly windows, for callers that count in months --
+// such as a retention of N months.
+func AddMonths(t time.Time, n int) time.Time {
+	return addMonthsClamped(t.UTC(), int64(n))
 }
 
 // addMonthsClamped adds n months to t, clamping the day-of-month to the

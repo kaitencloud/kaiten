@@ -29,9 +29,9 @@ func RegisterEndpoint(api huma.API, app Deleter) {
 		Method:      http.MethodDelete,
 		Path:        "/feature-flags/{featureFlagSlug}",
 		Summary:     "Delete a featureflag",
-		Description: "Delete a featureflag with the provided details",
+		Description: "Delete a featureflag with the provided details. A flag a voucher grants a variant of cannot be deleted (409 DeleteFeatureFlag.InUseConflict); it can be disabled.",
 		Tags:        []string{"featureflags"},
-		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError},
+		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {
 		cl, err := caller.Organization(ctx)
 		if err != nil {

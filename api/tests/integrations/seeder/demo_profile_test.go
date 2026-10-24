@@ -173,6 +173,19 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 		ORDER BY c.slug
 	`, orgID))
 
+	// Every seeded counter comes with the usage_ledger row that explains it:
+	// report_seq 1, in the counter's own window, ending at the counter's value.
+	require.Zero(t, countRows(t, ctx, testDB, `
+		SELECT COUNT(*)
+		FROM entitlement_usage eu
+		LEFT JOIN usage_ledger ul
+		  ON ul.instance_id = eu.instance_id AND ul.entitlement_id = eu.entitlement_id
+		 AND ul.report_seq = eu.report_seq
+		 AND ul.window_start IS NOT DISTINCT FROM eu.period_start
+		 AND ul.value_after = (eu.value->>'value')::numeric
+		WHERE eu.organization_id = $1 AND (eu.report_seq <> 1 OR ul.report_seq IS NULL)
+	`, orgID), "a seeded counter has no matching journal row")
+
 	// Sakura Dedicated stays on the July release -- the "pending upgrade"
 	// zone the deployment journal exists to show.
 	require.Equal(t, 1, countRows(t, ctx, testDB, `
@@ -481,24 +494,24 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 		"Release 2026.7.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
 		"Release 2026.8.0 was deployed to Shared APAC":      "/releases/deployment-zones/shared-apac",
 		"Release 2026.8.0 was deployed to Shared EU":        "/releases/deployment-zones/shared-eu",
-		"Delivery Drivers was assigned to Premium":          "/licenses/premium",
-		"Delivery Drivers was assigned to Standard":         "/licenses/standard",
-		"Delivery Drivers was assigned to Starter":          "/licenses/starter",
-		"Delivery Tracking was assigned to Premium":         "/licenses/premium",
-		"Delivery Tracking was assigned to Standard":        "/licenses/standard",
-		"Delivery Tracking was assigned to Starter":         "/licenses/starter",
-		"Locations was assigned to Premium":                 "/licenses/premium",
-		"Locations was assigned to Standard":                "/licenses/standard",
-		"Locations was assigned to Starter":                 "/licenses/starter",
-		"Menu Items was assigned to Premium":                "/licenses/premium",
-		"Menu Items was assigned to Standard":               "/licenses/standard",
-		"Menu Items was assigned to Starter":                "/licenses/starter",
-		"Monthly Orders was assigned to Premium":            "/licenses/premium",
-		"Monthly Orders was assigned to Standard":           "/licenses/standard",
-		"Monthly Orders was assigned to Starter":            "/licenses/starter",
-		"Support Tier was assigned to Premium":              "/licenses/premium",
-		"Support Tier was assigned to Standard":             "/licenses/standard",
-		"Support Tier was assigned to Starter":              "/licenses/starter",
+		"Delivery Drivers was assigned to Premium":          "/catalog/licenses/premium",
+		"Delivery Drivers was assigned to Standard":         "/catalog/licenses/standard",
+		"Delivery Drivers was assigned to Starter":          "/catalog/licenses/starter",
+		"Delivery Tracking was assigned to Premium":         "/catalog/licenses/premium",
+		"Delivery Tracking was assigned to Standard":        "/catalog/licenses/standard",
+		"Delivery Tracking was assigned to Starter":         "/catalog/licenses/starter",
+		"Locations was assigned to Premium":                 "/catalog/licenses/premium",
+		"Locations was assigned to Standard":                "/catalog/licenses/standard",
+		"Locations was assigned to Starter":                 "/catalog/licenses/starter",
+		"Menu Items was assigned to Premium":                "/catalog/licenses/premium",
+		"Menu Items was assigned to Standard":               "/catalog/licenses/standard",
+		"Menu Items was assigned to Starter":                "/catalog/licenses/starter",
+		"Monthly Orders was assigned to Premium":            "/catalog/licenses/premium",
+		"Monthly Orders was assigned to Standard":           "/catalog/licenses/standard",
+		"Monthly Orders was assigned to Starter":            "/catalog/licenses/starter",
+		"Support Tier was assigned to Premium":              "/catalog/licenses/premium",
+		"Support Tier was assigned to Standard":             "/catalog/licenses/standard",
+		"Support Tier was assigned to Starter":              "/catalog/licenses/starter",
 	}, opens)
 }
 

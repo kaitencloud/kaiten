@@ -21,9 +21,11 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"runtime/debug"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -60,6 +62,20 @@ type Config struct {
 // constructor without this package naming any module's types.
 type Pass func(ctx context.Context, conn *pgxpool.Conn) error
 
+// PoolPass is one unit of work that goes through the pool -- the unit of work,
+// the module's own queries -- rather than through the connection that holds the
+// lock: the billing jobs, whose passes are whole use cases.
+//
+// Such a job must not hold its lock on a connection of that pool. Its pass needs
+// connections of its own while the lock's sits idle, so every job that runs at
+// once holds one connection and waits for another, and the jobs that start
+// together after the same delay take the whole of a small pool -- four
+// connections on a four-CPU host, by pgxpool's default -- and wait on each other
+// for good: nothing times out, nothing errors, and every request of the API
+// waits behind them. Its lock is held on a connection dialled for the pass from
+// a copy of the pool's own configuration, and closed after it.
+type PoolPass func(ctx context.Context) error
+
 // Job runs one Pass on a schedule and participates in process shutdown.
 type Job struct {
 	name   string
@@ -67,6 +83,8 @@ type Job struct {
 	cfg    Config
 	lockID int64
 	pass   Pass
+	// poolPass replaces pass for a job built with NewPoolPass.
+	poolPass PoolPass
 
 	cancel    context.CancelFunc
 	startOnce sync.Once
@@ -89,6 +107,14 @@ func New(name string, pool *pgxpool.Pool, lockID int64, cfg Config, pass Pass) *
 	}
 
 	return &Job{name: name, pool: pool, cfg: cfg, lockID: lockID, pass: pass}
+}
+
+// NewPoolPass builds a Job whose pass works through the pool (see PoolPass),
+// without starting it. Its lock elects one replica the same way.
+func NewPoolPass(name string, pool *pgxpool.Pool, lockID int64, cfg Config, pass PoolPass) *Job {
+	job := New(name, pool, lockID, cfg, nil)
+	job.poolPass = pass
+	return job
 }
 
 // Start launches one owned goroutine. Idempotent; Stop cancels and waits for it,
@@ -132,7 +158,17 @@ func (j *Job) Start(ctx context.Context) {
 	})
 }
 
+// run is one scheduled pass. A panic in it is logged and the pass counted as
+// failed: the job is the only thing that ever runs its sweep, so a goroutine
+// that died with one unit's panic would stop the sweep for good, on every
+// replica it had won the election on (V31-35). The deferred unlock and close
+// in Sweep run before the recover, so the lock is released either way.
 func (j *Job) run(ctx context.Context) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			slog.ErrorContext(ctx, "sweep panicked", "sweep", j.name, "panic", recovered, "stack", string(debug.Stack()))
+		}
+	}()
 	if err := j.Sweep(ctx); err != nil {
 		slog.ErrorContext(ctx, "sweep failed", "sweep", j.name, "error", err)
 	}
@@ -154,6 +190,10 @@ func (j *Job) Stop() {
 // Exported so a test can drive a single deterministic pass without waiting out an
 // interval, which is how both callers' integration tests work.
 func (j *Job) Sweep(ctx context.Context) error {
+	if j.poolPass != nil {
+		return j.sweepOnOwnConnection(ctx)
+	}
+
 	conn, err := j.pool.Acquire(ctx)
 	if err != nil {
 		return fmt.Errorf("acquire connection for the %s sweep: %w", j.name, err)
@@ -177,4 +217,32 @@ func (j *Job) Sweep(ctx context.Context) error {
 	}()
 
 	return j.pass(ctx, conn)
+}
+
+// sweepOnOwnConnection runs a PoolPass under a lock held on a connection that is
+// not the pool's. Closing that connection ends its session, which releases the
+// lock however the pass unwound, so there is no unlock to forget.
+func (j *Job) sweepOnOwnConnection(ctx context.Context) error {
+	conn, err := pgx.ConnectConfig(ctx, j.pool.Config().ConnConfig.Copy())
+	if err != nil {
+		return fmt.Errorf("dial the connection of the %s sweep lock: %w", j.name, err)
+	}
+	defer func() {
+		closeCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), unlockTimeout)
+		defer cancel()
+		if err := conn.Close(closeCtx); err != nil {
+			slog.ErrorContext(ctx, "failed to close the sweep lock connection", "sweep", j.name, "error", err)
+		}
+	}()
+
+	var locked bool
+	if err := conn.QueryRow(ctx, `SELECT pg_try_advisory_lock($1::bigint)`, j.lockID).Scan(&locked); err != nil {
+		return fmt.Errorf("acquire the %s sweep lock: %w", j.name, err)
+	}
+	if !locked {
+		slog.DebugContext(ctx, "sweep skipped: another replica holds the lock", "sweep", j.name)
+		return nil
+	}
+
+	return j.poolPass(ctx)
 }

@@ -9,9 +9,18 @@ enum LicenseType {
 }
 
 """
+What a trial without an ACTIVE payment method becomes at its end: CANCEL it,
+or CONVERT it to ACTIVE.
+"""
+enum TrialEndWithoutPaymentMethod {
+  CANCEL
+  CONVERT
+}
+
+"""
 LicenseFamily is the product a license is a version of. It carries identity and
-nothing else: no display name, because the display name is the current version's
-own name. Renaming a version or publishing a new one never changes it, which is
+the family's own settings, no display name: the display name is the current
+version's own name. Renaming a version or publishing a new one never changes it, which is
 what makes its slug safe to put in a public pricing URL -- for as long as the
 family has a version: deleting its last version deletes the family and frees the
 slug.
@@ -19,6 +28,27 @@ slug.
 type LicenseFamily {
   id: UUID!
   slug: String!
+  """Whether the family's default PUBLISHED version is in the public catalogue."""
+  isPublic: Boolean!
+  """
+  The FREE family an instance of this family moves to when its subscription
+  ends; null without one.
+  """
+  fallbackLicenseFamilySlug: String
+  """
+  What a trial charged automatically with a total above 0 becomes at its end
+  when the customer has no ACTIVE payment method.
+  """
+  trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
+  """How many days before a trial's end trial_will_end fires (1 to 30)."""
+  trialReminderDays: Int!
+}
+
+"""How a licence or add-on version is sold."""
+enum PricingType {
+  FREE
+  PAID
+  CUSTOM
 }
 
 """
@@ -47,6 +77,20 @@ alone, this one is a resolved view of the product.
 type LicenseFamilyView {
   id: UUID!
   slug: String!
+  """Whether the family's default PUBLISHED version is in the public catalogue."""
+  isPublic: Boolean!
+  """
+  The FREE family an instance of this family moves to when its subscription
+  ends; null without one.
+  """
+  fallbackLicenseFamilySlug: String
+  """
+  What a trial charged automatically with a total above 0 becomes at its end
+  when the customer has no ACTIVE payment method.
+  """
+  trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
+  """How many days before a trial's end trial_will_end fires (1 to 30)."""
+  trialReminderDays: Int!
 
   """
   The version this family currently serves: its default version, or its
@@ -94,6 +138,20 @@ type License {
   Instances using this license
   """
   instances: [Instance!]!
+
+  """How this version is sold."""
+  pricingType: PricingType!
+  """The trial a subscription starts with by default, in days; null when none."""
+  trialPeriodDays: Int
+  """Whether self-serve signup captures a payment method before activation."""
+  requiresPaymentMethod: Boolean
+  """Where a buyer is sent when this version cannot be bought self-serve."""
+  selfServeCtaUrl: String
+  """
+  The version's prices in display order; status narrows them. Like the REST
+  list, it needs billing to be enabled for the organization.
+  """
+  prices(status: PriceStatus): [LicensePrice!]!
 }
 
 """

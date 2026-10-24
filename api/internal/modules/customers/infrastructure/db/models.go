@@ -9,6 +9,94 @@ import (
 	"fmt"
 )
 
+type EntitlementResetAnchor string
+
+const (
+	EntitlementResetAnchorCALENDAR      EntitlementResetAnchor = "CALENDAR"
+	EntitlementResetAnchorLICENSESTART  EntitlementResetAnchor = "LICENSE_START"
+	EntitlementResetAnchorBILLINGPERIOD EntitlementResetAnchor = "BILLING_PERIOD"
+)
+
+func (e *EntitlementResetAnchor) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntitlementResetAnchor(s)
+	case string:
+		*e = EntitlementResetAnchor(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntitlementResetAnchor: %T", src)
+	}
+	return nil
+}
+
+type NullEntitlementResetAnchor struct {
+	EntitlementResetAnchor EntitlementResetAnchor `json:"entitlement_reset_anchor"`
+	Valid                  bool                   `json:"valid"` // Valid is true if EntitlementResetAnchor is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntitlementResetAnchor) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntitlementResetAnchor, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntitlementResetAnchor.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntitlementResetAnchor) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntitlementResetAnchor), nil
+}
+
+type EntitlementResetPeriod string
+
+const (
+	EntitlementResetPeriodHOUR  EntitlementResetPeriod = "HOUR"
+	EntitlementResetPeriodDAY   EntitlementResetPeriod = "DAY"
+	EntitlementResetPeriodWEEK  EntitlementResetPeriod = "WEEK"
+	EntitlementResetPeriodMONTH EntitlementResetPeriod = "MONTH"
+	EntitlementResetPeriodYEAR  EntitlementResetPeriod = "YEAR"
+)
+
+func (e *EntitlementResetPeriod) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntitlementResetPeriod(s)
+	case string:
+		*e = EntitlementResetPeriod(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntitlementResetPeriod: %T", src)
+	}
+	return nil
+}
+
+type NullEntitlementResetPeriod struct {
+	EntitlementResetPeriod EntitlementResetPeriod `json:"entitlement_reset_period"`
+	Valid                  bool                   `json:"valid"` // Valid is true if EntitlementResetPeriod is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntitlementResetPeriod) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntitlementResetPeriod, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntitlementResetPeriod.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntitlementResetPeriod) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntitlementResetPeriod), nil
+}
+
 type LicenseType string
 
 const (

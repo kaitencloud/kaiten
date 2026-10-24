@@ -233,7 +233,11 @@ type recordingActivator struct {
 	err       error
 }
 
-func (a *recordingActivator) Execute(_ context.Context, connectorName string) (*schema.ConnectorActivation, error) {
+// Check answers the refusal the real activation would answer before writing
+// anything (licence, Vault), which is where a refused activation now stops.
+func (a *recordingActivator) Check(context.Context, string) error { return a.err }
+
+func (a *recordingActivator) ExecuteWithSettings(_ context.Context, connectorName string, _ map[string]any) (*schema.ConnectorActivation, error) {
 	a.activated = append(a.activated, connectorName)
 	if a.err != nil {
 		return nil, a.err

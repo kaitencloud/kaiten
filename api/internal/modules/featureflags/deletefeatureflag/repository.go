@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/infrastructure/db"
@@ -40,6 +41,13 @@ func (r *CommandRepository) DeleteFeatureFlag(ctx context.Context, slug string, 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, kaitenerrors.NotFound("DeleteFeatureFlag.NotFound", fmt.Sprintf("Feature flag with slug %s and organization %s not found", slug, organizationID))
+		}
+		// A voucher grants a variant of the flag (V32-03 c): the grant's
+		// RESTRICT keeps the flag. Disabling it stays possible.
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.ConstraintName == "voucher_flag_grant_flag_id_fkey" {
+			return nil, kaitenerrors.Conflict("DeleteFeatureFlag.InUseConflict",
+				fmt.Sprintf("Feature flag %q is granted by a voucher: disable it instead", slug))
 		}
 		return nil, err
 	}

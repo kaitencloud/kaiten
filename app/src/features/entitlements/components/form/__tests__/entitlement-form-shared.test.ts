@@ -6,7 +6,11 @@ import {
   getEntitlementFormDefaults,
   initialEntitlementFormValues,
 } from '../entitlement-form.shared';
-import { conditionUnitFields, entitlementToUpdateBody } from '../../../utils/entitlement-writable';
+import {
+  conditionUnitFields,
+  entitlementToUpdateBody,
+  isNumberFamily,
+} from '../../../utils/entitlement-writable';
 
 const numberEntitlementWithUnits: Entitlement = {
   id: 'entitlement-seats',
@@ -65,17 +69,36 @@ describe('entitlementToUpdateBody', () => {
     expect(body.saleUnitFactor).toBe(3);
   });
 
-  it('strips every unit field for non-NUMBER entitlements', () => {
-    const body = entitlementToUpdateBody({
-      ...numberEntitlementWithUnits,
-      type: 'BOOLEAN',
-    });
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'strips every unit field for a %s entitlement',
+    (type) => {
+      const body = entitlementToUpdateBody({
+        ...numberEntitlementWithUnits,
+        type,
+      });
 
-    expect(body.unitSingular).toBeUndefined();
-    expect(body.unitPlural).toBeUndefined();
-    expect(body.saleUnitSingular).toBeUndefined();
-    expect(body.saleUnitPlural).toBeUndefined();
-    expect(body.saleUnitFactor).toBeUndefined();
+      expect(body.unitSingular).toBeUndefined();
+      expect(body.unitPlural).toBeUndefined();
+      expect(body.saleUnitSingular).toBeUndefined();
+      expect(body.saleUnitPlural).toBeUndefined();
+      expect(body.saleUnitFactor).toBeUndefined();
+    },
+  );
+
+  // The PUT replaces the entitlement as a whole, and the API accepts units on the whole
+  // number family: leaving them out of a rename would erase them.
+  it('keeps the units and the sale trio of an AI credit entitlement through a rename', () => {
+    const body = entitlementToUpdateBody(
+      { ...numberEntitlementWithUnits, type: 'NUMBER_AI_CREDIT' },
+      { name: 'Renamed credits' },
+    );
+
+    expect(body.name).toBe('Renamed credits');
+    expect(body.unitSingular).toBe('seat');
+    expect(body.unitPlural).toBe('seats');
+    expect(body.saleUnitSingular).toBe('pack');
+    expect(body.saleUnitPlural).toBe('packs');
+    expect(body.saleUnitFactor).toBe(3);
   });
 
   it('strips the sale unit trio when the base pair is missing', () => {
@@ -112,6 +135,51 @@ describe('entitlementToUpdateBody', () => {
     expect(body.resetPeriod).toBeUndefined();
     expect(body.resetAnchor).toBeUndefined();
   });
+
+  // The API stores 0 (the warning off) for a numeric entitlement sent without the
+  // threshold, and no screen edits it: every update has to echo what is stored.
+  it('echoes the early-warning threshold of a numeric entitlement', () => {
+    const body = entitlementToUpdateBody(
+      { ...numberEntitlementWithUnits, warningThresholdPercent: 80 },
+      { name: 'Renamed seats' },
+    );
+
+    expect(body.warningThresholdPercent).toBe(80);
+  });
+
+  it('keeps a threshold of 0, which is a stored value and not an absent one', () => {
+    const body = entitlementToUpdateBody({
+      ...numberEntitlementWithUnits,
+      warningThresholdPercent: 0,
+    });
+
+    expect(body.warningThresholdPercent).toBe(0);
+  });
+
+  it('echoes the threshold of an AI credit entitlement as well', () => {
+    const body = entitlementToUpdateBody({
+      ...numberEntitlementWithUnits,
+      type: 'NUMBER_AI_CREDIT',
+      warningThresholdPercent: 70,
+    });
+
+    expect(body.warningThresholdPercent).toBe(70);
+  });
+
+  // The API returns 0 for every type but refuses any threshold on the ones that have
+  // none, so echoing that 0 back would fail the save with a 422.
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'sends no threshold for a %s entitlement, which the API returns as 0',
+    (type) => {
+      const body = entitlementToUpdateBody({
+        ...numberEntitlementWithUnits,
+        type,
+        warningThresholdPercent: 0,
+      });
+
+      expect(body).not.toHaveProperty('warningThresholdPercent');
+    },
+  );
 });
 
 describe('getEntitlementFormDefaults', () => {
@@ -243,6 +311,54 @@ describe('conditionUnitFields', () => {
   });
 });
 
+describe('conditionUnitFields by type', () => {
+  const carrier = (type: EntitlementWritable['type']) => ({
+    saleUnitFactor: 3,
+    saleUnitPlural: 'packs',
+    saleUnitSingular: 'pack',
+    type,
+    unitPlural: 'credits',
+    unitSingular: 'credit',
+  });
+
+  it.each(['NUMBER', 'NUMBER_AI_CREDIT'] as const)(
+    'keeps a complete unit configuration on a %s entitlement',
+    (type) => {
+      const body = carrier(type);
+
+      conditionUnitFields(body);
+
+      expect(body).toEqual(carrier(type));
+    },
+  );
+
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'drops the units a %s entitlement cannot carry',
+    (type) => {
+      const body = carrier(type);
+
+      conditionUnitFields(body);
+
+      expect(body).toEqual({
+        saleUnitFactor: undefined,
+        saleUnitPlural: undefined,
+        saleUnitSingular: undefined,
+        type,
+        unitPlural: undefined,
+        unitSingular: undefined,
+      });
+    },
+  );
+
+  it('tells the number family from the other types', () => {
+    expect(isNumberFamily('NUMBER')).toBe(true);
+    expect(isNumberFamily('NUMBER_AI_CREDIT')).toBe(true);
+    expect(isNumberFamily('BOOLEAN')).toBe(false);
+    expect(isNumberFamily('CONFIG')).toBe(false);
+    expect(isNumberFamily(undefined)).toBe(false);
+  });
+});
+
 describe('getEntitlementFormDefaults', () => {
   it('prefills unit fields from the entitlement', () => {
     const defaults = getEntitlementFormDefaults(numberEntitlementWithUnits);
@@ -316,6 +432,72 @@ describe('entitlementFormSchema displayOrder', () => {
   });
 });
 
+describe('entitlementFormSchema reset anchor', () => {
+  const validBase = { ...initialEntitlementFormValues, name: 'Test' };
+  const anchorIssues = (overrides: Record<string, unknown>) => {
+    const result = entitlementFormSchema.safeParse({
+      ...validBase,
+      ...overrides,
+    });
+
+    return result.success
+      ? []
+      : result.error.issues.filter((issue) => issue.path[0] === 'resetAnchor');
+  };
+
+  it.each(['MONTH', 'YEAR'])(
+    'accepts the billing date on a %s cadence',
+    (resetPeriod) => {
+      expect(
+        anchorIssues({ resetAnchor: 'BILLING_PERIOD', resetPeriod }),
+      ).toEqual([]);
+    },
+  );
+
+  it.each(['HOUR', 'DAY', 'WEEK'])(
+    'refuses the billing date on a %s cadence, on the anchor',
+    (resetPeriod) => {
+      expect(
+        anchorIssues({ resetAnchor: 'BILLING_PERIOD', resetPeriod }).map(
+          (issue) => issue.message,
+        ),
+      ).toEqual([
+        'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
+      ]);
+    },
+  );
+
+  it('lets the other alignments follow any cadence', () => {
+    expect(
+      anchorIssues({ resetAnchor: 'LICENSE_START', resetPeriod: 'DAY' }),
+    ).toEqual([]);
+    expect(
+      anchorIssues({ resetAnchor: 'CALENDAR', resetPeriod: 'HOUR' }),
+    ).toEqual([]);
+  });
+
+  // The anchor is out of sight, and the pair is not sent: nothing to refuse.
+  it('does not refuse a billing date that the form does not send', () => {
+    expect(
+      anchorIssues({ resetAnchor: 'BILLING_PERIOD', resetPeriod: 'NONE' }),
+    ).toEqual([]);
+    expect(
+      anchorIssues({
+        aggregationMethod: 'LATEST',
+        resetAnchor: 'BILLING_PERIOD',
+        resetPeriod: 'DAY',
+      }),
+    ).toEqual([]);
+    expect(
+      anchorIssues({
+        resetAnchor: 'BILLING_PERIOD',
+        resetPeriod: 'DAY',
+        type: 'BOOLEAN',
+      }),
+    ).toEqual([]);
+  });
+});
+
 describe('entitlementFormSchema slug', () => {
   const validBase = { ...initialEntitlementFormValues, name: 'Test' };
 
@@ -358,6 +540,44 @@ describe('entitlementIdentityStepSchema slug', () => {
       entitlementIdentityStepSchema.safeParse({ ...step, slug: '-reads' })
         .success,
     ).toBe(false);
+  });
+});
+
+// Every field of the first step is checked before Next: the display order is asked there, and a
+// value the API refuses (a fraction, more than an int32) has to hold the wizard on its field.
+describe('entitlementIdentityStepSchema display order', () => {
+  const step = {
+    description: '',
+    displayOrder: 0,
+    groupSlugs: [],
+    name: 'Test',
+    slug: '',
+    userFacing: false,
+  };
+
+  it('passes with a whole number', () => {
+    expect(entitlementIdentityStepSchema.safeParse(step).success).toBe(true);
+    expect(
+      entitlementIdentityStepSchema.safeParse({ ...step, displayOrder: 12 })
+        .success,
+    ).toBe(true);
+  });
+
+  it.each([1.5, 2147483648, Number.NaN])('fails with %s', (displayOrder) => {
+    expect(
+      entitlementIdentityStepSchema.safeParse({ ...step, displayOrder }).success,
+    ).toBe(false);
+  });
+
+  it('says it wants a whole number for a fraction, in the words of the form and not the validator', () => {
+    const result = entitlementIdentityStepSchema.safeParse({
+      ...step,
+      displayOrder: 1.5,
+    });
+
+    expect(result.success ? [] : result.error.issues.map((i) => i.message)).toEqual([
+      'Pages.Entitlements.Mutation.Form.Errors.displayOrder',
+    ]);
   });
 });
 

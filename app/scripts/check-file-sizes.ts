@@ -21,7 +21,9 @@ const EXCEPTION_PATTERNS: RegExp[] = [
   /^components\/ui\//,
   /^lib\/i18n\/locales\//,
   /^api-client\//,
-  /^routeTree\.gen\.ts$/,
+  // Written by a generator, which a file-size limit would otherwise ask a person
+  // to split by hand: routeTree.gen.ts, lib/api/*.gen.ts.
+  /\.gen\.ts$/,
   /^e2e\//, // src/e2e — MSW test infrastructure
 ];
 

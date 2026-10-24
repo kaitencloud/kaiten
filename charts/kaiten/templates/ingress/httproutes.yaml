@@ -52,6 +52,37 @@ spec:
         - name: {{ include "kaiten.apiFullname" . }}
           port: {{ $api.service.port }}
 ---
+# ---- API: the public SDK surface (pk_, kst_) — CORS only, no authentication here ----
+# A vendor's web page reads its public catalogue with a publishable key in
+# X-Kaiten-Publishable-Key; its customer checks out on /api/public/session with
+# a customer session (Authorization: Bearer kst_...). No jwt and no extAuth on
+# this route: the API verifies both itself, by digest, and refuses any other
+# credential class on these paths -- so a ksh_ sent here is answered 403 by the
+# API rather than exchanged. Longest PathPrefix wins across HTTPRoutes, so this
+# takes /api/public from both /api routes below, the header-matched one too.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "kaiten.apiFullname" . }}-public-sdk
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "kaiten.apiLabels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ $gw.gatewayName }}
+      namespace: {{ $gw.gatewayNamespace }}
+      sectionName: {{ $gw.listenerName }}
+  hostnames:
+    - {{ $gw.host | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api/public
+      backendRefs:
+        - name: {{ include "kaiten.apiFullname" . }}
+          port: {{ $api.service.port }}
+---
 # ---- API: organization credentials (ksh_*) — SecurityPolicy handles CORS + ExtAuthZ ----
 # ksh_ ONLY. /api/tokens/validate is the Core API's ext_authz hook and exchanges
 # organization credentials; it is not a general credential-exchange service.

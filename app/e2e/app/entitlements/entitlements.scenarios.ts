@@ -18,6 +18,7 @@ const buildEntitlement = ({
   saleUnitFactor,
   resetPeriod,
   resetAnchor,
+  warningThresholdPercent,
 }: {
   aggregationMethod?: string;
   createdAt?: string;
@@ -35,6 +36,7 @@ const buildEntitlement = ({
   saleUnitFactor?: number;
   resetPeriod?: Entitlement['resetPeriod'];
   resetAnchor?: Entitlement['resetAnchor'];
+  warningThresholdPercent?: number;
 }): Entitlement => ({
   aggregationMethod: aggregationMethod as Entitlement['aggregationMethod'],
   createdAt,
@@ -52,6 +54,7 @@ const buildEntitlement = ({
   saleUnitFactor,
   resetPeriod,
   resetAnchor,
+  warningThresholdPercent,
 });
 
 /** Empty model — for create tests */
@@ -117,6 +120,22 @@ export function createUnitEntitlementModel() {
   });
 }
 
+/** Single NUMBER entitlement with an early-warning threshold — for the edit round-trip of that threshold */
+export function createThresholdEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        description: 'API calls included in the plan',
+        id: 'entitlement-api-calls',
+        name: 'API Calls',
+        slug: 'api-calls',
+        type: 'NUMBER',
+        warningThresholdPercent: 80,
+      }),
+    ],
+  });
+}
+
 /** Single entitlement with a stored icon — for icon round-trip tests */
 export function createIconedEntitlementModel() {
   return new EntitlementAppModel({
@@ -153,5 +172,71 @@ export function createPeriodicEntitlementModel() {
         resetAnchor: 'CALENDAR',
       }),
     ],
+  });
+}
+
+/**
+ * Two entitlements that cannot be deleted because something still references
+ * them: the calls are granted by a license version, counted on instances and
+ * metered by a price, and the seats are counted on instances. The one that
+ * nothing references is the one that can.
+ */
+export function createReferencedEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        description: 'Tracks the number of API calls per billing period',
+        id: 'entitlement-api-calls',
+        name: 'API Calls',
+        slug: 'api-calls',
+        type: 'NUMBER',
+      }),
+      buildEntitlement({
+        description: 'Counts the seats of an instance',
+        id: 'entitlement-seats',
+        name: 'Seats',
+        slug: 'seats',
+        type: 'NUMBER',
+      }),
+      buildEntitlement({
+        description: 'Grants access to priority support queues',
+        id: 'entitlement-priority-support',
+        name: 'Priority Support',
+        slug: 'priority-support',
+        type: 'BOOLEAN',
+      }),
+    ],
+    references: {
+      'api-calls': { addonGrants: 3, licenseGrants: 2, licensePrices: 1 },
+      seats: { addonGrants: 1 },
+    },
+  });
+}
+
+/**
+ * The entitlement that is still referenced comes last in the list. A row leaves
+ * the list at once when it is deleted and comes back when the API refuses, and the
+ * last one is the row whose component is gone by then: the refusal has to be shown
+ * by something that is not the row.
+ */
+export function createReferencedLastEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        description: 'Grants access to priority support queues',
+        id: 'entitlement-priority-support',
+        name: 'Priority Support',
+        slug: 'priority-support',
+        type: 'BOOLEAN',
+      }),
+      buildEntitlement({
+        description: 'Counts the seats of an instance',
+        id: 'entitlement-seats',
+        name: 'Seats',
+        slug: 'seats',
+        type: 'NUMBER',
+      }),
+    ],
+    references: { seats: { addonGrants: 1 } },
   });
 }

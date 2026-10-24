@@ -28,6 +28,10 @@ import (
 func marshalHeaders(ctx context.Context, headers any) ([]byte, error) {
 	carrier := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	// The actor travels with the trace keys: the audit trail records it.
+	if actor, ok := actorOf(ctx); ok {
+		carrier[actorHeader] = actor.String()
+	}
 
 	if headers == nil {
 		if len(carrier) == 0 {

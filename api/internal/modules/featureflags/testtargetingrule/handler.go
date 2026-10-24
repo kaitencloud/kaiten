@@ -80,7 +80,7 @@ func (h *UseCase) Execute(
 		Inputs:       contextInputs,
 	}
 	ofrep.ResetKaitenFacts(&evaluationContext)
-	ofrep.EnrichWithServerFacts(ctx, h.deps.CustomerFacts, user.OrganizationID, &evaluationContext)
+	ofrep.EnrichWithServerFacts(ctx, h.deps.CustomerFacts, h.deps.InstanceFacts, user.OrganizationID, &evaluationContext)
 	ofrep.EnrichWithInstanceFacts(ctx, h.deps.InstanceFacts, h.deps.CustomerFacts, h.deps.DeploymentZoneFacts, user.OrganizationID, &evaluationContext)
 
 	rehearsal := &Rehearsal{

@@ -9,9 +9,61 @@ import {
   getDefaultClassNames,
   type DayButton,
 } from "react-day-picker";
+import { enUS, fr } from "react-day-picker/locale";
+import { useTranslation } from "react-i18next";
 
 import { cn } from "@/lib/utils";
 import { Button, buttonVariants } from "@/components/ui/button";
+
+// The calendar speaks the language of the app, not the one of the browser: month
+// names, weekday names, the first day of the week and the labels of the
+// navigation all come from the locale it is given.
+function calendarLocale(language: string) {
+  return language.startsWith("fr") ? fr : enUS;
+}
+
+// The parts DayPicker renders are components of the module, not arrows made
+// in Calendar: a new function at each render is a new component type, and
+// React would mount the whole calendar again each time a form around it
+// re-renders, in the middle of a click if the click is what made it render.
+const CalendarRoot: NonNullable<
+  React.ComponentProps<typeof DayPicker>["components"]
+>["Root"] = ({ className, rootRef, ...props }) => {
+  return (
+    <div
+      data-slot="calendar"
+      ref={rootRef}
+      className={cn(className)}
+      {...props}
+    />
+  );
+};
+
+const CalendarChevron: NonNullable<
+  React.ComponentProps<typeof DayPicker>["components"]
+>["Chevron"] = ({ className, orientation, ...props }) => {
+  if (orientation === "left") {
+    return <ChevronLeftIcon className={cn("size-4", className)} {...props} />;
+  }
+
+  if (orientation === "right") {
+    return <ChevronRightIcon className={cn("size-4", className)} {...props} />;
+  }
+
+  return <ChevronDownIcon className={cn("size-4", className)} {...props} />;
+};
+
+const CalendarWeekNumber: NonNullable<
+  React.ComponentProps<typeof DayPicker>["components"]
+>["WeekNumber"] = ({ children, ...props }) => {
+  return (
+    <td {...props}>
+      <div className="flex size-(--cell-size) items-center justify-center text-center">
+        {children}
+      </div>
+    </td>
+  );
+};
 
 function Calendar({
   className,
@@ -21,11 +73,13 @@ function Calendar({
   buttonVariant = "ghost",
   formatters,
   components,
+  locale,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>["variant"];
 }) {
   const defaultClassNames = getDefaultClassNames();
+  const { i18n } = useTranslation();
 
   return (
     <DayPicker
@@ -37,9 +91,10 @@ function Calendar({
         className,
       )}
       captionLayout={captionLayout}
+      locale={locale ?? calendarLocale(i18n.language)}
       formatters={{
-        formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+        formatMonthDropdown: (date, dateLib) =>
+          dateLib ? dateLib.format(date, "LLL") : date.toLocaleString(i18n.language, { month: "short" }),
         ...formatters,
       }}
       classNames={{
@@ -130,46 +185,10 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Root: ({ className, rootRef, ...props }) => {
-          return (
-            <div
-              data-slot="calendar"
-              ref={rootRef}
-              className={cn(className)}
-              {...props}
-            />
-          );
-        },
-        Chevron: ({ className, orientation, ...props }) => {
-          if (orientation === "left") {
-            return (
-              <ChevronLeftIcon className={cn("size-4", className)} {...props} />
-            );
-          }
-
-          if (orientation === "right") {
-            return (
-              <ChevronRightIcon
-                className={cn("size-4", className)}
-                {...props}
-              />
-            );
-          }
-
-          return (
-            <ChevronDownIcon className={cn("size-4", className)} {...props} />
-          );
-        },
+        Root: CalendarRoot,
+        Chevron: CalendarChevron,
         DayButton: CalendarDayButton,
-        WeekNumber: ({ children, ...props }) => {
-          return (
-            <td {...props}>
-              <div className="flex size-(--cell-size) items-center justify-center text-center">
-                {children}
-              </div>
-            </td>
-          );
-        },
+        WeekNumber: CalendarWeekNumber,
         ...components,
       }}
       {...props}
@@ -195,7 +214,7 @@ function CalendarDayButton({
       ref={ref}
       variant="ghost"
       size="icon"
-      data-day={day.date.toLocaleDateString()}
+      data-day={day.isoDate}
       data-selected-single={
         modifiers.selected &&
         !modifiers.range_start &&

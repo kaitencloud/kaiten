@@ -1,4 +1,6 @@
 import Papa from 'papaparse';
+import { getAuditDisplayName } from '@/lib/detail';
+import { saveBlob } from '@/lib/download-blob';
 import type { GlobalAuditEntry } from './audit-trail.types';
 import { getEventCategory } from './audit-trail.utils';
 
@@ -13,6 +15,8 @@ const toCsvRow = (
   instance: entry.instanceName ?? '',
   instance_slug: entry.instanceSlug ?? '',
   customer: entry.customerName ?? '',
+  actor: getAuditDisplayName({ actor: entry.actor }),
+  actor_kind: entry.actor?.kind ?? '',
   status: getEventCategory(entry.eventName),
   timestamp: entry.timestamp,
   payload: entry.payload == null ? '' : JSON.stringify(entry.payload),
@@ -33,12 +37,6 @@ export const downloadAuditTrailCsv = (
 ): void => {
   const csv = buildAuditTrailCsv(entries, getEventLabel);
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `audit-trail-${dateStamp}.csv`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
+
+  saveBlob(blob, `audit-trail-${dateStamp}.csv`);
 };

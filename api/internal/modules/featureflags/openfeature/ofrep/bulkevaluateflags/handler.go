@@ -17,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/openfeature/ofrep"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/flaggrants"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfoodingctx"
@@ -39,6 +40,9 @@ type Deps struct {
 	CustomerFacts       customertargetingfacts.Port
 	InstanceFacts       instancetargetingfacts.Port
 	DeploymentZoneFacts deploymentzonetargetingfacts.Port
+	// FlagGrants is the vouchers module's read port: the flag variants the
+	// subject instance's redemptions grant (§7.4 rule 6).
+	FlagGrants flaggrants.Port
 }
 
 type UseCase struct {
@@ -86,7 +90,9 @@ func (h *UseCase) Execute(ctx context.Context, ofrepContext ofrep.Context) []Fla
 	// Facts the caller cannot forge. Without this the context is a verbatim copy
 	// of the request body, so a rule on `plan` judges the client on a value the
 	// client supplied.
-	ofrep.EnrichWithServerFacts(ctx, h.deps.CustomerFacts, user.OrganizationID, &evaluationContext)
+	// The subject is the instance kaiten.instanceSlug names, else the
+	// targeting key's customer's oldest instance (§7.4 rule 5).
+	subject := ofrep.EnrichWithServerFacts(ctx, h.deps.CustomerFacts, h.deps.InstanceFacts, user.OrganizationID, &evaluationContext)
 	// Which instance, if any, is asking — read from the caller-supplied
 	// kaiten.instanceSlug/kaiten.instanceId input, never from targetingKey
 	// (already claimed above for customer-slug resolution).
@@ -108,6 +114,9 @@ func (h *UseCase) Execute(ctx context.Context, ofrepContext ofrep.Context) []Fla
 		}
 	}
 
+	// One read of the subject's grants for the whole request.
+	grants := ofrep.FlagGrants(ctx, h.deps.FlagGrants, user.OrganizationID, subject)
+
 	results := make([]FlagEvaluation, len(flags))
 	var wg sync.WaitGroup
 	var mu sync.Mutex
@@ -119,7 +128,7 @@ func (h *UseCase) Execute(ctx context.Context, ofrepContext ofrep.Context) []Fla
 
 			flagEvaluator := evaluator.NewEvaluator()
 
-			resolutionDetail, err := flagEvaluator.Evaluate(ctx, f, evaluationContext)
+			resolutionDetail, err := flagEvaluator.EvaluateWithGrants(ctx, f, evaluationContext, grants[f.ID])
 			if err != nil {
 				resolutionDetail = openfeature.ResolutionDetails{
 					Value:        nil,

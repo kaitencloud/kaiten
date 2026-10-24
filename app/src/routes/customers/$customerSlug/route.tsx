@@ -6,10 +6,14 @@ import {
   CustomerDetailPageContent,
   CustomerFormDialog,
   customerQueryOptions,
+  getCustomerDetailTarget,
 } from '@/features/customers';
 
+// `kaiten_setup_session` is what Stripe's page brings the customer back with once a
+// payment method is saved: the page checks it with the API, then drops it.
 const customerDetailSearchSchema = z
   .object({
+    kaiten_setup_session: z.string().min(1).optional().catch(undefined),
     mode: z.enum(['configure']).optional(),
   })
   .loose();
@@ -41,11 +45,23 @@ function CustomerDetailRouteLayout() {
   );
 
   const closeConfigure = () => {
-    navigate({ to: '/customers/$customerSlug', params: { customerSlug } });
+    navigate(getCustomerDetailTarget(customerSlug));
+  };
+
+  const dropSetupSession = () => {
+    navigate({
+      ...getCustomerDetailTarget(customerSlug),
+      replace: true,
+      search: (previous) => ({ ...previous, kaiten_setup_session: undefined }),
+    });
   };
 
   return (
-    <CustomerDetailPageContent customerSlug={customerSlug}>
+    <CustomerDetailPageContent
+      customerSlug={customerSlug}
+      onSetupHandled={dropSetupSession}
+      setupSessionId={search.kaiten_setup_session}
+    >
       {search.mode === 'configure' ? (
         <CustomerFormDialog
           open

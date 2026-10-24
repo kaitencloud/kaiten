@@ -36,10 +36,11 @@ export function EntitlementIconDialog({
   const handleSelect = async (token: IconToken | null) => {
     try {
       await updateMutation.mutateAsync({
-        path: { entitlementSlug: entitlement.slug! },
-        body: entitlementToUpdateBody(entitlement, {
+        edited: entitlementToUpdateBody(entitlement, {
           icon: token ?? undefined,
         }),
+        entitlementSlug: entitlement.slug!,
+        opened: entitlementToUpdateBody(entitlement),
       });
       onOpenChange(false);
     } catch (error) {

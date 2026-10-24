@@ -12,6 +12,10 @@ import (
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listaddonprices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listaddons"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listinstanceaddons"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/getcomponent"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/getcomponents"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/getcustomer"
@@ -20,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/getdeploymentzones"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlements"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/listentitlementexceptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
@@ -28,6 +33,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/getmetadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getrelease"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/getreleases"
@@ -64,6 +70,10 @@ import (
 // GET /releases returns a release's components under read:releases alone, and
 // Release.components requires read:components as well.
 var typeScopes = map[string]string{
+	"Addon":          listaddons.RequiredScope,
+	"AddonPage":      listaddons.RequiredScope,
+	"AddonPrice":     listaddonprices.RequiredScope,
+	"AuditActor":     getaudittrails.RequiredScope,
 	"AuditTrail":     getaudittrails.RequiredScope,
 	"AuditTrailPage": getaudittrails.RequiredScope,
 	"Component":      getcomponent.RequiredScope,
@@ -78,23 +88,31 @@ var typeScopes = map[string]string{
 	"Entitlement":        getentitlement.RequiredScope,
 	// REST returns an entitlement's groups inside the entitlement.
 	"EntitlementGroupSummary": getentitlement.RequiredScope,
-	"EntitlementPage":         getentitlements.RequiredScope,
-	"EntitlementUsage":        getentitlementsusagemetrics.RequiredScope,
-	"Instance":                getinstance.RequiredScope,
-	"InstancePage":            getinstances.RequiredScope,
-	"License":                 getlicense.RequiredScope,
-	"LicenseEntitlement":      getlicenseentitlements.RequiredScope,
-	"LicenseFamily":           getlicensefamily.RequiredScope,
-	"LicenseFamilyView":       getlicensefamily.RequiredScope,
-	"LicensePage":             getlicenses.RequiredScope,
-	"MetadataField":           getmetadatafields.RequiredScope,
-	"MetadataFieldPage":       getmetadatafields.RequiredScope,
+	// Instance state, read under read:instances, never gated by billing.
+	"EntitlementException": listentitlementexceptions.RequiredScope,
+	"EntitlementPage":      getentitlements.RequiredScope,
+	"EntitlementUsage":     getentitlementsusagemetrics.RequiredScope,
+	"Instance":             getinstance.RequiredScope,
+	"InstanceAddon":        listinstanceaddons.RequiredScope,
+	// Billing data: an instance list that selects it needs read:billing too,
+	// so the console fetches it in a document of its own (§13.14).
+	"InstanceBillingSummary": getinstancebilling.RequiredScope,
+	"InstancePage":           getinstances.RequiredScope,
+	"License":                getlicense.RequiredScope,
+	"LicenseEntitlement":     getlicenseentitlements.RequiredScope,
+	"LicenseFamily":          getlicensefamily.RequiredScope,
+	"LicenseFamilyView":      getlicensefamily.RequiredScope,
+	"LicensePage":            getlicenses.RequiredScope,
+	"LicensePrice":           listlicenseprices.RequiredScope,
+	"MetadataField":          getmetadatafields.RequiredScope,
+	"MetadataFieldPage":      getmetadatafields.RequiredScope,
 	// No REST operation serves the organization-wide audit trail. It records
 	// every event of the organization, whichever resource the event is about, and
 	// an entry's payload is the event itself: the customer that was created, the
 	// license that changed. So no single resource's scope stands for it, and the
 	// scope it takes is enough to read, through those payloads, what happened to
 	// every other resource. It takes the organization's own.
+	"OrganizationAuditActor":     organizationAuditTrailScope,
 	"OrganizationAuditTrail":     organizationAuditTrailScope,
 	"OrganizationAuditTrailPage": organizationAuditTrailScope,
 	"Release":                    getrelease.RequiredScope,

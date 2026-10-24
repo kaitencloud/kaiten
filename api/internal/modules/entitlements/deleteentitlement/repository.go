@@ -15,6 +15,9 @@ import (
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
+// errInUse is a delete the entitlement's references refused.
+var errInUse = errors.New("entitlement is still referenced")
+
 type CommandRepository struct {
 	uof *uow.UnitOfWork
 }
@@ -41,15 +44,13 @@ func (r *CommandRepository) DeleteEntitlement(ctx context.Context, organizationI
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, kaitenerrors.NotFound("DeleteEntitlement.NotFound", fmt.Sprintf("Entitlement with slug %q not found", slug))
 		}
-		// license_entitlement references entitlement with ON DELETE RESTRICT,
-		// so an entitlement a licence still grants fails here. Its usage does
-		// not: that follows the entitlement out (see
-		// 20261012000000_entitlement_usage_follows_its_entitlement.sql).
+		// A licence or add-on grant, a licence or add-on price -- deprecated or
+		// not: a price that may have billed is never deleted, so neither is what
+		// it measured -- or a voucher boost still holds it. Its usage does not: that follows the entitlement out
+		// (see 20261012000000_entitlement_usage_follows_its_entitlement.sql).
+		// The handler counts what holds it once the transaction is gone.
 		if kaitenerrors.IsForeignKeyViolation(err) {
-			return nil, kaitenerrors.Conflict(
-				"DeleteEntitlement.InUseConflict",
-				fmt.Sprintf("Entitlement with slug %q is still granted by a license and cannot be deleted", slug),
-			)
+			return nil, errInUse
 		}
 		return nil, err
 	}

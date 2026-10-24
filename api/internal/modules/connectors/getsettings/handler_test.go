@@ -55,14 +55,15 @@ func TestHandler_Handle_PropagatesUserProviderError(t *testing.T) {
 	require.EqualError(t, err, "auth error")
 }
 
-func TestHandler_Handle_ReturnsNotFoundWithoutSettings(t *testing.T) {
+func TestHandler_Handle_ReadsNotConfiguredWithoutSettings(t *testing.T) {
 	h := newTestHandler(t, defaultUserProvider(), defaultConnectorRegistry())
 
-	_, err := h.Execute(context.Background(), "kaiten.integration.crm.attio")
+	got, err := h.Execute(context.Background(), "kaiten.integration.crm.attio")
 
-	require.Error(t, err)
-	require.True(t, kaitenerrors.IsNotFound(err))
-	require.Equal(t, "GetConnectorSettings.NotFound", kaitenerrors.GetCode(err))
+	require.NoError(t, err)
+	require.False(t, got.Configured)
+	require.Empty(t, got.Settings)
+	require.Equal(t, "kaiten.integration.crm.attio", got.ConnectorName)
 }
 
 func TestHandler_Handle_RedactsWriteOnlyFields(t *testing.T) {

@@ -1,16 +1,9 @@
-import { useMutation, useQuery, useSuspenseQuery } from '@tanstack/react-query';
-import { useRouteContext, useRouter } from '@tanstack/react-router';
-import { useId, useMemo } from 'react';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useRouter } from '@tanstack/react-router';
+import { useId, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Customer, DeploymentZone, Instance, License } from '@/api-client';
-import {
-  createInstanceMutation,
-  getInstanceQueryKey,
-  patchInstanceMutation,
-  updateInstanceMutation,
-} from '@/api-client/@tanstack/react-query.gen';
-import { startAttioSyncWatcher } from '@/domains/crm-sync';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import {
   allCustomersOptions,
@@ -21,11 +14,14 @@ import type { MetadataFieldDescriptor } from '@/functionals/metadata-fields';
 import { StackedFormDialogDirtyState } from '@/functionals/stacked-form-dialog';
 import { StepStack, type StepStackOrientation } from '@/functionals/step-stack';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
+import { setProblemFieldError } from '@/domains/billing';
 import { getApiErrorMessage } from '@/lib/errors';
 import {
-  invalidateInstanceQueries,
-  invalidateInstancesListQueries,
-} from '../../hooks/instance-query-invalidation';
+  FROZEN_FIELD_STEPS,
+  getChangedFrozenFields,
+  INSTANCE_FROZEN_CODE,
+  readFrozenRefusal,
+} from '../../utils/instance-frozen.utils';
 import {
   initialInstanceFormValues,
   instanceFormSchema,
@@ -33,8 +29,11 @@ import {
   instanceFormValuesToUpdateInput,
   instanceLifecycleStageToPatchBody,
   instanceToFormValues,
+  type InstanceFormValues,
 } from '../../utils/instance-form.shared';
+import type { InstanceFormStepsHandle } from './instance-form-frozen-notice';
 import { InstanceFormSteps } from './instance-form-steps';
+import { useInstanceFormMutations } from './use-instance-form-mutations';
 
 export type LockedCustomer = Pick<Customer, 'id' | 'name'>;
 type InstanceCustomerOption = Pick<Customer, 'id' | 'name'>;
@@ -80,7 +79,6 @@ const InstanceFormContent = ({
   const { t } = useTranslation();
   const router = useRouter();
   const formId = useId();
-  const { queryClient } = useRouteContext({ from: '__root__' });
 
   // Soft-fetch, as on the instances table: a missing or 403'd response reads as
   // "no schema declared", and the form simply has one step fewer.
@@ -92,61 +90,25 @@ const InstanceFormContent = ({
     [metadataFieldsData],
   );
 
-  const createMutation = useMutation({
-    ...createInstanceMutation(),
-    onSuccess: async (createdInstance) => {
-      // Creation lands on the new instance's page. Caching it here lets that
-      // route read it instead of fetching it: each list row mounts a closed
-      // deployment dialog whose disabled observer sits on this same query, and
-      // when the list unmounts mid-fetch that last observer leaving cancels
-      // the fetch the route awaits (CancelledError, route error page).
-      if (createdInstance.slug) {
-        queryClient.setQueryData<Instance>(
-          getInstanceQueryKey({ path: { instanceSlug: createdInstance.slug } }),
-          createdInstance,
-        );
-      }
-      await invalidateInstancesListQueries(queryClient);
-      void startAttioSyncWatcher({
-        queryClient,
-        entityKind: 'instance',
-        entitySlug: createdInstance.slug ?? '',
-        integrations: createdInstance.integrations,
-      });
-    },
-  });
-
-  const updateMutation = useMutation({
-    ...updateInstanceMutation({ path: { instanceSlug: instance?.slug ?? '' } }),
-    onSuccess: async (_updatedInstance, variables) => {
-      const instanceSlug = variables.path.instanceSlug;
-      const syncWatcher = startAttioSyncWatcher({
-        queryClient,
-        entityKind: 'instance',
-        entitySlug: instanceSlug,
-        integrations: instance?.integrations,
-        watchForChange: true,
-      });
-      await invalidateInstanceQueries(queryClient, instanceSlug);
-      void syncWatcher;
-    },
-  });
-
-  // Lifecycle stage is a PATCH-only field, persisted separately from the PUT
-  // body once the instance exists (after create or alongside an update).
-  const lifecycleMutation = useMutation({
-    ...patchInstanceMutation({ path: { instanceSlug: instance?.slug ?? '' } }),
-    onSuccess: async (_response, variables) => {
-      await invalidateInstanceQueries(queryClient, variables.path.instanceSlug);
-    },
-  });
+  const { createMutation, lifecycleMutation, updateMutation } =
+    useInstanceFormMutations(instance);
+  // The submit is on the last step, and a refusal about a field on an earlier
+  // one has to take the person there.
+  const stepsRef = useRef<InstanceFormStepsHandle>(null);
+  // The instance and the form as they were when the form opened: an update sends
+  // the fields that differ from them, and takes the others from the instance as
+  // the API holds it.
+  const [openedInstance] = useState(instance);
+  const [openedValues] = useState(() =>
+    getDefaultValues(instance, lockedCustomer),
+  );
 
   const form = useAppForm({
-    defaultValues: getDefaultValues(instance, lockedCustomer),
+    defaultValues: openedValues,
     validators: {
       onChange: instanceFormSchema,
     },
-    onSubmit: async ({ value }) => {
+    onSubmit: async ({ formApi, value }) => {
       try {
         const nextLifecycleStage = (value.lifecycleStage ?? '').trim();
 
@@ -155,13 +117,19 @@ const InstanceFormContent = ({
         if (instance) {
           // An update may answer with no body; the instance being edited then
           // stands in, since only its slug is needed downstream.
+          const base = openedInstance ?? instance;
           savedInstance =
             (await updateMutation.mutateAsync({
-              path: { instanceSlug: instance.slug! },
-              body: instanceFormValuesToUpdateInput(
+              edited: instanceFormValuesToUpdateInput(
                 value,
                 licenses ?? [],
-                instance,
+                base,
+              ),
+              instanceSlug: instance.slug!,
+              opened: instanceFormValuesToUpdateInput(
+                openedValues as InstanceFormValues,
+                licenses ?? [],
+                base,
               ),
             })) ?? instance;
 
@@ -205,6 +173,23 @@ const InstanceFormContent = ({
           router.navigate({ to: '/customers/instances' });
         }
       } catch (e) {
+        // While the subscription of the instance lives, its customer and license
+        // are frozen: the refusal goes on the field that was changed, with the way
+        // to the subscription, and the person is taken to its step. It keeps the
+        // toast when no frozen field was changed, since there is none to mark.
+        const frozen = instance ? readFrozenRefusal(e) : undefined;
+        const fields =
+          instance && frozen ? getChangedFrozenFields(value, instance) : [];
+        if (frozen && fields.length > 0) {
+          for (const field of fields) {
+            setProblemFieldError(formApi, field, frozen.detail, {
+              code: INSTANCE_FROZEN_CODE,
+            });
+          }
+          stepsRef.current?.goToStep(FROZEN_FIELD_STEPS[fields[0]]);
+
+          return;
+        }
         toast.error(getApiErrorMessage(e));
       }
     },
@@ -228,6 +213,7 @@ const InstanceFormContent = ({
             licenses={licenses}
             lockedCustomer={lockedCustomer}
             metadataFields={metadataFields}
+            stepsRef={stepsRef}
           />
         </StepStack>
       </form.AppForm>

@@ -1,3 +1,4 @@
+import { DateInputPicker } from '@/components/date-input-picker';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import {
@@ -31,8 +32,8 @@ type FilterValueInputProps<T> = {
   >;
 };
 
-// A select filter shows its current value ("All") and a date input has no
-// placeholder: neither says what it filters, so both are named "Filter by
+// A select filter shows its current value ("All") and a date picker shows its day
+// or "Pick a date": neither says what it filters, so both are named "Filter by
 // <field>". The prefix keeps a filter from reading like the form field of the
 // same name in a dialog opened over the list. Text and number filters are
 // named by their placeholder, which already says it.
@@ -111,11 +112,10 @@ export function FilterValueInput<T>({
 
   if (field.type === 'date') {
     return (
-      <Input
-        type="date"
+      <DateInputPicker
         aria-label={controlLabel}
         value={value}
-        onChange={(event) => onValueChange(event.target.value)}
+        onChange={onValueChange}
       />
     );
   }

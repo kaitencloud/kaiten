@@ -1,11 +1,14 @@
 import { ATTIO_LOGO_ASSETS } from '@/domains/crm-sync';
+import { STRIPE_CONNECTOR } from './stripe/constants';
 import type { ConnectorMeta } from './types';
 
-/** Curated connector catalog. Only Attio is wired; the rest are decorative. */
+export { STRIPE_CONNECTOR };
+
+/** Curated connector catalog. Attio and Stripe are wired; HubSpot is announced. */
 export const ATTIO_CONNECTOR: ConnectorMeta = {
   id: 'attio',
   name: 'Attio',
-  tagline: 'Modern B2B CRM',
+  tagline: 'Pages.Integrations.Connectors.Taglines.attio',
   group: 'CRM',
   status: 'available',
   tile: 'primary',
@@ -18,37 +21,11 @@ export const CONNECTORS: ConnectorMeta[] = [
   {
     id: 'hubspot',
     name: 'HubSpot',
-    tagline: 'CRM platform',
+    tagline: 'Pages.Integrations.Connectors.Taglines.hubspot',
     group: 'CRM',
-    status: 'coming-h1',
+    status: 'coming-soon',
     tile: 'warning',
     initial: 'H',
   },
-  {
-    id: 'salesforce',
-    name: 'Salesforce',
-    tagline: 'Enterprise CRM',
-    group: 'CRM',
-    status: 'coming-h2',
-    tile: 'accent',
-    initial: 'S',
-  },
-  {
-    id: 'stripe',
-    name: 'Stripe',
-    tagline: 'Subscription billing',
-    group: 'Billing',
-    status: 'coming-h1',
-    tile: 'success',
-    initial: 'S',
-  },
-  {
-    id: 'lago',
-    name: 'Lago',
-    tagline: 'Usage-based billing',
-    group: 'Billing',
-    status: 'coming-h1',
-    tile: 'muted',
-    initial: 'L',
-  },
+  STRIPE_CONNECTOR,
 ];

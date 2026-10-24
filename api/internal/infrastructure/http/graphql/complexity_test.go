@@ -29,7 +29,7 @@ import (
 func TestEveryListFieldIsChargedForItsFanOut(t *testing.T) {
 	t.Parallel()
 
-	es := newExecutableSchema(nil)
+	es := newExecutableSchema(nil, Config{})
 	schema := es.Schema()
 
 	for _, def := range schema.Types {
@@ -85,7 +85,7 @@ func TestPageSizeChargesWhatWasAskedFor(t *testing.T) {
 func TestOrganizationAuditTrailsIsChargedForThePageItServes(t *testing.T) {
 	t.Parallel()
 
-	es := newExecutableSchema(nil)
+	es := newExecutableSchema(nil, Config{})
 	rows := func(args map[string]any) int {
 		t.Helper()
 

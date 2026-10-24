@@ -133,6 +133,30 @@ func (r *CommandRepository) create(ctx context.Context, command *Command, organi
 		IsDefault:      command.IsDefault,
 		LifecycleState: state,
 		Features:       nil,
+
+		PricingType:           db.PricingTypeCUSTOM,
+		TrialPeriodDays:       command.TrialPeriodDays,
+		RequiresPaymentMethod: command.RequiresPaymentMethod,
+		SelfServeCtaUrl:       nil,
+	}
+	if command.PricingType != "" {
+		params.PricingType = db.PricingType(command.PricingType)
+	}
+	if command.SelfServeCtaURL != nil && *command.SelfServeCtaURL != "" {
+		params.SelfServeCtaUrl = command.SelfServeCtaURL
+	}
+	// A family another one falls back to stays FREE (V31-66). Its row is
+	// locked by now, as the fallback's setting share-locks it, so the two
+	// serialize. A family this write opens is nobody's fallback yet.
+	if params.PricingType != db.PricingTypeFREE && !family.opened {
+		fallback, err := queries.IsFallbackOfAnotherFamily(ctx, db.IsFallbackOfAnotherFamilyParams{OrganizationID: organizationID, FamilyID: familyID})
+		if err != nil {
+			return nil, familyWrite{}, err
+		}
+		if fallback {
+			return nil, familyWrite{}, kaitenerrors.UnprocessableEntity("CreateLicense.FallbackMustBeFree",
+				"this family is another family's fallback, so its versions stay FREE: set pricingType FREE, or remove the fallback first")
+		}
 	}
 
 	result, err := queries.CreateLicense(ctx, params)

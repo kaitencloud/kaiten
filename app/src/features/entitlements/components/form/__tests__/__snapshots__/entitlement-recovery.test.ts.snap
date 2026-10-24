@@ -1,0 +1,111 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of the entitlement creation page > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "aggregationMethod": {
+      "enum": [
+        "COUNT",
+        "SUM",
+        "AVERAGE",
+        "MIN",
+        "MAX",
+        "LATEST",
+      ],
+      "type": "string",
+    },
+    "description": {
+      "type": [
+        "string",
+        "null",
+      ],
+    },
+    "displayOrder": {},
+    "groupSlugs": {
+      "anyOf": [
+        {
+          "items": {
+            "type": "string",
+          },
+          "type": "array",
+        },
+        {
+          "type": "null",
+        },
+      ],
+    },
+    "icon": {
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+:[a-z0-9]+(-[a-z0-9]+)*$",
+      "type": "string",
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "resetAnchor": {
+      "enum": [
+        "CALENDAR",
+        "LICENSE_START",
+        "BILLING_PERIOD",
+      ],
+      "type": "string",
+    },
+    "resetPeriod": {
+      "enum": [
+        "NONE",
+        "HOUR",
+        "DAY",
+        "WEEK",
+        "MONTH",
+        "YEAR",
+      ],
+      "type": "string",
+    },
+    "saleUnitFactor": {
+      "exclusiveMinimum": 0,
+      "type": "number",
+    },
+    "saleUnitPlural": {
+      "maxLength": 100,
+      "type": "string",
+    },
+    "saleUnitSingular": {
+      "maxLength": 100,
+      "type": "string",
+    },
+    "slug": {
+      "type": "string",
+    },
+    "type": {
+      "enum": [
+        "BOOLEAN",
+        "NUMBER",
+        "CONFIG",
+        "NUMBER_AI_CREDIT",
+      ],
+      "type": "string",
+    },
+    "unitPlural": {
+      "maxLength": 100,
+      "type": "string",
+    },
+    "unitSingular": {
+      "maxLength": 100,
+      "type": "string",
+    },
+    "userFacing": {
+      "type": "boolean",
+    },
+  },
+  "required": [
+    "name",
+    "description",
+    "slug",
+    "resetPeriod",
+    "resetAnchor",
+  ],
+  "type": "object",
+}
+`;

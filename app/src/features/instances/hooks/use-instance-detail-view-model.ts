@@ -35,6 +35,12 @@ export const useInstanceDetailViewModel = (instanceSlug: string) => {
     instance,
     customer,
     license,
+    // The catalogue of entitlements, which names what the instance is entitled to
+    // beyond the grants of its license (an add-on can grant one alone).
+    entitlements,
+    // What the license of the instance grants: what the grant of an add-on to attach
+    // is compared with.
+    licenseEntitlements,
     ...derivedState,
     ...mutations,
   };

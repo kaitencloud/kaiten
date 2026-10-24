@@ -31,6 +31,10 @@ func (r *CommandRepository) q(ctx context.Context) *db.Queries {
 }
 
 func (r *CommandRepository) DeleteCustomer(ctx context.Context, organizationID uuid.UUID, slug string) (*schema.Customer, error) {
+	if err := r.refuseBilled(ctx, organizationID, slug); err != nil {
+		return nil, err
+	}
+
 	params := db.DeleteCustomerParams{
 		Slug:           slug,
 		OrganizationID: organizationID,
@@ -55,4 +59,33 @@ func (r *CommandRepository) DeleteCustomer(ctx context.Context, organizationID u
 		CreatedAt:          c.CreatedAt.Time,
 		UpdatedAt:          c.UpdatedAt.Time,
 	}, nil
+}
+
+// refuseBilled refuses to delete a customer that is billed: a live
+// subscription of one of its instances, or an invoice of its not settled yet.
+func (r *CommandRepository) refuseBilled(ctx context.Context, organizationID uuid.UUID, slug string) error {
+	q := r.q(ctx)
+	if _, err := q.LockCustomerForDelete(ctx, db.LockCustomerForDeleteParams{OrganizationID: organizationID, Slug: slug}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		return err
+	}
+	block, err := q.GetCustomerBillingBlock(ctx, db.GetCustomerBillingBlockParams{OrganizationID: organizationID, Slug: slug})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if !block.Live && len(block.UnpaidInvoiceIds) == 0 {
+		return nil
+	}
+	return kaitenerrors.ConflictWithErrors("DeleteCustomer.BillingActive",
+		fmt.Sprintf("Customer %q is billed: cancel its subscriptions and settle its invoices first", slug),
+		&kaitenerrors.ErrorDetail{
+			Message:  "whether a subscription is live, and the invoices not settled yet",
+			Location: "customer",
+			Value:    map[string]any{"live": block.Live, "unpaidInvoiceIds": block.UnpaidInvoiceIds},
+		})
 }

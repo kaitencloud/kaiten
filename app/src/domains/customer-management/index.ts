@@ -2,7 +2,13 @@
 // the instances screens, so their labels and badges live here, beside the
 // read models the two features share.
 export { InstanceLifecycleStageBadge, InstanceStatusBadge } from './components';
+export { useCustomersSectionTabs } from './hooks';
 export {
+  BILLING_EMAIL_ERROR_KEYS,
+  BILLING_EMAIL_MAX_LENGTH,
+  billingEmailSchema,
+  customerBillingEmailToUpdateBody,
+  customerToUpdateBody,
   DEFAULT_INSTANCE_STATUS,
   getInstanceStatusFilterOptions,
   getInstanceStatusLabel,
@@ -11,15 +17,18 @@ export {
   getLifecycleStageLabel,
   getLifecycleStageSuggestions,
   isDefaultLifecycleStage,
+  isValidBillingEmail,
   LIFECYCLE_STAGE_DEFAULTS,
 } from './logic';
 export type { InstanceStatus, DefaultLifecycleStage } from './logic';
+export type { SaveCustomerVariables } from './queries';
 export {
   forgetDeletedCustomerQueries,
   invalidateCustomerQueries,
   forgetDeletedInstanceQueries,
   invalidateInstanceQueries,
   invalidateInstancesListQueries,
+  saveCustomerOnFresh,
   GET_CUSTOMERS_WITH_INSTANCES,
   customersWithInstancesBaseQueryKey,
   customersWithInstancesQueryOptions,

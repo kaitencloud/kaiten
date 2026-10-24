@@ -3,6 +3,8 @@
 
 schema:
   - "schema.graphqls"
+  - "../../../modules/addons/schema/*.graphqls"
+  - "../../../modules/billing/schema/*.graphqls"
   - "../../../modules/components/schema/*.graphqls"
   - "../../../modules/customers/schema/*.graphqls"
   - "../../../modules/deploymentzones/schema/*.graphqls"
@@ -45,6 +47,12 @@ models:
   AuditTrail:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditTrail
+  AuditActor:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditActor
+  OrganizationAuditActor:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditActor
   AuditTrailPage:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.AuditTrailPage
@@ -77,6 +85,36 @@ models:
         resolver: true
       entitlementUsage:
         resolver: true
+      billing:
+        resolver: true
+      addons:
+        resolver: true
+      entitlementExceptions:
+        resolver: true
+  InstanceBillingSummary:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql.InstanceBillingSummary
+  InstanceAddon:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue.InstanceAddon
+  Addon:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue.Addon
+    fields:
+      prices:
+        resolver: true
+  AddonPrice:
+    # An add-on price has the shape of a licence price, and is its Go type.
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices.Price
+    fields:
+      meteredEntitlement:
+        resolver: true
+      saleUnitFactor:
+        resolver: true
+  AddonPage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql.AddonPage
   InstancePage:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.InstancePage
@@ -87,6 +125,8 @@ models:
       value:
         resolver: true
       limit:
+        resolver: true
+      provenance:
         resolver: true
   InstanceStatus:
     model:
@@ -99,6 +139,63 @@ models:
         resolver: true
       family:
         resolver: true
+      prices:
+        resolver: true
+  LicensePrice:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices.Price
+    fields:
+      meteredEntitlement:
+        resolver: true
+      saleUnitFactor:
+        resolver: true
+  TrialEndWithoutPaymentMethod:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  # The enums of the REST members of the same name (V31-04): their Go fields
+  # are strings, and GraphQL validates them.
+  PriceBillingModel:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PriceBillingTiming:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PriceBillingPeriod:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PriceStatus:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PricingType:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  AddonLifecycleState:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  IncreaseBilling:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  SubscriptionStatus:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  ProviderKind:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementUsageSource:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementException:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/graphql.EntitlementException
+  EntitlementExceptionKind:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementExceptionStatus:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementExceptionFilter:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
   LicenseFamily:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamily

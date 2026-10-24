@@ -131,14 +131,18 @@ SELECT e.id              AS entitlement_id,
        i.start_license_date,
        eu.value          AS usage_value,
        eu.period_start,
-       le.value          AS license_value,
-       (now() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       iee.value         AS effective_value,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM entitlement_group eg
 JOIN entitlement_group_membership egm ON egm.entitlement_group_id = eg.id
 JOIN entitlement e ON e.id = egm.entitlement_id
 JOIN instance i ON i.slug = $1 AND i.organization_id = eg.organization_id
 LEFT JOIN entitlement_usage eu ON eu.entitlement_id = e.id AND eu.instance_id = i.id AND eu.organization_id = eg.organization_id
-LEFT JOIN license_entitlement le ON le.entitlement_id = e.id AND le.license_id = i.license_id AND le.organization_id = eg.organization_id
+LEFT JOIN instance_effective_entitlement iee ON iee.entitlement_id = e.id AND iee.instance_id = i.id
+LEFT JOIN instance_billing ib ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
 WHERE eg.slug = $2
   AND eg.organization_id = $3
 `
@@ -159,12 +163,19 @@ type GetEntitlementGroupUsageRow struct {
 	StartLicenseDate pgtype.Timestamp        `json:"start_license_date"`
 	UsageValue       []byte                  `json:"usage_value"`
 	PeriodStart      pgtype.Timestamp        `json:"period_start"`
-	LicenseValue     []byte                  `json:"license_value"`
+	EffectiveValue   []byte                  `json:"effective_value"`
 	Now              pgtype.Timestamp        `json:"now"`
+	BillingStatus    string                  `json:"billing_status"`
+	BillingAnchorAt  pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt      pgtype.Timestamp        `json:"live_ended_at"`
 }
 
-// now is the same database-time value on every returned row:
-// folded into this query instead of a separate GetDatabaseNow round trip.
+// One row per member of the group; effective_value is NULL for a member the
+// instance is not granted, read through instance_effective_entitlement like
+// every other reader of an instance's entitlement value. now is the same
+// database-time value on every returned row: folded into this query instead
+// of a separate GetDatabaseNow round trip.
+// The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 func (q *Queries) GetEntitlementGroupUsage(ctx context.Context, arg GetEntitlementGroupUsageParams) ([]GetEntitlementGroupUsageRow, error) {
 	rows, err := q.db.Query(ctx, getEntitlementGroupUsage, arg.InstanceSlug, arg.GroupSlug, arg.OrganizationID)
 	if err != nil {
@@ -184,8 +195,11 @@ func (q *Queries) GetEntitlementGroupUsage(ctx context.Context, arg GetEntitleme
 			&i.StartLicenseDate,
 			&i.UsageValue,
 			&i.PeriodStart,
-			&i.LicenseValue,
+			&i.EffectiveValue,
 			&i.Now,
+			&i.BillingStatus,
+			&i.BillingAnchorAt,
+			&i.LiveEndedAt,
 		); err != nil {
 			return nil, err
 		}

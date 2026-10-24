@@ -1,4 +1,9 @@
 import type { License } from '@/api-client';
+import {
+  getVersionTransition,
+  isDefaultArchiveBlocked,
+  type VersionLifecycleTransition,
+} from '@/domains/billing';
 
 export type LicenseLifecycleState = NonNullable<License['lifecycleState']>;
 
@@ -28,26 +33,15 @@ export function canBecomeDefault(
   return !license.isDefault && isLicensePublished(license);
 }
 
-// The operations a version's state moves through. An update
-// cannot change the state; each of these moves it along one edge.
-export type LicenseLifecycleTransition = 'publish' | 'archive' | 'unarchive';
-
-// Each state accepts exactly one transition: a draft goes on sale, a published
-// version is withdrawn, an archived one goes back on sale. Nothing leads back
-// to DRAFT -- a version that has been on sale cannot become one that never was.
-const TRANSITION_FROM: Record<
-  LicenseLifecycleState,
-  LicenseLifecycleTransition
-> = {
-  DRAFT: 'publish',
-  PUBLISHED: 'archive',
-  ARCHIVED: 'unarchive',
-};
+// The operations a version's state moves through. An update cannot change the
+// state; each of these moves it along one edge. The rule is the one the versions of
+// an add-on follow too, and lives in the billing domain.
+export type LicenseLifecycleTransition = VersionLifecycleTransition;
 
 export function getLifecycleTransition(
   license: Pick<License, 'lifecycleState'>,
 ): LicenseLifecycleTransition {
-  return TRANSITION_FROM[getLicenseLifecycleState(license)];
+  return getVersionTransition(getLicenseLifecycleState(license));
 }
 
 // A family's default must stay PUBLISHED, so the API refuses to archive it
@@ -56,7 +50,8 @@ export function getLifecycleTransition(
 export function isLifecycleTransitionBlocked(
   license: Pick<License, 'isDefault' | 'lifecycleState'>,
 ): boolean {
-  return (
-    Boolean(license.isDefault) && getLifecycleTransition(license) === 'archive'
+  return isDefaultArchiveBlocked(
+    getLicenseLifecycleState(license),
+    license.isDefault,
   );
 }

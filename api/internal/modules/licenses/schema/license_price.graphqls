@@ -1,0 +1,50 @@
+"""How a price bills: a flat fee per period, or the usage of an entitlement."""
+enum PriceBillingModel {
+  FLAT_FEE
+  USAGE_BASED
+  OVERAGE
+}
+
+"""When a price bills: at the start of the period it covers, or at its end."""
+enum PriceBillingTiming {
+  ADVANCE
+  ARREARS
+}
+
+"""The length of a flat fee's period."""
+enum PriceBillingPeriod {
+  MONTHLY
+  QUARTERLY
+  SEMI_ANNUAL
+  ANNUAL
+}
+
+"""Whether a price is still offered."""
+enum PriceStatus {
+  ACTIVE
+  DEPRECATED
+}
+
+"""
+A price of a licence version. Amounts are in minor units of currency.
+unitAmountDecimal is the amount: GraphQL has no Int wide enough for every one.
+"""
+type LicensePrice {
+  id: UUID!
+  billingModel: PriceBillingModel!
+  billingTiming: PriceBillingTiming!
+  """Null on a metered price."""
+  billingPeriod: PriceBillingPeriod
+  currency: String!
+  """The amount in minor units, up to 12 decimal places."""
+  unitAmountDecimal: String!
+  """The slug of the entitlement a metered price measures; null on a flat fee."""
+  meteredEntitlement: String
+  """Measured units in one sale unit of a metered price; null on a flat fee."""
+  saleUnitFactor: String
+  displayLabel: String
+  displayOrder: Int!
+  isDefault: Boolean!
+  status: PriceStatus!
+  deprecatedAt: Time
+}

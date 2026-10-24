@@ -58,8 +58,9 @@ func (ns NullAggregationMethod) Value() (driver.Value, error) {
 type EntitlementResetAnchor string
 
 const (
-	EntitlementResetAnchorCALENDAR     EntitlementResetAnchor = "CALENDAR"
-	EntitlementResetAnchorLICENSESTART EntitlementResetAnchor = "LICENSE_START"
+	EntitlementResetAnchorCALENDAR      EntitlementResetAnchor = "CALENDAR"
+	EntitlementResetAnchorLICENSESTART  EntitlementResetAnchor = "LICENSE_START"
+	EntitlementResetAnchorBILLINGPERIOD EntitlementResetAnchor = "BILLING_PERIOD"
 )
 
 func (e *EntitlementResetAnchor) Scan(src interface{}) error {
@@ -228,4 +229,46 @@ func (ns NullInstanceStatus) Value() (driver.Value, error) {
 		return nil, nil
 	}
 	return string(ns.InstanceStatus), nil
+}
+
+type UsageReportBehavior string
+
+const (
+	UsageReportBehaviorAppend UsageReportBehavior = "append"
+	UsageReportBehaviorSet    UsageReportBehavior = "set"
+)
+
+func (e *UsageReportBehavior) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = UsageReportBehavior(s)
+	case string:
+		*e = UsageReportBehavior(s)
+	default:
+		return fmt.Errorf("unsupported scan type for UsageReportBehavior: %T", src)
+	}
+	return nil
+}
+
+type NullUsageReportBehavior struct {
+	UsageReportBehavior UsageReportBehavior `json:"usage_report_behavior"`
+	Valid               bool                `json:"valid"` // Valid is true if UsageReportBehavior is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullUsageReportBehavior) Scan(value interface{}) error {
+	if value == nil {
+		ns.UsageReportBehavior, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.UsageReportBehavior.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullUsageReportBehavior) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.UsageReportBehavior), nil
 }

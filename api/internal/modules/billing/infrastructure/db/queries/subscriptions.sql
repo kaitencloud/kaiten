@@ -1,0 +1,204 @@
+-- name: BillingClock :one
+-- The instant billing acts at: the database's clock, in UTC, to the
+-- millisecond -- the clock the usage report dates its reports with.
+SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now;
+
+
+-- name: LockInstanceForSubscribe :one
+-- The instance a subscribe names, locked for the transaction: its customer
+-- and licence are what the subscription is for.
+SELECT i.id, i.slug, i.name, i.customer_id, i.license_id
+FROM instance i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.slug = sqlc.arg(slug)
+FOR UPDATE;
+
+
+-- name: GetInstanceBySlug :one
+SELECT i.id, i.slug, i.name, i.customer_id, i.license_id
+FROM instance i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.slug = sqlc.arg(slug);
+
+
+-- name: GetBillingCustomer :one
+-- The customer a subscription bills. billing_email is personal data: it is
+-- snapshotted on the invoice, never written to an event.
+SELECT c.id, c.slug, c.name, c.billing_email
+FROM customer c
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.id = sqlc.arg(id);
+
+
+-- name: GetBillingLicense :one
+-- A licence version, with its family's trial reminder lead (§5.1 rule 6),
+-- read when a trial starts.
+SELECT l.id, l.slug, l.name, l.lifecycle_state, l.trial_period_days, lf.trial_reminder_days, lf.slug AS family_slug
+FROM license l
+JOIN license_family lf
+  ON lf.id = l.family_id
+ AND lf.organization_id = l.organization_id
+WHERE l.organization_id = sqlc.arg(organization_id)
+  AND l.id = sqlc.arg(id);
+
+
+-- name: IsFreeSubscription :one
+-- Whether the subscription of an instance on that licence version is free
+-- (§0 Conventions, V31-68): the version's family is FREE, every version of it
+-- priced FREE, and no add-on version the instance holds has a price above 0.
+-- Only a free subscription is replaced by a public checkout.
+SELECT (EXISTS (SELECT 1
+                FROM license l
+                WHERE l.organization_id = sqlc.arg(organization_id)
+                  AND l.id = sqlc.arg(license_id))
+    AND NOT EXISTS (SELECT 1
+                    FROM license l
+                    JOIN license v ON v.family_id = l.family_id AND v.organization_id = l.organization_id
+                    WHERE l.organization_id = sqlc.arg(organization_id)
+                      AND l.id = sqlc.arg(license_id)
+                      AND v.pricing_type <> 'FREE')
+    AND NOT EXISTS (SELECT 1
+                    FROM instance_addon ia
+                    JOIN addon_price p ON p.addon_id = ia.addon_id AND p.organization_id = ia.organization_id
+                    WHERE ia.organization_id = sqlc.arg(organization_id)
+                      AND ia.instance_id = sqlc.arg(instance_id)
+                      AND ia.removed_at IS NULL
+                      AND p.unit_amount_decimal > 0))::boolean AS free;
+
+
+-- name: GetInstanceBilling :one
+-- An instance's subscription row, the one it keeps for life.
+SELECT *
+FROM instance_billing ib
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.instance_id = sqlc.arg(instance_id);
+
+
+-- name: LockInstanceBilling :one
+SELECT *
+FROM instance_billing ib
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.instance_id = sqlc.arg(instance_id)
+FOR UPDATE;
+
+
+-- name: InsertInstanceBilling :one
+INSERT INTO instance_billing (organization_id, instance_id, customer_id, instance_slug, instance_name,
+                              customer_slug, customer_name, status, provider_kind, collection_method,
+                              days_until_due, base_license_price_id, billing_period, currency, anchor_at,
+                              started_at, current_period_start, current_period_end, trial_ends_at,
+                              trial_will_end_at, pending_license_id, pending_selection, incomplete_expires_at,
+                              created_by_id, updated_by_id)
+VALUES (sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(customer_id), sqlc.arg(instance_slug),
+        sqlc.arg(instance_name), sqlc.arg(customer_slug), sqlc.arg(customer_name), sqlc.arg(status),
+        sqlc.arg(provider_kind), sqlc.narg(collection_method), sqlc.narg(days_until_due),
+        sqlc.arg(base_license_price_id), sqlc.arg(billing_period), sqlc.arg(currency), sqlc.arg(anchor_at),
+        sqlc.arg(anchor_at), sqlc.arg(anchor_at), sqlc.arg(current_period_end), sqlc.narg(trial_ends_at),
+        sqlc.narg(trial_will_end_at), sqlc.narg(pending_license_id), sqlc.narg(pending_selection), sqlc.narg(incomplete_expires_at),
+        sqlc.arg(user_id), sqlc.arg(user_id))
+RETURNING *;
+
+
+-- name: ResubscribeInstanceBilling :one
+-- A CANCELED subscription subscribed again: the same row, with a new price,
+-- anchor and period, and nothing left of the life that ended.
+UPDATE instance_billing
+SET customer_id           = sqlc.arg(customer_id),
+    instance_slug         = sqlc.arg(instance_slug),
+    instance_name         = sqlc.arg(instance_name),
+    customer_slug         = sqlc.arg(customer_slug),
+    customer_name         = sqlc.arg(customer_name),
+    status                = sqlc.arg(status),
+    provider_kind         = sqlc.arg(provider_kind),
+    collection_method     = sqlc.narg(collection_method),
+    days_until_due        = sqlc.narg(days_until_due),
+    base_license_price_id = sqlc.arg(base_license_price_id),
+    billing_period        = sqlc.arg(billing_period),
+    currency              = sqlc.arg(currency),
+    anchor_at             = sqlc.arg(anchor_at),
+    started_at            = sqlc.arg(anchor_at),
+    current_period_start  = sqlc.arg(anchor_at),
+    current_period_end    = sqlc.arg(current_period_end),
+    trial_ends_at         = sqlc.narg(trial_ends_at),
+    trial_will_end_at     = sqlc.narg(trial_will_end_at),
+    trial_will_end_notified_at = NULL,
+    pending_license_id    = sqlc.narg(pending_license_id),
+    pending_selection     = sqlc.narg(pending_selection),
+    incomplete_expires_at = sqlc.narg(incomplete_expires_at),
+    cancel_at_period_end  = FALSE,
+    cancel_requested_at   = NULL,
+    canceled_at           = NULL,
+    cancellation_reason   = NULL,
+    past_due_since        = NULL,
+    scheduled_license_price_id = NULL,
+    scheduled_at          = NULL,
+    updated_by_id         = sqlc.arg(user_id),
+    updated_at            = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND organization_id = sqlc.arg(organization_id)
+  AND status = 'CANCELED'
+RETURNING *;
+
+
+-- name: ListInstanceBillingSummaries :many
+-- The subscriptions of instances, for GraphQL's Instance.billing.
+SELECT ib.instance_id::uuid AS instance_id, ib.status, ib.provider_kind, ib.current_period_end,
+       ib.cancel_at_period_end, ib.past_due_since, ib.trial_ends_at
+FROM instance_billing ib
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.instance_id = ANY (sqlc.arg(instance_ids)::uuid[]);
+
+
+-- name: SetPendingCheckout :one
+-- A checkout with an amount due over a free live subscription (§9.10 rule
+-- 6): the row keeps its status, price and periods, and carries the checkout
+-- until its ACTIVATION is paid.
+UPDATE instance_billing
+SET pending_license_id    = sqlc.arg(pending_license_id),
+    pending_selection     = sqlc.arg(pending_selection),
+    incomplete_expires_at = sqlc.arg(incomplete_expires_at),
+    updated_by_id         = sqlc.arg(user_id),
+    updated_at            = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+  AND pending_license_id IS NULL
+RETURNING *;
+
+
+-- name: SetSubscriptionStartedAt :one
+-- The P0 floor of a subscription its payment started (§9.10 rules 3 and 6).
+UPDATE instance_billing
+SET started_at = sqlc.arg(started_at)
+WHERE id = sqlc.arg(id)
+RETURNING *;
+
+
+-- name: LockCustomerTrials :exec
+-- One trial per customer and family, under concurrency (INV-32): a subscribe
+-- that may start a default trial serializes on its customer, until it has
+-- recorded the trial.
+SELECT pg_advisory_xact_lock(hashtextextended('customer_trial:' || sqlc.arg(customer_id)::text, 0));
+
+
+-- name: CustomerTrialConsumed :one
+-- Whether the customer has consumed a trial of the family of this licence
+-- version (INV-32).
+SELECT EXISTS (SELECT 1
+               FROM customer_trial ct
+               JOIN license l
+                 ON l.family_id = ct.license_family_id
+                AND l.organization_id = ct.organization_id
+               WHERE ct.organization_id = sqlc.arg(organization_id)
+                 AND ct.customer_id = sqlc.arg(customer_id)
+                 AND l.id = sqlc.arg(license_id))::boolean AS consumed;
+
+
+-- name: RecordCustomerTrial :exec
+-- A trial consumed (INV-32): the subscribe that starts one records it for the
+-- customer and the licence's family; the first record stays.
+INSERT INTO customer_trial (customer_id, license_family_id, organization_id, instance_id, consumed_at)
+SELECT sqlc.arg(customer_id), l.family_id, l.organization_id, sqlc.arg(instance_id), sqlc.arg(now)
+FROM license l
+WHERE l.organization_id = sqlc.arg(organization_id)
+  AND l.id = sqlc.arg(license_id)
+ON CONFLICT (customer_id, license_family_id) DO NOTHING;

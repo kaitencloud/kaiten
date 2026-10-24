@@ -191,7 +191,11 @@ If something is off:
 
 When `VITE_LOCAL_AUTH` is not `true` (and the E2E bypass is off), the console
 wraps the app in Clerk's provider (`@clerk/react`) and redirects signed-out
-visitors to Clerk's sign-in. It reads the publishable key from
+visitors to Clerk's sign-in. An explicit sign-out first lands on `/signed-out`
+(the `afterSignOutUrl` of the provider): the signed-out gate purges the unsent
+input of creation forms stored in the browser, moves the URL back to `/`, then
+redirects to sign-in. A session that merely expired goes straight to sign-in at
+the URL it was on, and keeps what it stored. It reads the publishable key from
 `VITE_CLERK_PUBLISHABLE_KEY`, in `app/.env.local` for a dev server or as a
 container variable for a deployment.
 

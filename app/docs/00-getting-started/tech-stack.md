@@ -16,7 +16,7 @@ exact ones. When a version here and the manifest disagree, the manifest is right
 | TanStack Table | 9 | Table state and rendering, behind the `functionals/table` widgets. |
 | TanStack Form and Zod | 1 and 4 | Forms and their validation schemas. |
 | TanStack Store | 0.11 | Client UI state scoped to a feature (dialog and wizard stores). |
-| TanStack DB | 0.4 | Local settings (theme, language, side navigation) persisted in `localStorage`. |
+| TanStack DB | 0.4 | Local settings (theme, language, side navigation) persisted in `localStorage`, and the recoverable input of creation forms. A tab that works on such an input holds a Web Lock on it. |
 | i18next and react-i18next | 26 and 17 | Translations, English and French (`src/lib/i18n/locales`). |
 | Clerk (`@clerk/react`, `@clerk/ui`) | 6 and 1 | Sign-in when the app does not run with `VITE_LOCAL_AUTH`. See [Setup](./setup.md#sign-in-with-clerk). |
 | OpenFeature web SDK and OFREP web provider | 1 and 0.4 | Feature flags the console reads over OFREP (`src/lib/feature-flags.ts`). |

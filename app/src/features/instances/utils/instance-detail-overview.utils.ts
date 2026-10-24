@@ -1,14 +1,19 @@
+import { getAppLocale } from '@/lib/app-locale';
 import {
   formatDateTimeShort as formatDateTimeShortValue,
   formatDateTime as formatDateTimeValue,
   formatDate as formatDateValue,
 } from '@/lib/detail';
 
-export const formatDate = (dateString: string, locale = 'en-US') =>
+// A caller that gives no language gets the one the app is shown in, not English: the
+// header of every instance page writes "Expires" and its date through these.
+export const formatDate = (dateString: string, locale = getAppLocale()) =>
   formatDateValue(dateString, locale);
 
-export const formatDateTime = (dateString: string, locale = 'en-US') =>
+export const formatDateTime = (dateString: string, locale = getAppLocale()) =>
   formatDateTimeValue(dateString, locale);
 
-export const formatDateTimeShort = (dateString: string, locale = 'en-US') =>
-  formatDateTimeShortValue(dateString, locale);
+export const formatDateTimeShort = (
+  dateString: string,
+  locale = getAppLocale(),
+) => formatDateTimeShortValue(dateString, locale);

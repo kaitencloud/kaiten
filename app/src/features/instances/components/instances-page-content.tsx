@@ -5,27 +5,27 @@ import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Page } from '@/functionals/page';
 import { RouteTabs } from '@/functionals/route-tabs';
-import { useInstancesWithRelations } from '@/domains/customer-management';
+import {
+  useCheckoutSessionsOffered,
+  useInstancesBilling,
+} from '@/domains/billing';
+import {
+  useCustomersSectionTabs,
+  useInstancesWithRelations,
+} from '@/domains/customer-management';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { InstancesTable } from './instance-table';
 
 export function InstancesPageContent({ children }: { children?: ReactNode }) {
   const { data } = useInstancesWithRelations();
   const instances = data?.instances?.items ?? [];
+  // The Billing column: asked for only when billing is on and the session may read it.
+  const billing = useInstancesBilling();
   const { t } = useTranslation();
   const InstanceIcon = dataModelIcons.instance;
-  const tabs = [
-    {
-      id: 'customers',
-      to: '/customers',
-      label: t('Pages.Customers.Tabs.customers'),
-    },
-    {
-      id: 'instances',
-      to: '/customers/instances',
-      label: t('Pages.Customers.Tabs.instances'),
-    },
-  ];
+  const tabs = useCustomersSectionTabs({
+    checkoutsOffered: useCheckoutSessionsOffered(),
+  });
 
   return (
     <>
@@ -64,7 +64,7 @@ export function InstancesPageContent({ children }: { children?: ReactNode }) {
         </Page.Header>
         <RouteTabs tabs={tabs} />
         <div className="flex-1 min-h-0">
-          <InstancesTable instances={instances} />
+          <InstancesTable billing={billing} instances={instances} />
         </div>
       </Page>
 

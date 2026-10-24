@@ -1,15 +1,15 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
-import { useMemo } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import {
   createComponentMutation,
   listComponentsQueryKey,
-  updateComponentMutation,
 } from '@/api-client/@tanstack/react-query.gen';
 import { useAppForm } from '@/hooks/form';
+import { saveComponentOnFresh } from '../queries/component-save';
 import {
   componentFormSchema,
   initialComponentFormValues,
@@ -26,13 +26,12 @@ export const useComponentForm = ({
   const { t } = useTranslation();
   const { queryClient } = useRouteContext({ from: '__root__' });
 
-  const defaultValues = useMemo(
-    () => ({
-      ...initialComponentFormValues,
-      ...initialValues,
-    }),
-    [initialValues],
-  );
+  // What the form opened with, kept as it was: an update sends the fields that
+  // differ from it, and takes the others from the component as the API holds it.
+  const [defaultValues] = useState(() => ({
+    ...initialComponentFormValues,
+    ...initialValues,
+  }));
 
   const createMutation = useMutation({
     ...createComponentMutation(),
@@ -44,7 +43,7 @@ export const useComponentForm = ({
   });
 
   const updateMutation = useMutation({
-    ...updateComponentMutation(),
+    mutationFn: saveComponentOnFresh,
     onSuccess: async () => {
       await queryClient.invalidateQueries({
         queryKey: listComponentsQueryKey(),
@@ -65,8 +64,9 @@ export const useComponentForm = ({
             throw new Error('Missing component slug for update');
           }
           const data = await updateMutation.mutateAsync({
-            path: { componentSlug },
-            body: normalizeComponentFormValues(value),
+            componentSlug,
+            edited: normalizeComponentFormValues(value),
+            opened: normalizeComponentFormValues(defaultValues),
           });
           if (data) {
             toast.success(t('Pages.Releases.Components.Success.updated'));

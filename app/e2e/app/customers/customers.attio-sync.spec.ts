@@ -17,6 +17,7 @@ test('refreshes the new customer when the Attio integration appears asynchronous
   const customers = new CustomerAppModel({ attioSyncAfterAttempts: 3 });
   const connector = new ConnectorAppModel({
     settings: {
+      configured: true,
       connector_name: ATTIO_CONNECTOR_NAME,
       settings: {
         attioApiKey: '***',

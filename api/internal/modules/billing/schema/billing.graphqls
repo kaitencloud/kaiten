@@ -1,0 +1,36 @@
+"""The status of a subscription. INCOMPLETE: a public checkout waiting for its first payment."""
+enum SubscriptionStatus {
+  INCOMPLETE
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+"""The payment provider a subscription's invoices go to."""
+enum ProviderKind {
+  NOOP
+  STRIPE
+}
+
+"""
+What the console's instance lists show of an instance's subscription. The
+whole subscription is GET /instances/{instanceSlug}/billing.
+"""
+type InstanceBillingSummary {
+  status: SubscriptionStatus!
+  providerKind: ProviderKind!
+  currentPeriodEnd: Time!
+  cancelAtPeriodEnd: Boolean!
+  pastDueSince: Time
+  trialEndsAt: Time
+}
+
+extend type Instance {
+  """
+  The instance's subscription; null when it was never subscribed. Requires
+  read:billing and billing enabled for the organization: fetch it in a
+  document of its own, once billing is enabled.
+  """
+  billing: InstanceBillingSummary
+}

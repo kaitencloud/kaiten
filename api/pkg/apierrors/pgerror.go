@@ -11,6 +11,7 @@ const (
 	pgForeignKeyViolation = "23503"
 	pgRestrictViolation   = "23001"
 	pgCheckViolation      = "23514"
+	pgExclusionViolation  = "23P01"
 )
 
 // IsUniqueViolation returns true if the error is a PostgreSQL unique constraint violation.
@@ -53,6 +54,16 @@ func IsCheckViolationOnConstraint(err error, constraintName string) bool {
 	return false
 }
 
+// IsExclusionViolationOnConstraint returns true if err is a PostgreSQL
+// exclusion_violation on the specific named EXCLUDE constraint.
+func IsExclusionViolationOnConstraint(err error, constraintName string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgExclusionViolation && pgErr.ConstraintName == constraintName
+	}
+	return false
+}
+
 // IsRestrictViolation returns true if the error is a PostgreSQL
 // restrict_violation. In this codebase that is raised deliberately by the
 // triggers protecting the system:kaiten platform identity and its memberships:
@@ -79,6 +90,19 @@ func IsForeignKeyViolation(err error) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		return pgErr.Code == pgForeignKeyViolation
+	}
+	return false
+}
+
+// IsMissingPartition returns true if err is PostgreSQL refusing a row that no
+// partition of the partitioned table accepts ("no partition of relation ...
+// found for row"). That error is a check_violation too, but it names no
+// constraint, only the table, which is what tells the two apart without
+// reading a message that a server locale could translate.
+func IsMissingPartition(err error, table string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgCheckViolation && pgErr.ConstraintName == "" && pgErr.TableName == table
 	}
 	return false
 }

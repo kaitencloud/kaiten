@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next';
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDateTime } from '@/lib/detail';
+import { formatDateTime, getAuditDisplayName } from '@/lib/detail';
 import { cn } from '@/lib/utils';
 import { resolveEventLabel } from '../audit-trail-events';
 import type { GlobalAuditEntry } from '../audit-trail.types';
@@ -11,9 +11,18 @@ import { getEventCategory } from '../audit-trail.utils';
 import { AuditStatusBadge, getEventIcon } from './audit-trail-event-visuals';
 
 // Shared grid template so the feed column header and every row stay aligned:
-// icon | Event | Instance | Customer | Status | Time | chevron
+// icon | Event | Instance | Customer | Actor | Status | Time | chevron
+// Every class is for `sm` and up: the header and the rows are `hidden` below it, and a
+// bare `grid` here would win over that `hidden` once the classes are merged, drawing the
+// desktop grid on a phone beside the row made for it.
 export const AUDIT_GRID =
-  'grid grid-cols-[2.25rem_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_7rem_8rem_1.25rem] items-center gap-3';
+  'sm:grid sm:grid-cols-[2.25rem_minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_7rem_8rem_1.25rem] sm:items-center sm:gap-3';
+
+// Who the entry is recorded under, named as a record's author is everywhere
+// else: Kaiten itself reads "Kaiten (system)". An entry recorded before the API
+// kept actors has none.
+const actorLabel = (entry: GlobalAuditEntry) =>
+  getAuditDisplayName({ actor: entry.actor }) || '—';
 
 function EventIconCircle({ entry }: { entry: GlobalAuditEntry }) {
   const { Icon, iconText, tint } = getEventIcon(
@@ -81,6 +90,10 @@ function AuditEventRowDetail({
           value={entry.customerName ?? '—'}
         />
         <DetailItem
+          label={t('Pages.AuditTrail.detail.actor')}
+          value={actorLabel(entry)}
+        />
+        <DetailItem
           label={t('Pages.AuditTrail.detail.timestamp')}
           value={formatDateTime(entry.timestamp, locale)}
         />
@@ -111,7 +124,7 @@ function AuditEventRowDesktop({
   open: boolean;
 }) {
   return (
-    <div className={cn('hidden px-3 py-2.5 sm:grid', AUDIT_GRID)}>
+    <div className={cn('hidden px-3 py-2.5', AUDIT_GRID)}>
       <EventIconCircle entry={entry} />
       <div className="min-w-0">
         <p className="truncate text-sm font-medium">
@@ -131,6 +144,9 @@ function AuditEventRowDesktop({
       </div>
       <div className="min-w-0">
         <p className="truncate text-sm">{entry.customerName ?? '—'}</p>
+      </div>
+      <div className="min-w-0">
+        <p className="truncate text-sm">{actorLabel(entry)}</p>
       </div>
       <div>
         <AuditStatusBadge eventName={entry.eventName} t={t} />
@@ -196,6 +212,8 @@ function AuditEventRowMobile({
           </span>
           {' · '}
           {entry.customerName ?? '—'}
+          {' · '}
+          {actorLabel(entry)}
         </p>
       </div>
     </div>

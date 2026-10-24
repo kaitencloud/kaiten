@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vite-plus/test';
+import type { Customer } from '@/api-client';
 import { zCustomer } from '@/api-client/zod.gen';
 import {
+  createCustomerFormSchema,
   customerFormSchema,
   customerFormValuesToCreateBody,
   customerFormValuesToUpdateBody,
+  customerToFormValues,
 } from '../customer-form.shared';
 
 const formValues = {
   name: 'Acme',
   externalCustomerId: '',
+  billingEmail: '',
   slug: '',
 };
 
@@ -38,6 +42,38 @@ describe('customerFormSchema', () => {
     );
   });
 
+  it('accepts no billing e-mail, and an address of up to 254 characters', () => {
+    const address = `${'a'.repeat(242)}@example.com`;
+
+    expect(address).toHaveLength(254);
+    for (const billingEmail of ['', 'billing@acme.com', address]) {
+      expect(
+        customerFormSchema.safeParse({ ...formValues, billingEmail, domain: '' })
+          .success,
+      ).toBe(true);
+    }
+  });
+
+  it('says why a billing e-mail is refused, in the words of the form', () => {
+    const invalid = customerFormSchema.safeParse({
+      ...formValues,
+      billingEmail: 'not an address',
+      domain: '',
+    });
+    const tooLong = customerFormSchema.safeParse({
+      ...formValues,
+      billingEmail: `${'a'.repeat(250)}@example.com`,
+      domain: '',
+    });
+
+    expect(invalid.error?.issues[0]?.message).toBe(
+      'Pages.Customers.Mutation.Form.Errors.billingEmail',
+    );
+    expect(tooLong.error?.issues[0]?.message).toBe(
+      'Pages.Customers.Mutation.Form.Errors.billingEmailTooLong',
+    );
+  });
+
   it('accepts a valid optional slug', () => {
     expect(
       customerFormSchema.safeParse({
@@ -45,6 +81,69 @@ describe('customerFormSchema', () => {
         domain: '',
         slug: 'acme-inc',
       }).success,
+    ).toBe(true);
+  });
+});
+
+describe('createCustomerFormSchema', () => {
+  const values = { ...formValues, domain: '' };
+
+  it.each(['checkout-sessions', 'instances', 'new'])(
+    'refuses %s, the slug of a static route of /customers, on the slug field',
+    (slug) => {
+      const result = createCustomerFormSchema.safeParse({ ...values, slug });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          message: 'Pages.Customers.Mutation.Form.Errors.slugShadowed',
+          path: ['slug'],
+        }),
+      ]);
+    },
+  );
+
+  it.each(['Checkout Sessions', 'New', 'Instances'])(
+    'refuses the name %s with the slug cleared, the slug the API would make from it',
+    (name) => {
+      const result = createCustomerFormSchema.safeParse({
+        ...values,
+        name,
+        slug: '',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.error?.issues).toEqual([
+        expect.objectContaining({
+          message: 'Pages.Customers.Mutation.Form.Errors.slugShadowed',
+          path: ['slug'],
+        }),
+      ]);
+    },
+  );
+
+  it('accepts a name that merely starts like such a slug, with the slug cleared', () => {
+    expect(
+      createCustomerFormSchema.safeParse({
+        ...values,
+        name: 'New Horizons',
+        slug: '',
+      }).success,
+    ).toBe(true);
+  });
+
+  it('accepts an empty slug, a slug that only starts like one, and any other', () => {
+    for (const slug of ['', 'checkout-sessions-ltd', 'newsletter', 'acme']) {
+      expect(createCustomerFormSchema.safeParse({ ...values, slug }).success).toBe(
+        true,
+      );
+    }
+  });
+
+  it('is only for a new customer: an edit keeps the schema that lets a customer made with such a slug be saved', () => {
+    expect(
+      customerFormSchema.safeParse({ ...values, slug: 'checkout-sessions' })
+        .success,
     ).toBe(true);
   });
 });
@@ -63,6 +162,23 @@ describe('customerFormValuesToCreateBody', () => {
     });
     expect(body.slug).toBe('acme-inc');
   });
+
+  it('sends a billing e-mail trimmed, and none when there is none', () => {
+    expect(
+      customerFormValuesToCreateBody({
+        ...formValues,
+        billingEmail: '  ap@acme.com ',
+        domain: '',
+      }).billingEmail,
+    ).toBe('ap@acme.com');
+    expect(
+      customerFormValuesToCreateBody({
+        ...formValues,
+        billingEmail: '   ',
+        domain: '',
+      }).billingEmail,
+    ).toBeUndefined();
+  });
 });
 
 describe('customerFormValuesToUpdateBody', () => {
@@ -73,5 +189,36 @@ describe('customerFormValuesToUpdateBody', () => {
       slug: 'acme-inc',
     });
     expect(Object.keys(body)).not.toContain('slug');
+  });
+
+  it('sends the billing e-mail it holds, and an empty string to remove it', () => {
+    expect(
+      customerFormValuesToUpdateBody({
+        ...formValues,
+        billingEmail: ' ap@acme.com',
+        domain: '',
+      }).billingEmail,
+    ).toBe('ap@acme.com');
+    // The API keeps the stored address when the member is left out and removes
+    // it for an empty string, and ignores null: the form never sends null.
+    expect(
+      customerFormValuesToUpdateBody({ ...formValues, domain: '' }),
+    ).toHaveProperty('billingEmail', '');
+  });
+});
+
+describe('customerToFormValues', () => {
+  it('opens a customer with the billing e-mail it has, or an empty field', () => {
+    const customer = {
+      id: 'c1',
+      name: 'Acme',
+      slug: 'acme',
+    } as Customer;
+
+    expect(customerToFormValues(customer).billingEmail).toBe('');
+    expect(
+      customerToFormValues({ ...customer, billingEmail: 'ap@acme.com' })
+        .billingEmail,
+    ).toBe('ap@acme.com');
   });
 });

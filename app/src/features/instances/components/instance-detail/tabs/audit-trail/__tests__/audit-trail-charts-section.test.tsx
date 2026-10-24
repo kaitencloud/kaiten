@@ -388,6 +388,7 @@ const entitlementsRows = [
 
 const entries: AuditTrail[] = [
   {
+    actor: null,
     eventName: 'ENTITLEMENT_VALUE_GET',
     eventType: 'com.kaiten.instance.entitlement.v1.value_get',
     id: '1',
@@ -401,6 +402,7 @@ const entries: AuditTrail[] = [
     timestamp: '2026-03-24T10:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
     eventType: 'com.kaiten.instance.entitlement.v1.usage_report_accepted',
     id: '2',
@@ -414,6 +416,7 @@ const entries: AuditTrail[] = [
     timestamp: '2026-03-24T11:00:00.000Z',
   },
   {
+    actor: null,
     eventName: 'ENTITLEMENT_USAGE_REPORT_REJECTED',
     eventType: 'com.kaiten.instance.entitlement.v1.usage_report_rejected',
     id: '3',

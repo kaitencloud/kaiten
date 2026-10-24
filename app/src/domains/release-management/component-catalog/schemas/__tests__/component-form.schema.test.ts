@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
   componentFormSchema,
+  componentToUpdateBody,
   initialComponentFormValues,
   normalizeComponentFormValues,
 } from '../component-form.schema';
@@ -58,5 +59,28 @@ describe('componentFormSchema', () => {
       slug: undefined,
       version: 'v1.2.3',
     });
+  });
+});
+
+describe('componentToUpdateBody', () => {
+  it('restates the component as it stands, with no slug', () => {
+    expect(
+      componentToUpdateBody({
+        description: 'The public API',
+        name: 'API Gateway',
+        version: 'v1.0.0',
+      }),
+    ).toEqual({
+      description: 'The public API',
+      name: 'API Gateway',
+      version: 'v1.0.0',
+    });
+  });
+
+  it('leaves out a description the component has not', () => {
+    expect(
+      componentToUpdateBody({ name: 'API Gateway', version: 'v1.0.0' })
+        .description,
+    ).toBeUndefined();
   });
 });

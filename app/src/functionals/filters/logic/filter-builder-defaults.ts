@@ -157,3 +157,46 @@ export const createResetState = (
   advancedRules,
   advancedCombinator,
 });
+
+/**
+ * The values a screen opens with, kept for the normal filters that exist and that
+ * say something: a value that names no filter, or says nothing, is dropped.
+ */
+export const sanitizeInitialValues = (
+  values: Record<string, string> | undefined,
+  allowedFieldIds: Set<string>,
+): Record<string, string> =>
+  sanitizeValuesForFieldIds(
+    Object.fromEntries(
+      Object.entries(values ?? {}).filter(([, value]) => value.trim() !== ''),
+    ),
+    allowedFieldIds,
+  );
+
+/**
+ * The state a filter builder is created in: the reset state, with the values the
+ * screen opens with, and the filters that hold one active so that they show. The
+ * pinned and quick access filters are always shown, so they need no id.
+ */
+export const createInitialState = (
+  activeFilterIds: string[],
+  initialValues: Record<string, string>,
+  alwaysShownIds: string[],
+  advancedRules: AdvancedFilterRule[],
+  advancedCombinator: FilterCombinator,
+) => ({
+  ...createResetState(
+    [
+      ...new Set([
+        ...activeFilterIds,
+        ...Object.keys(initialValues).filter(
+          (fieldId) => !alwaysShownIds.includes(fieldId),
+        ),
+      ]),
+    ],
+    advancedRules,
+    advancedCombinator,
+  ),
+  debouncedValues: initialValues,
+  values: initialValues,
+});

@@ -13,4 +13,12 @@ describe('buildCustomerDetailEditRedirect', () => {
       tab: 'overview',
     });
   });
+
+  it('leads a customer whose slug is a static route of /customers to its page under /overview', () => {
+    const redirectOptions = buildCustomerDetailEditRedirect('checkout-sessions');
+
+    expect(redirectOptions.to).toBe('/customers/$customerSlug/overview');
+    expect(redirectOptions.params).toEqual({ customerSlug: 'checkout-sessions' });
+    expect(redirectOptions.search({})).toEqual({ mode: 'configure' });
+  });
 });

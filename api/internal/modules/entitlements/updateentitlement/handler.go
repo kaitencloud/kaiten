@@ -2,6 +2,7 @@ package updateentitlement
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"strings"
 
@@ -113,7 +114,9 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 		}
 		if err := schema.ValidateResetConfiguration(
 			currentType, currentEntitlement.AggregationMethod, command.ResetPeriod, resolvedResetAnchor,
-		); err != nil {
+		); errors.Is(err, schema.ErrBillingPeriodCadence) {
+			return kaitenerrors.UnprocessableEntity("UpdateEntitlement.InvalidResetAnchor", err.Error())
+		} else if err != nil {
 			return kaitenerrors.Validation("UpdateEntitlement.InvalidResetConfiguration", err.Error())
 		}
 

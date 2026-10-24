@@ -1,3 +1,4 @@
+export { FilterChip } from './filter-chip';
 export {
   FILTER_MULTI_SELECT_SEPARATOR,
   FilterMultiSelect,

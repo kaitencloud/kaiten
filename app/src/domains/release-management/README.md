@@ -10,5 +10,8 @@ translations; it uses the generic Page and RouteTabs functionals. The public
 domain entry point exports the shell, not its tab implementation.
 
 `component-catalog/`, `logic/`, `queries/` and `types/` retain their responsibilities.
+The edit of a component goes through `saveComponentOnFresh` (`component-catalog/queries/`):
+the PUT replaces the component as a whole, so it is read again and only what the form
+changed is put on top of it.
 The release-management E2E pack verifies navigation, deployment and state read
 back across features. Shell stories keep stable IDs for visual captures.

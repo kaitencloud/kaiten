@@ -27,6 +27,10 @@ const (
 	// license version is withdrawn from sale, so it cannot be assigned to an
 	// instance, while instances already pinned to it keep it.
 	instanceLicenseNotArchivedConstraint = "instance_license_not_archived"
+	// instanceBillingFreezeConstraint is what the instance_billing_freeze
+	// trigger raises under: while the instance has a live subscription, its
+	// customer and licence are the contract being billed.
+	instanceBillingFreezeConstraint = "instance_billing_freeze"
 )
 
 type CommandRepository struct {
@@ -136,6 +140,11 @@ func (r *CommandRepository) UpdateInstance(ctx context.Context, command *Command
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) {
 			switch pgErr.ConstraintName {
+			case instanceBillingFreezeConstraint:
+				return nil, kaitenerrors.Conflict(
+					"UpdateInstance.BillingActive",
+					fmt.Sprintf("Instance %q has a live subscription: its customer and license cannot change until it is canceled", slug),
+				)
 			case instanceCustomerConstraint:
 				return nil, kaitenerrors.NotFound(
 					"UpdateInstance.CustomerNotFound",

@@ -22,10 +22,13 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events/webhook"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/server"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/exceptions"
 	ffschema "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 )
 
 // TestEveryEmittedEventTypeIsPublished asserts the two halves of each contract
@@ -90,7 +93,7 @@ func TestEveryWebhookPayloadValidatesAgainstItsSchema(t *testing.T) {
 		t.Run(eventType, func(t *testing.T) {
 			envelope := envelopeSchema(t, eventType, item)
 
-			data, ok := envelope.Properties["data"]
+			data, ok := payloadOf(registry, envelope)
 			if !ok || data.Ref == "" {
 				t.Fatalf("webhook %q does not declare its payload as a named schema; declare Data as the type the handler emits", eventType)
 			}
@@ -148,6 +151,18 @@ var secretFieldNames = map[string]bool{
 	"signingkey": true, "credential": true,
 }
 
+// personalDataFieldNames are members no event payload carries, because they
+// hold personal or free-form customer data (D-56): billingEmail is a
+// customer's invoice address, properties is whatever a usage report attached.
+var personalDataFieldNames = map[string]bool{"billingemail": true, "properties": true}
+
+// personalDataExceptions are the payload fields D-56 lets carry personal data,
+// each with the decision that does: the vendor's reminder e-mail is sent to
+// the address trial_will_end carries, Kaiten sending none itself (V32-09).
+var personalDataExceptions = map[string]string{
+	"TrialWillEnd.Customer.BillingEmail": "V32-09: D-56's second exception",
+}
+
 // TestNoWebhookPayloadCanCarryASecret walks every published payload type, field by
 // field and into nested structs, and fails on a name that means "this is the
 // secret".
@@ -164,7 +179,7 @@ func TestNoWebhookPayloadCanCarryASecret(t *testing.T) {
 		t.Run(eventType, func(t *testing.T) {
 			envelope := envelopeSchema(t, eventType, item)
 
-			data, ok := envelope.Properties["data"]
+			data, ok := payloadOf(registry, envelope)
 			if !ok || data.Ref == "" {
 				t.Fatalf("webhook %q does not declare its payload as a named schema", eventType)
 			}
@@ -198,6 +213,10 @@ func assertNoSecretFields(t *testing.T, structType reflect.Type, path string, de
 		jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
 
 		for _, candidate := range []string{field.Name, jsonName} {
+			if _, allowed := personalDataExceptions[name]; !allowed && personalDataFieldNames[strings.ToLower(strings.ReplaceAll(candidate, "_", ""))] {
+				t.Errorf("webhook payload field %s (json %q) is personal or free-form customer data; "+
+					"no event carries it (D-56) unless a decision names it in personalDataExceptions", name, jsonName)
+			}
 			if secretFieldNames[strings.ToLower(strings.ReplaceAll(candidate, "_", ""))] {
 				t.Errorf("webhook payload field %s (json %q) is named like a credential; "+
 					"a webhook payload is stored in an outbox row and posted to a subscriber, "+
@@ -318,6 +337,9 @@ var overrides = map[reflect.Type]any{
 	reflect.TypeOf(instanceschema.EntitlementValue{}): instanceschema.EntitlementValue{
 		Number: &instanceschema.NumberEntitlementValue{Type: "number", Value: 1, EventCount: 1},
 	},
+	// Raw JSON values: the filler's bytes are not JSON.
+	reflect.TypeOf(exceptions.Value{}):            exceptions.Value("1"),
+	reflect.TypeOf(vouchercatalogue.GrantValue{}): vouchercatalogue.GrantValue("true"),
 	reflect.TypeOf(ffschema.DefaultVariant{}): ffschema.DefaultVariant{
 		Type:  ffschema.BasicType,
 		Value: ffschema.BasicVariant("on"),
@@ -442,4 +464,19 @@ func jsonName(field reflect.StructField) string {
 		return field.Name
 	}
 	return name
+}
+
+// payloadOf is an envelope's payload schema: the one its data schema
+// extends with the EventOrigin members.
+func payloadOf(registry huma.Registry, envelope *huma.Schema) (*huma.Schema, bool) {
+	data, ok := envelope.Properties["data"]
+	if !ok {
+		return nil, false
+	}
+	if delivered := registry.SchemaFromRef(data.Ref); delivered != nil {
+		if ref, extended := delivered.Extensions[webhook.OriginExtension].(string); extended {
+			return &huma.Schema{Ref: ref}, true
+		}
+	}
+	return data, true
 }

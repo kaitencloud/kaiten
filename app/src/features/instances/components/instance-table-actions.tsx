@@ -3,6 +3,7 @@ import { useRouteContext } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { deleteInstanceMutation } from '@/api-client/@tanstack/react-query.gen';
+import { useCanPerform, useDeletionRefusal } from '@/domains/billing';
 import { TableActions, TableDeleteDialog } from '@/functionals/table';
 import { forgetDeletedInstanceQueries } from '../hooks/instance-query-invalidation';
 import { InstanceDeploymentTableAction } from './instance-deployment';
@@ -20,6 +21,9 @@ export const InstanceTableActions = ({
 }: InstanceTableActionsProps) => {
   const { t } = useTranslation();
   const { queryClient } = useRouteContext({ from: '__root__' });
+  // An instance that bills cannot be deleted: the dialog says what to settle first.
+  const deletion = useDeletionRefusal(instance.slug);
+  const mayDelete = useCanPerform('instances.delete');
 
   const deleteMutation = useMutation({
     ...deleteInstanceMutation(),
@@ -27,8 +31,10 @@ export const InstanceTableActions = ({
       toast.success(t('Pages.Customers.Instances.Mutation.deleteSuccess'));
       await forgetDeletedInstanceQueries(queryClient, instance.slug);
     },
-    onError: () => {
-      toast.error(t('Common.deleteError', 'Error deleting instance'));
+    onError: (error) => {
+      if (!deletion.showRefusal(error)) {
+        toast.error(t('Common.deleteError', 'Error deleting instance'));
+      }
     },
   });
 
@@ -45,14 +51,17 @@ export const InstanceTableActions = ({
         instanceName={instance.name}
         instanceSlug={instance.slug}
       />
-      <TableDeleteDialog
-        name={instance.name}
-        onConfirm={handleConfirm}
-        title={t('Pages.Customers.Instances.confirmDeleteTitle')}
-        description={t('Pages.Customers.Instances.confirmDeleteDescription', {
-          name: instance.name,
-        })}
-      />
+      {mayDelete ? (
+        <TableDeleteDialog
+          name={instance.name}
+          onConfirm={handleConfirm}
+          title={t('Pages.Customers.Instances.confirmDeleteTitle')}
+          description={t('Pages.Customers.Instances.confirmDeleteDescription', {
+            name: instance.name,
+          })}
+        />
+      ) : null}
+      {deletion.dialog}
     </TableActions>
   );
 };

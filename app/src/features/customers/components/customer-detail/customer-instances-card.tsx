@@ -1,5 +1,10 @@
 import { GradientButton } from '@/components/gradient-button';
 import {
+  InstanceBillingCell,
+  type InstancesBilling,
+  useCanPerform,
+} from '@/domains/billing';
+import {
   InstanceLifecycleStageBadge,
   InstanceStatusBadge,
 } from '@/domains/customer-management';
@@ -15,17 +20,21 @@ import { capitalizeFromUpperCase } from '@/lib/utils';
 type InstanceRow = GetInstancesWithRelationsQuery['instances']['items'][number];
 
 type CustomerInstancesCardProps = {
+  /** The subscription of each instance, where billing is on and the session may read it: adds the Billing column. */
+  billing?: InstancesBilling;
   customerSlug: string;
   instances: InstanceRow[];
 };
 
 export const CustomerInstancesCard = ({
+  billing,
   customerSlug,
   instances,
 }: CustomerInstancesCardProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const router = useRouter();
+  const mayCreate = useCanPerform('instances.create');
   const InstanceIcon = dataModelIcons.instance;
 
   const getInstancePath = (instance: InstanceRow) =>
@@ -34,8 +43,20 @@ export const CustomerInstancesCard = ({
       params: { instanceSlug: instance.slug },
     }).pathname;
 
-  const columns = useMemo<ColumnDef<InstanceRow>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<InstanceRow>[]>(() => {
+    const billingColumn: ColumnDef<InstanceRow> = {
+      id: 'billing',
+      header: t('Pages.Customers.Detail.instances.columns.billing'),
+      cell: ({ row }) =>
+        billing ? (
+          <InstanceBillingCell
+            billing={billing}
+            instanceSlug={row.original.slug}
+          />
+        ) : null,
+    };
+
+    return [
       {
         accessorKey: 'name',
         header: t('Pages.Customers.Detail.instances.columns.name'),
@@ -72,6 +93,9 @@ export const CustomerInstancesCard = ({
           <InstanceLifecycleStageBadge stage={row.original.lifecycleStage} />
         ),
       },
+      // The state of the subscription, where billing is on and the session may
+      // read it: the same badge as the list of instances.
+      ...(billing?.available ? [billingColumn] : []),
       {
         accessorKey: 'startLicenseDate',
         header: t('Pages.Customers.Detail.instances.columns.start'),
@@ -90,9 +114,8 @@ export const CustomerInstancesCard = ({
           </span>
         ),
       },
-    ],
-    [t],
-  );
+    ];
+  }, [billing, t]);
 
   return (
     <TableCard>
@@ -111,16 +134,19 @@ export const CustomerInstancesCard = ({
           </TableCard.HeaderHeading>
         </TableCard.HeaderLeading>
 
+        {/* A session that may not write instances is offered no way to make one. */}
         <TableCard.HeaderActions>
-          <GradientButton
-            label={t('Pages.Customers.Instances.Mutation.titleNew')}
-            onClick={() => {
-              navigate({
-                to: '/customers/$customerSlug/instances/new',
-                params: { customerSlug },
-              });
-            }}
-          />
+          {mayCreate ? (
+            <GradientButton
+              label={t('Pages.Customers.Instances.Mutation.titleNew')}
+              onClick={() => {
+                navigate({
+                  to: '/customers/$customerSlug/instances/new',
+                  params: { customerSlug },
+                });
+              }}
+            />
+          ) : null}
         </TableCard.HeaderActions>
       </TableCard.Header>
       <TableCard.Table

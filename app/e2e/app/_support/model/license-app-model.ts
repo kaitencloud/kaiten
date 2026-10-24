@@ -2,16 +2,39 @@ import { z } from 'zod';
 import type {
   Entitlement,
   License,
+  LicenseEntitlement,
+  LicenseEntitlementWritable,
   LicenseFamilyView,
+  LicenseFamilyUpdate,
+  LicensePriceChanges,
   LicenseWritable,
+  NewLicensePrice,
+  Price,
+  InvoicePreviewScenario,
 } from '@/api-client';
 import { zEntitlement, zLicense } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { ErrorInjector } from './error-injector';
-import { listLicenseFamilyViews } from './license-families';
+import {
+  DEFAULT_FAMILY_SETTINGS,
+  type FamilySettings,
+  listLicenseFamilyViews,
+} from './license-families';
+import type { PreviewWorld } from './license-invoice-preview';
+import {
+  type ArmedProblem,
+  LicensePricing,
+  type PricingProblemOperation,
+  type PricingSeed,
+  type SerializedPricing,
+} from './license-pricing';
+import { LicenseProblem } from './license-problem';
+export { LicenseProblem } from './license-problem';
 
 export type LicenseTransition = 'publish' | 'archive' | 'unarchive';
 type LicenseErrorOp = 'create' | 'update' | LicenseTransition;
+/** What the model of the catalogue arms to fail with a problem document, besides pricing's. */
+type LicenseProblemOperation = 'updateLicense' | 'updateLicenseFamily';
 type LifecycleState = NonNullable<License['lifecycleState']>;
 // The generated read type marks server-owned fields readonly; the model is the
 // server here, so it keeps its rows writable.
@@ -25,22 +48,6 @@ const slugify = (value: string) =>
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-
-/**
- * A refusal the Core API answers with a problem document. The handlers render
- * it as application/problem+json with its code and detail, so the console
- * shows the reason the real API would give.
- */
-export class LicenseProblem extends Error {
-  readonly httpStatus: number;
-  readonly code: string;
-
-  constructor(httpStatus: number, code: string, detail: string) {
-    super(detail);
-    this.httpStatus = httpStatus;
-    this.code = code;
-  }
-}
 
 // The one state each transition leaves, and how the API words a version in
 // another one (kaiten api/internal/modules/licenses/*license/handler.go).
@@ -82,47 +89,154 @@ const TRANSITIONS: Record<
   },
 };
 
-export type LicenseAppModelSeed = {
+export type LicenseAppModelSeed = PricingSeed & {
   /** The entitlement catalogue the detail page and the version form read. */
   entitlements?: Entitlement[];
   licenses?: License[];
+  /** The families listed in the public catalog, by id; the others are private. */
+  publicFamilyIds?: string[];
+  /** The settings of the families that changed them, by id; the others have the API's defaults. */
+  familySettings?: Record<string, Partial<FamilySettings>>;
 };
 
-export type SerializedLicenseAppModel = Required<LicenseAppModelSeed> & {
+export type SerializedLicenseAppModel = {
+  armedProblems?: Array<[LicenseProblemOperation, ArmedProblem]>;
   clock: number;
+  entitlements: Entitlement[];
+  licenses: License[];
   pendingErrors: Array<[LicenseErrorOp, number]>;
+  pricing: SerializedPricing;
+  /** The settings of the families that changed them; a state stored before they could be has none. */
+  familySettings?: Record<string, FamilySettings>;
+  /** The families listed in the public catalog; a state stored before they could be has none. */
+  publicFamilyIds?: string[];
   sequence: number;
 };
+
+// Every version carries the commercial fields in a response, as the API
+// writes them; a seed that leaves them out reads as the API's defaults.
+const withCommercialDefaults = (license: License): License => ({
+  ...license,
+  pricingType: license.pricingType ?? 'CUSTOM',
+  requiresPaymentMethod: license.requiresPaymentMethod ?? false,
+  // Present, and null when empty (§13.3, V31-03).
+  selfServeCtaUrl: license.selfServeCtaUrl ?? null,
+  trialPeriodDays: license.trialPeriodDays ?? null,
+});
+
+/** The longest trial the API takes: the API's own bound, not the console's. */
+const MAX_TRIAL_PERIOD_DAYS = 365;
+const SELF_SERVE_CTA_URL = /^https?:\/\/\S+$/;
+const MAX_SELF_SERVE_CTA_URL = 2048;
+
+// A trial outside 0..365 is refused by the schema of the request, which names
+// it in `errors` under the code of the operation. The API validates that schema
+// before it runs anything else, a lookup included, so this check comes first in
+// both writes: a request that also breaks a rule of the use case is refused for
+// the trial.
+function checkTrialBounds(
+  operation: 'CreateLicense' | 'UpdateLicense',
+  body: Pick<LicenseWritable, 'trialPeriodDays'>,
+) {
+  const trial = body.trialPeriodDays;
+  if (trial != null && (trial < 0 || trial > MAX_TRIAL_PERIOD_DAYS)) {
+    throw new LicenseProblem(
+      422,
+      `${operation}.InvalidTrialDays`,
+      'validation failed',
+      [
+        {
+          location: 'body.trialPeriodDays',
+          message:
+            trial < 0
+              ? 'expected number >= 0'
+              : `expected number <= ${MAX_TRIAL_PERIOD_DAYS}`,
+          value: trial,
+        },
+      ],
+    );
+  }
+}
+
+// The rest of the commercial fields are validated by the use case, as the API
+// does: a trial is from one to 365 days (zero clears it on an update, so a
+// create that sends 0 passes the schema and is refused here, with no `errors`),
+// the CTA an http(s) URL of at most 2048 characters.
+function checkCommercialFields(
+  operation: 'CreateLicense' | 'UpdateLicense',
+  body: Pick<LicenseWritable, 'selfServeCtaUrl' | 'trialPeriodDays'>,
+) {
+  const trial = body.trialPeriodDays;
+  if (operation === 'CreateLicense' && trial != null && trial < 1) {
+    throw new LicenseProblem(
+      422,
+      `${operation}.InvalidTrialDays`,
+      `trialPeriodDays is between 1 and ${MAX_TRIAL_PERIOD_DAYS}`,
+    );
+  }
+  const url = body.selfServeCtaUrl;
+  if (
+    url != null &&
+    url !== '' &&
+    (!SELF_SERVE_CTA_URL.test(url) || url.length > MAX_SELF_SERVE_CTA_URL)
+  ) {
+    throw new LicenseProblem(
+      422,
+      `${operation}.InvalidSelfServeCtaUrl`,
+      'selfServeCtaUrl must be an http(s) URL of at most 2048 characters',
+    );
+  }
+}
 
 /**
  * The license catalogue as the Core API keeps it: versions grouped by
  * familyId, numbered per family, and moved between lifecycle states only
- * through publish, archive and unarchive -- with the same refusals.
+ * through publish, archive and unarchive -- with the same refusals. What a
+ * version sells (its grants and its prices) is kept with it, and refused as the
+ * API refuses: a billed version is frozen, and the prices of a published
+ * version are immutable.
  */
 export class LicenseAppModel {
   private clock = Date.parse('2026-03-01T08:00:00.000Z');
   private entitlements: Entitlement[];
   private licenses: LicenseRecord[];
+  private pricing: LicensePricing;
+  private familySettings: Map<string, FamilySettings>;
+  private publicFamilyIds: Set<string>;
   private sequence: number;
+  private readonly armed = new Map<LicenseProblemOperation, ArmedProblem>();
   private readonly errors = new ErrorInjector<LicenseErrorOp>();
 
   static fromSerialized(state: SerializedLicenseAppModel) {
     const model = new LicenseAppModel({
       entitlements: state.entitlements,
       licenses: state.licenses,
+      familySettings: state.familySettings,
+      publicFamilyIds: state.publicFamilyIds,
     });
     model.clock = state.clock;
     model.sequence = state.sequence;
     model.errors.restore(state.pendingErrors);
+    for (const [operation, problem] of state.armedProblems ?? []) {
+      model.armed.set(operation, problem);
+    }
+    model.pricing = LicensePricing.fromSerialized(
+      model.pricingHost(),
+      state.pricing,
+    );
     return model;
   }
 
   serializeForMsw(): SerializedLicenseAppModel {
     return {
+      armedProblems: [...this.armed.entries()],
       clock: this.clock,
       entitlements: clone(this.entitlements),
       licenses: clone(this.licenses),
       pendingErrors: this.errors.snapshot(),
+      familySettings: Object.fromEntries(this.familySettings),
+      pricing: this.pricing.serialize(),
+      publicFamilyIds: [...this.publicFamilyIds],
       sequence: this.sequence,
     };
   }
@@ -135,10 +249,22 @@ export class LicenseAppModel {
     );
     this.licenses = parseContract(
       z.array(zLicense),
-      seed.licenses ?? [],
+      (seed.licenses ?? []).map(withCommercialDefaults),
       'LicenseAppModel seed.licenses',
     );
     this.sequence = this.licenses.length + 1;
+    this.publicFamilyIds = new Set(seed.publicFamilyIds ?? []);
+    this.familySettings = new Map(
+      Object.entries(seed.familySettings ?? {}).map(([familyId, settings]) => [
+        familyId,
+        { ...DEFAULT_FAMILY_SETTINGS, ...settings },
+      ]),
+    );
+    this.pricing = new LicensePricing(this.pricingHost(), {
+      billedVersions: seed.billedVersions,
+      grants: seed.grants,
+      prices: seed.prices,
+    });
 
     const timestamps = this.licenses.flatMap((license) => [
       Date.parse(license.createdAt),
@@ -149,9 +275,98 @@ export class LicenseAppModel {
     }
   }
 
+  private pricingHost() {
+    return {
+      entitlements: () => this.entitlements,
+      findLicense: (slug: string) => this.find(slug),
+      nextTimestamp: () => this.nextTimestamp(),
+      now: () => new Date(this.clock),
+    };
+  }
+
   /** Arm the next call to `op` to fail with the given HTTP status. One-shot. */
   setNextError(op: LicenseErrorOp, status: number) {
     this.errors.setNextError(op, status);
+  }
+
+  /** Arm the next call of an operation to fail with a problem document. One-shot. */
+  setNextProblem(
+    op: LicenseProblemOperation | PricingProblemOperation,
+    problem: ArmedProblem,
+  ) {
+    if (op === 'updateLicense' || op === 'updateLicenseFamily') {
+      this.armed.set(op, problem);
+
+      return;
+    }
+    this.pricing.armProblem(op, problem);
+  }
+
+  private consumeProblem(op: LicenseProblemOperation) {
+    const problem = this.armed.get(op);
+    if (problem) {
+      this.armed.delete(op);
+      throw new LicenseProblem(problem.status, problem.code, problem.detail);
+    }
+  }
+
+  /** Makes a version billed by a live subscription: its grants and prices are frozen. */
+  markBilled(slug: string) {
+    this.pricing.markBilled(slug);
+  }
+
+  // What a version sells: GET/POST/PUT/DELETE /licenses/{slug}/entitlements,
+  // /prices and /invoice-preview.
+  listGrants(slug: string): LicenseEntitlement[] {
+    return this.pricing.listGrants(slug);
+  }
+
+  associateGrant(slug: string, body: LicenseEntitlementWritable) {
+    this.pricing.associateGrant(slug, body);
+  }
+
+  updateGrant(
+    slug: string,
+    entitlementSlug: string,
+    body: LicenseEntitlementWritable,
+  ) {
+    this.pricing.updateGrant(slug, entitlementSlug, body);
+  }
+
+  deleteGrant(slug: string, entitlementSlug: string) {
+    this.pricing.deleteGrant(slug, entitlementSlug);
+  }
+
+  listPrices(
+    slug: string,
+    filter?: { billingModel?: Price['billingModel']; status?: Price['status'] },
+  ): Price[] {
+    return this.pricing.listPrices(slug, filter);
+  }
+
+  getPrice(slug: string, id: string): Price {
+    return this.pricing.getPrice(slug, id);
+  }
+
+  createPrice(slug: string, body: NewLicensePrice): Price {
+    return this.pricing.createPrice(slug, body);
+  }
+
+  updatePrice(slug: string, id: string, patch: LicensePriceChanges): Price {
+    return this.pricing.updatePrice(slug, id, patch);
+  }
+
+  deprecatePrice(slug: string, id: string): Price {
+    return this.pricing.deprecatePrice(slug, id);
+  }
+
+  previewInvoice(slug: string, scenario: InvoicePreviewScenario) {
+    return this.pricing.previewInvoice(slug, scenario);
+  }
+
+  /** Tells the preview where the add-ons, the instances and the vouchers it names are, when their slots are served too. */
+  setPreviewWorld(world: PreviewWorld | undefined) {
+    this.pricing.setPreviewWorld(world);
   }
 
   listLicenses(): License[] {
@@ -164,7 +379,99 @@ export class LicenseAppModel {
 
   /** GET /license-families: each family and the version it resolves to. */
   listLicenseFamilies(): LicenseFamilyView[] {
-    return listLicenseFamilyViews(this.licenses);
+    return listLicenseFamilyViews(
+      this.licenses,
+      this.publicFamilyIds,
+      this.familySettings,
+    );
+  }
+
+  /**
+   * PATCH /license-families/{familySlug}: changes the settings of the family that the
+   * body names and keeps the others, as the API does: whether it is listed in the public
+   * catalog, the FREE family it falls back to ("" takes it away), what a trial without a
+   * payment method becomes, and the lead of the trial reminder. It refuses a value the
+   * API refuses, with the same code.
+   */
+  updateLicenseFamily(
+    familySlug: string,
+    body: LicenseFamilyUpdate,
+  ): LicenseFamilyView {
+    this.consumeProblem('updateLicenseFamily');
+    const behavior = body.trialEndWithoutPaymentMethod;
+    if (
+      behavior !== undefined &&
+      behavior !== 'CANCEL' &&
+      behavior !== 'CONVERT'
+    ) {
+      throw new LicenseProblem(
+        422,
+        'UpdateLicenseFamily.InvalidTrialEndBehavior',
+        'trialEndWithoutPaymentMethod is CANCEL or CONVERT',
+      );
+    }
+    const days = body.trialReminderDays;
+    if (days != null && (!Number.isInteger(days) || days < 1 || days > 30)) {
+      throw new LicenseProblem(
+        422,
+        'UpdateLicenseFamily.InvalidTrialReminderDays',
+        'trialReminderDays is between 1 and 30',
+      );
+    }
+    const families = this.listLicenseFamilies();
+    const family = families.find((candidate) => candidate.slug === familySlug);
+    if (!family) {
+      throw new LicenseProblem(
+        404,
+        'UpdateLicenseFamily.NotFound',
+        `license family "${familySlug}" not found`,
+      );
+    }
+    const fallback = body.fallbackLicenseFamilySlug;
+    if (fallback !== undefined && fallback !== '') {
+      // The same answer for the family itself, a family that is not free and none
+      // of the organization: the code is no existence oracle.
+      const target = families.find((candidate) => candidate.slug === fallback);
+      const versions = this.licenses.filter(
+        (license) => (license.familyId ?? license.id) === target?.id,
+      );
+      if (
+        !target ||
+        target.id === family.id ||
+        versions.length === 0 ||
+        versions.some((license) => license.pricingType !== 'FREE')
+      ) {
+        throw new LicenseProblem(
+          422,
+          'UpdateLicenseFamily.InvalidFallback',
+          'fallbackLicenseFamilySlug names another FREE family of the organization: every version of it priced FREE',
+        );
+      }
+    }
+    // An absent member keeps the stored value.
+    const isPublic = body.isPublic ?? family.isPublic;
+    if (isPublic) {
+      this.publicFamilyIds.add(family.id);
+    } else {
+      this.publicFamilyIds.delete(family.id);
+    }
+    this.familySettings.set(family.id, {
+      fallbackLicenseFamilySlug:
+        fallback === undefined
+          ? family.fallbackLicenseFamilySlug
+          : fallback === ''
+            ? null
+            : fallback,
+      trialEndWithoutPaymentMethod:
+        behavior ?? family.trialEndWithoutPaymentMethod,
+      trialReminderDays: days ?? family.trialReminderDays,
+    });
+
+    return (
+      this.listLicenseFamilies().find(
+        (candidate) => candidate.id === family.id,
+      ) ?? family
+    );
   }
 
   listEntitlements(): Entitlement[] {
@@ -178,6 +485,7 @@ export class LicenseAppModel {
   createLicense(body: LicenseWritable): License {
     this.errors.consume('create');
 
+    checkTrialBounds('CreateLicense', body);
     const lifecycleState = body.lifecycleState ?? 'PUBLISHED';
     // Checked ahead of the other rules, as in the API's use case: a version is
     // only archived by withdrawing it from sale.
@@ -188,6 +496,7 @@ export class LicenseAppModel {
         'a license is created DRAFT or PUBLISHED; it becomes ARCHIVED through archive-license, which withdraws a published version from sale',
       );
     }
+    checkCommercialFields('CreateLicense', body);
     const isDefault = body.isDefault ?? false;
     if (isDefault && lifecycleState !== 'PUBLISHED') {
       throw new LicenseProblem(
@@ -231,7 +540,11 @@ export class LicenseAppModel {
         isDefault,
         lifecycleState,
         name: body.name,
+        pricingType: body.pricingType ?? 'CUSTOM',
+        requiresPaymentMethod: body.requiresPaymentMethod ?? false,
+        selfServeCtaUrl: body.selfServeCtaUrl || undefined,
         slug,
+        trialPeriodDays: body.trialPeriodDays,
         type: body.type,
         updatedAt: timestamp,
         version: String(version),
@@ -248,6 +561,8 @@ export class LicenseAppModel {
   /** PUT: the fields an update may change. The state is only echoed. */
   updateLicense(slug: string, body: LicenseWritable): License {
     this.errors.consume('update');
+    this.consumeProblem('updateLicense');
+    checkTrialBounds('UpdateLicense', body);
     const license = this.find(slug);
 
     if (
@@ -267,6 +582,19 @@ export class LicenseAppModel {
         `License "${slug}" is not PUBLISHED, and only a published version can be its family's default; publish or unarchive it first`,
       );
     }
+    checkCommercialFields('UpdateLicense', body);
+    // A FREE version bills nothing: asking for it while a price above 0 is held,
+    // deprecated or not, is refused. Only a request that names FREE is checked.
+    if (body.pricingType === 'FREE') {
+      const billing = this.pricing.countPricesAboveZero(slug);
+      if (billing > 0) {
+        throw new LicenseProblem(
+          422,
+          'UpdateLicense.FreePriceNotZero',
+          `License "${slug}" holds ${billing} price(s) above 0, so it cannot be FREE: deprecate them on a new version, or keep it PAID`,
+        );
+      }
+    }
     if (body.isDefault) {
       this.clearDefault(license.familyId, slug);
     }
@@ -278,8 +606,48 @@ export class LicenseAppModel {
       type: body.type,
       updatedAt: this.nextTimestamp(),
       versionName: body.versionName ?? license.versionName,
+      // The four commercial fields keep what is stored when the update leaves
+      // them out, so an older client never resets them. A trial of 0 and an
+      // empty URL clear their field: the API's way to empty one.
+      pricingType: body.pricingType ?? license.pricingType,
+      requiresPaymentMethod:
+        body.requiresPaymentMethod ?? license.requiresPaymentMethod,
+      selfServeCtaUrl:
+        body.selfServeCtaUrl == null
+          ? license.selfServeCtaUrl
+          : body.selfServeCtaUrl || null,
+      trialPeriodDays:
+        body.trialPeriodDays == null
+          ? license.trialPeriodDays
+          : body.trialPeriodDays || null,
     });
     return clone(license);
+  }
+
+  /**
+   * DELETE /licenses/{slug}. A version that still grants something is refused,
+   * as the API refuses it: a grant restricts the deletion of its version. The
+   * prices of the version go with it, and the last version of a family takes the
+   * family away, which the families read from the versions.
+   */
+  deleteLicense(slug: string): void {
+    const index = this.licenses.findIndex((license) => license.slug === slug);
+    if (index < 0) {
+      throw new LicenseProblem(
+        404,
+        'DeleteLicense.NotFound',
+        `License with slug "${slug}" not found`,
+      );
+    }
+    if (this.pricing.hasGrants(slug)) {
+      throw new LicenseProblem(
+        409,
+        'DeleteLicense.InUseConflict',
+        `License with slug "${slug}" is still referenced by an instance or an entitlement and cannot be deleted`,
+      );
+    }
+    this.licenses.splice(index, 1);
+    this.pricing.forgetVersion(slug);
   }
 
   /** POST /licenses/{slug}/publish, /archive or /unarchive. */

@@ -28,6 +28,12 @@ regexes = [
   # instance id. It is high-entropy and shaped like a key, but it is an
   # identifier: it grants nothing and authenticates no one.
   '''targetingKey:\s*['"][^'"]+['"]''',
+  # An event declaration: its name and its CloudEvents type, such as
+  # PublishableKeyRevoked = events.New("PUBLISHABLE_KEY_REVOKED",
+  # "com.kaiten.publishable_key.v1.revoked"). A "key" in an event's name and
+  # the dots of its type read as a high-entropy secret; both are fixed
+  # vocabulary, published in the webhooks contract.
+  '''events\.New\("[A-Z0-9_]+",\s*"com\.kaiten\.[a-z0-9_.]+"\)''',
 ]
 
 # --- Triaged, deliberate values ------------------------------------------------

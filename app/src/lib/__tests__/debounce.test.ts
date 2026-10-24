@@ -47,4 +47,41 @@ describe('debounce', () => {
     vi.advanceTimersByTime(40);
     expect(fn).toHaveBeenCalledExactlyOnceWith('b');
   });
+
+  it('flush() runs the pending invocation at once, with the last arguments', () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced('a');
+    debounced('b');
+    debounced.flush();
+
+    expect(fn).toHaveBeenCalledExactlyOnceWith('b');
+
+    vi.advanceTimersByTime(200);
+    expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it('flush() does nothing when nothing is pending', () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced.flush();
+    debounced('a');
+    vi.advanceTimersByTime(100);
+    debounced.flush();
+
+    expect(fn).toHaveBeenCalledExactlyOnceWith('a');
+  });
+
+  it('flush() after cancel() does nothing', () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, 100);
+
+    debounced('a');
+    debounced.cancel();
+    debounced.flush();
+
+    expect(fn).not.toHaveBeenCalled();
+  });
 });

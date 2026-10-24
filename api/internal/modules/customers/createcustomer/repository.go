@@ -36,7 +36,7 @@ func (r *CommandRepository) q(ctx context.Context) *db.Queries {
 	return db.New(r.uof.DBTX(ctx))
 }
 
-func (r *CommandRepository) CreateCustomer(ctx context.Context, name string, slug string, externalCustomID *string, domain *string, organizationID uuid.UUID, userID uuid.UUID) (*schema.Customer, error) {
+func (r *CommandRepository) CreateCustomer(ctx context.Context, name string, slug string, externalCustomID *string, domain *string, organizationID uuid.UUID, userID uuid.UUID, billingEmail ...string) (*schema.Customer, error) {
 	customer := db.CreateCustomerParams{
 		Name:               name,
 		Slug:               slug,
@@ -44,6 +44,10 @@ func (r *CommandRepository) CreateCustomer(ctx context.Context, name string, slu
 		Domain:             domain,
 		OrganizationID:     organizationID,
 		UserID:             userID,
+		BillingEmail:       nil,
+	}
+	if len(billingEmail) > 0 && billingEmail[0] != "" {
+		customer.BillingEmail = &billingEmail[0]
 	}
 
 	c, err := r.q(ctx).CreateCustomer(ctx, customer)
@@ -73,6 +77,7 @@ func (r *CommandRepository) CreateCustomer(ctx context.Context, name string, slu
 		Slug:               c.Slug,
 		ExternalCustomerID: c.ExternalCustomerID,
 		Domain:             c.Domain,
+		BillingEmail:       c.BillingEmail,
 		CreatedBy:          shared.User{ID: c.CreatedByID, Name: c.CreatedByName},
 		UpdatedBy:          shared.User{ID: c.UpdatedByID, Name: c.UpdatedByName},
 		CreatedAt:          c.CreatedAt.Time,

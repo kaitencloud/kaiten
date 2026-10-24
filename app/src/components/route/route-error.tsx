@@ -40,15 +40,7 @@ function getRouteErrorMessage(
   t: (key: string) => string,
 ): string {
   if (isApiError(error)) {
-    const appError = mapApiError(error, t);
-
-    // Only a problem is the API speaking. Any other body is the text or the
-    // HTML page of a gateway: leave it out, so that the message is the generic
-    // one of the status.
-    return getErrorMessage(
-      isProblem(error.data) ? appError : { ...appError, message: '' },
-      t,
-    );
+    return getErrorMessage(mapApiError(error, t), t);
   }
 
   if (error instanceof Error) {

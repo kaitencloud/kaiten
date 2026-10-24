@@ -1,3 +1,13 @@
+"""Where an entitlement of an instance comes from."""
+enum EntitlementUsageSource {
+  """The licence grants it; add-ons, boosts and an exception may change it."""
+  license
+  """An add-on attached grants it."""
+  addon
+  """Only the instance's exception grants it."""
+  exception
+}
+
 """
 Current usage of an entitlement on an instance. One row per license grant:
 NUMBER entitlements carry the accumulated usage (zeroed when nothing has been
@@ -32,6 +42,20 @@ type EntitlementUsage {
   entitlement (no configured reset period).
   """
   currentPeriodEnd: Time
+
+  source: EntitlementUsageSource!
+
+  """
+  How far above limit usage is still accepted, in percent: -1 unlimited, 0 a
+  hard limit. Null for BOOLEAN and CONFIG.
+  """
+  limitCapExceededOveragePercent: Int
+
+  """
+  What the licence, the add-ons, the boosts and the exception each
+  contribute, as the REST gauge read returns it.
+  """
+  provenance: Map
 }
 
 extend type Instance {

@@ -35,7 +35,7 @@ const useEntitlementActiveTab = (entitlementSlug: string) => {
     defaultTab: 'overview',
     matchers: [{ suffix: '/usage', value: 'usage' }],
     pathname,
-    basePath: `/entitlements/${entitlementSlug}`,
+    basePath: `/catalog/entitlements/${entitlementSlug}`,
   });
 };
 
@@ -50,8 +50,9 @@ function EntitlementDetailHeader({
 
   const handleRename = async (name: string) => {
     await updateMutation.mutateAsync({
-      path: { entitlementSlug: entitlement.slug! },
-      body: entitlementToUpdateBody(entitlement, { name }),
+      edited: entitlementToUpdateBody(entitlement, { name }),
+      entitlementSlug: entitlement.slug!,
+      opened: entitlementToUpdateBody(entitlement),
     });
   };
 
@@ -115,13 +116,13 @@ const getEntitlementTabs = (
     {
       label: t('Pages.Entitlements.Detail.tabs.overview', 'Overview'),
       params: { entitlementSlug },
-      to: '/entitlements/$entitlementSlug',
+      to: '/catalog/entitlements/$entitlementSlug',
       value: 'overview',
     },
     {
       label: t('Pages.Entitlements.Detail.tabs.usage', 'Usage'),
       params: { entitlementSlug },
-      to: '/entitlements/$entitlementSlug/usage',
+      to: '/catalog/entitlements/$entitlementSlug/usage',
       value: 'usage',
     },
   ];

@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -25,11 +27,13 @@ func NewQueryRepository(repository *db.Queries) *QueryRepository {
 }
 
 func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instanceSlug string, entitlementSlug string, organizationID uuid.UUID) (*entitlementUsageSchema.EntitlementUsage, error) {
+	done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
 	result, err := r.repository.GetEntitlementUsageForInstanceOrDefault(ctx, db.GetEntitlementUsageForInstanceOrDefaultParams{
 		OrganizationID:  organizationID,
 		InstanceSlug:    instanceSlug,
 		EntitlementSlug: entitlementSlug,
 	})
+	done()
 	if err != nil {
 		return nil, err
 	}
@@ -40,14 +44,14 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 	if result.EntitlementID == nil {
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotFound", "Entitlement with slug %q not found", entitlementSlug)
 	}
-	if result.LicenseEntitlementID == nil {
+	if result.GrantedEntitlementID == nil {
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotAssigned", "Entitlement with slug %q is not assigned to the license used by instance %q", entitlementSlug, instanceSlug)
 	}
 
-	// The limit is the license grant, whatever the entitlement type: for the
-	// NUMBER family it is the cap the usage below is measured against, for
-	// BOOLEAN and CONFIG it is the value itself.
-	limit, err := entitlementUsageSchema.ParseEntitlementValue(result.LicenseValue)
+	// The limit is the instance's effective entitlement, whatever its type:
+	// for the NUMBER family it is the cap the usage below is measured against,
+	// for BOOLEAN and CONFIG it is the value itself.
+	limit, err := entitlementUsageSchema.ParseEntitlementValue(result.EffectiveValue)
 	if err != nil {
 		return nil, err
 	}
@@ -77,14 +81,15 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		// (GetEntitlementUsageForInstanceOrDefault) rather than a separate
 		// GetDatabaseNow round trip.
 		if result.ResetPeriod != nil {
-			window, err := period.Current(result.Now.Time.UTC(), period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), result.StartLicenseDate.Time.UTC())
-			if err != nil {
-				return nil, err
-			}
-
 			var storedPeriodStart *time.Time
 			if result.PeriodStart.Valid {
 				storedPeriodStart = ptr.To(result.PeriodStart.Time.UTC())
+			}
+			basis := period.NewBasis(result.StartLicenseDate.Time.UTC(), result.BillingStatus,
+				pgtime.PgTimeStampToTimePtr(result.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(result.LiveEndedAt))
+			window, _, err := period.ResolveCurrentOn(result.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), basis)
+			if err != nil {
+				return nil, err
 			}
 			usage = entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
 			currentPeriodStart, currentPeriodEnd = &window.Start, &window.End
@@ -109,14 +114,30 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		licenseSlug = *result.LicenseSlug
 	}
 
+	provenance, err := entitlementUsageSchema.ParseProvenance(result.Provenance)
+	if err != nil {
+		return nil, err
+	}
 	return &entitlementUsageSchema.EntitlementUsage{
-		EntitlementID:      *result.EntitlementID,
-		EntitlementSlug:    *result.EntitlementSlug,
-		LicenseID:          *result.LicenseID,
-		LicenseSlug:        licenseSlug,
-		Value:              resolvedValue,
-		Limit:              limit,
-		CurrentPeriodStart: currentPeriodStart,
-		CurrentPeriodEnd:   currentPeriodEnd,
+		EntitlementID:                  *result.EntitlementID,
+		EntitlementSlug:                *result.EntitlementSlug,
+		LicenseID:                      *result.LicenseID,
+		LicenseSlug:                    licenseSlug,
+		Value:                          resolvedValue,
+		Limit:                          limit,
+		CurrentPeriodStart:             currentPeriodStart,
+		CurrentPeriodEnd:               currentPeriodEnd,
+		LimitCapExceededOveragePercent: result.EffectiveOveragePercent,
+		Source:                         sourceOf(result.Source, result.LicenseEntitlementID),
+		Provenance:                     provenance,
 	}, nil
+}
+
+// sourceOf is the view's source of a row the fallback read found in it, else
+// the licence's (§7.5).
+func sourceOf(source *string, licenseEntitlementID *uuid.UUID) string {
+	if source != nil {
+		return *source
+	}
+	return entitlementUsageSchema.SourceOf(licenseEntitlementID)
 }

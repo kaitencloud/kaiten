@@ -33,4 +33,9 @@ const (
 
 	// ReasonOther — The resolved value reason does not match a predefined reason; use for custom cases.
 	ReasonOther Reason = "OTHER"
+
+	// ReasonVoucherGrant — The resolved value is the variant a voucher redeemed
+	// on the subject instance grants (§7.4 rule 6), whatever the targeting
+	// rules give. A Kaiten reason: OpenFeature lets a provider name its own.
+	ReasonVoucherGrant Reason = "VOUCHER_GRANT"
 )

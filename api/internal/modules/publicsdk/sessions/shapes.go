@@ -1,0 +1,245 @@
+package sessions
+
+import (
+	"time"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/incomplete"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
+	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
+)
+
+// SessionInvoice is an invoice as a vendor's customer sees it (§14.4): what it
+// bills and how to pay it, without the vendor's bookkeeping -- no handoff, no
+// reconciliation, no provider ids.
+type SessionInvoice struct {
+	ID                    string        `json:"id" format:"uuid"`
+	Kind                  string        `json:"kind" enum:"ACTIVATION,RENEWAL,FINAL"`
+	Status                string        `json:"status" enum:"MANUAL,PUSHED,PAID,PAYMENT_FAILED,UNCOLLECTIBLE,VOID" doc:"PUSHED: issued and awaiting payment. PAYMENT_FAILED: a charge failed; pay on hostedInvoiceUrl. MANUAL: issued, the vendor collects it."`
+	Currency              string        `json:"currency" example:"EUR"`
+	Subtotal              int64         `json:"subtotal" doc:"Minor units"`
+	DiscountTotal         int64         `json:"discountTotal" doc:"Minor units"`
+	Total                 int64         `json:"total" doc:"Minor units"`
+	IssuedAt              *time.Time    `json:"issuedAt"`
+	DueAt                 *time.Time    `json:"dueAt"`
+	PaidAt                *time.Time    `json:"paidAt"`
+	ServiceFrom           time.Time     `json:"serviceFrom"`
+	ServiceTo             time.Time     `json:"serviceTo"`
+	ProviderInvoiceNumber *string       `json:"providerInvoiceNumber"`
+	ExternalReference     *string       `json:"externalReference" doc:"The vendor's own number for an invoice it collects itself"`
+	HostedInvoiceURL      *string       `json:"hostedInvoiceUrl" doc:"Where the customer pays the invoice, or confirms a payment that needs authenticating"`
+	InvoicePDFURL         *string       `json:"invoicePdfUrl"`
+	Lines                 []SessionLine `json:"lines" nullable:"false"`
+}
+
+// SessionLine is one line of a SessionInvoice.
+type SessionLine struct {
+	Seq               int       `json:"seq"`
+	Type              string    `json:"type" enum:"BASE,ADDON,USAGE,OVERAGE,DISCOUNT"`
+	Label             string    `json:"label"`
+	Description       string    `json:"description"`
+	Quantity          string    `json:"quantity" doc:"In sale units, a decimal string"`
+	UnitAmountDecimal *string   `json:"unitAmountDecimal" doc:"Minor units; null on a DISCOUNT line"`
+	Amount            int64     `json:"amount" doc:"Minor units; negative on a DISCOUNT line"`
+	ServiceFrom       time.Time `json:"serviceFrom"`
+	ServiceTo         time.Time `json:"serviceTo"`
+}
+
+// TransformSchema publishes SessionLine's absent members as null (§13.15).
+func (SessionLine) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, SessionLine{})
+}
+
+// DueToday is what a checkout bills today: the ACTIVATION it would issue, or
+// nothing during a trial (§14.4 rule 11, §14.8 rule 5).
+type DueToday struct {
+	Currency      string        `json:"currency" example:"EUR"`
+	Subtotal      int64         `json:"subtotal" doc:"Minor units"`
+	DiscountTotal int64         `json:"discountTotal" doc:"Minor units"`
+	Total         int64         `json:"total" doc:"Minor units"`
+	Lines         []SessionLine `json:"lines" nullable:"false"`
+}
+
+// LinesFrom shows invoice lines as a session does.
+func LinesFrom(lines []rating.InvoiceLine) []SessionLine {
+	out := make([]SessionLine, 0, len(lines))
+	for _, line := range lines {
+		out = append(out, SessionLine{
+			Seq: line.Seq, Type: string(line.Type), Label: line.Label, Description: line.Description,
+			Quantity: line.Quantity, UnitAmountDecimal: line.UnitAmountDecimal, Amount: line.Amount,
+			ServiceFrom: line.ServiceFrom, ServiceTo: line.ServiceTo,
+		})
+	}
+	return out
+}
+
+// InvoiceFrom shows an invoice as a session does.
+func InvoiceFrom(invoice invoices.Invoice) SessionInvoice {
+	out := SessionInvoice{
+		ID: invoice.ID.String(), Kind: invoice.Kind, Status: invoice.Status, Currency: invoice.Currency,
+		Subtotal: invoice.Subtotal, DiscountTotal: invoice.DiscountTotal, Total: invoice.Total,
+		IssuedAt: invoice.IssuedAt, DueAt: invoice.DueAt, PaidAt: invoice.PaidAt,
+		ServiceFrom: invoice.ServiceFrom, ServiceTo: invoice.ServiceTo,
+		ProviderInvoiceNumber: nil, ExternalReference: invoice.Handoff.ExternalReference,
+		HostedInvoiceURL: nil, InvoicePDFURL: nil, Lines: LinesFrom(invoice.Lines),
+	}
+	if invoice.Provider != nil {
+		out.ProviderInvoiceNumber = invoice.Provider.InvoiceNumber
+		out.HostedInvoiceURL = invoice.Provider.HostedInvoiceURL
+		out.InvoicePDFURL = invoice.Provider.InvoicePDFURL
+	}
+	return out
+}
+
+// SessionAddon is an add-on of the session's instance (§14.4): what the
+// customer holds of it and what it costs.
+type SessionAddon struct {
+	AddonSlug       string                         `json:"addonSlug" example:"extra-seats-v1"`
+	FamilySlug      string                         `json:"familySlug" example:"extra-seats"`
+	Name            string                         `json:"name" example:"Extra seats"`
+	Quantity        int32                          `json:"quantity" doc:"0 when the add-on is not held" example:"3"`
+	MaxQuantity     *int32                         `json:"maxQuantity" doc:"The most one instance may hold; null when unbounded"`
+	PendingQuantity *int32                         `json:"pendingQuantity" doc:"A decrease scheduled for the next renewal, 0 for a removal; null when nothing is scheduled"`
+	Prices          []getpubliccatalog.PublicPrice `json:"prices" nullable:"false" doc:"What it is billed: the flat fee of the subscription's period and the metered prices. Quantity changes are billed from the next renewal, with no proration."`
+}
+
+// AddonFrom shows an instance's add-on as a session does.
+func AddonFrom(addon addoncatalogue.InstanceAddon) SessionAddon {
+	out := SessionAddon{
+		AddonSlug: addon.AddonSlug, FamilySlug: addon.FamilySlug, Name: addon.Name, Quantity: addon.Quantity,
+		MaxQuantity: addon.MaxQuantity, PendingQuantity: addon.PendingQuantity, Prices: make([]getpubliccatalog.PublicPrice, 0, len(addon.Prices)),
+	}
+	for _, price := range addon.Prices {
+		out.Prices = append(out.Prices, getpubliccatalog.PriceFrom(price))
+	}
+	return out
+}
+
+// SessionSubscription is a subscription as a vendor's customer sees it.
+type SessionSubscription struct {
+	Status             string                       `json:"status" enum:"INCOMPLETE,TRIAL,ACTIVE,PAST_DUE,CANCELED"`
+	ProviderKind       string                       `json:"providerKind" enum:"NOOP,STRIPE"`
+	CollectionMethod   string                       `json:"collectionMethod" enum:"SEND_INVOICE,CHARGE_AUTOMATICALLY"`
+	Currency           string                       `json:"currency" example:"EUR"`
+	BillingPeriod      string                       `json:"billingPeriod" enum:"MONTHLY,QUARTERLY,SEMI_ANNUAL,ANNUAL"`
+	BasePrice          getpubliccatalog.PublicPrice `json:"basePrice"`
+	CurrentPeriodStart time.Time                    `json:"currentPeriodStart"`
+	CurrentPeriodEnd   time.Time                    `json:"currentPeriodEnd" doc:"When the current period ends: the renewal date, or the trial's end"`
+	TrialEndsAt        *time.Time                   `json:"trialEndsAt"`
+	// IncompleteExpiresAt, CanceledAt and CancellationReason say why a
+	// checkout or a subscription ended, for the portal to explain it
+	// (V31-63, V31-65).
+	IncompleteExpiresAt *time.Time              `json:"incompleteExpiresAt" doc:"INCOMPLETE only: when the checkout ends unpaid"`
+	CancelAtPeriodEnd   bool                    `json:"cancelAtPeriodEnd" doc:"The subscription ends at currentPeriodEnd; reactivate it before then to keep it"`
+	CanceledAt          *time.Time              `json:"canceledAt" doc:"When the subscription was canceled"`
+	CancellationReason  *string                 `json:"cancellationReason" enum:"TRIAL_ENDED_WITHOUT_PAYMENT_METHOD,INCOMPLETE_EXPIRED" doc:"Why the system ended it; null when it did not, a vendor's own reason is never shown"`
+	ScheduledChange     *SessionScheduledChange `json:"scheduledChange" doc:"A plan change the vendor scheduled for the next boundary"`
+}
+
+// TransformSchema publishes SessionSubscription's absent members as null (§13.15).
+func (SessionSubscription) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, SessionSubscription{})
+}
+
+// SessionScheduledChange is a plan change waiting for the next boundary.
+type SessionScheduledChange struct {
+	Price       getpubliccatalog.PublicPrice `json:"price" doc:"The price the subscription moves to"`
+	EffectiveAt time.Time                    `json:"effectiveAt" doc:"When it applies: the current period's end"`
+}
+
+// SubscriptionFrom shows a subscription as a session does.
+func SubscriptionFrom(billing subscriptions.InstanceBilling) SessionSubscription {
+	out := SessionSubscription{
+		Status: billing.Status, ProviderKind: billing.ProviderKind, CollectionMethod: billing.CollectionMethod,
+		Currency: billing.Currency, BillingPeriod: billing.BillingPeriod,
+		BasePrice:          getpubliccatalog.PriceFrom(billing.BasePrice),
+		CurrentPeriodStart: billing.CurrentPeriodStart, CurrentPeriodEnd: billing.CurrentPeriodEnd,
+		TrialEndsAt: billing.TrialEndsAt, IncompleteExpiresAt: nil, CancelAtPeriodEnd: billing.CancelAtPeriodEnd,
+		CanceledAt: billing.CanceledAt, CancellationReason: nil, ScheduledChange: nil,
+	}
+	if billing.Status == subscriptions.StatusIncomplete {
+		out.IncompleteExpiresAt = billing.IncompleteExpiresAt
+	}
+	if reason := billing.CancellationReason; reason != nil &&
+		(*reason == closing.ReasonTrialEndedWithoutPaymentMethod || *reason == incomplete.ReasonExpired) {
+		out.CancellationReason = reason
+	}
+	if change := billing.ScheduledChange; change != nil {
+		out.ScheduledChange = &SessionScheduledChange{Price: getpubliccatalog.PriceFrom(change.Price), EffectiveAt: change.EffectiveAt}
+	}
+	return out
+}
+
+// Payment statuses of an ACTIVATION invoice (§14.4 rule 9).
+const (
+	PaymentPaid           = "paid"
+	PaymentRequiresAction = "requires_action"
+	PaymentFailed         = "failed"
+	PaymentProcessing     = "processing"
+	PaymentNotRequired    = "not_required"
+)
+
+// PaymentOf is how paying an ACTIVATION went, from the invoice as persisted,
+// and where the customer pays or authenticates it.
+func PaymentOf(invoice invoices.Invoice) (status string, hostedInvoiceURL *string) {
+	var lastError *string
+	if invoice.Provider != nil {
+		hostedInvoiceURL, lastError = invoice.Provider.HostedInvoiceURL, invoice.Provider.LastPaymentError
+	}
+	switch {
+	case invoice.Total <= 0:
+		return PaymentNotRequired, nil
+	case invoice.Status == "PAID":
+		return PaymentPaid, hostedInvoiceURL
+	case invoice.Status == "PAYMENT_FAILED" && lastError != nil && *lastError == "authentication_required":
+		return PaymentRequiresAction, hostedInvoiceURL
+	case invoice.Status == "PAYMENT_FAILED":
+		return PaymentFailed, hostedInvoiceURL
+	default:
+		// DRAFT or PUSH_FAILED: the push did not finish in time; PUSHED: the
+		// charge has no answer yet. The queue carries on either way.
+		return PaymentProcessing, hostedInvoiceURL
+	}
+}
+
+// SessionRedemption is a voucher an instance redeemed, as its customer sees
+// it (§14.4): what it is and how far it went. Never its code.
+type SessionRedemption struct {
+	Name               string     `json:"name" example:"Summer launch"`
+	VoucherType        string     `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT,COMPOSITE"`
+	Status             string     `json:"status" enum:"ACTIVE,EXPIRED,REVOKED"`
+	AppliesFromInvoice *string    `json:"appliesFromInvoice" enum:"next" doc:"next: a PRICE part that has not discounted an invoice yet -- it applies from the next invoice composed, never to one already issued; null otherwise"`
+	ApplicationsCount  int32      `json:"applicationsCount" doc:"Invoices its PRICE part discounted; 0 without one"`
+	ApplicationsMax    *int32     `json:"applicationsMax" doc:"How many it discounts in all: 1 for ONE_TIME, its periods for REPEATING; null for FOREVER and without a PRICE part"`
+	EffectiveStartsAt  time.Time  `json:"effectiveStartsAt"`
+	EffectiveExpiresAt *time.Time `json:"effectiveExpiresAt" doc:"When a boost or a flag grant stops applying; null when it does not expire, and for a PRICE voucher, counted in invoices"`
+}
+
+// TransformSchema publishes SessionRedemption's absent members as null.
+func (SessionRedemption) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, SessionRedemption{})
+}
+
+// RedemptionFrom shows a redemption as a session does.
+func RedemptionFrom(r vouchercatalogue.Redemption) SessionRedemption {
+	out := SessionRedemption{
+		Name: r.VoucherName, VoucherType: r.VoucherType, Status: r.Status, AppliesFromInvoice: nil,
+		ApplicationsCount: r.ApplicationsCount, ApplicationsMax: r.ApplicationsMax,
+		EffectiveStartsAt: r.EffectiveStartsAt, EffectiveExpiresAt: r.EffectiveExpiresAt,
+	}
+	if (r.VoucherType == "PRICE" || r.VoucherType == "COMPOSITE") && r.ApplicationsCount == 0 && r.Status == "ACTIVE" {
+		next := "next"
+		out.AppliesFromInvoice = &next
+	}
+	if r.VoucherType != "PRICE" && r.VoucherType != "COMPOSITE" {
+		out.ApplicationsMax = nil
+	}
+	return out
+}

@@ -19,6 +19,8 @@ vi.mock('react-i18next', () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
         'Common.cancel': 'Cancel',
+        'Features.AuditTrail.events.CHECKOUT_SESSION_COMPLETED':
+          'Checkout completed',
         'Features.AuditTrail.events.CUSTOMER_CREATED': 'Customer created',
         'Features.AuditTrail.events.LICENSE_FAMILY_CREATED':
           'License family created',
@@ -41,6 +43,7 @@ vi.mock('react-i18next', () => ({
           'https://api.example.com/webhooks/kaiten',
         'Pages.Integrations.Webhooks.Dialog.urlRequired':
           'Webhook URL is required.',
+        'Pages.Integrations.Webhooks.EventGroups.checkout': 'Checkouts',
         'Pages.Integrations.Webhooks.EventGroups.customer': 'Customers',
         'Pages.Integrations.Webhooks.EventGroups.licenseFamily':
           'License families',
@@ -50,6 +53,12 @@ vi.mock('react-i18next', () => ({
     },
   }),
 }));
+
+// The dialog lists every event of the catalogue, a hundred and more, and each
+// change of the form renders them again: a test that fills the form and sends it
+// takes about a second here and several on a loaded CI runner, past the default
+// ten.
+const FORM_TEST_TIMEOUT_MS = 30_000;
 
 describe('CreateWebhookDialog', () => {
   function renderDialog(
@@ -85,6 +94,20 @@ describe('CreateWebhookDialog', () => {
     expect(screen.getByText('LICENSE_FAMILY_CREATED')).toBeInTheDocument();
     expect(screen.queryByText('FEATURE_FLAG_EVALUATED')).not.toBeInTheDocument();
     expect(screen.queryByText('ENTITLEMENT_VALUE_GET')).not.toBeInTheDocument();
+  });
+
+  it('offers the events of an anonymous checkout under a group of their own', async () => {
+    renderDialog();
+
+    expect(await screen.findByText('Checkouts')).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: 'Checkout completed' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('CHECKOUT_SESSION_COMPLETED'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('CHECKOUT_SESSION_STARTED')).toBeInTheDocument();
+    expect(screen.getByText('CHECKOUT_SESSION_ABANDONED')).toBeInTheDocument();
   });
 
   it('submits selected events and url through the form', async () => {
@@ -124,7 +147,7 @@ describe('CreateWebhookDialog', () => {
     });
 
     expect(onOpenChange).toHaveBeenCalledWith(false);
-  });
+  }, FORM_TEST_TIMEOUT_MS);
 
   it('prevents native form submission from reloading the page', async () => {
     const user = userEvent.setup();
@@ -152,5 +175,5 @@ describe('CreateWebhookDialog', () => {
 
     expect(submitEvent.defaultPrevented).toBe(true);
     await waitFor(() => expect(onSubmit).toHaveBeenCalledOnce());
-  });
+  }, FORM_TEST_TIMEOUT_MS);
 });

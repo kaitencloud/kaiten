@@ -15,7 +15,7 @@ import {
 import type { InstanceEntitlementRow } from '../../../../utils/instance-detail-entitlements.utils';
 import { getEventCategory, resolveEventLabel } from '@/domains/audit-trail';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import { formatDateTime } from '@/lib/detail';
+import { formatDateTime, getAuditDisplayName } from '@/lib/detail';
 import {
   getEntitlementLabelForAuditSlug,
   getPayload,
@@ -157,6 +157,14 @@ export function AuditDetailDialog({
                 )}
               </span>
               <p className="text-sm">{instanceName}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-xs font-medium text-muted-foreground">
+                {t('Pages.Customers.Instances.Detail.auditTrail.detail.actor')}
+              </span>
+              <p className="text-sm">
+                {getAuditDisplayName({ actor: entry.actor }) || '—'}
+              </p>
             </div>
           </div>
           {payload.entitlement_slug && (

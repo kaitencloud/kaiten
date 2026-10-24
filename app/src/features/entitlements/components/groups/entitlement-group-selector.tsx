@@ -16,6 +16,11 @@ import {
 const EMPTY_VALUE: string[] = [];
 
 type EntitlementGroupSelectorProps = {
+  /** What names and describes the field, from the form that holds it. */
+  'aria-describedby'?: string;
+  'aria-invalid'?: boolean;
+  'aria-labelledby'?: string;
+  id?: string;
   autoFocusSearch?: boolean;
   disabled?: boolean;
   interactionMode?: 'default' | 'inline';
@@ -27,6 +32,10 @@ type EntitlementGroupSelectorProps = {
 };
 
 export function EntitlementGroupSelector({
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
+  'aria-labelledby': ariaLabelledBy,
+  id,
   autoFocusSearch = false,
   disabled = false,
   interactionMode = 'default',
@@ -86,6 +95,10 @@ export function EntitlementGroupSelector({
           <SelectedGroupsValue
             ref={anchorRef}
             aria-controls={listboxId}
+            aria-describedby={ariaDescribedBy}
+            aria-invalid={ariaInvalid}
+            aria-labelledby={ariaLabelledBy}
+            id={id}
             disabled={disabled}
             isCreatingGroup={state.isCreatingGroup}
             isInlineInteraction
@@ -100,6 +113,10 @@ export function EntitlementGroupSelector({
               <SelectedGroupsValue
                 ref={anchorRef}
                 aria-controls={listboxId}
+                aria-describedby={ariaDescribedBy}
+                aria-invalid={ariaInvalid}
+                aria-labelledby={ariaLabelledBy}
+                id={id}
                 disabled={disabled}
                 isCreatingGroup={state.isCreatingGroup}
                 isInlineInteraction={false}

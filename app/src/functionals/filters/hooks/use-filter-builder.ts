@@ -21,6 +21,7 @@ export const useFilterBuilder = <T>({
   defaultNormalFilterIds,
   defaultAdvancedCombinator = 'and',
   defaultAdvancedRules = [],
+  initialNormalValues,
   debounceMs = DEFAULT_DEBOUNCE_MS,
   resetOnDataChange = false,
 }: UseFilterBuilderProps<T>): UseFilterBuilderResult<T> => {
@@ -28,6 +29,7 @@ export const useFilterBuilder = <T>({
     fields,
     defaultAdvancedRules,
     defaultNormalFilterIds,
+    initialNormalValues,
     pinnedFilterIds,
     quickAccessFilterIds,
   });
@@ -35,8 +37,10 @@ export const useFilterBuilder = <T>({
     data,
     resetOnDataChange,
     debounceMs,
+    alwaysShownIds: config.alwaysShownIds,
     defaultActiveFilterIds: config.defaultActiveFilterIds,
     defaultAdvancedCombinator,
+    initialValues: config.sanitizedInitialValues,
     sanitizedDefaultAdvancedRules: config.sanitizedDefaultAdvancedRules,
   });
   const derivedState = useFilterBuilderDerivedState({

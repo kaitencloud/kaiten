@@ -1,12 +1,28 @@
 package kaiten
 
 import (
+	"context"
+	"sync"
+
+	"github.com/google/uuid"
+
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider/noop"
+	billingstripe "github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/cdc"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/vault"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/billableaddons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/providerconnector"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors"
+	connectorcommon "github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
+	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements"
@@ -15,18 +31,27 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkoutprogress"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkoutsweep"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/modules/users"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/billablediscounts"
+	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
 )
 
 // modules is every module, constructed. It is what the facade namespaces read
 // through, and it is unexported so that reading through it is the facade's
 // privilege rather than anyone's option.
 type modules struct {
+	Addons          *addons.UseCases
 	AuditTrail      *audittrail.UseCases
+	Billing         *billing.UseCases
 	Components      *components.UseCases
 	Connectors      *connectors.UseCases
 	Customers       *customers.UseCases
@@ -40,8 +65,10 @@ type modules struct {
 	Licenses        *licenses.UseCases
 	MetadataFields  *metadatafields.UseCases
 	Organization    *organization.UseCases
+	PublicSDK       *publicsdk.UseCases
 	Releases        *releases.UseCases
 	Users           *users.UseCases
+	Vouchers        *vouchers.UseCases
 
 	// CDC is the fan-out over the in-process consumers of the CDC stream. Not a
 	// module: it owns no tables and publishes no operation, it is the thing that
@@ -127,9 +154,15 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// Same funnel, same reason: a deployment that licenses nothing says so by
 		// leaving the option nil, and every use case still asks unconditionally.
 		ConnectorEntitlements: services.ConnectorEntitlementsOrAlways(opts.ConnectorEntitlements),
+		EntitlementConfig:     services.EntitlementConfigOrNone(opts.EntitlementConfig),
 		WorkerRegistry:        workers,
 		BackgroundWorkers:     opts.BackgroundWorkers,
 	}
+	// The payment providers, and the lifecycle rules of the connectors that
+	// configure them: both read svc (its unit of work, its settings store), and
+	// both must be on it before the billing and connectors modules are built.
+	svc.BillingProviders, svc.ConnectorHooks = billingProviders(opts, svc)
+	svc.TurnstileVerifyURL = opts.TurnstileVerifyURL
 
 	// The template for the dedicated Postgres LISTEN connections the two
 	// cache-owning modules dial (see internal/infrastructure/pgnotify), derived
@@ -146,24 +179,92 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// from inside the transaction that writes the entry, which is the whole
 	// reason the announcement is not a CDC consumer of its own.
 	notificationModule := notifications.NewUseCases(svc)
+	// Built before the map too: billing reads the usage journal through the
+	// source the instances module exposes.
+	instanceModule := instances.NewUseCases(svc)
+	// And these two: a subscribe attaches the add-ons and redeems the voucher it
+	// is started with through their use cases, inside its own transaction.
+	addonModule := addons.NewUseCases(svc)
+	voucherModule := vouchers.NewUseCases(svc)
+	// Billing reads the licence catalogue, the usage journal, the add-ons an
+	// instance holds and the vouchers it redeemed through ports it owns, and
+	// makes a subscribe's writes in the modules that own them the same way;
+	// those modules implement them. Built before the map because the public SDK
+	// surface runs its subscribe and reads its invoices.
+	// The checkout sweep runs the public SDK's completion, built after
+	// billing: billing's jobs reach it through this handle, bound below.
+	checkoutSweep := newLateCheckoutSweeper()
+	// Billing's lifecycle job runs the exceptions' expiry notice, step (g).
+	entitlementModule := entitlements.NewUseCases(svc)
+	billingModule := billing.NewUseCases(svc, billing.Ports{
+		Catalogue:  billablecatalogue.New(svc.Uof),
+		Usage:      instanceModule.BillableUsage,
+		Addons:     billableaddons.New(svc.Uof),
+		Discounts:  billablediscounts.New(svc.Uof),
+		Attacher:   addonModule.AttachInstanceAddon,
+		Redeemer:   voucherModule.RedeemVoucher,
+		Mover:      instanceModule.UpdateInstance,
+		Fallback:   addonModule.DetachInstanceAddon,
+		Scheduled:  addonModule.SetInstanceAddonQuantity,
+		Expiry:     voucherModule.Expiry,
+		Checkouts:  checkoutprogress.New(svc.Uof),
+		Sweeper:    checkoutSweep,
+		Exceptions: entitlementModule.ExceptionExpiry,
+	})
+	customerModule := customers.NewUseCases(svc)
 
 	built := modules{
-		AuditTrail:      audittrail.NewUseCases(svc, notificationModule.Announcer),
+		Addons:     addonModule,
+		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
+		// Billing reads the licence catalogue, the usage journal, the add-ons
+		// an instance holds and the vouchers it redeemed through ports it owns;
+		// the modules that own that data implement them.
+		Billing:         billingModule,
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
-		Customers:       customers.NewUseCases(svc),
+		Customers:       customerModule,
 		DeploymentZones: deploymentzones.NewUseCases(svc),
-		Entitlements:    entitlements.NewUseCases(svc),
+		Entitlements:    entitlementModule,
 		FeatureFlags:    featureflags.NewUseCases(svc),
 		Notifications:   notificationModule,
 		Identity:        identity.NewUseCases(svc),
-		Instances:       instances.NewUseCases(svc),
+		Instances:       instanceModule,
 		Integrations:    integrations.NewUseCases(svc),
-		Licenses:        licenses.NewUseCases(svc),
+		Licenses:        licenses.NewUseCases(svc, billingModule.LicensePreview),
 		MetadataFields:  metadatafields.NewUseCases(svc),
 		Organization:    organization.NewUseCases(svc),
-		Releases:        releases.NewUseCases(svc),
-		Users:           users.NewUseCases(svc),
+		PublicSDK: publicsdk.NewUseCases(svc, publicsdk.Ports{
+			Subscriber:         billingModule.SubscribeInstance,
+			Activation:         billingModule.SubscribeInstance,
+			CheckoutCustomers:  customerModule.CreateCustomer,
+			CheckoutInstances:  instanceModule.CreateInstance,
+			CheckoutSubscriber: billingModule.SubscribeInstance,
+			CheckoutSetup:      billingModule.CheckoutSetup,
+			CustomerBilling:    billingModule.GetCustomerBilling,
+			OpenSetup:          billingModule.CreatePaymentMethodSession,
+			CompleteSetup:      billingModule.CompletePaymentMethodSession,
+			Invoices:           billingModule.GetInvoice,
+			BillingEmails:      customerModule.UpdateCustomer,
+			SessionInvoices:    billingModule.SessionInvoices,
+			OpenPortal:         billingModule.CreatePortalSession,
+			Cancel:             billingModule.CancelSubscription,
+			Reactivate:         billingModule.ReactivateSubscription,
+			Vouchers:           voucherModule.ValidateVoucher,
+			CheckoutVouchers:   voucherModule.ValidateVoucher,
+			VoucherLimit:       voucherModule.ValidateVoucher,
+			SessionRedeemer:    voucherModule.RedeemVoucher,
+			AddonList:          addonModule.ListInstanceAddons,
+			AddonAttach:        addonModule.AttachInstanceAddon,
+			AddonQuantity:      addonModule.SetInstanceAddonQuantity,
+			Subscription:       billingModule.GetInstanceBilling,
+			Checkout:           billingModule.SubscribeInstance,
+			UpcomingInvoice:    billingModule.GetUpcomingInvoice,
+			Entitlements:       instanceModule.GetEntitlementsUsageMetrics,
+			Redemptions:        voucherModule.ListInstanceVouchers,
+		}),
+		Releases: releases.NewUseCases(svc),
+		Users:    users.NewUseCases(svc),
+		Vouchers: voucherModule,
 	}
 
 	// A list, not a pipeline: the dispatcher runs these in parallel and waits for all
@@ -177,5 +278,126 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	}
 	built.CDC = dispatcher
 
+	// The completions a job runs are system:kaiten's, naming the session.
+	checkoutSweep.bind(checkoutsweep.New(checkoutsweep.Deps{
+		Uof: svc.Uof, Completer: built.PublicSDK.ConfirmCheckoutSession, Setup: billingModule.CheckoutSetup,
+		Bind: func(ctx context.Context, organizationID, sessionID uuid.UUID) (context.Context, error) {
+			actorID, err := built.Organization.SystemActor.SystemActorInOrganization(ctx, organizationID, platformidentity.ExternalID)
+			if err != nil {
+				return nil, err
+			}
+			return bindCheckoutCompletion(ctx, actorID, organizationID, sessionID)
+		},
+		Retention: svc.Config.Billing.Lifecycle.CheckoutSessionRetention,
+	}))
+
 	return built, nil
+}
+
+// billingProviders returns the registry the driver gave, or the providers this
+// binary ships: NOOP, and Stripe configured through its connector. A provider
+// configured through a connector is a binding: its connector's manifest, its
+// adapter, and how the stored settings become a connection; the hooks every
+// such connector keeps (credentials checked before storing, no disconnect
+// while invoices route there, connection events) are billing's, whichever
+// provider it is.
+func billingProviders(opts Options, svc services.Container) (provider.Registry, connectorhooks.Registry) {
+	if opts.BillingProviders != nil {
+		return opts.BillingProviders, nil
+	}
+	stripeOptions := opts.Stripe
+	stripeOptions.SendAfterFinalize = stripeOptions.SendAfterFinalize || opts.Config.Billing.Stripe.SendAfterFinalize
+	manifest := connectorstripe.Manifest()
+	stripeBinding := provider.ConnectorBinding{
+		ConnectorName:   manifest.Name,
+		EntitlementSlug: deref(manifest.EntitlementSlug),
+		Adapter:         billingstripe.New(stripeOptions),
+		Parse:           billingstripe.Parse,
+	}
+
+	registry := provider.NewStatic(noop.New())
+	deps := provider.ConnectorDeps{
+		Activations:     connectors.NewActivationReader(svc),
+		Settings:        connectors.NewSettingsReader(svc),
+		Entitlements:    svc.ConnectorEntitlements,
+		VaultConfigured: vault.Configured,
+	}
+	registry.RegisterConnector(stripeBinding, deps)
+
+	timeout := opts.Config.Billing.Provider.Timeout
+	hooks := connectorhooks.Registry{
+		stripeBinding.ConnectorName: providerconnector.New(svc.Uof, stripeBinding, timeout, connectorcommon.SecretFields(manifest.SettingsSchema)),
+	}
+	return registry, hooks
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+// lateCheckoutSweeper is billing's CheckoutSweeper before the public SDK
+// module exists: billing is built first, its jobs start with a delay, and the
+// sweep is bound once the module map is complete. A job that runs before the
+// binding waits for it rather than doing nothing: a sync pass that skipped a
+// completion would still move its cursor past the provider's event, and that
+// visitor's session would never be completed by the sync again.
+type lateCheckoutSweeper struct {
+	bound  chan struct{}
+	once   sync.Once
+	target *checkoutsweep.Sweep
+}
+
+func newLateCheckoutSweeper() *lateCheckoutSweeper {
+	return &lateCheckoutSweeper{bound: make(chan struct{})}
+}
+
+func (l *lateCheckoutSweeper) bind(target *checkoutsweep.Sweep) {
+	l.once.Do(func() {
+		l.target = target
+		close(l.bound)
+	})
+}
+
+func (l *lateCheckoutSweeper) get(ctx context.Context) (*checkoutsweep.Sweep, error) {
+	select {
+	case <-l.bound:
+		return l.target, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
+func (l *lateCheckoutSweeper) Complete(ctx context.Context, organizationID, checkoutSessionID uuid.UUID) error {
+	t, err := l.get(ctx)
+	if err != nil {
+		return err
+	}
+	return t.Complete(ctx, organizationID, checkoutSessionID)
+}
+
+func (l *lateCheckoutSweeper) RetryCompleted(ctx context.Context, organizationID uuid.UUID, limit int) ([]uuid.UUID, error) {
+	t, err := l.get(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return t.RetryCompleted(ctx, organizationID, limit)
+}
+
+func (l *lateCheckoutSweeper) Abandon(ctx context.Context, limit int) (int, error) {
+	t, err := l.get(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return t.Abandon(ctx, limit)
+}
+
+func (l *lateCheckoutSweeper) Purge(ctx context.Context, limit int) (int, error) {
+	t, err := l.get(ctx)
+	if err != nil {
+		return 0, err
+	}
+	return t.Purge(ctx, limit)
 }

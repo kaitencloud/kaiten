@@ -11,6 +11,19 @@ type AuditTrail {
   timestamp: Time!
   """Event payload as a JSON object. Event-specific data such as status lives here."""
   payload: Map
+  """Who the event is recorded under; null for an entry recorded before actors were."""
+  actor: AuditActor
+}
+
+"""
+The user an audit entry is recorded under: a person, a service account, or
+Kaiten itself ("Kaiten (system)"), which records jobs and anonymous checkouts.
+"""
+type AuditActor {
+  id: UUID!
+  name: String!
+  """USER, SERVICE or SYSTEM."""
+  kind: String!
 }
 
 """
@@ -73,6 +86,18 @@ type OrganizationAuditTrail {
   timestamp: Time!
   """Event payload as a JSON object. Event-specific data such as status lives here."""
   payload: Map
+  """Who the event is recorded under; null for an entry recorded before actors were."""
+  actor: OrganizationAuditActor
+}
+
+"""
+The user an organization-wide audit entry is recorded under, as AuditActor.
+"""
+type OrganizationAuditActor {
+  id: UUID!
+  name: String!
+  """USER, SERVICE or SYSTEM."""
+  kind: String!
 }
 
 """

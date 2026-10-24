@@ -1,16 +1,20 @@
 import { useMutation } from '@tanstack/react-query';
 import { useRouteContext } from '@tanstack/react-router';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import {
   createDeploymentZoneMutation,
   listDeploymentZonesQueryKey,
-  updateDeploymentZoneMutation,
 } from '@/api-client/@tanstack/react-query.gen';
 import { releaseManagementOverviewBaseQueryKey } from '@/domains/release-management';
 import { useAppForm } from '@/hooks/form';
-import { deploymentZoneFormSchema } from '../schemas/deployment-zone.schema';
+import { saveDeploymentZoneOnFresh } from '../queries/deployment-zone-save';
+import {
+  type DeploymentZoneFormValues,
+  deploymentZoneFormSchema,
+} from '../schemas/deployment-zone.schema';
 import type { DeploymentZoneFormProps } from '../types';
 import { deploymentZoneFormValuesToWriteBody } from '../utils/deployment-zone-form.shared';
 
@@ -42,7 +46,7 @@ export const useDeploymentZoneForm = ({
 
   // Update mutation
   const updateMutation = useMutation({
-    ...updateDeploymentZoneMutation(),
+    mutationFn: saveDeploymentZoneOnFresh,
     onSuccess: async () => {
       await Promise.all([
         queryClient.invalidateQueries({
@@ -56,9 +60,10 @@ export const useDeploymentZoneForm = ({
     },
   });
 
-  // Create form with TanStack Form
-  const form = useAppForm({
-    defaultValues: deploymentZone
+  // What the form opened with, kept as it was: an update sends the fields that
+  // differ from it, and takes the others from the zone as the API holds it.
+  const [openedValues] = useState<DeploymentZoneFormValues>(() =>
+    deploymentZone
       ? {
           name: deploymentZone.name,
           type: deploymentZone.type,
@@ -75,6 +80,11 @@ export const useDeploymentZoneForm = ({
           releaseId: undefined,
           slug: '',
         },
+  );
+
+  // Create form with TanStack Form
+  const form = useAppForm({
+    defaultValues: openedValues,
     validators: {
       onChange: deploymentZoneFormSchema as any,
     },
@@ -88,8 +98,12 @@ export const useDeploymentZoneForm = ({
       try {
         if (isEditing && deploymentZone) {
           await updateMutation.mutateAsync({
-            path: { deploymentZoneSlug: deploymentZone.slug! },
-            body,
+            deploymentZoneSlug: deploymentZone.slug!,
+            edited: body,
+            opened: deploymentZoneFormValuesToWriteBody(
+              prepareValues?.(openedValues) ?? openedValues,
+              true,
+            ),
           });
           toast.success(t('Features.Releases.Success.zoneUpdated'));
         } else {

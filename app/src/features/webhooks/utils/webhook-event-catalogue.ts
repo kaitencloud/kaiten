@@ -1,5 +1,6 @@
 import type { Webhooks } from '@/api-client';
 import type { AuditEventName } from '@/domains/audit-trail';
+import { BILLING_WEBHOOK_EVENTS } from './webhook-billing-events';
 
 /**
  * The type a subscription filters on, as the API publishes the event: the key
@@ -20,9 +21,15 @@ export const WEBHOOK_EVENT_GROUPS = [
   'instance',
   'license',
   'licenseFamily',
+  'addon',
   'entitlement',
   'entitlementGroup',
   'usage',
+  'subscription',
+  'invoice',
+  'voucher',
+  'payment',
+  'checkout',
   'featureFlag',
   'release',
   'deploymentZone',
@@ -32,6 +39,15 @@ export const WEBHOOK_EVENT_GROUPS = [
 ] as const;
 
 export type WebhookEventGroup = (typeof WEBHOOK_EVENT_GROUPS)[number];
+
+/** The type and the group of each event `Name` names. */
+export type WebhookEventEntries<Name extends AuditEventName = AuditEventName> =
+  {
+    [EventName in Name]: {
+      type: WebhookEventTypeOf<EventName>;
+      group: WebhookEventGroup | null;
+    };
+  };
 
 // Every event the API emits: the type a subscription names it by, and the
 // group the dialog lists it under.
@@ -46,6 +62,18 @@ export type WebhookEventGroup = (typeof WEBHOOK_EVENT_GROUPS)[number];
 // subscription to either would receive a request for each one. The API still
 // accepts them for a caller that means it.
 export const WEBHOOK_EVENTS = {
+  CHECKOUT_SESSION_ABANDONED: {
+    type: 'com.kaiten.checkout_session.v1.abandoned',
+    group: 'checkout',
+  },
+  CHECKOUT_SESSION_COMPLETED: {
+    type: 'com.kaiten.checkout_session.v1.completed',
+    group: 'checkout',
+  },
+  CHECKOUT_SESSION_STARTED: {
+    type: 'com.kaiten.checkout_session.v1.started',
+    group: 'checkout',
+  },
   COMPONENT_CREATED: {
     type: 'com.kaiten.component.v1.created',
     group: 'component',
@@ -154,6 +182,18 @@ export const WEBHOOK_EVENTS = {
     type: 'com.kaiten.instance.entitlement.v1.cap_exceeded',
     group: 'usage',
   },
+  INSTANCE_ENTITLEMENT_EXCEPTION_CREATED: {
+    type: 'com.kaiten.instance.entitlement_exception.v1.created',
+    group: 'instance',
+  },
+  INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED: {
+    type: 'com.kaiten.instance.entitlement_exception.v1.expired',
+    group: 'instance',
+  },
+  INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED: {
+    type: 'com.kaiten.instance.entitlement_exception.v1.revoked',
+    group: 'instance',
+  },
   INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER: {
     type: 'com.kaiten.instance.entitlement.v1.usage_period_rolled_over',
     group: 'usage',
@@ -212,6 +252,18 @@ export const WEBHOOK_EVENTS = {
     type: 'com.kaiten.license_family.v1.updated',
     group: 'licenseFamily',
   },
+  LICENSE_PRICE_CREATED: {
+    type: 'com.kaiten.license.price.v1.created',
+    group: 'license',
+  },
+  LICENSE_PRICE_DEPRECATED: {
+    type: 'com.kaiten.license.price.v1.deprecated',
+    group: 'license',
+  },
+  LICENSE_PRICE_UPDATED: {
+    type: 'com.kaiten.license.price.v1.updated',
+    group: 'license',
+  },
   LICENSE_PUBLISHED: {
     type: 'com.kaiten.license.v1.published',
     group: 'license',
@@ -241,6 +293,14 @@ export const WEBHOOK_EVENTS = {
     type: 'com.kaiten.metadata_field.v1.updated',
     group: 'metadataField',
   },
+  PUBLISHABLE_KEY_CREATED: {
+    type: 'com.kaiten.publishable_key.v1.created',
+    group: 'identity',
+  },
+  PUBLISHABLE_KEY_REVOKED: {
+    type: 'com.kaiten.publishable_key.v1.revoked',
+    group: 'identity',
+  },
   RELEASE_CREATED: { type: 'com.kaiten.release.v1.created', group: 'release' },
   RELEASE_DELETED: { type: 'com.kaiten.release.v1.deleted', group: 'release' },
   RELEASE_DEPLOYED: {
@@ -251,9 +311,6 @@ export const WEBHOOK_EVENTS = {
     type: 'com.kaiten.identity.v1.system_token_issued',
     group: 'identity',
   },
-} as const satisfies {
-  [Name in AuditEventName]: {
-    type: WebhookEventTypeOf<Name>;
-    group: WebhookEventGroup | null;
-  };
-};
+  // The billing events, listed in a file of their own.
+  ...BILLING_WEBHOOK_EVENTS,
+} as const satisfies WebhookEventEntries;

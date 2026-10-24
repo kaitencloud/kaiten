@@ -17,9 +17,14 @@ import (
 	"github.com/ravilushqa/otelgqlgen"
 	"github.com/vektah/gqlparser/v2/ast"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/resolver"
+	addonsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
+	addonsdb "github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
+	billingGraphql "github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql"
+	billingdb "github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/releaselink"
 	customersGraphql "github.com/kaitencloud/kaiten/api/internal/modules/customers/graphql"
 	customersdb "github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
@@ -104,6 +109,9 @@ const (
 type Config struct {
 	EnablePlayground    bool
 	EnableIntrospection bool
+	// BillingGate is the switch the add-on catalogue sits behind, the one the
+	// REST operations that list it sit behind. The zero Gate is a closed one.
+	BillingGate gate.Gate
 }
 
 // Handler creates a new GraphQL handler for Fiber.
@@ -130,7 +138,7 @@ func NewHandler(pool *pgxpool.Pool, config Config) *Handler {
 // principal, dataloaders and the like travel through the context -- so a single
 // server instance serves every request.
 func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
-	srv := handler.New(newExecutableSchema(pool))
+	srv := handler.New(newExecutableSchema(pool, config))
 	srv.SetParserTokenLimit(parserTokenLimit)
 
 	// Add transports for HTTP requests. Each of these writes its whole answer
@@ -178,9 +186,9 @@ func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
 // that builds its own generated.Config gets gqlgen's structural default --
 // every list field priced at one point -- and pins numbers no request will
 // ever be charged.
-func newExecutableSchema(pool *pgxpool.Pool) graphql.ExecutableSchema {
+func newExecutableSchema(pool *pgxpool.Pool, config Config) graphql.ExecutableSchema {
 	return generated.NewExecutableSchema(generated.Config{
-		Resolvers:  resolver.NewResolver(pool),
+		Resolvers:  resolver.NewResolver(pool, config.BillingGate),
 		Complexity: newComplexityRoot(),
 	})
 }
@@ -285,6 +293,9 @@ func withOperationDeadline(next http.Handler) http.Handler {
 // Each module registers its own dataloaders.
 func (h *Handler) newLoaders() *dataloader.Loaders {
 	loaders := dataloader.NewLoaders()
+	resolver.RegisterBillingGate(loaders, h.config.BillingGate)
+	addonsGraphql.RegisterDataloaders(loaders, addonsdb.New(h.pool))
+	billingGraphql.RegisterDataloaders(loaders, billingdb.New(h.pool))
 	customersGraphql.RegisterDataloaders(loaders, customersdb.New(h.pool))
 	deploymentzonesGraphql.RegisterDataloaders(loaders, deploymentzonesdb.New(h.pool))
 	entitlementsGraphql.RegisterDataloaders(loaders, entitlementsdb.New(h.pool))

@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import {
   handleCreateFeatureFlag,
+  handleGetFeatureFlag,
   handleUpdateFeatureFlag,
 } from '@/api-client/msw.gen';
 import { featureFlagFormOpts } from '../utils/shared-form';
@@ -73,7 +74,8 @@ vi.mock('sonner', () => ({
   },
 }));
 
-vi.mock('../queries', () => ({
+vi.mock('../queries', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../queries')>()),
   mergeFeatureFlagIntoCache: (...args: unknown[]) =>
     cacheFeatureFlagMock(...args),
   revalidateFeatureFlagsListQuery: (...args: unknown[]) =>
@@ -134,10 +136,12 @@ type ApiCall =
  * Serves the creation and the update of a flag, and records them with the
  * slug and the body each one carried.
  */
-function serveFeatureFlagWrites() {
+function serveFeatureFlagWrites(stored: () => unknown) {
   const calls: ApiCall[] = [];
 
   server.use(
+    // The flag as the API holds it: an update reads it again before it writes.
+    handleGetFeatureFlag(() => HttpResponse.json(stored() as never)),
     handleCreateFeatureFlag(async ({ request }) => {
       const body = await request.json();
       calls.push({ op: 'create', body });
@@ -169,6 +173,7 @@ function wrapper({ children }: { children: ReactNode }) {
 
 describe('useFeatureFlagForm', () => {
   let calls: ApiCall[];
+  let stored: unknown;
 
   beforeEach(() => {
     queryClient = new QueryClient({
@@ -177,7 +182,8 @@ describe('useFeatureFlagForm', () => {
         queries: { retry: false },
       },
     });
-    calls = serveFeatureFlagWrites();
+    stored = undefined;
+    calls = serveFeatureFlagWrites(() => stored);
     cacheFeatureFlagMock.mockReset();
     captured.options = null;
     invalidateQueriesMock.mockReset();
@@ -223,6 +229,7 @@ describe('useFeatureFlagForm', () => {
       slug: 'new-feature-flag',
     };
 
+    stored = featureFlag;
     renderHook(() => useFeatureFlagForm({ featureFlag } as any), { wrapper });
 
     await act(async () => {
@@ -252,6 +259,78 @@ describe('useFeatureFlagForm', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith(
       'Pages.FeatureFlags.Mutation.Form.Dialog.updateSuccess',
     );
+  });
+
+  it('sends the fields that were changed on top of the flag as the API holds it now', async () => {
+    const featureFlag = {
+      ...baseFormValues,
+      event_name: 'feature_flag.evaluated',
+      id: 'feature-flag-id',
+      slug: 'my-feature-flag',
+    };
+    // Another tab turned the flag off and saved a targeting rule, after the form opened.
+    const rule = {
+      name: 'EU rollout',
+      rule: 'instance.region == "eu"',
+      type: 'basic',
+      variant: 'on',
+    };
+    stored = { ...featureFlag, enabled: false, targetings: [rule] };
+
+    renderHook(() => useFeatureFlagForm({ featureFlag } as any), { wrapper });
+    await act(async () => {
+      await captured.options.onSubmit({
+        value: {
+          ...captured.options.defaultValues,
+          description: 'Described here',
+        },
+      });
+    });
+
+    expect(calls).toEqual([
+      {
+        op: 'update',
+        featureFlagSlug: 'my-feature-flag',
+        body: expect.objectContaining({
+          description: 'Described here',
+          enabled: false,
+          targetings: [rule],
+        }),
+      },
+    ]);
+    expect(cacheFeatureFlagMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ enabled: false, targetings: [rule] }),
+      'my-feature-flag',
+    );
+  });
+
+  it('says the flag is gone when it was deleted meanwhile, and writes nothing', async () => {
+    const featureFlag = {
+      ...baseFormValues,
+      event_name: 'feature_flag.evaluated',
+      id: 'feature-flag-id',
+      slug: 'my-feature-flag',
+    };
+    server.use(
+      handleGetFeatureFlag(() =>
+        HttpResponse.json(
+          { detail: 'The feature flag does not exist', status: 404 },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    renderHook(() => useFeatureFlagForm({ featureFlag } as any), { wrapper });
+    await act(async () => {
+      await captured.options.onSubmit({
+        value: { ...captured.options.defaultValues, description: 'Described here' },
+      });
+    });
+
+    expect(calls).toEqual([]);
+    expect(toastErrorMock).toHaveBeenCalled();
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 
   it('navigates back to the current detail page when cancelling in edit mode', () => {

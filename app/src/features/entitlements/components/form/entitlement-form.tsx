@@ -1,3 +1,4 @@
+import { StepNextButton } from '@/components/form/step-next-button';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useId } from 'react';
@@ -20,7 +21,9 @@ import {
   type EntitlementFormProps,
   type EntitlementFormValues,
   entitlementIdentityStepSchema,
+  getIdentityStepValues,
 } from './entitlement-form.shared';
+import { EntitlementRefusalAlert } from './entitlement-refusal-alert';
 import { useEntitlementMutationForm } from './use-entitlement-mutation-form';
 
 export const EntitlementForm = ({
@@ -32,11 +35,14 @@ export const EntitlementForm = ({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const formId = useId();
-  const form = useEntitlementMutationForm(entitlement, onSuccess);
+  const { form, refusal } = useEntitlementMutationForm(entitlement, onSuccess);
   // The type is immutable once set, so an existing non-NUMBER entitlement has
   // nothing left to configure on a second step — collapse the wizard to a
   // single step. NUMBER keeps its step for the meter/unit configuration.
   const showTypeStep = !entitlement || entitlement.type === 'NUMBER';
+  const refusalAlert = refusal ? (
+    <EntitlementRefusalAlert messageKey={refusal} />
+  ) : null;
 
   function handleCancel() {
     if (onCancel) {
@@ -44,7 +50,7 @@ export const EntitlementForm = ({
       return;
     }
 
-    navigate({ to: '/entitlements' });
+    navigate({ to: '/catalog/entitlements' });
   }
 
   const submitButton = (
@@ -75,6 +81,7 @@ export const EntitlementForm = ({
         entitlement={entitlement}
         form={form}
         footer={identityFooter}
+        notice={showTypeStep ? null : refusalAlert}
       />
     </StepStackStep>,
   ];
@@ -85,6 +92,7 @@ export const EntitlementForm = ({
         <EntitlementTypeStepCard
           entitlement={entitlement}
           form={form}
+          notice={refusalAlert}
           submitButton={submitButton}
         />
       </StepStackStep>,
@@ -112,6 +120,7 @@ export const EntitlementForm = ({
               entitlement={entitlement}
               form={form}
             />
+            {refusalAlert}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={handleCancel}>
                 {t('Common.cancel')}
@@ -129,10 +138,13 @@ function EntitlementIdentityStepCard({
   entitlement,
   footer,
   form,
+  notice,
 }: {
   entitlement?: Entitlement;
   footer: ReactNode;
   form: any;
+  /** What the API refused, above the buttons, when this step has them. */
+  notice: ReactNode;
 }) {
   const { t } = useTranslation();
 
@@ -151,6 +163,8 @@ function EntitlementIdentityStepCard({
           entitlement={entitlement}
           form={form}
         />
+
+        {notice}
       </div>
     </StackedFormDialogCard>
   );
@@ -159,10 +173,13 @@ function EntitlementIdentityStepCard({
 function EntitlementTypeStepCard({
   entitlement,
   form,
+  notice,
   submitButton,
 }: {
   entitlement?: Entitlement;
   form: any;
+  /** What the API refused, above the buttons. */
+  notice: ReactNode;
   submitButton: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -190,6 +207,8 @@ function EntitlementTypeStepCard({
           entitlement={entitlement}
           form={form}
         />
+
+        {notice}
       </div>
     </StackedFormDialogCard>
   );
@@ -205,9 +224,9 @@ const ValidatedStepNextButton = ({
   const { nextStep } = useStepStack();
 
   return (
-    <Button type="button" disabled={disabled} onClick={nextStep}>
+    <StepNextButton disabled={disabled} onClick={nextStep}>
       {label}
-    </Button>
+    </StepNextButton>
   );
 };
 
@@ -241,13 +260,9 @@ function EntitlementIdentityStepFooter({
         selector={(state: { values: EntitlementFormValues }) => state}
       >
         {(state: { values: EntitlementFormValues }) => {
-          const validationResult = entitlementIdentityStepSchema.safeParse({
-            name: state.values.name,
-            slug: state.values.slug,
-            description: state.values.description,
-            groupSlugs: state.values.groupSlugs,
-            icon: state.values.icon,
-          });
+          const validationResult = entitlementIdentityStepSchema.safeParse(
+            getIdentityStepValues(state.values),
+          );
           return (
             <ValidatedStepNextButton
               label={t('Common.next', 'Next')}

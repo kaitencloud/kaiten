@@ -31,7 +31,7 @@ const DatePickerField = ({
         required={required}
       >
         {(field) => (
-          <FormControl>
+          <FormControl announceRequired={false}>
             <DatePicker
               date={field.value ? new Date(field.value) : undefined}
               onSelect={(date) => field.handleChange(date?.toISOString() ?? '')}
@@ -51,7 +51,7 @@ const DatePickerField = ({
       required={required}
     >
       {(field) => (
-        <FormControl>
+        <FormControl announceRequired={false}>
           <DatePicker
             date={field.value}
             onSelect={field.handleChange}
