@@ -36,24 +36,28 @@ export const ONBOARDING_PACK_REMOVED_AT = '2026-10-03T08:00:00.000Z';
 const SEATS = {
   familySlug: 'extra-seats',
   id: 'addon-extra-seats',
+  maxQuantity: null,
   name: 'Extra seats',
   slug: 'extra-seats',
 };
 const TOKENS = {
   familySlug: 'extra-tokens',
   id: 'addon-extra-tokens',
+  maxQuantity: null,
   name: 'Extra tokens',
   slug: 'extra-tokens',
 };
 const PRIORITY_PACK = {
   familySlug: 'priority-pack',
   id: 'addon-priority-pack',
+  maxQuantity: null,
   name: 'Priority pack',
   slug: 'priority-pack',
 };
 const ONBOARDING_PACK = {
   familySlug: 'onboarding-pack',
   id: 'addon-onboarding-pack',
+  maxQuantity: null,
   name: 'Onboarding pack',
   slug: 'onboarding-pack',
 };
@@ -73,6 +77,7 @@ const TOKENS_USAGE = buildPrice({
     entitlementSlug: 'tokens',
     saleUnitFactor: '1000000',
     saleUnitSingular: '1M tokens',
+    saleUnitPlural: null,
   },
   unitAmountDecimal: '200',
 });

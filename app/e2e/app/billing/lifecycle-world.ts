@@ -319,6 +319,7 @@ export const SHRINKING_ADDON: InstanceAddon = {
   pendingQuantity: 1,
   prices: [],
   quantity: 3,
+  removedAt: null,
 };
 
 /** The add-ons the seats instance holds: two seats, which a cancellation offers to take off. */
@@ -333,6 +334,7 @@ export const SEATS_ADDON: InstanceAddon = {
   pendingQuantity: null,
   prices: [],
   quantity: 2,
+  removedAt: null,
 };
 
 /** What the billing slot knows of the instances and what their versions sell. */

@@ -2,7 +2,8 @@
 -- Leases up to page_size PENDING invoices whose lease is free, oldest issue
 -- first. SKIP LOCKED: two consumers claiming at once get disjoint invoices.
 -- An expired lease is free again, which is what makes the queue
--- at-least-once.
+-- at-least-once; claiming an invoice claimed before records the re-claim
+-- (handoff_reclaimed_at, §19.3).
 WITH picked AS (
   SELECT i.id
   FROM instance_invoice i
@@ -17,6 +18,7 @@ UPDATE instance_invoice inv
 SET handoff_lease_id     = sqlc.arg(lease_id),
     handoff_leased_until = sqlc.arg(leased_until),
     handoff_claim_count  = inv.handoff_claim_count + 1,
+    handoff_reclaimed_at = CASE WHEN inv.handoff_claim_count > 0 THEN sqlc.arg(now) ELSE inv.handoff_reclaimed_at END,
     updated_at           = sqlc.arg(now)
 FROM picked
 WHERE inv.id = picked.id

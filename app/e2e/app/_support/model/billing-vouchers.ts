@@ -414,34 +414,34 @@ export class BillingVouchers {
       code,
       codeHint: voucherCodeHint(code),
       createdAt: stored.createdAt,
-      currency: draft.currency,
-      description: draft.description,
+      currency: draft.currency ?? null,
+      description: draft.description ?? null,
       duration: draft.duration,
-      durationInPeriods: draft.durationInPeriods,
-      expiresAt: draft.expiresAt,
+      durationInPeriods: draft.durationInPeriods ?? null,
+      expiresAt: draft.expiresAt ?? null,
       flagGrants: [...(draft.flagGrants ?? [])],
       grants: (draft.grants ?? []).map((grant) => ({
         entitlementSlug: grant.entitlementSlug,
         modifierType: grant.modifierType,
         modifierValue:
-          grant.modifierValue === undefined
-            ? undefined
+          grant.modifierValue == null
+            ? null
             : formatDecimal(grant.modifierValue),
         value: grant.value,
       })),
       id: stored.id,
-      maxRedemptions: draft.maxRedemptions,
+      maxRedemptions: draft.maxRedemptions ?? null,
       name: draft.name,
-      priceAppliesTo: draft.priceAppliesTo,
-      priceDiscountType: draft.priceDiscountType,
+      priceAppliesTo: draft.priceAppliesTo ?? null,
+      priceDiscountType: draft.priceDiscountType ?? null,
       priceDiscountValue:
-        draft.priceDiscountValue === undefined
+        (draft.priceDiscountValue === undefined
           ? undefined
-          : formatDecimal(draft.priceDiscountValue),
+          : formatDecimal(draft.priceDiscountValue)) ?? null,
       redemptionRules: clone(draft.redemptionRules ?? {}),
       redemptionsCount: stored.redemptionsCount,
-      restrictedCustomerSlug: draft.restrictedCustomerSlug,
-      startsAt: draft.startsAt,
+      restrictedCustomerSlug: draft.restrictedCustomerSlug ?? null,
+      startsAt: draft.startsAt ?? null,
       status: stored.status,
       updatedAt: stored.updatedAt,
       voucherType: draft.voucherType,
@@ -919,7 +919,7 @@ export class BillingVouchers {
           modifierType: grant.modifierType,
           redeemedAt: redemption.redeemedAt,
           value:
-            grant.modifierValue === undefined
+            grant.modifierValue == null
               ? undefined
               : Number(grant.modifierValue),
           voucherEntitlementGrantId: `${redemption.voucherId}-${grant.entitlementSlug}`,

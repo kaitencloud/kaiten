@@ -21,6 +21,7 @@ useBillingTexts();
 const TOKENS = {
   familySlug: 'extra-tokens',
   id: 'addon-tokens',
+  maxQuantity: null,
   name: 'Extra tokens',
   slug: 'extra-tokens',
 };

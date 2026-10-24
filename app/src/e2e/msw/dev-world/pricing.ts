@@ -14,6 +14,8 @@ import { daysAgo } from './dates';
 const API_CALLS = {
   entitlementSlug: 'api-calls',
   saleUnitFactor: '1',
+  saleUnitPlural: null,
+  saleUnitSingular: null,
 } as const;
 
 // A price per call is a fraction of a cent, which is what `unitAmountDecimal`

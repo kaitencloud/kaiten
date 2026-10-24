@@ -330,6 +330,30 @@ export type ExportedFile = { body: string; contentType: string };
  * invoice the way the API does: what a screen shows after it is what the API
  * would answer.
  */
+
+/** A provider record with nothing recorded yet: every member the contract
+ * makes nullable is null (§13.15, V31-03). */
+function emptyProviderRecord(): ProviderRecord {
+  return {
+    externalCustomerId: null,
+    externalInvoiceId: null,
+    hostedInvoiceUrl: null,
+    invoiceNumber: null,
+    invoicePdfUrl: null,
+    lastPaymentError: null,
+    lastPushError: null,
+    nextPushAt: null,
+    pushAttempts: 0,
+    pushedAt: null,
+    reconciledAt: null,
+    reconciliationDetail: null,
+    reconciliationStatus: null,
+    status: null,
+    syncedAt: null,
+    totalExcludingTax: null,
+  };
+}
+
 export class BillingInvoices {
   private readonly armed = new Map<
     InvoiceProblemOperation,
@@ -968,13 +992,27 @@ export class BillingInvoices {
       invoice.status = 'PAID';
       invoice.paidAt = at;
       invoice.handoffStatus = 'NOT_REQUIRED';
-      invoice.handoff = { claimCount: 0, status: 'NOT_REQUIRED' };
+      invoice.handoff = {
+        claimCount: 0,
+        status: 'NOT_REQUIRED',
+        acknowledgedAt: null,
+        externalReference: null,
+        leaseId: null,
+        leasedUntil: null,
+      };
 
       return;
     }
     invoice.status = 'MANUAL';
     invoice.handoffStatus = 'PENDING';
-    invoice.handoff = { claimCount: 0, status: 'PENDING' };
+    invoice.handoff = {
+      claimCount: 0,
+      status: 'PENDING',
+      acknowledgedAt: null,
+      externalReference: null,
+      leaseId: null,
+      leasedUntil: null,
+    };
   }
 
   private clearHold(invoice: Invoice, reason: string, by: string | undefined) {
@@ -983,7 +1021,7 @@ export class BillingInvoices {
       heldAt: invoice.hold?.heldAt ?? invoice.createdAt,
       releaseReason: reason,
       releasedAt,
-      releasedBy: by,
+      releasedBy: by ?? null,
     };
     invoice.holdReason = null;
     invoice.holdDetail = null;
@@ -998,7 +1036,8 @@ export class BillingInvoices {
     invoice.holdReason = null;
     invoice.holdDetail = null;
     const released = invoice.hold?.releasedAt;
-    invoice.hold = released ? { ...invoice.hold, heldAt: undefined } : null;
+    invoice.hold =
+      released && invoice.hold ? { ...invoice.hold, heldAt: null } : null;
   }
 
   /** `POST /invoices/{invoiceId}/release-hold`. */
@@ -1117,6 +1156,20 @@ export class BillingInvoices {
           : {
               nextPushAt: at,
               pushAttempts: 0,
+              externalCustomerId: null,
+              externalInvoiceId: null,
+              hostedInvoiceUrl: null,
+              invoiceNumber: null,
+              invoicePdfUrl: null,
+              lastPaymentError: null,
+              lastPushError: null,
+              pushedAt: null,
+              reconciledAt: null,
+              reconciliationDetail: null,
+              reconciliationStatus: null,
+              status: null,
+              syncedAt: null,
+              totalExcludingTax: null,
             },
       replacedByInvoiceId: null,
       replacesInvoiceId: invoice.id,
@@ -1152,7 +1205,7 @@ export class BillingInvoices {
       );
     }
     if (
-      stored !== undefined &&
+      stored != null &&
       body.externalReference !== undefined &&
       stored !== body.externalReference
     ) {
@@ -1178,8 +1231,10 @@ export class BillingInvoices {
       invoice.handoff = {
         acknowledgedAt: new Date(now).toISOString(),
         claimCount: invoice.handoff.claimCount,
-        externalReference: body.externalReference,
+        externalReference: body.externalReference ?? null,
         status: 'ACKNOWLEDGED',
+        leaseId: null,
+        leasedUntil: null,
       };
     } else if (body.externalReference !== undefined) {
       invoice.handoff.externalReference = body.externalReference;
@@ -1242,7 +1297,7 @@ export class BillingInvoices {
     this.dropHold(invoice);
     invoice.provider = invoice.provider && {
       ...invoice.provider,
-      nextPushAt: undefined,
+      nextPushAt: null,
     };
     this.pushQueue.delete(id);
 
@@ -1272,7 +1327,7 @@ export class BillingInvoices {
         },
       );
     }
-    record.status = record.status === 'draft' ? undefined : 'void';
+    record.status = record.status === 'draft' ? null : 'void';
     this.providerTruth.set(invoice.id, 'void');
   }
 
@@ -1291,7 +1346,7 @@ export class BillingInvoices {
    */
   private finalizeAtProvider(invoice: Invoice) {
     const at = new Date(this.now()).toISOString();
-    const record = (invoice.provider ??= { pushAttempts: 0 });
+    const record = (invoice.provider ??= emptyProviderRecord());
     const days =
       invoice.collectionMethod === 'CHARGE_AUTOMATICALLY'
         ? 0
@@ -1309,11 +1364,11 @@ export class BillingInvoices {
     record.invoicePdfUrl = `https://pay.stripe.com/invoice/acct_1/${externalId}/pdf`;
     record.pushedAt = at;
     record.syncedAt = at;
-    record.nextPushAt = undefined;
-    record.lastPushError = undefined;
+    record.nextPushAt = null;
+    record.lastPushError = null;
     record.totalExcludingTax = invoice.total;
     record.reconciliationStatus = 'MATCHED';
-    record.reconciliationDetail = undefined;
+    record.reconciliationDetail = null;
     record.reconciledAt = at;
     this.providerTruth.set(invoice.id, 'open');
   }
@@ -1335,7 +1390,7 @@ export class BillingInvoices {
     }
     const failure = this.pushFailures.get(invoice.id);
     if (failure) {
-      const record = (invoice.provider ??= { pushAttempts: 0 });
+      const record = (invoice.provider ??= emptyProviderRecord());
       record.pushAttempts += 1;
       record.lastPushError = failure;
       record.nextPushAt = new Date(
@@ -1379,13 +1434,13 @@ export class BillingInvoices {
     const record = invoice.provider as ProviderRecord | null;
     const awaitsFinalization =
       invoice.status === 'DRAFT' &&
-      record?.externalInvoiceId !== undefined &&
-      record.nextPushAt === undefined;
+      record?.externalInvoiceId != null &&
+      record.nextPushAt == null;
     if (awaitsFinalization) {
       this.finalizeAtProvider(invoice);
     } else {
       invoice.provider = {
-        pushAttempts: 0,
+        ...emptyProviderRecord(),
         ...record,
         nextPushAt: new Date(this.now()).toISOString(),
       };
@@ -1410,7 +1465,7 @@ export class BillingInvoices {
         invoice.status = 'PAID';
         invoice.paidAt = at;
         record.status = 'paid';
-        record.nextPushAt = undefined;
+        record.nextPushAt = null;
         break;
       case 'void':
       case 'deleted':
@@ -1418,8 +1473,8 @@ export class BillingInvoices {
         invoice.voidedAt = at;
         invoice.voidReason =
           truth === 'void' ? 'voided_in_provider' : 'provider_draft_deleted';
-        record.status = truth === 'void' ? 'void' : undefined;
-        record.nextPushAt = undefined;
+        record.status = truth === 'void' ? 'void' : null;
+        record.nextPushAt = null;
         break;
       case 'uncollectible':
         invoice.status = 'UNCOLLECTIBLE';
@@ -1504,7 +1559,7 @@ export class BillingInvoices {
       if (body.externalReference === undefined) {
         return clone(invoice);
       }
-      if (stored === undefined) {
+      if (stored == null) {
         invoice.handoff.externalReference = body.externalReference;
 
         return clone(this.stamp(invoice));
@@ -1534,8 +1589,10 @@ export class BillingInvoices {
     invoice.handoff = {
       acknowledgedAt: new Date(this.now()).toISOString(),
       claimCount: invoice.handoff.claimCount,
-      externalReference: body.externalReference,
+      externalReference: body.externalReference ?? null,
       status: 'ACKNOWLEDGED',
+      leaseId: null,
+      leasedUntil: null,
     };
 
     return clone(this.stamp(invoice));

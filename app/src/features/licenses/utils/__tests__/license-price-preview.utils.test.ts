@@ -27,19 +27,19 @@ const retired = buildPrice({
 const traces = buildPrice({
   billingModel: 'OVERAGE',
   id: 'traces',
-  metered: { entitlementSlug: 'traces', saleUnitFactor: '100000' },
+  metered: { entitlementSlug: 'traces', saleUnitFactor: '100000', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '800',
 });
 const requests = buildPrice({
   billingModel: 'USAGE_BASED',
   id: 'requests',
-  metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },
+  metered: { entitlementSlug: 'requests', saleUnitFactor: '1000', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '150',
 });
 const oldRequests = buildPrice({
   billingModel: 'USAGE_BASED',
   id: 'old-requests',
-  metered: { entitlementSlug: 'api', saleUnitFactor: '1' },
+  metered: { entitlementSlug: 'api', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
   status: 'DEPRECATED',
   unitAmountDecimal: '20',
 });

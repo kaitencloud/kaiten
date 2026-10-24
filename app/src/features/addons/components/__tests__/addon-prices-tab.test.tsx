@@ -62,7 +62,7 @@ const METERED = buildPrice({
   displayLabel: 'API calls, metered',
   displayOrder: 3,
   id: 'price-metered',
-  metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+  metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '0.1',
 });
 // What the version grants: the seats it adds, a stock, and the calls, a flow a price may meter.
@@ -156,7 +156,7 @@ describe('the prices of a version', () => {
         body: [
           MONTHLY,
           METERED,
-          { ...METERED, billingModel: 'OVERAGE', displayLabel: 'Seats, overage', id: 'price-overage', metered: { entitlementSlug: 'seats', saleUnitFactor: '1' } },
+          { ...METERED, billingModel: 'OVERAGE', displayLabel: 'Seats, overage', id: 'price-overage', metered: { entitlementSlug: 'seats', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null } },
         ],
       }),
     );

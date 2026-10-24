@@ -210,7 +210,8 @@ export class InstanceAddons implements AddonHolders {
                   behavior: grant.overrideBehavior,
                   entitlementSlug: grant.entitlementSlug,
                   instanceAddonId: attached.id,
-                  overagePercent: grant.limitCapExceededOveragePercent,
+                  overagePercent:
+                    grant.limitCapExceededOveragePercent ?? undefined,
                   quantity: attached.quantity,
                   value: grant.value.value,
                 },
@@ -450,6 +451,7 @@ export class InstanceAddons implements AddonHolders {
       pendingQuantity: null,
       prices: this.pricesFor(addon, subscription),
       quantity,
+      removedAt: null,
     };
     this.attachments[instanceSlug] = [
       ...(this.attachments[instanceSlug] ?? []),

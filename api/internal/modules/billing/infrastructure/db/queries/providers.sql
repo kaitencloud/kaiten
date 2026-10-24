@@ -339,14 +339,15 @@ ORDER BY created_at;
 
 
 -- name: BillingHealth :one
--- The health section, computed at read time.
+-- The health section, computed at read time (§19.3). The close backlog is net
+-- of the close grace, like the gauge: a period is due once its grace passed.
 SELECT
   (SELECT count(*) FROM instance_billing b
     WHERE b.organization_id = sqlc.arg(organization_id) AND b.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
-      AND b.current_period_end <= sqlc.arg(now))::bigint AS close_backlog,
+      AND b.current_period_end <= sqlc.arg(close_before)::timestamp)::bigint AS close_backlog,
   (SELECT min(b.current_period_end) FROM instance_billing b
     WHERE b.organization_id = sqlc.arg(organization_id) AND b.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
-      AND b.current_period_end <= sqlc.arg(now))::timestamp AS oldest_due_at,
+      AND b.current_period_end <= sqlc.arg(close_before)::timestamp)::timestamp AS oldest_due_at,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.hold_reason IS NOT NULL)::bigint AS held,
   (SELECT count(*) FROM instance_invoice i
@@ -377,7 +378,16 @@ SELECT
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = sqlc.arg(organization_id) AND i.handoff_status = 'PENDING')::bigint AS handoff_pending,
   (SELECT min(i.issued_at) FROM instance_invoice i
-    WHERE i.organization_id = sqlc.arg(organization_id) AND i.handoff_status = 'PENDING')::timestamp AS oldest_pending_issued_at;
+    WHERE i.organization_id = sqlc.arg(organization_id) AND i.handoff_status = 'PENDING')::timestamp AS oldest_pending_issued_at,
+  (SELECT count(*) FROM instance_invoice i
+    WHERE i.organization_id = sqlc.arg(organization_id)
+      AND i.handoff_reclaimed_at > sqlc.arg(now)::timestamp - interval '24 hours')::bigint AS handoff_reclaimed_last_24h,
+  (SELECT count(*) FROM customer_billing c
+    WHERE c.organization_id = sqlc.arg(organization_id) AND c.payment_method_status = 'ACTIVE'
+      AND c.payment_method_exp_year IS NOT NULL AND c.payment_method_exp_month IS NOT NULL
+      AND make_date(c.payment_method_exp_year, c.payment_method_exp_month, 1) + interval '1 month' > sqlc.arg(now)::timestamp
+      AND make_date(c.payment_method_exp_year, c.payment_method_exp_month, 1) + interval '1 month'
+          <= sqlc.arg(now)::timestamp + interval '30 days')::bigint AS payment_methods_expiring_30d;
 
 
 -- name: ListSyncStates :many

@@ -23,7 +23,7 @@ SET status             = 'PAYMENT_FAILED',
     updated_at         = $3
 WHERE id = $4
   AND status = 'PUSHED'
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type ApplyPaymentFailedParams struct {
@@ -111,6 +111,7 @@ func (q *Queries) ApplyPaymentFailed(ctx context.Context, arg ApplyPaymentFailed
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -125,7 +126,7 @@ SET status          = 'PAID',
     updated_at      = $2
 WHERE id = $3
   AND status IN ('PUSHED', 'PAYMENT_FAILED', 'UNCOLLECTIBLE')
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type ApplyProviderPaidParams struct {
@@ -205,6 +206,7 @@ func (q *Queries) ApplyProviderPaid(ctx context.Context, arg ApplyProviderPaidPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -218,7 +220,7 @@ SET status           = 'UNCOLLECTIBLE',
     updated_at       = $2
 WHERE id = $3
   AND status IN ('PUSHED', 'PAYMENT_FAILED')
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type ApplyProviderUncollectibleParams struct {
@@ -297,6 +299,7 @@ func (q *Queries) ApplyProviderUncollectible(ctx context.Context, arg ApplyProvi
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -313,7 +316,7 @@ SET status          = 'VOID',
     updated_at      = $4
 WHERE id = $5
   AND status IN ('DRAFT', 'PUSH_FAILED', 'PUSHED', 'PAYMENT_FAILED', 'UNCOLLECTIBLE')
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type ApplyProviderVoidParams struct {
@@ -401,6 +404,7 @@ func (q *Queries) ApplyProviderVoid(ctx context.Context, arg ApplyProviderVoidPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -459,10 +463,10 @@ const billingHealth = `-- name: BillingHealth :one
 SELECT
   (SELECT count(*) FROM instance_billing b
     WHERE b.organization_id = $1 AND b.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
-      AND b.current_period_end <= $2)::bigint AS close_backlog,
+      AND b.current_period_end <= $2::timestamp)::bigint AS close_backlog,
   (SELECT min(b.current_period_end) FROM instance_billing b
     WHERE b.organization_id = $1 AND b.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
-      AND b.current_period_end <= $2)::timestamp AS oldest_due_at,
+      AND b.current_period_end <= $2::timestamp)::timestamp AS oldest_due_at,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.hold_reason IS NOT NULL)::bigint AS held,
   (SELECT count(*) FROM instance_invoice i
@@ -481,51 +485,65 @@ SELECT
       AND i.push_attempts >= $3::integer)::timestamp AS oldest_push_failure_at,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.reconciliation_status = 'MISMATCH'
-      AND i.reconciled_at > $2::timestamp - interval '30 days')::bigint AS reconciliation_mismatches,
+      AND i.reconciled_at > $4::timestamp - interval '30 days')::bigint AS reconciliation_mismatches,
   (SELECT count(*) FROM instance_billing b
     WHERE b.organization_id = $1 AND b.status = 'PAST_DUE')::bigint AS past_due,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.status IN ('MANUAL', 'PUSHED', 'PAYMENT_FAILED')
       AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
-                OR i.issued_at < $4::timestamp
-              ELSE i.due_at < $2::timestamp END))::bigint AS overdue,
+                OR i.issued_at < $5::timestamp
+              ELSE i.due_at < $4::timestamp END))::bigint AS overdue,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING')::bigint AS handoff_pending,
   (SELECT min(i.issued_at) FROM instance_invoice i
-    WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING')::timestamp AS oldest_pending_issued_at
+    WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING')::timestamp AS oldest_pending_issued_at,
+  (SELECT count(*) FROM instance_invoice i
+    WHERE i.organization_id = $1
+      AND i.handoff_reclaimed_at > $4::timestamp - interval '24 hours')::bigint AS handoff_reclaimed_last_24h,
+  (SELECT count(*) FROM customer_billing c
+    WHERE c.organization_id = $1 AND c.payment_method_status = 'ACTIVE'
+      AND c.payment_method_exp_year IS NOT NULL AND c.payment_method_exp_month IS NOT NULL
+      AND make_date(c.payment_method_exp_year, c.payment_method_exp_month, 1) + interval '1 month' > $4::timestamp
+      AND make_date(c.payment_method_exp_year, c.payment_method_exp_month, 1) + interval '1 month'
+          <= $4::timestamp + interval '30 days')::bigint AS payment_methods_expiring_30d
 `
 
 type BillingHealthParams struct {
 	OrganizationID       uuid.UUID        `json:"organization_id"`
-	Now                  pgtype.Timestamp `json:"now"`
+	CloseBefore          pgtype.Timestamp `json:"close_before"`
 	AlertAfterAttempts   int32            `json:"alert_after_attempts"`
+	Now                  pgtype.Timestamp `json:"now"`
 	AutoCollectionBefore pgtype.Timestamp `json:"auto_collection_before"`
 }
 
 type BillingHealthRow struct {
-	CloseBacklog             int64            `json:"close_backlog"`
-	OldestDueAt              pgtype.Timestamp `json:"oldest_due_at"`
-	Held                     int64            `json:"held"`
-	HeldSequenceGap          int64            `json:"held_sequence_gap"`
-	HeldChainBreak           int64            `json:"held_chain_break"`
-	HeldCounterMismatch      int64            `json:"held_counter_mismatch"`
-	HeldProviderItemLimit    int64            `json:"held_provider_item_limit"`
-	PushFailures             int64            `json:"push_failures"`
-	OldestPushFailureAt      pgtype.Timestamp `json:"oldest_push_failure_at"`
-	ReconciliationMismatches int64            `json:"reconciliation_mismatches"`
-	PastDue                  int64            `json:"past_due"`
-	Overdue                  int64            `json:"overdue"`
-	HandoffPending           int64            `json:"handoff_pending"`
-	OldestPendingIssuedAt    pgtype.Timestamp `json:"oldest_pending_issued_at"`
+	CloseBacklog              int64            `json:"close_backlog"`
+	OldestDueAt               pgtype.Timestamp `json:"oldest_due_at"`
+	Held                      int64            `json:"held"`
+	HeldSequenceGap           int64            `json:"held_sequence_gap"`
+	HeldChainBreak            int64            `json:"held_chain_break"`
+	HeldCounterMismatch       int64            `json:"held_counter_mismatch"`
+	HeldProviderItemLimit     int64            `json:"held_provider_item_limit"`
+	PushFailures              int64            `json:"push_failures"`
+	OldestPushFailureAt       pgtype.Timestamp `json:"oldest_push_failure_at"`
+	ReconciliationMismatches  int64            `json:"reconciliation_mismatches"`
+	PastDue                   int64            `json:"past_due"`
+	Overdue                   int64            `json:"overdue"`
+	HandoffPending            int64            `json:"handoff_pending"`
+	OldestPendingIssuedAt     pgtype.Timestamp `json:"oldest_pending_issued_at"`
+	HandoffReclaimedLast24h   int64            `json:"handoff_reclaimed_last_24h"`
+	PaymentMethodsExpiring30d int64            `json:"payment_methods_expiring_30d"`
 }
 
-// The health section, computed at read time.
+// The health section, computed at read time (§19.3). The close backlog is net
+// of the close grace, like the gauge: a period is due once its grace passed.
 func (q *Queries) BillingHealth(ctx context.Context, arg BillingHealthParams) (BillingHealthRow, error) {
 	row := q.db.QueryRow(ctx, billingHealth,
 		arg.OrganizationID,
-		arg.Now,
+		arg.CloseBefore,
 		arg.AlertAfterAttempts,
+		arg.Now,
 		arg.AutoCollectionBefore,
 	)
 	var i BillingHealthRow
@@ -544,6 +562,8 @@ func (q *Queries) BillingHealth(ctx context.Context, arg BillingHealthParams) (B
 		&i.Overdue,
 		&i.HandoffPending,
 		&i.OldestPendingIssuedAt,
+		&i.HandoffReclaimedLast24h,
+		&i.PaymentMethodsExpiring30d,
 	)
 	return i, err
 }
@@ -895,7 +915,7 @@ func (q *Queries) GetCustomerBillingByExternalID(ctx context.Context, arg GetCus
 }
 
 const getInvoiceByExternalID = `-- name: GetInvoiceByExternalID :one
-SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 FROM instance_invoice
 WHERE organization_id = $1
   AND provider_kind = $2
@@ -978,12 +998,13 @@ func (q *Queries) GetInvoiceByExternalID(ctx context.Context, arg GetInvoiceByEx
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
 
 const getInvoiceByID = `-- name: GetInvoiceByID :one
-SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 FROM instance_invoice
 WHERE id = $1
 `
@@ -1058,6 +1079,7 @@ func (q *Queries) GetInvoiceByID(ctx context.Context, id uuid.UUID) (InstanceInv
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -1241,7 +1263,7 @@ func (q *Queries) ListExpiringPaymentMethods(ctx context.Context, day pgtype.Dat
 }
 
 const listOpenProviderInvoices = `-- name: ListOpenProviderInvoices :many
-SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+SELECT id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 FROM instance_invoice
 WHERE organization_id = $1
   AND provider_kind = $2
@@ -1337,6 +1359,7 @@ func (q *Queries) ListOpenProviderInvoices(ctx context.Context, arg ListOpenProv
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.FinalizeRequested,
+			&i.HandoffReclaimedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1447,7 +1470,7 @@ SET push_attempts   = push_attempts + 1,
 WHERE id = $4
   AND status = 'PUSHED'
   AND collection_method = 'CHARGE_AUTOMATICALLY'
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type MarkChargeUnknownParams struct {
@@ -1535,6 +1558,7 @@ func (q *Queries) MarkChargeUnknown(ctx context.Context, arg MarkChargeUnknownPa
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -1578,7 +1602,7 @@ SET status          = 'PUSH_FAILED',
     updated_at      = $3
 WHERE id = $4
   AND status IN ('DRAFT', 'PUSH_FAILED')
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type MarkPushFailedParams struct {
@@ -1664,6 +1688,7 @@ func (q *Queries) MarkPushFailed(ctx context.Context, arg MarkPushFailedParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -1689,7 +1714,7 @@ SET status                  = 'PUSHED',
     updated_at              = $8
 WHERE id = $9
   AND status IN ('DRAFT', 'PUSH_FAILED')
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type MarkPushedParams struct {
@@ -1786,6 +1811,7 @@ func (q *Queries) MarkPushed(ctx context.Context, arg MarkPushedParams) (Instanc
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }
@@ -1834,7 +1860,7 @@ SET finalize_requested = true,
 WHERE id = $2
   AND provider_kind <> 'NOOP'
   AND status IN ('DRAFT', 'PUSH_FAILED')
-RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
+RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested, handoff_reclaimed_at
 `
 
 type RequeuePushParams struct {
@@ -1915,6 +1941,7 @@ func (q *Queries) RequeuePush(ctx context.Context, arg RequeuePushParams) (Insta
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.FinalizeRequested,
+		&i.HandoffReclaimedAt,
 	)
 	return i, err
 }

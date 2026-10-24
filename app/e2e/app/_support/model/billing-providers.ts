@@ -581,15 +581,16 @@ export class BillingProviders {
     return {
       closeBacklog: {
         count: waitingToClose.length,
-        oldestDueAt: oldest(
-          waitingToClose.map((subscription) => subscription.currentPeriodEnd),
-        ),
+        oldestDueAt:
+          oldest(
+            waitingToClose.map((subscription) => subscription.currentPeriodEnd),
+          ) ?? null,
       },
       handoff: {
-        oldestPendingIssuedAt: oldest(
-          waiting.map((invoice) => invoice.issuedAt),
-        ),
+        oldestPendingIssuedAt:
+          oldest(waiting.map((invoice) => invoice.issuedAt)) ?? null,
         pending: waiting.length,
+        reclaimedLast24h: 0,
       },
       heldInvoices: {
         byReason: {
@@ -606,9 +607,12 @@ export class BillingProviders {
       providerSync: this.providerSync(now),
       pushFailures: {
         count: failed.length,
-        oldestFailedAt: oldest(failed.map((invoice) => invoice.updatedAt)),
+        oldestFailedAt:
+          oldest(failed.map((invoice) => invoice.updatedAt)) ?? null,
       },
       reconciliationMismatches30d: mismatched.length,
+      paymentMethodsExpiring30d: 0,
+      usageLedger: { retentionMonths: null, retentionSource: 'ENV' },
     };
   }
 
@@ -620,17 +624,18 @@ export class BillingProviders {
     return [
       {
         consecutiveFailures: this.sync.consecutiveFailures,
-        lagSeconds: this.sync.lastSyncedAt
-          ? Math.max(
-              0,
-              Math.round((now - Date.parse(this.sync.lastSyncedAt)) / 1000),
-            )
-          : undefined,
-        lastFullSweepAt: this.sync.lastFullSweepAt,
-        lastSuccessfulSyncAt: this.sync.lastSuccessfulSyncAt,
-        lastSyncError: this.sync.lastSyncError,
-        lastSyncStatus: this.sync.lastSyncStatus,
-        lastSyncedAt: this.sync.lastSyncedAt,
+        lagSeconds:
+          (this.sync.lastSyncedAt
+            ? Math.max(
+                0,
+                Math.round((now - Date.parse(this.sync.lastSyncedAt)) / 1000),
+              )
+            : undefined) ?? null,
+        lastFullSweepAt: this.sync.lastFullSweepAt ?? null,
+        lastSuccessfulSyncAt: this.sync.lastSuccessfulSyncAt ?? null,
+        lastSyncError: this.sync.lastSyncError ?? null,
+        lastSyncStatus: this.sync.lastSyncStatus ?? null,
+        lastSyncedAt: this.sync.lastSyncedAt ?? null,
         providerKind: 'STRIPE',
       },
     ];

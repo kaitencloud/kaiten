@@ -37,10 +37,10 @@ export function groupReportsByWindow(
     let window = byKey.get(key);
     if (!window) {
       window = {
-        end: report.windowEnd,
+        end: report.windowEnd ?? undefined,
         key,
         reports: [],
-        start: report.windowStart,
+        start: report.windowStart ?? undefined,
         sumDelta: '0',
         sumOverageDelta: '0',
       };

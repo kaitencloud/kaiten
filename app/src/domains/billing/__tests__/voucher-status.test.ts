@@ -29,7 +29,7 @@ describe('the state of a voucher', () => {
   it('says that a voucher whose window opens later is scheduled', () => {
     expect(isVoucherScheduled({ startsAt: FUTURE }, NOW)).toBe(true);
     expect(isVoucherScheduled({ startsAt: PAST }, NOW)).toBe(false);
-    expect(isVoucherScheduled({ startsAt: undefined }, NOW)).toBe(false);
+    expect(isVoucherScheduled({ startsAt: null }, NOW)).toBe(false);
     expect(isVoucherScheduled({ startsAt: null } as never, NOW)).toBe(false);
   });
 });

@@ -64,7 +64,7 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
       count: health.pushFailures.count,
       id: 'pushFailures',
       link: { search: { status: 'PUSH_FAILED' }, to: '/invoices' },
-      oldestAt: health.pushFailures.oldestFailedAt,
+      oldestAt: health.pushFailures.oldestFailedAt ?? undefined,
     },
     {
       count: health.overdueInvoices,
@@ -75,13 +75,13 @@ export function getHealthItems(health: BillingHealth): HealthItem[] {
       count: health.handoff.pending,
       id: 'handoff',
       link: { search: { view: 'waiting' }, to: '/invoices' },
-      oldestAt: health.handoff.oldestPendingIssuedAt,
+      oldestAt: health.handoff.oldestPendingIssuedAt ?? undefined,
     },
     { count: health.reconciliationMismatches30d, id: 'mismatches' },
     {
       count: health.closeBacklog.count,
       id: 'closeBacklog',
-      oldestAt: health.closeBacklog.oldestDueAt,
+      oldestAt: health.closeBacklog.oldestDueAt ?? undefined,
     },
     { count: health.pastDueSubscriptions, id: 'pastDue' },
   ];
@@ -131,20 +131,20 @@ export function getProviderSyncStanding(
   if (sync.consecutiveFailures > 0 || sync.lastSyncStatus === 'FAILED') {
     return {
       at,
-      error: sync.lastSyncError,
+      error: sync.lastSyncError ?? undefined,
       failures: Math.max(sync.consecutiveFailures, 1),
       kind: 'failing',
-      lastSuccess: sync.lastSuccessfulSyncAt,
+      lastSuccess: sync.lastSuccessfulSyncAt ?? undefined,
     };
   }
   if (sync.lastSyncStatus === 'PARTIAL') {
     return {
       at,
-      error: sync.lastSyncError,
+      error: sync.lastSyncError ?? undefined,
       kind: 'partial',
-      lastSuccess: sync.lastSuccessfulSyncAt,
+      lastSuccess: sync.lastSuccessfulSyncAt ?? undefined,
     };
   }
 
-  return { at, error: sync.lastSyncError, kind: 'ok' };
+  return { at, error: sync.lastSyncError ?? undefined, kind: 'ok' };
 }

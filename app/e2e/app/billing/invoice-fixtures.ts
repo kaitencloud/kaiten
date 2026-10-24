@@ -181,7 +181,12 @@ export function invoiceSet(): {
     buildInvoice({
       boundaryAt: '2026-05-01T00:00:00.000Z',
       createdAt,
-      hold: { heldAt: createdAt },
+      hold: {
+        heldAt: createdAt,
+        releaseReason: null,
+        releasedAt: null,
+        releasedBy: null,
+      },
       holdDetail: {
         pairs: [
           {

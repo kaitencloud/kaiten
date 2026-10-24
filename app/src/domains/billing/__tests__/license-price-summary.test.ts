@@ -24,7 +24,7 @@ const metered = price({
   billingPeriod: null,
   billingTiming: 'ARREARS',
   id: 'price-requests',
-  metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },
+  metered: { entitlementSlug: 'requests', saleUnitFactor: '1000', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '0.2',
 });
 

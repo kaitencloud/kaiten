@@ -36,7 +36,7 @@ const family = (
   versions: Addon[] | null,
   currentVersion?: Addon,
 ): AddonFamily => ({
-  currentVersion,
+  currentVersion: currentVersion ?? null,
   id: `addon-family-${slug}`,
   increaseBilling: 'TRUE_UP',
   isPublic: false,

@@ -182,7 +182,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		RetryInvoicePush:       retryinvoicepush.NewUseCase(deps, pusher),
 		SyncProvider:           syncprovider.NewUseCase(deps, syncer),
 		SyncInvoice:            syncinvoice.NewUseCase(deps, syncer),
-		GetBillingHealth:       getbillinghealth.NewUseCase(deps, cfg.Push.AlertAfterAttempts),
+		GetBillingHealth:       getbillinghealth.NewUseCase(deps, cfg.Push.AlertAfterAttempts, cfg.CloseGrace),
 		SessionInvoices:        sessioninvoices.NewUseCase(deps, syncer),
 
 		GetCustomerBilling:           getcustomerbilling.NewUseCase(deps),

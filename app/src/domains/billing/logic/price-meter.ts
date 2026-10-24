@@ -51,7 +51,8 @@ export function meterOfEntitlement(
   return {
     entitlementSlug: entitlement.slug ?? entitlement.id,
     saleUnitFactor: String(entitlement.saleUnitFactor ?? 1),
-    saleUnitSingular: entitlement.saleUnitSingular,
+    saleUnitSingular: entitlement.saleUnitSingular ?? null,
+    saleUnitPlural: null,
   };
 }
 
@@ -62,7 +63,7 @@ export function meterOfEntitlement(
  */
 export type MeterGrant = {
   entitlementSlug?: string;
-  limitCapExceededOveragePercent?: number;
+  limitCapExceededOveragePercent?: number | null;
   value: { [key: string]: unknown };
 };
 

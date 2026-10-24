@@ -23,8 +23,8 @@ describe('the invoices of the handoff queue', () => {
     render(
       <HandoffTable
         invoices={[
-          queued({ handoff: { claimCount: 3, status: 'PENDING' } }),
-          queued({ handoff: { claimCount: 1, status: 'PENDING' }, id: 'inv-2' }),
+          queued({ handoff: { claimCount: 3, status: 'PENDING', acknowledgedAt: null, externalReference: null, leaseId: null, leasedUntil: null } }),
+          queued({ handoff: { claimCount: 1, status: 'PENDING', acknowledgedAt: null, externalReference: null, leaseId: null, leasedUntil: null }, id: 'inv-2' }),
         ]}
         status="PENDING"
       />,
@@ -83,17 +83,17 @@ describe('the invoices of the handoff queue', () => {
         invoices={[
           queued({
             customerName: 'Once',
-            handoff: { claimCount: 1, status: 'PENDING' },
+            handoff: { claimCount: 1, status: 'PENDING', acknowledgedAt: null, externalReference: null, leaseId: null, leasedUntil: null },
             id: 'inv-1',
           }),
           queued({
             customerName: 'Thrice',
-            handoff: { claimCount: 3, status: 'PENDING' },
+            handoff: { claimCount: 3, status: 'PENDING', acknowledgedAt: null, externalReference: null, leaseId: null, leasedUntil: null },
             id: 'inv-2',
           }),
           queued({
             customerName: 'Never',
-            handoff: { claimCount: 0, status: 'PENDING' },
+            handoff: { claimCount: 0, status: 'PENDING', acknowledgedAt: null, externalReference: null, leaseId: null, leasedUntil: null },
             id: 'inv-3',
           }),
         ]}
@@ -213,6 +213,8 @@ describe('the invoices of the handoff queue', () => {
               leaseId: 'lease-1',
               leasedUntil: '2099-01-01T00:00:00.000Z',
               status: 'PENDING',
+              acknowledgedAt: null,
+              externalReference: null,
             },
           }),
           queued({
@@ -220,6 +222,9 @@ describe('the invoices of the handoff queue', () => {
               claimCount: 1,
               leasedUntil: '2020-01-01T00:00:00.000Z',
               status: 'PENDING',
+              acknowledgedAt: null,
+              externalReference: null,
+              leaseId: null,
             },
             id: 'inv-2',
           }),
@@ -276,6 +281,8 @@ describe('the invoices of the handoff queue', () => {
               claimCount: 1,
               externalReference: 'ERP-1042',
               status: 'ACKNOWLEDGED',
+              leaseId: null,
+              leasedUntil: null,
             },
             handoffStatus: 'ACKNOWLEDGED',
           }),
@@ -284,6 +291,9 @@ describe('the invoices of the handoff queue', () => {
               acknowledgedAt: '2027-03-05T10:00:00.000Z',
               claimCount: 0,
               status: 'ACKNOWLEDGED',
+              externalReference: null,
+              leaseId: null,
+              leasedUntil: null,
             },
             handoffStatus: 'ACKNOWLEDGED',
             id: 'inv-2',

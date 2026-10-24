@@ -59,7 +59,7 @@ describe('the pages Stripe hosts for an invoice', () => {
 
   it('are what the API says now: another address replaces the one that was shown', () => {
     const { rerender } = render(
-      <ProviderLinks provider={{ hostedInvoiceUrl: HOSTED }} />,
+      <ProviderLinks provider={{ hostedInvoiceUrl: HOSTED, invoicePdfUrl: null }} />,
     );
     expect(screen.getByRole('link', { name: 'Hosted invoice' })).toHaveAttribute(
       'href',
@@ -68,7 +68,7 @@ describe('the pages Stripe hosts for an invoice', () => {
 
     rerender(
       <ProviderLinks
-        provider={{ hostedInvoiceUrl: 'https://invoice.stripe.com/i/acct_1/test_2' }}
+        provider={{ hostedInvoiceUrl: 'https://invoice.stripe.com/i/acct_1/test_2', invoicePdfUrl: null }}
       />,
     );
 
@@ -104,7 +104,7 @@ describe('the pages Stripe hosts for an invoice', () => {
   });
 
   it('are no row at all for a draft Stripe has not finalized, which has neither', () => {
-    render(<ProviderLinks provider={{}} />);
+    render(<ProviderLinks provider={{ hostedInvoiceUrl: null, invoicePdfUrl: null }} />);
 
     expect(screen.queryByTestId('invoice-provider-links')).toBeNull();
   });

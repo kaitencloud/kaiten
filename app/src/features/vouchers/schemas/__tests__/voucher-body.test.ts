@@ -250,18 +250,20 @@ describe('a voucher that exists, as the form of the wizard', () => {
     'comes back to the body it was made from, so that a draft finished in the wizard is the same voucher ($name)',
     (voucher) => {
       const body = voucherFormValuesToBody(voucherToFormValues(voucher));
+      // The voucher holds null where the body it was made from left a member out.
+      const sent = <T>(value: T | null) => value ?? undefined;
 
       expect(body).toMatchObject({
         applicableAddonIds: voucher.applicableAddonIds,
         code: voucher.code,
         duration: voucher.duration,
-        durationInPeriods: voucher.durationInPeriods,
-        expiresAt: voucher.expiresAt,
-        maxRedemptions: voucher.maxRedemptions,
+        durationInPeriods: sent(voucher.durationInPeriods),
+        expiresAt: sent(voucher.expiresAt),
+        maxRedemptions: sent(voucher.maxRedemptions),
         name: voucher.name,
         redemptionRules: voucher.redemptionRules,
-        restrictedCustomerSlug: voucher.restrictedCustomerSlug,
-        startsAt: voucher.startsAt,
+        restrictedCustomerSlug: sent(voucher.restrictedCustomerSlug),
+        startsAt: sent(voucher.startsAt),
         voucherType: voucher.voucherType,
       });
       if (voucher.voucherType === 'ENTITLEMENT_BOOST') {
@@ -269,10 +271,10 @@ describe('a voucher that exists, as the form of the wizard', () => {
       } else {
         expect(body).toMatchObject({
           applicableLicensePriceIds: voucher.applicableLicensePriceIds,
-          currency: voucher.currency,
-          priceAppliesTo: voucher.priceAppliesTo,
-          priceDiscountType: voucher.priceDiscountType,
-          priceDiscountValue: voucher.priceDiscountValue,
+          currency: sent(voucher.currency),
+          priceAppliesTo: sent(voucher.priceAppliesTo),
+          priceDiscountType: sent(voucher.priceDiscountType),
+          priceDiscountValue: sent(voucher.priceDiscountValue),
         });
         expect(body.grants).toBeUndefined();
       }

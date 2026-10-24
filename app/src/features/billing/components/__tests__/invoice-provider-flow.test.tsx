@@ -80,7 +80,7 @@ const stripe = (overrides: Partial<Parameters<typeof buildInvoice>[0]> = {}): In
 const queued = () =>
   stripe({
     issuedAt: null,
-    provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: 0 },
+    provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: 0, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null },
     status: 'DRAFT',
   });
 const failed = () =>
@@ -90,6 +90,19 @@ const failed = () =>
       lastPushError: 'customer_tax_location_invalid',
       nextPushAt: '2027-03-02T06:00:00.000Z',
       pushAttempts: 3,
+      externalCustomerId: null,
+      externalInvoiceId: null,
+      hostedInvoiceUrl: null,
+      invoiceNumber: null,
+      invoicePdfUrl: null,
+      lastPaymentError: null,
+      pushedAt: null,
+      reconciledAt: null,
+      reconciliationDetail: null,
+      reconciliationStatus: null,
+      status: null,
+      syncedAt: null,
+      totalExcludingTax: null,
     },
     status: 'PUSH_FAILED',
   });

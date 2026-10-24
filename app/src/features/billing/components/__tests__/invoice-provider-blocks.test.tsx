@@ -154,6 +154,19 @@ describe('where an invoice stands in Stripe', () => {
             externalCustomerId: 'cus_initech',
             nextPushAt: '2027-03-01T00:12:00.000Z',
             pushAttempts: 2,
+            externalInvoiceId: null,
+            hostedInvoiceUrl: null,
+            invoiceNumber: null,
+            invoicePdfUrl: null,
+            lastPaymentError: null,
+            lastPushError: null,
+            pushedAt: null,
+            reconciledAt: null,
+            reconciliationDetail: null,
+            reconciliationStatus: null,
+            status: null,
+            syncedAt: null,
+            totalExcludingTax: null,
           },
           status: 'PUSH_FAILED',
         })}
@@ -190,6 +203,7 @@ const EMPTY_DETAIL: Reconciliation = {
   lines: [],
   missingInProvider: [],
   totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+  dueDate: null,
 };
 
 describe('how the amounts of Kaiten and Stripe compare', () => {
@@ -213,6 +227,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+          dueDate: null,
         })}
       />,
     );
@@ -238,6 +253,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
             lines: [],
             missingInProvider: [],
             totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+            dueDate: null,
           }),
           collectionMethod: 'CHARGE_AUTOMATICALLY',
         }}
@@ -295,6 +311,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3419 },
+          dueDate: null,
         })}
       />,
     );
@@ -326,6 +343,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           ],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 2500 },
+          dueDate: null,
         })}
       />,
     );
@@ -356,6 +374,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2400, providerTotalExcludingTax: 2900 },
+          dueDate: null,
         })}
       />,
     );
@@ -377,6 +396,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 400 },
+          dueDate: null,
         })}
       />,
     );
@@ -461,6 +481,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+          dueDate: null,
         })}
       />,
     );
@@ -479,6 +500,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: ['inv-1-line-3'],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3319 },
+          dueDate: null,
         })}
       />,
     );
@@ -509,6 +531,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
             providerTotalDiscount: 100,
             providerTotalExcludingTax: 2800,
           },
+          dueDate: null,
         })}
       />,
     );
@@ -537,6 +560,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 2800 },
+          dueDate: null,
         })}
       />,
     );
@@ -570,6 +594,7 @@ describe('how the amounts of Kaiten and Stripe compare', () => {
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 2800 },
+          dueDate: null,
         })}
       />,
     );
@@ -677,6 +702,20 @@ describe('what an invoice Stripe collects asks a person to look at', () => {
           provider: {
             nextPushAt: '2027-03-01T00:12:00.000Z',
             pushAttempts: 0,
+            externalCustomerId: null,
+            externalInvoiceId: null,
+            hostedInvoiceUrl: null,
+            invoiceNumber: null,
+            invoicePdfUrl: null,
+            lastPaymentError: null,
+            lastPushError: null,
+            pushedAt: null,
+            reconciledAt: null,
+            reconciliationDetail: null,
+            reconciliationStatus: null,
+            status: null,
+            syncedAt: null,
+            totalExcludingTax: null,
           },
           status: 'DRAFT',
         })}
@@ -696,6 +735,19 @@ describe('what an invoice Stripe collects asks a person to look at', () => {
             lastPushError: 'customer_tax_location_invalid: the address cannot be used',
             nextPushAt: '2027-03-02T06:00:00.000Z',
             pushAttempts: 3,
+            externalCustomerId: null,
+            externalInvoiceId: null,
+            hostedInvoiceUrl: null,
+            invoiceNumber: null,
+            invoicePdfUrl: null,
+            lastPaymentError: null,
+            pushedAt: null,
+            reconciledAt: null,
+            reconciliationDetail: null,
+            reconciliationStatus: null,
+            status: null,
+            syncedAt: null,
+            totalExcludingTax: null,
           },
           status: 'PUSH_FAILED',
         })}
@@ -717,7 +769,7 @@ describe('what an invoice Stripe collects asks a person to look at', () => {
       <InvoiceProviderAlerts
         invoice={stripeInvoice({
           issuedAt: null,
-          provider: { lastPushError: 'boom', pushAttempts: 1 },
+          provider: { lastPushError: 'boom', pushAttempts: 1, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, nextPushAt: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null },
           status: 'PUSH_FAILED',
         })}
         phase="idle"
@@ -775,7 +827,7 @@ describe('what an invoice Stripe collects asks a person to look at', () => {
       <InvoiceProviderAlerts
         invoice={stripeInvoice({
           issuedAt: null,
-          provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: 1 },
+          provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: 1, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null },
           status: 'DRAFT',
         })}
         phase={phase}

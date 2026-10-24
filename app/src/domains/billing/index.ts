@@ -266,6 +266,7 @@ export {
   type VersionLifecycleTransition,
   VOUCHER_STATUSES,
   VOUCHER_TYPES,
+  type NullableOptional,
   type VoucherOfferInput,
   type VoucherStatus,
   type VoucherType,

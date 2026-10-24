@@ -32,6 +32,7 @@ const MISMATCH_DETAIL: Reconciliation = {
   lines: [],
   missingInProvider: [],
   totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3000 },
+  dueDate: null,
 };
 
 test.beforeEach(async ({ page }) => {
@@ -451,6 +452,7 @@ test.describe('how the amounts of an invoice compare with those of Stripe', () =
           lines: [],
           missingInProvider: [],
           totals: { kaitenTotal: 2900, providerTotalExcludingTax: 2400 },
+          dueDate: null,
         },
         reconciliationStatus: 'MISMATCH',
         total: 2400,

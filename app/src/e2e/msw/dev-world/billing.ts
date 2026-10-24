@@ -470,7 +470,12 @@ export function createBillingInvoices(world: BillingWorld): {
     buildInvoice({
       boundaryAt: acmeUsPeriod.to,
       createdAt: daysAgo(1),
-      hold: { heldAt: daysAgo(1) },
+      hold: {
+        heldAt: daysAgo(1),
+        releaseReason: null,
+        releasedAt: null,
+        releasedBy: null,
+      },
       holdDetail: {
         pairs: [
           {

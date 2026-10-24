@@ -29,6 +29,9 @@ const report = (
   reportedValue: '10',
   valueAfter: String(seq * 10),
   valueBefore: String((seq - 1) * 10),
+  overagePercent: null,
+  properties: null,
+  transactionId: null,
   ...MARCH,
   ...overrides,
 });

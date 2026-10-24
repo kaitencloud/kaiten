@@ -46,3 +46,9 @@ func RegisterEndpoint(api huma.API, app Getter) {
 func (BillingCapabilities) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 	return nullable.Pointers(s, BillingCapabilities{})
 }
+
+// TransformSchema publishes BillingProvider's absent members as null (§13.11,
+// V31-03).
+func (BillingProvider) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, BillingProvider{})
+}

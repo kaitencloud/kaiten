@@ -50,6 +50,7 @@ const usage = buildPrice({
     entitlementSlug: 'requests',
     saleUnitFactor: '1000',
     saleUnitSingular: '1k requests',
+    saleUnitPlural: null,
   },
   unitAmountDecimal: '150',
 });
@@ -74,7 +75,7 @@ describe('PriceSummary', () => {
     const overage = buildPrice({
       billingModel: 'OVERAGE',
       id: 'overage',
-      metered: { entitlementSlug: 'traces', saleUnitFactor: '100000' },
+      metered: { entitlementSlug: 'traces', saleUnitFactor: '100000', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '800',
     });
 
@@ -99,7 +100,7 @@ describe('PriceSummary', () => {
     const perCall = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'per-call',
-      metered: { entitlementSlug: 'calls', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '0.2',
     });
     const calls = buildEntitlement({

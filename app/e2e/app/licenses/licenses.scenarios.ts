@@ -476,7 +476,12 @@ export function createPricedFamiliesModel() {
           displayLabel: 'Requests',
           displayOrder: 3,
           id: 'price-pro-v2-requests',
-          metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },
+          metered: {
+            entitlementSlug: 'requests',
+            saleUnitFactor: '1000',
+            saleUnitPlural: null,
+            saleUnitSingular: null,
+          },
           unitAmountDecimal: '20',
         }),
       ],

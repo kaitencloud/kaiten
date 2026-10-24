@@ -18,7 +18,11 @@ const SYNC_WRITES = /\/api\/billing\/sync$/;
 /** What `GET /billing/health` answers when each thing it counts needs attention. */
 const NEEDS_ATTENTION: BillingHealth = {
   closeBacklog: { count: 2, oldestDueAt: '2026-10-04T12:00:00.000Z' },
-  handoff: { oldestPendingIssuedAt: '2026-09-27T12:00:00.000Z', pending: 4 },
+  handoff: {
+    oldestPendingIssuedAt: '2026-09-27T12:00:00.000Z',
+    pending: 4,
+    reclaimedLast24h: 0,
+  },
   heldInvoices: {
     byReason: {
       LEDGER_CHAIN_BREAK: 1,
@@ -32,11 +36,13 @@ const NEEDS_ATTENTION: BillingHealth = {
   providerSync: [],
   pushFailures: { count: 1, oldestFailedAt: '2026-10-07T09:00:00.000Z' },
   reconciliationMismatches30d: 1,
+  paymentMethodsExpiring30d: 0,
+  usageLedger: { retentionMonths: null, retentionSource: 'ENV' },
 };
 
 const ALL_CLEAR: BillingHealth = {
-  closeBacklog: { count: 0 },
-  handoff: { pending: 0 },
+  closeBacklog: { count: 0, oldestDueAt: null },
+  handoff: { pending: 0, oldestPendingIssuedAt: null, reclaimedLast24h: 0 },
   heldInvoices: {
     byReason: {
       LEDGER_CHAIN_BREAK: 0,
@@ -48,8 +54,10 @@ const ALL_CLEAR: BillingHealth = {
   overdueInvoices: 0,
   pastDueSubscriptions: 0,
   providerSync: [],
-  pushFailures: { count: 0 },
+  pushFailures: { count: 0, oldestFailedAt: null },
   reconciliationMismatches30d: 0,
+  paymentMethodsExpiring30d: 0,
+  usageLedger: { retentionMonths: null, retentionSource: 'ENV' },
 };
 
 test.beforeEach(async ({ page }) => {

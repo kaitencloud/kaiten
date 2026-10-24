@@ -279,7 +279,7 @@ export class BillingAppModel {
         ? {
             ...provider,
             connected,
-            livemode: connected ? livemode : undefined,
+            livemode: connected ? livemode : null,
           }
         : provider,
     );

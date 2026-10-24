@@ -114,6 +114,7 @@ describe('the grants of a version', () => {
             id: 'grant-analytics',
             overrideBehavior: 'MAX',
             value: { type: 'boolean', value: true },
+            limitCapExceededOveragePercent: null,
           },
           {
             ...seatsGrant(),

@@ -158,7 +158,7 @@ export function voucherToFormValues(voucher: Voucher): VoucherFormValues {
     description: voucher.description ?? '',
     duration: voucher.duration,
     durationInPeriods: voucher.durationInPeriods ?? Number.NaN,
-    expiresAt: instantToDateTimeInput(voucher.expiresAt),
+    expiresAt: instantToDateTimeInput(voucher.expiresAt ?? undefined),
     grants: voucher.grants.map((grant) => ({
       ...newGrant(),
       entitlementSlug: grant.entitlementSlug,
@@ -171,7 +171,7 @@ export function voucherToFormValues(voucher: Voucher): VoucherFormValues {
     priceAppliesTo: voucher.priceAppliesTo ?? 'LICENSE_BASE',
     priceDiscountType: voucher.priceDiscountType ?? 'PERCENTAGE',
     restrictedCustomerSlug: voucher.restrictedCustomerSlug ?? '',
-    startsAt: instantToDateTimeInput(voucher.startsAt),
+    startsAt: instantToDateTimeInput(voucher.startsAt ?? undefined),
     voucherType: voucher.voucherType,
   };
 }

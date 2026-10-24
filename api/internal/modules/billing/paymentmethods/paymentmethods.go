@@ -33,11 +33,11 @@ import (
 // labels.
 type PaymentMethodLabels struct {
 	Status     string     `json:"status" enum:"ACTIVE,EXPIRED,FAILED" doc:"ACTIVE: charged automatically. EXPIRED, FAILED: a charge said it is no longer usable; save another one"`
-	Brand      *string    `json:"brand,omitempty" example:"visa"`
-	Last4      *string    `json:"last4,omitempty" example:"4242"`
-	ExpMonth   *int       `json:"expMonth,omitempty" example:"12"`
-	ExpYear    *int       `json:"expYear,omitempty" example:"2030"`
-	AttachedAt *time.Time `json:"attachedAt,omitempty"`
+	Brand      *string    `json:"brand" example:"visa"`
+	Last4      *string    `json:"last4" example:"4242"`
+	ExpMonth   *int       `json:"expMonth" example:"12"`
+	ExpYear    *int       `json:"expYear" example:"2030"`
+	AttachedAt *time.Time `json:"attachedAt"`
 }
 
 // CustomerInProvider is a customer's side in one provider.

@@ -118,6 +118,7 @@ describe('a metered price on a version of an add-on', () => {
     expect(created.metered).toEqual({
       entitlementSlug: 'credits',
       saleUnitFactor: '1000',
+      saleUnitPlural: null,
       saleUnitSingular: '1k credits',
     });
   });

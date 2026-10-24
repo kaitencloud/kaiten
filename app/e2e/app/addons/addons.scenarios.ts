@@ -283,7 +283,12 @@ const TOKENS_METERED = buildPrice({
   displayLabel: 'Tokens, metered',
   displayOrder: 2,
   id: 'price-tokens-metered',
-  metered: { entitlementSlug: 'tokens', saleUnitFactor: '1' },
+  metered: {
+    entitlementSlug: 'tokens',
+    saleUnitFactor: '1',
+    saleUnitPlural: null,
+    saleUnitSingular: null,
+  },
   unitAmountDecimal: '0.1',
 });
 const SUPPORT_V1_MONTHLY = buildPrice({

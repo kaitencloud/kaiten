@@ -154,7 +154,7 @@ function QuantityCell({
             group: t(KEYS.group, { name: label }),
             increase: t(KEYS.increase, { name: label }),
           }}
-          max={held.maxQuantity}
+          max={held.maxQuantity ?? undefined}
           onChange={(quantity) =>
             void actions.perform({ held, kind: 'quantity', label, quantity })
           }

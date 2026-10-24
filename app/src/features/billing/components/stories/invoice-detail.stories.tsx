@@ -193,6 +193,7 @@ export const Summary: Story = {
             releaseReason: 'Counter verified by hand',
             releasedAt: '2027-03-04T09:00:00.000Z',
             releasedBy: 'user-1',
+            heldAt: null,
           },
           id: 'inv-1',
           lines: [line],
@@ -242,7 +243,7 @@ export const SummaryHeld: Story = {
       <InvoiceSummaryCard
         invoice={buildInvoice({
           boundaryAt: BOUNDARY,
-          hold: { heldAt: '2027-03-02T08:15:00.000Z' },
+          hold: { heldAt: '2027-03-02T08:15:00.000Z', releaseReason: null, releasedAt: null, releasedBy: null },
           holdReason: 'LEDGER_SEQUENCE_GAP',
           id: 'inv-1',
           lines: [line],
@@ -507,7 +508,7 @@ export const PageOverdue: Story = {
 // invoice is in no queue, and the row holds the two cards that remain.
 const heldInvoice = buildInvoice({
   boundaryAt: BOUNDARY,
-  hold: { heldAt: '2027-03-02T08:15:00.000Z' },
+  hold: { heldAt: '2027-03-02T08:15:00.000Z', releaseReason: null, releasedAt: null, releasedBy: null },
   holdDetail: held.holdDetail,
   holdReason: 'LEDGER_SEQUENCE_GAP',
   id: 'inv-page',
@@ -545,6 +546,7 @@ const removedPack = buildInstanceAddon({
     id: 'addon-priority-pack',
     name: 'Priority pack',
     slug: 'priority-pack',
+    maxQuantity: null,
   },
   attachedAt: '2027-02-10T00:00:00.000Z',
   id: 'attachment-priority-pack',
@@ -556,6 +558,7 @@ const tokensPack = buildInstanceAddon({
     id: 'addon-extra-tokens',
     name: 'Extra tokens',
     slug: 'extra-tokens',
+    maxQuantity: null,
   },
   attachedAt: '2027-02-12T00:00:00.000Z',
   id: 'attachment-extra-tokens',

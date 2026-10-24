@@ -366,7 +366,7 @@ describe('moving a contract to Stripe', () => {
           providers: [
             {
               externalCustomerId: 'cus_globex',
-              paymentMethod: { last4: '4242', status: 'FAILED' },
+              paymentMethod: { last4: '4242', status: 'FAILED', attachedAt: null, brand: null, expMonth: null, expYear: null },
               providerKind: 'STRIPE',
               syncedAt: null,
               webUrl: null,
@@ -561,7 +561,7 @@ describe('the invoices still open when the provider changes', () => {
             provider:
               params.invoiceId === 'inv-review'
                 ? buildProviderRecord({ status: 'draft' })
-                : { nextPushAt: '2026-10-01T00:00:00.000Z', pushAttempts: 0 },
+                : { nextPushAt: '2026-10-01T00:00:00.000Z', pushAttempts: 0, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null },
             status: 'DRAFT',
           }),
         ),

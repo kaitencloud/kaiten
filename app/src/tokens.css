@@ -1,5 +1,5 @@
-@import "@kaitencloud/theme/global.css";
-@import "@kaitencloud/theme/theme-inline.css";
+@import '@kaitencloud/theme/global.css';
+@import '@kaitencloud/theme/theme-inline.css';
 
 /*
  * Tinted state surfaces, declared here rather than in `@kaitencloud/theme`.

@@ -45,7 +45,7 @@ export function buildAddon({
     increaseBilling: 'TRUE_UP',
     isDefault,
     lifecycleState,
-    maxQuantity,
+    maxQuantity: maxQuantity ?? null,
     name,
     pricingType,
     slug,
@@ -84,7 +84,8 @@ export function buildAddonGrant({
       entitlementType ??
       (typeof value === 'boolean' ? 'BOOLEAN' : isNumber ? 'NUMBER' : 'CONFIG'),
     id: `grant-${addonSlug}-${entitlementSlug}`,
-    limitCapExceededOveragePercent: isNumber ? overagePercent : undefined,
+    limitCapExceededOveragePercent:
+      (isNumber ? overagePercent : undefined) ?? null,
     overrideBehavior: behavior,
     value:
       typeof value === 'boolean'
@@ -126,6 +127,6 @@ export function buildInstanceAddon({
     pendingQuantity: null,
     prices,
     quantity,
-    removedAt,
+    removedAt: removedAt ?? null,
   };
 }

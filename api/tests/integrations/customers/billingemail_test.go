@@ -56,6 +56,10 @@ func TestCustomerBillingEmail(t *testing.T) {
 
 		require.Equal(t, fiber.StatusNoContent, customerCall(t, "PUT", path, map[string]any{"name": "Acme"}).StatusCode)
 		require.Equal(t, "billing@acme.test", *readCustomer(t, created.Slug).BillingEmail)
+		// null keeps it as absent does (§13.1, V31-01, S17-054).
+		require.Equal(t, fiber.StatusNoContent, customerCall(t, "PUT", path,
+			map[string]any{"name": "Acme", "billingEmail": nil}).StatusCode)
+		require.Equal(t, "billing@acme.test", *readCustomer(t, created.Slug).BillingEmail)
 
 		require.Equal(t, fiber.StatusNoContent, customerCall(t, "PUT", path,
 			map[string]any{"name": "Acme", "billingEmail": "ap@acme.test"}).StatusCode)

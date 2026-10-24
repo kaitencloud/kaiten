@@ -718,4 +718,5 @@ type InstanceInvoice struct {
 	CreatedAt                      pgtype.Timestamp      `json:"created_at"`
 	UpdatedAt                      pgtype.Timestamp      `json:"updated_at"`
 	FinalizeRequested              bool                  `json:"finalize_requested"`
+	HandoffReclaimedAt             pgtype.Timestamp      `json:"handoff_reclaimed_at"`
 }

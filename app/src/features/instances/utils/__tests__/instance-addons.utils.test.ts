@@ -133,7 +133,7 @@ describe('what a held add-on is billed', () => {
   const metered = buildPrice({
     billingModel: 'USAGE_BASED',
     id: 'price-metered',
-    metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+    metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
     unitAmountDecimal: '0.1',
   });
 

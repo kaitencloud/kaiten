@@ -14,6 +14,20 @@ const waiting = (attempts = 1): Pushed => ({
   provider: {
     nextPushAt: '2027-03-01T00:00:00Z',
     pushAttempts: attempts,
+    externalCustomerId: null,
+    externalInvoiceId: null,
+    hostedInvoiceUrl: null,
+    invoiceNumber: null,
+    invoicePdfUrl: null,
+    lastPaymentError: null,
+    lastPushError: null,
+    pushedAt: null,
+    reconciledAt: null,
+    reconciliationDetail: null,
+    reconciliationStatus: null,
+    status: null,
+    syncedAt: null,
+    totalExcludingTax: null,
   },
   status: 'DRAFT',
 });
@@ -33,7 +47,7 @@ describe('the push a person asked for', () => {
     expect(hasPushSettled(waiting(1), watch)).toBe(false);
     expect(
       hasPushSettled(
-        { provider: { pushAttempts: 1 }, status: 'PUSH_FAILED' },
+        { provider: { pushAttempts: 1, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, nextPushAt: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null }, status: 'PUSH_FAILED' },
         watch,
       ),
     ).toBe(false);
@@ -43,7 +57,7 @@ describe('the push a person asked for', () => {
     const watch = startPushWatch(waiting(1), 0);
 
     for (const status of ['PUSHED', 'PAID', 'VOID', 'PAYMENT_FAILED'] as const) {
-      expect(hasPushSettled({ provider: { pushAttempts: 2 }, status }, watch)).toBe(
+      expect(hasPushSettled({ provider: { pushAttempts: 2, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, nextPushAt: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null }, status }, watch)).toBe(
         true,
       );
     }
@@ -54,7 +68,7 @@ describe('the push a person asked for', () => {
 
     expect(
       hasPushSettled(
-        { provider: { externalInvoiceId: 'in_1', pushAttempts: 1 }, status: 'DRAFT' },
+        { provider: { externalInvoiceId: 'in_1', pushAttempts: 1, externalCustomerId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, nextPushAt: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null }, status: 'DRAFT' },
         watch,
       ),
     ).toBe(true);
@@ -62,13 +76,13 @@ describe('the push a person asked for', () => {
 
   it('has had it once the push ran and failed again, one more attempt being counted', () => {
     const watch = startPushWatch(
-      { provider: { pushAttempts: 2 } },
+      { provider: { pushAttempts: 2, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, nextPushAt: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null } },
       0,
     );
 
     expect(
       hasPushSettled(
-        { provider: { pushAttempts: 3 }, status: 'PUSH_FAILED' },
+        { provider: { pushAttempts: 3, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, nextPushAt: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null }, status: 'PUSH_FAILED' },
         watch,
       ),
     ).toBe(true);
@@ -90,7 +104,7 @@ describe('when the invoice is read again', () => {
 
   it('stops once the push has had its turn', () => {
     expect(
-      getPushPollDelay({ provider: { pushAttempts: 2 }, status: 'PUSHED' }, watch, 1_000),
+      getPushPollDelay({ provider: { pushAttempts: 2, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, nextPushAt: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null }, status: 'PUSHED' }, watch, 1_000),
     ).toBe(false);
   });
 

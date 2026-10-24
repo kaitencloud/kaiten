@@ -357,7 +357,7 @@ export class AddonCatalogue {
       versions.find((version) => version.lifecycleState === 'PUBLISHED');
 
     return {
-      currentVersion: current ? clone(current) : undefined,
+      currentVersion: (current ? clone(current) : undefined) ?? null,
       id: `addon-family-${slug}`,
       // Every version carries its family's, which the family keeps on all of them.
       increaseBilling: versions[0].increaseBilling,
@@ -583,7 +583,7 @@ export class AddonCatalogue {
         : (this.familyOf(familySlug)?.increaseBilling ?? 'TRUE_UP'),
       isDefault: Boolean(body.isDefault),
       lifecycleState: state,
-      maxQuantity: body.maxQuantity,
+      maxQuantity: body.maxQuantity ?? null,
       name: body.name,
       pricingType: body.pricingType,
       slug,
@@ -650,7 +650,7 @@ export class AddonCatalogue {
     version.description = body.description;
     version.versionName = body.versionName ?? `Version - ${version.version}`;
     version.isDefault = body.isDefault;
-    version.maxQuantity = body.maxQuantity;
+    version.maxQuantity = body.maxQuantity ?? null;
     version.updatedAt = NOW();
 
     return clone(version);
@@ -821,7 +821,7 @@ export class AddonCatalogue {
     }
 
     return {
-      limitCapExceededOveragePercent: percent,
+      limitCapExceededOveragePercent: percent ?? null,
       overrideBehavior: body.overrideBehavior ?? 'MAX',
       value: body.value,
     };
@@ -907,7 +907,7 @@ export class AddonCatalogue {
     );
     // The overage is replaced, not merged: a member left out inherits the license's.
     if (body.limitCapExceededOveragePercent === undefined) {
-      delete grant.limitCapExceededOveragePercent;
+      grant.limitCapExceededOveragePercent = null;
     }
 
     return clone(grant);
@@ -1072,8 +1072,8 @@ export class AddonCatalogue {
     return {
       entitlementSlug: slug,
       saleUnitFactor: String(facts.saleUnitFactor ?? 1),
-      saleUnitPlural: facts.saleUnitPlural,
-      saleUnitSingular: facts.saleUnitSingular,
+      saleUnitPlural: facts.saleUnitPlural ?? null,
+      saleUnitSingular: facts.saleUnitSingular ?? null,
     };
   }
 

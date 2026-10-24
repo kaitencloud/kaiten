@@ -236,7 +236,7 @@ describe('the dialog that adds an add-on to an instance', () => {
             billingModel: 'USAGE_BASED',
             displayLabel: 'Storage, metered',
             id: 'price-storage-metered',
-            metered: { entitlementSlug: 'storage-gb', saleUnitFactor: '1' },
+            metered: { entitlementSlug: 'storage-gb', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
             unitAmountDecimal: '2.5',
           }),
         ],
@@ -264,7 +264,7 @@ describe('the dialog that adds an add-on to an instance', () => {
             billingModel: 'OVERAGE',
             displayLabel: 'Storage, overage',
             id: 'price-storage-overage',
-            metered: { entitlementSlug: 'storage-gb', saleUnitFactor: '1' },
+            metered: { entitlementSlug: 'storage-gb', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
             unitAmountDecimal: '10',
           }),
         ],
@@ -309,6 +309,7 @@ describe('the dialog that adds an add-on to an instance', () => {
       entitlementSlug: 'storage-gb',
       entitlementType: 'NUMBER' as const,
       id: 'grant-storage',
+      limitCapExceededOveragePercent: null,
       overrideBehavior,
       value: { type: 'number', value },
     });
@@ -350,7 +351,7 @@ describe('the dialog that adds an add-on to an instance', () => {
     });
 
     it('says nothing for a grant of 0, which the API ignores, or when the license grants no such number', async () => {
-      server.use(handleListAddonEntitlements({ body: [grantOf('OVERRIDE', 0), { ...grantOf('OVERRIDE', 1), entitlementSlug: 'other' }] }));
+      server.use(handleListAddonEntitlements({ body: [grantOf('OVERRIDE', 0), { ...grantOf('OVERRIDE', 1), entitlementSlug: 'other', limitCapExceededOveragePercent: null }] }));
       renderDialog();
 
       await choose('Extra storage · 2026');
@@ -392,7 +393,7 @@ describe('the dialog that adds an add-on to an instance', () => {
   });
 
   describe('a quantity of more units than the contract carries', () => {
-    const NO_MAXIMUM: Addon = { ...STORAGE_V1, maxQuantity: undefined };
+    const NO_MAXIMUM: Addon = { ...STORAGE_V1, maxQuantity: null };
 
     it('is refused under the quantity, in words, before anything is sent: the API would answer about its own structures', async () => {
       server.use(handleListAddons({ body: pageOf([SEATS_V1, NO_MAXIMUM]) }));

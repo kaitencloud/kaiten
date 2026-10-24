@@ -181,6 +181,7 @@ test.describe('the settings of billing where Stripe is connected, read in French
       handoff: {
         oldestPendingIssuedAt: '2026-09-27T12:00:00.000Z',
         pending: 4,
+        reclaimedLast24h: 0,
       },
       heldInvoices: {
         byReason: {
@@ -200,10 +201,14 @@ test.describe('the settings of billing where Stripe is connected, read in French
           lastSyncStatus: 'FAILED',
           lastSyncedAt: '2026-10-07T11:00:00.000Z',
           providerKind: 'STRIPE',
+          lastFullSweepAt: null,
+          lastSuccessfulSyncAt: null,
         },
       ],
       pushFailures: { count: 1, oldestFailedAt: '2026-10-07T09:00:00.000Z' },
       reconciliationMismatches30d: 1,
+      paymentMethodsExpiring30d: 0,
+      usageLedger: { retentionMonths: null, retentionSource: 'ENV' },
     });
     await installBillingAppMocks(page, model);
 
@@ -273,8 +278,8 @@ test.describe('the settings of billing where Stripe is connected, read in French
     const settings = new BillingSettingsDriver(page);
     const model = createStripeBillingModel();
     model.providers.setHealth({
-      closeBacklog: { count: 0 },
-      handoff: { pending: 0 },
+      closeBacklog: { count: 0, oldestDueAt: null },
+      handoff: { pending: 0, oldestPendingIssuedAt: null, reclaimedLast24h: 0 },
       heldInvoices: {
         byReason: {
           LEDGER_CHAIN_BREAK: 0,
@@ -286,8 +291,10 @@ test.describe('the settings of billing where Stripe is connected, read in French
       overdueInvoices: 0,
       pastDueSubscriptions: 0,
       providerSync: [],
-      pushFailures: { count: 0 },
+      pushFailures: { count: 0, oldestFailedAt: null },
       reconciliationMismatches30d: 0,
+      paymentMethodsExpiring30d: 0,
+      usageLedger: { retentionMonths: null, retentionSource: 'ENV' },
     });
     await installBillingAppMocks(page, model);
 

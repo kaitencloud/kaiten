@@ -70,7 +70,7 @@ const STORAGE_V1 = buildAddon({
 });
 
 const family = (slug: string, versions: Addon[], isPublic = false): AddonFamily => ({
-  currentVersion: versions.find((version) => version.isDefault),
+  currentVersion: versions.find((version) => version.isDefault) ?? null,
   id: `addon-family-${slug}`,
   increaseBilling: 'TRUE_UP',
   isPublic,
@@ -238,7 +238,7 @@ const API_CALLS_RATED: Price = buildPrice({
   displayLabel: 'API calls, extra pack',
   displayOrder: 2,
   id: 'price-api-calls',
-  metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+  metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '0.15',
 });
 

@@ -113,6 +113,21 @@ func TestSessionPortal(t *testing.T) {
 	require.Equal(t, "ACTIVE", *wide.Instances[0].BillingStatus)
 	require.Equal(t, staging.Slug, wide.Instances[1].Slug)
 	require.Nil(t, wide.Instances[1].BillingStatus, "never subscribed")
+
+	// Live, nothing ended it; canceled, when, and why only when the system
+	// ended it: a vendor's own reason is never shown (§14.4, V31-63, V31-65).
+	live := portal.Subscription
+	require.Nil(t, live.CanceledAt)
+	require.Nil(t, live.CancellationReason)
+	require.Nil(t, live.IncompleteExpiresAt, "INCOMPLETE only")
+	commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/instances/"+prod.Slug+"/billing/cancel",
+		map[string]any{"mode": "IMMEDIATE", "reason": "the vendor's own words"}), fiber.StatusOK)
+	canceled := portalOf(t, bound.Token).Subscription
+	require.Equal(t, "CANCELED", canceled.Status)
+	require.NotNil(t, canceled.CanceledAt)
+	require.Nil(t, canceled.CancellationReason, "a vendor's own reason is never shown")
+	exec(t, `UPDATE instance_billing SET cancellation_reason = 'INCOMPLETE_EXPIRED' WHERE id = $1`, started.ID)
+	require.Equal(t, "INCOMPLETE_EXPIRED", *portalOf(t, bound.Token).Subscription.CancellationReason)
 }
 
 // The portal's trial block (§14.4 portal rule 6, V32-09): when the trial

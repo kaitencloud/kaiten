@@ -535,7 +535,7 @@ describe('the handoff queue, as the mocks serve it', () => {
     ).json()) as PageQueuedInvoice;
 
     expect(page.items.map(({ handoff, id }) => [id, handoff.externalReference])).toEqual([
-      ['inv-u1', undefined],
+      ['inv-u1', null],
       ['inv-d2', 'ERP-0987'],
       ['inv-d1', 'ERP-1001'],
     ]);

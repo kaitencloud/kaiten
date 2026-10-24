@@ -26,6 +26,12 @@ func TestLicenseFamilyVisibility(t *testing.T) {
 	read := commonfixture.AssertJSONResponse[licenseschema.LicenseFamilyView](t,
 		call(t, "GET", "/api/license-families/"+family.Slug, nil), fiber.StatusOK)
 	require.True(t, read.IsPublic)
+	// null keeps the stored value, as absent does (§13.1, V31-01).
+	kept := commonfixture.AssertJSONResponse[licenseschema.LicenseFamilyView](t,
+		call(t, "PATCH", "/api/license-families/"+family.Slug, map[string]any{
+			"isPublic": nil, "fallbackLicenseFamilySlug": nil, "trialEndWithoutPaymentMethod": nil, "trialReminderDays": nil,
+		}), fiber.StatusOK)
+	require.True(t, kept.IsPublic)
 	require.Equal(t, "UpdateLicenseFamily.NotFound", problemCode(t, fiber.StatusNotFound, "PATCH",
 		"/api/license-families/nope", map[string]any{"isPublic": true}))
 }

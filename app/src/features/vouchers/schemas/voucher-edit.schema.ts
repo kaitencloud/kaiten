@@ -45,7 +45,7 @@ export type VoucherEditValues = z.infer<typeof voucherEditSchema>;
 
 export const voucherToEditValues = (voucher: Voucher): VoucherEditValues => ({
   description: voucher.description ?? '',
-  expiresAt: instantToDateTimeInput(voucher.expiresAt),
+  expiresAt: instantToDateTimeInput(voucher.expiresAt ?? undefined),
   maxRedemptions: voucher.maxRedemptions ?? Number.NaN,
   name: voucher.name,
 });
@@ -96,7 +96,7 @@ function editedExpiresAt(
   voucher: Voucher,
   expiresAt: string,
 ): string | undefined {
-  if (expiresAt === instantToDateTimeInput(voucher.expiresAt)) {
+  if (expiresAt === instantToDateTimeInput(voucher.expiresAt ?? undefined)) {
     return voucher.expiresAt ?? undefined;
   }
 

@@ -33,6 +33,7 @@ describe('the unit a metered price is per', () => {
           entitlementSlug: 'requests',
           saleUnitFactor: '1000',
           saleUnitSingular: '1k requests',
+          saleUnitPlural: null,
         },
         undefined,
         format,
@@ -43,7 +44,7 @@ describe('the unit a metered price is per', () => {
   it('is the number of base units a sale unit stands for, named by the entitlement', () => {
     expect(
       getPriceUnitLabel(
-        { entitlementSlug: 'traces', saleUnitFactor: '100000' },
+        { entitlementSlug: 'traces', saleUnitFactor: '100000', saleUnitPlural: null, saleUnitSingular: null },
         traces,
         format,
       ),
@@ -53,14 +54,14 @@ describe('the unit a metered price is per', () => {
   it('is the base unit alone when a sale unit is one of them', () => {
     expect(
       getPriceUnitLabel(
-        { entitlementSlug: 'traces', saleUnitFactor: '1' },
+        { entitlementSlug: 'traces', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
         traces,
         format,
       ),
     ).toBe('trace');
     expect(
       getPriceUnitLabel(
-        { entitlementSlug: 'gone', saleUnitFactor: '1' },
+        { entitlementSlug: 'gone', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
         undefined,
         format,
       ),
@@ -90,6 +91,7 @@ describe('the amount of a price', () => {
         entitlementSlug: 'traces',
         saleUnitFactor: '1000',
         saleUnitSingular: '1k traces',
+        saleUnitPlural: null,
       },
       unitAmountDecimal: '0.2',
     });
@@ -126,7 +128,7 @@ describe('what a price is called', () => {
     const price = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'p2',
-      metered: { entitlementSlug: 'traces', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'traces', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '2',
     });
 

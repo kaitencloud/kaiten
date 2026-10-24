@@ -64,9 +64,14 @@ test.describe('accessibility of the checkouts', () => {
     await installBillingAppMocks(page, createCheckoutSessionsBillingModel());
 
     await checkouts.goto();
-    await checkouts.openLink('alice@acme.test').focus();
-    await expect(checkouts.openLink('alice@acme.test')).toBeFocused();
-    await page.keyboard.press('Enter');
+    const link = checkouts.openLink('alice@acme.test');
+    // The table may draw its rows again as the list settles, which drops a focus given
+    // before it: give it again until it holds, then press on the link it landed on.
+    await expect(async () => {
+      await link.focus();
+      await expect(link).toBeFocused({ timeout: 1_000 });
+    }).toPass();
+    await link.press('Enter');
 
     await expect(checkouts.detail()).toBeVisible();
   });

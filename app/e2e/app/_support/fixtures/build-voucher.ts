@@ -79,25 +79,28 @@ export function buildVoucher({
     code,
     codeHint: voucherCodeHint(code),
     createdAt,
-    currency: isPrice ? currency : undefined,
-    description,
+    currency: (isPrice ? currency : undefined) ?? null,
+    description: description ?? null,
     duration,
-    durationInPeriods,
-    expiresAt,
+    durationInPeriods: durationInPeriods ?? null,
+    expiresAt: expiresAt ?? null,
     flagGrants: [],
     grants: isPrice ? [] : grants,
     id,
-    maxRedemptions,
+    maxRedemptions: maxRedemptions ?? null,
     name,
-    priceAppliesTo: isPrice ? (priceAppliesTo ?? 'LICENSE_BASE') : undefined,
-    priceDiscountType: isPrice
-      ? (priceDiscountType ?? (currency ? 'FIXED_AMOUNT' : 'PERCENTAGE'))
-      : undefined,
-    priceDiscountValue: isPrice ? (priceDiscountValue ?? '20') : undefined,
+    priceAppliesTo:
+      (isPrice ? (priceAppliesTo ?? 'LICENSE_BASE') : undefined) ?? null,
+    priceDiscountType:
+      (isPrice
+        ? (priceDiscountType ?? (currency ? 'FIXED_AMOUNT' : 'PERCENTAGE'))
+        : undefined) ?? null,
+    priceDiscountValue:
+      (isPrice ? (priceDiscountValue ?? '20') : undefined) ?? null,
     redemptionRules,
     redemptionsCount,
-    restrictedCustomerSlug,
-    startsAt,
+    restrictedCustomerSlug: restrictedCustomerSlug ?? null,
+    startsAt: startsAt ?? null,
     status,
     updatedAt: updatedAt ?? createdAt,
     voucherType,

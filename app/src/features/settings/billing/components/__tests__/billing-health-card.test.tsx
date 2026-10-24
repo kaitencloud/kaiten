@@ -110,7 +110,7 @@ const outcome = (
 
 const NEEDS_ATTENTION = healthWith({
   closeBacklog: { count: 2, oldestDueAt: '2020-01-01T00:00:00Z' },
-  handoff: { oldestPendingIssuedAt: '2020-01-02T00:00:00Z', pending: 4 },
+  handoff: { oldestPendingIssuedAt: '2020-01-02T00:00:00Z', pending: 4, reclaimedLast24h: 0 },
   heldInvoices: {
     byReason: {
       LEDGER_CHAIN_BREAK: 0,
