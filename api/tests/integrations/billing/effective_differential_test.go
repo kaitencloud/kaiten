@@ -192,7 +192,7 @@ func differentialSeed(t *testing.T, seed uint64) int {
 		}
 	}
 
-	// ENTITLEMENT_BOOST vouchers on the numbers.
+	// ENTITLEMENT_BOOST vouchers on the numbers, the booleans and the configs.
 	var vouchers []uuid.UUID
 	for i := range g.rng.IntN(7) {
 		var grants []map[string]any
@@ -212,28 +212,22 @@ func differentialSeed(t *testing.T, seed uint64) int {
 			}
 			grants = append(grants, grant)
 		}
-		if len(grants) == 0 {
-			continue
-		}
-		voucher := newVoucher(t, map[string]any{"name": fmt.Sprintf("B%d", i), "voucherType": "ENTITLEMENT_BOOST", "grants": grants})
-		// BOOLEAN and CONFIG SET boosts on the same voucher (V32-03): a raw
-		// JSON boolean or object, no modifier value.
+		// BOOLEAN and CONFIG SET boosts (V32-03 b): a raw JSON boolean or
+		// object, no modifier value.
 		for _, e := range g.booleans {
 			if g.rng.IntN(2) == 0 {
-				exec(t, `INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, value)
-				         SELECT v.organization_id, v.id, e.id, 'SET', to_jsonb($3::boolean)
-				           FROM voucher v JOIN entitlement e ON e.organization_id = v.organization_id AND e.slug = $2 WHERE v.id = $1`,
-					voucher.ID, e, g.rng.IntN(2) == 0)
+				grants = append(grants, map[string]any{"entitlementSlug": e, "modifierType": "SET", "value": g.rng.IntN(2) == 0})
 			}
 		}
 		for _, e := range g.configs {
 			if g.rng.IntN(2) == 0 {
-				exec(t, `INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, value)
-				         SELECT v.organization_id, v.id, e.id, 'SET', jsonb_build_object('tier', $3::text)
-				           FROM voucher v JOIN entitlement e ON e.organization_id = v.organization_id AND e.slug = $2 WHERE v.id = $1`,
-					voucher.ID, e, fmt.Sprintf("boost%d", i))
+				grants = append(grants, map[string]any{"entitlementSlug": e, "modifierType": "SET", "value": map[string]any{"tier": fmt.Sprintf("boost%d", i)}})
 			}
 		}
+		if len(grants) == 0 {
+			continue
+		}
+		voucher := newVoucher(t, map[string]any{"name": fmt.Sprintf("B%d", i), "voucherType": "ENTITLEMENT_BOOST", "grants": grants})
 		publish(t, voucher)
 		vouchers = append(vouchers, voucher.ID)
 	}

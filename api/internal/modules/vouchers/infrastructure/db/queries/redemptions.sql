@@ -38,11 +38,11 @@ SELECT EXISTS (SELECT 1
 
 
 -- name: InstanceHasBoostable :one
--- Whether the instance has a number entitlement among those a boost targets.
+-- Whether the instance has, of any type, an entitlement among those a boost
+-- targets: a view row (§11.4 check 8, V32-03 b).
 SELECT EXISTS (SELECT 1
                FROM instance_effective_entitlement ee
                WHERE ee.instance_id = sqlc.arg(instance_id)
-                 AND ee.entitlement_type IN ('NUMBER', 'NUMBER_AI_CREDIT')
                  AND ee.entitlement_id = ANY (sqlc.arg(entitlement_ids)::uuid[]))::boolean AS boostable;
 
 

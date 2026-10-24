@@ -218,9 +218,9 @@ func (q *Queries) InsertVoucher(ctx context.Context, arg InsertVoucherParams) (u
 }
 
 const insertVoucherGrant = `-- name: InsertVoucherGrant :exec
-INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value)
+INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value, value)
 VALUES ($1, $2, $3, $4,
-        CAST($5::text AS NUMERIC))
+        CAST($5::text AS NUMERIC), $6::jsonb)
 `
 
 type InsertVoucherGrantParams struct {
@@ -229,8 +229,11 @@ type InsertVoucherGrantParams struct {
 	EntitlementID  uuid.UUID         `json:"entitlement_id"`
 	ModifierType   BoostModifierType `json:"modifier_type"`
 	ModifierValue  *string           `json:"modifier_value"`
+	Value          []byte            `json:"value"`
 }
 
+// value is what a BOOLEAN or CONFIG SET boost sets, raw: true or false, or
+// the CONFIG document (V32-03 b); NULL on a NUMBER grant.
 func (q *Queries) InsertVoucherGrant(ctx context.Context, arg InsertVoucherGrantParams) error {
 	_, err := q.db.Exec(ctx, insertVoucherGrant,
 		arg.OrganizationID,
@@ -238,13 +241,14 @@ func (q *Queries) InsertVoucherGrant(ctx context.Context, arg InsertVoucherGrant
 		arg.EntitlementID,
 		arg.ModifierType,
 		arg.ModifierValue,
+		arg.Value,
 	)
 	return err
 }
 
 const listVoucherGrants = `-- name: ListVoucherGrants :many
 SELECT g.voucher_id, g.modifier_type, coalesce(g.modifier_value::text, '')::text AS modifier_value, e.slug AS entitlement_slug,
-       g.entitlement_id
+       g.entitlement_id, g.value
 FROM voucher_entitlement_grant g
 JOIN entitlement e ON e.id = g.entitlement_id AND e.organization_id = g.organization_id
 WHERE g.organization_id = $1
@@ -263,6 +267,7 @@ type ListVoucherGrantsRow struct {
 	ModifierValue   string            `json:"modifier_value"`
 	EntitlementSlug string            `json:"entitlement_slug"`
 	EntitlementID   uuid.UUID         `json:"entitlement_id"`
+	Value           []byte            `json:"value"`
 }
 
 func (q *Queries) ListVoucherGrants(ctx context.Context, arg ListVoucherGrantsParams) ([]ListVoucherGrantsRow, error) {
@@ -280,6 +285,7 @@ func (q *Queries) ListVoucherGrants(ctx context.Context, arg ListVoucherGrantsPa
 			&i.ModifierValue,
 			&i.EntitlementSlug,
 			&i.EntitlementID,
+			&i.Value,
 		); err != nil {
 			return nil, err
 		}

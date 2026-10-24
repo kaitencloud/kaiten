@@ -535,7 +535,6 @@ const instanceHasBoostable = `-- name: InstanceHasBoostable :one
 SELECT EXISTS (SELECT 1
                FROM instance_effective_entitlement ee
                WHERE ee.instance_id = $1
-                 AND ee.entitlement_type IN ('NUMBER', 'NUMBER_AI_CREDIT')
                  AND ee.entitlement_id = ANY ($2::uuid[]))::boolean AS boostable
 `
 
@@ -544,7 +543,8 @@ type InstanceHasBoostableParams struct {
 	EntitlementIds []uuid.UUID `json:"entitlement_ids"`
 }
 
-// Whether the instance has a number entitlement among those a boost targets.
+// Whether the instance has, of any type, an entitlement among those a boost
+// targets: a view row (§11.4 check 8, V32-03 b).
 func (q *Queries) InstanceHasBoostable(ctx context.Context, arg InstanceHasBoostableParams) (bool, error) {
 	row := q.db.QueryRow(ctx, instanceHasBoostable, arg.InstanceID, arg.EntitlementIds)
 	var boostable bool

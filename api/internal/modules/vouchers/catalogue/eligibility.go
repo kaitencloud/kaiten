@@ -74,12 +74,7 @@ func FindByCode(ctx context.Context, q *db.Queries, organizationID uuid.UUID, co
 	candidate := &Candidate{Row: rows[0], Entitlements: nil, Grants: []Grant{}}
 	for _, g := range grants {
 		candidate.Entitlements = append(candidate.Entitlements, g.EntitlementID)
-		grant := Grant{EntitlementSlug: g.EntitlementSlug, ModifierType: string(g.ModifierType), ModifierValue: nil}
-		if g.ModifierValue != "" {
-			value := formatDecimal(g.ModifierValue)
-			grant.ModifierValue = &value
-		}
-		candidate.Grants = append(candidate.Grants, grant)
+		candidate.Grants = append(candidate.Grants, grantOf(g))
 	}
 	return candidate, nil
 }

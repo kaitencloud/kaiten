@@ -4410,7 +4410,7 @@ components:
             - tokens
           type: string
         modifierType:
-          description: SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit
+          description: SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit. A BOOLEAN or CONFIG entitlement takes SET only
           enum:
             - SET
             - ADD
@@ -4418,10 +4418,17 @@ components:
             - UNLIMITED
           type: string
         modifierValue:
-          description: "A decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED"
+          description: "A NUMBER grant's decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED; absent on a BOOLEAN or CONFIG grant"
           examples:
             - "2"
           type: string
+        value:
+          anyOf:
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: "What a BOOLEAN or CONFIG SET grant sets: true or false, or the CONFIG document as an object; absent on a NUMBER grant"
       required:
         - entitlementSlug
         - modifierType

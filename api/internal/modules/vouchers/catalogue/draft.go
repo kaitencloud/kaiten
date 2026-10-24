@@ -1,6 +1,7 @@
 package catalogue
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -142,10 +143,7 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 			if err != nil {
 				return Resolved{}, err
 			}
-			if entitlement.Type != db.EntitlementTypeNUMBER && entitlement.Type != db.EntitlementTypeNUMBERAICREDIT {
-				return Resolved{}, invalid("BoostUnsupportedEntitlementType", "a boost changes a NUMBER or NUMBER_AI_CREDIT entitlement only")
-			}
-			if err := grant.validate(operation); err != nil {
+			if err := grant.validate(operation, entitlement.Type); err != nil {
 				return Resolved{}, err
 			}
 			entitlements = append(entitlements, entitlement.ID)
@@ -225,9 +223,30 @@ func (d VoucherDraft) discount(operation string, params *db.InsertVoucherParams)
 	return nil
 }
 
-func (g Grant) validate(operation string) error {
+// validate matches a grant to its entitlement's type (§11.1): a NUMBER grant
+// carries modifierValue, a BOOLEAN or CONFIG one is a SET carrying value, a
+// boolean or an object (V32-03 b).
+func (g Grant) validate(operation string, entitlementType db.EntitlementType) error {
+	raw := bytes.TrimSpace(g.Value)
+	if entitlementType == db.EntitlementTypeBOOLEAN || entitlementType == db.EntitlementTypeCONFIG {
+		refuse := func(reason string) error { return kaitenerrors.UnprocessableEntity(operation+".InvalidGrant", reason) }
+		switch {
+		case g.ModifierType != "SET":
+			return refuse("a BOOLEAN or CONFIG grant is a SET")
+		case g.ModifierValue != nil:
+			return refuse("a BOOLEAN or CONFIG grant carries value, not modifierValue")
+		case entitlementType == db.EntitlementTypeBOOLEAN && string(raw) != "true" && string(raw) != "false":
+			return refuse("a BOOLEAN grant's value is true or false")
+		case entitlementType == db.EntitlementTypeCONFIG && (len(raw) == 0 || raw[0] != '{'):
+			return refuse("a CONFIG grant's value is the document, as an object")
+		}
+		return nil
+	}
 	invalid := kaitenerrors.UnprocessableEntity(operation+".InvalidGrant",
-		"modifierValue is >= 0 for SET, > 0 for ADD and MULTIPLY, and absent for UNLIMITED")
+		"modifierValue is >= 0 for SET, > 0 for ADD and MULTIPLY, and absent for UNLIMITED; a NUMBER grant carries no value")
+	if len(raw) > 0 {
+		return invalid
+	}
 	if g.ModifierType == "UNLIMITED" {
 		if g.ModifierValue != nil {
 			return invalid
@@ -271,7 +290,7 @@ func WriteGrants(ctx context.Context, q *db.Queries, operation string, organizat
 	for i, grant := range grants {
 		if err := q.InsertVoucherGrant(ctx, db.InsertVoucherGrantParams{
 			OrganizationID: organizationID, VoucherID: voucherID, EntitlementID: entitlements[i],
-			ModifierType: db.BoostModifierType(grant.ModifierType), ModifierValue: grant.ModifierValue,
+			ModifierType: db.BoostModifierType(grant.ModifierType), ModifierValue: grant.ModifierValue, Value: bytes.TrimSpace(grant.Value),
 		}); err != nil {
 			if kaitenerrors.IsUniqueViolationOnConstraint(err, "voucher_entitlement_grant_voucher_id_entitlement_id_key") {
 				return kaitenerrors.UnprocessableEntity(operation+".DuplicateGrant", "one grant per entitlement")
