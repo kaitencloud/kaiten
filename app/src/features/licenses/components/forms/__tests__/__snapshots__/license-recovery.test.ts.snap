@@ -1,0 +1,55 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of the license creation > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "createAsDraft": {
+      "type": "boolean",
+    },
+    "description": {
+      "maxLength": 500,
+      "type": "string",
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "slug": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+          "type": "string",
+        },
+        {
+          "const": "",
+          "type": "string",
+        },
+      ],
+    },
+    "type": {
+      "enum": [
+        "DEVELOPMENT",
+        "TRIAL",
+        "PAID",
+        "COMMUNITY",
+      ],
+      "type": "string",
+    },
+    "versionName": {
+      "maxLength": 50,
+      "type": "string",
+    },
+  },
+  "required": [
+    "name",
+    "description",
+    "type",
+    "slug",
+    "createAsDraft",
+  ],
+  "type": "object",
+}
+`;
