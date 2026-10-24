@@ -303,6 +303,13 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				return kaitenerrors.UnprocessableEntity(operation+".StartAtTooEarly", "startAt is at most one billing period ago")
 			}
 		}
+		// A resubscription starts after the life it follows ended: two lives
+		// of one instance never overlap (§9.9, V31-19).
+		if resubscribe && existing.Status == db.InstanceBillingStatusCANCELED && existing.CanceledAt.Valid &&
+			anchor.Before(existing.CanceledAt.Time) {
+			return kaitenerrors.UnprocessableEntity(operation+".StartAtBeforeCancellation",
+				"startAt is before the instance's previous subscription was canceled; two subscriptions of an instance never overlap")
+		}
 		anchor = anchor.Truncate(time.Second)
 		periodEnd := rating.AddMonthsClamped(anchor, months)
 		status := db.InstanceBillingStatusACTIVE

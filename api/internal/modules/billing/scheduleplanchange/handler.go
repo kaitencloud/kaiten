@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -86,8 +87,16 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 				return err
 			}
 			if len(stranded) > 0 {
-				return kaitenerrors.UnprocessableEntityf(operation+".AddonIncompatible",
-					"the instance holds add-ons the new plan does not fit or price: %s", strings.Join(stranded, ", "))
+				return kaitenerrors.UnprocessableEntityWithErrors(operation+".AddonIncompatible",
+					"the instance holds add-ons the new plan does not fit or price: "+strings.Join(stranded, ", "),
+					&kaitenerrors.ErrorDetail{Message: "add-ons the new plan strands", Location: "addons", Value: stranded})
+			}
+			conflicts, err := u.deps.Addons.MeteredConflicts(ctx, user.OrganizationID, *sub.InstanceID, target.LicenseID)
+			if err != nil {
+				return err
+			}
+			if len(conflicts) > 0 {
+				return meteredConflict(conflicts)
 			}
 		}
 		if sub.ScheduledLicensePriceID != nil && *sub.ScheduledLicensePriceID == target.ID {
@@ -115,4 +124,21 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 		return nil, err
 	}
 	return result, nil
+}
+
+// meteredConflict refuses a target whose metered prices meter what a held
+// add-on meters already: one errors[] entry per entitlement and add-on.
+func meteredConflict(conflicts []ports.MeteredConflict) error {
+	details := make([]*kaitenerrors.ErrorDetail, len(conflicts))
+	slugs := make([]string, len(conflicts))
+	for i, conflict := range conflicts {
+		details[i] = &kaitenerrors.ErrorDetail{
+			Message: "an entitlement the new plan and a held add-on both meter", Location: "addons." + conflict.AddonSlug,
+			Value: map[string]string{"entitlementSlug": conflict.EntitlementSlug, "addonSlug": conflict.AddonSlug},
+		}
+		slugs[i] = conflict.EntitlementSlug
+	}
+	return kaitenerrors.UnprocessableEntityWithErrors(operation+".MeteredEntitlementConflict",
+		"the new plan meters what an add-on the instance holds meters already: one entitlement is billed by one price ("+
+			strings.Join(slugs, ", ")+")", details...)
 }

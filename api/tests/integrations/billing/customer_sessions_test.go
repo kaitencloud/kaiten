@@ -76,6 +76,9 @@ func TestCustomerSessions(t *testing.T) {
 		page := commonfixture.AssertJSONResponse[pagination.Page[sessions.SessionInvoice]](t,
 			sessionCall(t, testServer, "GET", invoicesPath, created.Token, storefront, nil), fiber.StatusOK)
 		require.Empty(t, page.Items)
+		require.Equal(t, "SessionInvoices.InvalidCursor", sessionProblem(t,
+			sessionCall(t, testServer, "GET", invoicesPath+"?cursor=nope", created.Token, storefront, nil), fiber.StatusBadRequest),
+			"a cursor code is named after the resource (Appendix A, A.4)")
 	})
 
 	t.Run("minting is refused for what the organization does not hold", func(t *testing.T) {

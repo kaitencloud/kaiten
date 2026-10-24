@@ -29,7 +29,9 @@ import (
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
-const operation = "ListSessionInvoices"
+// resource names the list in its cursor code: a cursor code is named after
+// the resource, not the use case (Appendix A, A.1).
+const resource = "SessionInvoices"
 
 const (
 	// staleAfter is how old a provider read must be before the list reads
@@ -77,7 +79,7 @@ func (u *UseCase) Execute(ctx context.Context, query Query) (pagination.Page[inv
 		decoded, err := pagination.Decode[cursorKey](query.Cursor)
 		if err != nil {
 			if errors.Is(err, pagination.ErrInvalidCursor) {
-				return empty, kaitenerrors.Validation(operation+".InvalidCursor", "the cursor is not one this list returned")
+				return empty, kaitenerrors.Validation(resource+".InvalidCursor", "the cursor is not one this list returned")
 			}
 			return empty, err
 		}

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -130,9 +131,12 @@ func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UU
 	out, err := u.confirm(ctx, organizationID, sessionID, false)
 	if errors.Is(err, errTrialTaken) {
 		// Once: the session now has no trial to lose.
-		return u.confirm(ctx, organizationID, sessionID, false)
+		out, err = u.confirm(ctx, organizationID, sessionID, false)
 	}
-	return out, err
+	if err != nil {
+		return nil, translate(err)
+	}
+	return out, nil
 }
 
 // Complete is the completion a job runs (§12.9 step 3): the sync backstop,
@@ -151,7 +155,7 @@ func (u *UseCase) Complete(ctx context.Context, organizationID, sessionID uuid.U
 		return false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, translate(err)
 	}
 	row, err := db.New(u.deps.Uof.DBTX(ctx)).GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
 	if err != nil {
@@ -259,7 +263,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: trialDays, VoucherCode: pricedCode,
 	})
 	if err != nil {
-		return nil, voucherRefusal(err)
+		return nil, err
 	}
 	due := preview.Composition.Total
 	if due > 0 && !createcheckoutsession.RecordableAtPayment(voucher) {
@@ -382,7 +386,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			cmd.Incomplete, cmd.MoveToLicenseID, cmd.CallerPushes = true, &licenseID, !job
 		}
 		if started, err = u.deps.Subscriber.Execute(ctx, instance.Slug, cmd); err != nil {
-			return voucherRefusal(err)
+			return err
 		}
 		if due > 0 {
 			_, err := q.AwaitCheckoutPayment(ctx, db.AwaitCheckoutPaymentParams{
@@ -547,7 +551,7 @@ func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetChecko
 		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none, VoucherCode: pricedCode,
 	})
 	if err != nil {
-		return voucherRefusal(err)
+		return err
 	}
 	selection.TrialEndsAt = nil
 	selection.DueToday = &sessions.DueToday{
@@ -565,11 +569,34 @@ func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetChecko
 	})
 }
 
-// voucherRefusal answers the subscribe's refusal of the voucher as the
-// checkout's own, opaque (§14.8 rule 5).
-func voucherRefusal(err error) error {
-	if kaitenerrors.GetCode(err) == "SubscribeInstance.VoucherInvalid" {
+// translate answers what the operations a confirm runs refuse -- the
+// subscription, the customer and the instance it creates -- under this
+// operation's name: a use case never answers under another's prefix
+// (Appendix A). The refusals the public contract names are mapped to them;
+// the others keep their reason.
+func translate(err error) error {
+	var refusal *kaitenerrors.Error
+	if !errors.As(err, &refusal) || strings.HasPrefix(refusal.Code, operation+".") {
+		return err
+	}
+	switch refusal.Code {
+	case "SubscribeInstance.VoucherInvalid":
+		// Opaque, as at the start (§14.8): why a code is refused is not the
+		// visitor's to learn.
 		return createcheckoutsession.VoucherInvalid(operation)
+	case "SubscribeInstance.ProviderUnavailable":
+		return kaitenerrors.Unavailable(operation+".ProviderUnavailable", "the payment provider could not be reached; retry in a moment").
+			WithRetryAfter(max(refusal.RetryAfter, 30*time.Second))
+	case "SubscribeInstance.ProviderNotConnected", "SubscribeInstance.CollectionMethodUnsupported",
+		"SubscribeInstance.UnsupportedCurrency", "SubscribeInstance.PaymentMethodRequired":
+		return kaitenerrors.UnprocessableEntity(operation+".ProviderCannotCapturePayment",
+			"this plan is paid, and the vendor has no payment provider that takes card payments")
+	case "SubscribeInstance.PriceNotFound", "SubscribeInstance.PriceDeprecated", "SubscribeInstance.LicenseNotPublished",
+		"SubscribeInstance.AddonInvalid":
+		return kaitenerrors.UnprocessableEntity(operation+".PriceNotPublic", "this price is no longer offered: start again")
+	}
+	for _, core := range []string{"SubscribeInstance", "CreateCustomer", "CreateInstance"} {
+		err = sessions.Rename(err, core, operation)
 	}
 	return err
 }

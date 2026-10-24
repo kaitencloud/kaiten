@@ -326,6 +326,23 @@ WHERE ia.organization_id = sqlc.arg(organization_id)
 ORDER BY a.slug;
 
 
+-- name: MeteredConflictsWithLicense :many
+-- The entitlements an ACTIVE metered price of the licence version meters that
+-- an ACTIVE price of an add-on the instance holds meters already: a move to
+-- that version would bill one entitlement by two prices (§8.2 rule 3, V31-21).
+SELECT DISTINCT e.slug AS entitlement_slug, a.slug AS addon_slug
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_price ap ON ap.addon_id = ia.addon_id AND ap.organization_id = ia.organization_id AND ap.status = 'ACTIVE'
+JOIN license_price lp ON lp.license_id = sqlc.arg(license_id) AND lp.organization_id = ia.organization_id
+                     AND lp.meters_entitlement_id = ap.meters_entitlement_id AND lp.status = 'ACTIVE'
+JOIN entitlement e ON e.id = ap.meters_entitlement_id AND e.organization_id = ap.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+ORDER BY e.slug, a.slug;
+
+
 -- name: ListActiveInstanceAddonsByInstances :many
 -- The add-ons instances hold now, oldest attachment first, for GraphQL's
 -- Instance.addons.

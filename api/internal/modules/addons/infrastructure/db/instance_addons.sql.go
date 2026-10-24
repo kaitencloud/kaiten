@@ -910,6 +910,54 @@ func (q *Queries) LockScheduledInstanceAddons(ctx context.Context, arg LockSched
 	return items, nil
 }
 
+const meteredConflictsWithLicense = `-- name: MeteredConflictsWithLicense :many
+SELECT DISTINCT e.slug AS entitlement_slug, a.slug AS addon_slug
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_price ap ON ap.addon_id = ia.addon_id AND ap.organization_id = ia.organization_id AND ap.status = 'ACTIVE'
+JOIN license_price lp ON lp.license_id = $1 AND lp.organization_id = ia.organization_id
+                     AND lp.meters_entitlement_id = ap.meters_entitlement_id AND lp.status = 'ACTIVE'
+JOIN entitlement e ON e.id = ap.meters_entitlement_id AND e.organization_id = ap.organization_id
+WHERE ia.organization_id = $2
+  AND ia.instance_id = $3
+  AND ia.removed_at IS NULL
+ORDER BY e.slug, a.slug
+`
+
+type MeteredConflictsWithLicenseParams struct {
+	LicenseID      uuid.UUID `json:"license_id"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+type MeteredConflictsWithLicenseRow struct {
+	EntitlementSlug string `json:"entitlement_slug"`
+	AddonSlug       string `json:"addon_slug"`
+}
+
+// The entitlements an ACTIVE metered price of the licence version meters that
+// an ACTIVE price of an add-on the instance holds meters already: a move to
+// that version would bill one entitlement by two prices (§8.2 rule 3, V31-21).
+func (q *Queries) MeteredConflictsWithLicense(ctx context.Context, arg MeteredConflictsWithLicenseParams) ([]MeteredConflictsWithLicenseRow, error) {
+	rows, err := q.db.Query(ctx, meteredConflictsWithLicense, arg.LicenseID, arg.OrganizationID, arg.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []MeteredConflictsWithLicenseRow
+	for rows.Next() {
+		var i MeteredConflictsWithLicenseRow
+		if err := rows.Scan(&i.EntitlementSlug, &i.AddonSlug); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const meteredEntitlementConflicts = `-- name: MeteredEntitlementConflicts :many
 SELECT DISTINCT e.slug
 FROM addon_price ap

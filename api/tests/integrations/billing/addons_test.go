@@ -456,6 +456,38 @@ func TestAddonBilling(t *testing.T) {
 		yearly := flatFee("15000", "ANNUAL")
 		yearly["isDefault"] = true
 		require.Equal(t, "CreateAddonPrice.BillingActive", problemCode(t, fiber.StatusConflict, "POST", "/api/addons/support/prices", yearly))
+
+		stranded := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "PUT", path, map[string]any{"licensePriceId": annual.ID}),
+			fiber.StatusUnprocessableEntity)
+		require.Len(t, stranded.Errors, 1)
+		require.Equal(t, []any{"support"}, stranded.Errors[0].Value, "Appendix A: errors[0].value lists the add-on slugs")
+	})
+
+	// §8.2 rule 3, V31-21: one entitlement is billed by one price, so a plan
+	// change cannot bring a metered price of what a held add-on meters.
+	t.Run("APlanChange_ThatMetersWhatAnAddonMeters_IsRefused", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		newEntitlement(t, "tokens", 0)
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		addon := newAddon(t, map[string]any{"name": "Token pack", "slug": "token-pack"})
+		addonGrant(t, addon.Slug, "tokens", 100000, "ADD")
+		addonPrice(t, addon.Slug, metered("USAGE_BASED", "tokens", "50"))
+		fits(t, addon.Slug, s.version.Slug)
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		attach(t, s.instance.Slug, addon.Slug, 1)
+		scale := newVersion(t, "Scale", licenseschema.Published)
+		fits(t, addon.Slug, scale.Slug)
+		target := createPrice(t, scale.Slug, flatFee("4900", "MONTHLY"))
+		grant(t, scale.Slug, "tokens", 1000, 0)
+		createPrice(t, scale.Slug, metered("USAGE_BASED", "tokens", "1"))
+		path := "/api/instances/" + s.instance.Slug + "/billing/scheduled-change"
+
+		refusal := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, call(t, "PUT", path, map[string]any{"licensePriceId": target.ID}),
+			fiber.StatusUnprocessableEntity)
+		require.Equal(t, "SchedulePlanChange.MeteredEntitlementConflict", refusal.Code)
+		require.Len(t, refusal.Errors, 1)
+		require.Equal(t, "addons.token-pack", refusal.Errors[0].Location)
+		require.Equal(t, map[string]any{"entitlementSlug": "tokens", "addonSlug": "token-pack"}, refusal.Errors[0].Value)
 	})
 }
 

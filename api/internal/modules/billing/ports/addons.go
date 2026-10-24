@@ -99,4 +99,16 @@ type AddonSource interface {
 	// move to the licence version, billed on billingPeriod, would strand: not
 	// compatible with its family, or without a price for the period.
 	Incompatible(ctx context.Context, organizationID, instanceID, licenseID uuid.UUID, billingPeriod string) ([]string, error)
+	// MeteredConflicts lists the entitlements an ACTIVE metered price of the
+	// licence version meters that an ACTIVE price of an add-on the instance
+	// holds meters already, each with that add-on: one entitlement is billed
+	// by one price (§8.2 rule 3).
+	MeteredConflicts(ctx context.Context, organizationID, instanceID, licenseID uuid.UUID) ([]MeteredConflict, error)
+}
+
+// MeteredConflict is an entitlement two prices would meter: the licence
+// version's and the held add-on's.
+type MeteredConflict struct {
+	EntitlementSlug string
+	AddonSlug       string
 }
