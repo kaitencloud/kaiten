@@ -63,7 +63,7 @@ func (u *UseCase) ForSession(ctx context.Context, instanceSlug, code string, dry
 		}
 		found := candidate != nil
 		if !found {
-			candidate = &catalogue.Candidate{Row: db.ListVouchersRow{}, Entitlements: nil, Grants: nil}
+			candidate = &catalogue.Candidate{Row: db.ListVouchersRow{}, Entitlements: nil, Grants: nil, FlagGrants: nil}
 		}
 		now, err := catalogue.Now(ctx, q)
 		if err != nil {

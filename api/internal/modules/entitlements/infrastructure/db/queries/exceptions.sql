@@ -120,3 +120,14 @@ JOIN entitlement e ON e.id = x.entitlement_id AND e.organization_id = x.organiza
 WHERE x.organization_id = sqlc.arg(organization_id)
   AND x.instance_id = ANY (sqlc.arg(instance_ids)::uuid[])
 ORDER BY x.instance_id, x.starts_at DESC, x.id DESC;
+
+
+-- name: CountActiveExceptions :many
+-- The exceptions in force at now, all organizations, by kind: the
+-- kaiten.entitlements.exceptions.active gauge, read by step (g) (§19.1).
+SELECT x.kind, count(*)::bigint AS active
+FROM instance_entitlement_exception x
+WHERE x.revoked_at IS NULL
+  AND x.starts_at <= sqlc.arg(now)::timestamp
+  AND (x.ends_at IS NULL OR sqlc.arg(now)::timestamp < x.ends_at)
+GROUP BY x.kind;

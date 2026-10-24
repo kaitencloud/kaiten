@@ -49,7 +49,7 @@ describe('the publishable keys, as the mocks serve them', () => {
       'publishable-key-renderer',
       'publishable-key-pricing',
     ]);
-    expect(live.every(({ revokedAt }) => revokedAt === undefined)).toBe(true);
+    expect(live.every(({ revokedAt }) => revokedAt === null)).toBe(true);
     expect(all.map(({ id }) => id)).toEqual([
       'publishable-key-staging',
       'publishable-key-renderer',

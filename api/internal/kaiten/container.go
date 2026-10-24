@@ -250,6 +250,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 			Cancel:             billingModule.CancelSubscription,
 			Reactivate:         billingModule.ReactivateSubscription,
 			Vouchers:           voucherModule.ValidateVoucher,
+			CheckoutVouchers:   voucherModule.ValidateVoucher,
 			VoucherLimit:       voucherModule.ValidateVoucher,
 			SessionRedeemer:    voucherModule.RedeemVoucher,
 			AddonList:          addonModule.ListInstanceAddons,

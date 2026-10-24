@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 )
@@ -25,7 +26,8 @@ const VerifyURL = "https://challenges.cloudflare.com/turnstile/v0/siteverify"
 const Timeout = 5 * time.Second
 
 // ErrUnavailable is a verification that got no answer: Cloudflare unreachable,
-// too slow, or answering 5xx. Nothing was decided.
+// too slow, answering 5xx, or reporting its own internal-error, which it asks
+// to retry. Nothing was decided.
 var ErrUnavailable = errors.New("turnstile: verification unavailable")
 
 // Result is Cloudflare's answer for one token.
@@ -57,8 +59,9 @@ func NewClient(verifyURL string) *Client {
 }
 
 type answer struct {
-	Success  bool   `json:"success"`
-	Hostname string `json:"hostname"`
+	Success    bool     `json:"success"`
+	Hostname   string   `json:"hostname"`
+	ErrorCodes []string `json:"error-codes"`
 }
 
 // Verify posts the token, the secret and the visitor's address. A token
@@ -87,6 +90,10 @@ func (c *Client) Verify(ctx context.Context, secret, token, remoteIP string) (Re
 	var a answer
 	if err := json.NewDecoder(resp.Body).Decode(&a); err != nil {
 		return Result{}, fmt.Errorf("%w: %v", ErrUnavailable, err)
+	}
+	if !a.Success && slices.Contains(a.ErrorCodes, "internal-error") {
+		// Cloudflare could not decide: not the visitor's token refused (E-11).
+		return Result{}, fmt.Errorf("%w: internal-error", ErrUnavailable)
 	}
 	return Result{Success: a.Success, Hostname: strings.ToLower(a.Hostname)}, nil
 }

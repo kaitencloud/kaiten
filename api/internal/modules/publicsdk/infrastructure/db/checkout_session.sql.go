@@ -656,7 +656,7 @@ func (q *Queries) LockCheckoutSession(ctx context.Context, arg LockCheckoutSessi
 }
 
 const lockTrialEmail = `-- name: LockTrialEmail :exec
-SELECT pg_advisory_xact_lock(hashtextextended($1::text || ':' || lower($2::text), 0))
+SELECT pg_advisory_xact_lock(hashtextextended('checkout-trial:' || $1::text || ':' || lower($2::text), 0))
 `
 
 type LockTrialEmailParams struct {
@@ -666,6 +666,7 @@ type LockTrialEmailParams struct {
 
 // One trial per e-mail and family, under concurrency (INV-35, §24 #79): the
 // completion that may start a trial serializes on (organization, e-mail).
+// The prefix keeps the key apart from the other data-keyed locks (§5.12).
 func (q *Queries) LockTrialEmail(ctx context.Context, arg LockTrialEmailParams) error {
 	_, err := q.db.Exec(ctx, lockTrialEmail, arg.OrganizationID, arg.Email)
 	return err

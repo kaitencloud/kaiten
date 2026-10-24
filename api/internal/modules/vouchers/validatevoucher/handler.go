@@ -87,7 +87,7 @@ func (u *UseCase) Execute(ctx context.Context, check VoucherCheck) (*Validity, e
 		return nil, err
 	}
 	q := u.deps.Queries(ctx)
-	subject := catalogue.Subject{CustomerID: nil, Instance: nil, Plan: nil}
+	subject := catalogue.Subject{CustomerID: nil, Instance: nil, Plan: nil, Visitor: nil}
 	if check.InstanceSlug != nil {
 		instance, err := q.GetInstanceForRedeem(ctx, db.GetInstanceForRedeemParams{OrganizationID: user.OrganizationID, Slug: *check.InstanceSlug})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -152,7 +152,7 @@ func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Vou
 	}
 	q := u.deps.Queries(ctx)
 	customerID := check.CustomerID
-	subject := catalogue.Subject{CustomerID: &customerID, Instance: nil, Plan: nil}
+	subject := catalogue.Subject{CustomerID: &customerID, Instance: nil, Plan: nil, Visitor: nil}
 	known := true
 	if check.InstanceSlug != nil {
 		instance, err := q.GetInstanceForRedeem(ctx, db.GetInstanceForRedeemParams{OrganizationID: user.OrganizationID, Slug: *check.InstanceSlug})
@@ -186,7 +186,7 @@ func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Vou
 	}
 	found := candidate != nil
 	if !found {
-		candidate = &catalogue.Candidate{Row: db.ListVouchersRow{}, Entitlements: nil, Grants: nil}
+		candidate = &catalogue.Candidate{Row: db.ListVouchersRow{}, Entitlements: nil, Grants: nil, FlagGrants: nil}
 	}
 	clock, err := catalogue.Now(ctx, q)
 	if err != nil {
@@ -194,6 +194,57 @@ func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Vou
 	}
 	window := candidate.Window(clock)
 	refusal, err := candidate.Check(ctx, q, user.OrganizationID, subject)
+	if err != nil {
+		return nil, err
+	}
+	if !found || !known || window != nil || refusal != nil {
+		return nil, nil
+	}
+	voucher := catalogue.ToVoucher(candidate.Row, candidate.Grants, candidate.FlagGrants, false)
+	return &voucher, nil
+}
+
+// VisitorCheck is an anonymous checkout's code and selection (§14.8 rule 5).
+type VisitorCheck struct {
+	OrganizationID uuid.UUID
+	Code           string
+	LicensePriceID uuid.UUID
+	AddonIDs       []uuid.UUID
+}
+
+// Visitor checks a code for an anonymous checkout against its selection, with
+// no customer and no instance (§11.4, V32-01): the voucher when the checkout
+// may redeem it, nil whatever else, the answer hiding why. The checkout's own
+// limits bound the attempts (§14.8).
+func (u *UseCase) Visitor(ctx context.Context, check VisitorCheck) (*catalogue.Voucher, error) {
+	q := u.deps.Queries(ctx)
+	subject := catalogue.Subject{CustomerID: nil, Instance: nil, Plan: nil, Visitor: &catalogue.Visitor{AddonIDs: check.AddonIDs}}
+	known := true
+	plan, err := q.GetPlanPrice(ctx, db.GetPlanPriceParams{OrganizationID: check.OrganizationID, ID: check.LicensePriceID})
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+		known = false
+	case err != nil:
+		return nil, err
+	case !plan.Active:
+		known = false
+	default:
+		subject.Plan = &plan
+	}
+	candidate, err := catalogue.FindByCode(ctx, q, check.OrganizationID, check.Code)
+	if err != nil {
+		return nil, err
+	}
+	found := candidate != nil
+	if !found {
+		candidate = &catalogue.Candidate{Row: db.ListVouchersRow{}, Entitlements: nil, Grants: nil, FlagGrants: nil}
+	}
+	clock, err := catalogue.Now(ctx, q)
+	if err != nil {
+		return nil, err
+	}
+	window := candidate.Window(clock)
+	refusal, err := candidate.Check(ctx, q, check.OrganizationID, subject)
 	if err != nil {
 		return nil, err
 	}

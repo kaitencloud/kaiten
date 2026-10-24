@@ -255,7 +255,8 @@ func newInstance(t *testing.T, name string, customerID, licenseID uuid.UUID) ins
 }
 
 // fakeTurnstile stands in for Cloudflare's siteverify: a token "pass:<host>"
-// is solved on host, "fail" is refused, "down" answers 500. It records the
+// is solved on host, "fail" is refused, "down" answers 500, "internal" is
+// Cloudflare's internal-error. It records the
 // last remoteip it was sent.
 func fakeTurnstile(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
@@ -264,6 +265,9 @@ func fakeTurnstile(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case tok == "down":
 		w.WriteHeader(http.StatusInternalServerError)
+	case tok == "internal":
+		// Cloudflare's own failure, which it asks to retry (E-11).
+		_, _ = w.Write([]byte(`{"success":false,"error-codes":["internal-error"]}`))
 	case strings.HasPrefix(tok, "pass:") && r.PostForm.Get("secret") != "":
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "hostname": strings.TrimPrefix(tok, "pass:")})

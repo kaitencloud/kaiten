@@ -32,7 +32,7 @@ type CheckoutSessionDraft struct {
 	BillingPeriod  *string    `json:"billingPeriod,omitempty" doc:"MONTHLY, QUARTERLY, SEMI_ANNUAL or ANNUAL, with licenseSlug"`
 	// AddOns are public add-ons that fit the plan.
 	AddOns            []subscribeinstance.SubscriptionAddon `json:"addOns,omitempty" maxItems:"50"`
-	VoucherCode       *string                               `json:"voucherCode,omitempty" maxLength:"64" doc:"A code to apply; any refusal answers 422 .VoucherInvalid"`
+	VoucherCode       *string                               `json:"voucherCode,omitempty" maxLength:"64" doc:"A code to apply, checked against the selection, with no customer yet: a voucher restricted to a customer never applies, and one without a PRICE part only when nothing is due today. Its discount counts in dueToday; the completion, or the payment, records its redemption. Any refusal answers 422 .VoucherInvalid"`
 	Trial             *bool                                 `json:"trial,omitempty" doc:"false declines the licence's trial"`
 	Email             *string                               `json:"email,omitempty" maxLength:"254" doc:"The buyer's e-mail. It becomes the new customer's billing e-mail at completion. Required unless dryRun."`
 	ReturnURL         *string                               `json:"returnUrl,omitempty" maxLength:"2048" doc:"Where the payment-method setup page sends the visitor back, with kaiten_checkout_session=<sessionId> appended: https, or http on localhost, on an origin the key allows. Required unless dryRun."`
