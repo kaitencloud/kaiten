@@ -128,7 +128,8 @@ type UsageSource interface {
 	// RetentionStart is the earliest instant the organization's usage history
 	// still serves, or nil when it keeps everything or cannot tell.
 	RetentionStart(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time
-	// RetentionMonths is the organization's usage history window in months, 0
-	// when it keeps everything; false when it cannot be told.
-	RetentionMonths(ctx context.Context, organizationID uuid.UUID) (int, bool)
+	// RetentionWindow is the organization's usage history window in months,
+	// 0 when it keeps everything, and its source: KBK, ENV or UNKNOWN (with 0
+	// months, when it cannot be told).
+	RetentionWindow(ctx context.Context, organizationID uuid.UUID) (months int, source string)
 }

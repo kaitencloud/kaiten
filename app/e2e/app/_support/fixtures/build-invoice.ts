@@ -303,7 +303,11 @@ export function buildInvoice({
         (daysUntilDue === null ? null : addDays(issued, daysUntilDue)))
       : null,
     handoff: {
+      acknowledgedAt: null,
       claimCount: 0,
+      externalReference: null,
+      leaseId: null,
+      leasedUntil: null,
       status: 'NOT_REQUIRED',
       ...handoff,
     },
@@ -361,19 +365,24 @@ export function buildProviderRecord({
   /** What Stripe totals the invoice at, excluding tax, for a matched invoice. */
   total?: number;
 } = {}): ProviderRecord {
+  const invoiceId = externalInvoiceId ?? 'in_1Qx0';
   return {
     externalCustomerId,
     externalInvoiceId,
-    hostedInvoiceUrl: `https://invoice.stripe.com/i/acct_1/${externalInvoiceId}`,
-    invoiceNumber: `INV-${externalInvoiceId.slice(-4).toUpperCase()}`,
-    invoicePdfUrl: `https://pay.stripe.com/invoice/acct_1/${externalInvoiceId}/pdf`,
+    hostedInvoiceUrl: `https://invoice.stripe.com/i/acct_1/${invoiceId}`,
+    invoiceNumber: `INV-${invoiceId.slice(-4).toUpperCase()}`,
+    invoicePdfUrl: `https://pay.stripe.com/invoice/acct_1/${invoiceId}/pdf`,
+    lastPaymentError: null,
+    lastPushError: null,
+    nextPushAt: null,
     pushAttempts: 1,
-    pushedAt,
-    reconciledAt: pushedAt,
+    pushedAt: pushedAt ?? null,
+    reconciledAt: pushedAt ?? null,
     reconciliationStatus: 'MATCHED',
     status: 'open',
-    syncedAt: pushedAt,
-    totalExcludingTax: total,
+    syncedAt: pushedAt ?? null,
+    reconciliationDetail: null,
+    totalExcludingTax: total ?? null,
     ...overrides,
   };
 }
@@ -422,10 +431,11 @@ export function buildUsageReport({
     eventCountAfter: reportSeq,
     instanceId,
     licenseId: PRO_LICENSE_ID,
-    limitValue,
+    limitValue: limitValue ?? null,
     overageDelta,
-    overagePercent: limitValue === undefined ? undefined : overagePercent,
-    properties,
+    overagePercent:
+      (limitValue === undefined ? undefined : overagePercent) ?? null,
+    properties: properties ?? null,
     reportSeq,
     reportedAt,
     reportedValue,

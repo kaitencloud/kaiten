@@ -16,13 +16,13 @@ type Updater interface {
 	UpdateFamily(ctx context.Context, cl caller.OrganizationCaller, familySlug string, cmd Command) (*schema.LicenseFamilyView, error)
 }
 
-// LicenseFamilyUpdate is the family's settings to change; an absent member
-// keeps the stored value.
+// LicenseFamilyUpdate is the family's settings to change; an absent or null
+// member keeps the stored value (§13.1, V31-01).
 type LicenseFamilyUpdate struct {
-	IsPublic                     *bool   `json:"isPublic,omitempty" doc:"List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue"`
-	FallbackLicenseFamilySlug    *string `json:"fallbackLicenseFamilySlug,omitempty" maxLength:"255" doc:"Another FREE family of the organization (every version of it priced FREE), whose default PUBLISHED version an instance moves to when its subscription ends. \"\" removes the fallback. Anything else answers 422 .InvalidFallback, an unknown family included."`
-	TrialEndWithoutPaymentMethod *string `json:"trialEndWithoutPaymentMethod,omitempty" doc:"CANCEL or CONVERT: what a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method. CANCEL cancels it; CONVERT makes it ACTIVE, whose first charge then fails. Any other value answers 422 .InvalidTrialEndBehavior."`
-	TrialReminderDays            *int32  `json:"trialReminderDays,omitempty" doc:"How many days before a trial's end trial_will_end fires: an integer from 1 to 30 (else 422 .InvalidTrialReminderDays), for the trials started after the change"`
+	IsPublic                     *bool   `json:"isPublic,omitempty" nullable:"true" doc:"List the family's default PUBLISHED version, with its ACTIVE prices, in the public catalogue"`
+	FallbackLicenseFamilySlug    *string `json:"fallbackLicenseFamilySlug,omitempty" nullable:"true" maxLength:"255" doc:"Another FREE family of the organization (every version of it priced FREE), whose default PUBLISHED version an instance moves to when its subscription ends. \"\" removes the fallback. Anything else answers 422 .InvalidFallback, an unknown family included."`
+	TrialEndWithoutPaymentMethod *string `json:"trialEndWithoutPaymentMethod,omitempty" nullable:"true" doc:"CANCEL or CONVERT: what a trial charged automatically with a total above 0 becomes at its end when the customer has no ACTIVE payment method. CANCEL cancels it; CONVERT makes it ACTIVE, whose first charge then fails. Any other value answers 422 .InvalidTrialEndBehavior."`
+	TrialReminderDays            *int32  `json:"trialReminderDays,omitempty" nullable:"true" doc:"How many days before a trial's end trial_will_end fires: an integer from 1 to 30 (else 422 .InvalidTrialReminderDays), for the trials started after the change"`
 }
 
 type Request struct {

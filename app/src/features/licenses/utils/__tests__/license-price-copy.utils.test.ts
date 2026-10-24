@@ -29,7 +29,7 @@ const overage = buildPrice({
   displayLabel: 'Traces, overage',
   displayOrder: 2,
   id: 'over',
-  metered: { entitlementSlug: 'traces', saleUnitFactor: '100000' },
+  metered: { entitlementSlug: 'traces', saleUnitFactor: '100000', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '800',
 });
 const SOURCE = [base, retired, overage];
@@ -93,7 +93,7 @@ describe('what is a copy of a price', () => {
     expect(isCopyOf({ ...base, displayLabel: 'Other' }, base)).toBe(false);
     expect(
       isCopyOf(
-        { ...overage, metered: { entitlementSlug: 'requests', saleUnitFactor: '1' } },
+        { ...overage, metered: { entitlementSlug: 'requests', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null } },
         overage,
       ),
     ).toBe(false);

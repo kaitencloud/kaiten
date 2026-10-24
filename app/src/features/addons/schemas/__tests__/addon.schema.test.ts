@@ -160,7 +160,7 @@ describe('the body of an update', () => {
       name: 'Extra seats',
       versionName: '2026',
     });
-    expect(addonToChangesBody({ ...version, maxQuantity: undefined }, false).maxQuantity).toBeUndefined();
+    expect(addonToChangesBody({ ...version, maxQuantity: null }, false).maxQuantity).toBeUndefined();
     expect(addonToChangesBody({ ...version, maxQuantity: null } as never, false).maxQuantity).toBeUndefined();
   });
 });

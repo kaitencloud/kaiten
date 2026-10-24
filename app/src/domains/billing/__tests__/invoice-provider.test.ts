@@ -12,7 +12,7 @@ const draft = (
 
 describe('a draft that Stripe holds for a person to finalize', () => {
   it('is one the provider has and the queue is not going to push', () => {
-    expect(isAwaitingFinalization(draft({ externalInvoiceId: 'in_1' }))).toBe(
+    expect(isAwaitingFinalization(draft({ externalInvoiceId: 'in_1', nextPushAt: null }))).toBe(
       true,
     );
   });
@@ -27,7 +27,7 @@ describe('a draft that Stripe holds for a person to finalize', () => {
       ),
     ).toBe(false);
     expect(
-      isAwaitingFinalization(draft({ nextPushAt: '2027-03-01T00:00:00Z' })),
+      isAwaitingFinalization(draft({ nextPushAt: '2027-03-01T00:00:00Z', externalInvoiceId: null })),
     ).toBe(false);
     expect(isAwaitingFinalization(draft())).toBe(false);
   });
@@ -35,13 +35,13 @@ describe('a draft that Stripe holds for a person to finalize', () => {
   it('is only ever a draft', () => {
     expect(
       isAwaitingFinalization({
-        provider: { externalInvoiceId: 'in_1' },
+        provider: { externalInvoiceId: 'in_1', nextPushAt: null },
         status: 'PUSH_FAILED',
       }),
     ).toBe(false);
     expect(
       isAwaitingFinalization({
-        provider: { externalInvoiceId: 'in_1' },
+        provider: { externalInvoiceId: 'in_1', nextPushAt: null },
         status: 'PUSHED',
       }),
     ).toBe(false);
@@ -50,7 +50,7 @@ describe('a draft that Stripe holds for a person to finalize', () => {
 
 describe('what pushing an invoice again means', () => {
   it('is finalizing it when Stripe holds the draft for a person', () => {
-    expect(getPushVariant(draft({ externalInvoiceId: 'in_1' }))).toBe(
+    expect(getPushVariant(draft({ externalInvoiceId: 'in_1', nextPushAt: null }))).toBe(
       'finalize',
     );
   });
@@ -58,7 +58,7 @@ describe('what pushing an invoice again means', () => {
   it('is retrying when the push failed', () => {
     expect(
       getPushVariant({
-        provider: { externalInvoiceId: 'in_1' },
+        provider: { externalInvoiceId: 'in_1', nextPushAt: null },
         status: 'PUSH_FAILED',
       }),
     ).toBe('retry');
@@ -67,7 +67,7 @@ describe('what pushing an invoice again means', () => {
 
   it('is pushing now when the queue has the draft and has not run yet', () => {
     expect(
-      getPushVariant(draft({ nextPushAt: '2027-03-01T00:00:00Z' })),
+      getPushVariant(draft({ nextPushAt: '2027-03-01T00:00:00Z', externalInvoiceId: null })),
     ).toBe('push');
     expect(getPushVariant(draft())).toBe('push');
   });

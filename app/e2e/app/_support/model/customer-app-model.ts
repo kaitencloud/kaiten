@@ -271,7 +271,7 @@ export class CustomerAppModel {
     );
     this.errors.consume('create');
     this.problems.consume('create');
-    checkBillingEmail('CreateCustomer', input.billingEmail);
+    checkBillingEmail('CreateCustomer', input.billingEmail ?? undefined);
     const timestamp = this.nextTimestamp();
     const customer: Customer = {
       billingEmail: input.billingEmail || undefined,
@@ -305,7 +305,7 @@ export class CustomerAppModel {
     );
     this.errors.consume('update');
     this.problems.consume('update');
-    checkBillingEmail('UpdateCustomer', input.billingEmail);
+    checkBillingEmail('UpdateCustomer', input.billingEmail ?? undefined);
     const customerIndex = this.customers.findIndex(
       (customer) => customer.slug === customerSlug,
     );
@@ -323,7 +323,8 @@ export class CustomerAppModel {
       ...currentCustomer,
       // Omitted keeps the stored address, and an empty one removes it.
       billingEmail:
-        input.billingEmail === undefined
+        // Absent or null keeps the stored address, as the API does (§13.1).
+        input.billingEmail == null
           ? currentCustomer.billingEmail
           : input.billingEmail || undefined,
       domain: input.domain,

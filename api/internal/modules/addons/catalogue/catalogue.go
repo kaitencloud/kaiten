@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -60,7 +62,7 @@ type Addon struct {
 	IsDefault       bool      `json:"isDefault" doc:"The version the family resolves to. Only a PUBLISHED version."`
 	LifecycleState  string    `json:"lifecycleState" enum:"DRAFT,PUBLISHED,ARCHIVED" doc:"A DRAFT can be attached to try it; an ARCHIVED version stays on the instances holding it but cannot be attached again."`
 	PricingType     string    `json:"pricingType" enum:"FREE,PAID,CUSTOM"`
-	MaxQuantity     *int32    `json:"maxQuantity,omitempty" doc:"The largest quantity an instance can hold; unbounded when absent" example:"10"`
+	MaxQuantity     *int32    `json:"maxQuantity" doc:"The largest quantity an instance can hold; unbounded when null" example:"10"`
 	IncreaseBilling string    `json:"increaseBilling" enum:"TRUE_UP,NEXT_BOUNDARY" readOnly:"true" doc:"The family's: how a mid-period increase or attachment of an ADVANCE add-on is billed. TRUE_UP adds a true-up line for the elapsed period at the next renewal; NEXT_BOUNDARY bills from the next boundary only"`
 	CreatedAt       time.Time `json:"createdAt" readOnly:"true"`
 	UpdatedAt       time.Time `json:"updatedAt" readOnly:"true"`
@@ -73,8 +75,14 @@ type AddonFamily struct {
 	IsPublic        bool      `json:"isPublic" doc:"Whether the family is listed in the public catalogue"`
 	IncreaseBilling string    `json:"increaseBilling" enum:"TRUE_UP,NEXT_BOUNDARY" doc:"How a mid-period increase or attachment of the family's ADVANCE add-ons is billed (V31-70)"`
 	LastVersion     int32     `json:"lastVersion" doc:"The highest version number the family has assigned"`
-	CurrentVersion  *Addon    `json:"currentVersion,omitempty" doc:"The default version, else the highest PUBLISHED one; absent when none is published"`
+	CurrentVersion  *Addon    `json:"currentVersion" doc:"The default version, else the highest PUBLISHED one; null when none is published"`
 	Versions        []Addon   `json:"versions" doc:"Every version, newest first"`
+}
+
+// TransformSchema publishes AddonFamily's currentVersion as null when no
+// version is published (§13.15).
+func (AddonFamily) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, AddonFamily{})
 }
 
 // AddonEntitlement is what an add-on version grants per unit of quantity.
@@ -84,7 +92,7 @@ type AddonEntitlement struct {
 	EntitlementType                string         `json:"entitlementType" enum:"BOOLEAN,NUMBER,CONFIG,NUMBER_AI_CREDIT"`
 	Value                          map[string]any `json:"value" doc:"{type, value}, shaped like a licence grant. A number counts once per unit of quantity."`
 	OverrideBehavior               string         `json:"overrideBehavior" enum:"ADD,OVERRIDE,MAX" doc:"How a number grant combines with the licence's: ADD sums value × quantity, OVERRIDE replaces it with the latest attached add-on's, MAX keeps the larger. A boolean always ORs, a config always overrides."`
-	LimitCapExceededOveragePercent *int16         `json:"limitCapExceededOveragePercent,omitempty" doc:"The overage the add-on allows; absent inherits the licence grant's"`
+	LimitCapExceededOveragePercent *int16         `json:"limitCapExceededOveragePercent" doc:"The overage the add-on allows; null inherits the licence grant's"`
 }
 
 // Lifecycle states and pricing types, as the API spells them.

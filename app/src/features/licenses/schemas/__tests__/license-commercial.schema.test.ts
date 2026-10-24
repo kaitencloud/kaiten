@@ -55,7 +55,7 @@ describe('the form of the commercial fields', () => {
     // declares it, so the contract may allow more but never less.
     expect(MAX_TRIAL_PERIOD_DAYS).toBe(365);
     expect(MAX_TRIAL_PERIOD_DAYS).toBeLessThanOrEqual(
-      contract.trialPeriodDays.unwrap().maxValue ?? Number.POSITIVE_INFINITY,
+      contract.trialPeriodDays.unwrap().unwrap().maxValue ?? Number.POSITIVE_INFINITY,
     );
   });
 

@@ -67,7 +67,7 @@ describe('what a provider stands for', () => {
     expect(
       getProviderStanding({
         ...stripeProvider('notEntitled'),
-        unavailableReason: undefined,
+        unavailableReason: null,
       }),
     ).toEqual({ reason: 'UNKNOWN', state: 'unavailable' });
     expect(getProviderStanding(undefined)).toEqual({ state: 'unlisted' });

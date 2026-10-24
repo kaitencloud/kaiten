@@ -123,7 +123,7 @@ function checkTypedGrant(
   if (grant.modifierType !== 'SET') {
     throw refuse('a BOOLEAN or CONFIG grant is a SET');
   }
-  if (grant.modifierValue !== undefined) {
+  if (grant.modifierValue != null) {
     throw refuse('a BOOLEAN or CONFIG grant carries value, not modifierValue');
   }
   if (type === 'BOOLEAN' && typeof grant.value !== 'boolean') {
@@ -149,13 +149,13 @@ function checkGrant(grant: Grant, operation: string) {
     throw invalid;
   }
   if (grant.modifierType === 'UNLIMITED') {
-    if (grant.modifierValue !== undefined) {
+    if (grant.modifierValue != null) {
       throw invalid;
     }
 
     return;
   }
-  if (grant.modifierValue === undefined) {
+  if (grant.modifierValue == null) {
     throw invalid;
   }
   const value = DECIMAL.test(grant.modifierValue)
@@ -395,12 +395,15 @@ export function onlyActiveMembersChange(
   stored: Voucher,
   draft: VoucherDraft,
 ): boolean {
-  const same = <T>(a: T | undefined, b: T | undefined) => a === b;
-  const sameTime = (a?: string, b?: string) =>
-    (a === undefined && b === undefined) ||
-    (a !== undefined && b !== undefined && Date.parse(a) === Date.parse(b));
-  const sameDecimal = (a?: string, b?: string) =>
-    a === undefined || b === undefined ? a === b : Number(a) === Number(b);
+  // A stored voucher holds null where a draft leaves a member out (§13.15):
+  // both are none.
+  const same = <T>(a: T | null | undefined, b: T | null | undefined) =>
+    (a ?? undefined) === (b ?? undefined);
+  const sameTime = (a?: string | null, b?: string | null) =>
+    (a == null && b == null) ||
+    (a != null && b != null && Date.parse(a) === Date.parse(b));
+  const sameDecimal = (a?: string | null, b?: string | null) =>
+    a == null || b == null ? a == null && b == null : Number(a) === Number(b);
   const sameMinimum = (
     a: Voucher['redemptionRules']['minimumSubscriptionAmount'],
     b: NonNullable<
@@ -690,7 +693,7 @@ export function applicationsMaxOf(voucher: Voucher): number | undefined {
   }
 
   return voucher.duration === 'REPEATING'
-    ? voucher.durationInPeriods
+    ? (voucher.durationInPeriods ?? undefined)
     : undefined;
 }
 

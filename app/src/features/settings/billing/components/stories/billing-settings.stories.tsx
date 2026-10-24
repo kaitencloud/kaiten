@@ -189,7 +189,7 @@ export const HealthNeedsAttention: Story = {
         handleGetBillingHealth({
           body: healthWith({
             closeBacklog: { count: 1, oldestDueAt: '2027-02-28T00:00:00Z' },
-            handoff: { oldestPendingIssuedAt: '2027-03-01T00:00:00Z', pending: 4 },
+            handoff: { oldestPendingIssuedAt: '2027-03-01T00:00:00Z', pending: 4, reclaimedLast24h: 0 },
             heldInvoices: {
               byReason: {
                 LEDGER_CHAIN_BREAK: 0,

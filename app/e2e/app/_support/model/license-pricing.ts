@@ -480,8 +480,8 @@ export class LicensePricing {
           ? {
               entitlementSlug: slugOf(entitlement),
               saleUnitFactor: factor,
-              saleUnitPlural: entitlement.saleUnitPlural,
-              saleUnitSingular: entitlement.saleUnitSingular,
+              saleUnitPlural: entitlement.saleUnitPlural ?? null,
+              saleUnitSingular: entitlement.saleUnitSingular ?? null,
             }
           : null,
       status: 'ACTIVE',

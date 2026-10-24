@@ -60,7 +60,7 @@ for (const method of [
 }
 
 const family = (slug: string, versions: Addon[], isPublic = false): AddonFamily => ({
-  currentVersion: versions.find((version) => version.isDefault),
+  currentVersion: versions.find((version) => version.isDefault) ?? null,
   id: `addon-family-${slug}`,
   increaseBilling: 'TRUE_UP',
   isPublic,
@@ -402,7 +402,7 @@ describe('deleting a draft', () => {
     const metered = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'price-metered',
-      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '0.1',
     });
     server.use(

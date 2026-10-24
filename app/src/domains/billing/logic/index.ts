@@ -261,6 +261,7 @@ export {
   describeDiscount,
   describeGrant,
   describeVoucherOffer,
+  type NullableOptional,
   type VoucherOfferInput,
 } from './voucher-offer';
 export {

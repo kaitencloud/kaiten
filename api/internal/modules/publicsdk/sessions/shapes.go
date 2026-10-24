@@ -6,6 +6,8 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/closing"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/incomplete"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
@@ -131,8 +133,14 @@ type SessionSubscription struct {
 	CurrentPeriodStart time.Time                    `json:"currentPeriodStart"`
 	CurrentPeriodEnd   time.Time                    `json:"currentPeriodEnd" doc:"When the current period ends: the renewal date, or the trial's end"`
 	TrialEndsAt        *time.Time                   `json:"trialEndsAt"`
-	CancelAtPeriodEnd  bool                         `json:"cancelAtPeriodEnd" doc:"The subscription ends at currentPeriodEnd; reactivate it before then to keep it"`
-	ScheduledChange    *SessionScheduledChange      `json:"scheduledChange" doc:"A plan change the vendor scheduled for the next boundary"`
+	// IncompleteExpiresAt, CanceledAt and CancellationReason say why a
+	// checkout or a subscription ended, for the portal to explain it
+	// (V31-63, V31-65).
+	IncompleteExpiresAt *time.Time              `json:"incompleteExpiresAt" doc:"INCOMPLETE only: when the checkout ends unpaid"`
+	CancelAtPeriodEnd   bool                    `json:"cancelAtPeriodEnd" doc:"The subscription ends at currentPeriodEnd; reactivate it before then to keep it"`
+	CanceledAt          *time.Time              `json:"canceledAt" doc:"When the subscription was canceled"`
+	CancellationReason  *string                 `json:"cancellationReason" enum:"TRIAL_ENDED_WITHOUT_PAYMENT_METHOD,INCOMPLETE_EXPIRED" doc:"Why the system ended it; null when it did not, a vendor's own reason is never shown"`
+	ScheduledChange     *SessionScheduledChange `json:"scheduledChange" doc:"A plan change the vendor scheduled for the next boundary"`
 }
 
 // TransformSchema publishes SessionSubscription's absent members as null (§13.15).
@@ -153,7 +161,15 @@ func SubscriptionFrom(billing subscriptions.InstanceBilling) SessionSubscription
 		Currency: billing.Currency, BillingPeriod: billing.BillingPeriod,
 		BasePrice:          getpubliccatalog.PriceFrom(billing.BasePrice),
 		CurrentPeriodStart: billing.CurrentPeriodStart, CurrentPeriodEnd: billing.CurrentPeriodEnd,
-		TrialEndsAt: billing.TrialEndsAt, CancelAtPeriodEnd: billing.CancelAtPeriodEnd, ScheduledChange: nil,
+		TrialEndsAt: billing.TrialEndsAt, IncompleteExpiresAt: nil, CancelAtPeriodEnd: billing.CancelAtPeriodEnd,
+		CanceledAt: billing.CanceledAt, CancellationReason: nil, ScheduledChange: nil,
+	}
+	if billing.Status == subscriptions.StatusIncomplete {
+		out.IncompleteExpiresAt = billing.IncompleteExpiresAt
+	}
+	if reason := billing.CancellationReason; reason != nil &&
+		(*reason == closing.ReasonTrialEndedWithoutPaymentMethod || *reason == incomplete.ReasonExpired) {
+		out.CancellationReason = reason
 	}
 	if change := billing.ScheduledChange; change != nil {
 		out.ScheduledChange = &SessionScheduledChange{Price: getpubliccatalog.PriceFrom(change.Price), EffectiveAt: change.EffectiveAt}

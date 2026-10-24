@@ -55,7 +55,7 @@ describe('the lease of a handoff', () => {
   });
 
   it('is not held when there is no lease, or one that is no date', () => {
-    expect(isHandoffLeased({ status: 'PENDING' }, now)).toBe(false);
+    expect(isHandoffLeased({ status: 'PENDING', leasedUntil: null }, now)).toBe(false);
     expect(
       isHandoffLeased({ leasedUntil: 'not a date', status: 'PENDING' }, now),
     ).toBe(false);

@@ -33,12 +33,12 @@ describe('what the health of billing counts', () => {
   it('leads each count that something lists to it, and the others to none', () => {
     const items = getHealthItems(
       health({
-        closeBacklog: { count: 1 },
-        handoff: { pending: 2 },
+        closeBacklog: { count: 1, oldestDueAt: null },
+        handoff: { pending: 2, oldestPendingIssuedAt: null, reclaimedLast24h: 0 },
         heldInvoices: { byReason: {}, count: 3 },
         overdueInvoices: 4,
         pastDueSubscriptions: 5,
-        pushFailures: { count: 6 },
+        pushFailures: { count: 6, oldestFailedAt: null },
         reconciliationMismatches30d: 7,
       }),
     );
@@ -71,7 +71,7 @@ describe('what the health of billing counts', () => {
     const items = getHealthItems(
       health({
         closeBacklog: { count: 1, oldestDueAt: '2027-03-01T00:00:00Z' },
-        handoff: { oldestPendingIssuedAt: '2027-03-02T00:00:00Z', pending: 1 },
+        handoff: { oldestPendingIssuedAt: '2027-03-02T00:00:00Z', pending: 1, reclaimedLast24h: 0 },
         pushFailures: { count: 1, oldestFailedAt: '2027-03-03T00:00:00Z' },
       }),
     );
@@ -112,7 +112,17 @@ describe('how the last pass of a provider went', () => {
   const sync = (entry: Partial<BillingHealth['providerSync'][number]>) =>
     health({
       providerSync: [
-        { consecutiveFailures: 0, providerKind: 'STRIPE', ...entry },
+        {
+          consecutiveFailures: 0,
+          lagSeconds: null,
+          lastFullSweepAt: null,
+          lastSuccessfulSyncAt: null,
+          lastSyncError: null,
+          lastSyncStatus: null,
+          lastSyncedAt: null,
+          providerKind: 'STRIPE',
+          ...entry,
+        },
       ],
     });
 
@@ -222,12 +232,20 @@ describe('how the last pass of a provider went', () => {
           lastSyncStatus: 'FAILED',
           lastSyncedAt: '2027-03-01T10:00:00Z',
           providerKind: 'NOOP',
+          lagSeconds: null,
+          lastFullSweepAt: null,
+          lastSuccessfulSyncAt: null,
+          lastSyncError: null,
         },
         {
           consecutiveFailures: 0,
           lastSyncStatus: 'SUCCESS',
           lastSyncedAt: '2027-03-02T10:00:00Z',
           providerKind: 'STRIPE',
+          lagSeconds: null,
+          lastFullSweepAt: null,
+          lastSuccessfulSyncAt: null,
+          lastSyncError: null,
         },
       ],
     });

@@ -89,9 +89,12 @@ export function toCatalogPrice(input: CatalogPriceInput): CatalogPrice | null {
   if (input.meteredEntitlement === null) {
     return price.data;
   }
+  // GraphQL carries no sale unit labels: the meter has none to show.
   const metered = zPriceMeter.safeParse({
     entitlementSlug: input.meteredEntitlement,
     saleUnitFactor: input.saleUnitFactor ?? '1',
+    saleUnitPlural: null,
+    saleUnitSingular: null,
   });
 
   return metered.success

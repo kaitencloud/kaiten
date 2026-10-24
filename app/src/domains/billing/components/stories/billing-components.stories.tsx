@@ -276,7 +276,7 @@ const perThousandRequests: CatalogPrice = {
   displayOrder: 2,
   id: 'price-requests',
   isDefault: false,
-  metered: { entitlementSlug: 'requests', saleUnitFactor: '1000' },
+  metered: { entitlementSlug: 'requests', saleUnitFactor: '1000', saleUnitPlural: null, saleUnitSingular: null },
   status: 'ACTIVE',
   unitAmountDecimal: '0.2',
 };

@@ -57,6 +57,8 @@ const grants = [
 const metered = (slug: string): Price['metered'] => ({
   entitlementSlug: slug,
   saleUnitFactor: '1',
+  saleUnitPlural: null,
+  saleUnitSingular: null,
 });
 const prices = [
   buildPrice({ id: 'price-flat', unitAmountDecimal: '3900' }),

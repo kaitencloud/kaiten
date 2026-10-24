@@ -64,7 +64,7 @@ function AddonChoice({ addon, onChange, units }: ChoiceProps) {
             group: t(KEYS.group, { name: label }),
             increase: t(KEYS.increase, { name: label }),
           }}
-          max={addon.maxQuantity}
+          max={addon.maxQuantity ?? undefined}
           onChange={onChange}
           value={units}
         />

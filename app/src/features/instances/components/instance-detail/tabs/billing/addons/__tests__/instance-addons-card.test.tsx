@@ -268,7 +268,7 @@ describe('what the card lists', () => {
     const calls = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'price-calls',
-      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1000', saleUnitSingular: '1k calls' },
+      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1000', saleUnitSingular: '1k calls', saleUnitPlural: null },
       unitAmountDecimal: '150',
     });
     serveHeld([
@@ -538,7 +538,7 @@ describe('taking an add-on off', () => {
     const calls = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'price-calls',
-      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '15',
     });
     serveHeld([heldSeats({ prices: [calls] })]);
@@ -555,7 +555,7 @@ describe('taking an add-on off', () => {
     const calls = buildPrice({
       billingModel: 'OVERAGE',
       id: 'price-calls',
-      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '15',
     });
     serveHeld([heldSeats({ prices: [heldSeats().prices[0]!, calls] })]);

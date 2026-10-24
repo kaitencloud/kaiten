@@ -64,7 +64,7 @@ const OVERAGE = buildPrice({
   billingModel: 'OVERAGE',
   displayLabel: 'Traces, overage',
   id: 'price-pro-traces',
-  metered: { entitlementSlug: 'traces', saleUnitFactor: '1' },
+  metered: { entitlementSlug: 'traces', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '8',
 });
 
@@ -109,7 +109,7 @@ const ADDON_PRICES = {
     buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'price-tokens',
-      metered: { entitlementSlug: 'tokens', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'tokens', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '0.1',
     }),
   ],

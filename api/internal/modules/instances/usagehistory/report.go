@@ -34,13 +34,13 @@ type UsageReport struct {
 	Delta             string         `json:"delta" doc:"valueAfter minus valueBefore; negative for a set that lowered the counter" example:"600"`
 	OverageDelta      string         `json:"overageDelta" doc:"How much the usage above limitValue moved: max(0, valueAfter - limitValue) - max(0, valueBefore - limitValue). 0 when unlimited." example:"0"`
 	EventCountAfter   int32          `json:"eventCountAfter" doc:"Reports counted in the window after this one" example:"1"`
-	WindowStart       *time.Time     `json:"windowStart,omitempty" doc:"Start of the usage window the report counted in (inclusive). Null for a lifetime entitlement."`
-	WindowEnd         *time.Time     `json:"windowEnd,omitempty" doc:"End of the usage window the report counted in (exclusive). Null for a lifetime entitlement."`
-	LimitValue        *string        `json:"limitValue,omitempty" doc:"The limit in force when the report was accepted. Null when unlimited." example:"1000"`
-	OveragePercent    *int16         `json:"overagePercent,omitempty" doc:"The overage allowed above limitValue, in percent, when the report was accepted. Null when unlimited." example:"50"`
+	WindowStart       *time.Time     `json:"windowStart" doc:"Start of the usage window the report counted in (inclusive). Null for a lifetime entitlement."`
+	WindowEnd         *time.Time     `json:"windowEnd" doc:"End of the usage window the report counted in (exclusive). Null for a lifetime entitlement."`
+	LimitValue        *string        `json:"limitValue" doc:"The limit in force when the report was accepted. Null when unlimited." example:"1000"`
+	OveragePercent    *int16         `json:"overagePercent" doc:"The overage allowed above limitValue, in percent, when the report was accepted. Null when unlimited." example:"50"`
 	LicenseID         uuid.UUID      `json:"licenseId" format:"uuid" doc:"The instance's licence when the report was accepted"`
-	TransactionID     *string        `json:"transactionId,omitempty" doc:"The report's idempotency key, when it was sent with one" example:"llm-call-9f2c:tokens"`
-	Properties        map[string]any `json:"properties,omitempty" doc:"The report's metadata, when it was stored"`
+	TransactionID     *string        `json:"transactionId" doc:"The report's idempotency key; null when it was sent without one" example:"llm-call-9f2c:tokens"`
+	Properties        map[string]any `json:"properties" nullable:"true" doc:"The report's metadata; null when none was stored"`
 
 	// organizationID only appears in the CSV export, whose columns carry it.
 	organizationID uuid.UUID

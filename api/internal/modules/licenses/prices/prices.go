@@ -58,8 +58,8 @@ func (Price) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 type PriceMeter struct {
 	EntitlementSlug  string  `json:"entitlementSlug" doc:"The metered entitlement" example:"tokens"`
 	SaleUnitFactor   string  `json:"saleUnitFactor" doc:"Measured units in one sale unit, captured when the price was created (1 when the entitlement has no sale unit): 10000 bills per 10,000 tokens." example:"10000"`
-	SaleUnitSingular *string `json:"saleUnitSingular,omitempty" example:"10k tokens"`
-	SaleUnitPlural   *string `json:"saleUnitPlural,omitempty" example:"10k tokens"`
+	SaleUnitSingular *string `json:"saleUnitSingular" doc:"The sale unit's singular label; null when the entitlement has none" example:"10k tokens"`
+	SaleUnitPlural   *string `json:"saleUnitPlural" doc:"The sale unit's plural label; null when the entitlement has none" example:"10k tokens"`
 }
 
 // LicensePriceEvent is the payload of LICENSE_PRICE_CREATED and LICENSE_PRICE_DEPRECATED:

@@ -58,7 +58,7 @@ type Customer struct {
 	Domain             *string `json:"domain,omitempty" doc:"Optional customer domain name" example:"example.tld" pattern:"^[a-z0-9_-]+(\\.[a-z0-9_-]+)+$"`
 	// BillingEmail is personal data: it is never part of an event payload
 	// (see WithoutPersonalData), only of authenticated reads.
-	BillingEmail *string                        `json:"billingEmail,omitempty" doc:"Where invoices sent to this customer are delivered, at most 254 characters (CreateCustomer.InvalidBillingEmail). Absent when there is none. On update, omit it to keep the stored value, or send an empty string to remove it. Personal data: never included in event payloads." example:"billing@example.tld"`
+	BillingEmail *string                        `json:"billingEmail,omitempty" nullable:"true" doc:"Where invoices sent to this customer are delivered, at most 254 characters (CreateCustomer.InvalidBillingEmail). Absent when there is none. On update, omit it or send null to keep the stored value, or send an empty string to remove it. Personal data: never included in event payloads." example:"billing@example.tld"`
 	Integrations map[string]CustomerIntegration `json:"integrations,omitempty" doc:"Integrations grouped by adapter name"`
 	CreatedBy    shared.User                    `json:"createdBy" readOnly:"true" doc:"User who created this customer"`
 	CreatedAt    time.Time                      `json:"createdAt" readOnly:"true" doc:"Timestamp when the customer was created" example:"2023-10-01T12:00:00Z"`

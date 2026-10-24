@@ -63,6 +63,8 @@ const report = (reportSeq: number, overrides: Partial<UsageReport> = {}): UsageR
   valueBefore: String((reportSeq - 1) * 800),
   windowEnd: '2027-04-01T00:00:00.000Z',
   windowStart: '2027-03-01T00:00:00.000Z',
+  overagePercent: null,
+  properties: null,
   ...overrides,
 });
 

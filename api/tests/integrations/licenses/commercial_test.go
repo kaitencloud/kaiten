@@ -96,6 +96,40 @@ func TestLicenseCommercialFields(t *testing.T) {
 		require.Equal(t, schema.PricingTypeFree, read.PricingType)
 	})
 
+	// §13.1 (V31-01, S17-054): null keeps the stored value on a PUT as absent
+	// does, and a read carries an empty member as null rather than dropping it.
+	t.Run("WhenNullOnUpdate_TheyAreKept_AndReadsCarryNull", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		payload := basePayload("Growth")
+		payload["pricingType"] = "PAID"
+		payload["trialPeriodDays"] = 14
+		payload["requiresPaymentMethod"] = true
+		payload["selfServeCtaUrl"] = "https://example.com/contact-sales"
+		created := commonfixture.AssertJSONResponse[schema.License](t,
+			licenseCall(t, "POST", "/api/licenses", payload), fiber.StatusCreated)
+		path := "/api/licenses/" + created.Slug
+
+		nulls := basePayload("Growth")
+		for _, member := range []string{"pricingType", "trialPeriodDays", "requiresPaymentMethod", "selfServeCtaUrl"} {
+			nulls[member] = nil
+		}
+		resp := licenseCall(t, "PUT", path, nulls)
+		require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+		read := getLicense(t, created.Slug)
+		require.Equal(t, schema.PricingTypePaid, read.PricingType)
+		require.EqualValues(t, 14, *read.TrialPeriodDays)
+		require.True(t, *read.RequiresPaymentMethod)
+		require.Equal(t, "https://example.com/contact-sales", *read.SelfServeCtaURL)
+
+		plain := commonfixture.AssertJSONResponse[map[string]any](t,
+			licenseCall(t, "POST", "/api/licenses", basePayload("Plain")), fiber.StatusCreated)
+		for _, member := range []string{"trialPeriodDays", "selfServeCtaUrl"} {
+			value, present := plain[member]
+			require.True(t, present, "%s is present, null when empty (V31-03)", member)
+			require.Nil(t, value, member)
+		}
+	})
+
 	t.Run("WhenInvalid_TheyAreRefused", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		problem := func(resp *http.Response, code string) {

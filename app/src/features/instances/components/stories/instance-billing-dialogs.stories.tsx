@@ -133,6 +133,8 @@ const addon = (addonSlug: string, quantity: number): InstanceAddon => ({
   pendingQuantity: null,
   prices: [],
   quantity,
+  maxQuantity: null,
+  removedAt: null,
 });
 
 // By default a cancellation waits for the end of the period: the dialog says when

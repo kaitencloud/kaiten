@@ -29,6 +29,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -95,29 +96,35 @@ type Voucher struct {
 	Code                      *string         `json:"code,omitempty" doc:"The code to redeem. Returned to read:vouchers callers only; never in an event." example:"SUMMER-2026-LAUNCH"`
 	CodeHint                  string          `json:"codeHint" doc:"The last four characters of the normalized code" example:"UNCH"`
 	Name                      string          `json:"name" example:"Summer launch"`
-	Description               *string         `json:"description,omitempty"`
+	Description               *string         `json:"description"`
 	VoucherType               string          `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT,COMPOSITE"`
 	Status                    string          `json:"status" enum:"DRAFT,ACTIVE,EXPIRED,EXHAUSTED,ARCHIVED"`
 	Duration                  string          `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."`
-	DurationInPeriods         *int32          `json:"durationInPeriods,omitempty"`
-	MaxRedemptions            *int32          `json:"maxRedemptions,omitempty"`
+	DurationInPeriods         *int32          `json:"durationInPeriods"`
+	MaxRedemptions            *int32          `json:"maxRedemptions"`
 	RedemptionsCount          int32           `json:"redemptionsCount"`
-	StartsAt                  *time.Time      `json:"startsAt,omitempty"`
-	ExpiresAt                 *time.Time      `json:"expiresAt,omitempty"`
-	PriceDiscountType         *string         `json:"priceDiscountType,omitempty" enum:"PERCENTAGE,FIXED_AMOUNT"`
-	PriceDiscountValue        *string         `json:"priceDiscountValue,omitempty" doc:"A percentage in (0, 100], or an integer amount in minor units of currency" example:"30"`
-	Currency                  *string         `json:"currency,omitempty" doc:"The currency of a FIXED_AMOUNT discount" example:"EUR"`
-	PriceAppliesTo            *string         `json:"priceAppliesTo,omitempty" enum:"LICENSE_BASE,ADDONS,BOTH,SELECTED_PRICES"`
+	StartsAt                  *time.Time      `json:"startsAt"`
+	ExpiresAt                 *time.Time      `json:"expiresAt"`
+	PriceDiscountType         *string         `json:"priceDiscountType" enum:"PERCENTAGE,FIXED_AMOUNT"`
+	PriceDiscountValue        *string         `json:"priceDiscountValue" doc:"A percentage in (0, 100], or an integer amount in minor units of currency" example:"30"`
+	Currency                  *string         `json:"currency" doc:"The currency of a FIXED_AMOUNT discount" example:"EUR"`
+	PriceAppliesTo            *string         `json:"priceAppliesTo" enum:"LICENSE_BASE,ADDONS,BOTH,SELECTED_PRICES"`
 	ApplicableLicensePriceIDs []uuid.UUID     `json:"applicableLicensePriceIds" nullable:"false"`
 	ApplicableAddonPriceIDs   []uuid.UUID     `json:"applicableAddonPriceIds" nullable:"false"`
 	Grants                    []Grant         `json:"grants" nullable:"false" doc:"What an ENTITLEMENT_BOOST changes"`
 	FlagGrants                []FlagGrant     `json:"flagGrants" nullable:"false" doc:"The flag variants a FLAG_GRANT grants"`
 	ApplicableLicenseIDs      []uuid.UUID     `json:"applicableLicenseIds" nullable:"false" doc:"Only instances on these licence versions can redeem it; any when empty"`
 	ApplicableAddonIDs        []uuid.UUID     `json:"applicableAddonIds" nullable:"false" doc:"Only instances holding one of these add-on versions can redeem it; any when empty"`
-	RestrictedCustomerSlug    *string         `json:"restrictedCustomerSlug,omitempty" doc:"Only this customer's instances can redeem it"`
+	RestrictedCustomerSlug    *string         `json:"restrictedCustomerSlug" doc:"Only this customer's instances can redeem it"`
 	RedemptionRules           RedemptionRules `json:"redemptionRules"`
 	CreatedAt                 time.Time       `json:"createdAt" readOnly:"true"`
 	UpdatedAt                 time.Time       `json:"updatedAt" readOnly:"true"`
+}
+
+// TransformSchema publishes Voucher's absent members as null (§13.15); code
+// stays absent outside read:vouchers.
+func (Voucher) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, Voucher{})
 }
 
 // Grant is one entitlement change of an ENTITLEMENT_BOOST. A NUMBER grant
@@ -126,8 +133,8 @@ type Voucher struct {
 type Grant struct {
 	EntitlementSlug string     `json:"entitlementSlug" example:"tokens"`
 	ModifierType    string     `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED" doc:"SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit. A BOOLEAN or CONFIG entitlement takes SET only"`
-	ModifierValue   *string    `json:"modifierValue,omitempty" doc:"A NUMBER grant's decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED; absent on a BOOLEAN or CONFIG grant" example:"2"`
-	Value           GrantValue `json:"value,omitempty" doc:"What a BOOLEAN or CONFIG SET grant sets: true or false, or the CONFIG document as an object; absent on a NUMBER grant"`
+	ModifierValue   *string    `json:"modifierValue" required:"false" doc:"A NUMBER grant's decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, null for UNLIMITED; null on a BOOLEAN or CONFIG grant. Optional on write." example:"2"`
+	Value           GrantValue `json:"value" required:"false" doc:"What a BOOLEAN or CONFIG SET grant sets: true or false, or the CONFIG document as an object; null on a NUMBER grant. Optional on write."`
 }
 
 // FlagGrant is the variant a FLAG_GRANT voucher grants of one flag (V32-03

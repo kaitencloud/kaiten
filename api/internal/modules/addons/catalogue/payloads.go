@@ -20,10 +20,10 @@ type InstanceAddon struct {
 	FamilySlug      string         `json:"familySlug" example:"extra-seats"`
 	Name            string         `json:"name" doc:"The add-on version's name" example:"Extra seats"`
 	Quantity        int32          `json:"quantity" example:"3"`
-	MaxQuantity     *int32         `json:"maxQuantity,omitempty"`
+	MaxQuantity     *int32         `json:"maxQuantity"`
 	PendingQuantity *int32         `json:"pendingQuantity" nullable:"true" doc:"A decrease scheduled for the next boundary, 0 for a removal; the current quantity holds until then. Null when nothing is scheduled (V31-67)"`
 	AttachedAt      time.Time      `json:"attachedAt"`
-	RemovedAt       *time.Time     `json:"removedAt,omitempty"`
+	RemovedAt       *time.Time     `json:"removedAt"`
 	Prices          []prices.Price `json:"prices" nullable:"false" doc:"What the instance's subscription bills for it: the default FLAT_FEE price of the subscription's period and the ACTIVE metered prices. Empty when the instance is not billed."`
 }
 

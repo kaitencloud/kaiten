@@ -18,7 +18,7 @@ const flat = (overrides: Partial<Parameters<typeof buildPrice>[0]> & { id: strin
 const metered = buildPrice({
   billingModel: 'USAGE_BASED',
   id: 'metered',
-  metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1' },
+  metered: { entitlementSlug: 'api-calls', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
   unitAmountDecimal: '0.1',
 });
 const monthly = flat({ displayOrder: 1, id: 'monthly', isDefault: true });

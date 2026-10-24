@@ -261,7 +261,7 @@ describe('the form of an existing price', () => {
         billingPeriod: undefined,
         billingTiming: 'ARREARS',
         id: 'price-2',
-        metered: { entitlementSlug: 'tokens', saleUnitFactor: '1000000' },
+        metered: { entitlementSlug: 'tokens', saleUnitFactor: '1000000', saleUnitPlural: null, saleUnitSingular: null },
         unitAmountDecimal: '7.5',
       }),
     );

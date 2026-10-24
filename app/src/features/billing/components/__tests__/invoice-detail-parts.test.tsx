@@ -681,7 +681,7 @@ describe('the summary of an invoice', () => {
     const { rerender } = render(
       <InvoiceSummaryCard
         invoice={base({
-          hold: { heldAt: '2027-03-02T08:15:00.000Z' },
+          hold: { heldAt: '2027-03-02T08:15:00.000Z', releaseReason: null, releasedAt: null, releasedBy: null },
           holdReason: 'LEDGER_SEQUENCE_GAP',
           issuedAt: null,
           status: 'DRAFT',
@@ -699,6 +699,8 @@ describe('the summary of an invoice', () => {
           hold: {
             heldAt: '2027-03-02T08:15:00.000Z',
             releasedAt: '2027-03-04T09:00:00.000Z',
+            releaseReason: null,
+            releasedBy: null,
           },
         })}
       />,
@@ -738,6 +740,7 @@ describe('the summary of an invoice', () => {
             releaseReason: 'Counter verified by hand',
             releasedAt: '2027-03-04T09:00:00.000Z',
             releasedBy: 'user-1',
+            heldAt: null,
           },
         })}
       />,
@@ -751,7 +754,7 @@ describe('the summary of an invoice', () => {
     rerender(
       <InvoiceSummaryCard
         invoice={base({
-          hold: { releasedAt: '2027-03-04T09:00:00.000Z' },
+          hold: { releasedAt: '2027-03-04T09:00:00.000Z', heldAt: null, releaseReason: null, releasedBy: null },
         })}
       />,
     );

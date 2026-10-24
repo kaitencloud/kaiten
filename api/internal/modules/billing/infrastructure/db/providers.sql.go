@@ -459,10 +459,10 @@ const billingHealth = `-- name: BillingHealth :one
 SELECT
   (SELECT count(*) FROM instance_billing b
     WHERE b.organization_id = $1 AND b.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
-      AND b.current_period_end <= $2)::bigint AS close_backlog,
+      AND b.current_period_end <= $2::timestamp)::bigint AS close_backlog,
   (SELECT min(b.current_period_end) FROM instance_billing b
     WHERE b.organization_id = $1 AND b.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
-      AND b.current_period_end <= $2)::timestamp AS oldest_due_at,
+      AND b.current_period_end <= $2::timestamp)::timestamp AS oldest_due_at,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.hold_reason IS NOT NULL)::bigint AS held,
   (SELECT count(*) FROM instance_invoice i
@@ -481,51 +481,68 @@ SELECT
       AND i.push_attempts >= $3::integer)::timestamp AS oldest_push_failure_at,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.reconciliation_status = 'MISMATCH'
-      AND i.reconciled_at > $2::timestamp - interval '30 days')::bigint AS reconciliation_mismatches,
+      AND i.reconciled_at > $4::timestamp - interval '30 days')::bigint AS reconciliation_mismatches,
   (SELECT count(*) FROM instance_billing b
     WHERE b.organization_id = $1 AND b.status = 'PAST_DUE')::bigint AS past_due,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.status IN ('MANUAL', 'PUSHED', 'PAYMENT_FAILED')
       AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
-                OR i.issued_at < $4::timestamp
-              ELSE i.due_at < $2::timestamp END))::bigint AS overdue,
+                OR i.issued_at < $5::timestamp
+              ELSE i.due_at < $4::timestamp END))::bigint AS overdue,
   (SELECT count(*) FROM instance_invoice i
     WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING')::bigint AS handoff_pending,
   (SELECT min(i.issued_at) FROM instance_invoice i
-    WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING')::timestamp AS oldest_pending_issued_at
+    WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING')::timestamp AS oldest_pending_issued_at,
+  -- No claim is timestamped: a PENDING invoice claimed again after a lease
+  -- expired, whose latest lease runs or ended in the last 24 hours.
+  (SELECT count(*) FROM instance_invoice i
+    WHERE i.organization_id = $1 AND i.handoff_status = 'PENDING'
+      AND i.handoff_claim_count > 1
+      AND i.handoff_leased_until > $4::timestamp - interval '24 hours')::bigint AS handoff_reclaimed_last_24h,
+  (SELECT count(*) FROM customer_billing c
+    WHERE c.organization_id = $1 AND c.payment_method_status = 'ACTIVE'
+      AND c.payment_method_exp_year IS NOT NULL AND c.payment_method_exp_month IS NOT NULL
+      AND make_date(c.payment_method_exp_year, c.payment_method_exp_month, 1) + interval '1 month' > $4::timestamp
+      AND make_date(c.payment_method_exp_year, c.payment_method_exp_month, 1) + interval '1 month'
+          <= $4::timestamp + interval '30 days')::bigint AS payment_methods_expiring_30d
 `
 
 type BillingHealthParams struct {
 	OrganizationID       uuid.UUID        `json:"organization_id"`
-	Now                  pgtype.Timestamp `json:"now"`
+	CloseBefore          pgtype.Timestamp `json:"close_before"`
 	AlertAfterAttempts   int32            `json:"alert_after_attempts"`
+	Now                  pgtype.Timestamp `json:"now"`
 	AutoCollectionBefore pgtype.Timestamp `json:"auto_collection_before"`
 }
 
 type BillingHealthRow struct {
-	CloseBacklog             int64            `json:"close_backlog"`
-	OldestDueAt              pgtype.Timestamp `json:"oldest_due_at"`
-	Held                     int64            `json:"held"`
-	HeldSequenceGap          int64            `json:"held_sequence_gap"`
-	HeldChainBreak           int64            `json:"held_chain_break"`
-	HeldCounterMismatch      int64            `json:"held_counter_mismatch"`
-	HeldProviderItemLimit    int64            `json:"held_provider_item_limit"`
-	PushFailures             int64            `json:"push_failures"`
-	OldestPushFailureAt      pgtype.Timestamp `json:"oldest_push_failure_at"`
-	ReconciliationMismatches int64            `json:"reconciliation_mismatches"`
-	PastDue                  int64            `json:"past_due"`
-	Overdue                  int64            `json:"overdue"`
-	HandoffPending           int64            `json:"handoff_pending"`
-	OldestPendingIssuedAt    pgtype.Timestamp `json:"oldest_pending_issued_at"`
+	CloseBacklog              int64            `json:"close_backlog"`
+	OldestDueAt               pgtype.Timestamp `json:"oldest_due_at"`
+	Held                      int64            `json:"held"`
+	HeldSequenceGap           int64            `json:"held_sequence_gap"`
+	HeldChainBreak            int64            `json:"held_chain_break"`
+	HeldCounterMismatch       int64            `json:"held_counter_mismatch"`
+	HeldProviderItemLimit     int64            `json:"held_provider_item_limit"`
+	PushFailures              int64            `json:"push_failures"`
+	OldestPushFailureAt       pgtype.Timestamp `json:"oldest_push_failure_at"`
+	ReconciliationMismatches  int64            `json:"reconciliation_mismatches"`
+	PastDue                   int64            `json:"past_due"`
+	Overdue                   int64            `json:"overdue"`
+	HandoffPending            int64            `json:"handoff_pending"`
+	OldestPendingIssuedAt     pgtype.Timestamp `json:"oldest_pending_issued_at"`
+	HandoffReclaimedLast24h   int64            `json:"handoff_reclaimed_last_24h"`
+	PaymentMethodsExpiring30d int64            `json:"payment_methods_expiring_30d"`
 }
 
-// The health section, computed at read time.
+// The health section, computed at read time (§19.3). The close backlog is net
+// of the close grace, like the gauge: a period is due once its grace passed.
 func (q *Queries) BillingHealth(ctx context.Context, arg BillingHealthParams) (BillingHealthRow, error) {
 	row := q.db.QueryRow(ctx, billingHealth,
 		arg.OrganizationID,
-		arg.Now,
+		arg.CloseBefore,
 		arg.AlertAfterAttempts,
+		arg.Now,
 		arg.AutoCollectionBefore,
 	)
 	var i BillingHealthRow
@@ -544,6 +561,8 @@ func (q *Queries) BillingHealth(ctx context.Context, arg BillingHealthParams) (B
 		&i.Overdue,
 		&i.HandoffPending,
 		&i.OldestPendingIssuedAt,
+		&i.HandoffReclaimedLast24h,
+		&i.PaymentMethodsExpiring30d,
 	)
 	return i, err
 }

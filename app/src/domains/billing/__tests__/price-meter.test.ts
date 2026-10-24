@@ -142,13 +142,13 @@ describe('what a price may meter', () => {
     const metered = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'price-traces',
-      metered: { entitlementSlug: 'traces', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'traces', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '10',
     });
     const retired = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'price-requests',
-      metered: { entitlementSlug: 'requests', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'requests', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       status: 'DEPRECATED',
       unitAmountDecimal: '10',
     });
@@ -208,7 +208,7 @@ describe('what a price of an add-on may meter', () => {
     const metered = buildPrice({
       billingModel: 'USAGE_BASED',
       id: 'price-traces',
-      metered: { entitlementSlug: 'traces', saleUnitFactor: '1' },
+      metered: { entitlementSlug: 'traces', saleUnitFactor: '1', saleUnitPlural: null, saleUnitSingular: null },
       unitAmountDecimal: '10',
     });
 

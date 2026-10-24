@@ -52,7 +52,7 @@ function PaymentTermsContent({ onClose }: PaymentTermsDialogProps) {
 
   return (
     <PaymentTermsForm
-      billingEmail={customer?.billingEmail}
+      billingEmail={customer?.billingEmail ?? undefined}
       instanceSlug={instanceSlug}
       onClose={onClose}
       subscription={subscription}

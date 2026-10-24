@@ -253,6 +253,7 @@ export const SEATS_ADDON: InstanceAddon = {
   pendingQuantity: null,
   prices: [],
   quantity: 2,
+  removedAt: null,
 };
 
 /** What the billing slot knows of the instances and what their versions sell. */

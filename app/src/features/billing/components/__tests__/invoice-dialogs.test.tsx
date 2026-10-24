@@ -126,6 +126,8 @@ describe('the acknowledgement of a handoff by hand', () => {
           leaseId: 'lease-1',
           leasedUntil: '2099-01-01T00:00:00.000Z',
           status: 'PENDING',
+          acknowledgedAt: null,
+          externalReference: null,
         },
       }),
     );
@@ -142,6 +144,9 @@ describe('the acknowledgement of a handoff by hand', () => {
           claimCount: 1,
           leasedUntil: '2020-01-01T00:00:00.000Z',
           status: 'PENDING',
+          acknowledgedAt: null,
+          externalReference: null,
+          leaseId: null,
         },
       }),
     );
@@ -220,7 +225,7 @@ function servePayment(
 
 const renderPaid = (
   invoice: Invoice = bookedInvoice({
-    handoff: { claimCount: 0, status: 'PENDING' },
+    handoff: { claimCount: 0, status: 'PENDING', acknowledgedAt: null, externalReference: null, leaseId: null, leasedUntil: null },
     handoffStatus: 'PENDING',
   }),
   onClose: () => void = () => {},

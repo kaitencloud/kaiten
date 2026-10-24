@@ -77,7 +77,7 @@ const stripe = (
 const queued = (attempts = 1) =>
   stripe({
     issuedAt: null,
-    provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: attempts },
+    provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: attempts, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null },
     status: 'DRAFT',
   });
 
@@ -208,6 +208,20 @@ describe('watching a push', () => {
         provider: {
           lastPushError: 'customer_tax_location_invalid',
           pushAttempts: 2,
+          externalCustomerId: null,
+          externalInvoiceId: null,
+          hostedInvoiceUrl: null,
+          invoiceNumber: null,
+          invoicePdfUrl: null,
+          lastPaymentError: null,
+          nextPushAt: null,
+          pushedAt: null,
+          reconciledAt: null,
+          reconciliationDetail: null,
+          reconciliationStatus: null,
+          status: null,
+          syncedAt: null,
+          totalExcludingTax: null,
         },
         status: 'PUSH_FAILED',
       }),

@@ -10,6 +10,10 @@ package getpubliccatalog
 
 import (
 	"encoding/json"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Catalog is GET /public/catalog.
@@ -50,39 +54,45 @@ type PublicPrice struct {
 	ID                string       `json:"id" format:"uuid"`
 	BillingModel      string       `json:"billingModel" enum:"FLAT_FEE,USAGE_BASED,OVERAGE" doc:"FLAT_FEE: per billing period. USAGE_BASED: per sale unit of usage. OVERAGE: per sale unit of usage above the limit. Never sum metered prices into a headline."`
 	BillingTiming     string       `json:"billingTiming" enum:"ADVANCE,ARREARS"`
-	BillingPeriod     *string      `json:"billingPeriod,omitempty" enum:"MONTHLY,QUARTERLY,SEMI_ANNUAL,ANNUAL" doc:"The period a FLAT_FEE price is charged for; absent on metered prices"`
+	BillingPeriod     *string      `json:"billingPeriod" enum:"MONTHLY,QUARTERLY,SEMI_ANNUAL,ANNUAL" doc:"The period a FLAT_FEE price is charged for; null on metered prices"`
 	Currency          string       `json:"currency" example:"EUR"`
-	UnitAmount        *int64       `json:"unitAmount,omitempty" doc:"The amount in minor units, when it is a whole number of them; absent otherwise (render unitAmountDecimal)" example:"2900"`
+	UnitAmount        *int64       `json:"unitAmount" doc:"The amount in minor units, when it is a whole number of them; null otherwise (render unitAmountDecimal)" example:"2900"`
 	UnitAmountDecimal string       `json:"unitAmountDecimal" doc:"The amount in minor units, up to 12 decimal places" example:"2900"`
-	Metered           *PublicMeter `json:"metered,omitempty" doc:"What a metered price measures; absent on FLAT_FEE prices"`
-	DisplayLabel      *string      `json:"displayLabel,omitempty" example:"Pro plan"`
+	Metered           *PublicMeter `json:"metered" doc:"What a metered price measures; null on FLAT_FEE prices"`
+	DisplayLabel      *string      `json:"displayLabel" doc:"The price's label; null when it has none" example:"Pro plan"`
 	DisplayOrder      int32        `json:"displayOrder"`
 	IsDefault         bool         `json:"isDefault" doc:"The FLAT_FEE price shown for its billing period"`
+}
+
+// TransformSchema publishes PublicPrice's absent members as null, as Price's
+// (§13.15, V31-03).
+func (PublicPrice) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, PublicPrice{})
 }
 
 // Meter is what a metered price measures.
 type PublicMeter struct {
 	EntitlementSlug  string  `json:"entitlementSlug" example:"tokens"`
 	SaleUnitFactor   string  `json:"saleUnitFactor" doc:"Measured units in one sale unit" example:"10000"`
-	SaleUnitSingular *string `json:"saleUnitSingular,omitempty" example:"10k tokens"`
-	SaleUnitPlural   *string `json:"saleUnitPlural,omitempty" example:"10k tokens"`
+	SaleUnitSingular *string `json:"saleUnitSingular" doc:"The sale unit's singular label; null when the entitlement has none" example:"10k tokens"`
+	SaleUnitPlural   *string `json:"saleUnitPlural" doc:"The sale unit's plural label; null when the entitlement has none" example:"10k tokens"`
 }
 
 // PlanEntitlement is one user-facing grant of a plan.
 type PublicPlanEntitlement struct {
 	Slug                           string          `json:"slug" example:"seats"`
 	Name                           string          `json:"name" example:"Seats"`
-	Description                    *string         `json:"description,omitempty"`
-	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,CONFIG"`
+	Description                    *string         `json:"description"`
+	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,NUMBER_AI_CREDIT,CONFIG"`
 	Value                          json.RawMessage `json:"value" doc:"The granted value: a boolean, a number, or a configuration object"`
 	Unlimited                      bool            `json:"unlimited" doc:"A NUMBER grant with no limit"`
-	LimitCapExceededOveragePercent *int32          `json:"limitCapExceededOveragePercent,omitempty" doc:"How far usage may exceed a NUMBER grant before it is refused: 0 is a hard limit, -1 is unlimited; absent for other types"`
-	Icon                           *string         `json:"icon,omitempty"`
-	UnitSingular                   *string         `json:"unitSingular,omitempty" example:"seat"`
-	UnitPlural                     *string         `json:"unitPlural,omitempty" example:"seats"`
-	SaleUnitSingular               *string         `json:"saleUnitSingular,omitempty"`
-	SaleUnitPlural                 *string         `json:"saleUnitPlural,omitempty"`
-	SaleUnitFactor                 *string         `json:"saleUnitFactor,omitempty"`
+	LimitCapExceededOveragePercent *int32          `json:"limitCapExceededOveragePercent" doc:"How far usage may exceed a NUMBER grant before it is refused: 0 is a hard limit, -1 is unlimited; null for other types"`
+	Icon                           *string         `json:"icon"`
+	UnitSingular                   *string         `json:"unitSingular" example:"seat"`
+	UnitPlural                     *string         `json:"unitPlural" example:"seats"`
+	SaleUnitSingular               *string         `json:"saleUnitSingular"`
+	SaleUnitPlural                 *string         `json:"saleUnitPlural"`
+	SaleUnitFactor                 *string         `json:"saleUnitFactor"`
 	DisplayOrder                   int32           `json:"displayOrder"`
 }
 
@@ -104,10 +114,10 @@ type PublicAddOn struct {
 type PublicAddOnEntitlement struct {
 	Slug                           string          `json:"slug"`
 	Name                           string          `json:"name"`
-	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,CONFIG"`
+	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,NUMBER_AI_CREDIT,CONFIG"`
 	Value                          json.RawMessage `json:"value"`
 	OverrideBehavior               string          `json:"overrideBehavior" enum:"ADD,OVERRIDE,MAX" doc:"How the grant combines with the plan's: added to it, replacing it, or the larger of the two"`
-	LimitCapExceededOveragePercent *int32          `json:"limitCapExceededOveragePercent,omitempty"`
+	LimitCapExceededOveragePercent *int32          `json:"limitCapExceededOveragePercent"`
 }
 
 // Capabilities is what the vendor's storefront can offer beyond showing prices.

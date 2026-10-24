@@ -92,6 +92,7 @@ const PRICES = [
       entitlementSlug: 'traces',
       saleUnitFactor: '100000',
       saleUnitSingular: '100,000 traces',
+      saleUnitPlural: null,
     },
     unitAmountDecimal: '800',
   }),

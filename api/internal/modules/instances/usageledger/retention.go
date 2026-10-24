@@ -115,11 +115,20 @@ type Retention struct {
 // horizon. Nil when nothing restricts the read: the history is kept forever,
 // or the organization's retention cannot be read right now -- the same
 // organizations the daily pass leaves alone.
-// Months is the organization's usage history window in months, 0 when it
-// keeps everything; false when it cannot be told.
-func (r Retention) Months(ctx context.Context, organizationID uuid.UUID) (int, bool) {
+// Window is the organization's usage history window in months, 0 when it
+// keeps everything, and where it comes from as the contract spells it: KBK
+// (its licence or an add-on), ENV (the deployment's setting, with no
+// licensing authority) or UNKNOWN, with 0 months (§18.4 rule 5, V31-11).
+func (r Retention) Window(ctx context.Context, organizationID uuid.UUID) (int, string) {
 	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader), r.Settings, organizationID)
-	return months, source != sourceUnknown
+	switch source {
+	case sourceLicence:
+		return months, "KBK"
+	case sourceConfig:
+		return months, "ENV"
+	default:
+		return 0, "UNKNOWN"
+	}
 }
 
 func (r Retention) Start(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time {

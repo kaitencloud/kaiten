@@ -123,7 +123,7 @@ describe('the fields of the list of invoices', () => {
       expect(
         getInvoiceSearchTokens(
           queuedRow('inv-2', 'Globex', {
-            handoff: { claimCount: 1, externalReference: 'ERP-4411', status: 'ACKNOWLEDGED' },
+            handoff: { claimCount: 1, externalReference: 'ERP-4411', status: 'ACKNOWLEDGED', acknowledgedAt: null, leaseId: null, leasedUntil: null },
           }),
         ).at(-1),
       ).toBe('ERP-4411');
@@ -220,7 +220,7 @@ describe('the fields of the handoff queue', () => {
   it('search the number an invoice was booked under as well', () => {
     const rows = [
       queuedRow('inv-1', 'Initech', {
-        handoff: { claimCount: 0, externalReference: 'ERP-4411', status: 'ACKNOWLEDGED' },
+        handoff: { claimCount: 0, externalReference: 'ERP-4411', status: 'ACKNOWLEDGED', acknowledgedAt: null, leaseId: null, leasedUntil: null },
       }),
       queuedRow('inv-2', 'Globex'),
     ];

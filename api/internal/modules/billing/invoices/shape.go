@@ -89,22 +89,27 @@ func (Invoice) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 // ProviderRecord is where an invoice stands in the payment provider that
 // issues it.
 type ProviderRecord struct {
-	ExternalCustomerID    *string         `json:"externalCustomerId,omitempty"`
-	ExternalInvoiceID     *string         `json:"externalInvoiceId,omitempty"`
-	InvoiceNumber         *string         `json:"invoiceNumber,omitempty" doc:"The provider's invoice number"`
-	Status                *string         `json:"status,omitempty" enum:"draft,open,paid,uncollectible,void" doc:"The provider's status, mirrored verbatim"`
-	HostedInvoiceURL      *string         `json:"hostedInvoiceUrl,omitempty"`
-	InvoicePDFURL         *string         `json:"invoicePdfUrl,omitempty"`
+	ExternalCustomerID    *string         `json:"externalCustomerId"`
+	ExternalInvoiceID     *string         `json:"externalInvoiceId"`
+	InvoiceNumber         *string         `json:"invoiceNumber" doc:"The provider's invoice number"`
+	Status                *string         `json:"status" enum:"draft,open,paid,uncollectible,void" doc:"The provider's status, mirrored verbatim"`
+	HostedInvoiceURL      *string         `json:"hostedInvoiceUrl"`
+	InvoicePDFURL         *string         `json:"invoicePdfUrl"`
 	PushAttempts          int32           `json:"pushAttempts"`
-	NextPushAt            *time.Time      `json:"nextPushAt,omitempty" doc:"When the push queue tries it next; absent when it waits for a human (finalization in the provider) or is pushed"`
-	LastPushError         *string         `json:"lastPushError,omitempty" doc:"The provider's code and message of the last failed push step"`
-	LastPaymentError      *string         `json:"lastPaymentError,omitempty" doc:"Why the last automatic charge failed, as the provider coded it: authentication_required (the customer must confirm the payment on the hosted invoice page), card_declined, expired_card, no_payment_method..."`
-	PushedAt              *time.Time      `json:"pushedAt,omitempty"`
-	SyncedAt              *time.Time      `json:"syncedAt,omitempty"`
-	TotalExcludingTax     *int64          `json:"totalExcludingTax,omitempty" doc:"The provider's total excluding tax, read back"`
-	ReconciliationStatus  *string         `json:"reconciliationStatus,omitempty" enum:"MATCHED,MISMATCH"`
-	ReconciledAt          *time.Time      `json:"reconciledAt,omitempty"`
-	ReconciliationDetails *Reconciliation `json:"reconciliationDetail,omitempty" doc:"What differs, on a MISMATCH"`
+	NextPushAt            *time.Time      `json:"nextPushAt" doc:"When the push queue tries it next; null when it waits for a human (finalization in the provider) or is pushed"`
+	LastPushError         *string         `json:"lastPushError" doc:"The provider's code and message of the last failed push step"`
+	LastPaymentError      *string         `json:"lastPaymentError" doc:"Why the last automatic charge failed, as the provider coded it: authentication_required (the customer must confirm the payment on the hosted invoice page), card_declined, expired_card, no_payment_method..."`
+	PushedAt              *time.Time      `json:"pushedAt"`
+	SyncedAt              *time.Time      `json:"syncedAt"`
+	TotalExcludingTax     *int64          `json:"totalExcludingTax" doc:"The provider's total excluding tax, read back"`
+	ReconciliationStatus  *string         `json:"reconciliationStatus" enum:"MATCHED,MISMATCH"`
+	ReconciledAt          *time.Time      `json:"reconciledAt"`
+	ReconciliationDetails *Reconciliation `json:"reconciliationDetail" doc:"What differs, on a MISMATCH"`
+}
+
+// TransformSchema publishes ProviderRecord's absent members as null (§13.15).
+func (ProviderRecord) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, ProviderRecord{})
 }
 
 // Reconciliation is what differs between an invoice and its provider's copy.
@@ -116,8 +121,14 @@ type Reconciliation struct {
 	ExtraDiscounts    []ExtraDiscount      `json:"extraDiscounts" nullable:"false" doc:"Discounts the provider applied that Kaiten did not create, such as a coupon added in its dashboard"`
 	Totals            TotalsDifference     `json:"totals"`
 	InclusiveTax      bool                 `json:"inclusiveTax" doc:"Whether the provider's subtotal was compared, its tax being included in the amounts"`
-	DueDate           *DueDateDifference   `json:"dueDate,omitempty" doc:"A SEND_INVOICE invoice the provider gives another due date than Kaiten's dueAt"`
+	DueDate           *DueDateDifference   `json:"dueDate" doc:"A SEND_INVOICE invoice the provider gives another due date than Kaiten's dueAt"`
 	Warnings          []string             `json:"warnings,omitempty" doc:"What the comparison noticed without calling it a mismatch (§12.7, V31-60)"`
+}
+
+// TransformSchema publishes Reconciliation's dueDate as null when it agrees
+// (§13.15).
+func (Reconciliation) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, Reconciliation{})
 }
 
 // DueDateDifference is a due date the provider set apart from Kaiten's,
@@ -213,20 +224,30 @@ type HeldPair struct {
 
 // HoldRecord is when an invoice was held, and released.
 type HoldRecord struct {
-	HeldAt        *time.Time `json:"heldAt,omitempty"`
-	ReleasedAt    *time.Time `json:"releasedAt,omitempty"`
-	ReleasedBy    *uuid.UUID `json:"releasedBy,omitempty" doc:"The user who released it; absent when it was released by a later check"`
-	ReleaseReason *string    `json:"releaseReason,omitempty"`
+	HeldAt        *time.Time `json:"heldAt"`
+	ReleasedAt    *time.Time `json:"releasedAt"`
+	ReleasedBy    *uuid.UUID `json:"releasedBy" doc:"The user who released it; null when it was released by a later check"`
+	ReleaseReason *string    `json:"releaseReason"`
+}
+
+// TransformSchema publishes HoldRecord's absent members as null (§13.15).
+func (HoldRecord) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, HoldRecord{})
 }
 
 // InvoiceHandoff is where an invoice stands in the handoff queue.
 type InvoiceHandoff struct {
 	Status            string     `json:"status" enum:"NOT_REQUIRED,PENDING,ACKNOWLEDGED"`
-	LeaseID           *uuid.UUID `json:"leaseId,omitempty" doc:"The claim currently holding it"`
-	LeasedUntil       *time.Time `json:"leasedUntil,omitempty"`
+	LeaseID           *uuid.UUID `json:"leaseId" doc:"The claim currently holding it"`
+	LeasedUntil       *time.Time `json:"leasedUntil"`
 	ClaimCount        int32      `json:"claimCount"`
-	AcknowledgedAt    *time.Time `json:"acknowledgedAt,omitempty"`
-	ExternalReference *string    `json:"externalReference,omitempty" doc:"The invoice's number in the organization's accounting system"`
+	AcknowledgedAt    *time.Time `json:"acknowledgedAt"`
+	ExternalReference *string    `json:"externalReference" doc:"The invoice's number in the organization's accounting system"`
+}
+
+// TransformSchema publishes InvoiceHandoff's absent members as null (§13.15).
+func (InvoiceHandoff) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, InvoiceHandoff{})
 }
 
 // IssuedInvoice is the payload of INSTANCE_INVOICE_ISSUED: the composed

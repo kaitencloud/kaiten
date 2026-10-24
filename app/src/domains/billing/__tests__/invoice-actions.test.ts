@@ -96,14 +96,14 @@ describe('the actions of an invoice Stripe collects', () => {
 
   it('pushes a draft the queue has not pushed yet, or voids it', () => {
     expect(
-      actionsOf(stripe('DRAFT', { provider: { externalInvoiceId: undefined } })),
+      actionsOf(stripe('DRAFT', { provider: { externalInvoiceId: null, nextPushAt: null, reconciliationStatus: null } })),
     ).toEqual(['retryPush', 'void']);
     expect(actionsOf(stripe('DRAFT'))).toEqual(['retryPush', 'void']);
   });
 
   it('finalizes, reads back or voids a draft that waits in Stripe for a person', () => {
     expect(
-      actionsOf(stripe('DRAFT', { provider: { externalInvoiceId: 'in_1' } })),
+      actionsOf(stripe('DRAFT', { provider: { externalInvoiceId: 'in_1', nextPushAt: null, reconciliationStatus: null } })),
     ).toEqual(['retryPush', 'sync', 'void']);
   });
 
@@ -118,7 +118,7 @@ describe('the actions of an invoice Stripe collects', () => {
       )?.variant;
 
     expect(variantOf('DRAFT')).toBe('push');
-    expect(variantOf('DRAFT', { provider: { externalInvoiceId: 'in_1' } })).toBe(
+    expect(variantOf('DRAFT', { provider: { externalInvoiceId: 'in_1', nextPushAt: null, reconciliationStatus: null } })).toBe(
       'finalize',
     );
     expect(variantOf('PUSH_FAILED')).toBe('retry');
@@ -127,7 +127,7 @@ describe('the actions of an invoice Stripe collects', () => {
   it('also reads back one whose push failed after Stripe had created it', () => {
     expect(
       actionsOf(
-        stripe('PUSH_FAILED', { provider: { externalInvoiceId: 'in_1' } }),
+        stripe('PUSH_FAILED', { provider: { externalInvoiceId: 'in_1', nextPushAt: null, reconciliationStatus: null } }),
       ),
     ).toEqual(['retryPush', 'sync', 'void']);
   });
@@ -140,7 +140,11 @@ describe('the actions of an invoice Stripe collects', () => {
   );
 
   describe('where what Stripe holds is not what Kaiten composed', () => {
-    const mismatch = { reconciliationStatus: 'MISMATCH' } as const;
+    const mismatch = {
+      externalInvoiceId: null,
+      nextPushAt: null,
+      reconciliationStatus: 'MISMATCH',
+    } as const;
 
     it.each<InvoiceStatus>(['PUSHED', 'PAYMENT_FAILED'])(
       'offers a %s invoice the remedy first, since Kaiten is authoritative: void and recompose in one confirmation',
@@ -156,10 +160,10 @@ describe('the actions of an invoice Stripe collects', () => {
     it('keeps the plain actions for an invoice that matches, or has not been compared', () => {
       expect(
         actionsOf(
-          stripe('PUSHED', { provider: { reconciliationStatus: 'MATCHED' } }),
+          stripe('PUSHED', { provider: { reconciliationStatus: 'MATCHED', externalInvoiceId: null, nextPushAt: null } }),
         ),
       ).toEqual(['sync', 'void']);
-      expect(actionsOf(stripe('PUSHED', { provider: {} }))).toEqual([
+      expect(actionsOf(stripe('PUSHED', { provider: { externalInvoiceId: null, nextPushAt: null, reconciliationStatus: null } }))).toEqual([
         'sync',
         'void',
       ]);

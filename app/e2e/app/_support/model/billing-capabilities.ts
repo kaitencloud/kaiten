@@ -13,6 +13,8 @@ const NOOP_PROVIDER: Provider = {
   },
   connected: true,
   kind: 'NOOP',
+  livemode: null,
+  unavailableReason: null,
 };
 
 const STRIPE_CAPABILITIES = {
@@ -27,6 +29,7 @@ const STRIPE_PROVIDER: Provider = {
   connected: true,
   kind: 'STRIPE',
   livemode: false,
+  unavailableReason: null,
 };
 
 /**
@@ -55,6 +58,8 @@ export function stripeProvider(standing: StripeStanding): Provider {
         capabilities: STRIPE_CAPABILITIES,
         connected: false,
         kind: 'STRIPE',
+        livemode: null,
+        unavailableReason: null,
       };
     case 'notEntitled':
       return {
@@ -63,6 +68,7 @@ export function stripeProvider(standing: StripeStanding): Provider {
         connected: false,
         kind: 'STRIPE',
         unavailableReason: 'NOT_ENTITLED',
+        livemode: null,
       };
     case 'vaultMissing':
       return {
@@ -71,6 +77,7 @@ export function stripeProvider(standing: StripeStanding): Provider {
         connected: false,
         kind: 'STRIPE',
         unavailableReason: 'VAULT_NOT_CONFIGURED',
+        livemode: null,
       };
   }
 }
@@ -138,6 +145,9 @@ export function billingCapabilities(
       providers: [NOOP_PROVIDER],
       publicSurface: { enabled },
       usageHistoryRetentionMonths: null,
+      // The local stack has no licensing authority: its retention is the
+      // deployment's, kept forever by default.
+      usageHistoryRetentionSource: 'ENV',
       usageIdempotencyWindowDays: 35,
       ...overrides,
     },

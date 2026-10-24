@@ -127,6 +127,8 @@ describe('toVersionsWithPrices', () => {
     expect(version?.prices[0]?.metered).toEqual({
       entitlementSlug: 'tokens',
       saleUnitFactor: '1000',
+      saleUnitPlural: null,
+      saleUnitSingular: null,
     });
   });
 

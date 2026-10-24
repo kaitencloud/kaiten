@@ -111,6 +111,19 @@ export const PushFailed: Story = {
               'customer_tax_location_invalid: the address of the customer cannot be used to compute tax',
             nextPushAt: '2027-03-02T06:00:00.000Z',
             pushAttempts: 6,
+            externalCustomerId: null,
+            externalInvoiceId: null,
+            hostedInvoiceUrl: null,
+            invoiceNumber: null,
+            invoicePdfUrl: null,
+            lastPaymentError: null,
+            pushedAt: null,
+            reconciledAt: null,
+            reconciliationDetail: null,
+            reconciliationStatus: null,
+            status: null,
+            syncedAt: null,
+            totalExcludingTax: null,
           },
           status: 'PUSH_FAILED',
         })}
@@ -132,7 +145,7 @@ export const PushWaiting: Story = {
       <InvoiceProviderAlerts
         invoice={stripe({
           issuedAt: null,
-          provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: 1 },
+          provider: { nextPushAt: '2027-03-01T00:12:00.000Z', pushAttempts: 1, externalCustomerId: null, externalInvoiceId: null, hostedInvoiceUrl: null, invoiceNumber: null, invoicePdfUrl: null, lastPaymentError: null, lastPushError: null, pushedAt: null, reconciledAt: null, reconciliationDetail: null, reconciliationStatus: null, status: null, syncedAt: null, totalExcludingTax: null },
           status: 'DRAFT',
         })}
         phase="waiting"
@@ -186,6 +199,7 @@ export const ReconciliationMismatch: Story = {
               lines: [],
               missingInProvider: [],
               totals: { kaitenTotal: 2900, providerTotalExcludingTax: 400 },
+              dueDate: null,
             },
             reconciliationStatus: 'MISMATCH',
           }),
@@ -258,6 +272,7 @@ const pageInvoice = stripe({
       lines: [],
       missingInProvider: [],
       totals: { kaitenTotal: 2900, providerTotalExcludingTax: 3419 },
+      dueDate: null,
     },
     reconciliationStatus: 'MISMATCH',
   }),

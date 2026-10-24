@@ -441,7 +441,7 @@ describe('the commercial terms of a license version, as the mocks refuse them', 
     });
     expect(refusal.errors).toBeUndefined();
     expect(cleared.status).toBe(204);
-    expect(read.trialPeriodDays).toBeUndefined();
+    expect(read.trialPeriodDays).toBeNull();
   });
 
   it.each([1, 365])('takes a trial of %i days, the bounds included', async (trialPeriodDays) => {

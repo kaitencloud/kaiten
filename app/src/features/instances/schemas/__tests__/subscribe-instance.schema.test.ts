@@ -281,7 +281,7 @@ describe('the voucher code to redeem with the subscription', () => {
 
 describe('the add-ons to start with', () => {
   const seats = { maxQuantity: 3, slug: 'extra-seats-v1' };
-  const storage = { maxQuantity: undefined, slug: 'extra-storage-v1' };
+  const storage = { maxQuantity: null, slug: 'extra-storage-v1' };
 
   it('are none until the person includes one', () => {
     expect(initialSubscribeFormValues.addOns).toEqual({});

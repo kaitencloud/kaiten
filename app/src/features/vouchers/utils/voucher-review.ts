@@ -1,29 +1,35 @@
 import type { TFunction } from 'i18next';
 import type { VoucherDraft } from '@/api-client';
-import { describeVoucherOffer, formatUtcDate } from '@/domains/billing';
+import {
+  describeVoucherOffer,
+  formatUtcDate,
+  type NullableOptional,
+} from '@/domains/billing';
 import { formatMoney } from '@/lib/money';
 import type { VoucherNames } from '../types';
 
 /** What a voucher says of itself, beyond its offer: a stored voucher or the draft being made. */
-export type VoucherReviewInput = Pick<
-  VoucherDraft,
-  | 'applicableAddonIds'
-  | 'applicableAddonPriceIds'
-  | 'applicableLicenseIds'
-  | 'applicableLicensePriceIds'
-  | 'duration'
-  | 'durationInPeriods'
-  | 'expiresAt'
-  | 'grants'
-  | 'maxRedemptions'
-  | 'priceAppliesTo'
-  | 'priceDiscountType'
-  | 'priceDiscountValue'
-  | 'currency'
-  | 'redemptionRules'
-  | 'restrictedCustomerSlug'
-  | 'startsAt'
-  | 'voucherType'
+export type VoucherReviewInput = NullableOptional<
+  Pick<
+    VoucherDraft,
+    | 'applicableAddonIds'
+    | 'applicableAddonPriceIds'
+    | 'applicableLicenseIds'
+    | 'applicableLicensePriceIds'
+    | 'duration'
+    | 'durationInPeriods'
+    | 'expiresAt'
+    | 'grants'
+    | 'maxRedemptions'
+    | 'priceAppliesTo'
+    | 'priceDiscountType'
+    | 'priceDiscountValue'
+    | 'currency'
+    | 'redemptionRules'
+    | 'restrictedCustomerSlug'
+    | 'startsAt'
+    | 'voucherType'
+  >
 >;
 
 type ReviewOptions = {

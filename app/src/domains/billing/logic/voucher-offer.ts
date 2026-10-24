@@ -15,14 +15,22 @@ import { formatMoney } from '@/lib/money';
 export type VoucherOfferInput = {
   applicableAddonPriceIds?: readonly string[] | null;
   applicableLicensePriceIds?: readonly string[] | null;
-  currency?: string;
+  currency?: string | null;
   duration: Voucher['duration'];
-  durationInPeriods?: number;
+  durationInPeriods?: number | null;
   grants?: readonly Grant[] | null;
   priceAppliesTo?: Voucher['priceAppliesTo'];
   priceDiscountType?: Voucher['priceDiscountType'];
-  priceDiscountValue?: string;
+  priceDiscountValue?: string | null;
   voucherType: Voucher['voucherType'];
+};
+
+/**
+ * T as a draft holds it or the API returns it: a member a draft leaves out is
+ * null on a voucher the API returned (§13.15). Required members stay as they are.
+ */
+export type NullableOptional<T> = {
+  [K in keyof T]: undefined extends T[K] ? T[K] | null : T[K];
 };
 
 type OfferOptions = {

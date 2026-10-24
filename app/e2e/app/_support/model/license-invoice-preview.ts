@@ -577,7 +577,7 @@ function effectiveGrantOf(slug: string, c: Composition): EffectiveGrant {
               behavior: grant.overrideBehavior,
               entitlementSlug: slug,
               instanceAddonId: '',
-              overagePercent: grant.limitCapExceededOveragePercent,
+              overagePercent: grant.limitCapExceededOveragePercent ?? undefined,
               quantity: entry.quantity,
               value: grant.value.value,
             },
@@ -686,7 +686,7 @@ function meteredDraft(
     quantity,
     unit,
     c.currency,
-    price.metered.saleUnitSingular,
+    price.metered.saleUnitSingular ?? undefined,
   );
   if (isOverage) {
     const applied = measure.limits

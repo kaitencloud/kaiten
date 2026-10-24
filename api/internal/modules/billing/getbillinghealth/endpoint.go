@@ -8,6 +8,7 @@ import (
 
 	kaitenhuma "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/huma"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
 // Reader is the one facade method this operation calls.
@@ -41,4 +42,9 @@ func RegisterEndpoint(api huma.API, app Reader) {
 		}
 		return &Response{Body: health}, nil
 	})
+}
+
+// TransformSchema publishes ProviderSync's absent members as null (§19.3).
+func (ProviderSync) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, ProviderSync{})
 }

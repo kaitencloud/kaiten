@@ -66,6 +66,8 @@ const report = (
   transactionId: `tx-${seq}`,
   valueAfter: String(seq * 1000),
   valueBefore: String((seq - 1) * 1000),
+  overagePercent: null,
+  properties: null,
   ...MARCH,
   ...overrides,
 });

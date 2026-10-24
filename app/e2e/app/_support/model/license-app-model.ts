@@ -119,6 +119,9 @@ const withCommercialDefaults = (license: License): License => ({
   ...license,
   pricingType: license.pricingType ?? 'CUSTOM',
   requiresPaymentMethod: license.requiresPaymentMethod ?? false,
+  // Present, and null when empty (§13.3, V31-03).
+  selfServeCtaUrl: license.selfServeCtaUrl ?? null,
+  trialPeriodDays: license.trialPeriodDays ?? null,
 });
 
 /** The longest trial the API takes: the API's own bound, not the console's. */
@@ -136,7 +139,7 @@ function checkTrialBounds(
   body: Pick<LicenseWritable, 'trialPeriodDays'>,
 ) {
   const trial = body.trialPeriodDays;
-  if (trial !== undefined && (trial < 0 || trial > MAX_TRIAL_PERIOD_DAYS)) {
+  if (trial != null && (trial < 0 || trial > MAX_TRIAL_PERIOD_DAYS)) {
     throw new LicenseProblem(
       422,
       `${operation}.InvalidTrialDays`,
@@ -164,7 +167,7 @@ function checkCommercialFields(
   body: Pick<LicenseWritable, 'selfServeCtaUrl' | 'trialPeriodDays'>,
 ) {
   const trial = body.trialPeriodDays;
-  if (operation === 'CreateLicense' && trial !== undefined && trial < 1) {
+  if (operation === 'CreateLicense' && trial != null && trial < 1) {
     throw new LicenseProblem(
       422,
       `${operation}.InvalidTrialDays`,
@@ -173,7 +176,7 @@ function checkCommercialFields(
   }
   const url = body.selfServeCtaUrl;
   if (
-    url !== undefined &&
+    url != null &&
     url !== '' &&
     (!SELF_SERVE_CTA_URL.test(url) || url.length > MAX_SELF_SERVE_CTA_URL)
   ) {
@@ -408,10 +411,7 @@ export class LicenseAppModel {
       );
     }
     const days = body.trialReminderDays;
-    if (
-      days !== undefined &&
-      (!Number.isInteger(days) || days < 1 || days > 30)
-    ) {
+    if (days != null && (!Number.isInteger(days) || days < 1 || days > 30)) {
       throw new LicenseProblem(
         422,
         'UpdateLicenseFamily.InvalidTrialReminderDays',
@@ -613,13 +613,13 @@ export class LicenseAppModel {
       requiresPaymentMethod:
         body.requiresPaymentMethod ?? license.requiresPaymentMethod,
       selfServeCtaUrl:
-        body.selfServeCtaUrl === undefined
+        body.selfServeCtaUrl == null
           ? license.selfServeCtaUrl
-          : body.selfServeCtaUrl || undefined,
+          : body.selfServeCtaUrl || null,
       trialPeriodDays:
-        body.trialPeriodDays === undefined
+        body.trialPeriodDays == null
           ? license.trialPeriodDays
-          : body.trialPeriodDays || undefined,
+          : body.trialPeriodDays || null,
     });
     return clone(license);
   }

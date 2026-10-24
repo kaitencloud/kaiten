@@ -21,6 +21,7 @@ type BillingCapabilities struct {
 	Providers                   []BillingProvider `json:"providers" nullable:"false" doc:"Who can collect invoices"`
 	PublicSurface               PublicSurface     `json:"publicSurface"`
 	UsageHistoryRetentionMonths *int              `json:"usageHistoryRetentionMonths" doc:"How long usage reports are kept, in months; null when they are kept forever or it cannot be told"`
+	UsageHistoryRetentionSource string            `json:"usageHistoryRetentionSource" enum:"KBK,ENV,UNKNOWN" doc:"Where the retention comes from: KBK, the organization's licence or an add-on; ENV, the deployment's KAITEN_USAGE_LEDGER_RETENTION_MONTHS; UNKNOWN, the licensing authority could not tell. A null usageHistoryRetentionMonths reads as kept forever with KBK or ENV, and as unknown with UNKNOWN (V31-11)."`
 	UsageIdempotencyWindowDays  int               `json:"usageIdempotencyWindowDays" doc:"How long a usage report's transactionId is remembered, in days"`
 	Features                    BillingFeatures   `json:"features" doc:"Which parts of billing this release ships"`
 }
@@ -31,9 +32,9 @@ type BillingProvider struct {
 	Available bool   `json:"available" doc:"Whether the organization may connect it on this deployment"`
 	// UnavailableReason says why it may not: its connector's entitlement is
 	// not granted, or the deployment has no Vault to store its settings in.
-	UnavailableReason *string              `json:"unavailableReason,omitempty" enum:"NOT_ENTITLED,VAULT_NOT_CONFIGURED" doc:"Why it is not available; absent when it is"`
+	UnavailableReason *string              `json:"unavailableReason" enum:"NOT_ENTITLED,VAULT_NOT_CONFIGURED" doc:"Why it is not available; null when it is, and when the licensing authority cannot answer"`
 	Connected         bool                 `json:"connected" doc:"Whether it is set up for the organization; NOOP always is"`
-	Livemode          *bool                `json:"livemode,omitempty" doc:"Whether the connection reaches the provider's live account rather than a test one; absent when not connected, and for NOOP"`
+	Livemode          *bool                `json:"livemode" doc:"Whether the connection reaches the provider's live account rather than a test one; null when not connected, and for NOOP"`
 	Capabilities      ProviderCapabilities `json:"capabilities"`
 }
 
@@ -126,6 +127,7 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		Providers:                   providers,
 		PublicSurface:               PublicSurface{Enabled: true},
 		UsageHistoryRetentionMonths: nil,
+		UsageHistoryRetentionSource: "UNKNOWN",
 		UsageIdempotencyWindowDays:  int(u.idempotencyWindow / (24 * time.Hour)),
 		Features: BillingFeatures{
 			Stripe: true, Lifecycle: true, Trials: true, Addons: true, Vouchers: true,
@@ -144,7 +146,9 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		}
 		out.Enabled, out.DisabledReason, out.PublicSurface.Enabled = false, &reason, false
 	}
-	if months, known := u.deps.Usage.RetentionMonths(ctx, user.OrganizationID); known && months > 0 {
+	months, source := u.deps.Usage.RetentionWindow(ctx, user.OrganizationID)
+	out.UsageHistoryRetentionSource = source
+	if months > 0 {
 		out.UsageHistoryRetentionMonths = &months
 	}
 	return out, nil

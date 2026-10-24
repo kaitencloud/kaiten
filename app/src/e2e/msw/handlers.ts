@@ -100,7 +100,7 @@ export function createMockHandlers(
   if (billing && customers) {
     billing.setEmailSource((customerSlug) => {
       try {
-        return customers.getCustomer(customerSlug).billingEmail;
+        return customers.getCustomer(customerSlug).billingEmail ?? undefined;
       } catch {
         // A customer this page does not serve: billing's own copy answers.
         return undefined;

@@ -47,6 +47,8 @@ export const addon = (addonSlug: string, quantity = 1): InstanceAddon => ({
   pendingQuantity: null,
   prices: [],
   quantity,
+  maxQuantity: null,
+  removedAt: null,
 });
 
 /** The versions of the licenses of the organization, as the list of licenses reads them. */

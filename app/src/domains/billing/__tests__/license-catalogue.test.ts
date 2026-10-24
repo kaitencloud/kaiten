@@ -93,7 +93,12 @@ describe('toCatalogPrice', () => {
           saleUnitFactor: null,
         }),
       )?.metered,
-    ).toEqual({ entitlementSlug: 'seats', saleUnitFactor: '1' });
+    ).toEqual({
+      entitlementSlug: 'seats',
+      saleUnitFactor: '1',
+      saleUnitPlural: null,
+      saleUnitSingular: null,
+    });
   });
 
   it.each([

@@ -492,6 +492,7 @@ describe('the payment method of a customer, as the mocks serve it', () => {
                 expYear: 2030,
                 last4: '4242',
                 status: 'ACTIVE',
+                attachedAt: null,
               },
             },
           },
@@ -518,6 +519,7 @@ describe('the payment method of a customer, as the mocks serve it', () => {
 
 describe('the default collection method of the organization, as the mocks serve it', () => {
   const ACTIVE_CARD = {
+    attachedAt: null,
     brand: 'visa',
     expMonth: 12,
     expYear: 2030,
