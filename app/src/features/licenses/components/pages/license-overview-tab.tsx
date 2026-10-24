@@ -39,6 +39,7 @@ export function LicenseOverviewTab({ licenseSlug }: LicenseOverviewTabProps) {
       <LicenseCommercialCard license={license} />
 
       <LicenseEntitlementsCard
+        licenseSlug={licenseSlug}
         entitlements={grants.entitlements}
         rows={grants.rows}
         onAddEntitlement={grants.onAddEntitlement}

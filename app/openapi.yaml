@@ -848,12 +848,31 @@ components:
       type: object
     AiUsageValue:
       additionalProperties: false
+      examples:
+        - model: sushi-assistant
+          phase: reserve
+          requestType: COMPLETION
+          transactionId: inference-001
+          type: ai_usage
+          usage:
+            inputTokens: 100
+            outputTokens: 50
+        - model: sushi-assistant
+          phase: commit
+          requestStatus: SUCCESS
+          requestType: COMPLETION
+          transactionId: inference-001
+          type: ai_usage
+          usage:
+            inputTokens: 120
+            outputTokens: 60
       properties:
         model:
           maxLength: 255
           minLength: 1
           type: string
         phase:
+          description: Reserve estimates and holds credits before a provider request; commit calculates actual credits or releases an unsent request. Reservations do not lock the calculation rates.
           enum:
             - reserve
             - commit
@@ -874,11 +893,13 @@ components:
             - VIDEO
           type: string
         transactionId:
+          description: Required call identity, scoped to the instance and entitlement. Use the same identity for reserve and commit, and the identical phase/body for a retry. AI reports use this identity rather than Idempotency-Key.
           type: string
         ttlSeconds:
           format: int64
           type: integer
         type:
+          description: Calculation input for a NUMBER_AI_CREDIT entitlement, not a separate read-value type.
           enum:
             - ai_usage
           type: string
@@ -8157,13 +8178,14 @@ components:
           format: string
           type: string
         entitlementType:
-          description: Type of entitlement (BOOLEAN, NUMBER, or CONFIG)
+          description: Definition type of the granted entitlement. NUMBER_AI_CREDIT is a calculated numeric entitlement; its granted allowance and usage value still use the number shape.
           enum:
             - BOOLEAN
             - NUMBER
             - CONFIG
+            - NUMBER_AI_CREDIT
           examples:
-            - NUMBER
+            - NUMBER_AI_CREDIT
           readOnly: true
           type: string
         licenseId:
@@ -8179,7 +8201,7 @@ components:
           readOnly: true
           type: string
         limitCapExceededOveragePercent:
-          description: "Derives this grant's enforcement from its own numeric value: -1 when the value is unlimited (no cap, no overage); otherwise 0 rejects usage above the value (hard limit) and a positive percentage allows usage to exceed it by that much before being rejected (soft limit). Null for non-numeric (BOOLEAN/CONFIG) grants."
+          description: "Enforcement derived from the numeric allowance: -1 is unlimited; otherwise 0 is a hard limit and a positive percentage permits overage. AI reservations and numeric adjustments use this bound; AI commits account actual usage even beyond it. Null for non-numeric (BOOLEAN/CONFIG) grants."
           examples:
             - 10
           format: int32
@@ -8260,13 +8282,14 @@ components:
           format: string
           type: string
         entitlementType:
-          description: Type of entitlement (BOOLEAN, NUMBER, or CONFIG)
+          description: Definition type of the granted entitlement. NUMBER_AI_CREDIT is a calculated numeric entitlement; its granted allowance and usage value still use the number shape.
           enum:
             - BOOLEAN
             - NUMBER
             - CONFIG
+            - NUMBER_AI_CREDIT
           examples:
-            - NUMBER
+            - NUMBER_AI_CREDIT
           readOnly: true
           type: string
         licenseId:
@@ -8282,7 +8305,7 @@ components:
           readOnly: true
           type: string
         limitCapExceededOveragePercent:
-          description: "Derives this grant's enforcement from its own numeric value: -1 when the value is unlimited (no cap, no overage); otherwise 0 rejects usage above the value (hard limit) and a positive percentage allows usage to exceed it by that much before being rejected (soft limit). Null for non-numeric (BOOLEAN/CONFIG) grants."
+          description: "Enforcement derived from the numeric allowance: -1 is unlimited; otherwise 0 is a hard limit and a positive percentage permits overage. AI reservations and numeric adjustments use this bound; AI commits account actual usage even beyond it. Null for non-numeric (BOOLEAN/CONFIG) grants."
           examples:
             - 10
           format: int32
@@ -12365,11 +12388,12 @@ components:
         slug:
           type: string
         type:
+          description: Entitlement definition type. AI credit entitlements still carry numeric allowances.
           enum:
             - BOOLEAN
             - NUMBER
-            - NUMBER_AI_CREDIT
             - CONFIG
+            - NUMBER_AI_CREDIT
           type: string
         value: {}
       required:
@@ -12571,7 +12595,7 @@ components:
             - string
             - "null"
         limitCapExceededOveragePercent:
-          description: "How far usage may exceed a NUMBER grant before it is refused: 0 is a hard limit, -1 is unlimited; null for other types"
+          description: "Overage policy for numeric-family grants: 0 is a hard limit and -1 is unlimited; null for non-numeric types. AI reservations use this bound, while commits account actual usage even beyond it."
           format: int32
           type:
             - integer
@@ -12597,11 +12621,12 @@ components:
             - seats
           type: string
         type:
+          description: Entitlement definition type. AI credit entitlements still carry numeric allowances.
           enum:
             - BOOLEAN
             - NUMBER
-            - NUMBER_AI_CREDIT
             - CONFIG
+            - NUMBER_AI_CREDIT
           type: string
         unitPlural:
           examples:
@@ -12616,7 +12641,7 @@ components:
             - string
             - "null"
         unlimited:
-          description: A NUMBER grant with no limit
+          description: A numeric-family grant, including AI credits, with no limit
           type: boolean
         value:
           description: "The granted value: a boolean, a number, or a configuration object"
@@ -14107,7 +14132,7 @@ components:
       additionalProperties: false
       properties:
         behavior:
-          description: "Report behavior: append folds the value into the stored total through the aggregation method; set overwrites it"
+          description: "Numeric behavior: append folds the value into the counter; set replaces it for ordinary NUMBER entitlements. AI credit entitlements accept only append adjustments. For ai_usage, omit behavior or use append; phase selects reserve or commit."
           enum:
             - append
             - set
@@ -14117,7 +14142,7 @@ components:
           description: "Optional metadata for the usage report, a JSON object stored with it in the usage history when its compact encoding is at most 4 KiB. Above that it is not stored, the report is still counted, and the response carries Kaiten-Metadata-Dropped: too_large. It must contain no personal data: anyone who can read the organization's instances can read it, for as long as the usage history is kept. Numbers are read as 64-bit floats, so send large identifiers as strings."
           type: object
         value:
-          description: Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only.
+          description: "Usage input for an entitlement, discriminated by type. Ordinary numeric entitlements accept number with append or set. NUMBER_AI_CREDIT is a numeric entitlement with model-usage calculation: send ai_usage to reserve or commit provider quantities, or number with append for credit adjustments/refunds. Read responses remain numeric credit counters."
           discriminator:
             mapping:
               ai_usage: "#/components/schemas/AiUsageValue"

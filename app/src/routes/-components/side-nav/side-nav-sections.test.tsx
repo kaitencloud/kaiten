@@ -1,3 +1,4 @@
+import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -296,5 +297,25 @@ describe('useResolvedCatalogItems', () => {
 
   it('keeps them while the capabilities load, and when they cannot be read', () => {
     expect(catalogPathsWith(undefined)).toEqual(core);
+  });
+});
+
+describe('Models catalogue entry', () => {
+  function paths(flag: boolean | undefined, scopes: GrantedScopes | 'unread') {
+    const client = new QueryClient({ defaultOptions: { queries: { enabled: false } } });
+    if (flag !== undefined) client.setQueryData(aiCreditsFlagQueryOptions.queryKey, flag);
+    if (scopes !== 'unread') client.setQueryData(grantedScopesQueryKey, scopes);
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    return renderHook(() => useResolvedCatalogItems(), { wrapper }).result.current.map((item) => item.path);
+  }
+  it('places Models in Catalog when available with read permission', () => {
+    expect(paths(true, ['read:models'])).toEqual(['/catalog/licenses', '/catalog/entitlements', '/catalog/models']);
+    expect(paths(true, null)).toContain('/catalog/models');
+  });
+  it('hides Models until availability and permissions allow the read', () => {
+    expect(paths(false, null)).not.toContain('/catalog/models');
+    expect(paths(undefined, null)).not.toContain('/catalog/models');
+    expect(paths(true, ['read:entitlements'])).not.toContain('/catalog/models');
+    expect(paths(true, 'unread')).not.toContain('/catalog/models');
   });
 });

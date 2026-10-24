@@ -434,6 +434,11 @@ var domainNamesUsingTransportWords = map[string]bool{
 	"PageModel":                        true,
 	"ModelUpdated":                     true,
 	"InstanceAIModelUsageUnauthorized": true,
+	// Billing adds delivery metadata to webhook payloads. Model still names
+	// the provider model in these delivered lifecycle/authorization events.
+	"ModelDelivered":                            true,
+	"ModelUpdatedDelivered":                     true,
+	"InstanceAIModelUsageUnauthorizedDelivered": true,
 }
 
 // containsTransportWord reports whether name contains word as a whole

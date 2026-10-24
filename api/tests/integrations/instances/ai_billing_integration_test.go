@@ -143,3 +143,35 @@ func TestAIGateUsesBillingAddonLimit(t *testing.T) {
 	require.Equal(t, rows, ledgerRows(t, instance.ID, pool.ID))
 
 }
+
+// Billing checks the grant after replay lookup. AI must keep the same ordering
+// for both immutable phase snapshots even when no effective grant remains.
+func TestAIPhaseReplayAfterEffectiveGrantRemoval(t *testing.T) {
+	for _, phase := range []string{"reserve", "commit"} {
+		t.Run(phase, func(t *testing.T) {
+			t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+			instance, pool := newAIUsagePair(t, 10)
+			body := aiUsageBody("reserve", "removed-grant", 3)
+			original := commonfixture.AssertJSONResponse[reportentitlementusagemetric.ReportedEntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, body), http.StatusOK)
+			if phase == "commit" {
+				body = aiUsageBody("commit", "removed-grant", 4)
+				original = commonfixture.AssertJSONResponse[reportentitlementusagemetric.ReportedEntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, body), http.StatusOK)
+			}
+			_, err := testServer.Dependencies.DB.Exec(t.Context(), `DELETE FROM license_entitlement WHERE entitlement_id=$1`, pool.ID)
+			require.NoError(t, err)
+			var grants int
+			require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM instance_effective_entitlement WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&grants))
+			require.Zero(t, grants, "the replay must not depend on any remaining grant layer")
+			before := snapshotPair(t, instance.ID, pool.ID)
+			evidenceQuery := `SELECT jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) FROM ai_inference a WHERE instance_id=$1 AND entitlement_id=$2`
+			evidence := commonfixture.RowSnapshot(t, testServer.Dependencies.DB, evidenceQuery, instance.ID, pool.ID)
+			retry := aiReport(t, instance.Slug, pool.Slug, body)
+			require.Equal(t, "true", retry.Header.Get("Idempotent-Replayed"))
+			require.Equal(t, original, commonfixture.AssertJSONResponse[reportentitlementusagemetric.ReportedEntitlementUsage](t, retry, http.StatusOK))
+			require.Equal(t, before, snapshotPair(t, instance.ID, pool.ID), "replay adds no ledger/outbox row and does not change the counter or sequence")
+			require.Equal(t, evidence, commonfixture.RowSnapshot(t, testServer.Dependencies.DB, evidenceQuery, instance.ID, pool.ID), "phase evidence and reservation TTL are immutable")
+			problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "new-after-removal", 1)), http.StatusNotFound)
+			require.Equal(t, "ReportEntitlementUsageMetric.ContextNotFound", problem.Code, "new work still needs a grant")
+		})
+	}
+}

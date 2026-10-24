@@ -1,5 +1,105 @@
 export default {
   AI: {
+    Minimal: {
+      usePreset: 'Use preset…',
+      modelDetails: 'Details & vendor pricing',
+      affectedVersions: 'Affected versions',
+      impactUnavailable: 'Affected versions require license read access.',
+      vendorUnits:
+        'USD per named unit · blank = unknown. Not customer credit rates.',
+      lifecycleHelp: 'About model status',
+      creditUnits: 'Credits per named unit · exact decimals.',
+      blankRates:
+        'Blank = unpriced; 0 = free. Blank cache rates inherit input. One rate is required.',
+      additionalRates: 'Additional rates',
+      matchingHelp: 'How rules match',
+      exampleDetails: 'Synthetic example details',
+      presentation: 'Presentation',
+      sumFixed: 'Sum · fixed',
+      thresholdHelp: '0 or blank = off. Unlimited grants do not warn.',
+      unitsDetails: 'Units & sale units',
+      fixed: 'Fixed after creation',
+    },
+    OpenRouter: {
+      unavailablePrices:
+        'Some source prices are not listed. Saved prices are kept.',
+      notListed: 'Not listed',
+      savedPrices: 'Saved USD / 1M tokens: input {{input}} · output {{output}}',
+      importTitle: 'Import from OpenRouter',
+      manualCreate: 'Create manually',
+      reviewImport: 'Review model import',
+      importModel: 'Import model',
+      sourcePricing: 'Source & pricing',
+      consentRequired: 'Confirm the source association before importing.',
+      importConsent:
+        'Import and link to OpenRouter source {{id}}. Future checks never change customer credit rates.',
+      linkConsent:
+        'Link this model to OpenRouter source {{id}}. Only selected changes will be applied.',
+      manualPricing: 'Manual pricing required; import identity only.',
+      vendorOnly:
+        'Supplier USD prices only. Customer credit rules stay unchanged.',
+      sourceDetails: 'Source details & raw prices',
+      loading: 'Loading public OpenRouter catalogue…',
+      search: 'Search provider models',
+      results: '{{count}} models',
+      millionUnits: 'Input / output: USD per 1M tokens',
+      chooseModality: 'Choose a known model type',
+      registered: 'Already registered · check source',
+      review: 'Review',
+      pricePair: 'Input {{input}} · Output {{output}}',
+      reviewPricing: 'Variable or incomplete pricing · review required',
+      showMore: 'Show more',
+      sourceGone:
+        'Source model is no longer listed. Saved prices and status are unchanged.',
+      updated: 'Selected changes applied.',
+      unchanged: 'No available changes. Saved values are unchanged.',
+      lastChecked: 'Source checked {{date}}',
+      unlinked:
+        'No provider source linked. Choose one explicitly; names and aliases do not create a link.',
+      check: 'Check pricing',
+      chooseSource: 'Choose source',
+      modalityMismatch:
+        'Source type differs or is unknown. Existing model type cannot change; register a new model if needed.',
+      optionalDetails: 'Optional name & description changes',
+      requestUnit: 'request',
+      tokenUnit: 'token',
+      linkSource: 'Link source',
+      apply: 'Apply selected changes',
+      readOnly: 'Read-only. Applying changes requires model write access.',
+      issues: {
+        missingPrice: 'Missing prices',
+        invalidPrice: 'Unrepresentable prices',
+        dynamicPricing: 'Dynamic routing prices',
+        conditionalPricing: 'Conditional prices',
+        unsupportedPrice: 'Unsupported price dimension',
+        unsupportedModality: 'Unknown model type',
+      },
+      errors: {
+        invalidCatalogue: 'Could not read the provider catalogue. Retry.',
+        catalogueTooLarge: 'Provider catalogue exceeds the supported size.',
+        incompleteCatalogue:
+          'Provider catalogue is incomplete. Nothing was imported.',
+        duplicateSourceId:
+          'Duplicate provider identifiers. Nothing was imported.',
+        invalidIdentity: 'Review the model name, slug, provider and type.',
+        identityConflict:
+          'This slug or provider alias is already registered. Check the existing model source instead.',
+        sourceNamespaceConflict:
+          'Source metadata is incompatible. Saved metadata was not changed.',
+        sourceMismatch:
+          'The linked source changed. Check again before applying.',
+        sourceNotAssociated: 'Choose and explicitly consent to a source link.',
+        localChanged:
+          'A selected field changed since preview. Check again before applying. Your selection is retained.',
+        modelRecreated:
+          'This model was replaced or removed. Reopen it before editing.',
+        priceNotAvailable:
+          'Selected provider prices require manual review. No prices were changed.',
+        modelFieldNotAvailable:
+          'The selected provider detail is unavailable. Saved values were kept.',
+      },
+    },
+
     slugInvalid:
       'Use at least two lowercase letters, digits or hyphens; start and end with a letter or digit.',
     Errors: {
@@ -58,10 +158,12 @@ export default {
     sumRequired:
       'AI credit pools always sum consumption and refunds. Aggregation is fixed to SUM.',
     warningThreshold: 'Warning threshold (%)',
+    warningThresholdHelp:
+      'Percentage of the included limit that triggers a usage warning. Leave blank or enter 0 to disable. Unlimited grants do not emit threshold warnings.',
     wildcardWarning:
       'Wildcard rules price every non-archived catalogue model, including models created in the future. The versions and pools below may authorize this new model immediately.',
     noRate:
-      'At least one non-negative rate is required. Leave a rate blank to leave that dimension unpriced.',
+      'At least one non-negative rate is required. Blank rates are unpriced, except cached and cache-write tokens, which inherit the input-token rate. Explicit 0 is free.',
     invalidMaximum:
       'Maximum credits must be greater than or equal to the minimum.',
     copyRules: 'Copy AI conversion rules from the base version',
@@ -80,16 +182,97 @@ export default {
       perUnit: 'Per unit',
       perSecond: 'Per second',
     },
+    enums: {
+      ACTIVE: 'Active',
+      DEPRECATED: 'Deprecated',
+      ARCHIVED: 'Archived',
+      TEXT: 'Text',
+      IMAGE: 'Image',
+      AUDIO: 'Audio',
+      VIDEO: 'Video',
+      EMBEDDING: 'Embedding',
+      MULTIMODAL: 'Multimodal',
+      ANY: 'Any',
+      COMPLETION: 'Completion',
+      IMAGE_GENERATION: 'Image generation',
+      NEVER: 'Never',
+      ALWAYS: 'Always',
+      PROVIDER_ERROR_ONLY: 'Provider errors only',
+      DRAFT: 'Draft',
+      PUBLISHED: 'Published',
+      RETIRED: 'Retired',
+      PER_REQUEST: 'Per request',
+      PER_INPUT_TOKEN: 'Per input token',
+      PER_OUTPUT_TOKEN: 'Per output token',
+      PER_TOTAL_TOKEN: 'All tokens',
+      PER_UNIT: 'Per unit',
+      PER_SECOND: 'Per second',
+      COMPOSITE: 'All dimensions',
+      ANY_ALL: 'Any model · any request type',
+      ANY_TYPED: 'Any model · exact request type',
+      EXACT_ALL: 'Exact model · any request type',
+      EXACT_TYPED: 'Exact model · exact request type',
+    },
     Models: {
+      identity: 'Identity',
+      identityHelp: 'Name and stable identifier used by your integrations.',
+      availability: 'Availability',
+      provider: 'Provider details',
+      providerHelp:
+        'The supplier and identifiers used to match provider models.',
+      slugHelp: 'Use lowercase letters, numbers and hyphens.',
+      slugLocked: 'The identifier cannot change after creation.',
+      modalityLocked: 'The modality cannot change after creation.',
+      costsOptional: 'Vendor costs (USD) · optional',
+      costsHelp:
+        'Supplier costs in USD per unit below, not customer credit rates. Credit conversion is configured in the matrix. Blank costs are unknown.',
+      costRateHelp: 'USD per named unit.',
+      description:
+        'Models your licenses can authorize through credit conversion rules.',
+      search: 'Search models',
+      searchPlaceholder: 'Name, identifier, provider, modality or status',
+      count: '{{count}} of {{total}} models',
+      empty: 'No models yet. Create a model to configure credit pricing.',
+      noMatches:
+        'No models match this search. Try another name, provider or status.',
+      loading: 'Loading model catalogue…',
       title: 'Models',
       create: 'Create model',
       edit: 'Edit model',
       externalIds: 'Provider identifiers (one per line)',
       costs: 'Vendor costs (USD)',
+      modelImpact:
+        'Model status is shared across entitlements. Changes also affect pending commits; reservations do not lock model eligibility or pricing.',
       lifecycle:
-        'ACTIVE allows new rules. DEPRECATED keeps existing rules but rejects new ones. ARCHIVED authorizes no usage, including through wildcards. Status changes are reversible; slug and modality are immutable.',
+        'Active accepts new rules. Deprecated keeps existing rules but rejects new ones. Archived authorizes no usage, including through wildcards. Status changes are reversible.',
     },
     Matrix: {
+      description:
+        'Conversion rates charge customer credit pools, separately from supplier costs in USD.',
+      context:
+        'Each row is a license version; each column is a model. Any-model rules also cover future non-archived models.',
+      noRule: 'No rule in this cell. Other matching rules may still apply.',
+      archiveTitle: 'Archive this rule?',
+      scope: 'Rule scope',
+      identityLocked:
+        'Pool, model and request type are fixed after creation. Change the rates below or create a separate rule.',
+      ratesTitle: 'Credit rates',
+      ratesHelp:
+        'Credits charged per named unit. Keep decimal values exact; no conversion to USD is applied.',
+      rateHelp: 'Blank is unpriced; explicit 0 is free.',
+      cacheRateHelp: 'Blank inherits the input-token rate; explicit 0 is free.',
+      guards: 'Limits and error policy',
+      previewCredits: 'Customer credits for this example',
+      presetHelp:
+        'A preset replaces every rate: selected dimensions become 1 and all others are cleared. Review before replacing.',
+      replaceRates: 'Replace rates',
+      replaceWarning:
+        'Replace all current rates with “{{preset}}”? Selected dimensions become 1; all other dimensions are cleared.',
+      loading: 'Loading version and model conversion rules…',
+      loadingFamilies: 'Loading license families…',
+      loadingEditor: 'Loading rule editor and credit pools…',
+      emptyFamilies:
+        'No license families yet. Conversion rules belong to license versions.',
       title: 'Conversion matrix',
       family: 'License family',
       version: 'Version / lifecycle',
@@ -97,9 +280,9 @@ export default {
       edit: 'Edit rule',
       archive: 'Archive',
       archiveWarning:
-        'This rule will stop pricing new usage. Existing inference records are unchanged.',
+        'Archiving changes the rules selected at commit, including pending requests. Reservations do not lock pricing. Stored inference records stay unchanged.',
       notGranted:
-        'This version does not grant this pool. The rule prices nothing until the pool is granted.',
+        'No direct allowance from this version. Attached add-ons may grant this entitlement.',
       preview: 'Typical successful call',
       typicalUsage:
         'Synthetic example: 1,000 input + 200 cached + 100 cache-write + 500 output tokens, one unit, one second.',
@@ -107,17 +290,105 @@ export default {
         'Illustrative only; the server applies the final policy, limits and rounding.',
       costUnknown: 'Not available (select a model with vendor costs)',
       preset: 'Rate vector preset',
-      ladder:
-        'Resolution specificity (exact typed → exact all → any typed → any all)',
+      ladder: 'This rule’s specificity',
+      precedence:
+        'One complete rule wins: exact model/request → exact model → matching request type → any model.',
+      wholeRule:
+        'Missing rates do not merge with less specific rules. Only blank cache-read/cache-write rates inherit this rule’s input-token rate.',
+      pendingChanges:
+        'Rates and model status are evaluated at commit, including requests already reserved. Reservations are estimates, not locked quotes.',
+      noPerRequestCap: 'No per-request cap',
       cachedFallback:
-        'Blank cached/cache-write rates fall back to the input-token rate. Presets only fill rates; they are not API conversion types.',
+        'Blank cached/cache-write rates inherit the input-token rate; explicit 0 makes those tokens free. Presets replace rates, not API conversion types.',
       minimum: 'Minimum credits per request',
       maximum: 'Maximum credits per request (blank = no cap)',
       chargeOnError: 'Charge on error',
     },
+    Calculation: {
+      typeLabel: 'AI credits · Calculated entitlement',
+      poolReadDenied:
+        'Your session cannot select a credit pool. Open calculation from an entitlement, or request entitlement read access.',
+      modelsReadDenied:
+        'Your session cannot read the model catalogue. Contact an administrator for model read access.',
+      matrixReadDenied:
+        'Your session cannot read this comparison. It requires model and license reads, plus entitlement reads when opened with a pool context.',
+      modelDenied:
+        'Your session cannot edit models. Contact an administrator for model write access.',
+      title: 'Calculation',
+      back: 'Back to entitlement',
+      compare: 'Compare versions',
+      configure: 'Configure calculation',
+      loadingAccess: 'Checking calculation availability…',
+      unavailable:
+        'Calculation configuration is currently unavailable. The feature may not be enabled, or its availability could not be evaluated. Your entitlement and usage remain available.',
+      denied:
+        'Your session cannot read calculation configuration. Contact an administrator for license read access.',
+      readOnly:
+        'Rules are read-only. Editing requires license write access and model read access.',
+      unknownRule:
+        'This rule is not available for the selected entitlement and version.',
+      loadingVersions: 'Loading license versions…',
+      description:
+        'This entitlement owns the credit pool. Each license version owns its calculation rules, including pools granted only by attached add-ons.',
+      version: 'License version',
+      chooseVersion: 'Choose a license version to view its calculation rules.',
+      notCalculated: 'This entitlement does not use AI credit calculation.',
+    },
     Usage: {
       title: 'AI usage',
       allStatuses: 'All statuses',
+      description:
+        'Available credits, open reservations and the requests that used them.',
+      available: 'Available to reserve',
+      allowanceDetails: 'Allowance details',
+      window: 'Reporting window (UTC)',
+      allowance:
+        '{{limit}} included credits. The maximum above includes any permitted overage.',
+      effectivePolicy:
+        'Allowance reflects the effective licence and any add-ons or boosts.',
+      meterLabel: 'Consumed and reserved credits',
+      meterValue:
+        '{{consumed}} consumed and {{reserved}} reserved out of {{maximum}} credits',
+      noReservations: 'No open reservations.',
+      noInferences:
+        'No usage reports yet. Committed and released requests will appear here.',
+      noMatches:
+        'No inferences match these filters. Clear the filters to see all loaded usage.',
+      loadingReservations: 'Loading reservations…',
+      loadingInferences: 'Loading inferences…',
+      loaded: 'Loaded: {{count}}',
+      filters: 'Filter inferences',
+      clearFilters: 'Clear filters',
+      viewRecord: 'View record',
+      inspectRecord: 'View inference {{id}}',
+      recordDescription:
+        'Exact usage, credits and identifiers stored for this request.',
+      details: 'Details',
+      computedAmount: '{{amount}} computed',
+      states: {
+        RESERVED: 'Reserved',
+        COMMITTED: 'Committed',
+        RELEASED: 'Released',
+        EXPIRED: 'Expired',
+      },
+      outcomes: {
+        SUCCESS: 'Success',
+        PROVIDER_ERROR: 'Provider error',
+        CUSTOMER_ERROR: 'Customer error',
+        NOT_SENT: 'Not sent',
+      },
+      denials: {
+        UNKNOWN_MODEL: 'Unknown model',
+        MODEL_ARCHIVED: 'Archived model',
+        NO_RULE: 'No conversion rule',
+      },
+      requestTypes: {
+        COMPLETION: 'Completion',
+        EMBEDDING: 'Embedding',
+        IMAGE_GENERATION: 'Image generation',
+        AUDIO: 'Audio',
+        VIDEO: 'Video',
+      },
       record: 'Immutable record',
       time: 'Reported at',
       requestStatus: 'Request status',

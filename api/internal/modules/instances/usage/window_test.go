@@ -30,7 +30,7 @@ func TestPlanRollover_AdjacentWindow_SingleRealClosure(t *testing.T) {
 	current := mustWindow(t, "2026-08-15T00:00:00Z", period.Month, period.Calendar, time.Time{})
 	julyStart := mustParse(t, "2026-07-01T00:00:00Z")
 
-	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &julyStart, 87500, 42, current, period.Month, period.Calendar, time.Time{})
+	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &julyStart, 87500, 42, current, period.Month, period.Calendar, period.LicenseStartBasis(time.Time{}))
 	if err != nil {
 		t.Fatalf("planRollover(context.Background(), DefaultMaxRolloverClosures, ) error = %v", err)
 	}
@@ -63,7 +63,7 @@ func TestPlanRollover_SkippedWindows_MaterializesEmptyOnes(t *testing.T) {
 	current := mustWindow(t, "2026-05-10T00:00:00Z", period.Month, period.Calendar, time.Time{})
 	febStart := mustParse(t, "2026-02-01T00:00:00Z")
 
-	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &febStart, 1000, 7, current, period.Month, period.Calendar, time.Time{})
+	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &febStart, 1000, 7, current, period.Month, period.Calendar, period.LicenseStartBasis(time.Time{}))
 	if err != nil {
 		t.Fatalf("planRollover(context.Background(), DefaultMaxRolloverClosures, ) error = %v", err)
 	}
@@ -132,7 +132,7 @@ func TestPlanRollover_SkippedWindows_MaterializesEmptyOnes(t *testing.T) {
 func TestPlanRollover_LifetimeAdoption_SingleNonDerivableClosure(t *testing.T) {
 	current := mustWindow(t, "2026-08-15T00:00:00Z", period.Month, period.Calendar, time.Time{})
 
-	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, nil, 250, 5, current, period.Month, period.Calendar, time.Time{})
+	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, nil, 250, 5, current, period.Month, period.Calendar, period.LicenseStartBasis(time.Time{}))
 	if err != nil {
 		t.Fatalf("planRollover(context.Background(), DefaultMaxRolloverClosures, ) error = %v", err)
 	}
@@ -169,7 +169,7 @@ func TestPlanRollover_PhaseShift_SingleNonDerivableClosure(t *testing.T) {
 	// Not aligned to any window boundary under newLicenseStart's monthly grid.
 	staleStart := mustParse(t, "2026-06-17T00:00:00Z")
 
-	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &staleStart, 999, 3, current, period.Month, period.LicenseStart, newLicenseStart)
+	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &staleStart, 999, 3, current, period.Month, period.LicenseStart, period.LicenseStartBasis(newLicenseStart))
 	if err != nil {
 		t.Fatalf("planRollover(context.Background(), DefaultMaxRolloverClosures, ) error = %v", err)
 	}
@@ -199,7 +199,7 @@ func TestPlanRollover_HourGranularity_SkippedWindows(t *testing.T) {
 	current := mustWindow(t, "2026-01-01T05:00:00Z", period.Hour, period.Calendar, time.Time{})
 	staleStart := mustParse(t, "2026-01-01T02:00:00Z")
 
-	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &staleStart, 10, 1, current, period.Hour, period.Calendar, time.Time{})
+	closures, err := planRollover(context.Background(), DefaultMaxRolloverClosures, &staleStart, 10, 1, current, period.Hour, period.Calendar, period.LicenseStartBasis(time.Time{}))
 	if err != nil {
 		t.Fatalf("planRollover(context.Background(), DefaultMaxRolloverClosures, ) error = %v", err)
 	}
@@ -328,5 +328,58 @@ func TestResolve_StoredWindowAheadOfClock(t *testing.T) {
 	end := mustParse(t, "2026-12-01T00:00:00Z")
 	if got.Window.Start == nil || !got.Window.Start.Equal(start) || got.Window.End == nil || !got.Window.End.Equal(end) {
 		t.Fatalf("clock regression must keep the stored window: %+v", got.Window)
+	}
+}
+
+// The AI extraction must follow the subscription basis just like billing's
+// numeric usage path, including the instant and reason of an anchor change.
+func TestResolveBillingAnchorChangesPreserveClosureEvidence(t *testing.T) {
+	resetPeriod, resetAnchor := period.Month, period.BillingPeriod
+	licenseStart := mustParse(t, "2026-01-01T00:00:00Z")
+	liveAnchor := mustParse(t, "2026-03-10T00:00:00Z")
+	endedAt := mustParse(t, "2026-05-10T00:00:00Z")
+	now := mustParse(t, "2026-05-15T00:00:00Z")
+	for _, tc := range []struct {
+		name                   string
+		basis                  period.Basis
+		storedStart, changedAt time.Time
+	}{
+		{"subscription became live", period.Basis{LicenseStart: licenseStart, LiveAnchor: &liveAnchor}, mustParse(t, "2026-03-01T00:00:00Z"), liveAnchor},
+		{"subscription ended", period.Basis{LicenseStart: licenseStart, LiveEndedAt: &endedAt}, mustParse(t, "2026-04-10T00:00:00Z"), endedAt},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			p := PeriodicityOn(&resetPeriod, &resetAnchor, tc.basis)
+			r, err := Resolve(now, p, Stored{Present: true, Counter: Counter{Value: 42, EventCount: 3}, PeriodStart: &tc.storedStart})
+			if err != nil {
+				t.Fatal(err)
+			}
+			want, err := period.CurrentOn(now, resetPeriod, resetAnchor, tc.basis)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if r.Window.Start == nil || !r.Window.Start.Equal(want.Start) || r.Window.End == nil || !r.Window.End.Equal(want.End) {
+				t.Fatalf("window = %+v, want %+v", r.Window, want)
+			}
+			if len(r.Closures) != 1 {
+				t.Fatalf("closures = %+v, want one anchor-change closure", r.Closures)
+			}
+			c := r.Closures[0]
+			if c.Reason != ReasonAnchorChanged || c.IsSynthetic || c.Value != 42 || c.EventCount != 3 || c.ClosedPeriodEnd == nil || !c.ClosedPeriodEnd.Equal(tc.changedAt) {
+				t.Fatalf("lost closure evidence: %+v", c)
+			}
+		})
+	}
+}
+
+func TestResolveElapsedBillingPeriodKeepsPeriodEndedReason(t *testing.T) {
+	resetPeriod, resetAnchor := period.Month, period.BillingPeriod
+	anchor := mustParse(t, "2026-01-10T00:00:00Z")
+	start := mustParse(t, "2026-04-10T00:00:00Z")
+	r, err := Resolve(mustParse(t, "2026-05-15T00:00:00Z"), PeriodicityOn(&resetPeriod, &resetAnchor, period.Basis{LicenseStart: anchor, LiveAnchor: &anchor}), Stored{Present: true, Counter: Counter{Value: 7, EventCount: 1}, PeriodStart: &start})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Closures) != 1 || r.Closures[0].Reason != ReasonPeriodEnded {
+		t.Fatalf("closures = %+v", r.Closures)
 	}
 }

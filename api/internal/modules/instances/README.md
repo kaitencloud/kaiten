@@ -5,6 +5,54 @@ is a write-only variant; read values remain number/boolean/object. A credit
 pool is `NUMBER_AI_CREDIT` with SUM aggregation. Numeric append reports remain
 available for adjustments/refunds; numeric set reports are refused.
 
+## Entitlement definition, allowance and calculation
+
+AI credits are not a separate balance product. The entitlement definition owns
+its identity, credit units, SUM aggregation, reset cadence and warning threshold.
+A licence version grants its numeric allowance and owns conversion rules for that
+entitlement by model/request type. The organization model catalogue is shared;
+optional USD supplier costs are not customer credit rates. Instances consume this
+same entitlement through the effective allowance and shared accounting writer.
+
+The three `type` fields have different jobs:
+
+| Surface | Type | Meaning |
+| --- | --- | --- |
+| Entitlement definition and grant metadata | `NUMBER_AI_CREDIT` | A calculated numeric entitlement |
+| Model-usage report input | `ai_usage` | Provider quantities for reserve/commit calculation |
+| Grant allowance and usage read value | `number` | Numeric included/consumed credits |
+
+For example, a licence grants `{ "type": "number", "value": 1000 }` to the
+`ai-credits` entitlement. Its rule for `sushi-assistant` prices input tokens at
+`0.001` credits and output tokens at `0.003`. A reserve estimates consumption:
+
+```json
+{
+  "value": {
+    "type": "ai_usage", "phase": "reserve", "transactionId": "inference-001",
+    "model": "sushi-assistant", "requestType": "COMPLETION",
+    "usage": { "inputTokens": 100, "outputTokens": 50 }
+  }
+}
+```
+
+Send the actual quantities to the same entitlement route with `phase: "commit"`
+and `requestStatus: "SUCCESS"`, keeping that call identity. Identical phase/body
+retries replay the original response; the resulting usage is a numeric credit
+counter, not a new `ai_usage` read type. A `NOT_SENT` commit releases without a
+charge. Numeric append reports remain explicit credit adjustments/refunds.
+
+Rules select one complete rate vector, not field-by-field inheritance from less
+specific rules. The order is exact model/request, exact model/all requests, any
+model/exact request, then any model/all requests. Blank cache-read/cache-write
+rates fall back to the selected rule's input rate; explicit zero is free.
+
+`grantedByLicense` describes only a direct licence allowance. Add-ons can grant a
+pool while that flag is false; such instances can still use the version's rules.
+Reservations are estimates, not locked quotes: rate/rule/model changes affect
+pending commits because current configuration is resolved at commit. Stored
+inference evidence is unchanged and does not contain immutable rate snapshots.
+
 ## Lifecycle and accounting
 
 - `reserve` prices estimated usage and gates it against the maximum minus
@@ -80,3 +128,13 @@ write no debit journal row. The gate uses the effective entitlement at the singl
 post-lock report instant, including add-ons, vouchers and instance exceptions.
 The AI migration follows billing's latest migration; rolling back AI leaves
 billing's effective entitlement view and shared foreign-key targets intact.
+
+### Unmerged prototype databases
+
+This clean billing-based stack renumbers the AI migration to
+`20261024173426_ai_credits.sql`: the earlier prototype's
+`20261022230000_ai_credits.sql` collides with billing's audit-actor migration.
+Do not apply this stack automatically to a database that already ran the earlier
+unmerged AI prototype. Its migration history and existing AI tables need a
+reviewed upgrade path first; preserve that database and do not reset, migrate or
+reseed it as part of switching branches.

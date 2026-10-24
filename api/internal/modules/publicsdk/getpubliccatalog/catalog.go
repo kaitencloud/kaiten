@@ -83,10 +83,10 @@ type PublicPlanEntitlement struct {
 	Slug                           string          `json:"slug" example:"seats"`
 	Name                           string          `json:"name" example:"Seats"`
 	Description                    *string         `json:"description"`
-	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,NUMBER_AI_CREDIT,CONFIG"`
+	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,CONFIG,NUMBER_AI_CREDIT" doc:"Entitlement definition type. AI credit entitlements still carry numeric allowances."`
 	Value                          json.RawMessage `json:"value" doc:"The granted value: a boolean, a number, or a configuration object"`
-	Unlimited                      bool            `json:"unlimited" doc:"A NUMBER grant with no limit"`
-	LimitCapExceededOveragePercent *int32          `json:"limitCapExceededOveragePercent" doc:"How far usage may exceed a NUMBER grant before it is refused: 0 is a hard limit, -1 is unlimited; null for other types"`
+	Unlimited                      bool            `json:"unlimited" doc:"A numeric-family grant, including AI credits, with no limit"`
+	LimitCapExceededOveragePercent *int32          `json:"limitCapExceededOveragePercent" doc:"Overage policy for numeric-family grants: 0 is a hard limit and -1 is unlimited; null for non-numeric types. AI reservations use this bound, while commits account actual usage even beyond it."`
 	Icon                           *string         `json:"icon"`
 	UnitSingular                   *string         `json:"unitSingular" example:"seat"`
 	UnitPlural                     *string         `json:"unitPlural" example:"seats"`
@@ -114,7 +114,7 @@ type PublicAddOn struct {
 type PublicAddOnEntitlement struct {
 	Slug                           string          `json:"slug"`
 	Name                           string          `json:"name"`
-	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,NUMBER_AI_CREDIT,CONFIG"`
+	Type                           string          `json:"type" enum:"BOOLEAN,NUMBER,CONFIG,NUMBER_AI_CREDIT" doc:"Entitlement definition type. AI credit entitlements still carry numeric allowances."`
 	Value                          json.RawMessage `json:"value"`
 	OverrideBehavior               string          `json:"overrideBehavior" enum:"ADD,OVERRIDE,MAX" doc:"How the grant combines with the plan's: added to it, replacing it, or the larger of the two"`
 	LimitCapExceededOveragePercent *int32          `json:"limitCapExceededOveragePercent"`

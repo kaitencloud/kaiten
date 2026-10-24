@@ -64,15 +64,24 @@ type AiUsage struct {
 }
 
 type AiUsageValue struct {
-	Type  string `json:"type" enum:"ai_usage"`
-	Phase string `json:"phase" enum:"reserve,commit"`
+	Type  string `json:"type" enum:"ai_usage" doc:"Calculation input for a NUMBER_AI_CREDIT entitlement, not a separate read-value type."`
+	Phase string `json:"phase" enum:"reserve,commit" doc:"Reserve estimates and holds credits before a provider request; commit calculates actual credits or releases an unsent request. Reservations do not lock the calculation rates."`
 	// Validated by the use case to retain the precise transaction-id error codes.
-	TransactionID string                  `json:"transactionId,omitempty"`
+	TransactionID string                  `json:"transactionId,omitempty" doc:"Required call identity, scoped to the instance and entitlement. Use the same identity for reserve and commit, and the identical phase/body for a retry. AI reports use this identity rather than Idempotency-Key."`
 	Model         *string                 `json:"model,omitempty" minLength:"1" maxLength:"255"`
 	RequestType   *aicredit.RequestType   `json:"requestType,omitempty" enum:"COMPLETION,EMBEDDING,IMAGE_GENERATION,AUDIO,VIDEO"`
 	RequestStatus *aicredit.RequestStatus `json:"requestStatus,omitempty" enum:"SUCCESS,PROVIDER_ERROR,CUSTOMER_ERROR,NOT_SENT"`
 	Usage         *AiUsage                `json:"usage,omitempty"`
 	TTLSeconds    *int64                  `json:"ttlSeconds,omitempty"`
+}
+
+// Keep phase examples complete: reserve must not include commit-only fields.
+func (AiUsageValue) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	s.Examples = []any{
+		map[string]any{"type": "ai_usage", "phase": "reserve", "transactionId": "inference-001", "model": "sushi-assistant", "requestType": "COMPLETION", "usage": map[string]any{"inputTokens": 100, "outputTokens": 50}},
+		map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "inference-001", "model": "sushi-assistant", "requestType": "COMPLETION", "requestStatus": "SUCCESS", "usage": map[string]any{"inputTokens": 120, "outputTokens": 60}},
+	}
+	return s
 }
 
 type AiCredits struct {
