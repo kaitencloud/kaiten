@@ -1,12 +1,23 @@
 -- name: LockInstanceForAddons :one
 -- The instance an attachment write names, with its licence family, locked so
 -- the writes of one instance serialize (and with a licence change).
-SELECT i.id, i.license_id, l.family_id AS license_family_id
-FROM instance i
-JOIN license l ON l.id = i.license_id AND l.organization_id = i.organization_id
-WHERE i.organization_id = sqlc.arg(organization_id)
-  AND i.slug = sqlc.arg(slug)
-FOR NO KEY UPDATE OF i;
+--
+-- The lock is taken alone, in a MATERIALIZED CTE, and the licence is joined
+-- afterwards. Locking in the joined query would break when it waits for a
+-- close that moves the instance to another licence: READ COMMITTED re-checks
+-- the join against the new instance row but the old licence row, finds no
+-- match and returns no row, which the caller reads as "instance not found".
+-- Here the wait ends inside the CTE, and the join runs on the row it returns.
+WITH locked AS MATERIALIZED (
+    SELECT i.id, i.organization_id, i.license_id
+    FROM instance i
+    WHERE i.organization_id = sqlc.arg(organization_id)
+      AND i.slug = sqlc.arg(slug)
+    FOR NO KEY UPDATE OF i
+)
+SELECT locked.id, locked.license_id, l.family_id AS license_family_id
+FROM locked
+JOIN license l ON l.id = locked.license_id AND l.organization_id = locked.organization_id;
 
 
 -- name: GetInstanceIDBySlug :one
@@ -148,13 +159,18 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: LockInstanceForAddonsByID :one
--- LockInstanceForAddons, by id: the instance a boundary of billing names.
-SELECT i.id, i.slug, i.license_id, l.family_id AS license_family_id
-FROM instance i
-JOIN license l ON l.id = i.license_id AND l.organization_id = i.organization_id
-WHERE i.organization_id = sqlc.arg(organization_id)
-  AND i.id = sqlc.arg(id)
-FOR NO KEY UPDATE OF i;
+-- LockInstanceForAddons, by id: the instance a boundary of billing names. The
+-- lock is taken alone for the same reason (see there).
+WITH locked AS MATERIALIZED (
+    SELECT i.id, i.organization_id, i.slug, i.license_id
+    FROM instance i
+    WHERE i.organization_id = sqlc.arg(organization_id)
+      AND i.id = sqlc.arg(id)
+    FOR NO KEY UPDATE OF i
+)
+SELECT locked.id, locked.slug, locked.license_id, l.family_id AS license_family_id
+FROM locked
+JOIN license l ON l.id = locked.license_id AND l.organization_id = locked.organization_id;
 
 
 -- name: LockScheduledInstanceAddons :many

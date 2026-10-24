@@ -780,12 +780,16 @@ func (q *Queries) LockAttachmentsIncompatibleWith(ctx context.Context, arg LockA
 }
 
 const lockInstanceForAddons = `-- name: LockInstanceForAddons :one
-SELECT i.id, i.license_id, l.family_id AS license_family_id
-FROM instance i
-JOIN license l ON l.id = i.license_id AND l.organization_id = i.organization_id
-WHERE i.organization_id = $1
-  AND i.slug = $2
-FOR NO KEY UPDATE OF i
+WITH locked AS MATERIALIZED (
+    SELECT i.id, i.organization_id, i.license_id
+    FROM instance i
+    WHERE i.organization_id = $1
+      AND i.slug = $2
+    FOR NO KEY UPDATE OF i
+)
+SELECT locked.id, locked.license_id, l.family_id AS license_family_id
+FROM locked
+JOIN license l ON l.id = locked.license_id AND l.organization_id = locked.organization_id
 `
 
 type LockInstanceForAddonsParams struct {
@@ -801,6 +805,13 @@ type LockInstanceForAddonsRow struct {
 
 // The instance an attachment write names, with its licence family, locked so
 // the writes of one instance serialize (and with a licence change).
+//
+// The lock is taken alone, in a MATERIALIZED CTE, and the licence is joined
+// afterwards. Locking in the joined query would break when it waits for a
+// close that moves the instance to another licence: READ COMMITTED re-checks
+// the join against the new instance row but the old licence row, finds no
+// match and returns no row, which the caller reads as "instance not found".
+// Here the wait ends inside the CTE, and the join runs on the row it returns.
 func (q *Queries) LockInstanceForAddons(ctx context.Context, arg LockInstanceForAddonsParams) (LockInstanceForAddonsRow, error) {
 	row := q.db.QueryRow(ctx, lockInstanceForAddons, arg.OrganizationID, arg.Slug)
 	var i LockInstanceForAddonsRow
@@ -809,12 +820,16 @@ func (q *Queries) LockInstanceForAddons(ctx context.Context, arg LockInstanceFor
 }
 
 const lockInstanceForAddonsByID = `-- name: LockInstanceForAddonsByID :one
-SELECT i.id, i.slug, i.license_id, l.family_id AS license_family_id
-FROM instance i
-JOIN license l ON l.id = i.license_id AND l.organization_id = i.organization_id
-WHERE i.organization_id = $1
-  AND i.id = $2
-FOR NO KEY UPDATE OF i
+WITH locked AS MATERIALIZED (
+    SELECT i.id, i.organization_id, i.slug, i.license_id
+    FROM instance i
+    WHERE i.organization_id = $1
+      AND i.id = $2
+    FOR NO KEY UPDATE OF i
+)
+SELECT locked.id, locked.slug, locked.license_id, l.family_id AS license_family_id
+FROM locked
+JOIN license l ON l.id = locked.license_id AND l.organization_id = locked.organization_id
 `
 
 type LockInstanceForAddonsByIDParams struct {
@@ -829,7 +844,8 @@ type LockInstanceForAddonsByIDRow struct {
 	LicenseFamilyID uuid.UUID `json:"license_family_id"`
 }
 
-// LockInstanceForAddons, by id: the instance a boundary of billing names.
+// LockInstanceForAddons, by id: the instance a boundary of billing names. The
+// lock is taken alone for the same reason (see there).
 func (q *Queries) LockInstanceForAddonsByID(ctx context.Context, arg LockInstanceForAddonsByIDParams) (LockInstanceForAddonsByIDRow, error) {
 	row := q.db.QueryRow(ctx, lockInstanceForAddonsByID, arg.OrganizationID, arg.ID)
 	var i LockInstanceForAddonsByIDRow
