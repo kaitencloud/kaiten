@@ -42,6 +42,15 @@ func (p *Pusher) charge(ctx context.Context, conn *provider.Connection, row db.I
 
 	return p.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := p.deps.Queries(ctx)
+		// The payment of an INCOMPLETE ACTIVATION moves the instance: the
+		// instance and the subscription first, then the invoice (§9
+		// Concurrency rule 1).
+		if _, err := lifecycle.LockInstanceOf(ctx, q, row.InstanceBillingID, false); err != nil {
+			return err
+		}
+		if _, err := q.LockSubscriptionByID(ctx, db.LockSubscriptionByIDParams{OrganizationID: row.OrganizationID, ID: row.InstanceBillingID}); err != nil {
+			return err
+		}
 		var updated db.InstanceInvoice
 		var err error
 		switch outcome.Status {

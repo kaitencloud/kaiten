@@ -152,6 +152,14 @@ func (e *Ender) voidAtProvider(ctx context.Context, operation string, row db.Ins
 func (e *Ender) applyPaid(ctx context.Context, row db.InstanceInvoice) error {
 	err := e.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := e.deps.Queries(ctx)
+		// The settle moves the instance: the instance and the subscription
+		// first, then the invoice (§9 Concurrency rule 1).
+		if _, err := lifecycle.LockInstanceOf(ctx, q, row.InstanceBillingID, false); err != nil {
+			return err
+		}
+		if _, err := q.LockSubscriptionByID(ctx, db.LockSubscriptionByIDParams{OrganizationID: row.OrganizationID, ID: row.InstanceBillingID}); err != nil {
+			return err
+		}
 		now, err := lifecycle.Now(ctx, q)
 		if err != nil {
 			return err

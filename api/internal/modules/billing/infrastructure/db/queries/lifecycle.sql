@@ -338,3 +338,40 @@ WHERE id = sqlc.arg(id)
   AND status = 'TRIAL'
   AND trial_will_end_notified_at IS NULL
 RETURNING *;
+
+
+-- name: LockInstanceForBilling :one
+-- §9 Concurrency rule 1 (V31-34): a billing writer locks the instance row FOR
+-- NO KEY UPDATE before its instance_billing row, the order the instance,
+-- add-on and voucher writes take them in, so a cancellation that moves the
+-- licence or applies a scheduled add-on decrease never deadlocks with them.
+SELECT i.id
+FROM instance i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.slug = sqlc.arg(slug)
+FOR NO KEY UPDATE OF i;
+
+
+-- name: GetSubscriptionInstanceID :one
+-- The instance a subscription bills, NULL once it is deleted: what a writer
+-- that starts from the subscription locks first.
+SELECT ib.instance_id
+FROM instance_billing ib
+WHERE ib.id = sqlc.arg(id);
+
+
+-- name: LockInstanceRow :many
+-- LockInstanceForBilling by id; no row once the instance is deleted.
+SELECT i.id
+FROM instance i
+WHERE i.id = sqlc.arg(id)
+FOR NO KEY UPDATE OF i;
+
+
+-- name: TryLockInstanceRow :many
+-- LockInstanceRow for a job, which never waits: no row when another
+-- transaction holds the instance.
+SELECT i.id
+FROM instance i
+WHERE i.id = sqlc.arg(id)
+FOR NO KEY UPDATE OF i SKIP LOCKED;

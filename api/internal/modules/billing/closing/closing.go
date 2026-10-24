@@ -243,6 +243,11 @@ func (c *Closer) basePrice(ctx context.Context, sub db.InstanceBilling) (*ports.
 //     period's advance, applying a scheduled plan change at the boundary.
 func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boundary time.Time, actor uuid.UUID) (Outcome, error) {
 	q := c.deps.Queries(ctx)
+	// The instance first (§9 Concurrency rule 1): a close that applies a plan
+	// change, a fallback move or a scheduled add-on decrease writes it.
+	if ok, err := lifecycle.LockInstanceOf(ctx, q, subscriptionID, true); err != nil || !ok {
+		return Outcome{Closed: false, Invoice: nil, SkipReason: "locked"}, err
+	}
 	sub, err := q.LockDueSubscription(ctx, subscriptionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Outcome{Closed: false, Invoice: nil, SkipReason: "locked"}, nil

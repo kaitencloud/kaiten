@@ -74,6 +74,9 @@ func (o *Overdue) one(ctx context.Context, id, organizationID uuid.UUID) (change
 	}()
 	err = o.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(o.uof.DBTX(ctx))
+		if ok, err := LockInstanceOf(ctx, q, id, true); err != nil || !ok {
+			return err
+		}
 		sub, err := q.LockDueSubscription(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil

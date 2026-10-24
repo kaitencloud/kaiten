@@ -18,6 +18,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/metering"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
@@ -291,6 +292,9 @@ func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released 
 			return nil
 		}
 		if err != nil {
+			return err
+		}
+		if ok, err := lifecycle.LockInstanceOf(ctx, q, peek.InstanceBillingID, true); err != nil || !ok {
 			return err
 		}
 		sub, err := q.LockDueSubscription(ctx, peek.InstanceBillingID)

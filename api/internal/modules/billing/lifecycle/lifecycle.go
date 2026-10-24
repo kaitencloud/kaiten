@@ -32,18 +32,42 @@ const BoundaryRetryAfter = time.Minute
 // when the instance is unknown or was never subscribed.
 func Lock(ctx context.Context, q *db.Queries, organizationID uuid.UUID, instanceSlug, operation string) (db.InstanceBilling, error) {
 	notFound := kaitenerrors.NotFoundf(operation+".NotFound", "instance %q has no subscription", instanceSlug)
-	instance, err := q.GetInstanceBySlug(ctx, db.GetInstanceBySlugParams{OrganizationID: organizationID, Slug: instanceSlug})
+	// The instance first, then its subscription (§9 Concurrency rule 1).
+	instanceID, err := q.LockInstanceForBilling(ctx, db.LockInstanceForBillingParams{OrganizationID: organizationID, Slug: instanceSlug})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return db.InstanceBilling{}, notFound
 	}
 	if err != nil {
 		return db.InstanceBilling{}, err
 	}
-	sub, err := q.LockInstanceBilling(ctx, db.LockInstanceBillingParams{OrganizationID: organizationID, InstanceID: &instance.ID})
+	sub, err := q.LockInstanceBilling(ctx, db.LockInstanceBillingParams{OrganizationID: organizationID, InstanceID: &instanceID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return db.InstanceBilling{}, notFound
 	}
 	return sub, err
+}
+
+// LockInstanceOf locks the instance of a subscription, for a writer that
+// starts from the subscription, before it locks the subscription's row: the
+// order of §9 Concurrency rule 1 (V31-34) every writer of an instance and its
+// subscription takes, so none of them deadlocks with another. A job passes
+// skip and never waits: false when another transaction holds the instance,
+// the subscription then left for a later pass. A subscription whose instance
+// is gone has nothing to lock.
+func LockInstanceOf(ctx context.Context, q *db.Queries, subscriptionID uuid.UUID, skip bool) (bool, error) {
+	instanceID, err := q.GetSubscriptionInstanceID(ctx, subscriptionID)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && instanceID == nil) {
+		return true, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if skip {
+		locked, err := q.TryLockInstanceRow(ctx, *instanceID)
+		return len(locked) > 0, err
+	}
+	_, err = q.LockInstanceRow(ctx, *instanceID)
+	return true, err
 }
 
 // BoundaryPending refuses a change while the subscription's period has ended

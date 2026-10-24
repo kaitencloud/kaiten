@@ -1,6 +1,8 @@
 package billing_test
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -438,4 +440,44 @@ func TestTrialReminder(t *testing.T) {
 	require.True(t, ok, "the conversion's ACTIVATION, as previewed")
 	require.EqualValues(t, 1900, charge["amount"])
 	require.Equal(t, "MONTHLY", charge["billingPeriod"])
+}
+
+// TestLockOrder: a close that applies a plan change writes the instance, and
+// an add-on write locks the instance before reading the subscription. Both
+// now take the instance first (§9 Concurrency rule 1, V31-34, S07-104), so a
+// race between them waits or skips, and never fails on a deadlock (40P01).
+func TestLockOrder(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	scale := newVersion(t, "Scale", licenseschema.Published)
+	annual := createPrice(t, scale.Slug, flatFee("49000", "ANNUAL"))
+	addon := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats", "pricingType": "FREE"})
+	fits(t, addon.Slug, s.version.Slug)
+	fits(t, addon.Slug, scale.Slug)
+	customer := newCustomer(t, "globex")
+
+	for round := range 8 {
+		instance := newInstance(t, fmt.Sprintf("Globex %d", round), customer.ID, s.version.ID)
+		started := subscribe(t, instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		attach(t, instance.Slug, addon.Slug, 1)
+		billingCall(t, "PUT", instance.Slug, "/scheduled-change", map[string]any{"licensePriceId": annual.ID})
+		backdate(t, started.ID, 1)
+
+		var wg sync.WaitGroup
+		statuses := make([]int, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			resp := call(t, "POST", "/api/billing/close-periods", map[string]any{"instanceSlug": instance.Slug})
+			statuses[0] = resp.StatusCode
+		}()
+		go func() {
+			defer wg.Done()
+			resp := call(t, "PATCH", "/api/instances/"+instance.Slug+"/addons/"+addon.Slug, map[string]any{"quantity": 2})
+			statuses[1] = resp.StatusCode
+		}()
+		wg.Wait()
+		require.Equal(t, fiber.StatusOK, statuses[0], "round %d: the close", round)
+		require.Contains(t, []int{fiber.StatusOK, fiber.StatusConflict}, statuses[1], "round %d: the add-on write waits or is refused, never fails", round)
+	}
 }

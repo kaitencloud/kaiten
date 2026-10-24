@@ -676,6 +676,21 @@ func (q *Queries) GetOpenActivation(ctx context.Context, instanceBillingID uuid.
 	return i, err
 }
 
+const getSubscriptionInstanceID = `-- name: GetSubscriptionInstanceID :one
+SELECT ib.instance_id
+FROM instance_billing ib
+WHERE ib.id = $1
+`
+
+// The instance a subscription bills, NULL once it is deleted: what a writer
+// that starts from the subscription locks first.
+func (q *Queries) GetSubscriptionInstanceID(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getSubscriptionInstanceID, id)
+	var instance_id *uuid.UUID
+	err := row.Scan(&instance_id)
+	return instance_id, err
+}
+
 const getTrialEndBehavior = `-- name: GetTrialEndBehavior :one
 SELECT f.trial_end_without_payment_method,
        EXISTS (SELECT 1
@@ -916,6 +931,58 @@ func (q *Queries) ListOverdueCandidates(ctx context.Context, arg ListOverdueCand
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockInstanceForBilling = `-- name: LockInstanceForBilling :one
+SELECT i.id
+FROM instance i
+WHERE i.organization_id = $1
+  AND i.slug = $2
+FOR NO KEY UPDATE OF i
+`
+
+type LockInstanceForBillingParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+// §9 Concurrency rule 1 (V31-34): a billing writer locks the instance row FOR
+// NO KEY UPDATE before its instance_billing row, the order the instance,
+// add-on and voucher writes take them in, so a cancellation that moves the
+// licence or applies a scheduled add-on decrease never deadlocks with them.
+func (q *Queries) LockInstanceForBilling(ctx context.Context, arg LockInstanceForBillingParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockInstanceForBilling, arg.OrganizationID, arg.Slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockInstanceRow = `-- name: LockInstanceRow :many
+SELECT i.id
+FROM instance i
+WHERE i.id = $1
+FOR NO KEY UPDATE OF i
+`
+
+// LockInstanceForBilling by id; no row once the instance is deleted.
+func (q *Queries) LockInstanceRow(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, lockInstanceRow, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1339,6 +1406,35 @@ func (q *Queries) SettleIncomplete(ctx context.Context, arg SettleIncompletePara
 		&i.TrialWillEndAt,
 	)
 	return i, err
+}
+
+const tryLockInstanceRow = `-- name: TryLockInstanceRow :many
+SELECT i.id
+FROM instance i
+WHERE i.id = $1
+FOR NO KEY UPDATE OF i SKIP LOCKED
+`
+
+// LockInstanceRow for a job, which never waits: no row when another
+// transaction holds the instance.
+func (q *Queries) TryLockInstanceRow(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, tryLockInstanceRow, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateSubscriptionTerms = `-- name: UpdateSubscriptionTerms :one
