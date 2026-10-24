@@ -57,6 +57,8 @@ test.describe('the Billing column of the lists of instances', () => {
     const list = new InstancesListDriver(page);
 
     await list.goto();
+    // The lifecycle world holds more instances than the first page shows.
+    await list.showRowsPerPage(20);
 
     await expect(list.billingHeader()).toBeVisible();
     for (const [name, status, label] of EXPECTED) {
@@ -148,6 +150,7 @@ test.describe('the Billing column of the lists of instances', () => {
     await startInLanguage(page, 'fr');
 
     await list.goto();
+    await list.showRowsPerPage(20, 'Lignes par page');
 
     await expect(
       page.getByRole('columnheader', { name: 'Facturation' }),

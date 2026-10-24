@@ -14,6 +14,17 @@ export class InstancesListDriver {
     ).toBeVisible();
   }
 
+  /**
+   * Shows more rows of the table at a time than the ten it opens with, for a spec
+   * that reads a row the first page would leave out.
+   */
+  async showRowsPerPage(size: 20 | 30 | 50, label = 'Rows per page') {
+    await this.page.getByRole('combobox', { name: label }).click();
+    await this.page
+      .getByRole('option', { exact: true, name: String(size) })
+      .click();
+  }
+
   /** The headers of the table, in order. */
   columnHeaders(): Locator {
     return this.page.getByRole('columnheader');
