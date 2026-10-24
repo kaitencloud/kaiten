@@ -2934,7 +2934,7 @@ export default {
               'A detailed description of what this entitlement provides',
             groups:
               'Associate this entitlement with one or more groups for filtering and reporting.',
-            type: 'The type of entitlement (Boolean or Number)',
+            type: 'The type of entitlement (Boolean, Number or Config)',
             aggregationMethod: 'How multiple usage events are combined',
             icon: 'Pick an icon to represent this entitlement',
             userFacing:
@@ -2984,6 +2984,8 @@ export default {
             displayOrder: 'Enter a whole number',
             resetAnchorCadence:
               'The billing date needs a monthly or yearly cadence. Choose another alignment or another cadence.',
+            slugConflict:
+              'Another entitlement of the organization already has this slug. Choose another one.',
           },
           Refusals: {
             immutableResetAnchor:

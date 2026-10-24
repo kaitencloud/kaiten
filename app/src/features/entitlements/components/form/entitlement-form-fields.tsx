@@ -17,19 +17,20 @@ type EntitlementSelectOption = {
   value: string;
 };
 
+// The labels are i18n keys, written out in full so that the check of the keys sees them.
 const entitlementTypeOptions: EntitlementSelectOption[] = [
-  { label: 'Boolean', value: 'BOOLEAN' },
-  { label: 'Number', value: 'NUMBER' },
-  { label: 'Config', value: 'CONFIG' },
+  { label: 'Pages.Entitlements.EntitlementTypes.BOOLEAN', value: 'BOOLEAN' },
+  { label: 'Pages.Entitlements.EntitlementTypes.NUMBER', value: 'NUMBER' },
+  { label: 'Pages.Entitlements.EntitlementTypes.CONFIG', value: 'CONFIG' },
 ];
 
 const aggregationMethodOptions: EntitlementSelectOption[] = [
-  { label: 'Count', value: 'COUNT' },
-  { label: 'Sum', value: 'SUM' },
-  { label: 'Average', value: 'AVERAGE' },
-  { label: 'Min', value: 'MIN' },
-  { label: 'Max', value: 'MAX' },
-  { label: 'Latest', value: 'LATEST' },
+  { label: 'Pages.Entitlements.AggregationMethods.COUNT', value: 'COUNT' },
+  { label: 'Pages.Entitlements.AggregationMethods.SUM', value: 'SUM' },
+  { label: 'Pages.Entitlements.AggregationMethods.AVERAGE', value: 'AVERAGE' },
+  { label: 'Pages.Entitlements.AggregationMethods.MIN', value: 'MIN' },
+  { label: 'Pages.Entitlements.AggregationMethods.MAX', value: 'MAX' },
+  { label: 'Pages.Entitlements.AggregationMethods.LATEST', value: 'LATEST' },
 ];
 
 const getSelectOptionLabel = (option: unknown) => {
@@ -269,7 +270,7 @@ export function EntitlementTypeFields({
             )}
             options={entitlementTypeOptions}
             getOptionValue={getSelectOptionValue}
-            getOptionLabel={getSelectOptionLabel}
+            getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
             disabled={Boolean(entitlement)}
           />
         )}
@@ -292,7 +293,7 @@ export function EntitlementTypeFields({
                     )}
                     options={aggregationMethodOptions}
                     getOptionValue={getSelectOptionValue}
-                    getOptionLabel={getSelectOptionLabel}
+                    getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
                     disabled={Boolean(entitlement)}
                   />
                 )}

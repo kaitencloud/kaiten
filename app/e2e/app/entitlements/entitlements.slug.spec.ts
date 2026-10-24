@@ -1,5 +1,5 @@
 import type { Page } from '@playwright/test';
-import { expect, expectErrorToast, test } from '../_support/app-test';
+import { expect, test } from '../_support/app-test';
 import { EntitlementFormDriver } from '../_support/drivers/entitlement-form.driver';
 import { EntitlementsListDriver } from '../_support/drivers/entitlements-list.driver';
 import { installEntitlementAppMocks } from '../_support/mocks/install-entitlement-app-mocks';
@@ -133,8 +133,19 @@ test('reports a slug that another entitlement already uses', async ({
   await form.clickNext();
   await form.submitButton().click();
 
-  await expectErrorToast(page);
+  // Said on the slug, in the words of the console, back on the step that holds it.
+  await expect(
+    page.getByText(
+      'Another entitlement of the organization already has this slug. Choose another one.',
+    ),
+  ).toBeVisible();
+  await expect(form.slugField()).toBeFocused();
   await expect(page).toHaveURL('/catalog/entitlements/new');
+
+  await form.slugField().fill('storage-reads');
+  await form.clickNext();
+  await form.submitButton().click();
+  await expect(page).toHaveURL('/catalog/entitlements/storage-reads');
 });
 
 test('shows the slug of an existing entitlement, locked, and saves without it', async ({

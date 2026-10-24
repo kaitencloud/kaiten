@@ -105,19 +105,31 @@ function EntitlementCreateWizard({
   const { t } = useTranslation();
   const formId = useId();
   const navigate = useNavigate();
-  const { form } = useEntitlementMutationForm(undefined, onSuccess, recovery);
   const [activeStep, setActiveStep] = useState(
     recovery.restored?.stepIndex ?? 0,
   );
   const [furthestStep, setFurthestStep] = useState(
     recovery.restored?.furthestIndex ?? 0,
   );
+  // How many times the stepper took the person back to the identity because it was broken.
+  const [refusals, setRefusals] = useState(0);
+  // A slug another entitlement holds is refused on its field, on the first step: the
+  // wizard goes back to it and puts the focus there.
+  const { form } = useEntitlementMutationForm(
+    undefined,
+    onSuccess,
+    recovery,
+    (field) => {
+      if (field === 'slug') {
+        setActiveStep(0);
+        setRefusals((count) => count + 1);
+      }
+    },
+  );
   const { focusRef } = useFormRecoveryForm(recovery, form, {
     stepIndex: activeStep,
     furthestIndex: furthestStep,
   });
-  // How many times the stepper took the person back to the identity because it was broken.
-  const [refusals, setRefusals] = useState(0);
   const isTypeStep = activeStep === 1;
 
   // A deliberate abandon, unlike leaving by a link: the entries are discarded, and a

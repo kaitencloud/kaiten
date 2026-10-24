@@ -17,15 +17,21 @@ import {
 import { resolveResetFields } from './entitlement-reset-period.shared';
 import { toOptionalSlug } from './entitlement-slug.shared';
 
-type Refusal = { field?: 'resetAnchor' | 'resetPeriod'; messageKey: string };
+type RefusedField = 'resetAnchor' | 'resetPeriod' | 'slug';
 
-// The refusals of the API about the reset pair, by their code. The API names the
+type Refusal = { field?: RefusedField; messageKey: string };
+
+// The refusals of the API about the slug and the reset pair, by their code. The API names the
 // field in prose, in `detail`, and does not locate it, and its words are English
 // and its own: each code has a sentence of the locales. A refusal of what the person
 // chose is shown on its field. One about a field that is read-only is shown above the
 // buttons (`field` absent): the form sends the pair it read back, so the person cannot
 // change it to mend it, and a refusal pinned to a disabled control would never go.
 const REFUSALS: Record<string, Refusal> = {
+  'CreateEntitlement.SlugConflict': {
+    field: 'slug',
+    messageKey: 'Pages.Entitlements.Mutation.Form.Errors.slugConflict',
+  },
   'CreateEntitlement.InvalidResetAnchor': {
     field: 'resetAnchor',
     messageKey: 'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
@@ -85,6 +91,8 @@ export const useEntitlementMutationForm = (
   entitlement?: Entitlement,
   onSuccess?: (entitlement: Entitlement) => void,
   recovery?: FormRecovery<EntitlementFormValues>,
+  /** Told which field a refusal was shown on: a wizard goes back to its step. */
+  onFieldRefused?: (field: RefusedField) => void,
 ) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -158,6 +166,7 @@ export const useEntitlementMutationForm = (
           // A field that is not on screen has nowhere to show the refusal.
           if (formApi.getFieldMeta(known.field)) {
             setProblemFieldError(formApi, known.field, t(known.messageKey));
+            onFieldRefused?.(known.field);
           } else {
             toast.error(t(known.messageKey));
           }

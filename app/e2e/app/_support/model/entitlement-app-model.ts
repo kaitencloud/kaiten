@@ -205,11 +205,10 @@ export class EntitlementAppModel {
     // is a conflict. Without one the slug comes from the name; the API also
     // appends random characters, which this deterministic model leaves out.
     if (body.slug && this.entitlements.some((e) => e.slug === body.slug)) {
-      throw Object.assign(
-        new Error(
-          `Entitlement with slug "${body.slug}" already exists in this organization`,
-        ),
-        { httpStatus: 409 },
+      throw new BillingProblem(
+        409,
+        'CreateEntitlement.SlugConflict',
+        `Entitlement with slug "${body.slug}" already exists in this organization`,
       );
     }
 

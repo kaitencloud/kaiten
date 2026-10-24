@@ -147,10 +147,6 @@ export const getIdentityStepValues = (values: EntitlementFormValues) => ({
   slug: values.slug,
   userFacing: values.userFacing,
 });
-export type EntitlementSelectOption = {
-  label: string;
-  value: string;
-};
 
 export const initialEntitlementFormValues: EntitlementFormValues = {
   name: '',
@@ -178,21 +174,6 @@ export type EntitlementFormProps = {
   onCancel?: () => void;
   panelClassName?: string;
 };
-
-export const entitlementTypeOptions: EntitlementSelectOption[] = [
-  { label: 'Boolean', value: 'BOOLEAN' },
-  { label: 'Number', value: 'NUMBER' },
-  { label: 'Config', value: 'CONFIG' },
-];
-
-export const aggregationMethodOptions: EntitlementSelectOption[] = [
-  { label: 'Count', value: 'COUNT' },
-  { label: 'Sum', value: 'SUM' },
-  { label: 'Average', value: 'AVERAGE' },
-  { label: 'Min', value: 'MIN' },
-  { label: 'Max', value: 'MAX' },
-  { label: 'Latest', value: 'LATEST' },
-];
 
 export const getEntitlementFormDefaults = (
   entitlement?: Entitlement,
@@ -225,20 +206,4 @@ export const getEntitlementFormDefaults = (
     resetPeriod: entitlement.resetPeriod ?? RESET_PERIOD_NONE,
     resetAnchor: entitlement.resetAnchor ?? 'CALENDAR',
   };
-};
-
-export const getSelectOptionLabel = (option: unknown) => {
-  if (typeof option === 'object' && option !== null && 'label' in option) {
-    return String((option as EntitlementSelectOption).label);
-  }
-
-  return String(option);
-};
-
-export const getSelectOptionValue = (option: unknown) => {
-  if (typeof option === 'object' && option !== null && 'value' in option) {
-    return String((option as EntitlementSelectOption).value);
-  }
-
-  return String(option);
 };

@@ -2969,7 +2969,7 @@ export default {
             description: 'Une description détaillée de ce que ce droit fournit',
             groups:
               'Associez ce droit à un ou plusieurs groupes pour le filtrage et le reporting.',
-            type: 'Le type de droit (Booléen ou Nombre)',
+            type: 'Le type de droit (Booléen, Nombre ou Config)',
             aggregationMethod:
               "Comment plusieurs événements d'utilisation sont combinés",
             icon: 'Choisissez une icône pour représenter ce droit',
@@ -3021,6 +3021,8 @@ export default {
             displayOrder: 'Saisissez un nombre entier',
             resetAnchorCadence:
               'La date de facturation demande une cadence mensuelle ou annuelle. Choisissez un autre alignement ou une autre cadence.',
+            slugConflict:
+              'Un autre droit de l’organisation a déjà ce slug. Choisissez-en un autre.',
           },
           Refusals: {
             immutableResetAnchor:
