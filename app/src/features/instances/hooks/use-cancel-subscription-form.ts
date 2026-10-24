@@ -66,7 +66,7 @@ export function useCancelSubscriptionForm({
       sending.current = true;
       setFailure(null);
       try {
-        const body = cancelValuesToBody(value, subscription.status);
+        const body = cancelValuesToBody(value, subscription);
         const canceled = await send(() =>
           cancel.mutateAsync({ body, path: { instanceSlug } }),
         );

@@ -3,6 +3,8 @@ import type { InstanceBilling } from '@/api-client';
 import {
   BILLING_TIMING_LABEL_KEYS,
   formatBoundary,
+  formatInstant,
+  isCheckoutAwaitingPayment,
   formatUtcDate,
   getCancellationReasonLabelKey,
   getPriceAmountParts,
@@ -70,7 +72,33 @@ export function SubscriptionTermsRows({
         label={t(
           'Pages.Customers.Instances.Detail.Billing.Subscription.fields.status',
         )}
-        value={<SubscriptionStatusBadge subscription={subscription} />}
+        value={
+          isCheckoutAwaitingPayment(subscription) &&
+          subscription.incompleteExpiresAt ? (
+            <>
+              <SubscriptionStatusBadge subscription={subscription} />
+              <span
+                className="block pt-1 text-xs font-normal text-muted-foreground"
+                data-testid="incomplete-expiry-hint"
+              >
+                {t(
+                  'Pages.Customers.Instances.Detail.Billing.Subscription.incompleteExpiry',
+                  {
+                    date: formatInstant(
+                      subscription.incompleteExpiresAt,
+                      i18n.language,
+                    ),
+                  },
+                )}
+              </span>
+            </>
+          ) : (
+            <SubscriptionStatusBadge subscription={subscription} />
+          )
+        }
+        align={
+          isCheckoutAwaitingPayment(subscription) ? 'start' : undefined
+        }
       />
       {subscription.pastDueSince ? (
         <DetailCard.Row
@@ -182,6 +210,30 @@ function TrialRows({ subscription }: { subscription: InstanceBilling }) {
   );
 }
 
+/** What a checkout waiting for its payment turns the instance into once it is paid. */
+function PendingLicenseRow({ license }: { license: string }) {
+  const { t } = useTranslation();
+
+  return (
+    <DetailCard.Row
+      align="start"
+      label={t(
+        'Pages.Customers.Instances.Detail.Billing.Subscription.fields.pendingLicense',
+      )}
+      value={
+        <>
+          <span className="font-mono text-sm">{license}</span>
+          <span className="block text-xs font-normal text-muted-foreground">
+            {t(
+              'Pages.Customers.Instances.Detail.Billing.Subscription.pendingLicenseHint',
+            )}
+          </span>
+        </>
+      }
+    />
+  );
+}
+
 /** The boundary that ends the period, which ends the subscription too when it is set to cancel. */
 function BoundaryRow({ subscription }: { subscription: InstanceBilling }) {
   const { i18n, t } = useTranslation();
@@ -236,8 +288,19 @@ export function SubscriptionPeriodRows({
         <EndedRows subscription={subscription} />
       ) : subscription.status === 'TRIAL' ? (
         <TrialRows subscription={subscription} />
+      ) : subscription.status === 'INCOMPLETE' ? (
+        // The close never selects it: there is no boundary to wait for, only the payment.
+        subscription.pendingLicenseSlug ? (
+          <PendingLicenseRow license={subscription.pendingLicenseSlug} />
+        ) : null
       ) : (
-        <BoundaryRow subscription={subscription} />
+        <>
+          <BoundaryRow subscription={subscription} />
+          {/* A checkout pending over a free subscription, which goes on until it is paid. */}
+          {subscription.pendingLicenseSlug ? (
+            <PendingLicenseRow license={subscription.pendingLicenseSlug} />
+          ) : null}
+        </>
       )}
       <DetailCard.Row
         label={t(

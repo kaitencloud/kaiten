@@ -87,6 +87,26 @@ const disabled = (reasonKey: string) =>
 const REASON_TRIAL = 'Features.Billing.SubscriptionActions.Reasons.trial';
 const REASON_CANCELLATION_SCHEDULED =
   'Features.Billing.SubscriptionActions.Reasons.cancellationScheduled';
+const REASON_INCOMPLETE =
+  'Features.Billing.SubscriptionActions.Reasons.incomplete';
+
+/**
+ * Whether a checkout waits for the payment of its activation invoice on this
+ * subscription: an INCOMPLETE one, or a free live one that a checkout replaces once
+ * it is paid, which keeps its status and carries the checkout in its pending license
+ * meanwhile (§9.10 rule 6). Both are fixed until the payment, or until it lapses.
+ */
+export const isCheckoutAwaitingPayment = (
+  subscription:
+    | (Pick<InstanceBilling, 'status'> &
+        Partial<Pick<InstanceBilling, 'pendingLicenseSlug'>>)
+    | null
+    | undefined,
+): boolean =>
+  subscription != null &&
+  (subscription.status === 'INCOMPLETE' ||
+    (subscription.status !== 'CANCELED' &&
+      subscription.pendingLicenseSlug != null));
 
 /**
  * Which actions a subscription allows. `null` is an instance that was never
@@ -96,6 +116,10 @@ const REASON_CANCELLATION_SCHEDULED =
  *
  * - a TRIAL ends by cancelling, and cannot change plan (a longer trial or
  *   another plan is a cancel and a new subscription);
+ * - a checkout still waiting for its payment (INCOMPLETE, or pending over a free
+ *   subscription) is fixed until it is paid: no plan change and nothing to reactivate, both greyed out with their
+ *   reason; it can still be canceled, which ends it at once, and its terms and
+ *   provider can still change, for the next composition;
  * - a scheduled cancellation is reverted by Reactivate, which must come first
  *   before a plan change; it can still be cancelled at once;
  * - terms and provider apply to the next composition, so any live subscription
@@ -105,7 +129,10 @@ const REASON_CANCELLATION_SCHEDULED =
  * `canPerformAction`'s answer, and whether the API accepts is the API's.
  */
 export function getSubscriptionActions(
-  subscription: SubscriptionStatusInput | null,
+  subscription:
+    | (SubscriptionStatusInput &
+        Partial<Pick<InstanceBilling, 'pendingLicenseSlug'>>)
+    | null,
 ): Record<SubscriptionAction, SubscriptionActionAvailability> {
   if (subscription === null || subscription.status === 'CANCELED') {
     return {
@@ -119,17 +146,25 @@ export function getSubscriptionActions(
   }
 
   const { status, cancelAtPeriodEnd } = subscription;
+  const awaitingPayment = isCheckoutAwaitingPayment(subscription);
 
   let schedulePlanChange: SubscriptionActionAvailability = AVAILABLE;
-  if (status === 'TRIAL') {
+  if (awaitingPayment) {
+    schedulePlanChange = disabled(REASON_INCOMPLETE);
+  } else if (status === 'TRIAL') {
     schedulePlanChange = disabled(REASON_TRIAL);
   } else if (cancelAtPeriodEnd) {
     schedulePlanChange = disabled(REASON_CANCELLATION_SCHEDULED);
   }
 
+  let reactivate: SubscriptionActionAvailability = HIDDEN;
+  if (cancelAtPeriodEnd && status !== 'TRIAL') {
+    reactivate = awaitingPayment ? disabled(REASON_INCOMPLETE) : AVAILABLE;
+  }
+
   return {
     cancel: AVAILABLE,
-    reactivate: cancelAtPeriodEnd && status !== 'TRIAL' ? AVAILABLE : HIDDEN,
+    reactivate,
     schedulePlanChange,
     subscribe: HIDDEN,
     switchProvider: AVAILABLE,

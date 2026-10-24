@@ -6,6 +6,7 @@ import {
 } from '@/api-client';
 import {
   getInstanceBillingQueryKey,
+  getInvoiceOptions,
   getUpcomingInvoiceQueryKey,
   listLicensePricesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
@@ -96,6 +97,20 @@ export const instanceInvoicesQueryOptions = (instanceSlug: string) => ({
   retry: false,
   retryOnMount: false,
 });
+
+/**
+ * One invoice of the instance, read for what the list does not carry: where the
+ * payment provider hosts it. It keeps the key of the generated operation, so that
+ * the invoice screens and the invalidation of an invoice reach it too. Read for the
+ * invoice a checkout waits for the payment of, and not retried: the notice that
+ * asks shows its links when the read succeeds, and none when it does not.
+ */
+export const instanceInvoiceQueryOptions = (invoiceId: string) =>
+  queryOptions({
+    ...getInvoiceOptions({ path: { invoiceId } }),
+    retry: false,
+    retryOnMount: false,
+  });
 
 /**
  * The prices an instance can be subscribed on: the active flat fees of its

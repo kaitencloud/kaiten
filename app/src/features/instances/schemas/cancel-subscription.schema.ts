@@ -1,6 +1,7 @@
 import { z } from 'zod';
-import type { SubscriptionCancellation } from '@/api-client';
+import type { InstanceBilling, SubscriptionCancellation } from '@/api-client';
 import { zSubscriptionCancellation } from '@/api-client/zod.gen';
+import { isCheckoutAwaitingPayment } from '@/domains/billing';
 import { dateTimeInputToInstant } from '@/lib/date-time-input';
 
 /** The longest reason the API keeps with a cancellation, in characters. */
@@ -50,14 +51,17 @@ export type CancelFormValues = z.infer<typeof cancelFormSchema>;
  */
 export function cancelValuesToBody(
   values: CancelFormValues,
-  status: 'ACTIVE' | 'CANCELED' | 'INCOMPLETE' | 'PAST_DUE' | 'TRIAL',
+  subscription: Pick<InstanceBilling, 'status'> &
+    Partial<Pick<InstanceBilling, 'pendingLicenseSlug'>>,
 ): SubscriptionCancellation {
   const reason = values.reason.trim();
 
   return {
     // A trial, or a checkout still waiting for its payment, ends at once.
     mode:
-      status === 'TRIAL' || status === 'INCOMPLETE' ? 'IMMEDIATE' : values.mode,
+      subscription.status === 'TRIAL' || isCheckoutAwaitingPayment(subscription)
+        ? 'IMMEDIATE'
+        : values.mode,
     reason: reason === '' ? undefined : reason,
   };
 }

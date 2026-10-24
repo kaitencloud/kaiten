@@ -224,6 +224,7 @@ export {
   isKnownInvoiceLineType,
   isPaidAtProviderRefusal,
   isProviderOffered,
+  isCheckoutAwaitingPayment,
   isSubscriptionLive,
   isValidDaysUntilDue,
   isValidTrialDays,

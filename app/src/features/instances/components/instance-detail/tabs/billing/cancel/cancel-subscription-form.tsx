@@ -5,6 +5,7 @@ import type { InstanceBilling } from '@/api-client';
 import { Button } from '@/components/ui/button';
 import {
   BoundaryClosingNotice,
+  isCheckoutAwaitingPayment,
   ProblemAlert,
   useCanPerform,
 } from '@/domains/billing';
@@ -62,6 +63,7 @@ export function CancelSubscriptionForm({
     subscription,
   });
   const isTrial = subscription.status === 'TRIAL';
+  const isIncomplete = isCheckoutAwaitingPayment(subscription);
 
   return (
     <form.AppForm>
@@ -71,7 +73,9 @@ export function CancelSubscriptionForm({
             {t(
               isTrial
                 ? 'Pages.Customers.Instances.Detail.Billing.Cancel.keepTrial'
-                : 'Pages.Customers.Instances.Detail.Billing.Cancel.keep',
+                : isIncomplete
+                  ? 'Pages.Customers.Instances.Detail.Billing.Cancel.keepIncomplete'
+                  : 'Pages.Customers.Instances.Detail.Billing.Cancel.keep',
             )}
           </Button>
           <form.Subscribe selector={(state) => state.values.mode}>
@@ -82,10 +86,14 @@ export function CancelSubscriptionForm({
                 label={t(
                   isTrial
                     ? 'Pages.Customers.Instances.Detail.Billing.Cancel.confirmTrial'
-                    : 'Pages.Customers.Instances.Detail.Billing.Cancel.confirm',
+                    : isIncomplete
+                      ? 'Pages.Customers.Instances.Detail.Billing.Cancel.confirmIncomplete'
+                      : 'Pages.Customers.Instances.Detail.Billing.Cancel.confirm',
                 )}
                 variant={
-                  mode === 'IMMEDIATE' && !isTrial ? 'destructive' : 'default'
+                  (mode === 'IMMEDIATE' && !isTrial) || isIncomplete
+                    ? 'destructive'
+                    : 'default'
                 }
               />
             )}

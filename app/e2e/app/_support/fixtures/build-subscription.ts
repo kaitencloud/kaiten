@@ -47,9 +47,12 @@ export function buildSubscription({
   daysUntilDueOverride,
   defaultDaysUntilDue = 30,
   id,
+  incompleteExpiresAt,
   instanceName = 'Initech Production',
   instanceSlug = 'initech-prod',
   pastDueSince,
+  pendingLicenseSlug,
+  providerKind = 'NOOP',
   scheduledChange,
   startedAt,
   status = 'ACTIVE',
@@ -70,9 +73,14 @@ export function buildSubscription({
   /** What the organization's terms say, which the subscription takes when it has none of its own. */
   defaultDaysUntilDue?: number;
   id?: string;
+  /** With INCOMPLETE: when the checkout lapses unpaid. */
+  incompleteExpiresAt?: string;
   instanceName?: string;
   instanceSlug?: string;
   pastDueSince?: string;
+  /** With INCOMPLETE: the license version the payment moves the instance to. */
+  pendingLicenseSlug?: string;
+  providerKind?: InstanceBilling['providerKind'];
   /** A plan change waiting for the next boundary. */
   scheduledChange?: InstanceBilling['scheduledChange'];
   startedAt?: string;
@@ -103,12 +111,12 @@ export function buildSubscription({
     daysUntilDue: daysUntilDueOverride ?? defaultDaysUntilDue,
     daysUntilDueOverride: daysUntilDueOverride ?? null,
     id: id ?? `sub-${instanceSlug}`,
-    incompleteExpiresAt: null,
+    incompleteExpiresAt: incompleteExpiresAt ?? null,
     instanceName,
     instanceSlug,
     pastDueSince: pastDueSince ?? null,
-    pendingLicenseSlug: null,
-    providerKind: 'NOOP',
+    pendingLicenseSlug: pendingLicenseSlug ?? null,
+    providerKind,
     // trial_will_end fires the family's lead before the end: 3 days by default.
     reminderAt: trialEndsAt
       ? new Date(Date.parse(trialEndsAt) - 3 * DAY_MS).toISOString()

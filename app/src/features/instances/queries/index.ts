@@ -2,6 +2,7 @@ export { instanceAddonsQueryOptions } from './instance-addon-query-options';
 export { instanceVouchersQueryOptions } from './instance-voucher-query-options';
 export {
   instanceBillingQueryOptions,
+  instanceInvoiceQueryOptions,
   instanceInvoicesQueryOptions,
   subscribablePricesQueryOptions,
   upcomingInvoiceQueryOptions,

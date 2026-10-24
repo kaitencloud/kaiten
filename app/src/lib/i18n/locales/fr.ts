@@ -955,8 +955,12 @@ export default {
                 endsAt: 'Se termine le',
                 trialEndsAt: 'Fin de l’essai',
                 firstInvoice: 'Première facture',
+                pendingLicense: 'Passe à',
                 startedAt: 'Démarré le',
               },
+              incompleteExpiry: 'Expire le {{date}}',
+              pendingLicenseHint:
+                'La version de licence que prend l’instance une fois le paiement fait.',
               collectionMethod: {
                 CHARGE_AUTOMATICALLY: 'Prélevé automatiquement',
                 SEND_INVOICE: 'Facture envoyée au client',
@@ -1022,6 +1026,34 @@ export default {
               subscribeAgain: 'Souscrire de nouveau',
             },
             Notices: {
+              Incomplete: {
+                title: 'En attente de paiement jusqu’au {{date}}',
+                titleNoExpiry: 'En attente du premier paiement',
+                left_one:
+                  'Il reste {{count}} heure pour payer la facture d’activation. Sans paiement d’ici là, l’abonnement est annulé et l’instance garde sa licence.',
+                left_other:
+                  'Il reste {{count}} heures pour payer la facture d’activation. Sans paiement d’ici là, l’abonnement est annulé et l’instance garde sa licence.',
+                lapsing:
+                  'Le délai de paiement est écoulé : le prochain passage du cycle de facturation annule l’abonnement, et l’instance garde sa licence.',
+                noExpiry:
+                  'Si la facture d’activation n’est pas payée à temps, l’abonnement est annulé et l’instance garde sa licence.',
+                leftFree_one:
+                  'Il reste {{count}} heure pour payer la facture d’activation. Sans paiement d’ici là, le checkout expire et l’abonnement gratuit continue comme avant.',
+                leftFree_other:
+                  'Il reste {{count}} heures pour payer la facture d’activation. Sans paiement d’ici là, le checkout expire et l’abonnement gratuit continue comme avant.',
+                lapsingFree:
+                  'Le délai de paiement est écoulé : le prochain passage du cycle de facturation abandonne le checkout, et l’abonnement gratuit continue comme avant.',
+                noExpiryFree:
+                  'Si la facture d’activation n’est pas payée à temps, le checkout expire et l’abonnement gratuit continue comme avant.',
+                pending:
+                  'Le paiement fait passer l’instance à {{license}}. D’ici là elle garde sa licence, ses add-ons et ses codes promo actuels : rien de ce que le checkout a vendu ne s’applique.',
+                pendingUnknown:
+                  'Tant qu’il n’est pas payé, rien de ce que le checkout a vendu ne s’applique : l’instance garde sa licence, ses add-ons et ses codes promo.',
+                vendor:
+                  'Les add-ons et les changements de plan attendent le paiement. Vous pouvez annuler le checkout à tout moment : il prend fin aussitôt, la facture est annulée et ce qu’il avait vendu est abandonné.',
+                invoice: 'Voir la facture d’activation',
+                hosted: 'Ouvrir la facture hébergée',
+              },
               Trial: {
                 title: 'Essai jusqu’au {{date}}',
                 description_one:
@@ -1064,8 +1096,10 @@ export default {
                 'Met fin à la facturation de cette instance. Rien d’autre ne change, sauf si vous le choisissez ci-dessous.',
               confirm: 'Annuler l’abonnement',
               confirmTrial: 'Terminer l’essai',
+              confirmIncomplete: 'Annuler le checkout',
               keep: 'Garder l’abonnement',
               keepTrial: 'Garder l’essai',
+              keepIncomplete: 'Garder le checkout',
               notSubscribed: 'Cette instance n’a pas d’abonnement à annuler.',
               alreadyCanceled: 'Cet abonnement est déjà annulé.',
               Fields: {
@@ -1097,6 +1131,15 @@ export default {
                     'Ce qui se facture à terme échu l’est en entier pour la part de la période écoulée.',
                   final:
                     'C’est irréversible : pour facturer à nouveau l’instance, souscrivez-la de nouveau.',
+                },
+                incomplete: {
+                  title: 'Le checkout prend fin maintenant',
+                  invoice:
+                    'La facture d’activation qu’il attend est d’abord annulée chez le prestataire de paiement. Rien n’est prélevé et aucune facture finale n’est émise.',
+                  nothing:
+                    'Ce qu’il avait vendu n’a jamais été appliqué, donc rien n’est défait : l’instance garde sa licence, ses add-ons et ses codes promo. Cette action est irréversible : pour facturer l’instance, il faut l’abonner à nouveau.',
+                  nothingFree:
+                    'Ce qu’il avait vendu n’a jamais été appliqué, donc rien n’est défait : l’abonnement gratuit continue comme avant, avec sa licence, ses add-ons et ses codes promo.',
                 },
                 planChangeDropped:
                   'Le changement d’offre prévu le {{date}} est abandonné par cette annulation.',
@@ -1133,6 +1176,11 @@ export default {
                 viewInvoice: 'Voir la facture',
                 noFinalInvoice: 'L’API n’a renvoyé aucune facture finale.',
                 trialTitle: 'Essai terminé',
+                incompleteTitle: 'Checkout annulé',
+                incomplete:
+                  'Le checkout est terminé et sa facture est annulée. Rien de ce qu’il avait vendu n’a été appliqué, et l’instance a gardé sa licence.',
+                incompleteFree:
+                  'Le checkout est terminé et sa facture est annulée. Rien de ce qu’il avait vendu n’a été appliqué, et l’abonnement gratuit continue comme avant.',
                 trial: 'L’abonnement est annulé. Rien n’a été facturé.',
                 addonsRemoved: 'Add-ons retirés : {{addons}}.',
                 addonFailed: '{{addon}} n’a pas pu être retiré. {{detail}}',
@@ -1290,6 +1338,15 @@ export default {
               loading: 'Chargement des add-ons',
               attach: 'Ajouter un add-on',
               note: 'Le droit change tout de suite ; facturé dès le prochain renouvellement ; ni proratisation ni remboursement.',
+              Pending: {
+                decrease: 'Passe à {{quantity}} le {{date}}.',
+                decreaseNoDate: 'Passe à {{quantity}} à la prochaine échéance.',
+                removal: 'Retiré le {{date}}.',
+                removalNoDate: 'Retiré à la prochaine échéance.',
+                hint: 'La quantité détenue compte jusque-là. Une modification faite ici la remplace.',
+              },
+              incompleteNote:
+                'Les add-ons sont figés tant que le checkout n’est pas payé : on ne peut ni en ajouter, ni les modifier, ni les retirer d’ici là.',
               notLive:
                 'Des add-ons peuvent être ajoutés tant que l’abonnement est actif. Avant cela, ajoutez-les en abonnant l’instance.',
               Empty: {
@@ -6492,6 +6549,7 @@ export default {
         Reasons: {
           trial: 'Indisponible pendant un essai',
           cancellationScheduled: 'Réactivez d’abord l’abonnement',
+          incomplete: 'Indisponible tant que le premier paiement n’est pas fait',
         },
       },
       InvoiceKind: {

@@ -937,8 +937,12 @@ export default {
                 endsAt: 'Ends on',
                 trialEndsAt: 'Trial ends',
                 firstInvoice: 'First invoice',
+                pendingLicense: 'Moves to',
                 startedAt: 'Started',
               },
+              incompleteExpiry: 'Lapses {{date}}',
+              pendingLicenseHint:
+                'The license version the instance takes once the payment is made.',
               collectionMethod: {
                 CHARGE_AUTOMATICALLY: 'Charged automatically',
                 SEND_INVOICE: 'Invoice sent to the customer',
@@ -1004,6 +1008,34 @@ export default {
               subscribeAgain: 'Subscribe again',
             },
             Notices: {
+              Incomplete: {
+                title: 'Awaiting payment until {{date}}',
+                titleNoExpiry: 'Awaiting the first payment',
+                left_one:
+                  '{{count}} hour left to pay the activation invoice. If it is not paid by then, the subscription is canceled and the instance keeps its license.',
+                left_other:
+                  '{{count}} hours left to pay the activation invoice. If it is not paid by then, the subscription is canceled and the instance keeps its license.',
+                lapsing:
+                  'The time to pay has run out: the next pass of the billing lifecycle cancels the subscription, and the instance keeps its license.',
+                noExpiry:
+                  'If the activation invoice is not paid in time, the subscription is canceled and the instance keeps its license.',
+                leftFree_one:
+                  '{{count}} hour left to pay the activation invoice. If it is not paid by then, the checkout lapses and the free subscription goes on as it was.',
+                leftFree_other:
+                  '{{count}} hours left to pay the activation invoice. If it is not paid by then, the checkout lapses and the free subscription goes on as it was.',
+                lapsingFree:
+                  'The time to pay has run out: the next pass of the billing lifecycle drops the checkout, and the free subscription goes on as it was.',
+                noExpiryFree:
+                  'If the activation invoice is not paid in time, the checkout lapses and the free subscription goes on as it was.',
+                pending:
+                  'Paying moves the instance to {{license}}. Until then it keeps its current license, add-ons and vouchers: nothing the checkout bought applies.',
+                pendingUnknown:
+                  'Until it is paid, nothing the checkout bought applies: the instance keeps its license, add-ons and vouchers.',
+                vendor:
+                  'Add-ons and plan changes wait until it is paid. You can cancel the checkout at any time: it ends at once, the invoice is voided and what it bought is dropped.',
+                invoice: 'View the activation invoice',
+                hosted: 'Open the hosted invoice',
+              },
               Trial: {
                 title: 'Trial until {{date}}',
                 description_one:
@@ -1044,8 +1076,10 @@ export default {
                 'Ends the billing of this instance. Nothing else about it changes, unless you choose it below.',
               confirm: 'Cancel subscription',
               confirmTrial: 'End the trial',
+              confirmIncomplete: 'Cancel the checkout',
               keep: 'Keep the subscription',
               keepTrial: 'Keep the trial',
+              keepIncomplete: 'Keep the checkout',
               notSubscribed: 'This instance has no subscription to cancel.',
               alreadyCanceled: 'This subscription is already canceled.',
               Fields: {
@@ -1076,6 +1110,15 @@ export default {
                     'What bills in arrears is billed in full for the part of the period that has gone by.',
                   final:
                     'This cannot be undone: to bill the instance again, subscribe it anew.',
+                },
+                incomplete: {
+                  title: 'The checkout ends now',
+                  invoice:
+                    'The activation invoice it waits for is voided at the payment provider first. Nothing is charged, and no final invoice is issued.',
+                  nothing:
+                    'What it bought was never applied, so nothing is undone: the instance keeps its license, its add-ons and its vouchers. This cannot be undone: to bill the instance, subscribe it anew.',
+                  nothingFree:
+                    'What it bought was never applied, so nothing is undone: the free subscription goes on as it was, with its license, its add-ons and its vouchers.',
                 },
                 planChangeDropped:
                   'The plan change scheduled for {{date}} is dropped by this cancellation.',
@@ -1112,6 +1155,11 @@ export default {
                 viewInvoice: 'View the invoice',
                 noFinalInvoice: 'The API returned no final invoice.',
                 trialTitle: 'Trial ended',
+                incompleteTitle: 'Checkout canceled',
+                incomplete:
+                  'The checkout has ended and its invoice is void. Nothing it bought was applied, and the instance kept its license.',
+                incompleteFree:
+                  'The checkout has ended and its invoice is void. Nothing it bought was applied, and the free subscription goes on as it was.',
                 trial: 'The subscription is canceled. Nothing was billed.',
                 addonsRemoved: 'Add-ons removed: {{addons}}.',
                 addonFailed: '{{addon}} could not be removed. {{detail}}',
@@ -1267,6 +1315,15 @@ export default {
               loading: 'Loading the add-ons',
               attach: 'Add an add-on',
               note: 'Entitlement changes now; billed from the next renewal; no proration or refund.',
+              Pending: {
+                decrease: 'Drops to {{quantity}} on {{date}}.',
+                decreaseNoDate: 'Drops to {{quantity}} at the next boundary.',
+                removal: 'Removed on {{date}}.',
+                removalNoDate: 'Removed at the next boundary.',
+                hint: 'The quantity held counts until then. A change made here replaces it.',
+              },
+              incompleteNote:
+                'The add-ons are fixed until the checkout is paid: they cannot be added, changed or removed meanwhile.',
               notLive:
                 'Add-ons can be added while the subscription is live. Before that, add them when subscribing the instance.',
               Empty: {
@@ -6389,6 +6446,7 @@ export default {
         Reasons: {
           trial: 'Unavailable during a trial',
           cancellationScheduled: 'Reactivate the subscription first',
+          incomplete: 'Unavailable until the first payment is made',
         },
       },
       InvoiceKind: {

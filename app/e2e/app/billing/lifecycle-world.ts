@@ -14,6 +14,7 @@ import {
 import {
   buildInvoice,
   buildInvoiceLine,
+  buildProviderRecord,
 } from '../_support/fixtures/build-invoice';
 import type { InvoiceIdentity } from '../_support/fixtures/build-invoice';
 import { BillingAppModel } from '../_support/model/billing-app-model';
@@ -166,6 +167,9 @@ export const LIFECYCLE_INSTANCES: readonly World[] = [
   { customer: INITECH, name: 'Initech Moving', slug: 'initech-moving' },
   { customer: INITECH, name: 'Initech Seats', slug: 'initech-seats' },
   { customer: INITECH, name: 'Initech Fresh', slug: 'initech-fresh' },
+  { customer: INITECH, name: 'Initech Checkout', slug: 'initech-checkout' },
+  { customer: INITECH, name: 'Initech Shrinking', slug: 'initech-shrinking' },
+  { customer: INITECH, name: 'Initech Upgrading', slug: 'initech-upgrading' },
   { customer: HOOLI, name: 'Hooli Production', slug: 'hooli-prod' },
 ];
 
@@ -241,6 +245,82 @@ function lifecycleInvoices(): Invoice[] {
   ];
 }
 
+/** The activation invoice Initech Checkout waits for the payment of: pushed to Stripe, open. */
+export const INITECH_CHECKOUT_INVOICE_ID = 'inv-initech-checkout-activation';
+/** Where Stripe hosts that invoice, for the customer to pay on. */
+export const INITECH_CHECKOUT_HOSTED_URL =
+  'https://invoice.stripe.com/i/acct_1/in_checkout';
+
+/** The activation invoice Initech Upgrading's checkout waits for, over its free plan. */
+export const INITECH_UPGRADING_INVOICE_ID = 'inv-initech-upgrading-activation';
+
+/** An activation invoice a checkout waits for the payment of: pushed to Stripe, open. */
+function activationAwaited(
+  id: string,
+  slug: string,
+  externalInvoiceId: string,
+): Invoice {
+  return buildInvoice({
+    boundaryAt: '2026-10-07T09:00:00.000Z',
+    daysUntilDue: 0,
+    id,
+    identity: {
+      ...identityOf(worldOf(slug)),
+      licenseId: PRO_V3_ID,
+      licenseSlug: 'pro-v3',
+    },
+    issuedAt: '2026-10-07T09:00:00.000Z',
+    kind: 'ACTIVATION',
+    lines: [
+      buildInvoiceLine({
+        amount: 3900,
+        description: '1 × $39.00 per month',
+        invoiceId: id,
+        label: 'Pro v3, monthly',
+        seq: 1,
+        serviceFrom: '2026-10-07T09:00:00.000Z',
+        serviceTo: '2026-11-07T09:00:00.000Z',
+        type: 'BASE',
+        unitAmountDecimal: '3900',
+      }),
+    ],
+    provider: buildProviderRecord({
+      externalInvoiceId,
+      hostedInvoiceUrl: `https://invoice.stripe.com/i/acct_1/${externalInvoiceId}`,
+      pushedAt: '2026-10-07T09:00:05.000Z',
+    }),
+    status: 'PUSHED',
+  });
+}
+
+function checkoutInvoices(): Invoice[] {
+  return [
+    activationAwaited(INITECH_CHECKOUT_INVOICE_ID, 'initech-checkout', 'in_checkout'),
+    activationAwaited(
+      INITECH_UPGRADING_INVOICE_ID,
+      'initech-upgrading',
+      'in_upgrading',
+    ),
+  ];
+}
+
+/**
+ * Two seats the shrinking instance holds, one of which the customer asked to give up
+ * at the next boundary: the quantity held counts until then.
+ */
+export const SHRINKING_ADDON: InstanceAddon = {
+  addonId: 'addon-extra-seats-v1',
+  addonSlug: 'extra-seats-v1',
+  attachedAt: '2026-09-01T00:00:00.000Z',
+  familySlug: 'extra-seats',
+  id: 'instance-addon-initech-shrinking',
+  maxQuantity: 5,
+  name: 'Extra seats',
+  pendingQuantity: 1,
+  prices: [],
+  quantity: 3,
+};
+
 /** The add-ons the seats instance holds: two seats, which a cancellation offers to take off. */
 export const SEATS_ADDON: InstanceAddon = {
   addonId: 'addon-extra-seats-v1',
@@ -282,6 +362,9 @@ function lifecycleCatalogue(): BillingCatalogue {
  * - Initech Leaving is set to cancel at the end of its period;
  * - Initech Moving is set to move to Pro v3, monthly, at the end of its period;
  * - Initech Seats holds two seats;
+ * - Initech Shrinking holds three seats, one of which is scheduled to go at the boundary;
+ * - Initech Checkout is a public checkout waiting for the payment of its first invoice;
+ * - Initech Upgrading runs a free subscription that a checkout replaces once it is paid;
  * - Initech Fresh was never subscribed, on a version that carries a trial;
  * - Hooli Production ended its subscription in September.
  */
@@ -297,10 +380,17 @@ export function createLifecycleBillingModel(
   } = {},
 ) {
   return new BillingAppModel({
-    addons: { 'initech-seats': [SEATS_ADDON] },
+    addons: {
+      'initech-seats': [SEATS_ADDON],
+      'initech-shrinking': [SHRINKING_ADDON],
+    },
     capabilities,
     catalogue: lifecycleCatalogue(),
-    invoices: [...lifecycleInvoices(), ...(extras.invoices ?? [])],
+    invoices: [
+      ...lifecycleInvoices(),
+      ...checkoutInvoices(),
+      ...(extras.invoices ?? []),
+    ],
     providers: extras.providers,
     subscriptions: [
       subscriptionOf('initech-prod'),
@@ -332,6 +422,26 @@ export function createLifecycleBillingModel(
         },
       }),
       subscriptionOf('initech-seats'),
+      subscriptionOf('initech-shrinking'),
+      // A public checkout whose first invoice is not paid yet: it lapses 23 hours
+      // after it started, and the payment moves the instance to Pro v3.
+      subscriptionOf('initech-checkout', {
+        anchorAt: '2026-10-07T09:00:00.000Z',
+        basePrice: PRO_V3_MONTHLY,
+        currentPeriodEnd: '2026-11-07T09:00:00.000Z',
+        currentPeriodStart: '2026-10-07T09:00:00.000Z',
+        incompleteExpiresAt: '2026-10-08T08:00:00.000Z',
+        pendingLicenseSlug: 'pro-v3',
+        providerKind: 'STRIPE',
+        status: 'INCOMPLETE',
+      }),
+      // A free subscription a public checkout replaces once its invoice is paid: it
+      // keeps its status meanwhile, and carries the checkout in its pending columns.
+      subscriptionOf('initech-upgrading', {
+        incompleteExpiresAt: '2026-10-08T08:00:00.000Z',
+        pendingLicenseSlug: 'pro-v3',
+        providerKind: 'STRIPE',
+      }),
       subscriptionOf('hooli-prod', {
         canceledAt: '2026-09-20T00:00:00.000Z',
         cancellationReason: extras.endedReason ?? 'Budget',
@@ -376,6 +486,12 @@ export function createLifecycleInstancesModel(
     'initech-moving': { status: 'ACTIVE' as const, unpaidInvoiceIds: [] },
     'initech-prod': { status: 'ACTIVE' as const, unpaidInvoiceIds: [] },
     'initech-seats': { status: 'ACTIVE' as const, unpaidInvoiceIds: [] },
+    'initech-shrinking': { status: 'ACTIVE' as const, unpaidInvoiceIds: [] },
+    'initech-upgrading': { status: 'ACTIVE' as const, unpaidInvoiceIds: [] },
+    'initech-checkout': {
+      status: 'INCOMPLETE' as const,
+      unpaidInvoiceIds: [INITECH_CHECKOUT_INVOICE_ID],
+    },
     'initech-trial': { status: 'TRIAL' as const, unpaidInvoiceIds: [] },
   };
 

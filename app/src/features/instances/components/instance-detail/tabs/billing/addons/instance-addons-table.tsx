@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatUtcDate, PriceAmount } from '@/domains/billing';
+import { formatBoundary, formatUtcDate, PriceAmount } from '@/domains/billing';
 import {
   type ColumnDef,
   createActionsColumn,
@@ -19,6 +19,16 @@ import { QuantityStepper } from './quantity-stepper';
 import { RemoveAddonDialog } from './remove-addon-dialog';
 
 type InstanceAddonsTableProps = {
+  /**
+   * The boundary a decrease scheduled for the next one takes effect at: the end of the
+   * period of the subscription. Nothing when no subscription bills the instance.
+   */
+  boundaryAt?: string;
+  /**
+   * Whether the add-ons are fixed: a checkout waiting for its payment answers every
+   * write to them with a refusal, so the controls are off instead of sent.
+   */
+  locked?: boolean;
   /** Whether the session may take an add-on off the instance. */
   mayDetach: boolean;
   /** Whether the session may change the quantity of an add-on. */
@@ -34,6 +44,15 @@ const KEYS = {
   group: 'Pages.Customers.Instances.Detail.Billing.Addons.Quantity.group',
   increase: 'Pages.Customers.Instances.Detail.Billing.Addons.Quantity.increase',
   notBilled: 'Pages.Customers.Instances.Detail.Billing.Addons.Table.notBilled',
+  pendingDecrease:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Pending.decrease',
+  pendingDecreaseNoDate:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Pending.decreaseNoDate',
+  pendingHint: 'Pages.Customers.Instances.Detail.Billing.Addons.Pending.hint',
+  pendingRemoval:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Pending.removal',
+  pendingRemovalNoDate:
+    'Pages.Customers.Instances.Detail.Billing.Addons.Pending.removalNoDate',
   onRequest: 'Pages.Customers.Instances.Detail.Billing.Addons.Table.onRequest',
   price: 'Pages.Customers.Instances.Detail.Billing.Addons.Table.Columns.price',
   quantity:
@@ -66,10 +85,51 @@ function AddonCell({ row }: { row: HeldAddon }) {
   );
 }
 
+/**
+ * A decrease scheduled for the next boundary, 0 for a removal: the quantity held stays
+ * in force until then, and is what the stepper shows. A write made here replaces it.
+ */
+function PendingQuantity({
+  boundaryAt,
+  editable,
+  pendingQuantity,
+}: {
+  boundaryAt?: string;
+  editable: boolean;
+  pendingQuantity: number;
+}) {
+  const { i18n, t } = useTranslation();
+  const date = boundaryAt ? formatBoundary(boundaryAt, i18n.language) : null;
+  const removal = pendingQuantity === 0;
+  const key = removal
+    ? date
+      ? KEYS.pendingRemoval
+      : KEYS.pendingRemovalNoDate
+    : date
+      ? KEYS.pendingDecrease
+      : KEYS.pendingDecreaseNoDate;
+
+  return (
+    <p
+      className="mt-1 max-w-56 whitespace-normal text-xs text-muted-foreground"
+      data-testid="pending-quantity"
+    >
+      <span className="font-medium text-foreground">
+        {t(key, { date, quantity: pendingQuantity })}
+      </span>
+      {editable ? ` ${t(KEYS.pendingHint)}` : null}
+    </p>
+  );
+}
+
 function QuantityCell({
+  boundaryAt,
+  locked,
   maySetQuantity,
   row,
 }: {
+  boundaryAt?: string;
+  locked: boolean;
   maySetQuantity: boolean;
   row: HeldAddon;
 }) {
@@ -84,24 +144,33 @@ function QuantityCell({
       ? actions.pending.quantity
       : held.quantity;
 
-  if (!maySetQuantity) {
-    return <span className="tabular-nums">{held.quantity}</span>;
-  }
-
   return (
-    <QuantityStepper
-      disabled={actions.pending !== null}
-      labels={{
-        decrease: t(KEYS.decrease, { name: label }),
-        group: t(KEYS.group, { name: label }),
-        increase: t(KEYS.increase, { name: label }),
-      }}
-      max={held.maxQuantity}
-      onChange={(quantity) =>
-        void actions.perform({ held, kind: 'quantity', label, quantity })
-      }
-      value={shown}
-    />
+    <div>
+      {maySetQuantity && !locked ? (
+        <QuantityStepper
+          disabled={actions.pending !== null}
+          labels={{
+            decrease: t(KEYS.decrease, { name: label }),
+            group: t(KEYS.group, { name: label }),
+            increase: t(KEYS.increase, { name: label }),
+          }}
+          max={held.maxQuantity}
+          onChange={(quantity) =>
+            void actions.perform({ held, kind: 'quantity', label, quantity })
+          }
+          value={shown}
+        />
+      ) : (
+        <span className="tabular-nums">{held.quantity}</span>
+      )}
+      {held.pendingQuantity === null ? null : (
+        <PendingQuantity
+          boundaryAt={boundaryAt}
+          editable={maySetQuantity && !locked}
+          pendingQuantity={held.pendingQuantity}
+        />
+      )}
+    </div>
   );
 }
 
@@ -136,7 +205,7 @@ function PriceCell({ row }: { row: HeldAddon }) {
   }
 }
 
-function RemoveCell({ row }: { row: HeldAddon }) {
+function RemoveCell({ locked, row }: { locked: boolean; row: HeldAddon }) {
   const { t } = useTranslation();
   const actions = useInstanceAddonActionsContext();
   const [confirming, setConfirming] = useState(false);
@@ -147,7 +216,7 @@ function RemoveCell({ row }: { row: HeldAddon }) {
       <Button
         aria-label={t(KEYS.removeAria, { name: label })}
         className="gap-1"
-        disabled={actions.pending !== null}
+        disabled={locked || actions.pending !== null}
         onClick={() => setConfirming(true)}
         size="sm"
         type="button"
@@ -178,6 +247,8 @@ function RemoveCell({ row }: { row: HeldAddon }) {
  * the next.
  */
 export function InstanceAddonsTable({
+  boundaryAt,
+  locked = false,
   mayDetach,
   maySetQuantity,
   rows,
@@ -193,7 +264,12 @@ export function InstanceAddonsTable({
       },
       {
         cell: ({ row }) => (
-          <QuantityCell maySetQuantity={maySetQuantity} row={row.original} />
+          <QuantityCell
+            boundaryAt={boundaryAt}
+            locked={locked}
+            maySetQuantity={maySetQuantity}
+            row={row.original}
+          />
         ),
         enableSorting: false,
         header: t(KEYS.quantity),
@@ -215,10 +291,12 @@ export function InstanceAddonsTable({
         id: 'since',
       },
       ...(mayDetach
-        ? [createActionsColumn<HeldAddon>((row) => <RemoveCell row={row} />)]
+        ? [createActionsColumn<HeldAddon>((row) => (
+            <RemoveCell locked={locked} row={row} />
+          ))]
         : []),
     ],
-    [i18n.language, mayDetach, maySetQuantity, t],
+    [boundaryAt, i18n.language, locked, mayDetach, maySetQuantity, t],
   );
 
   return (

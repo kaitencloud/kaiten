@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import type { InstanceBilling } from '@/api-client';
-import { formatBoundary } from '@/domains/billing';
+import { formatBoundary, isCheckoutAwaitingPayment } from '@/domains/billing';
 import { withForm } from '@/hooks/form';
 import { getProposedEndDate } from '../../../../../utils/cancellation.utils';
 import { CancelExplanation } from './cancel-explanation';
@@ -18,7 +18,11 @@ type CancelFieldsProps = {
   maySetEndDate: boolean;
   subscription: Pick<
     InstanceBilling,
-    'cancelAtPeriodEnd' | 'currentPeriodEnd' | 'scheduledChange' | 'status'
+    | 'cancelAtPeriodEnd'
+    | 'currentPeriodEnd'
+    | 'pendingLicenseSlug'
+    | 'scheduledChange'
+    | 'status'
   >;
 };
 
@@ -40,11 +44,14 @@ export const CancelFields = withForm({
     subscription,
   }) {
     const { i18n, t } = useTranslation();
-    const isTrial = subscription.status === 'TRIAL';
+    // A trial, and a checkout still waiting for its payment, end at once: no choice.
+    const endsAtOnce =
+      subscription.status === 'TRIAL' ||
+      isCheckoutAwaitingPayment(subscription);
 
     return (
       <div className="space-y-5">
-        {isTrial ? null : (
+        {endsAtOnce ? null : (
           <form.AppField
             listeners={{
               // A date the person has not touched follows the way it ends.

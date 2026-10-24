@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vite-plus/test';
 import { buildPrice } from '../../../../../e2e/app/_support/fixtures/build-pricing';
 import {
   getDaysSince,
+  getAwaitedActivation,
   getDaysUntil,
   getFirstInvoiceAfterTrial,
+  getHoursUntil,
   getSubscriptionNotices,
 } from '../subscription-notices.utils';
 
@@ -22,6 +24,60 @@ describe('the days of a trial that are left', () => {
   it('is never below zero, and zero for what is no date', () => {
     expect(getDaysUntil('2027-03-01T00:00:00.000Z', NOW)).toBe(0);
     expect(getDaysUntil('soon', NOW)).toBe(0);
+  });
+});
+
+describe('the hours a checkout has left to be paid', () => {
+  it('rounds up, so that a checkout lapsing in ten minutes has an hour left', () => {
+    expect(getHoursUntil('2027-03-10T12:10:00.000Z', NOW)).toBe(1);
+    expect(getHoursUntil('2027-03-10T13:00:00.000Z', NOW)).toBe(1);
+    expect(getHoursUntil('2027-03-11T10:30:00.000Z', NOW)).toBe(23);
+  });
+
+  it('is never below zero, and zero for what is no date', () => {
+    expect(getHoursUntil('2027-03-10T11:00:00.000Z', NOW)).toBe(0);
+    expect(getHoursUntil('soon', NOW)).toBe(0);
+  });
+});
+
+describe('the invoice a checkout waits for the payment of', () => {
+  const invoice = (
+    createdAt: string,
+    kind: 'ACTIVATION' | 'FINAL' | 'RENEWAL',
+    status: 'DRAFT' | 'MANUAL' | 'PAID' | 'PUSHED' | 'VOID',
+  ) => ({ createdAt, kind, status });
+
+  it('is the latest activation invoice that is not settled', () => {
+    const waiting = invoice('2027-03-10T10:00:00.000Z', 'ACTIVATION', 'PUSHED');
+
+    expect(
+      getAwaitedActivation([
+        invoice('2027-03-09T10:00:00.000Z', 'ACTIVATION', 'VOID'),
+        waiting,
+        invoice('2027-03-10T11:00:00.000Z', 'RENEWAL', 'PUSHED'),
+      ]),
+    ).toBe(waiting);
+  });
+
+  it('is the recomposed one after a void', () => {
+    const recomposed = invoice('2027-03-10T11:00:00.000Z', 'ACTIVATION', 'DRAFT');
+
+    expect(
+      getAwaitedActivation([
+        invoice('2027-03-10T10:00:00.000Z', 'ACTIVATION', 'PUSHED'),
+        recomposed,
+      ]),
+    ).toBe(recomposed);
+  });
+
+  it('is nothing once the activation is paid or void, or when there is none', () => {
+    expect(
+      getAwaitedActivation([
+        invoice('2027-03-10T10:00:00.000Z', 'ACTIVATION', 'PAID'),
+        invoice('2027-03-10T11:00:00.000Z', 'ACTIVATION', 'VOID'),
+      ]),
+    ).toBeUndefined();
+    expect(getAwaitedActivation([])).toBeUndefined();
   });
 });
 
@@ -76,6 +132,18 @@ describe('which notices a subscription calls for', () => {
     expect(
       getSubscriptionNotices({ cancelAtPeriodEnd: true, scheduledChange: change, status: 'CANCELED' }),
     ).toEqual([]);
+  });
+
+  it('has the one that says what a checkout waits for, and no other', () => {
+    expect(
+      getSubscriptionNotices({ cancelAtPeriodEnd: false, scheduledChange: NO_CHANGE, status: 'INCOMPLETE' }),
+    ).toEqual(['incomplete']);
+    expect(
+      getSubscriptionNotices({ cancelAtPeriodEnd: true, scheduledChange: change, status: 'INCOMPLETE' }),
+    ).toEqual(['incomplete']);
+    expect(
+      getSubscriptionNotices({ cancelAtPeriodEnd: false, pendingLicenseSlug: 'pro-v3', scheduledChange: NO_CHANGE, status: 'ACTIVE' }),
+    ).toEqual(['incomplete']);
   });
 
   it.each([

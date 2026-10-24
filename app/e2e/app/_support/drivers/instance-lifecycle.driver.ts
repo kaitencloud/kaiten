@@ -22,6 +22,11 @@ export class InstanceLifecycleDriver {
     return this.page.getByTestId('trial-notice');
   }
 
+  /** What a checkout waiting for its payment waits for. */
+  incompleteNotice(): Locator {
+    return this.page.getByTestId('incomplete-notice');
+  }
+
   pastDueNotice(): Locator {
     return this.page.getByTestId('past-due-notice');
   }
@@ -123,7 +128,7 @@ export class InstanceLifecycleDriver {
   /** Ends the subscription: the confirmation of a cancellation, or the end of a trial. */
   cancelConfirmButton(): Locator {
     return this.dialog().getByRole('button', {
-      name: /^(Cancel subscription|End the trial)$/,
+      name: /^(Cancel subscription|End the trial|Cancel the checkout)$/,
     });
   }
 

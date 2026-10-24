@@ -19,6 +19,13 @@ describe('how a cancellation takes effect', () => {
     expect(getCancellationKind({ status: 'PAST_DUE' }, 'IMMEDIATE')).toBe('IMMEDIATE');
     expect(getCancellationKind({ status: 'ACTIVE' }, 'AT_PERIOD_END')).toBe('SCHEDULED');
   });
+
+  it('ends a checkout waiting for its payment at once, whatever the mode, and tells one pending over a free subscription', () => {
+    expect(getCancellationKind({ status: 'INCOMPLETE' }, 'AT_PERIOD_END')).toBe('INCOMPLETE');
+    expect(
+      getCancellationKind({ pendingLicenseSlug: 'pro-v3', status: 'ACTIVE' }, 'AT_PERIOD_END'),
+    ).toBe('PENDING_CHECKOUT');
+  });
 });
 
 describe('the day the license is proposed to end on', () => {

@@ -222,6 +222,25 @@ export class InstanceAddons implements AddonHolders {
 
   // --- Checks -------------------------------------------------------------------
 
+  /** A checkout waiting for its payment is fixed until it is paid: every write answers 409. */
+  private refuseIfIncomplete(instanceSlug: string, prefix: string) {
+    const subscription = this.deps.subscriptionOf(instanceSlug);
+    // A checkout pending over a free subscription is treated as INCOMPLETE too.
+    if (
+      subscription &&
+      subscription.status !== 'CANCELED' &&
+      (subscription.status === 'INCOMPLETE' ||
+        subscription.pendingLicenseSlug !== null)
+    ) {
+      this.refuse(
+        prefix,
+        409,
+        'SubscriptionIncomplete',
+        'the checkout is waiting for its payment: the add-ons are fixed until it is paid',
+      );
+    }
+  }
+
   private refuse(
     prefix: string,
     status: number,
@@ -455,6 +474,7 @@ export class InstanceAddons implements AddonHolders {
       );
     }
     const subscription = this.deps.subscriptionOf(instanceSlug);
+    this.refuseIfIncomplete(instanceSlug, prefix);
     const addon = this.validate(
       prefix,
       instanceSlug,
@@ -567,6 +587,7 @@ export class InstanceAddons implements AddonHolders {
       addonSlug,
       'SetInstanceAddonQuantity.NotAttached',
     );
+    this.refuseIfIncomplete(instanceSlug, 'SetInstanceAddonQuantity');
     if (body.quantity < 1) {
       this.refuse(
         'SetInstanceAddonQuantity',
@@ -584,6 +605,8 @@ export class InstanceAddons implements AddonHolders {
       );
     }
     attached.quantity = body.quantity;
+    // A vendor write replaces a decrease the customer scheduled.
+    attached.pendingQuantity = null;
 
     return clone(attached);
   }
@@ -596,6 +619,7 @@ export class InstanceAddons implements AddonHolders {
       addonSlug,
       'DetachInstanceAddon.NotAttached',
     );
+    this.refuseIfIncomplete(instanceSlug, 'DetachInstanceAddon');
     attached.removedAt = new Date(this.deps.now()).toISOString();
   }
 }

@@ -9,7 +9,11 @@ type CancelExplanationProps = {
   mode: 'AT_PERIOD_END' | 'IMMEDIATE';
   subscription: Pick<
     InstanceBilling,
-    'cancelAtPeriodEnd' | 'currentPeriodEnd' | 'scheduledChange' | 'status'
+    | 'cancelAtPeriodEnd'
+    | 'currentPeriodEnd'
+    | 'pendingLicenseSlug'
+    | 'scheduledChange'
+    | 'status'
   >;
 };
 
@@ -43,7 +47,9 @@ function DroppedPlanChange({
  * is billed then: at the period's end the period paid for runs out and a final
  * invoice bills what is owed in arrears, which may be nothing; immediately that
  * invoice is issued now, nothing is prorated and the base paid for the period is
- * not refunded; a trial ends at once and bills nothing. The immediate variant
+ * not refunded; a trial ends at once and bills nothing; a checkout waiting for its
+ * payment ends at once, its invoice voided, and a free subscription it was to replace
+ * goes on. The immediate variant
  * looks distinct: it cannot be taken back.
  */
 export function CancelExplanation({
@@ -80,6 +86,33 @@ export function CancelExplanation({
             )}
           </p>
           <DroppedPlanChange scheduledChange={subscription.scheduledChange} />
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (kind === 'INCOMPLETE' || kind === 'PENDING_CHECKOUT') {
+    return (
+      <Alert data-testid="cancel-explanation" variant="destructive">
+        <TriangleAlert />
+        <AlertTitle>
+          {t(
+            'Pages.Customers.Instances.Detail.Billing.Cancel.Explain.incomplete.title',
+          )}
+        </AlertTitle>
+        <AlertDescription>
+          <p>
+            {t(
+              'Pages.Customers.Instances.Detail.Billing.Cancel.Explain.incomplete.invoice',
+            )}
+          </p>
+          <p>
+            {t(
+              kind === 'INCOMPLETE'
+                ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Explain.incomplete.nothing'
+                : 'Pages.Customers.Instances.Detail.Billing.Cancel.Explain.incomplete.nothingFree',
+            )}
+          </p>
         </AlertDescription>
       </Alert>
     );

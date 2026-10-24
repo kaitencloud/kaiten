@@ -4,6 +4,7 @@ import {
   type SubscriptionNotice,
 } from '../../../../../utils/subscription-notices.utils';
 import { CancellationNotice } from './cancellation-notice';
+import { IncompleteNotice } from './incomplete-notice';
 import { PastDueNotice } from './past-due-notice';
 import { ScheduledChangeNotice } from './scheduled-change-notice';
 import { TrialNotice } from './trial-notice';
@@ -15,7 +16,7 @@ type SubscriptionNoticesProps = {
 
 /**
  * What a subscription is going through, above the cards that describe it: a trial
- * that runs, an invoice that is overdue, a cancellation or a plan change that waits
+ * that runs, a checkout that waits for its payment, an invoice that is overdue, a cancellation or a plan change that waits
  * for the boundary. Each is a sentence of its own and says what is still true, so
  * that the state of a subscription is never left to the color of a badge. A
  * subscription that is just running has none, and neither has one that ended.
@@ -31,6 +32,14 @@ export function SubscriptionNotices({
       case 'past-due':
         return (
           <PastDueNotice
+            instanceSlug={instanceSlug}
+            key={notice}
+            subscription={subscription}
+          />
+        );
+      case 'incomplete':
+        return (
+          <IncompleteNotice
             instanceSlug={instanceSlug}
             key={notice}
             subscription={subscription}

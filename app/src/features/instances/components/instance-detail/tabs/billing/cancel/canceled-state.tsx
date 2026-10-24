@@ -56,7 +56,9 @@ export function CanceledState({ onClose, outcome }: CanceledStateProps) {
                   ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.scheduledTitle'
                   : kind === 'TRIAL'
                     ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.trialTitle'
-                    : 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.immediateTitle',
+                    : kind === 'INCOMPLETE' || kind === 'PENDING_CHECKOUT'
+                      ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.incompleteTitle'
+                      : 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.immediateTitle',
               )}
             </h3>
           </div>
@@ -66,7 +68,11 @@ export function CanceledState({ onClose, outcome }: CanceledStateProps) {
                 ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.scheduled'
                 : kind === 'TRIAL'
                   ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.trial'
-                  : 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.immediate',
+                  : kind === 'INCOMPLETE'
+                    ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.incomplete'
+                    : kind === 'PENDING_CHECKOUT'
+                      ? 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.incompleteFree'
+                    : 'Pages.Customers.Instances.Detail.Billing.Cancel.Done.immediate',
               { date },
             )}
           </p>

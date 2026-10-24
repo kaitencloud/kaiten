@@ -27,6 +27,16 @@ export class InstanceAddonsDriver {
     return this.card().getByTestId('addons-not-live');
   }
 
+  /** Said in place of the controls, while a checkout waits for its payment. */
+  incompleteNote(): Locator {
+    return this.card().getByTestId('addons-incomplete');
+  }
+
+  /** A decrease scheduled for the next boundary, under the quantity held. */
+  pendingQuantity(name: string): Locator {
+    return this.row(name).getByTestId('pending-quantity');
+  }
+
   /** A row of the card, found by the name of the version it lists. */
   row(name: string): Locator {
     return this.card()

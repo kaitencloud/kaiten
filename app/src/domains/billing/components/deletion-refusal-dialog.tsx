@@ -76,6 +76,7 @@ function InstanceBody({
           {t('Features.Billing.DeletionRefusal.subscriptionTitle')}
         </h3>
         {status === 'ACTIVE' ||
+        status === 'INCOMPLETE' ||
         status === 'TRIAL' ||
         status === 'PAST_DUE' ||
         status === 'CANCELED' ? (

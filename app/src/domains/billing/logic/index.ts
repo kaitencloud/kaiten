@@ -230,6 +230,7 @@ export { getCancellationReasonLabelKey } from './cancellation-reason';
 export {
   getSubscriptionActions,
   getSubscriptionStatusLabelKey,
+  isCheckoutAwaitingPayment,
   isSubscriptionLive,
   SUBSCRIPTION_ACTIONS,
   SUBSCRIPTION_STATUSES,

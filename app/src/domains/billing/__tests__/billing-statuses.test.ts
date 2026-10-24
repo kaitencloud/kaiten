@@ -8,6 +8,7 @@ import {
   INVOICE_STATUSES,
   isInvoiceOverdue,
   isKnownHoldReason,
+  isCheckoutAwaitingPayment,
   isSubscriptionLive,
   type InvoiceStatus,
   type InvoiceStatusInput,
@@ -234,6 +235,60 @@ describe('subscription actions', () => {
     ).toEqual({
       availability: 'disabled',
       reasonKey: 'Features.Billing.SubscriptionActions.Reasons.trial',
+    });
+  });
+
+  it('greys the plan change out while a checkout waits for its payment, keeps the cancellation, and says why', () => {
+    expect(availabilities({ cancelAtPeriodEnd: false, status: 'INCOMPLETE' })).toEqual({
+      cancel: 'available',
+      reactivate: 'hidden',
+      schedulePlanChange: 'disabled',
+      subscribe: 'hidden',
+      switchProvider: 'available',
+      updateTerms: 'available',
+    });
+    expect(
+      getSubscriptionActions({ cancelAtPeriodEnd: false, status: 'INCOMPLETE' })
+        .schedulePlanChange,
+    ).toEqual({
+      availability: 'disabled',
+      reasonKey: 'Features.Billing.SubscriptionActions.Reasons.incomplete',
+    });
+  });
+
+  it('greys a reactivation out too on a checkout that waits, whatever flag it carries', () => {
+    expect(
+      getSubscriptionActions({ cancelAtPeriodEnd: true, status: 'INCOMPLETE' })
+        .reactivate,
+    ).toEqual({
+      availability: 'disabled',
+      reasonKey: 'Features.Billing.SubscriptionActions.Reasons.incomplete',
+    });
+  });
+
+  it('tells a checkout that waits for its payment from the other states', () => {
+    expect(isCheckoutAwaitingPayment({ status: 'INCOMPLETE' })).toBe(true);
+    expect(isCheckoutAwaitingPayment({ status: 'ACTIVE' })).toBe(false);
+    expect(isCheckoutAwaitingPayment(null)).toBe(false);
+    expect(isCheckoutAwaitingPayment(undefined)).toBe(false);
+  });
+
+  it('tells a checkout pending over a free subscription, which keeps its status until the payment', () => {
+    const pending = { pendingLicenseSlug: 'pro-v3', status: 'ACTIVE' as const };
+
+    expect(isCheckoutAwaitingPayment(pending)).toBe(true);
+    expect(
+      isCheckoutAwaitingPayment({ pendingLicenseSlug: null, status: 'ACTIVE' }),
+    ).toBe(false);
+    expect(
+      isCheckoutAwaitingPayment({ pendingLicenseSlug: 'pro-v3', status: 'CANCELED' }),
+    ).toBe(false);
+    expect(
+      getSubscriptionActions({ ...pending, cancelAtPeriodEnd: false })
+        .schedulePlanChange,
+    ).toEqual({
+      availability: 'disabled',
+      reasonKey: 'Features.Billing.SubscriptionActions.Reasons.incomplete',
     });
   });
 

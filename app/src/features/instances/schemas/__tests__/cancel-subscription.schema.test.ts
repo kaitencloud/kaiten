@@ -65,23 +65,35 @@ describe('the body of a cancellation', () => {
   const values = { ...initialCancelFormValues, mode: 'IMMEDIATE' as const };
 
   it('carries the mode, and a reason without its margins', () => {
-    expect(cancelValuesToBody({ ...values, reason: '  moved to another tool  ' }, 'ACTIVE')).toEqual(
+    expect(cancelValuesToBody({ ...values, reason: '  moved to another tool  ' }, { status: 'ACTIVE' })).toEqual(
       { mode: 'IMMEDIATE', reason: 'moved to another tool' },
     );
   });
 
   it('leaves out a reason that is empty, or only spaces', () => {
-    expect(cancelValuesToBody({ ...values, reason: '   ' }, 'ACTIVE').reason).toBeUndefined();
-    expect(cancelValuesToBody(values, 'PAST_DUE').reason).toBeUndefined();
+    expect(cancelValuesToBody({ ...values, reason: '   ' }, { status: 'ACTIVE' }).reason).toBeUndefined();
+    expect(cancelValuesToBody(values, { status: 'PAST_DUE' }).reason).toBeUndefined();
   });
 
   it('is immediate for a trial, which ends at once whatever was asked', () => {
-    expect(cancelValuesToBody({ ...values, mode: 'AT_PERIOD_END' }, 'TRIAL').mode).toBe(
+    expect(cancelValuesToBody({ ...values, mode: 'AT_PERIOD_END' }, { status: 'TRIAL' }).mode).toBe(
       'IMMEDIATE',
     );
-    expect(cancelValuesToBody({ ...values, mode: 'AT_PERIOD_END' }, 'ACTIVE').mode).toBe(
+    expect(cancelValuesToBody({ ...values, mode: 'AT_PERIOD_END' }, { status: 'ACTIVE' }).mode).toBe(
       'AT_PERIOD_END',
     );
+  });
+
+  it('is immediate for a checkout waiting for its payment, pending over a free subscription included', () => {
+    expect(cancelValuesToBody({ ...values, mode: 'AT_PERIOD_END' }, { status: 'INCOMPLETE' }).mode).toBe(
+      'IMMEDIATE',
+    );
+    expect(
+      cancelValuesToBody(
+        { ...values, mode: 'AT_PERIOD_END' },
+        { pendingLicenseSlug: 'pro-v3', status: 'ACTIVE' },
+      ).mode,
+    ).toBe('IMMEDIATE');
   });
 
   it('sends nothing about the add-ons or the end of the license, which are requests of their own', () => {
@@ -89,7 +101,7 @@ describe('the body of a cancellation', () => {
       Object.keys(
         cancelValuesToBody(
           { ...values, endDate: '2027-04-01T00:00', removeAddons: true, setEndDate: true },
-          'ACTIVE',
+          { status: 'ACTIVE' },
         ),
       ).sort(),
     ).toEqual(['mode', 'reason']);

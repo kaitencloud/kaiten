@@ -119,7 +119,10 @@ export class SubscriptionLifecycle {
 
   /**
    * `POST /instances/{instanceSlug}/billing/cancel`. A trial ends at once with no
-   * invoice, whatever the mode. At the period's end, the period paid for runs out
+   * invoice, whatever the mode. So does a checkout waiting for its payment: the
+   * activation invoice it waits for is voided, the selection it stored is dropped
+   * unapplied, and no final invoice is issued; one pending over a free subscription
+   * ends the same way and leaves that subscription as it was. At the period's end, the period paid for runs out
    * and a repeat changes nothing. Immediately, the FINAL invoice is issued now:
    * what bills in arrears, flat fees in full, and nothing refunded.
    */
@@ -150,6 +153,15 @@ export class SubscriptionLifecycle {
 
     if (subscription.status === 'TRIAL') {
       this.end(next, at, reason);
+    } else if (subscription.status === 'INCOMPLETE') {
+      this.voidAwaitedActivation(slug);
+      this.end(next, at, reason);
+    } else if (subscription.pendingLicenseSlug) {
+      // A checkout pending over a free subscription ends alone: its invoice is
+      // voided, its pending columns cleared, and the free subscription goes on.
+      this.voidAwaitedActivation(slug);
+      next.incompleteExpiresAt = null;
+      next.pendingLicenseSlug = null;
     } else if (mode === 'IMMEDIATE') {
       finalInvoice = toSummary(this.issueFinal(subscription, at));
       this.end(next, at, reason);
@@ -178,6 +190,39 @@ export class SubscriptionLifecycle {
     subscription.cancelRequestedAt = null;
     subscription.pastDueSince = null;
     subscription.scheduledChange = null;
+    // The checkout's pending columns are cleared with it: nothing was applied.
+    subscription.incompleteExpiresAt = null;
+    subscription.pendingLicenseSlug = null;
+  }
+
+  /** Voids the activation invoice(s) of the instance that no payment has settled. */
+  private voidAwaitedActivation(slug: string) {
+    for (const invoice of this.host.invoices.snapshot()) {
+      if (
+        invoice.instanceSlug === slug &&
+        invoice.kind === 'ACTIVATION' &&
+        ['DRAFT', 'MANUAL', 'PAYMENT_FAILED', 'PUSH_FAILED', 'PUSHED'].includes(
+          invoice.status,
+        )
+      ) {
+        this.host.invoices.voidInvoice(invoice.id, 'INCOMPLETE_CANCELED');
+      }
+    }
+  }
+
+  /** What a checkout waiting for its payment refuses: it is fixed until it is paid. */
+  private refuseIncomplete(operation: string, subscription: InstanceBilling) {
+    if (
+      subscription.status === 'INCOMPLETE' ||
+      subscription.pendingLicenseSlug !== null
+    ) {
+      refuse(
+        operation,
+        409,
+        'SubscriptionIncomplete',
+        'the checkout is waiting for its payment: what it bought is fixed until it is paid',
+      );
+    }
   }
 
   /**
@@ -259,6 +304,7 @@ export class SubscriptionLifecycle {
         'the subscription is canceled: subscribe it again',
       );
     }
+    this.refuseIncomplete(operation, subscription);
     if (!subscription.cancelAtPeriodEnd) {
       throw new BillingProblem(
         409,
@@ -312,6 +358,7 @@ export class SubscriptionLifecycle {
   schedulePlanChange(slug: string, body: PlanChangeTarget): InstanceBilling {
     const operation = 'SchedulePlanChange';
     const subscription = this.find(operation, slug);
+    this.refuseIncomplete(operation, subscription);
     if (subscription.status === 'TRIAL') {
       refuse(
         operation,

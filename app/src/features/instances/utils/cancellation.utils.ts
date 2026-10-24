@@ -1,13 +1,22 @@
 import type { CanceledSubscription, InstanceBilling } from '@/api-client';
+import { isCheckoutAwaitingPayment } from '@/domains/billing';
 import { instantToDateTimeInput } from '@/lib/date-time-input';
 import type { CancelFollowUpsOutcome } from '../hooks/use-cancel-follow-ups';
 
 /**
  * How a cancellation took effect. A trial ends at once whatever the mode,
  * and so does an immediate one; one at the end of the period leaves the
- * subscription running until then.
+ * subscription running until then. A checkout that waits for its payment ends at
+ * once too, but unlike an immediate cancellation it bills nothing: the invoice it
+ * waited for is voided and what it bought was never applied. A checkout pending over
+ * a free subscription ends the same way, and the free subscription goes on as it was.
  */
-export type CancellationKind = 'IMMEDIATE' | 'SCHEDULED' | 'TRIAL';
+export type CancellationKind =
+  | 'IMMEDIATE'
+  | 'INCOMPLETE'
+  | 'PENDING_CHECKOUT'
+  | 'SCHEDULED'
+  | 'TRIAL';
 
 /** What the cancel dialog says once the API accepted the cancellation. */
 export type CancelOutcome = {
@@ -18,11 +27,18 @@ export type CancelOutcome = {
 
 /** How a cancellation of this subscription takes effect, from the mode asked for. */
 export function getCancellationKind(
-  subscription: Pick<InstanceBilling, 'status'>,
+  subscription: Pick<InstanceBilling, 'status'> &
+    Partial<Pick<InstanceBilling, 'pendingLicenseSlug'>>,
   mode: 'AT_PERIOD_END' | 'IMMEDIATE',
 ): CancellationKind {
   if (subscription.status === 'TRIAL') {
     return 'TRIAL';
+  }
+  if (subscription.status === 'INCOMPLETE') {
+    return 'INCOMPLETE';
+  }
+  if (isCheckoutAwaitingPayment(subscription)) {
+    return 'PENDING_CHECKOUT';
   }
 
   return mode === 'IMMEDIATE' ? 'IMMEDIATE' : 'SCHEDULED';

@@ -8,6 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   addonVersionsQueryOptions,
   BoundaryClosingNotice,
+  isCheckoutAwaitingPayment,
   isSubscriptionLive,
   ListEmptyState,
   ProblemAlert,
@@ -33,6 +34,8 @@ const KEYS = {
   emptyDescription:
     'Pages.Customers.Instances.Detail.Billing.Addons.Empty.description',
   emptyTitle: 'Pages.Customers.Instances.Detail.Billing.Addons.Empty.title',
+  incompleteNote:
+    'Pages.Customers.Instances.Detail.Billing.Addons.incompleteNote',
   loading: 'Pages.Customers.Instances.Detail.Billing.Addons.loading',
   note: 'Pages.Customers.Instances.Detail.Billing.Addons.note',
   notLive: 'Pages.Customers.Instances.Detail.Billing.Addons.notLive',
@@ -90,6 +93,8 @@ export function InstanceAddonsCard({
   });
   const actions = useInstanceAddonActions(instanceSlug, entitlements);
   const live = isSubscriptionLive(subscription);
+  // A checkout waiting for its payment fixes what it bought until it is paid.
+  const incomplete = isCheckoutAwaitingPayment(subscription);
 
   if (!mayList) {
     return null;
@@ -134,7 +139,7 @@ export function InstanceAddonsCard({
                 </TableCard.HeaderSubtitle>
               </TableCard.HeaderHeading>
             </TableCard.HeaderLeading>
-            {live && mayAttach ? (
+            {live && !incomplete && mayAttach ? (
               <TableCard.HeaderActions>
                 <Button
                   nativeButton={false}
@@ -161,7 +166,14 @@ export function InstanceAddonsCard({
                 onRetry={() => void actions.retry()}
               />
             ) : null}
-            {live ? null : (
+            {incomplete ? (
+              <p
+                className="text-sm text-muted-foreground"
+                data-testid="addons-incomplete"
+              >
+                {t(KEYS.incompleteNote)}
+              </p>
+            ) : live ? null : (
               <p
                 className="text-sm text-muted-foreground"
                 data-testid="addons-not-live"
@@ -182,6 +194,8 @@ export function InstanceAddonsCard({
               </div>
             ) : (
               <InstanceAddonsTable
+                boundaryAt={subscription?.currentPeriodEnd}
+                locked={incomplete}
                 mayDetach={mayDetach}
                 maySetQuantity={maySetQuantity}
                 rows={rows}
