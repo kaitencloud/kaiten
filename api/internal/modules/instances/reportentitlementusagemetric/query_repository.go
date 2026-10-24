@@ -47,6 +47,9 @@ type UsageContext struct {
 	// report answers them as source and provenance (V31-55).
 	LicenseEntitlementID *uuid.UUID
 	Provenance           []byte
+	// Source is the layer that makes the row exist: license, addon or
+	// exception (§7.5).
+	Source string
 	// OveragePercent is LimitCapExceededOveragePercent as the view's SMALLINT
 	// holds it, for the answer.
 	OveragePercent int16
@@ -147,6 +150,7 @@ func (r *QueryRepository) LockPair(ctx context.Context, instanceSlug, entitlemen
 		LimitCapExceededOveragePercent: 0,
 		LicenseEntitlementID:           nil,
 		Provenance:                     nil,
+		Source:                         "",
 		OveragePercent:                 0,
 		LicenseSlug:                    ctx1.LicenseSlug,
 		UsageValue:                     nil,
@@ -176,7 +180,7 @@ func (r *QueryRepository) LoadLimits(ctx context.Context, result *UsageContext, 
 		return err
 	}
 	result.EffectiveValue = limit.Value
-	result.LicenseEntitlementID, result.Provenance = limit.LicenseEntitlementID, limit.Provenance
+	result.LicenseEntitlementID, result.Provenance, result.Source = limit.LicenseEntitlementID, limit.Provenance, limit.Source
 	// The version the limit was read under, not the one the slugs resolved to
 	// before the lock: a licence change may have committed in between.
 	result.LicenseID, result.LicenseSlug = limit.LicenseID, limit.LicenseSlug

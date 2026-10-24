@@ -67,6 +67,7 @@ const ROWS: InstanceEntitlementRow[] = [
           modifierType: 'MULTIPLY',
           modifierValue: 2,
           redeemedAt: '2027-02-06T09:00:00.000Z',
+          value: null,
           voucherEntitlementGrantId: 'grant',
           voucherId: 'voucher',
         },
@@ -74,6 +75,7 @@ const ROWS: InstanceEntitlementRow[] = [
       license: license(10000),
       number: {
         afterAddons: 13000,
+        afterBoosts: 26000,
         boostAdd: null,
         boostMultiply: 2,
         boostSet: null,
@@ -116,6 +118,7 @@ const ROWS: InstanceEntitlementRow[] = [
       license: null,
       number: {
         afterAddons: 10,
+        afterBoosts: 10,
         boostAdd: null,
         boostMultiply: null,
         boostSet: null,
@@ -148,6 +151,7 @@ const ROWS: InstanceEntitlementRow[] = [
       license: license(500),
       number: {
         afterAddons: -1,
+        afterBoosts: -1,
         boostAdd: null,
         boostMultiply: null,
         boostSet: null,

@@ -391,6 +391,7 @@ describe('the add-ons an instance holds, as the mocks serve them', () => {
     });
     expect(composed?.provenance?.number).toEqual({
       afterAddons: 20,
+      afterBoosts: 40,
       boostAdd: null,
       boostMultiply: 2,
       boostSet: null,
@@ -407,6 +408,7 @@ describe('the add-ons an instance holds, as the mocks serve them', () => {
     await send('PATCH', '/instances/globex-staging/addons/extra-seats', { quantity: 4 });
     expect((await provenanceOf('globex-staging'))?.provenance?.number).toMatchObject({
       afterAddons: 30,
+      afterBoosts: 60,
       effective: 60,
     });
 

@@ -125,7 +125,16 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		CurrentPeriodStart:             currentPeriodStart,
 		CurrentPeriodEnd:               currentPeriodEnd,
 		LimitCapExceededOveragePercent: result.EffectiveOveragePercent,
-		Source:                         entitlementUsageSchema.SourceOf(result.LicenseEntitlementID),
+		Source:                         sourceOf(result.Source, result.LicenseEntitlementID),
 		Provenance:                     provenance,
 	}, nil
+}
+
+// sourceOf is the view's source of a row the fallback read found in it, else
+// the licence's (§7.5).
+func sourceOf(source *string, licenseEntitlementID *uuid.UUID) string {
+	if source != nil {
+		return *source
+	}
+	return entitlementUsageSchema.SourceOf(licenseEntitlementID)
 }

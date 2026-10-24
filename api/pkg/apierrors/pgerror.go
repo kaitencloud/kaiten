@@ -11,6 +11,7 @@ const (
 	pgForeignKeyViolation = "23503"
 	pgRestrictViolation   = "23001"
 	pgCheckViolation      = "23514"
+	pgExclusionViolation  = "23P01"
 )
 
 // IsUniqueViolation returns true if the error is a PostgreSQL unique constraint violation.
@@ -49,6 +50,16 @@ func IsCheckViolationOnConstraint(err error, constraintName string) bool {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) {
 		return pgErr.Code == pgCheckViolation && pgErr.ConstraintName == constraintName
+	}
+	return false
+}
+
+// IsExclusionViolationOnConstraint returns true if err is a PostgreSQL
+// exclusion_violation on the specific named EXCLUDE constraint.
+func IsExclusionViolationOnConstraint(err error, constraintName string) bool {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		return pgErr.Code == pgExclusionViolation && pgErr.ConstraintName == constraintName
 	}
 	return false
 }

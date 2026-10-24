@@ -49,6 +49,7 @@ const boost = (
   modifierType,
   modifierValue,
   redeemedAt: '2027-02-06T09:00:00.000Z',
+  value: null,
   voucherEntitlementGrantId: 'grant-1',
   voucherId: 'voucher-1',
 });
@@ -57,6 +58,7 @@ const number = (
   composition: Partial<ProvenanceNumber> & { effective: number },
 ): ProvenanceNumber => ({
   afterAddons: composition.effective,
+  afterBoosts: composition.effective,
   boostAdd: null,
   boostMultiply: null,
   boostSet: null,
@@ -95,6 +97,7 @@ describe('explaining how a limit is composed', () => {
     license: license(10000),
     number: number({
       afterAddons: 13000,
+      afterBoosts: 26000,
       boostMultiply: 2,
       effective: 26000,
       license: 10000,

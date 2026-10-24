@@ -72,6 +72,8 @@ type Ports struct {
 	Expiry    ports.VoucherExpiry
 	Checkouts ports.CheckoutFollower
 	Sweeper   ports.CheckoutSweeper
+	// Exceptions is step (g), which runs with billing off too.
+	Exceptions ports.ExceptionExpiry
 }
 
 type UseCases struct {
@@ -209,10 +211,11 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
 		}, batchSize(cfg.PeriodClose.BatchSize), lifecycle.Steps{
 			Expiry: from.Expiry, Incompletes: incomplete.NewExpiry(incomplete.NewEnder(deps)),
-			Reminders: lifecycle.NewTrialReminders(svc.Uof, trials),
-			Abandoned: sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Abandon }),
-			Purged:    sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Purge }),
-			EveryDay:  []lifecycle.Daily{paymentmethods.NewExpiry(svc.Uof)},
+			Reminders:  lifecycle.NewTrialReminders(svc.Uof, trials),
+			Abandoned:  sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Abandon }),
+			Exceptions: exceptionPass(from.Exceptions),
+			Purged:     sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Purge }),
+			EveryDay:   []lifecycle.Daily{paymentmethods.NewExpiry(svc.Uof)},
 		})
 		overdue.Start(context.Background())
 		svc.WorkerRegistry.OnStop(overdue.Stop)
@@ -230,14 +233,16 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		})
 		sync.Start(context.Background())
 		svc.WorkerRegistry.OnStop(sync.Stop)
-	} else if svc.BackgroundWorkers && svc.Pool != nil && from.Sweeper != nil {
-		// With billing off, the pass runs step (h) alone (§16.1 rule 6): a
-		// closed checkout session is still deleted after its retention.
+	} else if svc.BackgroundWorkers && svc.Pool != nil && (from.Sweeper != nil || from.Exceptions != nil) {
+		// With billing off, the pass runs steps (g) and (h) alone (§16.1 rule
+		// 6): an exception is an entitlement feature, and a closed checkout
+		// session is still deleted after its retention.
 		retention := lifecycle.NewJob(svc.Pool, nil, sweep.Config{
 			InitialDelay: orDefault(cfg.InitialDelay, time.Minute),
 			Interval:     orDefault(cfg.Lifecycle.Interval, 15*time.Minute),
 		}, batchSize(cfg.PeriodClose.BatchSize), lifecycle.Steps{
-			Purged: sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Purge }),
+			Exceptions: exceptionPass(from.Exceptions),
+			Purged:     sweeperPass(from.Sweeper, func(s ports.CheckoutSweeper) lifecycle.PassFunc { return s.Purge }),
 		})
 		retention.Start(context.Background())
 		svc.WorkerRegistry.OnStop(retention.Stop)
@@ -252,6 +257,14 @@ func sweeperPass(sweeper ports.CheckoutSweeper, step func(ports.CheckoutSweeper)
 		return nil
 	}
 	return step(sweeper)
+}
+
+// exceptionPass is step (g) as a lifecycle pass; nil without one.
+func exceptionPass(expiry ports.ExceptionExpiry) lifecycle.Pass {
+	if expiry == nil {
+		return nil
+	}
+	return expiry
 }
 
 // orDefault is a configured duration, or the billing default when it is 0: the

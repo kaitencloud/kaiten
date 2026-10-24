@@ -133,7 +133,7 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 			CurrentPeriodStart:             currentPeriodStart,
 			CurrentPeriodEnd:               currentPeriodEnd,
 			LimitCapExceededOveragePercent: e.EffectiveOveragePercent,
-			Source:                         entitlementUsageSchema.SourceOf(e.LicenseEntitlementID),
+			Source:                         e.Source,
 			Provenance:                     provenance,
 		})
 	}

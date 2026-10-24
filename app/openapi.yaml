@@ -3580,6 +3580,77 @@ components:
         - updatedAt
       type: object
       x-kaiten-payload: "#/components/schemas/Entitlement"
+    EntitlementException:
+      additionalProperties: false
+      properties:
+        createdAt:
+          format: date-time
+          type: string
+        endsAt:
+          description: "Null: no end"
+          format: date-time
+          type:
+            - string
+            - "null"
+        entitlementSlug:
+          type: string
+        entitlementType:
+          enum:
+            - NUMBER
+            - NUMBER_AI_CREDIT
+            - BOOLEAN
+            - CONFIG
+          type: string
+        id:
+          type: string
+        instanceSlug:
+          type: string
+        kind:
+          enum:
+            - SET
+            - ADD
+            - UNLIMITED
+          type: string
+        reason:
+          type: string
+        revokedAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        startsAt:
+          format: date-time
+          type: string
+        status:
+          description: "At the read: SCHEDULED before startsAt, ACTIVE in its window, EXPIRED after endsAt, REVOKED once revoked"
+          enum:
+            - SCHEDULED
+            - ACTIVE
+            - EXPIRED
+            - REVOKED
+          type: string
+        value:
+          anyOf:
+            - type: number
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: A number for NUMBER and NUMBER_AI_CREDIT, a boolean for BOOLEAN, the CONFIG document as an object; null for UNLIMITED
+      required:
+        - id
+        - instanceSlug
+        - entitlementSlug
+        - entitlementType
+        - kind
+        - value
+        - startsAt
+        - endsAt
+        - reason
+        - status
+        - createdAt
+        - revokedAt
+      type: object
     EntitlementGroup:
       additionalProperties: false
       properties:
@@ -3796,10 +3867,11 @@ components:
           $ref: "#/components/schemas/Provenance"
           description: What the licence, the add-ons and the boosts each contribute
         source:
-          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"
+          description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"
           enum:
             - license
             - addon
+            - exception
           type: string
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
@@ -3884,10 +3956,11 @@ components:
           $ref: "#/components/schemas/Provenance"
           description: What the licence, the add-ons and the boosts each contribute
         source:
-          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"
+          description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"
           enum:
             - license
             - addon
+            - exception
           type: string
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
@@ -4035,10 +4108,13 @@ components:
           format: date-time
           type: string
         value:
-          description: "The exception's value: a number for NUMBER and NUMBER_AI_CREDIT, a boolean for BOOLEAN, the CONFIG document as an object; null for UNLIMITED"
-          type:
-            - ""
-            - "null"
+          anyOf:
+            - type: number
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: A number for NUMBER and NUMBER_AI_CREDIT, a boolean for BOOLEAN, the CONFIG document as an object; null for UNLIMITED
         via:
           description: "customer_session: written through a kst_ customer session, under the vendor principal that minted it. checkout_session: written by an anonymous checkout, under system:kaiten. Absent otherwise"
           enum:
@@ -8742,6 +8818,47 @@ components:
         - currency
         - unitAmountDecimal
       type: object
+    NewEntitlementException:
+      additionalProperties: false
+      properties:
+        endsAt:
+          description: "After startsAt and after now; absent or null: no end"
+          format: date-time
+          type:
+            - string
+            - "null"
+        entitlementSlug:
+          description: The entitlement it overrides; the instance's licence and add-ons need not grant it
+          examples:
+            - sso
+          type: string
+        kind:
+          description: SET works on every type; ADD and UNLIMITED on NUMBER and NUMBER_AI_CREDIT only
+          enum:
+            - SET
+            - ADD
+            - UNLIMITED
+          type: string
+        reason:
+          description: Why, 1 to 500 characters, not blank; shown to the vendor only
+          type: string
+        startsAt:
+          description: Now when absent; a past instant is taken as given, a future one schedules the exception
+          format: date-time
+          type: string
+        value:
+          anyOf:
+            - type: number
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: For SET, a number of 0 or more on the NUMBER types, a boolean on BOOLEAN, an object on CONFIG; for ADD, a number above 0; for UNLIMITED, absent or null
+      required:
+        - entitlementSlug
+        - kind
+        - reason
+      type: object
     NewInstanceAddon:
       additionalProperties: false
       properties:
@@ -10239,10 +10356,11 @@ components:
             - seats
           type: string
         source:
-          description: "license: the licence grants it; addon: only add-ons do"
+          description: "license: the licence grants it; addon: an add-on does; exception: only the vendor's exception for this instance does"
           enum:
             - license
             - addon
+            - exception
           type: string
         type:
           enum:
@@ -10766,6 +10884,13 @@ components:
           items:
             $ref: "#/components/schemas/ProvenanceBoost"
           type: array
+        exception:
+          description: The instance's exception in force at the read, the last layer; null without one. Never its reason or author
+          oneOf:
+            - $ref: "#/components/schemas/ProvenanceException"
+            - enum:
+                - null
+              type: "null"
         license:
           description: The licence's grant; null when only add-ons grant the entitlement
           oneOf:
@@ -10774,7 +10899,7 @@ components:
                 - null
               type: "null"
         number:
-          description: How a number was composed; null for BOOLEAN and CONFIG, and when no add-on or boost changes it
+          description: How a number was composed; null for BOOLEAN and CONFIG, and when no add-on, boost or exception changes it
           oneOf:
             - $ref: "#/components/schemas/ProvenanceNumber"
             - enum:
@@ -10784,6 +10909,7 @@ components:
         - license
         - addons
         - boosts
+        - exception
         - number
       type: object
     ProvenanceAddon:
@@ -10862,6 +10988,21 @@ components:
         redeemedAt:
           format: date-time
           type: string
+        value:
+          description: The value a BOOLEAN or CONFIG SET boost sets, in the {type, value} shape; null for the NUMBER modifiers
+          discriminator:
+            mapping:
+              boolean: "#/components/schemas/BooleanEntitlementValue"
+              number: "#/components/schemas/NumberEntitlementValue"
+              object: "#/components/schemas/ConfigEntitlementValue"
+            propertyName: type
+          oneOf:
+            - $ref: "#/components/schemas/NumberEntitlementValue"
+            - $ref: "#/components/schemas/BooleanEntitlementValue"
+            - $ref: "#/components/schemas/ConfigEntitlementValue"
+            - enum:
+                - null
+              type: "null"
         voucherEntitlementGrantId:
           type: string
         voucherId:
@@ -10872,9 +11013,52 @@ components:
         - voucherEntitlementGrantId
         - modifierType
         - modifierValue
+        - value
         - redeemedAt
         - effectiveStartsAt
         - effectiveExpiresAt
+      type: object
+    ProvenanceException:
+      additionalProperties: false
+      properties:
+        endsAt:
+          description: "Null: no end"
+          format: date-time
+          type:
+            - string
+            - "null"
+        instanceEntitlementExceptionId:
+          type: string
+        kind:
+          enum:
+            - SET
+            - ADD
+            - UNLIMITED
+          type: string
+        startsAt:
+          format: date-time
+          type: string
+        value:
+          description: The exception's value, in the {type, value} shape; null for UNLIMITED
+          discriminator:
+            mapping:
+              boolean: "#/components/schemas/BooleanEntitlementValue"
+              number: "#/components/schemas/NumberEntitlementValue"
+              object: "#/components/schemas/ConfigEntitlementValue"
+            propertyName: type
+          oneOf:
+            - $ref: "#/components/schemas/NumberEntitlementValue"
+            - $ref: "#/components/schemas/BooleanEntitlementValue"
+            - $ref: "#/components/schemas/ConfigEntitlementValue"
+            - enum:
+                - null
+              type: "null"
+      required:
+        - instanceEntitlementExceptionId
+        - kind
+        - value
+        - startsAt
+        - endsAt
       type: object
     ProvenanceLicense:
       additionalProperties: false
@@ -10908,6 +11092,10 @@ components:
         afterAddons:
           format: double
           type: number
+        afterBoosts:
+          description: "The value before the exception: -1 when unlimited"
+          format: double
+          type: number
         boostAdd:
           format: double
           type:
@@ -10928,12 +11116,13 @@ components:
           format: double
           type: number
         license:
-          description: The licence's value; null when only add-ons grant it
+          description: The licence's value; null when only add-ons or an exception grant it
           format: double
           type:
             - number
             - "null"
         unlimited:
+          description: The licence, an add-on or a boost is unlimited; only an exception's SET makes it finite again
           type: boolean
       required:
         - license
@@ -10942,6 +11131,7 @@ components:
         - boostAdd
         - boostMultiply
         - unlimited
+        - afterBoosts
         - effective
       type: object
     ProviderCapabilities:
@@ -12937,10 +13127,11 @@ components:
                 - null
               type: "null"
         source:
-          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do. Null on a replay (Idempotent-Replayed): the journal does not store it."
+          description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does. Null on a replay (Idempotent-Replayed): the journal does not store it."
           enum:
             - license
             - addon
+            - exception
             - null
           type:
             - string
@@ -23698,6 +23889,258 @@ paths:
       summary: Preview an instance's upcoming invoice
       tags:
         - billing
+  /instances/{instanceSlug}/entitlement-exceptions:
+    get:
+      description: The instance's exceptions, latest start first, each with its status at the read. Works whether or not billing is enabled.
+      operationId: listEntitlementExceptions
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: "active: neither revoked nor ended, scheduled ones included; all: every exception of the instance"
+          explode: false
+          in: query
+          name: filter
+          schema:
+            default: active
+            description: "active: neither revoked nor ended, scheduled ones included; all: every exception of the instance"
+            enum:
+              - active
+              - all
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/EntitlementException"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List an instance's entitlement exceptions
+      tags:
+        - instances
+    post:
+      description: "The vendor's explicit, dated decision on one entitlement of one instance, without a code: the last layer of the effective entitlements, after the licence, the add-ons and the boosts. It wins over them and may lower the value. One unrevoked exception per instance and entitlement at any instant. Emits INSTANCE_ENTITLEMENT_EXCEPTION_CREATED. Works whether or not billing is enabled."
+      operationId: createEntitlementException
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewEntitlementException"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementException"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Set an exception on an instance's entitlement
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlement-exceptions/{exceptionId}:
+    delete:
+      description: "Revokes an exception and keeps it, readable with filter=all: a scheduled one never starts, an active one ends at once. Revoking one already revoked or ended changes nothing. Emits INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED. Works whether or not billing is enabled."
+      operationId: revokeEntitlementException
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: Exception id
+          in: path
+          name: exceptionId
+          required: true
+          schema:
+            description: Exception id
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Revoke an entitlement exception
+      tags:
+        - instances
   /instances/{instanceSlug}/entitlements/usage:
     get:
       description: Retrieve a list of all entitlements usage metrics for a specific instance

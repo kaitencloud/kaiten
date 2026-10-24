@@ -12,7 +12,8 @@ const licenseEntitlementId = (grant: LicenseEntitlement) =>
 
 /**
  * The provenance of an entitlement that nothing but the license grants, which the API
- * serves for every row: the license's grant, no add-on, no voucher, and no composition.
+ * serves for every row: the license's grant, no add-on, no voucher, no exception, and no
+ * composition.
  * The OpenAPI document declares the `number` required and never null; the API sends null.
  */
 export function identityProvenance(grant: LicenseEntitlement): Provenance {
@@ -27,6 +28,7 @@ export function identityProvenance(grant: LicenseEntitlement): Provenance {
           : null,
       value: grant.value,
     },
+    exception: null,
     number: null,
   } as unknown as Provenance;
 }
@@ -43,7 +45,8 @@ export function identityProvenance(grant: LicenseEntitlement): Provenance {
  * boosts multiply the sum. An unlimited add-on grant (-1), or an unlimited boost, makes
  * it unlimited whatever the others are. An add-on whose value is 0 is ignored, its percent
  * included. A boost never changes the percent; the latest attached add-on that sets its
- * own wins, else the license's, else the limit is hard.
+ * own wins, else the license's, else the limit is hard. The mocks set no exception, the
+ * last layer, so the value after the boosts is the effective one.
  *
  * The OpenAPI document declares the `license` and the `number` of a provenance as never
  * null, while the API sends null for a number nothing but the license grants (the
@@ -115,6 +118,7 @@ export function composeEffectiveNumber(
       modifierType: boost.modifierType,
       modifierValue: boost.value ?? null,
       redeemedAt: boost.redeemedAt,
+      value: null,
       voucherEntitlementGrantId: boost.voucherEntitlementGrantId,
       voucherId: boost.voucherId,
     })),
@@ -124,11 +128,13 @@ export function composeEffectiveNumber(
         grant.limitCapExceededOveragePercent ?? null,
       value: { type: 'number', value: grant.value.value },
     },
+    exception: null,
     number:
       counting.length + boosts.length === 0
         ? null
         : {
             afterAddons,
+            afterBoosts: effective,
             boostAdd,
             boostMultiply,
             boostSet,

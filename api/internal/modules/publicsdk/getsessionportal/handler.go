@@ -83,7 +83,7 @@ type PortalEntitlement struct {
 	PercentageUsed                 *float64                         `json:"percentageUsed" doc:"currentValue ÷ limit × 100; null when unlimited or the limit is 0, and for BOOLEAN and CONFIG"`
 	CurrentPeriodStart             *time.Time                       `json:"currentPeriodStart" doc:"The usage window's start; null for a lifetime quota"`
 	CurrentPeriodEnd               *time.Time                       `json:"currentPeriodEnd" doc:"The usage window's end; null for a lifetime quota"`
-	Source                         string                           `json:"source" enum:"license,addon" doc:"license: the licence grants it; addon: only add-ons do"`
+	Source                         string                           `json:"source" enum:"license,addon,exception" doc:"license: the licence grants it; addon: an add-on does; exception: only the vendor's exception for this instance does"`
 	Provenance                     *instanceschema.Provenance       `json:"provenance" doc:"What the licence, the add-ons and the boosts each contribute"`
 }
 

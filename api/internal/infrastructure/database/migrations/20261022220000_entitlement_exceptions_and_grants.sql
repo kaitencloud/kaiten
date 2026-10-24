@@ -19,8 +19,8 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;
 -- as an object; NULL exactly for UNLIMITED. ADD is a number > 0, a SET number
 -- is >= 0 (unlimited is the kind UNLIMITED, never -1). The use case matches
 -- the JSON type and the kind to entitlement.type.
--- starts_at: the creation instant by default, never before it (use case); a
--- future start is a scheduled exception. ends_at NULL: no end.
+-- starts_at: the creation instant by default; a past one is taken as given
+-- (§13.16), a future one is a scheduled exception. ends_at NULL: no end.
 -- revoked_at / revoked_by_id: DELETE .../{id} revokes and keeps the row; the
 -- author is kept (RESTRICT), as on publishable_key.
 -- expired_notified_at: the once-only marker of the .expired event, set by
@@ -28,8 +28,8 @@ CREATE EXTENSION IF NOT EXISTS btree_gist;
 --
 -- One active exception per (instance, entitlement) at any instant (INV-37):
 -- the exclusion constraint compares the time ranges of the rows that are not
--- revoked. Ended rows stay inside it, harmlessly, since a new window never
--- starts before its creation. Its GiST index also serves the view's lookup of
+-- revoked. Ended rows stay inside it, so a backdated window over an ended
+-- exception is refused too. Its GiST index also serves the view's lookup of
 -- the pair at the evaluation instant.
 --
 -- CASCADE from instance (entitlement state of the instance, like its

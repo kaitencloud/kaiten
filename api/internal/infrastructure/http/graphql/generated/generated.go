@@ -3150,8 +3150,9 @@ type EntitlementUsage {
   currentPeriodEnd: Time
 
   """
-  license when the licence grants it (add-ons and boosts may change it), addon
-  when only add-ons do.
+  license when the licence grants it (add-ons, boosts and an exception may
+  change it), addon when an add-on attached does, exception when only the
+  instance's exception does.
   """
   source: String!
 
@@ -3162,8 +3163,8 @@ type EntitlementUsage {
   limitCapExceededOveragePercent: Int
 
   """
-  What the licence, the add-ons and the boosts each contribute, as the
-  REST gauge read returns it.
+  What the licence, the add-ons, the boosts and the exception each
+  contribute, as the REST gauge read returns it.
   """
   provenance: Map
 }

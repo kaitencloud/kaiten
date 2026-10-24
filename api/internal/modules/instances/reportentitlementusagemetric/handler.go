@@ -568,7 +568,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			CurrentPeriodStart:             resolvedPeriodStart,
 			CurrentPeriodEnd:               resolvedPeriodEnd,
 			LimitCapExceededOveragePercent: &overagePercent,
-			Source:                         entitlementUsageSchema.SourceOf(entitlementUsageCtx.LicenseEntitlementID),
+			Source:                         entitlementUsageCtx.Source,
 			Provenance:                     provenance,
 		}
 

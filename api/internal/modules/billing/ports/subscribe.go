@@ -52,6 +52,13 @@ type VoucherExpiry interface {
 	Pass(ctx context.Context, limit int) (int, error)
 }
 
+// ExceptionExpiry announces the entitlement exceptions whose end passed, up to
+// limit, for the billing-lifecycle job (§16.2 (g)), billing enabled or not.
+// Implemented by the entitlements module.
+type ExceptionExpiry interface {
+	Pass(ctx context.Context, limit int) (int, error)
+}
+
 // InstanceVersionMover pins an instance to another licence version, inside the
 // caller's transaction, under the instance module's own rules. Implemented by
 // the instances module.

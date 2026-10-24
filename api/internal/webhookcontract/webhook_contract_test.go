@@ -24,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/events/webhook"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/server"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/exceptions"
 	ffschema "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
@@ -335,6 +336,8 @@ var overrides = map[reflect.Type]any{
 	reflect.TypeOf(instanceschema.EntitlementValue{}): instanceschema.EntitlementValue{
 		Number: &instanceschema.NumberEntitlementValue{Type: "number", Value: 1, EventCount: 1},
 	},
+	// An exception's raw value: any JSON, so the filler's bytes are not one.
+	reflect.TypeOf(exceptions.Value{}): exceptions.Value("1"),
 	reflect.TypeOf(ffschema.DefaultVariant{}): ffschema.DefaultVariant{
 		Type:  ffschema.BasicType,
 		Value: ffschema.BasicVariant("on"),

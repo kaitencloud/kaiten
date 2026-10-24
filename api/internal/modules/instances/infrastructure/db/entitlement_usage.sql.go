@@ -70,6 +70,7 @@ SELECT iee.value,
        iee.limit_cap_exceeded_overage_percent,
        iee.license_entitlement_id,
        iee.provenance,
+       iee.source,
        i.license_id,
        l.slug AS license_slug
 FROM instance_effective_entitlement iee
@@ -91,6 +92,7 @@ type GetEffectiveEntitlementLimitRow struct {
 	LimitCapExceededOveragePercent *int16     `json:"limit_cap_exceeded_overage_percent"`
 	LicenseEntitlementID           *uuid.UUID `json:"license_entitlement_id"`
 	Provenance                     []byte     `json:"provenance"`
+	Source                         string     `json:"source"`
 	LicenseID                      uuid.UUID  `json:"license_id"`
 	LicenseSlug                    *string    `json:"license_slug"`
 }
@@ -110,6 +112,7 @@ func (q *Queries) GetEffectiveEntitlementLimit(ctx context.Context, arg GetEffec
 		&i.LimitCapExceededOveragePercent,
 		&i.LicenseEntitlementID,
 		&i.Provenance,
+		&i.Source,
 		&i.LicenseID,
 		&i.LicenseSlug,
 	)
@@ -275,6 +278,7 @@ SELECT
   iee.limit_cap_exceeded_overage_percent AS effective_overage_percent,
   iee.license_entitlement_id,
   iee.provenance,
+  iee.source,
   eu.value          AS usage_value,
   eu.period_start,
   e.slug            AS entitlement_slug,
@@ -317,6 +321,7 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	EffectiveOveragePercent *int16                  `json:"effective_overage_percent"`
 	LicenseEntitlementID    *uuid.UUID              `json:"license_entitlement_id"`
 	Provenance              []byte                  `json:"provenance"`
+	Source                  *string                 `json:"source"`
 	UsageValue              []byte                  `json:"usage_value"`
 	PeriodStart             pgtype.Timestamp        `json:"period_start"`
 	EntitlementSlug         *string                 `json:"entitlement_slug"`
@@ -346,6 +351,7 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.EffectiveOveragePercent,
 		&i.LicenseEntitlementID,
 		&i.Provenance,
+		&i.Source,
 		&i.UsageValue,
 		&i.PeriodStart,
 		&i.EntitlementSlug,
@@ -369,6 +375,7 @@ SELECT
   iee.limit_cap_exceeded_overage_percent AS effective_overage_percent,
   iee.license_entitlement_id,
   iee.provenance,
+  iee.source,
   eu.value          AS usage_value,
   eu.period_start,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
@@ -406,6 +413,7 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 	EffectiveOveragePercent *int16                  `json:"effective_overage_percent"`
 	LicenseEntitlementID    *uuid.UUID              `json:"license_entitlement_id"`
 	Provenance              []byte                  `json:"provenance"`
+	Source                  string                  `json:"source"`
 	UsageValue              []byte                  `json:"usage_value"`
 	PeriodStart             pgtype.Timestamp        `json:"period_start"`
 	Now                     pgtype.Timestamp        `json:"now"`
@@ -438,6 +446,7 @@ func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Contex
 			&i.EffectiveOveragePercent,
 			&i.LicenseEntitlementID,
 			&i.Provenance,
+			&i.Source,
 			&i.UsageValue,
 			&i.PeriodStart,
 			&i.Now,

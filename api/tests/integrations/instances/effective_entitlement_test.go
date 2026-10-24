@@ -30,16 +30,17 @@ import (
 // the same responses.
 //
 // The two gauge reads have since gained the effective percent, the licence
-// grant's id and the provenance (§7.4, §7.5). The legacy queries below read
-// those as the identity case has them -- the grant's own percent and id, and
-// a provenance of the licence layer alone -- in the new queries' positions.
+// grant's id, the provenance and the source (§7.4, §7.5). The legacy queries
+// below read those as the identity case has them -- the grant's own percent
+// and id, a provenance of the licence layer alone, the source license -- in
+// the new queries' positions.
 
 // identityProvenance is the view's provenance of a licence grant that no add-on
 // and no boost changes: the licence layer alone.
 const identityProvenance = `jsonb_build_object(
     'license', jsonb_build_object('license_entitlement_id', le.id, 'value', le.value,
                                   'limit_cap_exceeded_overage_percent', le.limit_cap_exceeded_overage_percent),
-    'addons', '[]'::jsonb, 'boosts', '[]'::jsonb, 'number', NULL)`
+    'addons', '[]'::jsonb, 'boosts', '[]'::jsonb, 'exception', NULL, 'number', NULL)`
 
 // legacyEntitlementsUsageForInstance is GetEntitlementsUsageForInstanceWithFallback
 // before the move. $1 organization_id, $2 instance_id.
@@ -57,6 +58,7 @@ SELECT
   le.limit_cap_exceeded_overage_percent,
   le.id             AS license_entitlement_id,
   ` + identityProvenance + `,
+  'license'::text   AS source,
   eu.value          AS usage_value,
   eu.period_start,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
@@ -96,6 +98,7 @@ SELECT
   le.limit_cap_exceeded_overage_percent,
   le.id             AS grant_id,
   CASE WHEN le.id IS NOT NULL THEN ` + identityProvenance + ` END,
+  CASE WHEN le.id IS NOT NULL THEN 'license'::text END AS source,
   eu.value          AS usage_value,
   eu.period_start,
   e.slug            AS entitlement_slug,

@@ -3,18 +3,24 @@ package kaiten
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/addentitlementtogroup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlementexception"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlementgroup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/deleteentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/deleteentitlementgroup"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/exceptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlementgroup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlementgroups"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlementgroupusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlements"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/listentitlementexceptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/removeentitlementfromgroup"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/revokeentitlementexception"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/updateentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/updateentitlementgroup"
@@ -22,15 +28,19 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
-// Entitlements is the entitlements module's thirteen operations, over two aggregates:
-// the entitlement itself, and the group that collects several of them so a license
-// can grant them as one unit.
+// Entitlements is the entitlements module's sixteen operations, over three aggregates:
+// the entitlement itself, the group that collects several of them so a license
+// can grant them as one unit, and the exception a vendor sets on one entitlement of
+// one instance (§13.16).
 //
 // The bare verbs belong to the entitlement -- Create, Get, List, Update, Delete --
 // and everything about a group says Group, including the two that manage membership.
 // AddToGroup and RemoveFromGroup are named for what they do to the entitlement rather
 // than for the row they write, because a membership is not a thing a caller holds a
 // reference to.
+//
+// The exception operations say Exception and take the instance slug first: an
+// exception belongs to the instance's entitlement, not to the entitlement itself.
 //
 // GetGroupUsage takes an instance slug alongside the group: a group's usage is the
 // aggregate of its members' usage *for one instance*, so there is no group usage
@@ -177,4 +187,37 @@ func (e Entitlements) GetGroupUsage(
 
 	return e.uc.GetEntitlementGroupUsage.Execute(
 		bindOrganization(ctx, cl), groupSlug, instanceSlug)
+}
+
+// CreateException sets the vendor's exception on one entitlement of an
+// instance (§13.16). It is instance state under write:instances, never gated
+// by billing.
+func (e Entitlements) CreateException(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, cmd createentitlementexception.Command,
+) (*exceptions.EntitlementException, error) {
+	if err := cl.Require(createentitlementexception.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return e.uc.CreateEntitlementException.Execute(bindOrganization(ctx, cl), instanceSlug, cmd)
+}
+
+func (e Entitlements) ListExceptions(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, all bool,
+) ([]exceptions.EntitlementException, error) {
+	if err := cl.Require(listentitlementexceptions.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return e.uc.ListEntitlementExceptions.Execute(bindOrganization(ctx, cl), instanceSlug, all)
+}
+
+func (e Entitlements) RevokeException(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug string, id uuid.UUID,
+) error {
+	if err := cl.Require(revokeentitlementexception.RequiredScope); err != nil {
+		return err
+	}
+
+	return e.uc.RevokeEntitlementException.Execute(bindOrganization(ctx, cl), instanceSlug, id)
 }

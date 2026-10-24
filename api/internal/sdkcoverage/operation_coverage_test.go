@@ -75,6 +75,11 @@ be deleted, not kept, once the SDK maps the operation.
 // priced catalogue and the billing module in one release, after the contract.
 const awaitsBilling = "billing: the SDK models it in its billing release"
 
+// awaitsExceptions is the reason of the entitlement exception operations: an
+// entitlement feature, independent of billing, that the SDK models after the
+// contract (V32-03 a).
+const awaitsExceptions = "entitlement exceptions: the SDK models them after the contract"
+
 var awaitingSDKOperations = map[string]string{
 	"listLicensePrices":        awaitsBilling,
 	"getLicensePrice":          awaitsBilling,
@@ -167,6 +172,10 @@ var awaitingSDKOperations = map[string]string{
 
 	"createCustomerSession": awaitsBilling,
 	"revokeCustomerSession": awaitsBilling,
+
+	"createEntitlementException": awaitsExceptions,
+	"listEntitlementExceptions":  awaitsExceptions,
+	"revokeEntitlementException": awaitsExceptions,
 }
 
 func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {

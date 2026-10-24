@@ -17,6 +17,7 @@ SELECT
   iee.limit_cap_exceeded_overage_percent AS effective_overage_percent,
   iee.license_entitlement_id,
   iee.provenance,
+  iee.source,
   eu.value          AS usage_value,
   eu.period_start,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
@@ -56,6 +57,7 @@ SELECT
   iee.limit_cap_exceeded_overage_percent AS effective_overage_percent,
   iee.license_entitlement_id,
   iee.provenance,
+  iee.source,
   eu.value          AS usage_value,
   eu.period_start,
   e.slug            AS entitlement_slug,
@@ -174,6 +176,7 @@ SELECT iee.value,
        iee.limit_cap_exceeded_overage_percent,
        iee.license_entitlement_id,
        iee.provenance,
+       iee.source,
        i.license_id,
        l.slug AS license_slug
 FROM instance_effective_entitlement iee
