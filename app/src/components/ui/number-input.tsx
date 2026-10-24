@@ -50,11 +50,14 @@ export function NumberInput({
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
 }: NumberInputProps) {
-  const { t } = useTranslation();
+  const { i18n, t } = useTranslation();
   const inputId = React.useId();
   return (
     <NumberField.Root
       allowOutOfRange={allowOutOfRange}
+      // The digits are grouped as the console's language groups them, as the hints
+      // beside the field are, and not as the browser's would.
+      locale={i18n.resolvedLanguage}
       className="w-full"
       id={id ?? inputId}
       value={value}
