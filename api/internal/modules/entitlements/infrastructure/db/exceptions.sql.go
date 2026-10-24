@@ -12,6 +12,42 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countActiveExceptions = `-- name: CountActiveExceptions :many
+SELECT x.kind, count(*)::bigint AS active
+FROM instance_entitlement_exception x
+WHERE x.revoked_at IS NULL
+  AND x.starts_at <= $1::timestamp
+  AND (x.ends_at IS NULL OR $1::timestamp < x.ends_at)
+GROUP BY x.kind
+`
+
+type CountActiveExceptionsRow struct {
+	Kind   EntitlementExceptionKind `json:"kind"`
+	Active int64                    `json:"active"`
+}
+
+// The exceptions in force at now, all organizations, by kind: the
+// kaiten.entitlements.exceptions.active gauge, read by step (g) (§19.1).
+func (q *Queries) CountActiveExceptions(ctx context.Context, now pgtype.Timestamp) ([]CountActiveExceptionsRow, error) {
+	rows, err := q.db.Query(ctx, countActiveExceptions, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountActiveExceptionsRow
+	for rows.Next() {
+		var i CountActiveExceptionsRow
+		if err := rows.Scan(&i.Kind, &i.Active); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const exceptionClock = `-- name: ExceptionClock :one
 SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 `

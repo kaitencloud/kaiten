@@ -20,7 +20,7 @@ type Redemption struct {
 	ID                 uuid.UUID  `json:"id" readOnly:"true"`
 	VoucherID          uuid.UUID  `json:"voucherId"`
 	VoucherName        string     `json:"voucherName"`
-	VoucherType        string     `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT"`
+	VoucherType        string     `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT,COMPOSITE"`
 	CodeHint           string     `json:"codeHint"`
 	InstanceSlug       string     `json:"instanceSlug"`
 	RedeemedAt         time.Time  `json:"redeemedAt"`
@@ -72,7 +72,7 @@ func Redemptions(ctx context.Context, q *db.Queries, params db.ListRedemptionsPa
 			ApplicationsCount: row.ApplicationsCount, ApplicationsMax: nil, Status: string(row.Status),
 			ExpiredAt: timePtr(row.ExpiredAt), RevokedAt: timePtr(row.RevokedAt), RevokedReason: row.RevokedReason,
 		}
-		if row.VoucherType == db.VoucherTypePRICE {
+		if row.VoucherType == db.VoucherTypePRICE || (row.VoucherType == db.VoucherTypeCOMPOSITE && row.HasPricePart) {
 			r.ApplicationsMax = ApplicationsMax(row.Duration, row.DurationInPeriods)
 		}
 		out[i] = r

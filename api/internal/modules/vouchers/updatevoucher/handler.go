@@ -88,7 +88,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 			return err
 		}
 		if locked.Status == db.VoucherStatusDRAFT {
-			if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.Grants, resolved.Entitlements); err != nil {
+			if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.Grants, resolved.Entitlements); err != nil {
 				return err
 			}
 			if err := catalogue.WriteFlagGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.FlagGrants, resolved.Flags); err != nil {

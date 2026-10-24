@@ -18,16 +18,21 @@ SET applications_count = iv.applications_count + 1,
     status             = CASE
                            WHEN $1::integer IS NOT NULL
                              AND iv.applications_count + 1 >= $1::integer
+                             AND (v.voucher_type <> 'COMPOSITE' OR iv.effective_expires_at <= $2::timestamp)
                              THEN 'EXPIRED'::instance_voucher_status
                            ELSE iv.status END,
     expired_at         = CASE
                            WHEN $1::integer IS NOT NULL
                              AND iv.applications_count + 1 >= $1::integer
+                             AND (v.voucher_type <> 'COMPOSITE' OR iv.effective_expires_at <= $2::timestamp)
                              THEN $2::timestamp
                            ELSE iv.expired_at END,
     updated_at         = $2::timestamp
+FROM voucher v
 WHERE iv.organization_id = $3
   AND iv.id = $4
+  AND v.id = iv.voucher_id
+  AND v.organization_id = iv.organization_id
 RETURNING iv.status
 `
 
@@ -39,7 +44,9 @@ type ApplyDiscountParams struct {
 }
 
 // One invoice received a DISCOUNT line from the redemption. Reaching the
-// duration's limit expires it.
+// duration's limit expires it, unless the grants of a COMPOSITE still run:
+// it then stays ACTIVE until step (b) finds its window over (§8.4
+// Consumption).
 func (q *Queries) ApplyDiscount(ctx context.Context, arg ApplyDiscountParams) (InstanceVoucherStatus, error) {
 	row := q.db.QueryRow(ctx, applyDiscount,
 		arg.ApplicationsMax,
@@ -244,14 +251,20 @@ func (q *Queries) DiscountLimitReached(ctx context.Context, arg DiscountLimitRea
 }
 
 const expireRedemption = `-- name: ExpireRedemption :execrows
-UPDATE instance_voucher
+UPDATE instance_voucher iv
 SET status     = 'EXPIRED',
     expired_at = $1::timestamp,
     updated_at = $1::timestamp
-WHERE organization_id = $2
-  AND id = $3
-  AND status = 'ACTIVE'
-  AND effective_expires_at <= $1::timestamp
+FROM voucher v
+WHERE iv.organization_id = $2
+  AND iv.id = $3
+  AND iv.status = 'ACTIVE'
+  AND iv.effective_expires_at <= $1::timestamp
+  AND v.id = iv.voucher_id
+  AND v.organization_id = iv.organization_id
+  AND NOT (v.voucher_type = 'COMPOSITE' AND v.price_discount_type IS NOT NULL
+           AND (v.duration = 'FOREVER'
+             OR iv.applications_count < CASE WHEN v.duration = 'ONE_TIME' THEN 1 ELSE v.duration_in_periods END))
 `
 
 type ExpireRedemptionParams struct {
@@ -260,6 +273,7 @@ type ExpireRedemptionParams struct {
 	ID             uuid.UUID        `json:"id"`
 }
 
+// Re-checks what ListExpiringRedemptions found, under the row's update.
 func (q *Queries) ExpireRedemption(ctx context.Context, arg ExpireRedemptionParams) (int64, error) {
 	result, err := q.db.Exec(ctx, expireRedemption, arg.Now, arg.OrganizationID, arg.ID)
 	if err != nil {
@@ -602,10 +616,10 @@ JOIN voucher v ON v.id = iv.voucher_id AND v.organization_id = iv.organization_i
 WHERE iv.organization_id = $1
   AND iv.instance_id = $2
   AND iv.status = 'ACTIVE'
-  AND v.voucher_type = 'PRICE'
+  AND (v.voucher_type = 'PRICE' OR (v.voucher_type = 'COMPOSITE' AND v.price_discount_type IS NOT NULL))
   AND iv.redeemed_at <= $3
   AND iv.effective_starts_at <= $3
-  AND (iv.effective_expires_at IS NULL OR $3 < iv.effective_expires_at)
+  AND (v.voucher_type = 'COMPOSITE' OR iv.effective_expires_at IS NULL OR $3 < iv.effective_expires_at)
 ORDER BY iv.redeemed_at, iv.id
 `
 
@@ -630,8 +644,11 @@ type ListApplicableDiscountsRow struct {
 	ApplicationsCount         int32              `json:"applications_count"`
 }
 
-// What billing reads at a boundary: the instance's PRICE redemptions that
-// may apply to an invoice composed at an instant, oldest first.
+// What billing reads at a boundary: the instance's redemptions with a PRICE
+// part that may apply to an invoice composed at an instant, oldest first
+// (§8.4 rules 1, 3): a PRICE voucher, or a COMPOSITE with the PRICE members.
+// A COMPOSITE's window is its grants'; it does not bound the PRICE part,
+// which its applications bound (rule 4, checked by the composer).
 func (q *Queries) ListApplicableDiscounts(ctx context.Context, arg ListApplicableDiscountsParams) ([]ListApplicableDiscountsRow, error) {
 	rows, err := q.db.Query(ctx, listApplicableDiscounts, arg.OrganizationID, arg.InstanceID, arg.At)
 	if err != nil {
@@ -668,8 +685,12 @@ func (q *Queries) ListApplicableDiscounts(ctx context.Context, arg ListApplicabl
 const listExpiringRedemptions = `-- name: ListExpiringRedemptions :many
 SELECT iv.id, iv.organization_id
 FROM instance_voucher iv
+JOIN voucher v ON v.id = iv.voucher_id AND v.organization_id = iv.organization_id
 WHERE iv.status = 'ACTIVE'
   AND iv.effective_expires_at <= $1::timestamp
+  AND NOT (v.voucher_type = 'COMPOSITE' AND v.price_discount_type IS NOT NULL
+           AND (v.duration = 'FOREVER'
+             OR iv.applications_count < CASE WHEN v.duration = 'ONE_TIME' THEN 1 ELSE v.duration_in_periods END))
 ORDER BY iv.effective_expires_at, iv.id
 LIMIT $2
 `
@@ -684,8 +705,9 @@ type ListExpiringRedemptionsRow struct {
 	OrganizationID uuid.UUID `json:"organization_id"`
 }
 
-// ACTIVE redemptions past their effective_expires_at -- boosts whose window
-// ended -- oldest first (§11.5).
+// ACTIVE redemptions past their effective_expires_at -- boosts and flag
+// grants whose window ended -- oldest first (§11.5). A COMPOSITE with a PRICE
+// part also waits for its last application.
 func (q *Queries) ListExpiringRedemptions(ctx context.Context, arg ListExpiringRedemptionsParams) ([]ListExpiringRedemptionsRow, error) {
 	rows, err := q.db.Query(ctx, listExpiringRedemptions, arg.Now, arg.PageSize)
 	if err != nil {
@@ -751,7 +773,8 @@ func (q *Queries) ListExpiringVouchers(ctx context.Context, arg ListExpiringVouc
 const listRedemptions = `-- name: ListRedemptions :many
 SELECT iv.id, iv.voucher_id, v.name AS voucher_name, v.voucher_type, v.code_normalized, i.slug AS instance_slug,
        iv.redeemed_at, iv.effective_starts_at, iv.effective_expires_at, iv.applications_count, iv.status,
-       iv.expired_at, iv.revoked_at, iv.revoked_reason, v.duration, v.duration_in_periods
+       iv.expired_at, iv.revoked_at, iv.revoked_reason, v.duration, v.duration_in_periods,
+       (v.price_discount_type IS NOT NULL)::boolean AS has_price_part
 FROM instance_voucher iv
 JOIN voucher v ON v.id = iv.voucher_id AND v.organization_id = iv.organization_id
 JOIN instance i ON i.id = iv.instance_id AND i.organization_id = iv.organization_id
@@ -794,6 +817,7 @@ type ListRedemptionsRow struct {
 	RevokedReason      *string               `json:"revoked_reason"`
 	Duration           VoucherDuration       `json:"duration"`
 	DurationInPeriods  *int32                `json:"duration_in_periods"`
+	HasPricePart       bool                  `json:"has_price_part"`
 }
 
 // NULL reads every match: an instance's redemptions, and the single reads.
@@ -832,6 +856,7 @@ func (q *Queries) ListRedemptions(ctx context.Context, arg ListRedemptionsParams
 			&i.RevokedReason,
 			&i.Duration,
 			&i.DurationInPeriods,
+			&i.HasPricePart,
 		); err != nil {
 			return nil, err
 		}
@@ -868,6 +893,41 @@ func (q *Queries) LockInstanceVoucher(ctx context.Context, arg LockInstanceVouch
 	var i LockInstanceVoucherRow
 	err := row.Scan(&i.ID, &i.Status)
 	return i, err
+}
+
+const planHasBoostable = `-- name: PlanHasBoostable :one
+SELECT (EXISTS (SELECT 1
+                FROM license_entitlement le
+                WHERE le.organization_id = $1
+                  AND le.license_id = $2
+                  AND le.entitlement_id = ANY ($3::uuid[]))
+     OR EXISTS (SELECT 1
+                FROM addon_entitlement ae
+                WHERE ae.organization_id = $1
+                  AND ae.addon_id = ANY ($4::uuid[])
+                  AND ae.entitlement_id = ANY ($3::uuid[])))::boolean AS boostable
+`
+
+type PlanHasBoostableParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	LicenseID      uuid.UUID   `json:"license_id"`
+	EntitlementIds []uuid.UUID `json:"entitlement_ids"`
+	AddonIds       []uuid.UUID `json:"addon_ids"`
+}
+
+// Whether a licence version, or one of the add-ons selected with it, grants an
+// entitlement among those a boost targets: check 8 for a visitor's anonymous
+// checkout, which has no instance yet (§11.4).
+func (q *Queries) PlanHasBoostable(ctx context.Context, arg PlanHasBoostableParams) (bool, error) {
+	row := q.db.QueryRow(ctx, planHasBoostable,
+		arg.OrganizationID,
+		arg.LicenseID,
+		arg.EntitlementIds,
+		arg.AddonIds,
+	)
+	var boostable bool
+	err := row.Scan(&boostable)
+	return boostable, err
 }
 
 const revokeInstanceVoucher = `-- name: RevokeInstanceVoucher :exec

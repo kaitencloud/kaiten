@@ -71,6 +71,7 @@ const (
 	TypePrice     = "PRICE"
 	TypeBoost     = "ENTITLEMENT_BOOST"
 	TypeFlagGrant = "FLAG_GRANT"
+	TypeComposite = "COMPOSITE"
 
 	StatusDraft     = "DRAFT"
 	StatusActive    = "ACTIVE"
@@ -95,9 +96,9 @@ type Voucher struct {
 	CodeHint                  string          `json:"codeHint" doc:"The last four characters of the normalized code" example:"UNCH"`
 	Name                      string          `json:"name" example:"Summer launch"`
 	Description               *string         `json:"description,omitempty"`
-	VoucherType               string          `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT"`
+	VoucherType               string          `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT,COMPOSITE"`
 	Status                    string          `json:"status" enum:"DRAFT,ACTIVE,EXPIRED,EXHAUSTED,ARCHIVED"`
-	Duration                  string          `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."`
+	Duration                  string          `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."`
 	DurationInPeriods         *int32          `json:"durationInPeriods,omitempty"`
 	MaxRedemptions            *int32          `json:"maxRedemptions,omitempty"`
 	RedemptionsCount          int32           `json:"redemptionsCount"`

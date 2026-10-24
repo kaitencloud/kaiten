@@ -51,10 +51,10 @@ type PublishableKey struct {
 	AnonymousCheckout         bool       `json:"anonymousCheckout" doc:"Whether the key may start an anonymous checkout (POST /public/checkout-sessions). Needs a Turnstile site key and secret."`
 	TurnstileSiteKey          *string    `json:"turnstileSiteKey" nullable:"true" doc:"The Turnstile site key the page renders its widget with; null without one. Public: the catalogue hands it to the page."`
 	TurnstileSecretConfigured bool       `json:"turnstileSecretConfigured" readOnly:"true" doc:"Whether a Turnstile secret is stored for the key. The secret itself is write-only."`
-	LastUsedAt                *time.Time `json:"lastUsedAt,omitempty" readOnly:"true" doc:"When the key last authenticated a request, to the minute"`
+	LastUsedAt                *time.Time `json:"lastUsedAt" nullable:"true" readOnly:"true" doc:"When the key last authenticated a request, to the minute; null before its first"`
 	CreatedAt                 time.Time  `json:"createdAt" readOnly:"true"`
 	UpdatedAt                 time.Time  `json:"updatedAt" readOnly:"true"`
-	RevokedAt                 *time.Time `json:"revokedAt,omitempty" readOnly:"true" doc:"When the key was revoked; absent while it is live"`
+	RevokedAt                 *time.Time `json:"revokedAt" nullable:"true" readOnly:"true" doc:"When the key was revoked; null while it is live"`
 }
 
 // Created is a key at creation, the one time its plaintext is returned.

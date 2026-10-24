@@ -28,7 +28,8 @@ type Sources interface {
 	RetentionStart(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time
 	// Discount is the discount a redemption of the code would apply. found is
 	// false when no voucher has the code; the discount is nil when its
-	// voucher is not an ACTIVE PRICE voucher.
+	// voucher is not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a
+	// PRICE part.
 	Discount(ctx context.Context, organizationID uuid.UUID, code string) (discount *rating.Discount, found bool, err error)
 }
 

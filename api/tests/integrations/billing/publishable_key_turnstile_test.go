@@ -64,7 +64,16 @@ func TestPublishableKeyTurnstile(t *testing.T) {
 		return commonfixture.AssertJSONResponse[getpubliccatalog.PublicCatalog](t,
 			publicGet(t, testServer, "/api/public/catalog", key, storefront), fiber.StatusOK).Capabilities
 	}
+	// Nothing to check out yet: no anonymous checkout either (E-18).
+	empty := catalogOf(created.Key)
+	require.False(t, empty.Checkout)
+	require.False(t, empty.AnonymousCheckout, "the anonymous checkout needs capabilities.checkout")
+	require.Nil(t, empty.TurnstileSiteKey)
+	community := newDefaultVersion(t, "Community", "FREE")
+	makePublic(t, community.FamilySlug)
+	createPrice(t, community.Slug, defaultFlatFee("0", "MONTHLY"))
 	open := catalogOf(created.Key)
+	require.True(t, open.Checkout)
 	require.True(t, open.AnonymousCheckout, "the catalogue tells the page")
 	require.Equal(t, "0x4AAAAAAAsite", *open.TurnstileSiteKey)
 

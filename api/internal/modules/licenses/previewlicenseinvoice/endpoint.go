@@ -23,7 +23,7 @@ type InvoicePreviewScenario struct {
 	InstanceSlug *string             `json:"instanceSlug,omitempty" doc:"Rate this instance's own usage, read from its journal over [P0, now): P0 of its live subscription, else one billing period back (PreviewLicenseInvoice.InstanceNotFound; .OutsideRetention when P0 is before the usage history). Not with sampleUsage."`
 	SampleUsage  []SampleUsageAmount `json:"sampleUsage,omitempty" doc:"Usage of the metered entitlements over the period that ends, one entry per entitlement, rated against the version's grant and the listed add-ons'. An entitlement left out used nothing."`
 	AddOns       []AddonAmount       `json:"addOns,omitempty" doc:"Add-on versions priced in: their fees for the base's period and their metered prices, and their grants for the sample (PreviewLicenseInvoice.AddonNotFound; .InvalidAddOns for a repeated one or a quantity below 1)."`
-	VoucherCode  *string             `json:"voucherCode,omitempty" doc:"A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher)."`
+	VoucherCode  *string             `json:"voucherCode,omitempty" doc:"A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part)."`
 }
 
 // AddonAmount is an add-on version the preview prices in.

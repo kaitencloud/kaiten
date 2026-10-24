@@ -264,6 +264,8 @@ export class BillingPublishableKeys {
       id: `publishable-key-${number}`,
       keyHint: secret.slice(-4),
       label,
+      lastUsedAt: null,
+      revokedAt: null,
       turnstileSecretConfigured: draft.turnstileSecret !== undefined,
       turnstileSiteKey: draft.turnstileSiteKey ?? null,
       updatedAt: now,

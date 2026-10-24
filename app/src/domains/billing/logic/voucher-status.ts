@@ -75,6 +75,7 @@ export const VOUCHER_TYPES = [
 ] as const satisfies readonly VoucherType[];
 
 const VOUCHER_TYPE_LABEL_KEYS = {
+  COMPOSITE: 'Features.Billing.VoucherType.COMPOSITE',
   ENTITLEMENT_BOOST: 'Features.Billing.VoucherType.ENTITLEMENT_BOOST',
   FLAG_GRANT: 'Features.Billing.VoucherType.FLAG_GRANT',
   PRICE: 'Features.Billing.VoucherType.PRICE',

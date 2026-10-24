@@ -40,8 +40,8 @@ type SessionVoucherValidity struct {
 // SessionVoucher is a voucher as the customer sees it.
 type SessionVoucher struct {
 	Name              string           `json:"name" example:"Summer launch"`
-	VoucherType       string           `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT"`
-	Duration          string           `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods."`
+	VoucherType       string           `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT,COMPOSITE"`
+	Duration          string           `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER" doc:"PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods. COMPOSITE: both, each for its part, which it carries each of."`
 	DurationInPeriods *int32           `json:"durationInPeriods,omitempty"`
 	Discount          *SessionDiscount `json:"discount,omitempty" doc:"PRICE: what it takes off"`
 	Boosts            []SessionBoost   `json:"boosts,omitempty" doc:"ENTITLEMENT_BOOST: what it raises"`

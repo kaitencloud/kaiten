@@ -1991,7 +1991,7 @@ components:
           minLength: 1
           type: string
         voucherCode:
-          description: A code to apply; any refusal answers 422 .VoucherInvalid
+          description: "A code to apply, checked against the selection, with no customer yet: a voucher restricted to a customer never applies, and one without a PRICE part only when nothing is due today. Its discount counts in dueToday; the completion, or the payment, records its redemption. Any refusal answers 422 .VoucherInvalid"
           maxLength: 64
           type: string
       required:
@@ -6830,7 +6830,7 @@ components:
             - array
             - "null"
         voucherCode:
-          description: A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher).
+          description: A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part).
           type: string
       type: object
     InvoiceSummary:
@@ -11746,15 +11746,19 @@ components:
             - Marketing site
           type: string
         lastUsedAt:
-          description: When the key last authenticated a request, to the minute
+          description: When the key last authenticated a request, to the minute; null before its first
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         revokedAt:
-          description: When the key was revoked; absent while it is live
+          description: When the key was revoked; null while it is live
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         turnstileSecretConfigured:
           description: Whether a Turnstile secret is stored for the key. The secret itself is write-only.
           readOnly: true
@@ -11776,8 +11780,10 @@ components:
         - anonymousCheckout
         - turnstileSiteKey
         - turnstileSecretConfigured
+        - lastUsedAt
         - createdAt
         - updatedAt
+        - revokedAt
       type: object
     PublishableKeyCreated:
       additionalProperties: false
@@ -11818,15 +11824,19 @@ components:
             - Marketing site
           type: string
         lastUsedAt:
-          description: When the key last authenticated a request, to the minute
+          description: When the key last authenticated a request, to the minute; null before its first
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         revokedAt:
-          description: When the key was revoked; absent while it is live
+          description: When the key was revoked; null while it is live
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         turnstileSecretConfigured:
           description: Whether a Turnstile secret is stored for the key. The secret itself is write-only.
           readOnly: true
@@ -11849,8 +11859,10 @@ components:
         - anonymousCheckout
         - turnstileSiteKey
         - turnstileSecretConfigured
+        - lastUsedAt
         - createdAt
         - updatedAt
+        - revokedAt
       type: object
     PublishableKeyDraft:
       additionalProperties: false
@@ -11912,7 +11924,9 @@ components:
           type: string
         revokedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         turnstileSiteKey:
           type:
             - string
@@ -11930,6 +11944,7 @@ components:
         - allowedOrigins
         - anonymousCheckout
         - turnstileSiteKey
+        - revokedAt
       type: object
       x-kaiten-payload: "#/components/schemas/PublishableKeyEvent"
     PublishableKeyPatch:
@@ -12608,6 +12623,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -12701,6 +12717,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -14124,7 +14141,7 @@ components:
           $ref: "#/components/schemas/SessionDiscount"
           description: "PRICE: what it takes off"
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods. COMPOSITE: both, each for its part, which it carries each of."
           enum:
             - ONE_TIME
             - REPEATING
@@ -14149,6 +14166,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - name
@@ -15712,7 +15730,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15789,6 +15807,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -15889,7 +15908,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15972,6 +15991,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -16048,14 +16068,14 @@ components:
           format: date-time
           type: string
         flagGrants:
-          description: Required on a FLAG_GRANT, one per flag, refused otherwise
+          description: Required on a FLAG_GRANT, optional on a COMPOSITE, one per flag, refused otherwise
           items:
             $ref: "#/components/schemas/FlagGrant"
           type:
             - array
             - "null"
         grants:
-          description: Required on an ENTITLEMENT_BOOST, refused otherwise
+          description: Required on an ENTITLEMENT_BOOST, optional on a COMPOSITE, refused otherwise
           items:
             $ref: "#/components/schemas/Grant"
           type:
@@ -16100,6 +16120,7 @@ components:
             - PRICE
             - ENTITLEMENT_BOOST
             - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - name

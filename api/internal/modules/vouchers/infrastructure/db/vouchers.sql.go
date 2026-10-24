@@ -285,14 +285,15 @@ func (q *Queries) InsertVoucherFlagGrant(ctx context.Context, arg InsertVoucherF
 }
 
 const insertVoucherGrant = `-- name: InsertVoucherGrant :exec
-INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value, value)
-VALUES ($1, $2, $3, $4,
-        CAST($5::text AS NUMERIC), $6::jsonb)
+INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, voucher_type, entitlement_id, modifier_type, modifier_value, value)
+VALUES ($1, $2, $3, $4, $5,
+        CAST($6::text AS NUMERIC), $7::jsonb)
 `
 
 type InsertVoucherGrantParams struct {
 	OrganizationID uuid.UUID         `json:"organization_id"`
 	VoucherID      uuid.UUID         `json:"voucher_id"`
+	VoucherType    VoucherType       `json:"voucher_type"`
 	EntitlementID  uuid.UUID         `json:"entitlement_id"`
 	ModifierType   BoostModifierType `json:"modifier_type"`
 	ModifierValue  *string           `json:"modifier_value"`
@@ -301,10 +302,13 @@ type InsertVoucherGrantParams struct {
 
 // value is what a BOOLEAN or CONFIG SET boost sets, raw: true or false, or
 // the CONFIG document (V32-03 b); NULL on a NUMBER grant.
+// voucher_type is the voucher's, ENTITLEMENT_BOOST or COMPOSITE: part of the
+// foreign key.
 func (q *Queries) InsertVoucherGrant(ctx context.Context, arg InsertVoucherGrantParams) error {
 	_, err := q.db.Exec(ctx, insertVoucherGrant,
 		arg.OrganizationID,
 		arg.VoucherID,
+		arg.VoucherType,
 		arg.EntitlementID,
 		arg.ModifierType,
 		arg.ModifierValue,

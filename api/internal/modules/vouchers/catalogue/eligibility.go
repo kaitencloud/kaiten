@@ -117,6 +117,15 @@ type Subject struct {
 	// and the licence check its version: subscribing on it moves the instance
 	// there (§14.4 rule 2).
 	Plan *Plan
+	// Visitor is an anonymous checkout's (§11.4, V32-01): no customer and no
+	// instance exist yet, and the add-on and boost checks read the plan and
+	// the add-ons it selects.
+	Visitor *Visitor
+}
+
+// Visitor is what an anonymous checkout selects with its plan.
+type Visitor struct {
+	AddonIDs []uuid.UUID
 }
 
 // Plan is a flat-fee price a subscription would start on.
@@ -143,6 +152,14 @@ func (c Candidate) gather(ctx context.Context, q *db.Queries, organizationID uui
 		if f.paid, err = q.CustomerHasPaid(ctx, db.CustomerHasPaidParams{OrganizationID: organizationID, CustomerID: s.CustomerID}); err != nil {
 			return f, err
 		}
+	}
+	if s.Visitor != nil && s.Plan != nil {
+		f.holdsAddon = slices.ContainsFunc(s.Visitor.AddonIDs, func(id uuid.UUID) bool { return slices.Contains(c.Row.ApplicableAddonIds, id) })
+		f.boostable, err = q.PlanHasBoostable(ctx, db.PlanHasBoostableParams{
+			OrganizationID: organizationID, LicenseID: s.Plan.LicenseID,
+			EntitlementIds: nonNil(c.Entitlements), AddonIds: nonNil(s.Visitor.AddonIDs),
+		})
+		return f, err
 	}
 	if s.Instance == nil {
 		return f, nil
@@ -188,13 +205,14 @@ func (c Candidate) Check(ctx context.Context, q *db.Queries, organizationID uuid
 
 // Instance runs the checks of the redeeming instance.
 func (c Candidate) Instance(ctx context.Context, q *db.Queries, organizationID uuid.UUID, instance db.GetInstanceForRedeemRow) (*Refusal, error) {
-	return c.Check(ctx, q, organizationID, Subject{CustomerID: &instance.CustomerID, Instance: &instance, Plan: nil})
+	return c.Check(ctx, q, organizationID, Subject{CustomerID: &instance.CustomerID, Instance: &instance, Plan: nil, Visitor: nil})
 }
 
 func (c Candidate) decide(s Subject, f facts) *Refusal {
 	row := c.Row
 	notEligible := func(rule string) *Refusal { return &Refusal{Reason: ReasonNotEligible, Rule: rule} }
-	if row.RestrictedCustomerID != nil && s.CustomerID != nil && *row.RestrictedCustomerID != *s.CustomerID {
+	// A visitor is no customer yet: a voucher restricted to one never passes.
+	if row.RestrictedCustomerID != nil && (s.Visitor != nil || (s.CustomerID != nil && *row.RestrictedCustomerID != *s.CustomerID)) {
 		return notEligible(RuleRestrictedCustomer)
 	}
 	var licenseID *uuid.UUID
@@ -207,7 +225,7 @@ func (c Candidate) decide(s Subject, f facts) *Refusal {
 	if len(row.ApplicableLicenseIds) > 0 && licenseID != nil && !slices.Contains(row.ApplicableLicenseIds, *licenseID) {
 		return notEligible(RuleLicense)
 	}
-	if len(row.ApplicableAddonIds) > 0 && s.Instance != nil && !f.holdsAddon {
+	if len(row.ApplicableAddonIds) > 0 && (s.Instance != nil || s.Visitor != nil) && !f.holdsAddon {
 		return notEligible(RuleAddon)
 	}
 
@@ -243,7 +261,7 @@ func (c Candidate) decide(s Subject, f facts) *Refusal {
 	if sub != nil && row.PriceDiscountType != nil && *row.PriceDiscountType == db.PriceDiscountTypeFIXEDAMOUNT && row.Currency != sub.currency {
 		return &Refusal{Reason: ReasonCurrencyMismatch, Rule: ""}
 	}
-	if row.VoucherType == db.VoucherTypeENTITLEMENTBOOST && s.Instance != nil && !f.boostable {
+	if row.VoucherType == db.VoucherTypeENTITLEMENTBOOST && (s.Instance != nil || s.Visitor != nil) && !f.boostable {
 		return notEligible(RuleNothingToBoost)
 	}
 	if s.Instance != nil && f.redeemed {

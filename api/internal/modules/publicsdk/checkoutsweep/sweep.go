@@ -25,6 +25,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkoutprogress"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/telemetry"
 )
 
 // operation names what a setup read refuses, as the confirm's.
@@ -167,6 +168,9 @@ func (s *Sweep) reap(ctx context.Context, organizationID, sessionID uuid.UUID) (
 			events.CheckoutSessionAbandoned.Name, events.CheckoutSessionAbandoned.Type,
 			checkoutprogress.Event(row, checkout.StatusAbandoned), nil))
 	})
+	if err == nil && reaped {
+		telemetry.SessionEntered(ctx, checkout.StatusAbandoned)
+	}
 	return reaped, err
 }
 
