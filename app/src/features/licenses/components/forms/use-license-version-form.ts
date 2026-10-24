@@ -70,8 +70,7 @@ function getInheritedType(
   )?.type;
 }
 
-// Cancelling is a deliberate abandon, unlike leaving by a link: the input is
-// discarded, and a toast offers to bring it back on the page it was typed on.
+// Cancel discards input; its toast offers to restore it on the page it was typed on.
 function handleLicenseVersionFormCancel({
   onCancel,
   recovery,
@@ -102,8 +101,7 @@ type SubmitLicenseVersionOptions = Pick<
   entitlements: Entitlement[];
 };
 
-// What the form does once it is valid: creates the version, tells the person
-// when it stayed a draft, and goes where the version opens.
+// Creates the version, reports an incomplete draft, then opens its destination.
 function useSubmitLicenseVersion({
   availableLicenses,
   draftEntitlements,
@@ -115,19 +113,16 @@ function useSubmitLicenseVersion({
   const router = useRouter();
   const createVersion = useCreateLicenseVersion(entitlements);
   const queryClient = useQueryClient();
-
   return async (value: LicenseVersionFormValues) => {
     try {
       const baseLicense = availableLicenses.find(
         (license) => license.slug === value.baseLicenseSlug,
       );
-
       if (!baseLicense) {
         throw new Error(
           t('Pages.Licenses.Version.Form.Errors.baseLicenseNotFound'),
         );
       }
-
       const aiEnabled =
         value.copyAiRules &&
         (await queryClient.ensureQueryData(aiCreditsFlagQueryOptions));
@@ -163,7 +158,9 @@ function useSubmitLicenseVersion({
                       throw new Error(t('AI.copyPartial'));
                   } finally {
                     await Promise.all([
-                      queryClient.invalidateQueries({ queryKey: aiMatrixQueryKey }),
+                      queryClient.invalidateQueries({
+                        queryKey: aiMatrixQueryKey,
+                      }),
                       queryClient.invalidateQueries({
                         queryKey: aiWildcardImpactQueryKey,
                       }),
@@ -180,7 +177,6 @@ function useSubmitLicenseVersion({
           }),
         },
       );
-
       // The version exists but stayed a draft: a grant, a price or the
       // publish failed. A copy of prices that stopped says why with the
       // refusal of the API that stopped it.
@@ -191,7 +187,6 @@ function useSubmitLicenseVersion({
           }),
         );
       }
-
       const destination = getCreatedVersionDestination({
         baseSlug: baseLicense.slug,
         error,
@@ -202,12 +197,10 @@ function useSubmitLicenseVersion({
         router.navigate(destination);
         return;
       }
-
       if (onSuccess) {
         onSuccess();
         return;
       }
-
       router.navigate({ to: '/catalog/licenses' });
     } catch (error) {
       toast.error(getApiErrorMessage(error));

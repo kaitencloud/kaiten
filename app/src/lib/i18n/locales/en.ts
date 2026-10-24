@@ -14,7 +14,6 @@ export default {
       additionalRates: 'Additional rates',
       matchingHelp: 'How rules match',
       exampleDetails: 'Synthetic example details',
-      presentation: 'Presentation',
       sumFixed: 'Sum · fixed',
       thresholdHelp: '0 or blank = off. Unlimited grants do not warn.',
       unitsDetails: 'Units & sale units',

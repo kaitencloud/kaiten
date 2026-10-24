@@ -53,7 +53,7 @@ export const EntitlementForm = ({
   ) : null;
 
   function handleCancel() {
-    if (requestClose) {
+    if (requestClose && form.state.values.type === 'NUMBER_AI_CREDIT') {
       requestClose();
       return;
     }
@@ -114,10 +114,12 @@ export const EntitlementForm = ({
   return (
     <form id={formId} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
       <form.AppForm>
-        <form.Subscribe selector={(state) => state.isDefaultValue}>
-          {(isDefaultValue) => (
-            <StackedFormDialogDirtyState dirty={!isDefaultValue} />
-          )}
+        <form.Subscribe
+          selector={(state) =>
+            state.values.type === 'NUMBER_AI_CREDIT' && !state.isDefaultValue
+          }
+        >
+          {(dirty) => <StackedFormDialogDirtyState dirty={dirty} />}
         </form.Subscribe>
         {layout === 'dialog' ? (
           <StepStack embedded orientation="bottom-right">
