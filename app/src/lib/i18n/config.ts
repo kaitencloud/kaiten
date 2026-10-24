@@ -26,6 +26,17 @@ i18n.use(initReactI18next).init({
   },
 });
 
+// The page says which language it is in, for screen readers, spelling and
+// hyphenation: `index.html` ships `lang="en"`, which a French console would
+// otherwise keep.
+const syncDocumentLanguage = (language: string | undefined) => {
+  if (typeof document !== 'undefined' && language) {
+    document.documentElement.lang = language;
+  }
+};
+syncDocumentLanguage(i18n.resolvedLanguage ?? i18n.language);
+i18n.on('languageChanged', syncDocumentLanguage);
+
 // Function to change language and store in app settings
 export const changeLanguage = (language: string) => {
   i18n.changeLanguage(language);
