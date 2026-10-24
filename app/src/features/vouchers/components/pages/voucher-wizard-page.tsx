@@ -1,23 +1,39 @@
 import { useStore } from '@tanstack/react-form';
-import { useNavigate } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import { focusFirstInvalidControl } from '@/components/form/use-submit-focus';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ProblemAlert } from '@/domains/billing';
+import {
+  type FormRecovery,
+  FormRecoveryAlert,
+  FormRecoveryAnnouncer,
+  FormRecoveryNotes,
+  FormRecoverySubmitWarning,
+  useFormRecovery,
+  useFormRecoveryForm,
+} from '@/functionals/form-recovery';
 import { Page } from '@/functionals/page';
 import { ProgressStepper } from '@/functionals/progress-stepper';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { useVoucherForm } from '../../hooks/use-voucher-form';
 import { useVoucherReferences } from '../../hooks/use-voucher-references';
-import { boostLikeToFormValues, VOUCHER_STEPS } from '../../schemas';
+import {
+  boostLikeToFormValues,
+  initialVoucherFormValues,
+  VOUCHER_STEPS,
+  type VoucherFormValues,
+} from '../../schemas';
 import { EligibilityStep } from '../wizard/eligibility-step';
 import { OfferStep } from '../wizard/offer-step';
 import { PublishedView } from '../wizard/published-view';
 import { ReviewStep } from '../wizard/review-step';
 import { TypeStep } from '../wizard/type-step';
 import { WizardFooter } from '../wizard/wizard-footer';
+import { voucherRecovery } from './voucher-recovery';
 
 const STEP_LABEL_KEYS = {
   eligibility: 'Pages.Vouchers.Wizard.Steps.eligibility',
@@ -41,8 +57,6 @@ type VoucherWizardPageProps = {
  */
 export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
-  const VoucherIcon = dataModelIcons.voucher;
   // Where the wizard starts is decided once, when it opens.
   const [start] = useState(() =>
     boostFor
@@ -55,6 +69,60 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
         }
       : undefined,
   );
+  // What a new voucher typed and did not send is kept on the device and offered back on
+  // the next visit, for the same discount when it is a boost; a draft being finished is
+  // a server object and keeps nothing. Resuming mounts the wizard again.
+  const recovery = useFormRecovery(voucherRecovery, {
+    context: boostFor ? `boostFor:${boostFor.id}` : '',
+    enabled: !draft,
+    pristine: start?.values ?? initialVoucherFormValues,
+  });
+  const stepLabels = VOUCHER_STEPS.map((id) => t(STEP_LABEL_KEYS[id]));
+
+  return (
+    <>
+      <FormRecoveryAnnouncer recovery={recovery} stepLabels={stepLabels} />
+      <VoucherWizard
+        key={recovery.sessionKey}
+        boostFor={boostFor}
+        draft={draft}
+        recovery={recovery}
+        start={start}
+        stepLabels={stepLabels}
+      />
+    </>
+  );
+}
+
+function VoucherListLink() {
+  const { t } = useTranslation();
+
+  return (
+    <Button
+      nativeButton={false}
+      render={<Link to="/catalog/vouchers" />}
+      size="sm"
+      variant="outline"
+    >
+      {t('Common.viewList')}
+    </Button>
+  );
+}
+
+function VoucherWizard({
+  boostFor,
+  draft,
+  recovery,
+  start,
+  stepLabels,
+}: VoucherWizardPageProps & {
+  recovery: FormRecovery<VoucherFormValues>;
+  start: { step: number; values: VoucherFormValues } | undefined;
+  stepLabels: string[];
+}) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const VoucherIcon = dataModelIcons.voucher;
   const wizard = useVoucherForm({
     draft,
     onDraftSaved: (saved) =>
@@ -62,6 +130,7 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
         params: { voucherId: saved.id },
         to: '/catalog/vouchers/$voucherId',
       }),
+    recovery: draft ? undefined : recovery,
     start,
   });
   const { form } = wizard;
@@ -76,6 +145,21 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
     withPrices: choosesPrices,
   });
   const stepName = VOUCHER_STEPS[wizard.step];
+  const { focusRef } = useFormRecoveryForm(recovery, form, {
+    furthestIndex: wizard.furthest,
+    stepIndex: wizard.step,
+  });
+  // The code is never kept: the offer says it is to be entered again.
+  const omittedLabels = { code: t('Pages.Vouchers.Wizard.Labels.code') };
+  // A deliberate abandon: the entries go, and a toast brings them back.
+  const cancel = () =>
+    recovery.discard({
+      undo: () =>
+        void navigate({
+          search: boostFor ? { boostFor: boostFor.id } : {},
+          to: '/catalog/vouchers/new',
+        }),
+    });
   const formElement = useRef<HTMLFormElement>(null);
   // A step that is refused, here or by the API, leaves the keyboard on the button that asked:
   // the focus goes to the first field that says what is wrong, once the step has drawn it.
@@ -89,9 +173,9 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
 
     return () => cancelAnimationFrame(frame);
   }, [wizard.attention]);
-  const steps = VOUCHER_STEPS.map((id) => ({
+  const steps = VOUCHER_STEPS.map((id, index) => ({
     id,
-    label: t(STEP_LABEL_KEYS[id]),
+    label: stepLabels[index],
   }));
 
   if (wizard.published) {
@@ -132,7 +216,10 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
       className="flex h-full min-h-0 flex-col overflow-hidden"
       noValidate
       onSubmit={onSubmit}
-      ref={formElement}
+      ref={(element) => {
+        formElement.current = element;
+        focusRef(element);
+      }}
     >
       <form.AppForm>
         <Page className="h-full min-h-0 flex-1 overflow-hidden">
@@ -156,6 +243,29 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
             </Page.Leading>
           </Page.Header>
           <div className="flex min-h-0 flex-1 flex-col gap-6">
+            <FormRecoveryAlert
+              className="shrink-0"
+              fieldLabels={omittedLabels}
+              finishLink={(created) => (
+                <Button
+                  nativeButton={false}
+                  render={
+                    <Link
+                      params={{ voucherId: created.id }}
+                      to="/catalog/vouchers/$voucherId"
+                    />
+                  }
+                  size="sm"
+                  variant="outline"
+                >
+                  {t('Pages.Vouchers.Wizard.Recovery.finish')}
+                </Button>
+              )}
+              recovery={recovery}
+              stepLabels={stepLabels}
+            >
+              <VoucherListLink />
+            </FormRecoveryAlert>
             <ProgressStepper
               activeStep={wizard.step}
               furthestStep={wizard.furthest}
@@ -167,7 +277,14 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
                 <CardHeader>
                   <CardTitle>{steps[wizard.step].label}</CardTitle>
                 </CardHeader>
-                <CardContent>{renderStep()}</CardContent>
+                <CardContent>
+                  <FormRecoveryNotes
+                    className="mb-6"
+                    fieldLabels={omittedLabels}
+                    recovery={recovery}
+                  />
+                  {renderStep()}
+                </CardContent>
               </Card>
               {wizard.failure ? (
                 <div className="mt-4 space-y-2">
@@ -187,9 +304,13 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
                 isFirst={wizard.step === 0}
                 isReview={stepName === 'review'}
                 onBack={() => wizard.goTo(wizard.step - 1)}
+                onCancel={draft ? undefined : cancel}
                 onSaveDraft={() => wizard.submit('draft')}
                 submitting={wizard.submitting}
               />
+              <FormRecoverySubmitWarning className="mb-4" recovery={recovery}>
+                <VoucherListLink />
+              </FormRecoverySubmitWarning>
             </div>
           </div>
         </Page>

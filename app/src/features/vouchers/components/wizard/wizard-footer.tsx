@@ -9,6 +9,8 @@ type WizardFooterProps = {
   /** Whether the last step is open: it sends the voucher, where the others go on. */
   isReview: boolean;
   onBack: () => void;
+  /** Called as the first step is left by its Cancel link: a deliberate abandon. */
+  onCancel?: () => void;
   onSaveDraft: () => void;
   /** Whether a request is under way: nothing is sent twice. */
   submitting: boolean;
@@ -24,6 +26,7 @@ export function WizardFooter({
   isFirst,
   isReview,
   onBack,
+  onCancel,
   onSaveDraft,
   submitting,
 }: WizardFooterProps) {
@@ -34,7 +37,11 @@ export function WizardFooter({
       {isFirst ? (
         <Button
           nativeButton={false}
-          render={<Link to="/catalog/vouchers">{t('Common.cancel')}</Link>}
+          render={
+            <Link onClick={onCancel} to="/catalog/vouchers">
+              {t('Common.cancel')}
+            </Link>
+          }
           role="link"
           variant="outline"
         />

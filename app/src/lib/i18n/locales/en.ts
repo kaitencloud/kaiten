@@ -5400,6 +5400,9 @@ export default {
           'the base price of the subscription must be at least {{amount}}',
       },
       Wizard: {
+        Recovery: {
+          finish: 'Finish the voucher',
+        },
         title: 'New voucher',
         titleDraft: 'Finish the draft',
         subtitle:

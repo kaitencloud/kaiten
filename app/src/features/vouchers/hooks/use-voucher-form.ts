@@ -14,6 +14,7 @@ import {
   invalidateVoucherQueries,
   setProblemFieldError,
 } from '@/domains/billing';
+import type { FormRecovery } from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
 import {
   type AskingStep,
@@ -37,6 +38,12 @@ type UseVoucherFormOptions = {
   start?: { step: number; values: VoucherFormValues };
   /** Called with the voucher once it is kept as a draft, for the page to go to it. */
   onDraftSaved?: (voucher: Voucher) => void;
+  /**
+   * The recovery of a new voucher: the form starts from its values and on the step it
+   * restores, and the creation is sent through it, so that a voucher made is never
+   * offered again. Its publication is the follow-up the recovery waits for.
+   */
+  recovery?: FormRecovery<VoucherFormValues>;
 };
 
 /** TanStack Form reads a form-level check as `{ fields }`, each field with its message. */
@@ -70,13 +77,20 @@ const toFieldErrors = (errors: Record<string, string> | undefined) =>
 export function useVoucherForm({
   draft,
   onDraftSaved,
+  recovery,
   start,
 }: UseVoucherFormOptions = {}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
-  const initialStep = start?.step ?? (draft ? VOUCHER_STEPS.length - 1 : 0);
+  const restored = recovery?.restored;
+  const initialStep =
+    restored?.stepIndex ??
+    start?.step ??
+    (draft ? VOUCHER_STEPS.length - 1 : 0);
   const [step, setStep] = useState(initialStep);
-  const [furthest, setFurthest] = useState(initialStep);
+  const [furthest, setFurthest] = useState(
+    restored?.furthestIndex ?? initialStep,
+  );
   const [saved, setSaved] = useState<Voucher | null>(draft ?? null);
   const [published, setPublished] = useState<Voucher | null>(null);
   const [failure, setFailure] = useState<unknown>(null);
@@ -102,7 +116,7 @@ export function useVoucherForm({
   const form = useAppForm({
     defaultValues: draft
       ? voucherToFormValues(draft)
-      : (start?.values ?? initialVoucherFormValues),
+      : (recovery?.pristine ?? start?.values ?? initialVoucherFormValues),
     onSubmit: async ({ formApi, value }) => {
       // Enter in a field of an earlier step is not a request to publish.
       if (VOUCHER_STEPS[stepRef.current] !== 'review' || busy.current) {
@@ -112,9 +126,17 @@ export function useVoucherForm({
       setFailure(null);
       try {
         const body = voucherFormValuesToBody(value);
+        // The body is built before the request, outside `send`: an error while building
+        // it is not an answer that never came. A publication still has to follow it.
+        const created = () => create.mutateAsync({ body });
         const stored = saved
           ? await update.mutateAsync({ body, path: { voucherId: saved.id } })
-          : await create.mutateAsync({ body });
+          : await (recovery
+              ? recovery.send(created, {
+                  created: (voucher) => ({ id: voucher.id, label: voucher.name }),
+                  followUp: intent.current === 'publish',
+                })
+              : created());
         setSaved(stored);
         if (intent.current === 'draft') {
           await invalidateVoucherQueries(queryClient, stored.id);
@@ -126,6 +148,7 @@ export function useVoucherForm({
         const live = await publish.mutateAsync({
           path: { voucherId: stored.id },
         });
+        recovery?.complete();
         setSaved(live);
         setPublished(live);
         await invalidateVoucherQueries(queryClient, live.id);
@@ -244,6 +267,7 @@ export function useVoucherForm({
 
   /** Starts over with an empty voucher, from the first step, once the one just made has been shown. */
   function restart() {
+    recovery?.restart();
     form.reset(initialVoucherFormValues);
     stepRef.current = 0;
     setStep(0);

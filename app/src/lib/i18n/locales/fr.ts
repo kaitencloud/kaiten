@@ -5474,6 +5474,9 @@ export default {
           'le prix de base de l’abonnement doit être d’au moins {{amount}}',
       },
       Wizard: {
+        Recovery: {
+          finish: 'Terminer le code promo',
+        },
         title: 'Nouveau code promo',
         titleDraft: 'Terminer le brouillon',
         subtitle:
