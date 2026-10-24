@@ -187,6 +187,10 @@ func (u *UseCase) CapturingProviderIn(ctx context.Context, organizationID uuid.U
 		if !ok || !capabilities.PaymentMethodCapture || (currency != "" && !capabilities.AcceptsCurrency(currency)) {
 			continue
 		}
+		// A provider the plan no longer includes starts nothing new (V31-51).
+		if availability, err := u.deps.Providers.Availability(ctx, organizationID, kind); err != nil || !availability.Available {
+			continue
+		}
 		_, err := u.deps.Providers.Resolve(ctx, organizationID, kind)
 		if err == nil {
 			return string(kind), true

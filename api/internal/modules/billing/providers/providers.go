@@ -37,6 +37,25 @@ func Connect(ctx context.Context, registry provider.Registry, organizationID uui
 	return registry.Resolve(ctx, organizationID, provider.Kind(kind))
 }
 
+// ConnectNew is Connect for something new on the provider -- a subscription,
+// or a switch to it -- which also needs the organization's plan to include
+// it (§12.3 rule 1, V31-51): a provider no longer granted answers
+// provider.ErrNotEntitled. Invoices already issued go through Connect, and
+// run to their end.
+func ConnectNew(ctx context.Context, registry provider.Registry, organizationID uuid.UUID, kind db.BillingProviderKind) (*provider.Connection, error) {
+	if registry == nil {
+		return nil, provider.ErrNotConnected
+	}
+	availability, err := registry.Availability(ctx, organizationID, provider.Kind(kind))
+	if err != nil {
+		return nil, err
+	}
+	if !availability.Available && availability.Reason == provider.UnavailableNotEntitled {
+		return nil, provider.ErrNotEntitled
+	}
+	return registry.Resolve(ctx, organizationID, provider.Kind(kind))
+}
+
 // Bound is ctx limited to one provider call.
 func Bound(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
 	if timeout <= 0 {
@@ -50,6 +69,10 @@ func APIError(operation string, err error) error {
 	switch {
 	case errors.Is(err, provider.ErrNotConnected):
 		return kaitenerrors.UnprocessableEntity(operation+".ProviderNotConnected", "the payment provider is not connected for this organization")
+	case errors.Is(err, provider.ErrNotEntitled):
+		return kaitenerrors.UnprocessableEntityWithErrors(operation+".ProviderNotConnected",
+			"the organization's plan does not include this payment provider any more: nothing new starts on it",
+			&kaitenerrors.ErrorDetail{Message: "why the provider is not available", Location: "provider", Value: map[string]string{"reason": provider.UnavailableNotEntitled}})
 	case errors.Is(err, provider.ErrUnsupported):
 		return kaitenerrors.UnprocessableEntity(operation+".CapabilityUnsupported", "the payment provider does not support this operation")
 	}

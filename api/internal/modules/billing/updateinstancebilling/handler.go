@@ -84,7 +84,13 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 	if method == settings.SendInvoice && target == nil {
 		return nil, nil
 	}
-	conn, err := providers.Connect(ctx, u.deps.Providers, organizationID, kind)
+	// A switch starts something new on the provider; the subscription's own
+	// provider is used as it is, granted or not (V31-51).
+	connect := providers.Connect
+	if target != nil {
+		connect = providers.ConnectNew
+	}
+	conn, err := connect(ctx, u.deps.Providers, organizationID, kind)
 	if err != nil {
 		return nil, providers.APIError(operation, err)
 	}

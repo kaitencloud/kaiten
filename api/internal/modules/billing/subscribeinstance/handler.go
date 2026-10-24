@@ -697,7 +697,7 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 	if kind == db.BillingProviderKindNOOP && method == settings.SendInvoice {
 		return kind, nil
 	}
-	conn, err := providers.Connect(ctx, u.deps.Providers, organizationID, kind)
+	conn, err := providers.ConnectNew(ctx, u.deps.Providers, organizationID, kind)
 	if err != nil {
 		return "", providers.APIError(operation, err)
 	}

@@ -404,3 +404,7 @@ var ErrUnsupported = errors.New("the billing provider does not support this oper
 // ErrNotConnected is what the registry answers for a provider the
 // organization has not connected.
 var ErrNotConnected = errors.New("the billing provider is not connected for this organization")
+
+// ErrNotEntitled is a provider the organization's plan no longer includes:
+// nothing new starts on it, while what it issued runs to its end (V31-51).
+var ErrNotEntitled = errors.New("the organization's plan does not include the billing provider")
