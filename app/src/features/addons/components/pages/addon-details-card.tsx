@@ -6,7 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { useCanPerform } from '@/domains/billing';
 import { DetailCard } from '@/functionals/detail-card';
-import { PRICING_TYPE_LABEL_KEYS } from '../../utils/addon-labels';
+import {
+  INCREASE_BILLING_LABEL_KEYS,
+  PRICING_TYPE_LABEL_KEYS,
+} from '../../utils/addon-labels';
 import { AddonDefaultAction } from '../actions/addon-default-action';
 import { AddonDeleteDraftAction } from '../actions/addon-delete-draft-action';
 import { AddonLifecycleAction } from '../actions/addon-lifecycle-action';
@@ -119,6 +122,10 @@ export function AddonDetailsCard({
                 ? t('Pages.Addons.Detail.unbounded')
                 : addon.maxQuantity
             }
+          />
+          <DetailCard.Row
+            label={t('Pages.Addons.Detail.Fields.increaseBilling')}
+            value={t(INCREASE_BILLING_LABEL_KEYS[addon.increaseBilling])}
           />
           <DetailCard.Row
             align="start"

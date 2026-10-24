@@ -98,6 +98,7 @@ describe('creating a family of add-ons', () => {
     expect(bodies[0]).toEqual({
       description: 'Five more named users a unit',
       familySlug: undefined,
+      increaseBilling: 'TRUE_UP',
       lifecycleState: 'DRAFT',
       maxQuantity: undefined,
       name: 'Extra seats',

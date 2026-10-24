@@ -1,4 +1,8 @@
-import type { AddonLifecycleState, AddonPricingType } from '../types';
+import type {
+  AddonIncreaseBilling,
+  AddonLifecycleState,
+  AddonPricingType,
+} from '../types';
 import type { AddonLifecycleTransition } from './addon-lifecycle.utils';
 
 // Every label an enum of an add-on reads under is typed against the contract
@@ -17,6 +21,11 @@ export const PRICING_TYPE_LABEL_KEYS = {
   FREE: 'Pages.Addons.PricingTypes.FREE',
   PAID: 'Pages.Addons.PricingTypes.PAID',
 } as const satisfies Record<AddonPricingType, string>;
+
+export const INCREASE_BILLING_LABEL_KEYS = {
+  NEXT_BOUNDARY: 'Pages.Addons.IncreaseBilling.NEXT_BOUNDARY',
+  TRUE_UP: 'Pages.Addons.IncreaseBilling.TRUE_UP',
+} as const satisfies Record<AddonIncreaseBilling, string>;
 
 type TransitionKeys = Record<
   'confirm' | 'description' | 'label' | 'success' | 'title',

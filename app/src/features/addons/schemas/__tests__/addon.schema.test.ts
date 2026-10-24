@@ -20,6 +20,7 @@ describe('what the form of a version opens with', () => {
     expect(initialAddonFormValues()).toEqual({
       createAsDraft: true,
       description: '',
+      increaseBilling: 'TRUE_UP',
       maxQuantity: Number.NaN,
       name: '',
       pricingType: 'PAID',
@@ -47,6 +48,7 @@ describe('what the form of a version opens with', () => {
     expect(addonToFormValues(addon)).toEqual({
       createAsDraft: false,
       description: 'Five seats',
+      increaseBilling: 'TRUE_UP',
       maxQuantity: 10,
       name: 'Extra seats',
       pricingType: 'PAID',
@@ -84,6 +86,7 @@ describe('the body of a new version', () => {
     expect(addonFormValuesToCreateBody(values({ description: 'Five seats' }))).toEqual({
       description: 'Five seats',
       familySlug: undefined,
+      increaseBilling: 'TRUE_UP',
       lifecycleState: 'DRAFT',
       maxQuantity: undefined,
       name: 'Extra seats',

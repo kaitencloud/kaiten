@@ -21,5 +21,8 @@ export type AddonGroup = {
 /** The state of a version, as the API spells it. */
 export type AddonLifecycleState = Addon['lifecycleState'];
 
+/** How a mid-period increase of a family's add-ons is billed, as the API spells it. */
+export type AddonIncreaseBilling = AddonFamily['increaseBilling'];
+
 /** What a version is sold as, as the API spells it. */
 export type AddonPricingType = Addon['pricingType'];

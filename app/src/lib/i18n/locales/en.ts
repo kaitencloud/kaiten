@@ -4859,6 +4859,7 @@ export default {
           pricingType: 'Pricing',
           versionName: 'Version name',
           maxQuantity: 'Maximum quantity',
+          increaseBilling: 'Mid-period increases',
           createAsDraft: 'Create as a draft',
         },
         Placeholders: {
@@ -4877,6 +4878,8 @@ export default {
           versionName: 'Left empty, the version is called “Version - {n}”.',
           maxQuantity:
             'The most units an instance can hold. Leave empty for no maximum.',
+          increaseBilling:
+            'For every version of the add-on billed in advance: how a quantity raised, or an add-on attached, during a period is billed. A true-up bills the elapsed period at the next renewal, for the highest quantity held; otherwise billing starts at the next boundary. A change applies from the next invoice.',
           createAsDraft:
             'A draft is not on sale yet: it can be given its entitlements, its prices and the licenses it fits before it is. An instance nobody bills can still try it.',
         },
@@ -4885,6 +4888,8 @@ export default {
           maxQuantity:
             'Enter a whole number of units, 1 or more, or leave it empty for no maximum.',
         },
+        increaseBillingHint:
+          'A customer can then use a raised quantity, or a new add-on, unpaid until the next boundary. A true-up would bill it at that boundary for the elapsed period.',
         Toasts: {
           created: 'Add-on created',
           updated: 'Add-on updated',
@@ -4909,8 +4914,13 @@ export default {
           default: 'Default',
           pricingType: 'Pricing',
           maxQuantity: 'Max quantity',
+          increaseBilling: 'Mid-period increases',
           description: 'Description',
         },
+      },
+      IncreaseBilling: {
+        TRUE_UP: 'True-up at the next renewal',
+        NEXT_BOUNDARY: 'Billed from the next boundary',
       },
       Freeze: {
         billed: {

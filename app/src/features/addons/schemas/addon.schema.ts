@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import type { Addon, AddonChanges, NewAddon } from '@/api-client';
-import { zNewAddon } from '@/api-client/zod.gen';
+import { zAddonFamily, zNewAddon } from '@/api-client/zod.gen';
 
 /** The largest quantity the API takes: an int32. */
 const MAX_QUANTITY_LIMIT = 2_147_483_647;
@@ -10,7 +10,8 @@ const MAX_QUANTITY_LIMIT = 2_147_483_647;
  * the form holds them. An empty text is nothing chosen (the API names the slug and
  * the version, and leaves the quantity unbounded), and an empty number is `NaN`, as
  * it is in every number field of the console. The one field the body does not have
- * is `createAsDraft`.
+ * is `createAsDraft`; `increaseBilling` is the family's, which the body of a new
+ * family carries and the edit of a version sends to the family.
  */
 export const addonFormSchema = zNewAddon
   .pick({ description: true, name: true, pricingType: true })
@@ -33,6 +34,10 @@ export const addonFormSchema = zNewAddon
     slug: z.string(),
     // Left empty, the API calls it "Version - {n}".
     versionName: z.string(),
+    // The family's, not the version's: how a mid-period increase or attachment of its
+    // ADVANCE add-ons is billed. Sent on the creation of a family, which is the only
+    // one that reads it, and to the family on the edit of a version.
+    increaseBilling: zAddonFamily.shape.increaseBilling,
     // A draft is not on sale yet: it can be given its entitlements, its prices and the
     // licenses it fits before it is, and the API freezes them once an instance with a
     // live subscription holds it.
@@ -47,6 +52,7 @@ export const initialAddonFormValues = (
 ): AddonFormValues => ({
   createAsDraft: true,
   description: '',
+  increaseBilling: 'TRUE_UP',
   maxQuantity: Number.NaN,
   name: base?.name ?? '',
   pricingType: base?.pricingType ?? 'PAID',
@@ -58,6 +64,7 @@ export const initialAddonFormValues = (
 export const addonToFormValues = (addon: Addon): AddonFormValues => ({
   createAsDraft: false,
   description: addon.description,
+  increaseBilling: addon.increaseBilling,
   maxQuantity: addon.maxQuantity ?? Number.NaN,
   name: addon.name,
   pricingType: addon.pricingType,
@@ -83,6 +90,8 @@ export function addonFormValuesToCreateBody(
   return {
     description: values.description,
     familySlug,
+    // The API reads it only when the call opens the family.
+    increaseBilling: familySlug ? undefined : values.increaseBilling,
     lifecycleState: values.createAsDraft ? 'DRAFT' : 'PUBLISHED',
     maxQuantity: toOptionalQuantity(values.maxQuantity),
     name: values.name.trim(),

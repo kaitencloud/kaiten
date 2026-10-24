@@ -1,10 +1,14 @@
 import { useTranslation } from 'react-i18next';
 import { withForm } from '@/hooks/form';
 import { addonFormOpts } from '../../schemas/addon-form-options';
-import type { AddonPricingType } from '../../types';
-import { PRICING_TYPE_LABEL_KEYS } from '../../utils/addon-labels';
+import type { AddonIncreaseBilling, AddonPricingType } from '../../types';
+import {
+  INCREASE_BILLING_LABEL_KEYS,
+  PRICING_TYPE_LABEL_KEYS,
+} from '../../utils/addon-labels';
 
 const PRICING_TYPES = ['FREE', 'PAID', 'CUSTOM'] as const;
+const INCREASE_BILLINGS = ['TRUE_UP', 'NEXT_BOUNDARY'] as const;
 
 /** What the form is for: a new family, the next version of one, or an existing version. */
 export type AddonFormMode = 'edit' | 'family' | 'version';
@@ -19,7 +23,9 @@ type AddonFormFieldsProps = {
  * does for a new family; a version is created as a draft, which is the state that can
  * be given its grants, prices and licenses before it is on sale. An existing version
  * keeps how it is sold: the API replaces its name, description, version name and
- * maximum quantity, and nothing else.
+ * maximum quantity, and nothing else. How a mid-period increase is billed is the
+ * family's: a new family is created with it and the edit of a version sets it on the
+ * family, while a new version of a family takes the family's as it is.
  */
 export const AddonFormFields = withForm({
   ...addonFormOpts,
@@ -96,6 +102,41 @@ export const AddonFormFields = withForm({
             />
           )}
         </form.AppField>
+        {mode === 'version' ? null : (
+          <>
+            <form.AppField name="increaseBilling">
+              {(field) => (
+                <field.SelectField
+                  description={t(
+                    'Pages.Addons.Form.Descriptions.increaseBilling',
+                  )}
+                  getOptionLabel={(option) =>
+                    t(
+                      INCREASE_BILLING_LABEL_KEYS[
+                        option as AddonIncreaseBilling
+                      ],
+                    )
+                  }
+                  label={t('Pages.Addons.Form.Labels.increaseBilling')}
+                  options={[...INCREASE_BILLINGS]}
+                  required
+                />
+              )}
+            </form.AppField>
+            <form.Subscribe selector={(state) => state.values.increaseBilling}>
+              {(increaseBilling) =>
+                increaseBilling === 'NEXT_BOUNDARY' ? (
+                  <p
+                    className="-mt-3 text-sm text-warning-subtle-foreground"
+                    data-testid="increase-billing-hint"
+                  >
+                    {t('Pages.Addons.Form.increaseBillingHint')}
+                  </p>
+                ) : null
+              }
+            </form.Subscribe>
+          </>
+        )}
         {mode === 'edit' ? null : (
           <form.AppField name="createAsDraft">
             {(field) => (

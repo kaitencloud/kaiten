@@ -3,10 +3,18 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Addon } from '@/api-client';
-import { createAddonMutation } from '@/api-client/@tanstack/react-query.gen';
+import {
+  createAddonMutation,
+  getAddonFamilyQueryKey,
+  updateAddonFamilyMutation,
+} from '@/api-client/@tanstack/react-query.gen';
 import { handleBillingProblem, setProblemFieldError } from '@/domains/billing';
 import { useAppForm } from '@/hooks/form';
-import { invalidateAddonQueries, saveAddonOnFresh } from '../queries';
+import {
+  invalidateAddonDetails,
+  invalidateAddonQueries,
+  saveAddonOnFresh,
+} from '../queries';
 import {
   addonFormValuesToCreateBody,
   addonFormValuesToUpdateBody,
@@ -18,11 +26,16 @@ import { addonFormOpts } from '../schemas/addon-form-options';
 // The refusals of the API that are about one field of the form, by their code: the
 // API names the field in prose, in `detail`, and does not locate it. Each is shown
 // on its field, which is where the person is looking.
-const FIELD_BY_CODE: Record<string, 'maxQuantity' | 'slug'> = {
+const FIELD_BY_CODE: Record<
+  string,
+  'increaseBilling' | 'maxQuantity' | 'slug'
+> = {
+  'CreateAddon.InvalidIncreaseBilling': 'increaseBilling',
   'CreateAddon.InvalidMaxQuantity': 'maxQuantity',
   'CreateAddon.InvalidSlug': 'slug',
   'CreateAddon.SlugConflict': 'slug',
   'UpdateAddon.InvalidMaxQuantity': 'maxQuantity',
+  'UpdateAddonFamily.InvalidIncreaseBilling': 'increaseBilling',
 };
 
 type UseAddonFormOptions = {
@@ -46,6 +59,10 @@ type UseAddonFormOptions = {
  * the form changed on top of it: the default moved to another version of the
  * family, or a description edited from another tab, since the form opened stay as
  * they are.
+ *
+ * How a mid-period increase of the family's add-ons is billed is the family's: a new
+ * family is created with it, and the edit of a version writes it to the family
+ * first, when it was changed, then the version, whose answer carries it.
  *
  * The most an instance can hold may be lowered under what an instance holds already:
  * the API lets it be and the instances keep the quantities they hold, so the form
@@ -73,6 +90,22 @@ export function useAddonForm({
   const [openedValues] = useState(() =>
     addon ? addonToFormValues(addon) : initialAddonFormValues(base),
   );
+  // How a mid-period increase is billed is the family's: the edit of a version sets it
+  // on the family, before the version, and only when the form changed it.
+  const family = useMutation({
+    ...updateAddonFamilyMutation(),
+    // Every version of the family carries the setting: each one's detail is stale.
+    onSuccess: async (_family, { path }) => {
+      await Promise.all([
+        invalidateAddonDetails(queryClient),
+        queryClient.invalidateQueries({
+          queryKey: getAddonFamilyQueryKey({
+            path: { familySlug: path.familySlug },
+          }),
+        }),
+      ]);
+    },
+  });
   const update = useMutation({
     mutationFn: saveAddonOnFresh,
     onSuccess: async () => {
@@ -90,6 +123,12 @@ export function useAddonForm({
         if (addon) {
           // The same version builds both bodies, so they differ by the form only.
           const snapshot = openedAddon ?? addon;
+          if (value.increaseBilling !== openedValues.increaseBilling) {
+            await family.mutateAsync({
+              body: { increaseBilling: value.increaseBilling },
+              path: { familySlug: addon.familySlug },
+            });
+          }
           onSaved(
             await update.mutateAsync({
               addonSlug: addon.slug,

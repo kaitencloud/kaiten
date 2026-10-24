@@ -359,7 +359,8 @@ export class AddonCatalogue {
     return {
       currentVersion: current ? clone(current) : undefined,
       id: `addon-family-${slug}`,
-      increaseBilling: 'TRUE_UP',
+      // Every version carries its family's, which the family keeps on all of them.
+      increaseBilling: versions[0].increaseBilling,
       isPublic: this.publicFamilies.includes(slug),
       lastVersion: this.lastVersions[slug] ?? versions[0].version,
       slug,
@@ -399,7 +400,11 @@ export class AddonCatalogue {
     return family;
   }
 
-  /** `PATCH /addon-families/{familySlug}`: lists the family in the public catalog, or takes it out. */
+  /**
+   * `PATCH /addon-families/{familySlug}`: lists the family in the public catalog, or
+   * takes it out, and sets how a mid-period increase of its add-ons is billed. A member
+   * left out is kept.
+   */
   updateFamily(slug: string, body: AddonFamilyVisibility): AddonFamily {
     this.problems.consume('updateAddonFamily');
     if (!this.familyOf(slug)) {
@@ -409,11 +414,24 @@ export class AddonCatalogue {
         `add-on family "${slug}" not found`,
       );
     }
-    this.publicFamilies = this.publicFamilies.filter(
-      (candidate) => candidate !== slug,
+    const increaseBilling = this.checkIncreaseBilling(
+      'UpdateAddonFamily',
+      body.increaseBilling,
     );
-    if (body.isPublic) {
-      this.publicFamilies.push(slug);
+    if (body.isPublic !== undefined) {
+      this.publicFamilies = this.publicFamilies.filter(
+        (candidate) => candidate !== slug,
+      );
+      if (body.isPublic) {
+        this.publicFamilies.push(slug);
+      }
+    }
+    if (increaseBilling) {
+      for (const version of this.versions) {
+        if (version.familySlug === slug) {
+          version.increaseBilling = increaseBilling;
+        }
+      }
     }
 
     return this.getFamily(slug);
@@ -498,6 +516,25 @@ export class AddonCatalogue {
   }
 
   /** `POST /addons`: the first version of a new family, or the next one of the family named. */
+  /** The family setting a body names, refused when it is none of the two the API takes. */
+  private checkIncreaseBilling(
+    operation: string,
+    value: string | undefined,
+  ): Addon['increaseBilling'] | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value !== 'TRUE_UP' && value !== 'NEXT_BOUNDARY') {
+      this.refuse(
+        422,
+        `${operation}.InvalidIncreaseBilling`,
+        'increaseBilling is TRUE_UP or NEXT_BOUNDARY',
+      );
+    }
+
+    return value;
+  }
+
   createVersion(body: NewAddon): Addon {
     this.problems.consume('createAddon');
     if (body.slug !== undefined && !isValidSlug(body.slug)) {
@@ -539,7 +576,11 @@ export class AddonCatalogue {
       description: body.description,
       familySlug,
       id: `addon-${slug}`,
-      increaseBilling: 'TRUE_UP',
+      // Read only when the call opens the family; a new version takes its family's.
+      increaseBilling: familyIsNew
+        ? (this.checkIncreaseBilling('CreateAddon', body.increaseBilling) ??
+          'TRUE_UP')
+        : (this.familyOf(familySlug)?.increaseBilling ?? 'TRUE_UP'),
       isDefault: Boolean(body.isDefault),
       lifecycleState: state,
       maxQuantity: body.maxQuantity,

@@ -4929,6 +4929,7 @@ export default {
           pricingType: 'Tarification',
           versionName: 'Nom de version',
           maxQuantity: 'Quantité maximale',
+          increaseBilling: 'Hausses en cours de période',
           createAsDraft: 'Créer en brouillon',
         },
         Placeholders: {
@@ -4947,6 +4948,8 @@ export default {
           versionName: 'Laissé vide, la version s’appelle « Version - {n} ».',
           maxQuantity:
             'Le nombre maximal d’unités qu’une instance peut détenir. Laissez vide pour aucun maximum.',
+          increaseBilling:
+            'Pour toutes les versions de l’add-on facturées à l’avance : comment se facture une quantité augmentée, ou un add-on attaché, en cours de période. Une régularisation facture la période écoulée au prochain renouvellement, pour la plus haute quantité détenue ; sinon la facturation commence à la prochaine échéance. Un changement s’applique dès la prochaine facture.',
           createAsDraft:
             'Un brouillon n’est pas encore en vente : on peut lui donner ses droits, ses prix et les licences qu’il complète avant qu’il le soit. Une instance que personne ne facture peut tout de même l’essayer.',
         },
@@ -4955,6 +4958,8 @@ export default {
           maxQuantity:
             'Saisissez un nombre entier d’unités, 1 ou plus, ou laissez vide pour aucun maximum.',
         },
+        increaseBillingHint:
+          'Un client peut alors utiliser une quantité augmentée, ou un nouvel add-on, sans payer jusqu’à la prochaine échéance. Une régularisation le facturerait à cette échéance pour la période écoulée.',
         Toasts: {
           created: 'Add-on créé',
           updated: 'Add-on mis à jour',
@@ -4979,8 +4984,13 @@ export default {
           default: 'Par défaut',
           pricingType: 'Tarification',
           maxQuantity: 'Quantité max.',
+          increaseBilling: 'Hausses en cours de période',
           description: 'Description',
         },
+      },
+      IncreaseBilling: {
+        TRUE_UP: 'Régularisation au prochain renouvellement',
+        NEXT_BOUNDARY: 'Facturée dès la prochaine échéance',
       },
       Freeze: {
         billed: {

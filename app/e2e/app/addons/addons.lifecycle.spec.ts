@@ -57,6 +57,7 @@ test.describe('making an add-on', () => {
       {
         body: {
           description: 'Ten more projects',
+          increaseBilling: 'TRUE_UP',
           lifecycleState: 'DRAFT',
           maxQuantity: 5,
           name: 'Extra projects',
@@ -155,6 +156,7 @@ test.describe('making an add-on', () => {
       {
         body: {
           description: '',
+          increaseBilling: 'TRUE_UP',
           lifecycleState: 'PUBLISHED',
           name: 'Extra history',
           pricingType: 'FREE',
