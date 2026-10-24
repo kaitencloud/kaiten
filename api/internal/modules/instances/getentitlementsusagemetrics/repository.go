@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
@@ -93,7 +94,9 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 				if e.PeriodStart.Valid {
 					storedPeriodStart = ptr.To(e.PeriodStart.Time.UTC())
 				}
-				window, _, err := period.ResolveCurrent(now, storedPeriodStart, period.ResetPeriod(*e.ResetPeriod), period.ResetAnchor(*e.ResetAnchor), e.StartLicenseDate.Time.UTC())
+				basis := period.NewBasis(e.StartLicenseDate.Time.UTC(), e.BillingStatus,
+					pgtime.PgTimeStampToTimePtr(e.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(e.LiveEndedAt))
+				window, _, err := period.ResolveCurrentOn(now, storedPeriodStart, period.ResetPeriod(*e.ResetPeriod), period.ResetAnchor(*e.ResetAnchor), basis)
 				if err != nil {
 					return nil, err
 				}
@@ -133,7 +136,7 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 			CurrentPeriodStart:             currentPeriodStart,
 			CurrentPeriodEnd:               currentPeriodEnd,
 			LimitCapExceededOveragePercent: e.EffectiveOveragePercent,
-			Source:                         entitlementUsageSchema.SourceOf(e.LicenseEntitlementID),
+			Source:                         e.Source,
 			Provenance:                     provenance,
 		})
 	}

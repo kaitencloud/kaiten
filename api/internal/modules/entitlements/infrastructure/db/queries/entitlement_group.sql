@@ -137,12 +137,17 @@ SELECT e.id              AS entitlement_id,
        eu.value          AS usage_value,
        eu.period_start,
        iee.value         AS effective_value,
-       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM entitlement_group eg
 JOIN entitlement_group_membership egm ON egm.entitlement_group_id = eg.id
 JOIN entitlement e ON e.id = egm.entitlement_id
 JOIN instance i ON i.slug = sqlc.arg(instance_slug) AND i.organization_id = eg.organization_id
 LEFT JOIN entitlement_usage eu ON eu.entitlement_id = e.id AND eu.instance_id = i.id AND eu.organization_id = eg.organization_id
 LEFT JOIN instance_effective_entitlement iee ON iee.entitlement_id = e.id AND iee.instance_id = i.id
+-- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+LEFT JOIN instance_billing ib ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
 WHERE eg.slug = sqlc.arg(group_slug)
   AND eg.organization_id = sqlc.arg(organization_id);

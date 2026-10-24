@@ -29,6 +29,7 @@ const boost: ProvenanceBoost = {
   modifierType: 'MULTIPLY',
   modifierValue: 2,
   redeemedAt: '2027-02-06T09:00:00.000Z',
+  value: null,
   voucherEntitlementGrantId: 'grant-1',
   voucherId: 'voucher-1',
 };
@@ -53,6 +54,7 @@ const traces = (
     },
     number: {
       afterAddons: 13000,
+      afterBoosts: 26000,
       boostAdd: null,
       boostMultiply: 2,
       boostSet: null,
@@ -189,6 +191,7 @@ describe('the effective limit of an entitlement', () => {
           },
           number: {
             afterAddons: -1,
+            afterBoosts: -1,
             boostAdd: null,
             boostMultiply: null,
             boostSet: null,

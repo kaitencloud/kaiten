@@ -97,10 +97,10 @@ describe('toCatalogPrice', () => {
   });
 
   it.each([
-    ['model', { billingModel: 'TIERED' }],
-    ['timing', { billingTiming: 'WEEKLY' }],
-    ['period', { billingPeriod: 'DAILY' }],
-    ['status', { status: 'PAUSED' }],
+    ['model', { billingModel: 'TIERED' as never }],
+    ['timing', { billingTiming: 'WEEKLY' as never }],
+    ['period', { billingPeriod: 'DAILY' as never }],
+    ['status', { status: 'PAUSED' as never }],
   ])('drops a price whose %s the contract does not have', (_name, overrides) => {
     expect(toCatalogPrice(priceInput(overrides))).toBeNull();
   });
@@ -146,7 +146,7 @@ describe('toLicenseWithPrices', () => {
     },
   );
 
-  it.each(['FREE', 'PAID', 'CUSTOM'])('reads the pricing type %s', (pricingType) => {
+  it.each(['FREE', 'PAID', 'CUSTOM'] as const)('reads the pricing type %s', (pricingType) => {
     expect(toLicenseWithPrices(licenseInput({ pricingType })).pricingType).toBe(
       pricingType,
     );
@@ -156,7 +156,7 @@ describe('toLicenseWithPrices', () => {
     const license = toLicenseWithPrices(
       licenseInput({
         lifecycleState: 'RETIRED' as never,
-        pricingType: 'DONATION',
+        pricingType: 'DONATION' as never,
       }),
     );
 
@@ -168,7 +168,7 @@ describe('toLicenseWithPrices', () => {
     const license = toLicenseWithPrices(
       licenseInput({
         prices: [
-          priceInput({ billingModel: 'TIERED', id: 'unreadable' }),
+          priceInput({ billingModel: 'TIERED' as never, id: 'unreadable' }),
           priceInput({ id: 'readable' }),
         ],
       }),

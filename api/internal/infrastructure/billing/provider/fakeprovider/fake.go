@@ -109,6 +109,9 @@ var _ provider.Adapter = (*Fake)(nil)
 // Currencies restricts the currencies the fake accepts.
 func (f *Fake) Currencies(currencies ...string) { f.caps.Currencies = currencies }
 
+// MaxInvoiceItems caps the items of one invoice, 0 for none.
+func (f *Fake) MaxInvoiceItems(limit int) { f.caps.MaxInvoiceItems = limit }
+
 // Kind implements provider.Adapter.
 func (f *Fake) Kind() provider.Kind { return f.kind }
 

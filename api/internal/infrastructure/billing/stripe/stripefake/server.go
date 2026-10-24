@@ -424,6 +424,9 @@ func (f *Fake) handle(accountID, apiKey, op, id string, form url.Values) (int, [
 		if d := form.Get("due_date"); d != "" {
 			inv.DueDate = asInt(d)
 		}
+		if v := form.Get("auto_advance"); v != "" {
+			inv.AutoAdvance = v == "true"
+		}
 		return http.StatusOK, mustJSON(f.render(a, inv))
 
 	case OpDeleteInvoice:
@@ -633,6 +636,23 @@ func (f *Fake) render(a *account, inv *invoice) map[string]any {
 		first = first[:10]
 	}
 	out["lines"] = map[string]any{"object": "list", "data": first, "has_more": len(lines) > 10, "url": "/v1/invoices/" + inv.ID + "/lines"}
+	// invoice.payments, its PaymentIntent expanded (the Basil API).
+	payments := []any{}
+	if pi := inv.intent; pi != nil {
+		status := "open"
+		if inv.Status == "paid" {
+			status = "paid"
+		}
+		intent := map[string]any{"id": pi.ID, "object": "payment_intent", "status": pi.Status}
+		if pi.Code != "" {
+			intent["last_payment_error"] = map[string]any{"type": "card_error", "code": pi.Code, "decline_code": pi.DeclineCode}
+		}
+		payments = append(payments, map[string]any{
+			"id": "inpay_" + strings.TrimPrefix(pi.ID, "pi_"), "object": "invoice_payment", "is_default": true, "status": status,
+			"payment": map[string]any{"type": "payment_intent", "payment_intent": intent},
+		})
+	}
+	out["payments"] = map[string]any{"object": "list", "data": payments, "has_more": false, "url": "/v1/invoice_payments"}
 	return out
 }
 

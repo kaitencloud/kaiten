@@ -70,6 +70,7 @@ describe('the limit the mocks compose', () => {
     expect(composed.provenance).toMatchObject({
       addons: [],
       boosts: [],
+      exception: null,
       license: { value: { type: 'number', value: 10_000 } },
       number: null,
     });
@@ -81,6 +82,7 @@ describe('the limit the mocks compose', () => {
     expect(composed.limit).toEqual({ type: 'number', value: 13_000 });
     expect(composed.provenance?.number).toEqual({
       afterAddons: 13_000,
+      afterBoosts: 13_000,
       boostAdd: null,
       boostMultiply: null,
       boostSet: null,
@@ -191,6 +193,7 @@ describe('the limit the mocks compose', () => {
     expect(composed.limit).toEqual({ type: 'number', value: 5_100 });
     expect(composed.provenance?.number).toMatchObject({
       afterAddons: 13_000,
+      afterBoosts: 5_100,
       boostSet: 5_000,
       effective: 5_100,
     });
@@ -234,6 +237,7 @@ describe('the limit the mocks compose', () => {
         modifierType: 'MULTIPLY',
         modifierValue: 2,
         redeemedAt: '2026-09-10T00:00:00.000Z',
+        value: null,
         voucherEntitlementGrantId: 'voucher-MULTIPLY-tokens',
         voucherId: 'voucher-MULTIPLY',
       },
@@ -276,6 +280,7 @@ describe('the identity provenance', () => {
     expect(identityProvenance(grant(500, 10))).toEqual({
       addons: [],
       boosts: [],
+      exception: null,
       license: {
         licenseEntitlementId: 'pro-tokens',
         limitCapExceededOveragePercent: 10,

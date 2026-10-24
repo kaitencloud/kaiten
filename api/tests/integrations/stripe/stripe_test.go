@@ -378,3 +378,35 @@ func TestDisconnect(t *testing.T) {
 	require.Equal(t, 1, outboxCount(t, "BILLING_PROVIDER_DISCONNECTED"), "disconnected once")
 	require.False(t, capabilities(t).Connected)
 }
+
+// V31-51, §12.3 rule 1: losing connector-stripe refuses new STRIPE
+// subscriptions and switches to STRIPE, with reason NOT_ENTITLED; what was
+// issued runs to its end, and a switch to NoOp stays possible.
+func TestLosingTheStripeGrant(t *testing.T) {
+	fresh(t)
+	connect(t, nil)
+	s := newSold(t, "acme")
+	started := subscribe(t, s)
+	entitlements.deny(t, dogfooding.ConnectorStripeEntitlementSlug)
+
+	pushed := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool { return i.Status == "PUSHED" }, "pushed after the grant was lost")
+	require.NotNil(t, pushed.Provider.ExternalInvoiceID, "an issued invoice goes on to Stripe")
+
+	notEntitled := func(t *testing.T, refused kaitenerrors.Problem, code string) {
+		t.Helper()
+		require.Equal(t, code, refused.Code)
+		require.NotEmpty(t, refused.Errors)
+		require.Equal(t, "NOT_ENTITLED", refused.Errors[0].Value.(map[string]any)["reason"])
+	}
+	other := anotherInstance(t, s, "globex")
+	notEntitled(t, problem(t, fiber.StatusUnprocessableEntity, "POST", "/api/instances/"+other.instance.Slug+"/billing",
+		map[string]any{"basePriceId": other.monthly.ID, "providerKind": "STRIPE"}), "SubscribeInstance.ProviderNotConnected")
+	commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/instances/"+other.instance.Slug+"/billing",
+		map[string]any{"basePriceId": other.monthly.ID}), fiber.StatusCreated)
+	notEntitled(t, problem(t, fiber.StatusUnprocessableEntity, "PATCH", "/api/instances/"+other.instance.Slug+"/billing",
+		map[string]any{"providerKind": "STRIPE"}), "UpdateInstanceBilling.ProviderNotConnected")
+
+	switched := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "PATCH", "/api/instances/"+s.instance.Slug+"/billing",
+		map[string]any{"providerKind": "NOOP"}), fiber.StatusOK)
+	require.Equal(t, "NOOP", switched["providerKind"], "a switch to NoOp stays possible")
+}

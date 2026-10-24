@@ -344,6 +344,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 					auditTrails(limit: 5) { items { id payload actor { id name kind } } }
 					billing { status }
 					addons { addonSlug }
+					entitlementExceptions(filter: ALL) { id kind value status }
 				}
 			}
 			instance(slug: $instance) { slug }

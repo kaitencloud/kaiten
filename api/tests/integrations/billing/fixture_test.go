@@ -74,7 +74,8 @@ func TestMain(m *testing.M) {
 	})
 
 	registry := provider.NewStatic(noop.New())
-	registry.Register(providers.fake, providers.resolve)
+	providers.registered = providers.fake
+	registry.Register(providers.registered, providers.resolve)
 	providerServer = tests.NewTestServer(testDb, tests.TestServerOptions{
 		ConfigOverride: func(cfg *config.Config) {
 			cfg.Billing.Enabled = true
@@ -96,8 +97,11 @@ func TestMain(m *testing.M) {
 // fakeProviders is the payment provider of providerServer: a fresh fake per
 // test, connected or not, finalizing at once or leaving drafts for review.
 type fakeProviders struct {
-	mu           sync.Mutex
-	fake         *fakeprovider.Fake
+	mu   sync.Mutex
+	fake *fakeprovider.Fake
+	// registered is the fake the registry answers capabilities from, which
+	// use does not replace.
+	registered   *fakeprovider.Fake
 	connected    bool
 	autoFinalize bool
 }
@@ -251,7 +255,8 @@ func newInstance(t *testing.T, name string, customerID, licenseID uuid.UUID) ins
 }
 
 // fakeTurnstile stands in for Cloudflare's siteverify: a token "pass:<host>"
-// is solved on host, "fail" is refused, "down" answers 500. It records the
+// is solved on host, "fail" is refused, "down" answers 500, "internal" is
+// Cloudflare's internal-error. It records the
 // last remoteip it was sent.
 func fakeTurnstile(w http.ResponseWriter, r *http.Request) {
 	_ = r.ParseForm()
@@ -260,6 +265,9 @@ func fakeTurnstile(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case tok == "down":
 		w.WriteHeader(http.StatusInternalServerError)
+	case tok == "internal":
+		// Cloudflare's own failure, which it asks to retry (E-11).
+		_, _ = w.Write([]byte(`{"success":false,"error-codes":["internal-error"]}`))
 	case strings.HasPrefix(tok, "pass:") && r.PostForm.Get("secret") != "":
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(map[string]any{"success": true, "hostname": strings.TrimPrefix(tok, "pass:")})

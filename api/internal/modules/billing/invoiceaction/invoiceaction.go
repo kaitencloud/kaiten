@@ -11,11 +11,13 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
-// Lock locks an invoice's subscription, then the invoice: the order every
-// billing writer takes them in, so an action cannot deadlock with a close.
+// Lock locks an invoice's instance, its subscription, then the invoice: the
+// order every billing writer takes them in (§9 Concurrency rule 1), so an
+// action cannot deadlock with a close or a cancellation.
 // notFound is the code an unknown invoice answers.
 func Lock(ctx context.Context, q *db.Queries, organizationID, invoiceID uuid.UUID, notFound string) (db.InstanceBilling, db.InstanceInvoice, error) {
 	peek, err := q.GetInvoice(ctx, db.GetInvoiceParams{OrganizationID: organizationID, ID: invoiceID})
@@ -23,6 +25,9 @@ func Lock(ctx context.Context, q *db.Queries, organizationID, invoiceID uuid.UUI
 		return db.InstanceBilling{}, db.InstanceInvoice{}, kaitenerrors.NotFoundf(notFound, "invoice %s not found", invoiceID)
 	}
 	if err != nil {
+		return db.InstanceBilling{}, db.InstanceInvoice{}, err
+	}
+	if _, err := lifecycle.LockInstanceOf(ctx, q, peek.InstanceBillingID, false); err != nil {
 		return db.InstanceBilling{}, db.InstanceInvoice{}, err
 	}
 	sub, err := q.LockSubscriptionByID(ctx, db.LockSubscriptionByIDParams{OrganizationID: organizationID, ID: peek.InstanceBillingID})

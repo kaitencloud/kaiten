@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
@@ -31,6 +32,10 @@ type UsageContext struct {
 	WarningThresholdPercent int32
 	ResetPeriod             *period.ResetPeriod
 	ResetAnchor             *period.ResetAnchor
+	// Basis is what the pair's windows are phased off: the licence start,
+	// and the subscription a BILLING_PERIOD window follows. LoadLimits reads
+	// it under the pair's lock with the reset settings (§6.7 rule 5).
+	Basis period.Basis
 	// ReportedAt is the instant the report is dated by: the usage clock, read
 	// once the pair's lock is held.
 	ReportedAt time.Time
@@ -47,6 +52,9 @@ type UsageContext struct {
 	// report answers them as source and provenance (V31-55).
 	LicenseEntitlementID *uuid.UUID
 	Provenance           []byte
+	// Source is the layer that makes the row exist: license, addon or
+	// exception (§7.5).
+	Source string
 	// OveragePercent is LimitCapExceededOveragePercent as the view's SMALLINT
 	// holds it, for the answer.
 	OveragePercent int16
@@ -70,20 +78,25 @@ func (r *QueryRepository) q(ctx context.Context) *db.Queries {
 	return db.New(r.uof.DBTX(ctx))
 }
 
-// GetEntitlementUsageContext resolves slugs and retrieves what the report is
-// decided on:
-//  1. GetEntitlementContextBySlug — resolves instance/entitlement slugs and checks the
-//     instance is granted the entitlement (4 queries replaced with 1, no FOR UPDATE needed here).
+// contextNotFound is the answer for a pair that does not resolve, or that
+// nothing grants at the report's instant.
+func contextNotFound(instanceSlug, entitlementSlug string) error {
+	return kaitenerrors.NotFound(
+		"ReportEntitlementUsageMetric.ContextNotFound",
+		fmt.Sprintf("instance %q or entitlement %q not found, or entitlement is not licensed for this instance", instanceSlug, entitlementSlug),
+	)
+}
+
+// LockPair runs steps 2 to 4 of §6.1: it resolves the slugs to the pair,
+// without checking the grant, locks the pair, and stamps the instant the
+// report is dated by. The replay lookup runs next, before LoadLimits checks
+// the grant (V31-29): a replay needs the pair to be granted no longer.
+//  1. GetEntitlementContextBySlug — resolves instance/entitlement slugs.
 //  2. LockEntitlementUsage — serializes every report for the resolved pair, including the
 //     first report before an entitlement_usage row exists.
 //  3. StampReportInstant — reads the clock the report is dated by, now that the lock is
 //     held, and makes it the instant the effective entitlement is evaluated at.
-//  4. GetEffectiveEntitlementLimit — the limit and overage policy at that instant.
-//  5. GetEntitlementUsageContext — locks and reads the existing usage row if present.
-//
-// The limit is read under the lock rather than with the slugs, so the report is
-// gated on its entitlement as of the instant it is dated by.
-func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instanceSlug, entitlementSlug string, organizationID uuid.UUID) (*UsageContext, error) {
+func (r *QueryRepository) LockPair(ctx context.Context, instanceSlug, entitlementSlug string, organizationID uuid.UUID) (*UsageContext, error) {
 	queries := r.q(ctx)
 
 	ctx1, err := queries.GetEntitlementContextBySlug(ctx, db.GetEntitlementContextBySlugParams{
@@ -93,10 +106,7 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, kaitenerrors.NotFound(
-				"ReportEntitlementUsageMetric.ContextNotFound",
-				fmt.Sprintf("instance %q or entitlement %q not found, or entitlement is not licensed for this instance", instanceSlug, entitlementSlug),
-			)
+			return nil, contextNotFound(instanceSlug, entitlementSlug)
 		}
 		return nil, err
 	}
@@ -129,32 +139,7 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 		return nil, fmt.Errorf("read the report instant: %w", err)
 	}
 
-	done := effectivelookup.Time(ctx, effectivelookup.ReaderGate)
-	limit, err := queries.GetEffectiveEntitlementLimit(ctx, db.GetEffectiveEntitlementLimitParams{
-		InstanceID:     ctx1.InstanceID,
-		EntitlementID:  ctx1.EntitlementID,
-		OrganizationID: organizationID,
-	})
-	done()
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			// The grant went away between the slug lookup and the lock: a
-			// licence change committed in between.
-			return nil, kaitenerrors.NotFound(
-				"ReportEntitlementUsageMetric.ContextNotFound",
-				fmt.Sprintf("instance %q or entitlement %q not found, or entitlement is not licensed for this instance", instanceSlug, entitlementSlug),
-			)
-		}
-		return nil, err
-	}
-	var limitCapExceededOveragePercent int32
-	var overagePercent int16
-	if limit.LimitCapExceededOveragePercent != nil {
-		overagePercent = *limit.LimitCapExceededOveragePercent
-		limitCapExceededOveragePercent = int32(overagePercent)
-	}
-
-	result := &UsageContext{
+	return &UsageContext{
 		InstanceID:                     ctx1.InstanceID,
 		LicenseID:                      ctx1.LicenseID,
 		LicenseStart:                   ctx1.StartLicenseDate.Time.UTC(),
@@ -166,22 +151,68 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 		ResetPeriod:                    resetPeriod,
 		ResetAnchor:                    resetAnchor,
 		ReportedAt:                     stamp.Now.Time.UTC(),
-		EffectiveValue:                 limit.Value,
-		LimitCapExceededOveragePercent: limitCapExceededOveragePercent,
-		LicenseEntitlementID:           limit.LicenseEntitlementID,
-		Provenance:                     limit.Provenance,
-		OveragePercent:                 overagePercent,
+		EffectiveValue:                 nil,
+		LimitCapExceededOveragePercent: 0,
+		LicenseEntitlementID:           nil,
+		Provenance:                     nil,
+		Source:                         "",
+		OveragePercent:                 0,
 		LicenseSlug:                    ctx1.LicenseSlug,
+		UsageValue:                     nil,
+		PeriodStart:                    nil,
+	}, nil
+}
+
+// LoadLimits runs step 6 of §6.1 on a pair LockPair locked: the effective
+// limit and overage policy at the report's instant -- none, the pair is not
+// granted at that instant, answers 404 .ContextNotFound -- then the counter
+// row, locked, when there is one. The limit is read under the lock rather
+// than with the slugs, so the report is gated on its entitlement as of the
+// instant it is dated by.
+func (r *QueryRepository) LoadLimits(ctx context.Context, result *UsageContext, instanceSlug, entitlementSlug string, organizationID uuid.UUID) error {
+	queries := r.q(ctx)
+	done := effectivelookup.Time(ctx, effectivelookup.ReaderGate)
+	limit, err := queries.GetEffectiveEntitlementLimit(ctx, db.GetEffectiveEntitlementLimitParams{
+		InstanceID:     result.InstanceID,
+		EntitlementID:  result.EntitlementID,
+		OrganizationID: organizationID,
+	})
+	done()
+	if errors.Is(err, pgx.ErrNoRows) {
+		return contextNotFound(instanceSlug, entitlementSlug)
+	}
+	if err != nil {
+		return err
+	}
+	result.EffectiveValue = limit.Value
+	result.LicenseEntitlementID, result.Provenance, result.Source = limit.LicenseEntitlementID, limit.Provenance, limit.Source
+	// The version the limit was read under, not the one the slugs resolved to
+	// before the lock: a licence change may have committed in between.
+	result.LicenseID, result.LicenseSlug = limit.LicenseID, limit.LicenseSlug
+	// So is the window configuration: a report computing its window from
+	// facts read before the lock could reopen a window of the old
+	// configuration over one a concurrent report already moved (§6.7 rule 5).
+	result.ResetPeriod, result.ResetAnchor = nil, nil
+	if limit.ResetPeriod != nil && limit.ResetAnchor != nil {
+		resetPeriod, resetAnchor := period.ResetPeriod(*limit.ResetPeriod), period.ResetAnchor(*limit.ResetAnchor)
+		result.ResetPeriod, result.ResetAnchor = &resetPeriod, &resetAnchor
+	}
+	result.LicenseStart = limit.StartLicenseDate.Time.UTC()
+	result.Basis = period.NewBasis(result.LicenseStart, limit.BillingStatus,
+		pgtime.PgTimeStampToTimePtr(limit.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(limit.LiveEndedAt))
+	if limit.LimitCapExceededOveragePercent != nil {
+		result.OveragePercent = *limit.LimitCapExceededOveragePercent
+		result.LimitCapExceededOveragePercent = int32(result.OveragePercent)
 	}
 
 	// Lock the usage row if it exists. ErrNoRows means first report — leave UsageValue nil.
 	usage, err := queries.GetEntitlementUsageContext(ctx, db.GetEntitlementUsageContextParams{
-		InstanceID:     ctx1.InstanceID,
-		EntitlementID:  ctx1.EntitlementID,
+		InstanceID:     result.InstanceID,
+		EntitlementID:  result.EntitlementID,
 		OrganizationID: organizationID,
 	})
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
+		return err
 	}
 	if err == nil {
 		result.UsageValue = usage.Value
@@ -190,6 +221,5 @@ func (r *QueryRepository) GetEntitlementUsageContext(ctx context.Context, instan
 			result.PeriodStart = &periodStart
 		}
 	}
-
-	return result, nil
+	return nil
 }

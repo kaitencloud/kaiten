@@ -253,7 +253,14 @@ describe('the vouchers, as the mocks serve them', () => {
       await code(
         boost([{ entitlementSlug: 'advanced-analytics', modifierType: 'UNLIMITED' }]),
       ),
-    ).toBe('CreateVoucher.BoostUnsupportedEntitlementType');
+    ).toBe('CreateVoucher.InvalidGrant');
+    expect(
+      await code(
+        boost([
+          { entitlementSlug: 'advanced-analytics', modifierType: 'SET', value: 'yes' },
+        ]),
+      ),
+    ).toBe('CreateVoucher.InvalidGrant');
     expect(
       await code(
         boost([

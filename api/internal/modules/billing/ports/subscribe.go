@@ -24,6 +24,18 @@ type AddonFallback interface {
 	RemoveForFallback(ctx context.Context, organizationID, actorID uuid.UUID, instanceSlug string, licenseID uuid.UUID, at time.Time) error
 }
 
+// AddonSchedule applies, inside the caller's transaction, the public add-on
+// decreases scheduled on an instance (§10.2, V31-67): at a boundary, after
+// its composition read the quantities it bills, or at a cancellation, after
+// which no boundary is left to wait for. Implemented by the add-ons module.
+type AddonSchedule interface {
+	ApplyScheduled(ctx context.Context, organizationID, actorID, instanceID uuid.UUID, at time.Time) error
+	// ResetPeriodMax starts a period's highest quantities at the quantities
+	// held, after a boundary was composed or a subscription started
+	// (V31-70).
+	ResetPeriodMax(ctx context.Context, organizationID, instanceID uuid.UUID) error
+}
+
 // VoucherRedeemer redeems a voucher for an instance, inside the caller's
 // transaction, under every rule of §11. Implemented by the vouchers module.
 type VoucherRedeemer interface {
@@ -37,6 +49,13 @@ type VoucherRedeemer interface {
 // to limit of each, for the billing-lifecycle job (§16.2 (b)). Implemented by
 // the vouchers module.
 type VoucherExpiry interface {
+	Pass(ctx context.Context, limit int) (int, error)
+}
+
+// ExceptionExpiry announces the entitlement exceptions whose end passed, up to
+// limit, for the billing-lifecycle job (§16.2 (g)), billing enabled or not.
+// Implemented by the entitlements module.
+type ExceptionExpiry interface {
 	Pass(ctx context.Context, limit int) (int, error)
 }
 

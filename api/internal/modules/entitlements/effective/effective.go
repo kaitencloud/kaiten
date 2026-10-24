@@ -1,6 +1,7 @@
 // Package effective is the reference resolution of an instance's effective
 // entitlement (§7.2, §7.3, D-53): the licence grant, then the add-ons
-// attached, then the boosts in their window. The SQL view
+// attached, then the boosts in their window, then the instance's exception
+// in its window (V32-03). The SQL view
 // instance_effective_entitlement is what every reader uses; this is its
 // oracle, written from the spec, which the differential tests hold the view
 // to (S03-043, S03-044), and what a preview resolves a grant with when it has
@@ -39,6 +40,16 @@ const (
 
 	// StatusActive is the only redemption status whose boosts apply.
 	StatusActive = "ACTIVE"
+
+	// Exception kinds (V32-03).
+	ExceptionSet       = "SET"
+	ExceptionAdd       = "ADD"
+	ExceptionUnlimited = "UNLIMITED"
+
+	// Sources: the layer that makes the row exist (§7.5).
+	SourceLicense   = "license"
+	SourceAddon     = "addon"
+	SourceException = "exception"
 )
 
 // LicenceGrant is the licence version's grant of the entitlement.
@@ -68,11 +79,31 @@ type Boost struct {
 	ID         uuid.UUID
 	RedeemedAt time.Time
 	Modifier   string
-	// Value is the modifier's value; nil for UNLIMITED.
-	Value   *decimal.Decimal
+	// Value is the modifier's value; nil for UNLIMITED and for a BOOLEAN or
+	// CONFIG SET, whose raw value is JSON.
+	Value *decimal.Decimal
+	// JSON is what a BOOLEAN or CONFIG SET boost sets: a raw JSON boolean or
+	// object (V32-03).
+	JSON    json.RawMessage
 	Status  string
 	Starts  time.Time
 	Expires *time.Time
+}
+
+// Exception is the vendor's dated decision on the entitlement of the
+// instance (§13.16): SET, ADD or UNLIMITED, Value the raw JSON (a number, a
+// boolean, an object; nil for UNLIMITED).
+type Exception struct {
+	ID      uuid.UUID
+	Kind    string
+	Value   json.RawMessage
+	Starts  time.Time
+	Ends    *time.Time
+	Revoked bool
+}
+
+func (x Exception) activeAt(at time.Time) bool {
+	return !x.Revoked && !at.Before(x.Starts) && (x.Ends == nil || at.Before(*x.Ends))
 }
 
 // Input is one (instance, entitlement) at an instant.
@@ -81,7 +112,9 @@ type Input struct {
 	Licence *LicenceGrant
 	Addons  []AddonGrant
 	Boosts  []Boost
-	At      time.Time
+	// Exceptions are the pair's rows; the one in force at At applies.
+	Exceptions []Exception
+	At         time.Time
 }
 
 // Number is how a NUMBER entitlement's effective value was composed, when an
@@ -93,7 +126,9 @@ type Number struct {
 	BoostAdd      *decimal.Decimal
 	BoostMultiply *decimal.Decimal
 	Unlimited     bool
-	Effective     decimal.Decimal
+	// AfterBoosts is the value before the exception; -1 when unlimited.
+	AfterBoosts decimal.Decimal
+	Effective   decimal.Decimal
 }
 
 // Result is the effective entitlement.
@@ -106,8 +141,13 @@ type Result struct {
 	Pct             *int16
 	AddonGrantCount int
 	BoostGrantCount int
-	// Number is set for a NUMBER entitlement an add-on or a boost touches.
+	// Number is set for a NUMBER entitlement an add-on, a boost or an
+	// exception touches.
 	Number *Number
+	// Source is the layer that makes the row exist (§7.5).
+	Source string
+	// Exception is the exception in force, nil without one.
+	Exception *Exception
 }
 
 type typed struct {
@@ -171,21 +211,31 @@ func compareUUID(a, b uuid.UUID) int {
 }
 
 // Resolve resolves one entitlement of one instance. ok is false when the
-// instance has no row for it: neither the licence nor an attached add-on
-// grants it (boosts never grant one, §7.2).
+// instance has no row for it: neither the licence, nor an attached add-on,
+// nor an exception in force grants it (boosts never grant one, §7.2).
 func Resolve(in Input) (Result, bool) {
-	if in.Licence == nil && len(in.Addons) == 0 {
+	var exception *Exception
+	for i := range in.Exceptions {
+		if in.Exceptions[i].activeAt(in.At) {
+			x := in.Exceptions[i]
+			exception = &x
+			break
+		}
+	}
+	if in.Licence == nil && len(in.Addons) == 0 && exception == nil {
 		return Result{}, false
 	}
 	isNumber := in.Type == TypeNumber || in.Type == TypeNumberAICredit
 
-	// Boosts apply to numbers only, ACTIVE, in their window.
+	// Boosts ACTIVE in their window: every modifier on a number, a SET with a
+	// value on BOOLEAN and CONFIG (V32-03).
 	var boosts []Boost
-	if isNumber {
-		for _, b := range in.Boosts {
-			if b.Status == StatusActive && !in.At.Before(b.Starts) && (b.Expires == nil || in.At.Before(*b.Expires)) {
-				boosts = append(boosts, b)
-			}
+	for _, b := range in.Boosts {
+		if b.Status != StatusActive || in.At.Before(b.Starts) || (b.Expires != nil && !in.At.Before(*b.Expires)) {
+			continue
+		}
+		if isNumber || (b.Modifier == ModifierSet && len(b.JSON) > 0) {
+			boosts = append(boosts, b)
 		}
 	}
 	// A grant of value 0 is ignored (§7.2 step 0, V31-17): it composes nothing
@@ -198,10 +248,20 @@ func Resolve(in Input) (Result, bool) {
 		}
 		contributing = append(contributing, g)
 	}
-	out := Result{Value: nil, Pct: nil, AddonGrantCount: len(contributing), BoostGrantCount: len(boosts), Number: nil}
+	source := SourceException
+	switch {
+	case in.Licence != nil:
+		source = SourceLicense
+	case len(in.Addons) > 0:
+		source = SourceAddon
+	}
+	out := Result{
+		Value: nil, Pct: nil, AddonGrantCount: len(contributing), BoostGrantCount: len(boosts), Number: nil,
+		Source: source, Exception: exception,
+	}
 
 	// Identity (INV-22): nothing contributes, the licence's grant verbatim.
-	if len(contributing) == 0 && len(boosts) == 0 && in.Licence != nil {
+	if len(contributing) == 0 && len(boosts) == 0 && exception == nil && in.Licence != nil {
 		out.Value, out.Pct = in.Licence.Value, in.Licence.Pct
 		return out, true
 	}
@@ -212,30 +272,35 @@ func Resolve(in Input) (Result, bool) {
 		licence, licencePct = in.Licence.Value, in.Licence.Pct
 	}
 	latest := latestFirst(contributing)
+	setBoost := latestSet(boosts)
 
 	switch {
 	case isNumber:
 		n := numberOf(licence, latest, boosts)
+		applyException(&n, exception)
 		// The composition is reported whenever the value is computed rather than
 		// the licence's, as the view's provenance.number is: an add-on-only row
 		// of grants of 0 has one, licensed rows of them have none (identity).
-		if len(contributing) > 0 || len(boosts) > 0 || in.Licence == nil {
+		if len(contributing) > 0 || len(boosts) > 0 || in.Licence == nil || exception != nil {
 			out.Number = &n
 		}
 		out.Value = mustJSON(map[string]any{"type": "number", "value": json.RawMessage(n.Effective.String())})
+		// §7.3: -1 when unlimited, else the latest attached finite percent,
+		// else the licence's finite one, else 0; -1 is skipped, an exception
+		// having made an unlimited value finite (rule 5).
 		pct := int16(0)
 		switch {
-		case n.Unlimited:
+		case n.Effective.Equal(minusOne):
 			pct = -1
 		default:
 			found := false
 			for _, g := range latest {
-				if g.Pct != nil {
+				if g.Pct != nil && *g.Pct != -1 {
 					pct, found = *g.Pct, true
 					break
 				}
 			}
-			if !found && licencePct != nil {
+			if !found && licencePct != nil && *licencePct != -1 {
 				pct = *licencePct
 			}
 		}
@@ -247,6 +312,12 @@ func Resolve(in Input) (Result, bool) {
 				value = true
 			}
 		}
+		if setBoost != nil {
+			_ = json.Unmarshal(setBoost.JSON, &value)
+		}
+		if exception != nil && exception.Kind == ExceptionSet {
+			_ = json.Unmarshal(exception.Value, &value)
+		}
 		out.Value = mustJSON(map[string]any{"type": "boolean", "value": value})
 	default:
 		out.Value = licence
@@ -256,8 +327,51 @@ func Resolve(in Input) (Result, bool) {
 				break
 			}
 		}
+		if setBoost != nil {
+			out.Value = mustJSON(map[string]any{"type": "object", "value": setBoost.JSON})
+		}
+		if exception != nil && exception.Kind == ExceptionSet {
+			out.Value = mustJSON(map[string]any{"type": "object", "value": exception.Value})
+		}
 	}
 	return out, true
+}
+
+// latestSet is the most recently redeemed SET boost of a BOOLEAN or CONFIG
+// entitlement (redeemed_at DESC, id DESC), nil without one.
+func latestSet(boosts []Boost) *Boost {
+	var out *Boost
+	for i := range boosts {
+		b := boosts[i]
+		if b.Modifier != ModifierSet || len(b.JSON) == 0 {
+			continue
+		}
+		if out == nil || b.RedeemedAt.After(out.RedeemedAt) || (b.RedeemedAt.Equal(out.RedeemedAt) && compareUUID(b.ID, out.ID) > 0) {
+			out = &b
+		}
+	}
+	return out
+}
+
+// applyException is §7.2 step 7 on a number: UNLIMITED -1; SET its value,
+// whatever the layers gave; ADD added, an unlimited value staying unlimited.
+func applyException(n *Number, exception *Exception) {
+	n.Effective = n.AfterBoosts
+	if exception == nil {
+		return
+	}
+	switch exception.Kind {
+	case ExceptionUnlimited:
+		n.Effective = minusOne
+	case ExceptionSet:
+		if v, err := decimal.NewFromString(string(exception.Value)); err == nil {
+			n.Effective = v
+		}
+	case ExceptionAdd:
+		if v, err := decimal.NewFromString(string(exception.Value)); err == nil && !n.AfterBoosts.Equal(minusOne) {
+			n.Effective = n.AfterBoosts.Add(v)
+		}
+	}
 }
 
 // numberOf composes a number (§7.2): unlimited anywhere; else OVERRIDE (the
@@ -351,7 +465,7 @@ func numberOf(licence json.RawMessage, latest []AddonGrant, boosts []Boost) Numb
 		}
 	}
 	if n.Unlimited {
-		n.Effective = minusOne
+		n.AfterBoosts = minusOne
 		return n
 	}
 	value := n.AfterAddons
@@ -364,7 +478,7 @@ func numberOf(licence json.RawMessage, latest []AddonGrant, boosts []Boost) Numb
 	if n.BoostMultiply != nil {
 		value = value.Mul(*n.BoostMultiply)
 	}
-	n.Effective = value
+	n.AfterBoosts = value
 	return n
 }
 

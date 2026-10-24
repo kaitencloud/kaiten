@@ -77,6 +77,21 @@ func (s *Source) Incompatible(ctx context.Context, organizationID, instanceID, l
 	})
 }
 
+// MeteredConflicts implements ports.AddonSource.
+func (s *Source) MeteredConflicts(ctx context.Context, organizationID, instanceID, licenseID uuid.UUID) ([]ports.MeteredConflict, error) {
+	rows, err := db.New(s.uof.DBTX(ctx)).MeteredConflictsWithLicense(ctx, db.MeteredConflictsWithLicenseParams{
+		OrganizationID: organizationID, InstanceID: instanceID, LicenseID: licenseID,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ports.MeteredConflict, len(rows))
+	for i, row := range rows {
+		out[i] = ports.MeteredConflict{EntitlementSlug: row.EntitlementSlug, AddonSlug: row.AddonSlug}
+	}
+	return out, nil
+}
+
 // BillableAttachments implements ports.AddonSource.
 func (s *Source) BillableAttachments(ctx context.Context, organizationID, instanceID uuid.UUID, billingPeriod string, from, to time.Time) ([]ports.BillableAttachment, error) {
 	q := db.New(s.uof.DBTX(ctx))
@@ -104,7 +119,8 @@ func (s *Source) BillableAttachments(ctx context.Context, organizationID, instan
 	for _, row := range rows {
 		attachment := ports.BillableAttachment{
 			InstanceAddonID: row.InstanceAddonID, AddonID: row.AddonID, FamilyID: row.AddonFamilyID, Name: row.AddonName,
-			Quantity: row.Quantity, AttachedAt: row.AttachedAt.Time.UTC(), RemovedAt: nil, Flat: nil, Metered: nil,
+			Quantity: row.Quantity, AttachedAt: row.AttachedAt.Time.UTC(), RemovedAt: nil,
+			PeriodMaxQuantity: row.PeriodMaxQuantity, IncreaseBilling: string(row.IncreaseBilling), Flat: nil, Metered: nil,
 		}
 		if row.RemovedAt.Valid {
 			removed := row.RemovedAt.Time.UTC()

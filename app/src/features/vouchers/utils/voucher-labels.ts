@@ -10,7 +10,10 @@ export const DURATION_LABEL_KEYS = {
   REPEATING: 'Pages.Vouchers.Wizard.Duration.REPEATING',
 } as const satisfies Record<Voucher['duration'], string>;
 
-/** What a duration counts: invoices for a discount, billing periods for a boost. */
+/**
+ * What a duration counts: invoices for a discount, billing periods for a boost. Keyed by
+ * the kinds the wizard offers.
+ */
 export const DURATION_BLURB_KEYS = {
   ENTITLEMENT_BOOST: {
     FOREVER: 'Pages.Vouchers.Wizard.Duration.Blurb.boostFOREVER',
@@ -23,7 +26,7 @@ export const DURATION_BLURB_KEYS = {
     REPEATING: 'Pages.Vouchers.Wizard.Duration.Blurb.priceREPEATING',
   },
 } as const satisfies Record<
-  Voucher['voucherType'],
+  'ENTITLEMENT_BOOST' | 'PRICE',
   Record<Voucher['duration'], string>
 >;
 

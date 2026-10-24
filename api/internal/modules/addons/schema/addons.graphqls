@@ -20,9 +20,23 @@ type InstanceAddon {
 
 extend type Instance {
   """
-  The add-ons the instance holds now, oldest attachment first.
+  The add-ons the instance holds now, oldest attachment first. Like the REST
+  list, it needs billing to be enabled for the organization.
   """
   addons: [InstanceAddon!]!
+}
+
+"""The lifecycle of an add-on version."""
+enum AddonLifecycleState {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+"""How a mid-period increase of an add-on family's ADVANCE add-ons is billed."""
+enum IncreaseBilling {
+  TRUE_UP
+  NEXT_BOUNDARY
 }
 
 """
@@ -42,39 +56,28 @@ type Addon {
   versionName: String!
   """The version the family resolves to. Only a PUBLISHED version."""
   isDefault: Boolean!
-  """DRAFT, PUBLISHED or ARCHIVED."""
-  lifecycleState: String!
-  """FREE, PAID or CUSTOM: how this version is sold."""
-  pricingType: String!
+  lifecycleState: AddonLifecycleState!
+  """How this version is sold."""
+  pricingType: PricingType!
   """The most one instance may hold; null when unbounded."""
   maxQuantity: Int
-  """
-  The family's TRUE_UP or NEXT_BOUNDARY: how a mid-period increase of its
-  ADVANCE add-ons is billed.
-  """
-  increaseBilling: String!
-  """
-  The version's prices in display order; status ACTIVE or DEPRECATED narrows
-  them.
-  """
-  prices(status: String): [AddonPrice!]!
+  """The family's: how a mid-period increase of its ADVANCE add-ons is billed."""
+  increaseBilling: IncreaseBilling!
+  """The version's prices in display order; status narrows them."""
+  prices(status: PriceStatus): [AddonPrice!]!
 }
 
 """
 A price of an add-on version. It has the shape of a licence price.
-Amounts are in minor units of currency.
+Amounts are in minor units of currency; unitAmountDecimal is the amount.
 """
 type AddonPrice {
   id: UUID!
-  """FLAT_FEE, USAGE_BASED or OVERAGE."""
-  billingModel: String!
-  """ADVANCE or ARREARS."""
-  billingTiming: String!
-  """MONTHLY, QUARTERLY, SEMI_ANNUAL or ANNUAL; null on a metered price."""
-  billingPeriod: String
+  billingModel: PriceBillingModel!
+  billingTiming: PriceBillingTiming!
+  """Null on a metered price."""
+  billingPeriod: PriceBillingPeriod
   currency: String!
-  """The amount, when it is a whole number of minor units; null otherwise."""
-  unitAmount: Int
   """The amount in minor units, up to 12 decimal places."""
   unitAmountDecimal: String!
   """The slug of the entitlement a metered price measures; null on a flat fee."""
@@ -84,8 +87,7 @@ type AddonPrice {
   displayLabel: String
   displayOrder: Int!
   isDefault: Boolean!
-  """ACTIVE or DEPRECATED."""
-  status: String!
+  status: PriceStatus!
   deprecatedAt: Time
 }
 

@@ -18,6 +18,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/metering"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/settings"
@@ -119,6 +120,11 @@ func (c *Closer) Recompose(ctx context.Context, q *db.Queries, sub db.InstanceBi
 	composition, err = rating.ApplyDiscounts(composition, discounts, money.Currency(row.Currency))
 	if err != nil {
 		return Recomposition{}, err
+	}
+	// The item limit is checked again too, against the provider the
+	// recompose re-resolves: the subscription's current one (§8.7, §8.8).
+	if hold == nil {
+		hold = invoices.ItemLimitHold(composition, string(sub.ProviderKind), c.deps.Pushes(sub.ProviderKind), c.deps.MaxItems(sub.ProviderKind))
 	}
 	return Recomposition{Composition: composition, Hold: hold}, nil
 }
@@ -293,6 +299,9 @@ func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released 
 		if err != nil {
 			return err
 		}
+		if ok, err := lifecycle.LockInstanceOf(ctx, q, peek.InstanceBillingID, true); err != nil || !ok {
+			return err
+		}
 		sub, err := q.LockDueSubscription(ctx, peek.InstanceBillingID)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -331,7 +340,7 @@ func (c *Closer) recheckOne(ctx context.Context, invoiceID uuid.UUID) (released 
 			return err
 		}
 		updated, err := invoices.Rewrite(ctx, q, row, &recomposed.Composition, nil,
-			invoices.Release{By: nil, Reason: AutoReleaseReason}, terms, c.deps.Pushes(row.ProviderKind), clock.Time.UTC())
+			invoices.Release{By: nil, Reason: AutoReleaseReason}, terms, c.deps.Pushes(sub.ProviderKind), clock.Time.UTC(), &sub.ProviderKind)
 		if err != nil {
 			return err
 		}

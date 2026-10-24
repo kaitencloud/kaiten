@@ -37,7 +37,7 @@ func RegisterEndpoint(api huma.API, app Releaser) {
 		Method:      http.MethodPost,
 		Path:        "/invoices/{invoiceId}/release-hold",
 		Summary:     "Release a held invoice",
-		Description: "Accepts a held invoice as composed and issues it: MANUAL and pending in the handoff queue, or PAID when nothing is owed. The release keeps who released it and why. Requires billing to be enabled for the organization.",
+		Description: "Accepts a held invoice as composed and issues it: MANUAL and pending in the handoff queue, or PAID when nothing is owed. The release keeps who released it and why. 409 .ProviderItemLimit for a PROVIDER_ITEM_LIMIT hold, which its provider would refuse: switch the subscription to NoOp and recompose in place, or void and recompose after that switch. Requires billing to be enabled for the organization.",
 		Tags:        []string{"billing"},
 		Metadata:    kaitenhuma.SchemaCodes(map[string]string{"body.reason": "ReleaseInvoiceHold.ReasonRequired"}),
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError, http.StatusServiceUnavailable},

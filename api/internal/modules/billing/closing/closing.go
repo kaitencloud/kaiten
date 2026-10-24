@@ -79,6 +79,24 @@ type Closer struct {
 	heldCursor *heldCursor
 }
 
+// ApplyScheduled applies the public add-on decreases scheduled on the
+// subscription's instance, at that instant (§10.2, V31-67).
+func (c *Closer) ApplyScheduled(ctx context.Context, sub db.InstanceBilling, actor uuid.UUID, at time.Time) error {
+	if sub.InstanceID == nil || c.deps.Scheduled == nil {
+		return nil
+	}
+	return c.deps.Scheduled.ApplyScheduled(ctx, sub.OrganizationID, actor, *sub.InstanceID, at)
+}
+
+// ResetPeriodMax starts the instance's attachments' highest quantities at the
+// quantities held (V31-70).
+func (c *Closer) ResetPeriodMax(ctx context.Context, sub db.InstanceBilling) error {
+	if sub.InstanceID == nil || c.deps.Scheduled == nil {
+		return nil
+	}
+	return c.deps.Scheduled.ResetPeriodMax(ctx, sub.OrganizationID, *sub.InstanceID)
+}
+
 // Fallback is the fallback move's writes outside billing (§9.11).
 func (c *Closer) Fallback() lifecycle.Fallback {
 	return lifecycle.Fallback{Mover: c.deps.Mover, Addons: c.deps.Fallback}
@@ -225,6 +243,11 @@ func (c *Closer) basePrice(ctx context.Context, sub db.InstanceBilling) (*ports.
 //     period's advance, applying a scheduled plan change at the boundary.
 func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boundary time.Time, actor uuid.UUID) (Outcome, error) {
 	q := c.deps.Queries(ctx)
+	// The instance first (§9 Concurrency rule 1): a close that applies a plan
+	// change, a fallback move or a scheduled add-on decrease writes it.
+	if ok, err := lifecycle.LockInstanceOf(ctx, q, subscriptionID, true); err != nil || !ok {
+		return Outcome{Closed: false, Invoice: nil, SkipReason: "locked"}, err
+	}
 	sub, err := q.LockDueSubscription(ctx, subscriptionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return Outcome{Closed: false, Invoice: nil, SkipReason: "locked"}, nil
@@ -258,6 +281,19 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 	if err != nil {
 		return Outcome{}, err
 	}
+	// The public decreases scheduled for B take effect at B: the arrears just
+	// composed billed the quantity held before it, the advance the one
+	// scheduled (§10.2, V31-67).
+	if err := c.ApplyScheduled(ctx, sub, actor, boundary); err != nil {
+		return Outcome{}, err
+	}
+	// The period that starts at B measures its highest quantities from the
+	// quantities held at B (V31-70).
+	if plan.kind != rating.KindFinal {
+		if err := c.ResetPeriodMax(ctx, sub); err != nil {
+			return Outcome{}, err
+		}
+	}
 
 	var billingEmail *string
 	if sub.CustomerID != nil {
@@ -290,7 +326,7 @@ func (c *Closer) closeLocked(ctx context.Context, subscriptionID uuid.UUID, boun
 		inserted, err := invoices.Insert(ctx, q, invoices.Draft{
 			Subscription: sub, LicenseID: filedUnder.LicenseID, LicenseSlug: filedUnder.LicenseSlug, BillingEmail: billingEmail,
 			Kind: plan.kind, BoundaryAt: boundary, Composition: composition,
-			Terms: terms, Hold: hold, ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), Now: now,
+			Terms: terms, Hold: hold, ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), MaxItems: c.deps.MaxItems(sub.ProviderKind), Now: now,
 		})
 		if err != nil {
 			return Outcome{}, err
@@ -522,6 +558,15 @@ func (c *Closer) compose(ctx context.Context, q *db.Queries, sub db.InstanceBill
 			return rating.Composition{}, nil, err
 		}
 		hold = withPairs(hold, addonHeld)
+		trueUps, err := c.addonTrueUps(ctx, q, sub, sub.CurrentPeriodStart.Time.UTC(), boundary)
+		if err != nil {
+			return rating.Composition{}, nil, err
+		}
+		trueUpLines, err := rating.TrueUpLines(money.Currency(sub.Currency), trueUps)
+		if err != nil {
+			return rating.Composition{}, nil, overflow(err)
+		}
+		lines = append(lines, trueUpLines...)
 		arrears, err := rating.Compose(rating.Input{
 			Kind: rating.KindFinal, Currency: money.Currency(sub.Currency), LicenseName: p.arrearsBase.LicenseName,
 			Base: metering.Price(*p.arrearsBase), Metered: rated, Measures: measures, Addons: fees, AddonMetered: addonMeters,
@@ -774,7 +819,7 @@ func (c *Closer) Finalize(ctx context.Context, q *db.Queries, sub db.InstanceBil
 	invoice, err := invoices.Insert(ctx, q, invoices.Draft{
 		Subscription: sub, LicenseID: base.LicenseID, LicenseSlug: base.LicenseSlug, BillingEmail: billingEmail,
 		Kind: rating.KindFinal, BoundaryAt: at, Composition: composition, Terms: terms, Hold: hold,
-		ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), Now: now,
+		ReplacesInvoiceID: nil, Pushes: c.deps.Pushes(sub.ProviderKind), MaxItems: c.deps.MaxItems(sub.ProviderKind), Now: now,
 	})
 	if err != nil {
 		return nil, db.InstanceBilling{}, err

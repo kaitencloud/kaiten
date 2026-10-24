@@ -224,12 +224,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 	}()
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		entitlementUsageCtx, err := h.queryRepo.GetEntitlementUsageContext(
-			ctx,
-			instanceSlug,
-			entitlementSlug,
-			user.OrganizationID,
-		)
+		entitlementUsageCtx, err := h.queryRepo.LockPair(ctx, instanceSlug, entitlementSlug, user.OrganizationID)
 		if err != nil {
 			return err
 		}
@@ -292,6 +287,12 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			}
 		}
 
+		// The grant is checked only now (§6.1 step 6, V31-29): a replay or a
+		// conflict above needs the pair to be granted no longer.
+		if err := h.queryRepo.LoadLimits(ctx, entitlementUsageCtx, instanceSlug, entitlementSlug, user.OrganizationID); err != nil {
+			return err
+		}
+
 		aggregationMethod := resolveAggregationMethod(entitlementUsageCtx.AggregationMethod)
 
 		currentUsage := entitlementvalue.NewDefaultNumberUsageValue()
@@ -318,9 +319,9 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			// A stored window ahead of the computed one stays current (see
 			// period.ResolveCurrent): the counter keeps counting where it is
 			// instead of rolling over from a window that is already ahead.
-			window, storedAhead, err := period.ResolveCurrent(
+			window, storedAhead, err := period.ResolveCurrentOn(
 				reportedAt, entitlementUsageCtx.PeriodStart,
-				*entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart,
+				*entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.Basis,
 			)
 			if err != nil {
 				return err
@@ -341,7 +342,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 				closures, err := planRollover(
 					ctx, h.maxRolloverClosures,
 					entitlementUsageCtx.PeriodStart, currentUsage.Value, currentUsage.EventCount,
-					window, *entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.LicenseStart,
+					window, *entitlementUsageCtx.ResetPeriod, *entitlementUsageCtx.ResetAnchor, entitlementUsageCtx.Basis,
 				)
 				if errors.Is(err, errRolloverLimitExceeded) {
 					h.rolloverCapExceeded.Add(ctx, 1)
@@ -395,6 +396,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 						ClosedPeriodEnd:   c.ClosedPeriodEnd,
 						NewPeriodStart:    c.NewPeriodStart,
 						IsSynthetic:       c.IsSynthetic,
+						Reason:            c.Reason,
 					}
 					rolloverEventsToEmit[i] = outbox.NewOutboxMessage(
 						user.OrganizationID,
@@ -567,7 +569,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 			CurrentPeriodStart:             resolvedPeriodStart,
 			CurrentPeriodEnd:               resolvedPeriodEnd,
 			LimitCapExceededOveragePercent: &overagePercent,
-			Source:                         entitlementUsageSchema.SourceOf(entitlementUsageCtx.LicenseEntitlementID),
+			Source:                         entitlementUsageCtx.Source,
 			Provenance:                     provenance,
 		}
 
@@ -677,7 +679,7 @@ func computeUpdatedUsage(command *Command, current *entitlementvalue.NumberUsage
 		}, nil
 
 	default:
-		return nil, kaitenerrors.Validation(
+		return nil, kaitenerrors.UnprocessableEntity(
 			"ReportEntitlementUsageMetric.InvalidBehavior",
 			"behavior must be one of: append, set",
 		)

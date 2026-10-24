@@ -27,8 +27,8 @@ export type CatalogPrice = Omit<
 export type LicensePricingType = NonNullable<License['pricingType']>;
 
 /**
- * A license version with the prices it is sold at now. Every enum of the document is
- * a plain string there, where the contract has enums, so each is checked against the
+ * A license version with the prices it is sold at now. An API newer than this console
+ * may send an enum value it does not know, so each is checked against the
  * contract: a state or a pricing type the console does not know is left `undefined`
  * and a price it cannot read is dropped, so that the screens that read this never
  * meet a value they have no label for.

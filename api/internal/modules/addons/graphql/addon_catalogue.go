@@ -87,12 +87,9 @@ func newAddonPricesBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUI
 	}
 }
 
-// LoadAddonPrices is a version's prices, narrowed to status when it is set. A status
-// that is neither ACTIVE nor DEPRECATED is refused, as GET .../prices refuses it.
+// LoadAddonPrices is a version's prices, narrowed to status when it is set. GraphQL
+// validates status against the PriceStatus enum before any resolver runs.
 func LoadAddonPrices(ctx context.Context, addonID uuid.UUID, status *string) ([]prices.Price, error) {
-	if err := prices.CheckStatusFilter(status); err != nil {
-		return nil, err
-	}
 	loader, err := dataloader.GetLoader[uuid.UUID, []prices.Price](dataloader.LoadersFromContext(ctx), AddonPricesLoaderName)
 	if err != nil {
 		return nil, err

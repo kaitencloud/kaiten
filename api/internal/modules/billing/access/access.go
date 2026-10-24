@@ -39,6 +39,9 @@ type Deps struct {
 	// Fallback removes the attachments a fallback move strands (§9.11 rule
 	// 3). Nil: none removed.
 	Fallback ports.AddonFallback
+	// Scheduled applies the public add-on decreases a boundary or a
+	// cancellation reaches (§10.2). Nil: none applied.
+	Scheduled ports.AddonSchedule
 	// Checkouts follows an INCOMPLETE subscription's anonymous checkout
 	// session to its payment or its end (§9.12 rule 5). Nil: none followed.
 	Checkouts ports.CheckoutFollower
@@ -75,6 +78,19 @@ func (d Deps) Caller(ctx context.Context) (*currentuser.User, error) {
 // Queries binds to the transaction ctx carries, or the pool.
 func (d Deps) Queries(ctx context.Context) *db.Queries {
 	return db.New(d.Uof.DBTX(ctx))
+}
+
+// MaxItems is the most items the provider takes on one invoice, 0 for no
+// limit (§8.7, V31-61).
+func (d Deps) MaxItems(kind db.BillingProviderKind) int {
+	if d.Providers == nil {
+		return 0
+	}
+	capabilities, ok := d.Providers.Capabilities(provider.Kind(kind))
+	if !ok {
+		return 0
+	}
+	return capabilities.MaxInvoiceItems
 }
 
 // Pushes reports whether invoices issued through a provider wait in the push

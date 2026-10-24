@@ -30,16 +30,18 @@ import (
 // the same responses.
 //
 // The two gauge reads have since gained the effective percent, the licence
-// grant's id and the provenance (§7.4, §7.5). The legacy queries below read
-// those as the identity case has them -- the grant's own percent and id, and
-// a provenance of the licence layer alone -- in the new queries' positions.
+// grant's id, the provenance and the source (§7.4, §7.5), and with the group
+// usage the subscription a BILLING_PERIOD window follows (§6.7 rule 5). The
+// legacy queries below read those as the identity case has them -- the
+// grant's own percent and id, a provenance of the licence layer alone, the
+// source license, no subscription -- in the new queries' positions.
 
 // identityProvenance is the view's provenance of a licence grant that no add-on
 // and no boost changes: the licence layer alone.
 const identityProvenance = `jsonb_build_object(
     'license', jsonb_build_object('license_entitlement_id', le.id, 'value', le.value,
                                   'limit_cap_exceeded_overage_percent', le.limit_cap_exceeded_overage_percent),
-    'addons', '[]'::jsonb, 'boosts', '[]'::jsonb, 'number', NULL)`
+    'addons', '[]'::jsonb, 'boosts', '[]'::jsonb, 'exception', NULL, 'number', NULL)`
 
 // legacyEntitlementsUsageForInstance is GetEntitlementsUsageForInstanceWithFallback
 // before the move. $1 organization_id, $2 instance_id.
@@ -57,9 +59,13 @@ SELECT
   le.limit_cap_exceeded_overage_percent,
   le.id             AS license_entitlement_id,
   ` + identityProvenance + `,
+  'license'::text   AS source,
   eu.value          AS usage_value,
   eu.period_start,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  ''::text AS billing_status,
+  NULL::timestamp AS billing_anchor_at,
+  NULL::timestamp AS live_ended_at
 FROM instance i
 JOIN license_entitlement le
   ON le.license_id = i.license_id
@@ -96,11 +102,15 @@ SELECT
   le.limit_cap_exceeded_overage_percent,
   le.id             AS grant_id,
   CASE WHEN le.id IS NOT NULL THEN ` + identityProvenance + ` END,
+  CASE WHEN le.id IS NOT NULL THEN 'license'::text END AS source,
   eu.value          AS usage_value,
   eu.period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
-  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+  date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+  ''::text AS billing_status,
+  NULL::timestamp AS billing_anchor_at,
+  NULL::timestamp AS live_ended_at
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -175,7 +185,10 @@ SELECT e.id              AS entitlement_id,
        eu.value          AS usage_value,
        eu.period_start,
        le.value          AS license_value,
-       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       ''::text AS billing_status,
+       NULL::timestamp AS billing_anchor_at,
+       NULL::timestamp AS live_ended_at
 FROM entitlement_group eg
 JOIN entitlement_group_membership egm ON egm.entitlement_group_id = eg.id
 JOIN entitlement e ON e.id = egm.entitlement_id
@@ -351,6 +364,16 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 					OrganizationID: org, InstanceSlug: instanceSlug, EntitlementSlug: entitlementSlug,
 				})
 				if len(want) == 0 {
+					// The slug lookup no longer checks the grant (V31-29): the
+					// report checks it under the lock, after its replay lookup,
+					// where the limit has no row for a pair nothing grants.
+					if errors.Is(err, pgx.ErrNoRows) {
+						continue // an unknown slug
+					}
+					require.NoError(t, err)
+					_, err = instancesDB.GetEffectiveEntitlementLimit(ctx, db.GetEffectiveEntitlementLimitParams{
+						OrganizationID: org, InstanceID: got.InstanceID, EntitlementID: got.EntitlementID,
+					})
 					require.True(t, errors.Is(err, pgx.ErrNoRows), "%s / %s: not granted before, so not now: %v", instanceSlug, entitlementSlug, err)
 					continue
 				}
@@ -397,16 +420,30 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 	})
 
 	t.Run("FeatureFlagTargetingFacts", func(t *testing.T) {
+		// The columns both shapes have: the query now also returns what the
+		// lazy window read needs (V31-57).
+		type fact struct {
+			LicenseSlug       string
+			LicenseFamilySlug string
+			LicenseType       customersdb.LicenseType
+			EntitlementSlug   *string
+			LimitValue        []byte
+			UsageValue        []byte
+		}
 		customers := customersdb.New(testServer.Dependencies.DB)
 		for _, customerSlug := range catalogue.customers {
-			want := legacyRows[customersdb.GetTargetingFactsByCustomerSlugRow](t, legacyTargetingFacts, org, customerSlug)
-			got, err := customers.GetTargetingFactsByCustomerSlug(ctx, customersdb.GetTargetingFactsByCustomerSlugParams{
+			want := legacyRows[fact](t, legacyTargetingFacts, org, customerSlug)
+			rows, err := customers.GetTargetingFactsByCustomerSlug(ctx, customersdb.GetTargetingFactsByCustomerSlugParams{
 				OrganizationID: org, CustomerSlug: customerSlug,
 			})
 			require.NoError(t, err)
 			if len(want) == 0 {
-				require.Empty(t, got, "customer %s", customerSlug)
+				require.Empty(t, rows, "customer %s", customerSlug)
 				continue
+			}
+			got := make([]fact, len(rows))
+			for i, row := range rows {
+				got[i] = fact{row.LicenseSlug, row.LicenseFamilySlug, row.LicenseType, row.EntitlementSlug, row.LimitValue, row.UsageValue}
 			}
 			require.Equal(t, want, got, "customer %s", customerSlug)
 		}

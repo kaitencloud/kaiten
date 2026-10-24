@@ -19,6 +19,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -139,6 +140,9 @@ func TestCheckoutSessionStart(t *testing.T) {
 	down := startCheckout(t, key.Key, with(order, "turnstileToken", "down"))
 	require.Equal(t, fiber.StatusServiceUnavailable, down.StatusCode)
 	require.Equal(t, "30", down.Header.Get("Retry-After"))
+	require.Equal(t, "CreateCheckoutSession.TurnstileUnavailable",
+		startProblem(t, key.Key, with(order, "turnstileToken", "internal"), fiber.StatusServiceUnavailable).Code,
+		"Cloudflare's internal-error decides nothing: not the visitor's token refused")
 	require.Equal(t, lastAddress(t), turnstileRemoteIP.Load(), "the visitor's address, as the gateway saw it")
 
 	both := with(with(order, "licenseSlug", community.Slug), "billingPeriod", "MONTHLY")
@@ -276,7 +280,19 @@ func TestCheckoutSessionRateLimits(t *testing.T) {
 			require.Equal(t, "ConfirmCheckoutSession.SessionClosed", closed.Code)
 		}
 	}
-	limited = confirmCheckoutFrom(t, visitor, last.SessionID.String(), *last.Token)
+	// The bucket gives a confirm back every 20 seconds: a slow runner may be
+	// handed one or two before the 31st, never many.
+	limited = nil
+	for range 3 {
+		resp := confirmCheckoutFrom(t, visitor, last.SessionID.String(), *last.Token)
+		if resp.StatusCode == fiber.StatusTooManyRequests {
+			limited = resp
+			break
+		}
+		closed := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, resp, fiber.StatusConflict)
+		require.Equal(t, "ConfirmCheckoutSession.SessionClosed", closed.Code)
+	}
+	require.NotNil(t, limited, "the confirms past 30 from one address are refused")
 	problem = commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, limited, fiber.StatusTooManyRequests)
 	require.Equal(t, "ConfirmCheckoutSession.RateLimited", problem.Code)
 	require.NotEmpty(t, limited.Header.Get("Retry-After"))
@@ -389,4 +405,48 @@ func TestCheckoutSessionVendorReads(t *testing.T) {
 	require.Equal(t, checkout.StatusOpen, one.Status)
 	require.Nil(t, one.ClosedAt)
 	require.Equal(t, "GetCheckoutSessionAdmin.NotFound", problemCode(t, fiber.StatusNotFound, "GET", "/api/checkout-sessions/"+uuid.NewString(), nil))
+}
+
+// TestCheckoutSessionRedeemsABoost: on a plan with nothing due, the completion
+// redeems the visitor's voucher on the instance it created, a boost
+// included; the checks for a visitor read the plan and the add-ons it
+// selects (§11.4, E-6).
+func TestCheckoutSessionRedeemsABoost(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	community := newDefaultVersion(t, "Community", "FREE")
+	makePublic(t, community.FamilySlug)
+	free := createPrice(t, community.Slug, defaultFlatFee("0", "MONTHLY"))
+	newEntitlement(t, "seats", 0)
+	newEntitlement(t, "builds", 0)
+	grant(t, community.Slug, "seats", 3, 0)
+	key := anonymousKey(t)
+	boost := func(code, entitlement string) {
+		t.Helper()
+		v := newVoucher(t, map[string]any{
+			"name": code, "code": code, "voucherType": "ENTITLEMENT_BOOST", "maxRedemptions": 5,
+			"grants": []map[string]any{{"entitlementSlug": entitlement, "modifierType": "ADD", "modifierValue": "5"}},
+		})
+		publish(t, v)
+	}
+	boost("MORE-SEATS-1", "seats")
+	boost("MORE-BUILDS-1", "builds")
+	order := map[string]any{
+		"turnstileToken": "pass:app.acme.test", "priceId": free.ID, "email": "visitor@example.com", "returnUrl": storefront + "/welcome",
+	}
+	require.Equal(t, "CreateCheckoutSession.VoucherInvalid",
+		startProblem(t, key.Key, with(order, "voucherCode", "MORE-BUILDS-1"), fiber.StatusUnprocessableEntity).Code,
+		"the plan grants no builds: nothing to boost")
+
+	opened := commonfixture.AssertJSONResponse[checkout.CheckoutSessionStart](t,
+		startCheckout(t, key.Key, with(order, "voucherCode", "MORE-SEATS-1")), fiber.StatusCreated)
+	done := commonfixture.AssertJSONResponse[checkout.CheckoutConfirmation](t, confirmCheckout(t, opened.SessionID.String(), *opened.Token), fiber.StatusOK)
+	require.Equal(t, checkout.ConfirmCompleted, done.Status)
+	redemptions := commonfixture.AssertJSONResponse[[]catalogue.Redemption](t,
+		call(t, "GET", "/api/instances/"+*done.Session.InstanceSlug+"/vouchers", nil), fiber.StatusOK)
+	require.Len(t, redemptions, 1)
+	require.Equal(t, "ENTITLEMENT_BOOST", redemptions[0].VoucherType)
+	instance := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/instances/"+*done.Session.InstanceSlug, nil), fiber.StatusOK)
+	value, _, ok := effective(t, instance["id"], "seats")
+	require.True(t, ok)
+	require.EqualValues(t, 8, value, "3 + 5")
 }

@@ -1,9 +1,11 @@
 package catalogue
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -20,7 +22,7 @@ type VoucherDraft struct {
 	Code                      *string         `json:"code,omitempty" doc:"8 to 64 of [A-Za-z0-9_-]. Generated when absent: 16 characters, 80 random bits. Matched without case or separators." example:"SUMMER-2026-LAUNCH"`
 	Name                      string          `json:"name" minLength:"1" maxLength:"200" example:"Summer launch"`
 	Description               *string         `json:"description,omitempty" maxLength:"2000"`
-	VoucherType               string          `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST"`
+	VoucherType               string          `json:"voucherType" enum:"PRICE,ENTITLEMENT_BOOST,FLAG_GRANT,COMPOSITE"`
 	Duration                  string          `json:"duration" enum:"ONE_TIME,REPEATING,FOREVER"`
 	DurationInPeriods         *int32          `json:"durationInPeriods,omitempty" doc:"Required with REPEATING, refused otherwise"`
 	MaxRedemptions            *int32          `json:"maxRedemptions,omitempty" minimum:"1"`
@@ -32,7 +34,8 @@ type VoucherDraft struct {
 	PriceAppliesTo            *string         `json:"priceAppliesTo,omitempty" enum:"LICENSE_BASE,ADDONS,BOTH,SELECTED_PRICES"`
 	ApplicableLicensePriceIDs []uuid.UUID     `json:"applicableLicensePriceIds,omitempty" doc:"With SELECTED_PRICES: the licence prices it discounts"`
 	ApplicableAddonPriceIDs   []uuid.UUID     `json:"applicableAddonPriceIds,omitempty" doc:"With SELECTED_PRICES: the add-on prices it discounts"`
-	Grants                    []Grant         `json:"grants,omitempty" doc:"Required on an ENTITLEMENT_BOOST, refused on a PRICE voucher"`
+	Grants                    []Grant         `json:"grants,omitempty" doc:"Required on an ENTITLEMENT_BOOST, optional on a COMPOSITE, refused otherwise"`
+	FlagGrants                []FlagGrant     `json:"flagGrants,omitempty" doc:"Required on a FLAG_GRANT, optional on a COMPOSITE, one per flag, refused otherwise"`
 	ApplicableLicenseIDs      []uuid.UUID     `json:"applicableLicenseIds,omitempty"`
 	ApplicableAddonIDs        []uuid.UUID     `json:"applicableAddonIds,omitempty"`
 	RestrictedCustomerSlug    *string         `json:"restrictedCustomerSlug,omitempty"`
@@ -44,6 +47,8 @@ type Resolved struct {
 	Code         string
 	Params       db.InsertVoucherParams
 	Entitlements []uuid.UUID
+	// Flags are the ids of the flags FlagGrants names, in its order.
+	Flags []uuid.UUID
 }
 
 // Resolve checks the draft and reads what it names. Reasons are prefixed by
@@ -69,8 +74,11 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 		}
 		code = generated
 	}
-	if d.VoucherType != TypePrice && d.VoucherType != TypeBoost {
-		return Resolved{}, invalid("UnsupportedType", "a voucher is PRICE or ENTITLEMENT_BOOST")
+	if d.VoucherType != TypePrice && d.VoucherType != TypeBoost && d.VoucherType != TypeFlagGrant && d.VoucherType != TypeComposite {
+		return Resolved{}, invalid("UnsupportedType", "a voucher is PRICE, ENTITLEMENT_BOOST, FLAG_GRANT or COMPOSITE")
+	}
+	if d.VoucherType != TypeFlagGrant && d.VoucherType != TypeComposite && len(d.FlagGrants) > 0 {
+		return Resolved{}, invalid("InvalidDiscount", "only a FLAG_GRANT or a COMPOSITE grants flag variants: omit flagGrants")
 	}
 	if (d.Duration == DurationRepeating) != (d.DurationInPeriods != nil) || (d.DurationInPeriods != nil && *d.DurationInPeriods < 1) {
 		return Resolved{}, invalid("InvalidDuration", "durationInPeriods, at least 1, goes with REPEATING and only with it")
@@ -105,50 +113,56 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 		RestrictedCustomerID: nil, RedemptionRules: rules, UserID: userID,
 	}
 
-	var entitlements []uuid.UUID
+	var entitlements, flags []uuid.UUID
 	switch d.VoucherType {
 	case TypePrice:
 		if len(d.Grants) > 0 {
 			return Resolved{}, invalid("InvalidDiscount", "a PRICE voucher grants nothing: omit grants")
 		}
-		if err := d.discount(operation, &params); err != nil {
-			return Resolved{}, err
-		}
-		if err := countAll(ctx, kaitenerrors.NotFound(operation+".PriceNotFound", "a selected price does not exist"),
-			func() (int32, error) {
-				return q.CountLicensePrices(ctx, db.CountLicensePricesParams{OrganizationID: organizationID, Ids: params.ApplicableLicensePriceIds})
-			}, len(params.ApplicableLicensePriceIds)); err != nil {
-			return Resolved{}, err
-		}
-		if err := countAll(ctx, kaitenerrors.NotFound(operation+".PriceNotFound", "a selected add-on price does not exist"),
-			func() (int32, error) {
-				return q.CountAddonPrices(ctx, db.CountAddonPricesParams{OrganizationID: organizationID, Ids: params.ApplicableAddonPriceIds})
-			}, len(params.ApplicableAddonPriceIds)); err != nil {
+		if err := d.resolvePrice(ctx, q, operation, organizationID, &params); err != nil {
 			return Resolved{}, err
 		}
 	case TypeBoost:
-		if d.PriceDiscountType != nil || d.PriceDiscountValue != nil || d.Currency != nil || d.PriceAppliesTo != nil ||
-			len(d.ApplicableLicensePriceIDs) > 0 || len(d.ApplicableAddonPriceIDs) > 0 {
+		if d.hasPriceMembers() {
 			return Resolved{}, invalid("InvalidDiscount", "an ENTITLEMENT_BOOST discounts nothing: omit the price members")
 		}
 		if len(d.Grants) == 0 {
 			return Resolved{}, invalid("GrantsRequired", "an ENTITLEMENT_BOOST names at least one grant")
 		}
-		for _, grant := range d.Grants {
-			entitlement, err := q.GetBoostableEntitlement(ctx, db.GetBoostableEntitlementParams{OrganizationID: organizationID, Slug: grant.EntitlementSlug})
-			if errors.Is(err, pgx.ErrNoRows) {
-				return Resolved{}, kaitenerrors.NotFoundf(operation+".EntitlementNotFound", "entitlement %q not found", grant.EntitlementSlug)
+		if entitlements, err = d.resolveGrants(ctx, q, operation, organizationID); err != nil {
+			return Resolved{}, err
+		}
+	case TypeFlagGrant:
+		if d.hasPriceMembers() || len(d.Grants) > 0 {
+			return Resolved{}, invalid("InvalidDiscount", "a FLAG_GRANT discounts and boosts nothing: omit the price members and grants")
+		}
+		if len(d.FlagGrants) == 0 {
+			return Resolved{}, invalid("FlagGrantsRequired", "a FLAG_GRANT names at least one flag grant")
+		}
+		if flags, err = d.resolveFlagGrants(ctx, q, operation, organizationID); err != nil {
+			return Resolved{}, err
+		}
+	case TypeComposite:
+		// Each family it carries is checked as its own type checks it (V32-03 d).
+		families := 0
+		for _, present := range []bool{d.hasPriceMembers(), len(d.Grants) > 0, len(d.FlagGrants) > 0} {
+			if present {
+				families++
 			}
-			if err != nil {
+		}
+		if families < 2 {
+			return Resolved{}, invalid("InvalidComposite", "a COMPOSITE carries at least two of a PRICE discount, grants and flag grants")
+		}
+		if d.hasPriceMembers() {
+			if err := d.resolvePrice(ctx, q, operation, organizationID, &params); err != nil {
 				return Resolved{}, err
 			}
-			if entitlement.Type != db.EntitlementTypeNUMBER && entitlement.Type != db.EntitlementTypeNUMBERAICREDIT {
-				return Resolved{}, invalid("BoostUnsupportedEntitlementType", "a boost changes a NUMBER or NUMBER_AI_CREDIT entitlement only")
-			}
-			if err := grant.validate(operation); err != nil {
-				return Resolved{}, err
-			}
-			entitlements = append(entitlements, entitlement.ID)
+		}
+		if entitlements, err = d.resolveGrants(ctx, q, operation, organizationID); err != nil {
+			return Resolved{}, err
+		}
+		if flags, err = d.resolveFlagGrants(ctx, q, operation, organizationID); err != nil {
+			return Resolved{}, err
 		}
 	}
 
@@ -177,7 +191,71 @@ func (d VoucherDraft) Resolve(ctx context.Context, q *db.Queries, operation stri
 		}
 		params.RestrictedCustomerID = &customerID
 	}
-	return Resolved{Code: code, Params: params, Entitlements: entitlements}, nil
+	return Resolved{Code: code, Params: params, Entitlements: entitlements, Flags: flags}, nil
+}
+
+// resolvePrice checks a PRICE discount, of a PRICE voucher or a COMPOSITE's
+// PRICE part, and the prices it selects, and copies it to params.
+func (d VoucherDraft) resolvePrice(ctx context.Context, q *db.Queries, operation string, organizationID uuid.UUID, params *db.InsertVoucherParams) error {
+	if err := d.discount(operation, params); err != nil {
+		return err
+	}
+	if err := countAll(ctx, kaitenerrors.NotFound(operation+".PriceNotFound", "a selected price does not exist"),
+		func() (int32, error) {
+			return q.CountLicensePrices(ctx, db.CountLicensePricesParams{OrganizationID: organizationID, Ids: params.ApplicableLicensePriceIds})
+		}, len(params.ApplicableLicensePriceIds)); err != nil {
+		return err
+	}
+	return countAll(ctx, kaitenerrors.NotFound(operation+".PriceNotFound", "a selected add-on price does not exist"),
+		func() (int32, error) {
+			return q.CountAddonPrices(ctx, db.CountAddonPricesParams{OrganizationID: organizationID, Ids: params.ApplicableAddonPriceIds})
+		}, len(params.ApplicableAddonPriceIds))
+}
+
+// resolveGrants checks each grant against its entitlement's type and returns
+// the entitlements, in the grants' order.
+func (d VoucherDraft) resolveGrants(ctx context.Context, q *db.Queries, operation string, organizationID uuid.UUID) ([]uuid.UUID, error) {
+	var entitlements []uuid.UUID
+	for _, grant := range d.Grants {
+		entitlement, err := q.GetBoostableEntitlement(ctx, db.GetBoostableEntitlementParams{OrganizationID: organizationID, Slug: grant.EntitlementSlug})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, kaitenerrors.NotFoundf(operation+".EntitlementNotFound", "entitlement %q not found", grant.EntitlementSlug)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if err := grant.validate(operation, entitlement.Type); err != nil {
+			return nil, err
+		}
+		entitlements = append(entitlements, entitlement.ID)
+	}
+	return entitlements, nil
+}
+
+// resolveFlagGrants checks each flag grant against its flag's variants and
+// returns the flags, in the flag grants' order.
+func (d VoucherDraft) resolveFlagGrants(ctx context.Context, q *db.Queries, operation string, organizationID uuid.UUID) ([]uuid.UUID, error) {
+	var flags []uuid.UUID
+	for _, grant := range d.FlagGrants {
+		flag, err := q.GetGrantableFlag(ctx, db.GetGrantableFlagParams{OrganizationID: organizationID, Slug: grant.FlagSlug})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, kaitenerrors.NotFoundf(operation+".FlagNotFound", "feature flag %q not found", grant.FlagSlug)
+		}
+		if err != nil {
+			return nil, err
+		}
+		if !slices.Contains(flag.Variants, grant.Variant) {
+			return nil, kaitenerrors.UnprocessableEntityf(operation+".InvalidFlagGrant", "feature flag %q has no variant %q", grant.FlagSlug, grant.Variant)
+		}
+		flags = append(flags, flag.ID)
+	}
+	return flags, nil
+}
+
+// hasPriceMembers is whether the draft names any member of a PRICE discount.
+func (d VoucherDraft) hasPriceMembers() bool {
+	return d.PriceDiscountType != nil || d.PriceDiscountValue != nil || d.Currency != nil || d.PriceAppliesTo != nil ||
+		len(d.ApplicableLicensePriceIDs) > 0 || len(d.ApplicableAddonPriceIDs) > 0
 }
 
 // discount checks a PRICE voucher's discount and copies it to params.
@@ -225,9 +303,30 @@ func (d VoucherDraft) discount(operation string, params *db.InsertVoucherParams)
 	return nil
 }
 
-func (g Grant) validate(operation string) error {
+// validate matches a grant to its entitlement's type (§11.1): a NUMBER grant
+// carries modifierValue, a BOOLEAN or CONFIG one is a SET carrying value, a
+// boolean or an object (V32-03 b).
+func (g Grant) validate(operation string, entitlementType db.EntitlementType) error {
+	raw := bytes.TrimSpace(g.Value)
+	if entitlementType == db.EntitlementTypeBOOLEAN || entitlementType == db.EntitlementTypeCONFIG {
+		refuse := func(reason string) error { return kaitenerrors.UnprocessableEntity(operation+".InvalidGrant", reason) }
+		switch {
+		case g.ModifierType != "SET":
+			return refuse("a BOOLEAN or CONFIG grant is a SET")
+		case g.ModifierValue != nil:
+			return refuse("a BOOLEAN or CONFIG grant carries value, not modifierValue")
+		case entitlementType == db.EntitlementTypeBOOLEAN && string(raw) != "true" && string(raw) != "false":
+			return refuse("a BOOLEAN grant's value is true or false")
+		case entitlementType == db.EntitlementTypeCONFIG && (len(raw) == 0 || raw[0] != '{'):
+			return refuse("a CONFIG grant's value is the document, as an object")
+		}
+		return nil
+	}
 	invalid := kaitenerrors.UnprocessableEntity(operation+".InvalidGrant",
-		"modifierValue is >= 0 for SET, > 0 for ADD and MULTIPLY, and absent for UNLIMITED")
+		"modifierValue is >= 0 for SET, > 0 for ADD and MULTIPLY, and absent for UNLIMITED; a NUMBER grant carries no value")
+	if len(raw) > 0 {
+		return invalid
+	}
 	if g.ModifierType == "UNLIMITED" {
 		if g.ModifierValue != nil {
 			return invalid
@@ -264,17 +363,35 @@ func countAll(_ context.Context, refusal error, count func() (int32, error), wan
 }
 
 // WriteGrants replaces a voucher's grants.
-func WriteGrants(ctx context.Context, q *db.Queries, operation string, organizationID, voucherID uuid.UUID, grants []Grant, entitlements []uuid.UUID) error {
+func WriteGrants(ctx context.Context, q *db.Queries, operation string, organizationID, voucherID uuid.UUID, voucherType string, grants []Grant, entitlements []uuid.UUID) error {
 	if err := q.DeleteVoucherGrants(ctx, db.DeleteVoucherGrantsParams{OrganizationID: organizationID, VoucherID: voucherID}); err != nil {
 		return err
 	}
 	for i, grant := range grants {
 		if err := q.InsertVoucherGrant(ctx, db.InsertVoucherGrantParams{
-			OrganizationID: organizationID, VoucherID: voucherID, EntitlementID: entitlements[i],
-			ModifierType: db.BoostModifierType(grant.ModifierType), ModifierValue: grant.ModifierValue,
+			OrganizationID: organizationID, VoucherID: voucherID, VoucherType: db.VoucherType(voucherType), EntitlementID: entitlements[i],
+			ModifierType: db.BoostModifierType(grant.ModifierType), ModifierValue: grant.ModifierValue, Value: bytes.TrimSpace(grant.Value),
 		}); err != nil {
 			if kaitenerrors.IsUniqueViolationOnConstraint(err, "voucher_entitlement_grant_voucher_id_entitlement_id_key") {
 				return kaitenerrors.UnprocessableEntity(operation+".DuplicateGrant", "one grant per entitlement")
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// WriteFlagGrants replaces a voucher's flag grants.
+func WriteFlagGrants(ctx context.Context, q *db.Queries, operation string, organizationID, voucherID uuid.UUID, voucherType string, grants []FlagGrant, flags []uuid.UUID) error {
+	if err := q.DeleteVoucherFlagGrants(ctx, db.DeleteVoucherFlagGrantsParams{OrganizationID: organizationID, VoucherID: voucherID}); err != nil {
+		return err
+	}
+	for i, grant := range grants {
+		if err := q.InsertVoucherFlagGrant(ctx, db.InsertVoucherFlagGrantParams{
+			OrganizationID: organizationID, VoucherID: voucherID, VoucherType: db.VoucherType(voucherType), FlagID: flags[i], Variant: grant.Variant,
+		}); err != nil {
+			if kaitenerrors.IsUniqueViolationOnConstraint(err, "voucher_flag_grant_voucher_id_flag_id_key") {
+				return kaitenerrors.UnprocessableEntity(operation+".DuplicateFlagGrant", "one flag grant per flag")
 			}
 			return err
 		}

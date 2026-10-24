@@ -24,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/getdeploymentzones"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlements"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/listentitlementexceptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
@@ -87,10 +88,12 @@ var typeScopes = map[string]string{
 	"Entitlement":        getentitlement.RequiredScope,
 	// REST returns an entitlement's groups inside the entitlement.
 	"EntitlementGroupSummary": getentitlement.RequiredScope,
-	"EntitlementPage":         getentitlements.RequiredScope,
-	"EntitlementUsage":        getentitlementsusagemetrics.RequiredScope,
-	"Instance":                getinstance.RequiredScope,
-	"InstanceAddon":           listinstanceaddons.RequiredScope,
+	// Instance state, read under read:instances, never gated by billing.
+	"EntitlementException": listentitlementexceptions.RequiredScope,
+	"EntitlementPage":      getentitlements.RequiredScope,
+	"EntitlementUsage":     getentitlementsusagemetrics.RequiredScope,
+	"Instance":             getinstance.RequiredScope,
+	"InstanceAddon":        listinstanceaddons.RequiredScope,
 	// Billing data: an instance list that selects it needs read:billing too,
 	// so the console fetches it in a document of its own (§13.14).
 	"InstanceBillingSummary": getinstancebilling.RequiredScope,

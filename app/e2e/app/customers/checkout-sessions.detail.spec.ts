@@ -187,8 +187,11 @@ test.describe('the panel of a checkout', () => {
     const checkouts = new CheckoutSessionsDriver(page);
 
     await checkouts.goto();
-    await checkouts.openLink('dana@hooli.test').focus();
-    await page.keyboard.press('Enter');
+    const link = checkouts.openLink('dana@hooli.test');
+    await expect(link).toBeVisible();
+    // press() focuses the link it resolves at that moment: a table drawn again
+    // between a separate focus() and the key press would swallow the Enter.
+    await link.press('Enter');
 
     await expect(page).toHaveURL(/\?session=cs-open$/);
     await expect(checkouts.detail()).toBeVisible();
@@ -200,8 +203,9 @@ test.describe('the panel of a checkout', () => {
     const checkouts = new CheckoutSessionsDriver(page);
 
     await checkouts.goto();
-    await checkouts.openLink('alice@acme.test').focus();
-    await page.keyboard.press('Enter');
+    const link = checkouts.openLink('alice@acme.test');
+    await expect(link).toBeVisible();
+    await link.press('Enter');
 
     // Not the scrolling body of the panel, which would be framed by a ring: the panel,
     // named by its title.

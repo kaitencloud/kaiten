@@ -23,7 +23,7 @@ type PublishableKeyEvent struct {
 	// Never the Turnstile secret (V32-01).
 	AnonymousCheckout bool       `json:"anonymousCheckout"`
 	TurnstileSiteKey  *string    `json:"turnstileSiteKey" nullable:"true"`
-	RevokedAt         *time.Time `json:"revokedAt,omitempty"`
+	RevokedAt         *time.Time `json:"revokedAt" nullable:"true"`
 }
 
 // Announce records a key event in the transaction ctx carries.

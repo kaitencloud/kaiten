@@ -39,9 +39,24 @@ func (p *Pusher) charge(ctx context.Context, conn *provider.Connection, row db.I
 	if err != nil {
 		return p.chargeUnknown(ctx, row, err, now)
 	}
+	if outcome.Status == provider.PaymentProcessing {
+		// Accepted, no outcome yet: sync learns it, from the invoice or its
+		// payment (§12.6). Charging again would only be refused.
+		_, err := q.AwaitChargeOutcome(ctx, db.AwaitChargeOutcomeParams{Now: invoices.Timestamp(now), ID: row.ID})
+		return err
+	}
 
 	return p.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := p.deps.Queries(ctx)
+		// The payment of an INCOMPLETE ACTIVATION moves the instance: the
+		// instance and the subscription first, then the invoice (§9
+		// Concurrency rule 1).
+		if _, err := lifecycle.LockInstanceOf(ctx, q, row.InstanceBillingID, false); err != nil {
+			return err
+		}
+		if _, err := q.LockSubscriptionByID(ctx, db.LockSubscriptionByIDParams{OrganizationID: row.OrganizationID, ID: row.InstanceBillingID}); err != nil {
+			return err
+		}
 		var updated db.InstanceInvoice
 		var err error
 		switch outcome.Status {
@@ -75,7 +90,7 @@ func (p *Pusher) charge(ctx context.Context, conn *provider.Connection, row db.I
 				return err
 			}
 		} else {
-			if err := p.paymentMethodRefused(ctx, q, row, outcome.Code, now); err != nil {
+			if err := PaymentMethodRefused(ctx, q, row, outcome.Code, now); err != nil {
 				return err
 			}
 			if err := invoices.Announce(ctx, p.outbox, row.OrganizationID, events.InstanceInvoicePaymentFailed, invoices.PaymentFailedInvoice{
@@ -99,9 +114,9 @@ func (p *Pusher) charge(ctx context.Context, conn *provider.Connection, row db.I
 	})
 }
 
-// paymentMethodRefused records on the customer what a refused charge says of
+// PaymentMethodRefused records on the customer what a refused charge says of
 // its payment method: expired, failed, or gone from the provider.
-func (p *Pusher) paymentMethodRefused(ctx context.Context, q *db.Queries, row db.InstanceInvoice, code string, now time.Time) error {
+func PaymentMethodRefused(ctx context.Context, q *db.Queries, row db.InstanceInvoice, code string, now time.Time) error {
 	if row.CustomerID == nil {
 		return nil
 	}

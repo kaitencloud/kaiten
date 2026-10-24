@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -24,6 +25,9 @@ const (
 	CardInsufficientFunds     = "insufficient_funds"
 	CardExpired               = "expired_card"
 	CardAuthenticationRequire = "authentication_required"
+	// CardProcessing leaves the charge processing (a bank debit, say): no
+	// outcome yet.
+	CardProcessing = "processing"
 )
 
 type paymentMethod struct {
@@ -242,7 +246,9 @@ func (f *Fake) handlePayment(a *account, op, id string, form url.Values) (int, [
 			})
 		}
 		inv.AttemptCount++
-		switch outcome := p.methods[pmID].outcome; outcome {
+		outcome := p.methods[pmID].outcome
+		f.recordAttempt(inv, outcome)
+		switch outcome {
 		case CardSucceeds:
 			inv.Status = "paid"
 			inv.StatusTransitions["paid_at"] = now.Unix()
@@ -254,6 +260,8 @@ func (f *Fake) handlePayment(a *account, op, id string, form url.Values) (int, [
 				Type: "card_error", Code: "invoice_payment_intent_requires_action",
 				Message: "This payment requires additional user action before it can be completed successfully.",
 			})
+		case CardProcessing:
+			return http.StatusOK, mustJSON(f.render(a, inv))
 		case CardExpired:
 			f.emit(a, "invoice.payment_failed", inv)
 			return http.StatusPaymentRequired, errorBody(apiError{Type: "card_error", Code: "expired_card", Message: "Your card has expired."})
@@ -379,4 +387,53 @@ func (f *Fake) updateDefault(a *account, customerID string, form url.Values) (in
 	a.pay().defaults[customerID] = pmID
 	f.customerEvent(a, "customer.updated", customerID)
 	return 0, nil, false
+}
+
+// recordAttempt is the PaymentIntent an attempt leaves on the invoice, under
+// f.mu: what invoice.payments then shows.
+func (f *Fake) recordAttempt(inv *invoice, outcome string) {
+	intent := &paymentIntent{ID: "pi_" + strings.TrimPrefix(inv.ID, "in_"), Status: "succeeded", Code: "", DeclineCode: ""}
+	switch outcome {
+	case CardSucceeds:
+	case CardAuthenticationRequire:
+		intent.Status, intent.Code = "requires_action", "authentication_required"
+	case CardProcessing:
+		intent.Status = "processing"
+	case CardExpired:
+		intent.Status, intent.Code = "requires_payment_method", "expired_card"
+	default:
+		intent.Status, intent.Code, intent.DeclineCode = "requires_payment_method", "card_declined", outcome
+	}
+	inv.intent = intent
+}
+
+// StripeAttempt is Stripe charging an open invoice on its own (auto_advance
+// on): one more attempt, with the outcome of the customer's default card,
+// and the webhook it emits. Kaiten learns it through sync.
+func (f *Fake) StripeAttempt(accountID, invoiceID string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	a := f.acct(accountID)
+	inv, ok := a.invoices[invoiceID]
+	if !ok || inv.Status != "open" {
+		return
+	}
+	p := a.pay()
+	outcome := CardSucceeds
+	if method := p.methods[p.defaults[inv.Customer]]; method != nil {
+		outcome = method.outcome
+	}
+	inv.AttemptCount++
+	f.recordAttempt(inv, outcome)
+	switch outcome {
+	case CardSucceeds:
+		inv.Status = "paid"
+		inv.StatusTransitions["paid_at"] = f.clock().Unix()
+		f.emit(a, "invoice.paid", inv)
+	case CardAuthenticationRequire:
+		f.emit(a, "invoice.payment_action_required", inv)
+	case CardProcessing:
+	default:
+		f.emit(a, "invoice.payment_failed", inv)
+	}
 }

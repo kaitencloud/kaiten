@@ -159,6 +159,9 @@ type AddonCharge struct {
 	// Service replaces the period an ARREARS fee bills: the attachment's
 	// window within it, [max(P0, attached), min(B, removed)) (§10.4).
 	Service *Period
+	// TrueUp is set on the true-up of an ADVANCE attachment (V31-70):
+	// Quantity is then maxQuantity - billedQuantity.
+	TrueUp *InvoiceLineTrueUp
 }
 
 // AddonMeter is one metered price of an attachment, rated over the
@@ -399,8 +402,27 @@ func addonLine(in Input, addon AddonCharge, service Period) (InvoiceLine, error)
 		Discount:          nil,
 		Provider:          nil,
 		Capped:            false,
+		TrueUp:            addon.TrueUp,
 		displayOrder:      addon.Price.DisplayOrder,
 	}, nil
+}
+
+// TrueUpLines rates the true-ups of ADVANCE attachments (V31-70): each one
+// bills its Quantity, the units held above what was billed in advance, over
+// its Service window of the elapsed period, in full.
+func TrueUpLines(currency money.Currency, charges []AddonCharge) ([]InvoiceLine, error) {
+	lines := make([]InvoiceLine, 0, len(charges))
+	for _, charge := range charges {
+		if charge.TrueUp == nil || charge.Service == nil {
+			continue
+		}
+		line, err := addonLine(Input{Currency: currency}, charge, *charge.Service)
+		if err != nil {
+			return nil, err
+		}
+		lines = append(lines, line)
+	}
+	return lines, nil
 }
 
 // priceKey is the id of the price a line bills, whichever kind it is.

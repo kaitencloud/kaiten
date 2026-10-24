@@ -221,10 +221,15 @@ WHERE c.organization_id = sqlc.arg(organization_id)
 -- names one version and changes with every new one. Every licence has
 -- a family in its own organization (license_family_id_fkey), so the join never
 -- drops the row.
+--
+-- The usage is the counter as stored; with the clock, the stored window's
+-- start and the window configuration, all read by this one statement, the
+-- caller resolves the current window lazily as every gauge read does (§6.1
+-- rule 2, V31-57): a counter whose window has ended reads as the new one's.
 
 -- name: GetTargetingFactsByCustomerSlug :many
 WITH primary_instance AS (
-  SELECT i.id, i.license_id
+  SELECT i.id, i.license_id, i.start_license_date
   FROM instance i
          JOIN customer c ON c.id = i.customer_id AND c.organization_id = i.organization_id
   WHERE c.organization_id = sqlc.arg(organization_id)
@@ -233,14 +238,69 @@ WITH primary_instance AS (
   ORDER BY i.created_at, i.id
   LIMIT 1
 )
-SELECT l.slug           AS license_slug,
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
        lf.slug          AS license_family_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,
        iee.value        AS limit_value,
-       eu.value         AS usage_value
+       eu.value         AS usage_value,
+       eu.period_start  AS usage_period_start,
+       e.reset_period,
+       e.reset_anchor,
+       pi.start_license_date,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
+       JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
+       -- The instance's effective entitlements, as every reader of an
+       -- instance's entitlement value reads them.
+       LEFT JOIN instance_effective_entitlement iee
+         ON iee.instance_id = pi.id AND iee.organization_id = sqlc.arg(organization_id)
+       LEFT JOIN entitlement e
+         ON e.id = iee.entitlement_id AND e.organization_id = sqlc.arg(organization_id)
+       LEFT JOIN entitlement_usage eu
+         ON eu.instance_id = pi.id
+        AND eu.entitlement_id = e.id
+        AND eu.organization_id = sqlc.arg(organization_id)
+ORDER BY e.slug;
+
+
+-- name: GetTargetingFactsByInstance :many
+-- The facts of one instance, the subject a caller names with
+-- kaiten.instanceSlug (§7.4 rule 5): the same shape as
+-- GetTargetingFactsByCustomerSlug, for that instance instead of the
+-- customer's oldest.
+WITH primary_instance AS (
+  SELECT i.id, i.license_id, i.start_license_date
+  FROM instance i
+  WHERE i.organization_id = sqlc.arg(organization_id)
+    AND i.id = sqlc.arg(instance_id)
+)
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
+       lf.slug          AS license_family_slug,
+       l.type           AS license_type,
+       e.slug           AS entitlement_slug,
+       iee.value        AS limit_value,
+       eu.value         AS usage_value,
+       eu.period_start  AS usage_period_start,
+       e.reset_period,
+       e.reset_anchor,
+       pi.start_license_date,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
+FROM primary_instance pi
+       JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
        -- The instance's effective entitlements, as every reader of an
        -- instance's entitlement value reads them.

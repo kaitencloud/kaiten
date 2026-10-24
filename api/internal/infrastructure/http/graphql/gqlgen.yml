@@ -89,6 +89,8 @@ models:
         resolver: true
       addons:
         resolver: true
+      entitlementExceptions:
+        resolver: true
   InstanceBillingSummary:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql.InstanceBillingSummary
@@ -148,6 +150,50 @@ models:
       saleUnitFactor:
         resolver: true
   TrialEndWithoutPaymentMethod:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  # The enums of the REST members of the same name (V31-04): their Go fields
+  # are strings, and GraphQL validates them.
+  PriceBillingModel:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PriceBillingTiming:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PriceBillingPeriod:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PriceStatus:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  PricingType:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  AddonLifecycleState:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  IncreaseBilling:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  SubscriptionStatus:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  ProviderKind:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementUsageSource:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementException:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/graphql.EntitlementException
+  EntitlementExceptionKind:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementExceptionStatus:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
+  EntitlementExceptionFilter:
     model:
       - github.com/99designs/gqlgen/graphql.String
   LicenseFamily:

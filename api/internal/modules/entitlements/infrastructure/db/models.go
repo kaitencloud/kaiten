@@ -58,6 +58,49 @@ func (ns NullAggregationMethod) Value() (driver.Value, error) {
 	return string(ns.AggregationMethod), nil
 }
 
+type EntitlementExceptionKind string
+
+const (
+	EntitlementExceptionKindSET       EntitlementExceptionKind = "SET"
+	EntitlementExceptionKindADD       EntitlementExceptionKind = "ADD"
+	EntitlementExceptionKindUNLIMITED EntitlementExceptionKind = "UNLIMITED"
+)
+
+func (e *EntitlementExceptionKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntitlementExceptionKind(s)
+	case string:
+		*e = EntitlementExceptionKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntitlementExceptionKind: %T", src)
+	}
+	return nil
+}
+
+type NullEntitlementExceptionKind struct {
+	EntitlementExceptionKind EntitlementExceptionKind `json:"entitlement_exception_kind"`
+	Valid                    bool                     `json:"valid"` // Valid is true if EntitlementExceptionKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntitlementExceptionKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntitlementExceptionKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntitlementExceptionKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntitlementExceptionKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntitlementExceptionKind), nil
+}
+
 type EntitlementResetAnchor string
 
 const (

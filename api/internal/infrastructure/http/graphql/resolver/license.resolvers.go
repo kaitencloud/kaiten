@@ -34,6 +34,9 @@ func (r *licenseResolver) PricingType(ctx context.Context, obj *schema.License) 
 
 // Prices is the resolver for the prices field.
 func (r *licenseResolver) Prices(ctx context.Context, obj *schema.License, status *string) ([]prices.Price, error) {
+	if err := requireBilling(ctx); err != nil {
+		return nil, err
+	}
 	return licensesGraphql.LoadLicensePrices(ctx, obj.ID, status)
 }
 

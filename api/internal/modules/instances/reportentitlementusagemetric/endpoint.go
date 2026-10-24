@@ -76,7 +76,7 @@ type ReportEntitlementUsageBody struct {
 // gauge reads always have both.
 type ReportedEntitlementUsage struct {
 	schema.EntitlementUsage
-	Source        *string            `json:"source" enum:"license,addon" nullable:"true" doc:"license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do. Null on a replay (Idempotent-Replayed): the journal does not store it."`
+	Source        *string            `json:"source" enum:"license,addon,exception" nullable:"true" doc:"license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does. Null on a replay (Idempotent-Replayed): the journal does not store it."`
 	Provenance    *schema.Provenance `json:"provenance" doc:"What the licence, the add-ons and the boosts each contribute. Null on a replay (Idempotent-Replayed): the journal does not store it."`
 	TransactionID *string            `json:"transactionId" nullable:"true" doc:"The Idempotency-Key this report was accepted under, echoed on the first answer and on every replay; null when the request carried none. A client can tell from it that the server honours the key."`
 }

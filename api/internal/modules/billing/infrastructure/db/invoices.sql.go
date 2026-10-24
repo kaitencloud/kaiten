@@ -1063,58 +1063,66 @@ func (q *Queries) MarkInvoicePaid(ctx context.Context, arg MarkInvoicePaidParams
 const rewriteInvoice = `-- name: RewriteInvoice :one
 UPDATE instance_invoice
 SET lines                = $1,
-    service_from         = $2,
-    service_to           = $3,
-    subtotal_minor       = $4,
-    discount_total_minor = $5,
-    total_minor          = $6,
-    status               = $7,
-    hold_reason          = $8,
-    hold_detail          = $9,
-    held_at              = $10,
-    hold_released_at     = $11,
-    hold_released_by_id  = $12,
-    hold_release_reason  = $13,
-    issued_at            = $14,
-    days_until_due       = $15,
-    due_at               = $16,
-    paid_at              = $17,
-    handoff_status       = $18,
-    next_push_at         = $19,
-    updated_at           = $20
-WHERE id = $21
+    provider_kind        = coalesce($2::billing_provider_kind, provider_kind),
+    collection_method    = coalesce($3::collection_method, collection_method),
+    service_from         = $4,
+    service_to           = $5,
+    subtotal_minor       = $6,
+    discount_total_minor = $7,
+    total_minor          = $8,
+    status               = $9,
+    hold_reason          = $10,
+    hold_detail          = $11,
+    held_at              = $12,
+    hold_released_at     = $13,
+    hold_released_by_id  = $14,
+    hold_release_reason  = $15,
+    issued_at            = $16,
+    days_until_due       = $17,
+    due_at               = $18,
+    paid_at              = $19,
+    handoff_status       = $20,
+    next_push_at         = $21,
+    updated_at           = $22
+WHERE id = $23
 RETURNING id, organization_id, instance_billing_id, customer_id, instance_slug, instance_name, customer_slug, customer_name, license_id, license_slug, billing_email, kind, boundary_at, service_from, service_to, currency, subtotal_minor, discount_total_minor, total_minor, lines, status, hold_reason, hold_detail, held_at, hold_released_at, hold_released_by_id, hold_release_reason, provider_kind, collection_method, external_customer_id, external_invoice_id, provider_invoice_number, provider_status, hosted_invoice_url, invoice_pdf_url, provider_total_excluding_tax_minor, reconciliation_status, reconciliation_detail, reconciled_at, push_attempts, next_push_at, last_push_error, pushed_at, synced_at, issued_at, days_until_due, due_at, paid_at, marked_paid_by_id, payment_failed_at, last_payment_error, uncollectible_at, voided_at, voided_by_id, void_reason, replaces_invoice_id, handoff_status, handoff_lease_id, handoff_leased_until, handoff_claim_count, handoff_acknowledged_at, handoff_acknowledged_by_id, external_reference, created_at, updated_at, finalize_requested
 `
 
 type RewriteInvoiceParams struct {
-	Lines              []byte             `json:"lines"`
-	ServiceFrom        pgtype.Timestamp   `json:"service_from"`
-	ServiceTo          pgtype.Timestamp   `json:"service_to"`
-	SubtotalMinor      int64              `json:"subtotal_minor"`
-	DiscountTotalMinor int64              `json:"discount_total_minor"`
-	TotalMinor         int64              `json:"total_minor"`
-	Status             InvoiceStatus      `json:"status"`
-	HoldReason         *InvoiceHoldReason `json:"hold_reason"`
-	HoldDetail         []byte             `json:"hold_detail"`
-	HeldAt             pgtype.Timestamp   `json:"held_at"`
-	HoldReleasedAt     pgtype.Timestamp   `json:"hold_released_at"`
-	HoldReleasedByID   *uuid.UUID         `json:"hold_released_by_id"`
-	HoldReleaseReason  *string            `json:"hold_release_reason"`
-	IssuedAt           pgtype.Timestamp   `json:"issued_at"`
-	DaysUntilDue       *int32             `json:"days_until_due"`
-	DueAt              pgtype.Timestamp   `json:"due_at"`
-	PaidAt             pgtype.Timestamp   `json:"paid_at"`
-	HandoffStatus      HandoffStatus      `json:"handoff_status"`
-	NextPushAt         pgtype.Timestamp   `json:"next_push_at"`
-	Now                pgtype.Timestamp   `json:"now"`
-	ID                 uuid.UUID          `json:"id"`
+	Lines              []byte               `json:"lines"`
+	ProviderKind       *BillingProviderKind `json:"provider_kind"`
+	CollectionMethod   *CollectionMethod    `json:"collection_method"`
+	ServiceFrom        pgtype.Timestamp     `json:"service_from"`
+	ServiceTo          pgtype.Timestamp     `json:"service_to"`
+	SubtotalMinor      int64                `json:"subtotal_minor"`
+	DiscountTotalMinor int64                `json:"discount_total_minor"`
+	TotalMinor         int64                `json:"total_minor"`
+	Status             InvoiceStatus        `json:"status"`
+	HoldReason         *InvoiceHoldReason   `json:"hold_reason"`
+	HoldDetail         []byte               `json:"hold_detail"`
+	HeldAt             pgtype.Timestamp     `json:"held_at"`
+	HoldReleasedAt     pgtype.Timestamp     `json:"hold_released_at"`
+	HoldReleasedByID   *uuid.UUID           `json:"hold_released_by_id"`
+	HoldReleaseReason  *string              `json:"hold_release_reason"`
+	IssuedAt           pgtype.Timestamp     `json:"issued_at"`
+	DaysUntilDue       *int32               `json:"days_until_due"`
+	DueAt              pgtype.Timestamp     `json:"due_at"`
+	PaidAt             pgtype.Timestamp     `json:"paid_at"`
+	HandoffStatus      HandoffStatus        `json:"handoff_status"`
+	NextPushAt         pgtype.Timestamp     `json:"next_push_at"`
+	Now                pgtype.Timestamp     `json:"now"`
+	ID                 uuid.UUID            `json:"id"`
 }
 
 // A held draft recomposed in place, or released: its lines and totals, its
-// hold, and -- when it leaves the hold -- its issue, written whole.
+// hold, and -- when it leaves the hold -- its issue, written whole. A
+// recompose also takes the subscription's current provider and collection
+// method (§8.8); NULL keeps the invoice's.
 func (q *Queries) RewriteInvoice(ctx context.Context, arg RewriteInvoiceParams) (InstanceInvoice, error) {
 	row := q.db.QueryRow(ctx, rewriteInvoice,
 		arg.Lines,
+		arg.ProviderKind,
+		arg.CollectionMethod,
 		arg.ServiceFrom,
 		arg.ServiceTo,
 		arg.SubtotalMinor,

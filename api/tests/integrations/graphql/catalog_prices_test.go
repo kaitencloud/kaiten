@@ -324,8 +324,8 @@ func TestGraphQL_CatalogPrices(t *testing.T) {
 			} `json:"addons"`
 		}
 		sendGraphQL(t, server, `{
-			licenses { items { prices(status: "ACTIVE") { id } } }
-			addons { items { prices(status: "ACTIVE") { id } } }
+			licenses { items { prices(status: ACTIVE) { id } } }
+			addons { items { prices(status: ACTIVE) { id } } }
 		}`, nil).decodeData(t, &data)
 
 		require.Len(t, data.Licenses.Items, 1)
@@ -414,8 +414,9 @@ func TestGraphQL_CatalogPrices(t *testing.T) {
 	})
 
 	// REST declares the status of a price list as an enum and answers 422 for another
-	// value. GraphQL takes a free string, and gives the same refusal rather than an empty
-	// list, which would read as "this version has no such price".
+	// value. GraphQL declares it as the PriceStatus enum, so another value fails the
+	// document's validation before anything is read (V31-04), rather than an empty list,
+	// which would read as "this version has no such price".
 	t.Run("RefusesAStatusThatIsNotOne", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		billing := newBillingServer(t, nil)
@@ -425,8 +426,9 @@ func TestGraphQL_CatalogPrices(t *testing.T) {
 		priceOf(t, billing, "addons", seats.Slug, flatFee("900", "MONTHLY"))
 
 		for name, document := range map[string]string{
-			"license": `{ licenses { items { prices(status: "BOGUS") { id } } } }`,
-			"add-on":  `{ addons { items { prices(status: "BOGUS") { id } } } }`,
+			"license":  `{ licenses { items { prices(status: BOGUS) { id } } } }`,
+			"add-on":   `{ addons { items { prices(status: BOGUS) { id } } } }`,
+			"a string": `{ licenses { items { prices(status: "ACTIVE") { id } } } }`,
 		} {
 			t.Run(name, func(t *testing.T) {
 				answer := sendGraphQL(t, billing, document, nil)
@@ -434,8 +436,8 @@ func TestGraphQL_CatalogPrices(t *testing.T) {
 				var envelope graphQLResponse
 				require.NoError(t, json.Unmarshal(answer.body, &envelope))
 				require.NotEmpty(t, envelope.Errors, string(answer.body))
-				assert.Equal(t, "Prices.InvalidStatus", envelope.Errors[0].Extensions["code"])
-				assert.EqualValues(t, http.StatusUnprocessableEntity, envelope.Errors[0].Extensions["status"])
+				assert.Equal(t, "GRAPHQL_VALIDATION_FAILED", envelope.Errors[0].Extensions["code"], string(answer.body))
+				assert.Contains(t, envelope.Errors[0].Message, "PriceStatus")
 			})
 		}
 	})
@@ -458,6 +460,34 @@ func TestGraphQL_CatalogPrices(t *testing.T) {
 		assert.Equal(t, "Billing.Disabled", envelope.Errors[0].Extensions["code"])
 		assert.EqualValues(t, http.StatusForbidden, envelope.Errors[0].Extensions["status"])
 		assert.NotContains(t, string(answer.body), seats.Slug)
+	})
+
+	// A licence's prices and an instance's subscription and add-ons are billing's too
+	// (V31-37): where the organization may not reach billing each is refused as its
+	// REST route is.
+	t.Run("TheBillingFieldsOfALicenceOrAnInstance_AreRefusedWhereBillingIsOff", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		customer := newCustomer(t, "Gated Customer")
+		license := newLicense(t, "Gated License")
+		instance := newInstance(t, "Gated Instance", customer, license)
+
+		for field, tc := range map[string]struct{ document, slug string }{
+			"License.prices":   {`query($slug: String!) { license(slug: $slug) { slug prices { id } } }`, license.Slug},
+			"Instance.billing": {`query($slug: String!) { instance(slug: $slug) { slug billing { status } } }`, instance.Slug},
+			"Instance.addons":  {`query($slug: String!) { instance(slug: $slug) { slug addons { addonSlug } } }`, instance.Slug},
+		} {
+			t.Run(field, func(t *testing.T) {
+				// testServer holds every scope and does not have billing on.
+				answer := sendGraphQL(t, testServer, tc.document, map[string]any{"slug": tc.slug})
+
+				require.Equal(t, http.StatusOK, answer.status, string(answer.body))
+				var envelope graphQLResponse
+				require.NoError(t, json.Unmarshal(answer.body, &envelope))
+				require.Len(t, envelope.Errors, 1, string(answer.body))
+				assert.Equal(t, "Billing.Disabled", envelope.Errors[0].Extensions["code"])
+				assert.EqualValues(t, http.StatusForbidden, envelope.Errors[0].Extensions["status"])
+			})
+		}
 	})
 
 	// The gate reads the scopes of the whole document, as it does for any other: the

@@ -23,7 +23,7 @@ export const GET_LICENSES_WITH_PRICES = graphql(`
         versionName
         lifecycleState
         pricingType
-        prices(status: "ACTIVE") {
+        prices(status: ACTIVE) {
           id
           billingModel
           billingTiming

@@ -27,6 +27,9 @@ const (
 	ReasonAlreadyRedeemed  = "ALREADY_REDEEMED"
 	ReasonNotEligible      = "NOT_ELIGIBLE"
 	ReasonCurrencyMismatch = "CURRENCY_MISMATCH"
+	// ReasonDiscountLimitExceeded: a line of the instance's invoices would
+	// bear a 21st discount, more than a Stripe item takes (V31-53).
+	ReasonDiscountLimitExceeded = "DISCOUNT_LIMIT_EXCEEDED"
 
 	RuleRestrictedCustomer = "RESTRICTED_CUSTOMER"
 	RuleLicense            = "LICENSE_NOT_APPLICABLE"
@@ -48,10 +51,12 @@ type Candidate struct {
 	Row          db.ListVouchersRow
 	Entitlements []uuid.UUID
 	Grants       []Grant
+	FlagGrants   []FlagGrant
 }
 
-// FindByCode reads the voucher a code names, with what a boost changes; nil
-// when the organization has none. It runs the same two queries either way.
+// FindByCode reads the voucher a code names, with what a boost changes and
+// the flag variants it grants; nil when the organization has none. It runs
+// the same three queries either way.
 func FindByCode(ctx context.Context, q *db.Queries, organizationID uuid.UUID, code string) (*Candidate, error) {
 	rows, err := q.ListVouchers(ctx, db.ListVouchersParams{
 		OrganizationID: organizationID, ID: nil, Code: &code, Status: nil, VoucherType: nil, CustomerSlug: nil,
@@ -65,18 +70,20 @@ func FindByCode(ctx context.Context, q *db.Queries, organizationID uuid.UUID, co
 		id = rows[0].ID
 	}
 	grants, err := q.ListVoucherGrants(ctx, db.ListVoucherGrantsParams{OrganizationID: organizationID, VoucherIds: []uuid.UUID{id}})
+	if err != nil {
+		return nil, err
+	}
+	flagGrants, err := q.ListVoucherFlagGrants(ctx, db.ListVoucherFlagGrantsParams{OrganizationID: organizationID, VoucherIds: []uuid.UUID{id}})
 	if err != nil || len(rows) == 0 {
 		return nil, err
 	}
-	candidate := &Candidate{Row: rows[0], Entitlements: nil, Grants: []Grant{}}
+	candidate := &Candidate{Row: rows[0], Entitlements: nil, Grants: []Grant{}, FlagGrants: []FlagGrant{}}
 	for _, g := range grants {
 		candidate.Entitlements = append(candidate.Entitlements, g.EntitlementID)
-		grant := Grant{EntitlementSlug: g.EntitlementSlug, ModifierType: string(g.ModifierType), ModifierValue: nil}
-		if g.ModifierValue != "" {
-			value := formatDecimal(g.ModifierValue)
-			grant.ModifierValue = &value
-		}
-		candidate.Grants = append(candidate.Grants, grant)
+		candidate.Grants = append(candidate.Grants, grantOf(g))
+	}
+	for _, g := range flagGrants {
+		candidate.FlagGrants = append(candidate.FlagGrants, FlagGrant{FlagSlug: g.FlagSlug, Variant: g.Variant})
 	}
 	return candidate, nil
 }
@@ -110,6 +117,15 @@ type Subject struct {
 	// and the licence check its version: subscribing on it moves the instance
 	// there (§14.4 rule 2).
 	Plan *Plan
+	// Visitor is an anonymous checkout's (§11.4, V32-01): no customer and no
+	// instance exist yet, and the add-on and boost checks read the plan and
+	// the add-ons it selects.
+	Visitor *Visitor
+}
+
+// Visitor is what an anonymous checkout selects with its plan.
+type Visitor struct {
+	AddonIDs []uuid.UUID
 }
 
 // Plan is a flat-fee price a subscription would start on.
@@ -122,6 +138,8 @@ type facts struct {
 	sub        *db.GetRedeemSubscriptionRow
 	boostable  bool
 	redeemed   bool
+	// discountLimit: the redemption would put a 21st discount on a line.
+	discountLimit bool
 }
 
 // gather reads the facts with the same queries whatever the voucher says --
@@ -134,6 +152,14 @@ func (c Candidate) gather(ctx context.Context, q *db.Queries, organizationID uui
 		if f.paid, err = q.CustomerHasPaid(ctx, db.CustomerHasPaidParams{OrganizationID: organizationID, CustomerID: s.CustomerID}); err != nil {
 			return f, err
 		}
+	}
+	if s.Visitor != nil && s.Plan != nil {
+		f.holdsAddon = slices.ContainsFunc(s.Visitor.AddonIDs, func(id uuid.UUID) bool { return slices.Contains(c.Row.ApplicableAddonIds, id) })
+		f.boostable, err = q.PlanHasBoostable(ctx, db.PlanHasBoostableParams{
+			OrganizationID: organizationID, LicenseID: s.Plan.LicenseID,
+			EntitlementIds: nonNil(c.Entitlements), AddonIds: nonNil(s.Visitor.AddonIDs),
+		})
+		return f, err
 	}
 	if s.Instance == nil {
 		return f, nil
@@ -156,13 +182,19 @@ func (c Candidate) gather(ctx context.Context, q *db.Queries, organizationID uui
 	}); err != nil {
 		return f, err
 	}
-	f.redeemed, err = q.InstanceRedeemed(ctx, db.InstanceRedeemedParams{InstanceID: instanceID, VoucherID: c.Row.ID})
+	if f.redeemed, err = q.InstanceRedeemed(ctx, db.InstanceRedeemedParams{InstanceID: instanceID, VoucherID: c.Row.ID}); err != nil {
+		return f, err
+	}
+	f.discountLimit, err = q.DiscountLimitReached(ctx, db.DiscountLimitReachedParams{
+		OrganizationID: organizationID, VoucherID: c.Row.ID, InstanceID: instanceID,
+	})
 	return f, err
 }
 
 // Check runs the checks of §11.4 that need the subject, in order: the
 // customer, the licence, the add-ons, the redemption rules, the currency, a
-// boost's targets, and a previous redemption.
+// boost's targets, a previous redemption, and the 20 discounts a line takes
+// (check 10, whatever the provider: it can change before the next invoice).
 func (c Candidate) Check(ctx context.Context, q *db.Queries, organizationID uuid.UUID, s Subject) (*Refusal, error) {
 	f, err := c.gather(ctx, q, organizationID, s)
 	if err != nil {
@@ -173,13 +205,14 @@ func (c Candidate) Check(ctx context.Context, q *db.Queries, organizationID uuid
 
 // Instance runs the checks of the redeeming instance.
 func (c Candidate) Instance(ctx context.Context, q *db.Queries, organizationID uuid.UUID, instance db.GetInstanceForRedeemRow) (*Refusal, error) {
-	return c.Check(ctx, q, organizationID, Subject{CustomerID: &instance.CustomerID, Instance: &instance, Plan: nil})
+	return c.Check(ctx, q, organizationID, Subject{CustomerID: &instance.CustomerID, Instance: &instance, Plan: nil, Visitor: nil})
 }
 
 func (c Candidate) decide(s Subject, f facts) *Refusal {
 	row := c.Row
 	notEligible := func(rule string) *Refusal { return &Refusal{Reason: ReasonNotEligible, Rule: rule} }
-	if row.RestrictedCustomerID != nil && s.CustomerID != nil && *row.RestrictedCustomerID != *s.CustomerID {
+	// A visitor is no customer yet: a voucher restricted to one never passes.
+	if row.RestrictedCustomerID != nil && (s.Visitor != nil || (s.CustomerID != nil && *row.RestrictedCustomerID != *s.CustomerID)) {
 		return notEligible(RuleRestrictedCustomer)
 	}
 	var licenseID *uuid.UUID
@@ -192,7 +225,7 @@ func (c Candidate) decide(s Subject, f facts) *Refusal {
 	if len(row.ApplicableLicenseIds) > 0 && licenseID != nil && !slices.Contains(row.ApplicableLicenseIds, *licenseID) {
 		return notEligible(RuleLicense)
 	}
-	if len(row.ApplicableAddonIds) > 0 && s.Instance != nil && !f.holdsAddon {
+	if len(row.ApplicableAddonIds) > 0 && (s.Instance != nil || s.Visitor != nil) && !f.holdsAddon {
 		return notEligible(RuleAddon)
 	}
 
@@ -228,11 +261,14 @@ func (c Candidate) decide(s Subject, f facts) *Refusal {
 	if sub != nil && row.PriceDiscountType != nil && *row.PriceDiscountType == db.PriceDiscountTypeFIXEDAMOUNT && row.Currency != sub.currency {
 		return &Refusal{Reason: ReasonCurrencyMismatch, Rule: ""}
 	}
-	if row.VoucherType == db.VoucherTypeENTITLEMENTBOOST && s.Instance != nil && !f.boostable {
+	if row.VoucherType == db.VoucherTypeENTITLEMENTBOOST && (s.Instance != nil || s.Visitor != nil) && !f.boostable {
 		return notEligible(RuleNothingToBoost)
 	}
 	if s.Instance != nil && f.redeemed {
 		return &Refusal{Reason: ReasonAlreadyRedeemed, Rule: ""}
+	}
+	if s.Instance != nil && f.discountLimit {
+		return &Refusal{Reason: ReasonDiscountLimitExceeded, Rule: ""}
 	}
 	return nil
 }
@@ -254,6 +290,9 @@ func (r Refusal) Error(operation string) error {
 		return kaitenerrors.UnprocessableEntity(operation+".CurrencyMismatch", "the voucher's amount is in another currency than the subscription's")
 	case ReasonAlreadyRedeemed:
 		return kaitenerrors.Conflict(operation+".AlreadyRedeemed", "the instance already redeemed this voucher")
+	case ReasonDiscountLimitExceeded:
+		return kaitenerrors.UnprocessableEntity(operation+".DiscountLimitExceeded",
+			"a line of the instance's invoices would bear more than 20 discounts, the most a payment provider's invoice item takes")
 	default:
 		return kaitenerrors.UnprocessableEntityWithErrors(operation+".NotEligible", "the instance is not eligible for this voucher",
 			&kaitenerrors.ErrorDetail{Message: "eligibility rule", Location: "rule", Value: map[string]string{"rule": r.Rule}})

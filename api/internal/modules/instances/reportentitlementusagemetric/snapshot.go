@@ -38,8 +38,11 @@ func WriteSnapshot(ctx context.Context, uof *uow.UnitOfWork, s Snapshot) error {
 	commandRepo := NewCommandRepository(uof)
 
 	return uof.Transact(ctx, func(ctx context.Context) error {
-		usageCtx, err := queryRepo.GetEntitlementUsageContext(ctx, s.InstanceSlug, s.EntitlementSlug, s.OrganizationID)
+		usageCtx, err := queryRepo.LockPair(ctx, s.InstanceSlug, s.EntitlementSlug, s.OrganizationID)
 		if err != nil {
+			return err
+		}
+		if err := queryRepo.LoadLimits(ctx, usageCtx, s.InstanceSlug, s.EntitlementSlug, s.OrganizationID); err != nil {
 			return err
 		}
 		reportedAt := usageCtx.ReportedAt
@@ -59,7 +62,7 @@ func WriteSnapshot(ctx context.Context, uof *uow.UnitOfWork, s Snapshot) error {
 		valueBefore := stored.Value
 		var windowStart, windowEnd *time.Time
 		if usageCtx.ResetPeriod != nil {
-			window, _, err := period.ResolveCurrent(reportedAt, usageCtx.PeriodStart, *usageCtx.ResetPeriod, *usageCtx.ResetAnchor, usageCtx.LicenseStart)
+			window, _, err := period.ResolveCurrentOn(reportedAt, usageCtx.PeriodStart, *usageCtx.ResetPeriod, *usageCtx.ResetAnchor, usageCtx.Basis)
 			if err != nil {
 				return err
 			}

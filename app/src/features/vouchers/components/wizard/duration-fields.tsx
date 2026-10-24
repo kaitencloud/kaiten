@@ -30,7 +30,11 @@ export const DurationFields = withForm({
         <form.AppField name="duration">
           {(field) => (
             <field.SelectField
-              description={t(DURATION_BLURB_KEYS[voucherType][duration])}
+              description={t(
+                DURATION_BLURB_KEYS[
+                  countsInvoices ? 'PRICE' : 'ENTITLEMENT_BOOST'
+                ][duration],
+              )}
               getOptionLabel={(option) =>
                 t(DURATION_LABEL_KEYS[option as typeof duration])
               }

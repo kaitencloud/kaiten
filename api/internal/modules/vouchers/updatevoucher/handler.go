@@ -2,6 +2,8 @@ package updatevoucher
 
 import (
 	"context"
+	"encoding/json"
+	"reflect"
 	"slices"
 	"time"
 
@@ -86,7 +88,10 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 			return err
 		}
 		if locked.Status == db.VoucherStatusDRAFT {
-			if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.Grants, resolved.Entitlements); err != nil {
+			if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.Grants, resolved.Entitlements); err != nil {
+				return err
+			}
+			if err := catalogue.WriteFlagGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.FlagGrants, resolved.Flags); err != nil {
 				return err
 			}
 		}
@@ -103,8 +108,8 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 }
 
 // onlyActiveMembersChange reports whether a draft changes nothing an active
-// voucher keeps: its code, discount, applicability, grants, rules, duration
-// and start.
+// voucher keeps: its code, discount, applicability, grants, flag grants,
+// rules, duration and start.
 func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft) bool {
 	same := func(a, b *string) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
 	sameInt := func(a, b *int32) bool { return (a == nil && b == nil) || (a != nil && b != nil && *a == *b) }
@@ -138,13 +143,18 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 		}
 		return true
 	}
-	if len(stored.Grants) != len(d.Grants) {
+	if len(stored.Grants) != len(d.Grants) || len(stored.FlagGrants) != len(d.FlagGrants) {
 		return false
+	}
+	for _, g := range d.FlagGrants {
+		if !slices.Contains(stored.FlagGrants, g) {
+			return false
+		}
 	}
 	for i := range d.Grants {
 		if !slices.ContainsFunc(stored.Grants, func(g catalogue.Grant) bool {
 			return g.EntitlementSlug == d.Grants[i].EntitlementSlug && g.ModifierType == d.Grants[i].ModifierType &&
-				sameDecimal(g.ModifierValue, d.Grants[i].ModifierValue)
+				sameDecimal(g.ModifierValue, d.Grants[i].ModifierValue) && sameJSON(g.Value, d.Grants[i].Value)
 		}) {
 			return false
 		}
@@ -159,4 +169,17 @@ func onlyActiveMembersChange(stored catalogue.Voucher, d catalogue.VoucherDraft)
 		stored.RedemptionRules.FirstTimeOnly == d.RedemptionRules.FirstTimeOnly &&
 		stored.RedemptionRules.AnnualOnly == d.RedemptionRules.AnnualOnly &&
 		sameMinimum(stored.RedemptionRules.MinimumSubscriptionAmount, d.RedemptionRules.MinimumSubscriptionAmount)
+}
+
+// sameJSON is whether two grant values are the same JSON: the stored one is
+// jsonb's rendering, which orders keys and drops spaces.
+func sameJSON(a, b catalogue.GrantValue) bool {
+	if len(a) == 0 || len(b) == 0 {
+		return len(a) == len(b)
+	}
+	var x, y any
+	if json.Unmarshal(a, &x) != nil || json.Unmarshal(b, &y) != nil {
+		return false
+	}
+	return reflect.DeepEqual(x, y)
 }

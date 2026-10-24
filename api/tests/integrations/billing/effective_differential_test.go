@@ -55,8 +55,18 @@ func TestEffectiveViewEqualsTheOracle(t *testing.T) {
 			t.Fatalf("the view and the oracle differ: replay with KAITEN_EFFECTIVE_SEED=%d", seed)
 		}
 	}
-	t.Logf("%d (instance, entitlement, instant) rows compared over %d seeds from %d", compared, seeds, first)
+	t.Logf("%d (instance, entitlement, instant) rows compared over %d seeds from %d; %d with an exception in force, %d granted by one only, %d with a BOOLEAN or CONFIG boost",
+		compared, seeds, first, covered.exception, covered.exceptionOnly, covered.typedBoost)
+	if seeds >= 10 {
+		require.Positive(t, covered.exception, "no row had an exception in force")
+		require.Positive(t, covered.exceptionOnly, "no row was granted by an exception alone")
+		require.Positive(t, covered.typedBoost, "no BOOLEAN or CONFIG row had a boost")
+	}
 }
+
+// covered counts what the seeds exercised of v3.3, so that a generator that
+// stops producing a case fails rather than passes vacuously.
+var covered struct{ exception, exceptionOnly, typedBoost int }
 
 type generated struct {
 	rng      *rand.Rand
@@ -182,7 +192,7 @@ func differentialSeed(t *testing.T, seed uint64) int {
 		}
 	}
 
-	// ENTITLEMENT_BOOST vouchers on the numbers.
+	// ENTITLEMENT_BOOST vouchers on the numbers, the booleans and the configs.
 	var vouchers []uuid.UUID
 	for i := range g.rng.IntN(7) {
 		var grants []map[string]any
@@ -201,6 +211,18 @@ func differentialSeed(t *testing.T, seed uint64) int {
 				grant["modifierValue"] = []string{"0.5", "1.5", "2", "3"}[g.rng.IntN(4)]
 			}
 			grants = append(grants, grant)
+		}
+		// BOOLEAN and CONFIG SET boosts (V32-03 b): a raw JSON boolean or
+		// object, no modifier value.
+		for _, e := range g.booleans {
+			if g.rng.IntN(2) == 0 {
+				grants = append(grants, map[string]any{"entitlementSlug": e, "modifierType": "SET", "value": g.rng.IntN(2) == 0})
+			}
+		}
+		for _, e := range g.configs {
+			if g.rng.IntN(2) == 0 {
+				grants = append(grants, map[string]any{"entitlementSlug": e, "modifierType": "SET", "value": map[string]any{"tier": fmt.Sprintf("boost%d", i)}})
+			}
 		}
 		if len(grants) == 0 {
 			continue
@@ -268,6 +290,52 @@ func differentialSeed(t *testing.T, seed uint64) int {
 			           FROM voucher WHERE id = $10`,
 				instance.ID, redeemed, user, starts, expires, status, expiredAt, revokedAt, reason, voucher)
 		}
+		// Exceptions (V32-03), on granted and ungranted entitlements alike: a
+		// revoked one, then one in some window -- in force, scheduled or
+		// ended at the instants compared. At most one unrevoked per pair.
+		every := append(append(append([]string{}, g.numbers...), g.booleans...), g.configs...)
+		for _, e := range every {
+			if g.rng.IntN(3) != 0 {
+				continue
+			}
+			kind, value := "SET", ""
+			switch {
+			case slices.Contains(g.booleans, e):
+				value = strconv.FormatBool(g.rng.IntN(2) == 0)
+			case slices.Contains(g.configs, e):
+				value = fmt.Sprintf(`{"tier": "exception%d"}`, i)
+			default:
+				kind = []string{"SET", "ADD", "UNLIMITED"}[g.rng.IntN(3)]
+				switch kind {
+				case "SET":
+					value = strconv.Itoa(g.rng.IntN(10000))
+				case "ADD":
+					value = strconv.Itoa(1 + g.rng.IntN(1000))
+				}
+			}
+			var raw *string
+			if value != "" {
+				raw = &value
+			}
+			insert := func(starts time.Time, ends *time.Time, revoked bool) {
+				exec(t, `INSERT INTO instance_entitlement_exception (organization_id, instance_id, entitlement_id, kind, value, starts_at, ends_at,
+				           reason, created_by_id, revoked_at, revoked_by_id)
+				         SELECT i.organization_id, i.id, e.id, $3::entitlement_exception_kind, $4::jsonb, $5, $6, 'test', $7,
+				                CASE WHEN $8 THEN $5::timestamp END, CASE WHEN $8 THEN $7::uuid END
+				           FROM instance i JOIN entitlement e ON e.organization_id = i.organization_id AND e.slug = $2 WHERE i.id = $1`,
+					instance.ID, e, kind, raw, starts, ends, user, revoked)
+			}
+			if g.rng.IntN(2) == 0 {
+				insert(around(), nil, true)
+			}
+			starts := around()
+			var ends *time.Time
+			if g.rng.IntN(2) == 0 {
+				end := starts.Add(time.Duration(1+g.rng.IntN(72)) * time.Hour)
+				ends = &end
+			}
+			insert(starts, ends, false)
+		}
 	}
 
 	compared := 0
@@ -282,7 +350,22 @@ func differentialSeed(t *testing.T, seed uint64) int {
 			require.Equal(t, ptrString(want.result.Pct), ptrString(got.pct), "percent: %s", describe)
 			require.Equal(t, want.result.AddonGrantCount, got.addons, "add-on grants: %s", describe)
 			require.Equal(t, want.result.BoostGrantCount, got.boosts, "boosts: %s", describe)
+			require.Equal(t, want.result.Source, got.source, "source: %s", describe)
+			wantException := ""
+			if want.result.Exception != nil {
+				wantException = want.result.Exception.ID.String()
+			}
+			require.Equal(t, wantException, got.exception, "exception in force: %s", describe)
 			sameNumber(t, want.result.Number, got.number, describe)
+			if want.result.Exception != nil {
+				covered.exception++
+			}
+			if want.result.Source == oracle.SourceException {
+				covered.exceptionOnly++
+			}
+			if (got.typ == "BOOLEAN" || got.typ == "CONFIG") && want.result.BoostGrantCount > 0 {
+				covered.typedBoost++
+			}
 			compared++
 		}
 	}
@@ -292,12 +375,14 @@ func differentialSeed(t *testing.T, seed uint64) int {
 type rowKey struct{ instance, entitlement uuid.UUID }
 
 type viewRow struct {
-	typ    string
-	value  json.RawMessage
-	pct    *int16
-	addons int
-	boosts int
-	number map[string]any
+	typ       string
+	value     json.RawMessage
+	pct       *int16
+	addons    int
+	boosts    int
+	number    map[string]any
+	source    string
+	exception string
 }
 
 func viewRows(t *testing.T, at time.Time) map[rowKey]viewRow {
@@ -308,7 +393,8 @@ func viewRows(t *testing.T, at time.Time) map[rowKey]viewRow {
 	_, err = tx.Exec(t.Context(), `SELECT set_config('kaiten.entitlement_effective_at', $1, true)`, at.Format("2006-01-02 15:04:05.000"))
 	require.NoError(t, err)
 	rows, err := tx.Query(t.Context(), `SELECT instance_id, entitlement_id, entitlement_type::text, value, limit_cap_exceeded_overage_percent,
-	                                           addon_grant_count, boost_grant_count, provenance->'number'
+	                                           addon_grant_count, boost_grant_count, provenance->'number', source,
+	                                           coalesce(provenance->'exception'->>'instance_entitlement_exception_id', '')
 	                                      FROM instance_effective_entitlement`)
 	require.NoError(t, err)
 	out := map[rowKey]viewRow{}
@@ -317,7 +403,7 @@ func viewRows(t *testing.T, at time.Time) map[rowKey]viewRow {
 		var row viewRow
 		var addons, boosts int64
 		var number []byte
-		require.NoError(t, rows.Scan(&key.instance, &key.entitlement, &row.typ, &row.value, &row.pct, &addons, &boosts, &number))
+		require.NoError(t, rows.Scan(&key.instance, &key.entitlement, &row.typ, &row.value, &row.pct, &addons, &boosts, &number, &row.source, &row.exception))
 		row.addons, row.boosts = int(addons), int(boosts)
 		if len(number) > 0 && string(number) != "null" {
 			// json.Number: a float64 would round 24000000371709.112.
@@ -359,7 +445,7 @@ func oracleRows(t *testing.T, instances []uuid.UUID, at time.Time) map[rowKey]or
 			if in, ok := inputs[entitlement]; ok {
 				return in
 			}
-			in := &oracle.Input{Type: types[entitlement], Licence: nil, Addons: nil, Boosts: nil, At: at}
+			in := &oracle.Input{Type: types[entitlement], Licence: nil, Addons: nil, Boosts: nil, Exceptions: nil, At: at}
 			inputs[entitlement] = in
 			return in
 		}
@@ -392,7 +478,7 @@ func oracleRows(t *testing.T, instances []uuid.UUID, at time.Time) map[rowKey]or
 		require.NoError(t, attached.Err())
 
 		boosts, err := testDb.DbPool.Query(ctx, `SELECT veg.entitlement_id, iv.id, iv.redeemed_at, veg.modifier_type::text, veg.modifier_value::text,
-		                                                iv.status::text, iv.effective_starts_at, iv.effective_expires_at
+		                                                veg.value, iv.status::text, iv.effective_starts_at, iv.effective_expires_at
 		                                           FROM instance_voucher iv JOIN voucher_entitlement_grant veg ON veg.voucher_id = iv.voucher_id
 		                                          WHERE iv.instance_id = $1`, instance)
 		require.NoError(t, err)
@@ -401,7 +487,7 @@ func oracleRows(t *testing.T, instances []uuid.UUID, at time.Time) map[rowKey]or
 			var b oracle.Boost
 			var redeemed, starts, expires pgtype.Timestamp
 			var value *string
-			require.NoError(t, boosts.Scan(&entitlement, &b.ID, &redeemed, &b.Modifier, &value, &b.Status, &starts, &expires))
+			require.NoError(t, boosts.Scan(&entitlement, &b.ID, &redeemed, &b.Modifier, &value, &b.JSON, &b.Status, &starts, &expires))
 			b.RedeemedAt, b.Starts = redeemed.Time.UTC(), starts.Time.UTC()
 			if expires.Valid {
 				e := expires.Time.UTC()
@@ -420,6 +506,24 @@ func oracleRows(t *testing.T, instances []uuid.UUID, at time.Time) map[rowKey]or
 			}
 		}
 		require.NoError(t, boosts.Err())
+
+		exceptions, err := testDb.DbPool.Query(ctx, `SELECT entitlement_id, id, kind::text, value, starts_at, ends_at, revoked_at IS NOT NULL
+		                                               FROM instance_entitlement_exception WHERE instance_id = $1`, instance)
+		require.NoError(t, err)
+		for exceptions.Next() {
+			var entitlement uuid.UUID
+			var x oracle.Exception
+			var starts, ends pgtype.Timestamp
+			require.NoError(t, exceptions.Scan(&entitlement, &x.ID, &x.Kind, &x.Value, &starts, &ends, &x.Revoked))
+			x.Starts = starts.Time.UTC()
+			if ends.Valid {
+				e := ends.Time.UTC()
+				x.Ends = &e
+			}
+			in := input(entitlement)
+			in.Exceptions = append(in.Exceptions, x)
+		}
+		require.NoError(t, exceptions.Err())
 
 		for entitlement, in := range inputs {
 			result, ok := oracle.Resolve(*in)
@@ -495,6 +599,8 @@ func sameNumber(t *testing.T, want *oracle.Number, got map[string]any, describe 
 	dec("boost_set", want.BoostSet)
 	dec("boost_add", want.BoostAdd)
 	dec("boost_multiply", want.BoostMultiply)
+	afterBoosts := want.AfterBoosts
+	dec("after_boosts", &afterBoosts)
 	dec("effective", &effectiveValue)
 	require.Equal(t, want.Unlimited, got["unlimited"], "unlimited: %s", describe)
 }

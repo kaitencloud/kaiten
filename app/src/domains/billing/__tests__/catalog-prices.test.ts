@@ -5,7 +5,10 @@ import {
   toVersionsWithPrices,
 } from '../logic/catalog-prices';
 
-const price = (id: string, overrides: object = {}) => ({
+type CatalogPriceInput = CatalogLicenseInput['prices'][number];
+
+const price = (id: string, overrides: object = {}): CatalogPriceInput =>
+  ({
   billingModel: 'FLAT_FEE',
   billingPeriod: 'MONTHLY',
   billingTiming: 'ADVANCE',
@@ -19,7 +22,7 @@ const price = (id: string, overrides: object = {}) => ({
   status: 'ACTIVE',
   unitAmountDecimal: '2900',
   ...overrides,
-});
+  }) as CatalogPriceInput;
 
 const license = (
   overrides: Partial<CatalogLicenseInput> = {},
@@ -76,7 +79,7 @@ describe('toVersionsWithPrices', () => {
 
   it('reads a state the console does not know as none, and keeps the version', () => {
     const versions = toVersionsWithPrices({
-      addons: [addon({ lifecycleState: 'RETIRED' })],
+      addons: [addon({ lifecycleState: 'RETIRED' as never })],
       licenses: [license({ lifecycleState: 'RETIRED' as never })],
     });
 

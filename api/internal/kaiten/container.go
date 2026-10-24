@@ -194,18 +194,22 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// The checkout sweep runs the public SDK's completion, built after
 	// billing: billing's jobs reach it through this handle, bound below.
 	checkoutSweep := newLateCheckoutSweeper()
+	// Billing's lifecycle job runs the exceptions' expiry notice, step (g).
+	entitlementModule := entitlements.NewUseCases(svc)
 	billingModule := billing.NewUseCases(svc, billing.Ports{
-		Catalogue: billablecatalogue.New(svc.Uof),
-		Usage:     instanceModule.BillableUsage,
-		Addons:    billableaddons.New(svc.Uof),
-		Discounts: billablediscounts.New(svc.Uof),
-		Attacher:  addonModule.AttachInstanceAddon,
-		Redeemer:  voucherModule.RedeemVoucher,
-		Mover:     instanceModule.UpdateInstance,
-		Fallback:  addonModule.DetachInstanceAddon,
-		Expiry:    voucherModule.Expiry,
-		Checkouts: checkoutprogress.New(svc.Uof),
-		Sweeper:   checkoutSweep,
+		Catalogue:  billablecatalogue.New(svc.Uof),
+		Usage:      instanceModule.BillableUsage,
+		Addons:     billableaddons.New(svc.Uof),
+		Discounts:  billablediscounts.New(svc.Uof),
+		Attacher:   addonModule.AttachInstanceAddon,
+		Redeemer:   voucherModule.RedeemVoucher,
+		Mover:      instanceModule.UpdateInstance,
+		Fallback:   addonModule.DetachInstanceAddon,
+		Scheduled:  addonModule.SetInstanceAddonQuantity,
+		Expiry:     voucherModule.Expiry,
+		Checkouts:  checkoutprogress.New(svc.Uof),
+		Sweeper:    checkoutSweep,
+		Exceptions: entitlementModule.ExceptionExpiry,
 	})
 	customerModule := customers.NewUseCases(svc)
 
@@ -220,7 +224,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Connectors:      connectors.NewUseCases(svc),
 		Customers:       customerModule,
 		DeploymentZones: deploymentzones.NewUseCases(svc),
-		Entitlements:    entitlements.NewUseCases(svc),
+		Entitlements:    entitlementModule,
 		FeatureFlags:    featureflags.NewUseCases(svc),
 		Notifications:   notificationModule,
 		Identity:        identity.NewUseCases(svc),
@@ -246,12 +250,12 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 			Cancel:             billingModule.CancelSubscription,
 			Reactivate:         billingModule.ReactivateSubscription,
 			Vouchers:           voucherModule.ValidateVoucher,
+			CheckoutVouchers:   voucherModule.ValidateVoucher,
 			VoucherLimit:       voucherModule.ValidateVoucher,
 			SessionRedeemer:    voucherModule.RedeemVoucher,
 			AddonList:          addonModule.ListInstanceAddons,
 			AddonAttach:        addonModule.AttachInstanceAddon,
 			AddonQuantity:      addonModule.SetInstanceAddonQuantity,
-			AddonDetach:        addonModule.DetachInstanceAddon,
 			Subscription:       billingModule.GetInstanceBilling,
 			Checkout:           billingModule.SubscribeInstance,
 			UpcomingInvoice:    billingModule.GetUpcomingInvoice,

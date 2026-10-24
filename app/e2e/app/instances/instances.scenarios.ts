@@ -657,6 +657,7 @@ export function createProvenanceInstancesModel() {
     },
   ): NonNullable<Provenance['number']> => ({
     afterAddons: composed.effective,
+    afterBoosts: composed.effective,
     boostAdd: null,
     boostMultiply: null,
     boostSet: null,
@@ -694,10 +695,12 @@ export function createProvenanceInstancesModel() {
                 modifierType: 'MULTIPLY',
                 modifierValue: 2,
                 redeemedAt: '2026-09-15T00:00:00.000Z',
+                value: null,
                 voucherEntitlementGrantId: 'grant-1',
                 voucherId: 'voucher-1',
               },
             ],
+            exception: null,
             license: {
               licenseEntitlementId: 'pro-traces',
               limitCapExceededOveragePercent: null,
@@ -732,6 +735,7 @@ export function createProvenanceInstancesModel() {
           provenance: {
             addons: [addon(2, 5)],
             boosts: [],
+            exception: null,
             license: null,
             number: composition({ effective: 10 }),
           } as unknown as Provenance,
@@ -744,6 +748,7 @@ export function createProvenanceInstancesModel() {
           provenance: {
             addons: [addon(1, -1)],
             boosts: [],
+            exception: null,
             license: {
               licenseEntitlementId: 'pro-storage-gb',
               limitCapExceededOveragePercent: null,

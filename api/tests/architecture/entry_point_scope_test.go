@@ -1002,6 +1002,9 @@ var pinnedGraphQLResolvers = map[string]string{
 	"Instance.Customer":               "read:customers",
 	"Instance.DeploymentZone":         "read:deployment_zones",
 	"Instance.EntitlementUsage":       "read:instances",
+	// The instance's exceptions, as GET /instances/{slug}/entitlement-exceptions
+	// serves them under the same scope.
+	"Instance.EntitlementExceptions": "read:instances",
 	// The instance's own integration records, which GET /instances returns
 	// inside the instance.
 	"Instance.Integrations":          "",

@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createportalsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
+	billingdb "github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/paymentmethods"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
@@ -279,4 +280,127 @@ func TestExpired(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "EXPIRED", customerBilling(t, s).Providers[0].PaymentMethod.Status)
 	require.Equal(t, 0, outboxCount(t, "CUSTOMER_PAYMENT_METHOD_EXPIRING"))
+}
+
+// V31-23, §12.4 steps 3-5, §12.7 rule 8: under automatic collection the
+// invoice is finalized without auto_advance, reconciled, and charged only on
+// MATCH. A MISMATCH is parked: no charge, out of the push queue, never
+// overdue, until it is voided and recomposed.
+func TestChargeAfterMatch(t *testing.T) {
+	t.Run("AMatch_IsCharged_AfterItsReconciliation", func(t *testing.T) {
+		fresh(t)
+		connect(t, nil)
+		s := newSold(t, "acme")
+		saveCard(t, s, stripefake.CardSucceeds)
+		started := subscribeAutomatic(t, s)
+		paid := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool { return i.Status == "PAID" }, "charged")
+		require.Equal(t, "MATCHED", deref(paid.Provider.ReconciliationStatus))
+		finalized := fake.CallsOf(stripefake.OpFinalizeInvoice)
+		require.Len(t, finalized, 1)
+		require.Equal(t, "false", finalized[0].Form.Get("auto_advance"), "Stripe collects nothing before the reconciliation")
+		var advanced bool
+		for _, update := range fake.CallsOf(stripefake.OpUpdateInvoice) {
+			if update.Form.Get("auto_advance") == "true" {
+				advanced = true
+				require.Equal(t, started.ActivationInvoice.ID.String()+":auto_advance", update.IdempotencyKey)
+			}
+		}
+		require.True(t, advanced, "auto_advance on after the MATCH, before the charge")
+	})
+
+	t.Run("AMismatch_IsParked_NeverCharged_NeverOverdue", func(t *testing.T) {
+		fresh(t)
+		connect(t, map[string]any{"stripeSecretKey": testKey, "autoFinalize": false})
+		s := newSold(t, "acme")
+		saveCard(t, s, stripefake.CardSucceeds)
+		started := subscribeAutomatic(t, s)
+		waiting := waitFor(t, started.ActivationInvoice.ID, reviewable, "the draft waits for review")
+		item := fake.ItemsOf(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))[0]
+		fake.EditItemAmount(stripefake.DefaultAccount, item, 100)
+
+		require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/invoices/"+started.ActivationInvoice.ID.String()+"/retry-push", nil).StatusCode)
+		parked := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
+			return i.Provider != nil && i.Provider.ReconciliationStatus != nil
+		}, "reconciled")
+		require.Equal(t, "MISMATCH", *parked.Provider.ReconciliationStatus)
+		require.Equal(t, "PUSHED", parked.Status)
+		require.Nil(t, parked.Provider.NextPushAt, "parked: out of the push queue")
+		time.Sleep(200 * time.Millisecond) // a few push passes
+		require.Empty(t, fake.CallsOf(stripefake.OpPayInvoice), "never charged")
+
+		// Past the auto-collection grace, a parked charge is no debt.
+		_, err := testServer.Dependencies.DB.Exec(t.Context(),
+			`UPDATE instance_invoice SET issued_at = issued_at - interval '30 days', due_at = due_at - interval '30 days' WHERE id = $1`,
+			started.ActivationInvoice.ID)
+		require.NoError(t, err)
+		now := time.Now().UTC()
+		overdue, err := billingdb.New(testServer.Dependencies.DB).EarliestOverdue(t.Context(), billingdb.EarliestOverdueParams{
+			InstanceBillingID: started.ID, Now: invoices.Timestamp(now), AutoCollectionBefore: invoices.Timestamp(now.Add(-72 * time.Hour)),
+		})
+		require.NoError(t, err)
+		require.False(t, overdue.Valid, "parked, never overdue")
+	})
+}
+
+// V31-24 (c), §12.5-§12.6, A4 #6: what Stripe's own attempts did is read from
+// the invoice's payment. A charge left processing waits; a 3-D Secure
+// confirmation the customer owes is authentication_required, inside the
+// grace, not a refusal; a decline fails with its code and marks the card.
+func TestPaymentStateFromStripe(t *testing.T) {
+	// processing subscribes a sold instance whose charge Stripe accepts with
+	// no outcome yet.
+	processing := func(t *testing.T) (sold, string, invoices.Invoice) {
+		t.Helper()
+		fresh(t)
+		connect(t, nil)
+		s := newSold(t, "acme")
+		pm := saveCard(t, s, stripefake.CardProcessing)
+		started := subscribeAutomatic(t, s)
+		waiting := waitFor(t, started.ActivationInvoice.ID, func(i invoices.Invoice) bool {
+			return i.Status == "PUSHED" && i.Provider != nil && i.Provider.NextPushAt == nil
+		}, "charged, processing, out of the queue")
+		return s, pm, waiting
+	}
+	sync := func(t *testing.T) {
+		t.Helper()
+		require.Equal(t, fiber.StatusAccepted, call(t, "POST", "/api/billing/sync", nil).StatusCode)
+	}
+
+	t.Run("AProcessingCharge_Waits", func(t *testing.T) {
+		_, _, waiting := processing(t)
+		sync(t)
+		require.Equal(t, "PUSHED", invoice(t, waiting.ID).Status)
+		require.Len(t, fake.CallsOf(stripefake.OpPayInvoice), 1, "not charged again")
+	})
+
+	t.Run("A3DSecureConfirmation_IsAuthenticationRequired_NotARefusal", func(t *testing.T) {
+		s, pm, waiting := processing(t)
+		fake.SetCardOutcome(stripefake.DefaultAccount, pm, stripefake.CardAuthenticationRequire)
+		fake.StripeAttempt(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))
+		sync(t)
+		failed := invoice(t, waiting.ID)
+		require.Equal(t, "PAYMENT_FAILED", failed.Status)
+		require.Equal(t, "authentication_required", deref(failed.Provider.LastPaymentError))
+		require.NotEqual(t, "PAST_DUE", billing(t, s).Status, "inside the auto-collection grace")
+		require.Equal(t, "ACTIVE", customerBilling(t, s).Providers[0].PaymentMethod.Status, "the card is fine; the customer must confirm")
+	})
+
+	t.Run("ADecline_FailsWithItsCode_AndMarksTheCard", func(t *testing.T) {
+		s, pm, waiting := processing(t)
+		fake.SetCardOutcome(stripefake.DefaultAccount, pm, stripefake.CardInsufficientFunds)
+		fake.StripeAttempt(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))
+		sync(t)
+		failed := invoice(t, waiting.ID)
+		require.Equal(t, "PAYMENT_FAILED", failed.Status)
+		require.Equal(t, "insufficient_funds", deref(failed.Provider.LastPaymentError))
+		require.Equal(t, "FAILED", customerBilling(t, s).Providers[0].PaymentMethod.Status)
+	})
+
+	t.Run("ASuccess_IsPaid", func(t *testing.T) {
+		_, pm, waiting := processing(t)
+		fake.SetCardOutcome(stripefake.DefaultAccount, pm, stripefake.CardSucceeds)
+		fake.StripeAttempt(stripefake.DefaultAccount, deref(waiting.Provider.ExternalInvoiceID))
+		sync(t)
+		require.Equal(t, "PAID", invoice(t, waiting.ID).Status)
+	})
 }

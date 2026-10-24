@@ -1,0 +1,60 @@
+"""
+How an exception sets its entitlement: SET works on every type, ADD and
+UNLIMITED on NUMBER and NUMBER_AI_CREDIT only.
+"""
+enum EntitlementExceptionKind {
+  SET
+  ADD
+  UNLIMITED
+}
+
+"""
+An exception's status at the read.
+"""
+enum EntitlementExceptionStatus {
+  SCHEDULED
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+"""
+Which exceptions of an instance to list.
+"""
+enum EntitlementExceptionFilter {
+  """Neither revoked nor ended, scheduled ones included."""
+  ACTIVE
+  """Every exception of the instance, revoked and ended ones included."""
+  ALL
+}
+
+"""
+The vendor's dated decision on one entitlement of one instance, without a
+code: the last layer of its effective entitlements. Never gated by billing.
+"""
+type EntitlementException {
+  id: UUID!
+  entitlementSlug: String!
+  entitlementType: EntitlementType!
+  kind: EntitlementExceptionKind!
+  """
+  The value in the {type, value} shape of a licence grant; null for UNLIMITED.
+  """
+  value: Map
+  startsAt: Time!
+  """Null: no end."""
+  endsAt: Time
+  """Why the vendor decided it."""
+  reason: String!
+  status: EntitlementExceptionStatus!
+  createdAt: Time!
+  revokedAt: Time
+}
+
+extend type Instance {
+  """
+  The instance's entitlement exceptions, latest start first, as
+  GET /instances/{instanceSlug}/entitlement-exceptions lists them.
+  """
+  entitlementExceptions(filter: EntitlementExceptionFilter = ACTIVE): [EntitlementException!]!
+}

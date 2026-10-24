@@ -1991,7 +1991,7 @@ components:
           minLength: 1
           type: string
         voucherCode:
-          description: A code to apply; any refusal answers 422 .VoucherInvalid
+          description: "A code to apply, checked against the selection, with no customer yet: a voucher restricted to a customer never applies, and one without a PRICE part only when nothing is due today. Its discount counts in dueToday; the completion, or the payment, records its redemption. Any refusal answers 422 .VoucherInvalid"
           maxLength: 64
           type: string
       required:
@@ -3580,6 +3580,77 @@ components:
         - updatedAt
       type: object
       x-kaiten-payload: "#/components/schemas/Entitlement"
+    EntitlementException:
+      additionalProperties: false
+      properties:
+        createdAt:
+          format: date-time
+          type: string
+        endsAt:
+          description: "Null: no end"
+          format: date-time
+          type:
+            - string
+            - "null"
+        entitlementSlug:
+          type: string
+        entitlementType:
+          enum:
+            - NUMBER
+            - NUMBER_AI_CREDIT
+            - BOOLEAN
+            - CONFIG
+          type: string
+        id:
+          type: string
+        instanceSlug:
+          type: string
+        kind:
+          enum:
+            - SET
+            - ADD
+            - UNLIMITED
+          type: string
+        reason:
+          type: string
+        revokedAt:
+          format: date-time
+          type:
+            - string
+            - "null"
+        startsAt:
+          format: date-time
+          type: string
+        status:
+          description: "At the read: SCHEDULED before startsAt, ACTIVE in its window, EXPIRED after endsAt, REVOKED once revoked"
+          enum:
+            - SCHEDULED
+            - ACTIVE
+            - EXPIRED
+            - REVOKED
+          type: string
+        value:
+          anyOf:
+            - type: number
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: A number for NUMBER and NUMBER_AI_CREDIT, a boolean for BOOLEAN, the CONFIG document as an object; null for UNLIMITED
+      required:
+        - id
+        - instanceSlug
+        - entitlementSlug
+        - entitlementType
+        - kind
+        - value
+        - startsAt
+        - endsAt
+        - reason
+        - status
+        - createdAt
+        - revokedAt
+      type: object
     EntitlementGroup:
       additionalProperties: false
       properties:
@@ -3796,10 +3867,11 @@ components:
           $ref: "#/components/schemas/Provenance"
           description: What the licence, the add-ons and the boosts each contribute
         source:
-          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"
+          description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"
           enum:
             - license
             - addon
+            - exception
           type: string
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
@@ -3884,10 +3956,11 @@ components:
           $ref: "#/components/schemas/Provenance"
           description: What the licence, the add-ons and the boosts each contribute
         source:
-          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do"
+          description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"
           enum:
             - license
             - addon
+            - exception
           type: string
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
@@ -4035,10 +4108,13 @@ components:
           format: date-time
           type: string
         value:
-          description: "The exception's value: a number for NUMBER and NUMBER_AI_CREDIT, a boolean for BOOLEAN, the CONFIG document as an object; null for UNLIMITED"
-          type:
-            - ""
-            - "null"
+          anyOf:
+            - type: number
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: A number for NUMBER and NUMBER_AI_CREDIT, a boolean for BOOLEAN, the CONFIG document as an object; null for UNLIMITED
         via:
           description: "customer_session: written through a kst_ customer session, under the vendor principal that minted it. checkout_session: written by an anonymous checkout, under system:kaiten. Absent otherwise"
           enum:
@@ -4326,6 +4402,24 @@ components:
         - reason
       type: object
       x-kaiten-payload: "#/components/schemas/FeatureFlagEvaluated"
+    FlagGrant:
+      additionalProperties: false
+      properties:
+        flagSlug:
+          examples:
+            - new-dashboard
+          type: string
+        variant:
+          description: The name of one of the flag's variants
+          examples:
+            - "on"
+          maxLength: 255
+          minLength: 1
+          type: string
+      required:
+        - flagSlug
+        - variant
+      type: object
     Grant:
       additionalProperties: false
       properties:
@@ -4334,7 +4428,7 @@ components:
             - tokens
           type: string
         modifierType:
-          description: SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit
+          description: SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit. A BOOLEAN or CONFIG entitlement takes SET only
           enum:
             - SET
             - ADD
@@ -4342,10 +4436,17 @@ components:
             - UNLIMITED
           type: string
         modifierValue:
-          description: "A decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED"
+          description: "A NUMBER grant's decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, absent for UNLIMITED; absent on a BOOLEAN or CONFIG grant"
           examples:
             - "2"
           type: string
+        value:
+          anyOf:
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: "What a BOOLEAN or CONFIG SET grant sets: true or false, or the CONFIG document as an object; absent on a NUMBER grant"
       required:
         - entitlementSlug
         - modifierType
@@ -5473,6 +5574,11 @@ components:
         new_period_start:
           format: date-time
           type: string
+        reason:
+          enum:
+            - PERIOD_ENDED
+            - ANCHOR_CHANGED
+          type: string
         value:
           format: double
           type: number
@@ -5492,6 +5598,7 @@ components:
         - closed_period_end
         - new_period_start
         - is_synthetic
+        - reason
       type: object
       x-kaiten-payload: "#/components/schemas/InstanceEntitlementUsagePeriodRolledOver"
     InstanceEntitlementUsageReportAcceptedDelivered:
@@ -6729,7 +6836,7 @@ components:
             - array
             - "null"
         voucherCode:
-          description: A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher).
+          description: A PRICE voucher's discount, applied as a redemption would, consuming nothing (PreviewLicenseInvoice.VoucherNotFound; .VoucherInvalid when it is not an ACTIVE PRICE voucher, nor an ACTIVE COMPOSITE with a PRICE part).
           type: string
       type: object
     InvoiceSummary:
@@ -8742,6 +8849,47 @@ components:
         - currency
         - unitAmountDecimal
       type: object
+    NewEntitlementException:
+      additionalProperties: false
+      properties:
+        endsAt:
+          description: "After startsAt and after now; absent or null: no end"
+          format: date-time
+          type:
+            - string
+            - "null"
+        entitlementSlug:
+          description: The entitlement it overrides; the instance's licence and add-ons need not grant it
+          examples:
+            - sso
+          type: string
+        kind:
+          description: SET works on every type; ADD and UNLIMITED on NUMBER and NUMBER_AI_CREDIT only
+          enum:
+            - SET
+            - ADD
+            - UNLIMITED
+          type: string
+        reason:
+          description: Why, 1 to 500 characters, not blank; shown to the vendor only
+          type: string
+        startsAt:
+          description: Now when absent; a past instant is taken as given, a future one schedules the exception
+          format: date-time
+          type: string
+        value:
+          anyOf:
+            - type: number
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: For SET, a number of 0 or more on the NUMBER types, a boolean on BOOLEAN, an object on CONFIG; for ADD, a number above 0; for UNLIMITED, absent or null
+      required:
+        - entitlementSlug
+        - kind
+        - reason
+      type: object
     NewInstanceAddon:
       additionalProperties: false
       properties:
@@ -10239,10 +10387,11 @@ components:
             - seats
           type: string
         source:
-          description: "license: the licence grants it; addon: only add-ons do"
+          description: "license: the licence grants it; addon: an add-on does; exception: only the vendor's exception for this instance does"
           enum:
             - license
             - addon
+            - exception
           type: string
         type:
           enum:
@@ -10766,6 +10915,13 @@ components:
           items:
             $ref: "#/components/schemas/ProvenanceBoost"
           type: array
+        exception:
+          description: The instance's exception in force at the read, the last layer; null without one. Never its reason or author
+          oneOf:
+            - $ref: "#/components/schemas/ProvenanceException"
+            - enum:
+                - null
+              type: "null"
         license:
           description: The licence's grant; null when only add-ons grant the entitlement
           oneOf:
@@ -10774,7 +10930,7 @@ components:
                 - null
               type: "null"
         number:
-          description: How a number was composed; null for BOOLEAN and CONFIG, and when no add-on or boost changes it
+          description: How a number was composed; null for BOOLEAN and CONFIG, and when no add-on, boost or exception changes it
           oneOf:
             - $ref: "#/components/schemas/ProvenanceNumber"
             - enum:
@@ -10784,6 +10940,7 @@ components:
         - license
         - addons
         - boosts
+        - exception
         - number
       type: object
     ProvenanceAddon:
@@ -10862,6 +11019,21 @@ components:
         redeemedAt:
           format: date-time
           type: string
+        value:
+          description: The value a BOOLEAN or CONFIG SET boost sets, in the {type, value} shape; null for the NUMBER modifiers
+          discriminator:
+            mapping:
+              boolean: "#/components/schemas/BooleanEntitlementValue"
+              number: "#/components/schemas/NumberEntitlementValue"
+              object: "#/components/schemas/ConfigEntitlementValue"
+            propertyName: type
+          oneOf:
+            - $ref: "#/components/schemas/NumberEntitlementValue"
+            - $ref: "#/components/schemas/BooleanEntitlementValue"
+            - $ref: "#/components/schemas/ConfigEntitlementValue"
+            - enum:
+                - null
+              type: "null"
         voucherEntitlementGrantId:
           type: string
         voucherId:
@@ -10872,9 +11044,52 @@ components:
         - voucherEntitlementGrantId
         - modifierType
         - modifierValue
+        - value
         - redeemedAt
         - effectiveStartsAt
         - effectiveExpiresAt
+      type: object
+    ProvenanceException:
+      additionalProperties: false
+      properties:
+        endsAt:
+          description: "Null: no end"
+          format: date-time
+          type:
+            - string
+            - "null"
+        instanceEntitlementExceptionId:
+          type: string
+        kind:
+          enum:
+            - SET
+            - ADD
+            - UNLIMITED
+          type: string
+        startsAt:
+          format: date-time
+          type: string
+        value:
+          description: The exception's value, in the {type, value} shape; null for UNLIMITED
+          discriminator:
+            mapping:
+              boolean: "#/components/schemas/BooleanEntitlementValue"
+              number: "#/components/schemas/NumberEntitlementValue"
+              object: "#/components/schemas/ConfigEntitlementValue"
+            propertyName: type
+          oneOf:
+            - $ref: "#/components/schemas/NumberEntitlementValue"
+            - $ref: "#/components/schemas/BooleanEntitlementValue"
+            - $ref: "#/components/schemas/ConfigEntitlementValue"
+            - enum:
+                - null
+              type: "null"
+      required:
+        - instanceEntitlementExceptionId
+        - kind
+        - value
+        - startsAt
+        - endsAt
       type: object
     ProvenanceLicense:
       additionalProperties: false
@@ -10908,6 +11123,10 @@ components:
         afterAddons:
           format: double
           type: number
+        afterBoosts:
+          description: "The value before the exception: -1 when unlimited"
+          format: double
+          type: number
         boostAdd:
           format: double
           type:
@@ -10928,12 +11147,13 @@ components:
           format: double
           type: number
         license:
-          description: The licence's value; null when only add-ons grant it
+          description: The licence's value; null when only add-ons or an exception grant it
           format: double
           type:
             - number
             - "null"
         unlimited:
+          description: The licence, an add-on or a boost is unlimited; only an exception's SET makes it finite again
           type: boolean
       required:
         - license
@@ -10942,6 +11162,7 @@ components:
         - boostAdd
         - boostMultiply
         - unlimited
+        - afterBoosts
         - effective
       type: object
     ProviderCapabilities:
@@ -11531,15 +11752,19 @@ components:
             - Marketing site
           type: string
         lastUsedAt:
-          description: When the key last authenticated a request, to the minute
+          description: When the key last authenticated a request, to the minute; null before its first
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         revokedAt:
-          description: When the key was revoked; absent while it is live
+          description: When the key was revoked; null while it is live
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         turnstileSecretConfigured:
           description: Whether a Turnstile secret is stored for the key. The secret itself is write-only.
           readOnly: true
@@ -11561,8 +11786,10 @@ components:
         - anonymousCheckout
         - turnstileSiteKey
         - turnstileSecretConfigured
+        - lastUsedAt
         - createdAt
         - updatedAt
+        - revokedAt
       type: object
     PublishableKeyCreated:
       additionalProperties: false
@@ -11603,15 +11830,19 @@ components:
             - Marketing site
           type: string
         lastUsedAt:
-          description: When the key last authenticated a request, to the minute
+          description: When the key last authenticated a request, to the minute; null before its first
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         revokedAt:
-          description: When the key was revoked; absent while it is live
+          description: When the key was revoked; null while it is live
           format: date-time
           readOnly: true
-          type: string
+          type:
+            - string
+            - "null"
         turnstileSecretConfigured:
           description: Whether a Turnstile secret is stored for the key. The secret itself is write-only.
           readOnly: true
@@ -11634,8 +11865,10 @@ components:
         - anonymousCheckout
         - turnstileSiteKey
         - turnstileSecretConfigured
+        - lastUsedAt
         - createdAt
         - updatedAt
+        - revokedAt
       type: object
     PublishableKeyDraft:
       additionalProperties: false
@@ -11697,7 +11930,9 @@ components:
           type: string
         revokedAt:
           format: date-time
-          type: string
+          type:
+            - string
+            - "null"
         turnstileSiteKey:
           type:
             - string
@@ -11715,6 +11950,7 @@ components:
         - allowedOrigins
         - anonymousCheckout
         - turnstileSiteKey
+        - revokedAt
       type: object
       x-kaiten-payload: "#/components/schemas/PublishableKeyEvent"
     PublishableKeyPatch:
@@ -12392,6 +12628,8 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -12484,6 +12722,8 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -12937,10 +13177,11 @@ components:
                 - null
               type: "null"
         source:
-          description: "license: the licence grants it (add-ons and boosts may change it); addon: only add-ons do. Null on a replay (Idempotent-Replayed): the journal does not store it."
+          description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does. Null on a replay (Idempotent-Replayed): the journal does not store it."
           enum:
             - license
             - addon
+            - exception
             - null
           type:
             - string
@@ -13312,10 +13553,17 @@ components:
             - UNLIMITED
           type: string
         modifierValue:
-          description: Absent for UNLIMITED
+          description: Absent for UNLIMITED, and on a BOOLEAN or CONFIG boost
           examples:
             - "2"
           type: string
+        value:
+          anyOf:
+            - type: boolean
+            - additionalProperties: true
+              type: object
+            - type: "null"
+          description: "A BOOLEAN or CONFIG boost's value: true or false, or the document"
       required:
         - entitlementSlug
         - modifierType
@@ -13899,7 +14147,7 @@ components:
           $ref: "#/components/schemas/SessionDiscount"
           description: "PRICE: what it takes off"
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST: how long it lasts, in billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). ENTITLEMENT_BOOST and FLAG_GRANT: how long it lasts, in billing periods. COMPOSITE: both, each for its part, which it carries each of."
           enum:
             - ONE_TIME
             - REPEATING
@@ -13908,6 +14156,13 @@ components:
         durationInPeriods:
           format: int32
           type: integer
+        flagGrants:
+          description: "FLAG_GRANT: the flag variants it grants"
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type:
+            - array
+            - "null"
         name:
           examples:
             - Summer launch
@@ -13916,6 +14171,8 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - name
@@ -15223,7 +15480,7 @@ components:
       additionalProperties: false
       properties:
         reason:
-          description: The first failing check
+          description: "The first failing check. DISCOUNT_LIMIT_EXCEEDED: a line of the instance's invoices would bear more than 20 discounts"
           enum:
             - NOT_FOUND
             - NOT_ACTIVE
@@ -15233,6 +15490,7 @@ components:
             - ALREADY_REDEEMED
             - NOT_ELIGIBLE
             - CURRENCY_MISMATCH
+            - DISCOUNT_LIMIT_EXCEEDED
           type: string
         rule:
           description: "With NOT_ELIGIBLE: the eligibility rule"
@@ -15478,7 +15736,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15490,6 +15748,11 @@ components:
         expiresAt:
           format: date-time
           type: string
+        flagGrants:
+          description: The flag variants a FLAG_GRANT grants
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type: array
         grants:
           description: What an ENTITLEMENT_BOOST changes
           items:
@@ -15549,6 +15812,8 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -15561,6 +15826,7 @@ components:
         - applicableLicensePriceIds
         - applicableAddonPriceIds
         - grants
+        - flagGrants
         - applicableLicenseIds
         - applicableAddonIds
         - redemptionRules
@@ -15648,7 +15914,7 @@ components:
         description:
           type: string
         duration:
-          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST: how long a redemption lasts, in the subscription's billing periods."
+          description: "PRICE: how many invoices it discounts (one, durationInPeriods, or every one). BOOST and FLAG_GRANT: how long a redemption lasts, in the subscription's billing periods. COMPOSITE: both, each for its part."
           enum:
             - ONE_TIME
             - REPEATING
@@ -15660,6 +15926,11 @@ components:
         expiresAt:
           format: date-time
           type: string
+        flagGrants:
+          description: The flag variants a FLAG_GRANT grants
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type: array
         grants:
           description: What an ENTITLEMENT_BOOST changes
           items:
@@ -15725,6 +15996,8 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - id
@@ -15737,6 +16010,7 @@ components:
         - applicableLicensePriceIds
         - applicableAddonPriceIds
         - grants
+        - flagGrants
         - applicableLicenseIds
         - applicableAddonIds
         - redemptionRules
@@ -15799,8 +16073,15 @@ components:
         expiresAt:
           format: date-time
           type: string
+        flagGrants:
+          description: Required on a FLAG_GRANT, optional on a COMPOSITE, one per flag, refused otherwise
+          items:
+            $ref: "#/components/schemas/FlagGrant"
+          type:
+            - array
+            - "null"
         grants:
-          description: Required on an ENTITLEMENT_BOOST, refused on a PRICE voucher
+          description: Required on an ENTITLEMENT_BOOST, optional on a COMPOSITE, refused otherwise
           items:
             $ref: "#/components/schemas/Grant"
           type:
@@ -15844,6 +16125,8 @@ components:
           enum:
             - PRICE
             - ENTITLEMENT_BOOST
+            - FLAG_GRANT
+            - COMPOSITE
           type: string
       required:
         - name
@@ -21985,7 +22268,7 @@ paths:
         - featureflags
   /feature-flags/{featureFlagSlug}:
     delete:
-      description: Delete a featureflag with the provided details
+      description: Delete a featureflag with the provided details. A flag a voucher grants a variant of cannot be deleted (409 DeleteFeatureFlag.InUseConflict); it can be disabled.
       operationId: delete-feature-flag
       parameters:
         - in: path
@@ -22014,6 +22297,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:
@@ -22719,7 +23008,7 @@ paths:
         - instances
   /instances/{instanceSlug}/addons/{addonSlug}:
     delete:
-      description: Removes an add-on from an instance. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.
+      description: Removes an add-on from an instance, at once, a removal the customer scheduled included. The entitlements drop at once; nothing is refunded. The attachment stays readable with includeRemoved. Emits INSTANCE_ADDON_REMOVED. Requires billing to be enabled for the organization.
       operationId: detachInstanceAddon
       parameters:
         - description: Instance slug
@@ -22810,7 +23099,7 @@ paths:
       tags:
         - instances
     patch:
-      description: Changes how many units of an add-on an instance holds. The entitlements follow at once; the next invoice bills the new quantity. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.
+      description: Changes how many units of an add-on an instance holds, at once, a decrease included. The entitlements follow at once; the next invoice bills the new quantity. It cancels a decrease the customer scheduled (pendingQuantity), even when the quantity is the one held. Emits INSTANCE_ADDON_QUANTITY_CHANGED. Requires billing to be enabled for the organization.
       operationId: setInstanceAddonQuantity
       parameters:
         - description: Instance slug
@@ -23697,6 +23986,258 @@ paths:
       summary: Preview an instance's upcoming invoice
       tags:
         - billing
+  /instances/{instanceSlug}/entitlement-exceptions:
+    get:
+      description: The instance's exceptions, latest start first, each with its status at the read. Works whether or not billing is enabled.
+      operationId: listEntitlementExceptions
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: "active: neither revoked nor ended, scheduled ones included; all: every exception of the instance"
+          explode: false
+          in: query
+          name: filter
+          schema:
+            default: active
+            description: "active: neither revoked nor ended, scheduled ones included; all: every exception of the instance"
+            enum:
+              - active
+              - all
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/EntitlementException"
+                type: array
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List an instance's entitlement exceptions
+      tags:
+        - instances
+    post:
+      description: "The vendor's explicit, dated decision on one entitlement of one instance, without a code: the last layer of the effective entitlements, after the licence, the add-ons and the boosts. It wins over them and may lower the value. One unrevoked exception per instance and entitlement at any instant. Emits INSTANCE_ENTITLEMENT_EXCEPTION_CREATED. Works whether or not billing is enabled."
+      operationId: createEntitlementException
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewEntitlementException"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementException"
+          description: Created
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Set an exception on an instance's entitlement
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlement-exceptions/{exceptionId}:
+    delete:
+      description: "Revokes an exception and keeps it, readable with filter=all: a scheduled one never starts, an active one ends at once. Revoking one already revoked or ended changes nothing. Emits INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED. Works whether or not billing is enabled."
+      operationId: revokeEntitlementException
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - acme-prod
+            type: string
+        - description: Exception id
+          in: path
+          name: exceptionId
+          required: true
+          schema:
+            description: Exception id
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Revoke an entitlement exception
+      tags:
+        - instances
   /instances/{instanceSlug}/entitlements/usage:
     get:
       description: Retrieve a list of all entitlements usage metrics for a specific instance
@@ -24756,7 +25297,7 @@ paths:
         - vouchers
   /instances/{instanceSlug}/vouchers/redeem:
     post:
-      description: Redeems a voucher for an instance. A boost applies from the next read or report, for its duration; a PRICE voucher discounts the subscription's next invoices. Emits INSTANCE_VOUCHER_REDEEMED, and VOUCHER_EXHAUSTED with the last redemption. Requires billing to be enabled for the organization.
+      description: Redeems a voucher for an instance. A boost applies from the next read or report, for its duration; a PRICE voucher discounts the subscription's next invoices. 422 .DiscountLimitExceeded when a line of the instance's invoices would bear more than 20 discounts, whatever the provider (a Stripe invoice item takes 20). Emits INSTANCE_VOUCHER_REDEEMED, and VOUCHER_EXHAUSTED with the last redemption. Requires billing to be enabled for the organization.
       operationId: redeemVoucher
       parameters:
         - description: Instance slug
@@ -25934,7 +26475,7 @@ paths:
         - billing
   /invoices/{invoiceId}/recompose:
     post:
-      description: "Composes an invoice again from the usage journal as it is now, keeping its BASE lines as they were sold. A held DRAFT is rewritten in place (200): issued when its journal is now sound, held again otherwise. A VOID invoice gets a replacement for the same boundary (201), under the subscription's current terms and billing e-mail. Any other invoice must be voided first. Requires billing to be enabled for the organization."
+      description: "Composes an invoice again from the usage journal as it is now, keeping its BASE lines as they were sold. A held DRAFT is rewritten in place (200), under the subscription's current provider and terms: issued when its journal is now sound and its provider takes as many items, held again otherwise. A VOID invoice gets a replacement for the same boundary (201), under the subscription's current terms and billing e-mail. Any other invoice must be voided first. Requires billing to be enabled for the organization."
       operationId: recomposeInvoice
       parameters:
         - description: Invoice identifier
@@ -26013,7 +26554,7 @@ paths:
         - billing
   /invoices/{invoiceId}/release-hold:
     post:
-      description: "Accepts a held invoice as composed and issues it: MANUAL and pending in the handoff queue, or PAID when nothing is owed. The release keeps who released it and why. Requires billing to be enabled for the organization."
+      description: "Accepts a held invoice as composed and issues it: MANUAL and pending in the handoff queue, or PAID when nothing is owed. The release keeps who released it and why. 409 .ProviderItemLimit for a PROVIDER_ITEM_LIMIT hold, which its provider would refuse: switch the subscription to NoOp and recompose in place, or void and recompose after that switch. Requires billing to be enabled for the organization."
       operationId: releaseInvoiceHold
       parameters:
         - description: Invoice identifier
@@ -29097,7 +29638,7 @@ paths:
         - public
   /public/session/addons/{addonSlug}:
     put:
-      description: Attaches the add-on to the session's instance, changes its quantity, or removes it with 0. Entitlements change at once; the subscription bills the quantity held at each renewal, with no proration. Setting the quantity held changes nothing. 409 .OtherVersionAttached when another version of the same add-on is held, .BoundaryPending while the period that ended is being closed (Retry-After); 422 .AddonNotPublic, .Incompatible, .QuantityExceedsMax, .CurrencyMismatch, .InstanceRequired.
+      description: "Attaches the add-on to the session's instance, changes its quantity, or removes it with 0. An attach or an increase changes the entitlements at once. With a live subscription a lower quantity, or 0, is scheduled for the next renewal: pendingQuantity shows it, and the quantity held, its entitlements and its billing stay until then; the quantity held cancels it, and so does an increase. Without a live subscription every change applies at once. The subscription bills the quantity held at each renewal, with no proration. Setting the quantity held, with nothing scheduled, changes nothing. 409 .OtherVersionAttached when another version of the same add-on is held, .BoundaryPending while the period that ended is being closed (Retry-After); 422 .AddonNotPublic, .Incompatible, .QuantityExceedsMax, .CurrencyMismatch, .InstanceRequired."
       operationId: setSessionAddonQuantity
       parameters:
         - description: "An add-on version: the public one, or the one the instance holds"

@@ -1,6 +1,8 @@
 package billing_test
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -438,4 +440,93 @@ func TestTrialReminder(t *testing.T) {
 	require.True(t, ok, "the conversion's ACTIVATION, as previewed")
 	require.EqualValues(t, 1900, charge["amount"])
 	require.Equal(t, "MONTHLY", charge["billingPeriod"])
+}
+
+// TestLockOrder: a close that applies a plan change writes the instance, and
+// an add-on write locks the instance before reading the subscription. Both
+// now take the instance first (§9 Concurrency rule 1, V31-34, S07-104), so a
+// race between them waits or skips, and never fails on a deadlock (40P01).
+func TestLockOrder(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	scale := newVersion(t, "Scale", licenseschema.Published)
+	annual := createPrice(t, scale.Slug, flatFee("49000", "ANNUAL"))
+	addon := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats", "pricingType": "FREE"})
+	fits(t, addon.Slug, s.version.Slug)
+	fits(t, addon.Slug, scale.Slug)
+	customer := newCustomer(t, "globex")
+
+	for round := range 8 {
+		instance := newInstance(t, fmt.Sprintf("Globex %d", round), customer.ID, s.version.ID)
+		started := subscribe(t, instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		attach(t, instance.Slug, addon.Slug, 1)
+		billingCall(t, "PUT", instance.Slug, "/scheduled-change", map[string]any{"licensePriceId": annual.ID})
+		backdate(t, started.ID, 1)
+
+		var wg sync.WaitGroup
+		statuses := make([]int, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			resp := call(t, "POST", "/api/billing/close-periods", map[string]any{"instanceSlug": instance.Slug})
+			statuses[0] = resp.StatusCode
+		}()
+		go func() {
+			defer wg.Done()
+			resp := call(t, "PATCH", "/api/instances/"+instance.Slug+"/addons/"+addon.Slug, map[string]any{"quantity": 2})
+			statuses[1] = resp.StatusCode
+		}()
+		wg.Wait()
+		require.Equal(t, fiber.StatusOK, statuses[0], "round %d: the close", round)
+		require.Contains(t, []int{fiber.StatusOK, fiber.StatusConflict}, statuses[1], "round %d: the add-on write waits or is refused, never fails", round)
+	}
+}
+
+// TestAddonWriteWaitsForALicenseMove: an add-on write that waits for a close
+// moving the instance to another licence version finds the instance, and the
+// add-on the new version still fits, once the move commits (§8, §9.4 "an
+// add-on the new version fits stays", §9 Concurrency rule 1). The move is held
+// open here instead of raced, so the wait is certain: locking the instance in
+// a query that also joined its licence made the re-check at the end of the
+// wait see the new instance against the old licence and answer 404
+// SetInstanceAddonQuantity.InstanceNotFound.
+func TestAddonWriteWaitsForALicenseMove(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	scale := newVersion(t, "Scale", licenseschema.Published)
+	addon := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats", "pricingType": "FREE"})
+	fits(t, addon.Slug, s.version.Slug)
+	fits(t, addon.Slug, scale.Slug)
+	instance := newInstance(t, "Globex", newCustomer(t, "globex").ID, s.version.ID)
+	subscribe(t, instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+	attach(t, instance.Slug, addon.Slug, 1)
+
+	// What the close writes in its transaction: the escape from the instance
+	// freeze, then the move, the instance row locked until the commit.
+	move, err := testDb.DbPool.Begin(t.Context())
+	require.NoError(t, err)
+	defer func() { _ = move.Rollback(t.Context()) }()
+	_, err = move.Exec(t.Context(), `SELECT set_config('kaiten.billing_apply_plan_change', 'on', TRUE)`)
+	require.NoError(t, err)
+	_, err = move.Exec(t.Context(), `UPDATE instance SET license_id = $1 WHERE slug = $2`, scale.ID, instance.Slug)
+	require.NoError(t, err)
+
+	status := make(chan int, 1)
+	go func() {
+		status <- call(t, "PATCH", "/api/instances/"+instance.Slug+"/addons/"+addon.Slug, map[string]any{"quantity": 2}).StatusCode
+	}()
+	require.Eventually(t, func() bool {
+		var waiting int
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%LockInstanceForAddons%'`).Scan(&waiting))
+		return waiting == 1
+	}, 10*time.Second, 10*time.Millisecond, "the add-on write waits on the instance the move holds")
+	require.NoError(t, move.Commit(t.Context()))
+
+	select {
+	case got := <-status:
+		require.Equal(t, fiber.StatusOK, got, "the instance and its add-on are still there, on the new version")
+	case <-time.After(10 * time.Second):
+		require.Fail(t, "the add-on write never returned")
+	}
 }

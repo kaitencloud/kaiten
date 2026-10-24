@@ -323,6 +323,41 @@ func TestReportEntitlementUsageMetric_Ledger(t *testing.T) {
 		require.Equal(t, "301", rows[1].ValueAfter)
 	})
 
+	// A2-12, Δ4.9: the slugs resolve before the pair's lock, the limit after
+	// it. A licence change committed while the report waits for the lock is
+	// the version the row names, the one its limit was read under.
+	t.Run("WhenTheLicenceChangesWhileTheReportWaitsForTheLock_TheRowNamesTheNewVersion", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		instances := newInstances(t, 1)
+		entitlement := newEntitlement(t)
+		assignEntitlementToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 1000)
+		other := newLicense(t)
+		assignEntitlementToLicense(t, other.Slug, entitlement.Slug, 500)
+
+		holder, err := testServer.Dependencies.DB.Begin(t.Context())
+		require.NoError(t, err)
+		defer func() { _ = holder.Rollback(context.Background()) }()
+		_, err = holder.Exec(t.Context(), "SELECT pg_advisory_xact_lock(hashtextextended($1::uuid::text || ':' || $2::uuid::text, 0))", instances[0].ID, entitlement.ID)
+		require.NoError(t, err)
+
+		done := make(chan int, 1)
+		go func() {
+			resp := reportUsage(t, instances[0].Slug, entitlement.Slug, 1, "append")
+			_ = resp.Body.Close()
+			done <- resp.StatusCode
+		}()
+		time.Sleep(500 * time.Millisecond)
+		_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE instance SET license_id = $1 WHERE id = $2`, other.ID, instances[0].ID)
+		require.NoError(t, err)
+		require.NoError(t, holder.Commit(t.Context()))
+		require.Equal(t, fiber.StatusOK, <-done)
+
+		rows := ledgerRows(t, instances[0].ID, entitlement.ID)
+		require.Len(t, rows, 1)
+		require.Equal(t, other.ID, rows[0].LicenseID, "the version the limit was read under")
+		require.Equal(t, ptrString("500"), rows[0].LimitValue)
+	})
+
 	t.Run("WhenReportsArriveConcurrently_TheSequenceIsContiguousAndTheDatesNeverGoBack", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		instances := newInstances(t, 1)

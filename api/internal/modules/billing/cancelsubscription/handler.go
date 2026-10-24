@@ -120,6 +120,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, mode string, reason
 			if err := lifecycle.AnnounceCanceled(ctx, q, u.outbox, u.deps.Catalogue, updated, mode, nil); err != nil {
 				return err
 			}
+			if err := u.closer.ApplyScheduled(ctx, updated, user.ID, now); err != nil {
+				return err
+			}
 			if err := u.fallback().Move(ctx, q, updated, user.ID); err != nil {
 				return err
 			}
@@ -132,6 +135,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, mode string, reason
 				return err
 			}
 			if err := lifecycle.AnnounceCanceled(ctx, q, u.outbox, u.deps.Catalogue, updated, mode, &final.ID); err != nil {
+				return err
+			}
+			if err := u.closer.ApplyScheduled(ctx, updated, user.ID, at); err != nil {
 				return err
 			}
 			if err := u.fallback().Move(ctx, q, updated, user.ID); err != nil {

@@ -12,7 +12,10 @@
 //   - another version of the same family held already is refused: moving
 //     between versions is the vendor's to do.
 //
-// The entitlement changes at once; billing follows the quantity held at each
+// With a live subscription an attach or an increase changes the entitlement
+// at once, and a decrease or a removal is scheduled for the next boundary,
+// the customer keeping what it paid for until then (V31-67); without one
+// every change applies at once. Billing follows the quantity held at each
 // boundary, with no proration (D-45).
 package setsessionaddonquantity
 
@@ -23,6 +26,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/attachinstanceaddon"
 	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/setinstanceaddonquantity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
@@ -49,11 +53,10 @@ type (
 	Attacher interface {
 		Execute(ctx context.Context, instanceSlug string, command attachinstanceaddon.NewInstanceAddon) (*addoncatalogue.InstanceAddon, error)
 	}
+	// QuantitySetter is the customer's quantity write on a held add-on,
+	// removal included.
 	QuantitySetter interface {
-		Execute(ctx context.Context, instanceSlug, addonSlug string, quantity int32) (*addoncatalogue.InstanceAddon, error)
-	}
-	Detacher interface {
-		Execute(ctx context.Context, instanceSlug, addonSlug string) error
+		SetForCustomer(ctx context.Context, instanceSlug, addonSlug string, quantity int32) (*setinstanceaddonquantity.CustomerChange, error)
 	}
 )
 
@@ -64,7 +67,6 @@ type Deps struct {
 	List         Lister
 	Attach       Attacher
 	SetQuantity  QuantitySetter
-	Detach       Detacher
 }
 
 type UseCase struct{ deps Deps }
@@ -113,19 +115,14 @@ func (u *UseCase) set(ctx context.Context, catalog *getpubliccatalog.PublicCatal
 		if !publicFamily(catalog, current.FamilySlug) {
 			return nil, notPublic(addonSlug)
 		}
-		if quantity == 0 {
-			if err := u.deps.Detach.Execute(ctx, instanceSlug, addonSlug); err != nil {
-				return nil, err
-			}
-			removed := sessions.AddonFrom(*current)
-			removed.Quantity = 0
-			return &removed, nil
-		}
-		changed, err := u.deps.SetQuantity.Execute(ctx, instanceSlug, addonSlug, quantity)
+		changed, err := u.deps.SetQuantity.SetForCustomer(ctx, instanceSlug, addonSlug, quantity)
 		if err != nil {
 			return nil, err
 		}
-		shown := sessions.AddonFrom(*changed)
+		shown := sessions.AddonFrom(changed.Addon)
+		if changed.Removed {
+			shown.Quantity = 0
+		}
 		return &shown, nil
 	}
 

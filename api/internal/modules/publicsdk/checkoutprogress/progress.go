@@ -17,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/telemetry"
 )
 
 // Follower implements billing's ports.CheckoutFollower.
@@ -63,6 +64,12 @@ func (f *Follower) close(ctx context.Context, organizationID, instanceID uuid.UU
 	row, err := q.GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: id})
 	if err != nil {
 		return err
+	}
+	// Recorded in billing's transaction: a rollback after it overcounts one.
+	if status == checkout.StatusCompleted {
+		telemetry.Completed(ctx, row.CreatedAt.Time, row.ClosedAt.Time)
+	} else {
+		telemetry.SessionEntered(ctx, status)
 	}
 	return f.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(organizationID, event.Name, event.Type, Event(row, status), nil))
 }

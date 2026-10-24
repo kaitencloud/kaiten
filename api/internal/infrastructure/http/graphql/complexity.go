@@ -120,6 +120,9 @@ func newComplexityRoot() generated.ComplexityRoot {
 	root.Addon.Prices = func(childComplexity int, _ *string) int {
 		return fanOut(assumedFanout, childComplexity)
 	}
+	root.Instance.EntitlementExceptions = func(childComplexity int, _ *string) int {
+		return fanOut(assumedFanout, childComplexity)
+	}
 	root.Entitlement.EntitlementGroups = unbounded
 
 	return root

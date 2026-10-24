@@ -46,7 +46,7 @@ describe('why a code cannot be redeemed by an instance', () => {
   it('has a sentence in English and in French for every reason and every rule', () => {
     const reasons = [
       'NOT_FOUND', 'NOT_ACTIVE', 'NOT_YET_VALID', 'EXPIRED', 'EXHAUSTED',
-      'ALREADY_REDEEMED', 'NOT_ELIGIBLE', 'CURRENCY_MISMATCH',
+      'ALREADY_REDEEMED', 'NOT_ELIGIBLE', 'CURRENCY_MISMATCH', 'DISCOUNT_LIMIT_EXCEEDED',
     ] as const;
     const rules = [
       'RESTRICTED_CUSTOMER', 'LICENSE_NOT_APPLICABLE', 'ADDON_NOT_APPLICABLE',
@@ -57,7 +57,7 @@ describe('why a code cannot be redeemed by an instance', () => {
       ...rules.map((rule) => getValidityReasonKey({ reason: 'NOT_ELIGIBLE', rule })),
     ];
 
-    expect(keys).toHaveLength(15);
+    expect(keys).toHaveLength(16);
     for (const key of keys) {
       expect(read(en, key as string), String(key)).toEqual(expect.any(String));
       expect(read(fr, key as string), String(key)).toEqual(expect.any(String));

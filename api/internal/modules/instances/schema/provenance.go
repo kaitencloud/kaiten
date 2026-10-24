@@ -11,11 +11,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 )
 
-// Sources of an effective entitlement (§7.4): the instance's licence grants
-// it -- add-ons and boosts may change it -- or only add-ons do.
+// Sources of an effective entitlement (§7.4, §7.5): the layer that makes the
+// row exist, not the one that sets its value -- the instance's licence grants
+// it (add-ons, boosts and an exception may change it), else an add-on
+// attached does, else only the instance's exception (V32-03).
 const (
-	SourceLicense = "license"
-	SourceAddon   = "addon"
+	SourceLicense   = "license"
+	SourceAddon     = "addon"
+	SourceException = "exception"
 )
 
 // Provenance is what each layer contributes to an instance's effective
@@ -27,12 +30,34 @@ type Provenance struct {
 	License *ProvenanceLicense `json:"license" doc:"The licence's grant; null when only add-ons grant the entitlement"`
 	Addons  []ProvenanceAddon  `json:"addons" nullable:"false" doc:"The active add-on grants, in attachment order"`
 	Boosts  []ProvenanceBoost  `json:"boosts" nullable:"false" doc:"The boosts in their window, in redemption order"`
-	Number  *ProvenanceNumber  `json:"number" doc:"How a number was composed; null for BOOLEAN and CONFIG, and when no add-on or boost changes it"`
+	// Exception is the instance's exception in force, the last layer (V32-03).
+	Exception *ProvenanceException `json:"exception" doc:"The instance's exception in force at the read, the last layer; null without one. Never its reason or author"`
+	Number    *ProvenanceNumber    `json:"number" doc:"How a number was composed; null for BOOLEAN and CONFIG, and when no add-on, boost or exception changes it"`
+}
+
+// ProvenanceException is the exception layer: the vendor's dated decision on
+// this entitlement of this instance (§13.16).
+type ProvenanceException struct {
+	InstanceEntitlementExceptionID uuid.UUID         `json:"instanceEntitlementExceptionId"`
+	Kind                           string            `json:"kind" enum:"SET,ADD,UNLIMITED"`
+	Value                          *EntitlementValue `json:"value" doc:"The exception's value, in the {type, value} shape; null for UNLIMITED"`
+	StartsAt                       time.Time         `json:"startsAt"`
+	EndsAt                         *time.Time        `json:"endsAt" doc:"Null: no end"`
 }
 
 // TransformSchema publishes Provenance's absent members as null (§13.15).
 func (Provenance) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 	return nullable.Pointers(s, Provenance{})
+}
+
+// TransformSchema publishes the exception's value as null for UNLIMITED.
+func (ProvenanceException) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, ProvenanceException{})
+}
+
+// TransformSchema publishes a boost's value as null for the NUMBER modifiers.
+func (ProvenanceBoost) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, ProvenanceBoost{})
 }
 
 // ProvenanceLicense is the licence layer.
@@ -56,25 +81,29 @@ type ProvenanceAddon struct {
 
 // ProvenanceBoost is one boost of a redeemed voucher.
 type ProvenanceBoost struct {
-	InstanceVoucherID         uuid.UUID  `json:"instanceVoucherId"`
-	VoucherID                 uuid.UUID  `json:"voucherId"`
-	VoucherEntitlementGrantID uuid.UUID  `json:"voucherEntitlementGrantId"`
-	ModifierType              string     `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED"`
-	ModifierValue             *float64   `json:"modifierValue"`
-	RedeemedAt                time.Time  `json:"redeemedAt"`
-	EffectiveStartsAt         time.Time  `json:"effectiveStartsAt"`
-	EffectiveExpiresAt        *time.Time `json:"effectiveExpiresAt"`
+	InstanceVoucherID         uuid.UUID `json:"instanceVoucherId"`
+	VoucherID                 uuid.UUID `json:"voucherId"`
+	VoucherEntitlementGrantID uuid.UUID `json:"voucherEntitlementGrantId"`
+	ModifierType              string    `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED"`
+	ModifierValue             *float64  `json:"modifierValue"`
+	// Value is what a BOOLEAN or CONFIG SET boost sets (V32-03).
+	Value              *EntitlementValue `json:"value" doc:"The value a BOOLEAN or CONFIG SET boost sets, in the {type, value} shape; null for the NUMBER modifiers"`
+	RedeemedAt         time.Time         `json:"redeemedAt"`
+	EffectiveStartsAt  time.Time         `json:"effectiveStartsAt"`
+	EffectiveExpiresAt *time.Time        `json:"effectiveExpiresAt"`
 }
 
 // ProvenanceNumber is a number's composition: the licence's value, then the
-// add-ons (OVERRIDE, MAX, ADD), then the boosts (SET, ADD, MULTIPLY).
+// add-ons (OVERRIDE, MAX, ADD), then the boosts (SET, ADD, MULTIPLY), then the
+// exception.
 type ProvenanceNumber struct {
-	License       *float64 `json:"license" doc:"The licence's value; null when only add-ons grant it"`
+	License       *float64 `json:"license" doc:"The licence's value; null when only add-ons or an exception grant it"`
 	AfterAddons   float64  `json:"afterAddons"`
 	BoostSet      *float64 `json:"boostSet"`
 	BoostAdd      *float64 `json:"boostAdd"`
 	BoostMultiply *float64 `json:"boostMultiply"`
-	Unlimited     bool     `json:"unlimited"`
+	Unlimited     bool     `json:"unlimited" doc:"The licence, an add-on or a boost is unlimited; only an exception's SET makes it finite again"`
+	AfterBoosts   float64  `json:"afterBoosts" doc:"The value before the exception: -1 when unlimited"`
 	Effective     float64  `json:"effective" doc:"-1 when unlimited"`
 }
 
@@ -99,15 +128,23 @@ type (
 			AttachedAt         sqlTime          `json:"attached_at"`
 		} `json:"addons"`
 		Boosts []struct {
-			InstanceVoucherID         uuid.UUID `json:"instance_voucher_id"`
-			VoucherID                 uuid.UUID `json:"voucher_id"`
-			VoucherEntitlementGrantID uuid.UUID `json:"voucher_entitlement_grant_id"`
-			ModifierType              string    `json:"modifier_type"`
-			ModifierValue             *float64  `json:"modifier_value"`
-			RedeemedAt                sqlTime   `json:"redeemed_at"`
-			EffectiveStartsAt         sqlTime   `json:"effective_starts_at"`
-			EffectiveExpiresAt        *sqlTime  `json:"effective_expires_at"`
+			InstanceVoucherID         uuid.UUID         `json:"instance_voucher_id"`
+			VoucherID                 uuid.UUID         `json:"voucher_id"`
+			VoucherEntitlementGrantID uuid.UUID         `json:"voucher_entitlement_grant_id"`
+			ModifierType              string            `json:"modifier_type"`
+			ModifierValue             *float64          `json:"modifier_value"`
+			Value                     *EntitlementValue `json:"value"`
+			RedeemedAt                sqlTime           `json:"redeemed_at"`
+			EffectiveStartsAt         sqlTime           `json:"effective_starts_at"`
+			EffectiveExpiresAt        *sqlTime          `json:"effective_expires_at"`
 		} `json:"boosts"`
+		Exception *struct {
+			ID       uuid.UUID         `json:"instance_entitlement_exception_id"`
+			Kind     string            `json:"kind"`
+			Value    *EntitlementValue `json:"value"`
+			StartsAt sqlTime           `json:"starts_at"`
+			EndsAt   *sqlTime          `json:"ends_at"`
+		} `json:"exception"`
 		Number *struct {
 			License       *float64 `json:"license"`
 			AfterAddons   float64  `json:"after_addons"`
@@ -115,6 +152,7 @@ type (
 			BoostAdd      *float64 `json:"boost_add"`
 			BoostMultiply *float64 `json:"boost_multiply"`
 			Unlimited     bool     `json:"unlimited"`
+			AfterBoosts   float64  `json:"after_boosts"`
 			Effective     float64  `json:"effective"`
 		} `json:"number"`
 	}
@@ -148,10 +186,11 @@ func ParseProvenance(raw []byte) (*Provenance, error) {
 		return nil, fmt.Errorf("provenance: %w", err)
 	}
 	out := &Provenance{
-		License: nil,
-		Addons:  make([]ProvenanceAddon, 0, len(in.Addons)),
-		Boosts:  make([]ProvenanceBoost, 0, len(in.Boosts)),
-		Number:  nil,
+		License:   nil,
+		Addons:    make([]ProvenanceAddon, 0, len(in.Addons)),
+		Boosts:    make([]ProvenanceBoost, 0, len(in.Boosts)),
+		Exception: nil,
+		Number:    nil,
 	}
 	if l := in.License; l != nil {
 		out.License = &ProvenanceLicense{LicenseEntitlementID: l.LicenseEntitlementID, Value: l.Value, LimitCapExceededOveragePercent: l.OveragePercent}
@@ -166,7 +205,7 @@ func ParseProvenance(raw []byte) (*Provenance, error) {
 	for _, b := range in.Boosts {
 		boost := ProvenanceBoost{
 			InstanceVoucherID: b.InstanceVoucherID, VoucherID: b.VoucherID, VoucherEntitlementGrantID: b.VoucherEntitlementGrantID,
-			ModifierType: b.ModifierType, ModifierValue: b.ModifierValue,
+			ModifierType: b.ModifierType, ModifierValue: b.ModifierValue, Value: b.Value,
 			RedeemedAt: b.RedeemedAt.Time, EffectiveStartsAt: b.EffectiveStartsAt.Time, EffectiveExpiresAt: nil,
 		}
 		if b.EffectiveExpiresAt != nil {
@@ -175,10 +214,20 @@ func ParseProvenance(raw []byte) (*Provenance, error) {
 		}
 		out.Boosts = append(out.Boosts, boost)
 	}
+	if x := in.Exception; x != nil {
+		exception := ProvenanceException{
+			InstanceEntitlementExceptionID: x.ID, Kind: x.Kind, Value: x.Value, StartsAt: x.StartsAt.Time, EndsAt: nil,
+		}
+		if x.EndsAt != nil {
+			ends := x.EndsAt.Time
+			exception.EndsAt = &ends
+		}
+		out.Exception = &exception
+	}
 	if n := in.Number; n != nil {
 		out.Number = &ProvenanceNumber{
 			License: n.License, AfterAddons: n.AfterAddons, BoostSet: n.BoostSet, BoostAdd: n.BoostAdd,
-			BoostMultiply: n.BoostMultiply, Unlimited: n.Unlimited, Effective: n.Effective,
+			BoostMultiply: n.BoostMultiply, Unlimited: n.Unlimited, AfterBoosts: n.AfterBoosts, Effective: n.Effective,
 		}
 	}
 	return out, nil

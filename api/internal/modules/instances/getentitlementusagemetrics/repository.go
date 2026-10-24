@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
@@ -84,7 +85,9 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 			if result.PeriodStart.Valid {
 				storedPeriodStart = ptr.To(result.PeriodStart.Time.UTC())
 			}
-			window, _, err := period.ResolveCurrent(result.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), result.StartLicenseDate.Time.UTC())
+			basis := period.NewBasis(result.StartLicenseDate.Time.UTC(), result.BillingStatus,
+				pgtime.PgTimeStampToTimePtr(result.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(result.LiveEndedAt))
+			window, _, err := period.ResolveCurrentOn(result.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*result.ResetPeriod), period.ResetAnchor(*result.ResetAnchor), basis)
 			if err != nil {
 				return nil, err
 			}
@@ -125,7 +128,16 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		CurrentPeriodStart:             currentPeriodStart,
 		CurrentPeriodEnd:               currentPeriodEnd,
 		LimitCapExceededOveragePercent: result.EffectiveOveragePercent,
-		Source:                         entitlementUsageSchema.SourceOf(result.LicenseEntitlementID),
+		Source:                         sourceOf(result.Source, result.LicenseEntitlementID),
 		Provenance:                     provenance,
 	}, nil
+}
+
+// sourceOf is the view's source of a row the fallback read found in it, else
+// the licence's (§7.5).
+func sourceOf(source *string, licenseEntitlementID *uuid.UUID) string {
+	if source != nil {
+		return *source
+	}
+	return entitlementUsageSchema.SourceOf(licenseEntitlementID)
 }

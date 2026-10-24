@@ -303,6 +303,13 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				return kaitenerrors.UnprocessableEntity(operation+".StartAtTooEarly", "startAt is at most one billing period ago")
 			}
 		}
+		// A resubscription starts after the life it follows ended: two lives
+		// of one instance never overlap (§9.9, V31-19).
+		if resubscribe && existing.Status == db.InstanceBillingStatusCANCELED && existing.CanceledAt.Valid &&
+			anchor.Before(existing.CanceledAt.Time) {
+			return kaitenerrors.UnprocessableEntity(operation+".StartAtBeforeCancellation",
+				"startAt is before the instance's previous subscription was canceled; two subscriptions of an instance never overlap")
+		}
 		anchor = anchor.Truncate(time.Second)
 		periodEnd := rating.AddMonthsClamped(anchor, months)
 		status := db.InstanceBillingStatusACTIVE
@@ -436,6 +443,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 				return err
 			}
 			appliedAt = later.Time.UTC()
+		}
+
+		// Nothing before P0 is ever trued up: the first period measures its
+		// highest quantities from the ones held now (V31-70, §10.4 rule 4).
+		if u.deps.Scheduled != nil {
+			if err := u.deps.Scheduled.ResetPeriodMax(ctx, user.OrganizationID, instance.ID); err != nil {
+				return err
+			}
 		}
 
 		// The first period's invoice: the base price in advance, when it bills
@@ -689,7 +704,7 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 	if kind == db.BillingProviderKindNOOP && method == settings.SendInvoice {
 		return kind, nil
 	}
-	conn, err := providers.Connect(ctx, u.deps.Providers, organizationID, kind)
+	conn, err := providers.ConnectNew(ctx, u.deps.Providers, organizationID, kind)
 	if err != nil {
 		return "", providers.APIError(operation, err)
 	}

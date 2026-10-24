@@ -92,7 +92,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 	}
 	out.AddOns = addOns
 	if len(plans) == 0 {
-		return out, nil
+		return withoutCheckout(out), nil
 	}
 
 	licenseIDs := make([]uuid.UUID, 0, len(plans))
@@ -142,7 +142,17 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 		out.Capabilities.Checkout = out.Capabilities.Checkout || plan.SelfServe
 		out.Plans = append(out.Plans, plan)
 	}
-	return out, nil
+	return withoutCheckout(out), nil
+}
+
+// withoutCheckout closes the anonymous checkout of a catalogue nothing can be
+// checked out of: it needs capabilities.checkout too (§14.4, E-18).
+func withoutCheckout(out *PublicCatalog) *PublicCatalog {
+	if !out.Capabilities.Checkout {
+		out.Capabilities.AnonymousCheckout = false
+		out.Capabilities.TurnstileSiteKey = nil
+	}
+	return out
 }
 
 // selfServe is §14.4's rule: not CUSTOM, a default ACTIVE flat-fee price, and
@@ -173,12 +183,22 @@ func (u *UseCase) capturesPaymentMethods(ctx context.Context, organizationID uui
 // bills through. A provider that cannot be resolved reads as not connected:
 // the catalogue still answers, with self-serve off.
 func (u *UseCase) CapturingProvider(ctx context.Context, organizationID uuid.UUID) (string, bool) {
+	return u.CapturingProviderIn(ctx, organizationID, "")
+}
+
+// CapturingProviderIn is CapturingProvider for a price in currency: the
+// provider must also accept it (§8.5 rule 6). An empty currency is any.
+func (u *UseCase) CapturingProviderIn(ctx context.Context, organizationID uuid.UUID, currency string) (string, bool) {
 	if u.deps.Providers == nil {
 		return "", false
 	}
 	for _, kind := range u.deps.Providers.Kinds() {
 		capabilities, ok := u.deps.Providers.Capabilities(kind)
-		if !ok || !capabilities.PaymentMethodCapture {
+		if !ok || !capabilities.PaymentMethodCapture || (currency != "" && !capabilities.AcceptsCurrency(currency)) {
+			continue
+		}
+		// A provider the plan no longer includes starts nothing new (V31-51).
+		if availability, err := u.deps.Providers.Availability(ctx, organizationID, kind); err != nil || !availability.Available {
 			continue
 		}
 		_, err := u.deps.Providers.Resolve(ctx, organizationID, kind)

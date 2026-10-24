@@ -74,6 +74,9 @@ func (o *Overdue) one(ctx context.Context, id, organizationID uuid.UUID) (change
 	}()
 	err = o.uof.Transact(ctx, func(ctx context.Context) error {
 		q := db.New(o.uof.DBTX(ctx))
+		if ok, err := LockInstanceOf(ctx, q, id, true); err != nil || !ok {
+			return err
+		}
 		sub, err := q.LockDueSubscription(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -124,6 +127,9 @@ type Steps struct {
 	Reminders Pass
 	// Abandoned is (f): the anonymous checkouts still OPEN at their expiry.
 	Abandoned Pass
+	// Exceptions is (g): the .expired notice of the entitlement exceptions
+	// whose end passed.
+	Exceptions Pass
 	// Purged is (h): the checkout sessions closed past their retention.
 	Purged Pass
 	// EveryDay is (c): the first pass of each UTC day.
@@ -131,7 +137,7 @@ type Steps struct {
 }
 
 // NewJob is the billing-lifecycle job. overdue nil skips (a): with billing
-// off, a pass runs (h) alone (§16.1 rule 6).
+// off, a pass runs (g) and (h) alone (§16.1 rule 6).
 func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize int, steps Steps) *sweep.Job {
 	return sweep.NewPoolPass("billing-lifecycle", pool, lockID, cfg, func(ctx context.Context) error {
 		var err error
@@ -150,6 +156,7 @@ func NewJob(pool *pgxpool.Pool, overdue *Overdue, cfg sweep.Config, batchSize in
 			{steps.Reminders, "trial reminders announced"},
 			{steps.Abandoned, "anonymous checkouts completed or abandoned at their expiry"},
 			{steps.Expiry, "vouchers and redemptions expired"},
+			{steps.Exceptions, "entitlement exceptions announced as expired"},
 			{steps.Purged, "closed checkout sessions deleted"},
 		} {
 			if step.pass == nil {

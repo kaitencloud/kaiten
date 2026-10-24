@@ -107,6 +107,8 @@ const cancelSubscription = `-- name: CancelSubscription :one
 UPDATE instance_billing
 SET status                     = 'CANCELED',
     canceled_at                = $1,
+    live_ended_at              = CASE WHEN status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+                                      THEN $1 ELSE live_ended_at END,
     cancellation_reason        = coalesce($2, cancellation_reason),
     cancel_at_period_end       = FALSE,
     past_due_since             = NULL,
@@ -127,7 +129,9 @@ type CancelSubscriptionParams struct {
 }
 
 // Every column a transition to CANCELED writes, in one UPDATE: the row's
-// checks hold only together.
+// checks hold only together. A live subscription's cancellation also records
+// live_ended_at, which BILLING_PERIOD windows split at (§6.7 rule 3); an
+// INCOMPLETE one's never does.
 func (q *Queries) CancelSubscription(ctx context.Context, arg CancelSubscriptionParams) (InstanceBilling, error) {
 	row := q.db.QueryRow(ctx, cancelSubscription,
 		arg.CanceledAt,
@@ -331,6 +335,9 @@ WHERE i.instance_billing_id = $3
   -- A checkout's ACTIVATION waiting for its payment is never overdue (§9.10
   -- rules 5 and 6): the free subscription it waits over goes on as it was.
   AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+  -- A charge parked on a reconciliation MISMATCH is Kaiten's to fix, never
+  -- the customer's debt (§9.6 rule 6, §12.7 rule 8).
+  AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
   AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $2::timestamp
@@ -676,6 +683,21 @@ func (q *Queries) GetOpenActivation(ctx context.Context, instanceBillingID uuid.
 	return i, err
 }
 
+const getSubscriptionInstanceID = `-- name: GetSubscriptionInstanceID :one
+SELECT ib.instance_id
+FROM instance_billing ib
+WHERE ib.id = $1
+`
+
+// The instance a subscription bills, NULL once it is deleted: what a writer
+// that starts from the subscription locks first.
+func (q *Queries) GetSubscriptionInstanceID(ctx context.Context, id uuid.UUID) (*uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getSubscriptionInstanceID, id)
+	var instance_id *uuid.UUID
+	err := row.Scan(&instance_id)
+	return instance_id, err
+}
+
 const getTrialEndBehavior = `-- name: GetTrialEndBehavior :one
 SELECT f.trial_end_without_payment_method,
        EXISTS (SELECT 1
@@ -872,6 +894,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
             AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+            AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $1::timestamp
@@ -882,6 +905,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
             AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+            AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < $1::timestamp
@@ -916,6 +940,58 @@ func (q *Queries) ListOverdueCandidates(ctx context.Context, arg ListOverdueCand
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockInstanceForBilling = `-- name: LockInstanceForBilling :one
+SELECT i.id
+FROM instance i
+WHERE i.organization_id = $1
+  AND i.slug = $2
+FOR NO KEY UPDATE OF i
+`
+
+type LockInstanceForBillingParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+// §9 Concurrency rule 1 (V31-34): a billing writer locks the instance row FOR
+// NO KEY UPDATE before its instance_billing row, the order the instance,
+// add-on and voucher writes take them in, so a cancellation that moves the
+// licence or applies a scheduled add-on decrease never deadlocks with them.
+func (q *Queries) LockInstanceForBilling(ctx context.Context, arg LockInstanceForBillingParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockInstanceForBilling, arg.OrganizationID, arg.Slug)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const lockInstanceRow = `-- name: LockInstanceRow :many
+SELECT i.id
+FROM instance i
+WHERE i.id = $1
+FOR NO KEY UPDATE OF i
+`
+
+// LockInstanceForBilling by id; no row once the instance is deleted.
+func (q *Queries) LockInstanceRow(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, lockInstanceRow, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -1339,6 +1415,35 @@ func (q *Queries) SettleIncomplete(ctx context.Context, arg SettleIncompletePara
 		&i.TrialWillEndAt,
 	)
 	return i, err
+}
+
+const tryLockInstanceRow = `-- name: TryLockInstanceRow :many
+SELECT i.id
+FROM instance i
+WHERE i.id = $1
+FOR NO KEY UPDATE OF i SKIP LOCKED
+`
+
+// LockInstanceRow for a job, which never waits: no row when another
+// transaction holds the instance.
+func (q *Queries) TryLockInstanceRow(ctx context.Context, id uuid.UUID) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, tryLockInstanceRow, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateSubscriptionTerms = `-- name: UpdateSubscriptionTerms :one

@@ -1,9 +1,13 @@
 -- name: CancelSubscription :one
 -- Every column a transition to CANCELED writes, in one UPDATE: the row's
--- checks hold only together.
+-- checks hold only together. A live subscription's cancellation also records
+-- live_ended_at, which BILLING_PERIOD windows split at (§6.7 rule 3); an
+-- INCOMPLETE one's never does.
 UPDATE instance_billing
 SET status                     = 'CANCELED',
     canceled_at                = sqlc.arg(canceled_at),
+    live_ended_at              = CASE WHEN status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+                                      THEN sqlc.arg(canceled_at) ELSE live_ended_at END,
     cancellation_reason        = coalesce(sqlc.narg(reason), cancellation_reason),
     cancel_at_period_end       = FALSE,
     past_due_since             = NULL,
@@ -190,6 +194,9 @@ WHERE i.instance_billing_id = sqlc.arg(instance_billing_id)
   -- A checkout's ACTIVATION waiting for its payment is never overdue (§9.10
   -- rules 5 and 6): the free subscription it waits over goes on as it was.
   AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+  -- A charge parked on a reconciliation MISMATCH is Kaiten's to fix, never
+  -- the customer's debt (§9.6 rule 6, §12.7 rule 8).
+  AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
   AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
@@ -207,6 +214,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
             AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+            AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
@@ -217,6 +225,7 @@ WHERE (ib.status = 'ACTIVE' AND EXISTS (
             AND i.status IN ('PUSHED', 'MANUAL', 'PAYMENT_FAILED')
             AND i.total_minor > 0
             AND NOT (i.kind = 'ACTIVATION' AND ib.pending_license_id IS NOT NULL)
+            AND NOT (i.collection_method = 'CHARGE_AUTOMATICALLY' AND i.status = 'PUSHED' AND i.reconciliation_status = 'MISMATCH')
             AND (CASE WHEN i.collection_method = 'CHARGE_AUTOMATICALLY'
               THEN (i.status = 'PAYMENT_FAILED' AND i.last_payment_error IS DISTINCT FROM 'authentication_required')
                 OR i.issued_at < sqlc.arg(auto_collection_before)::timestamp
@@ -338,3 +347,40 @@ WHERE id = sqlc.arg(id)
   AND status = 'TRIAL'
   AND trial_will_end_notified_at IS NULL
 RETURNING *;
+
+
+-- name: LockInstanceForBilling :one
+-- §9 Concurrency rule 1 (V31-34): a billing writer locks the instance row FOR
+-- NO KEY UPDATE before its instance_billing row, the order the instance,
+-- add-on and voucher writes take them in, so a cancellation that moves the
+-- licence or applies a scheduled add-on decrease never deadlocks with them.
+SELECT i.id
+FROM instance i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.slug = sqlc.arg(slug)
+FOR NO KEY UPDATE OF i;
+
+
+-- name: GetSubscriptionInstanceID :one
+-- The instance a subscription bills, NULL once it is deleted: what a writer
+-- that starts from the subscription locks first.
+SELECT ib.instance_id
+FROM instance_billing ib
+WHERE ib.id = sqlc.arg(id);
+
+
+-- name: LockInstanceRow :many
+-- LockInstanceForBilling by id; no row once the instance is deleted.
+SELECT i.id
+FROM instance i
+WHERE i.id = sqlc.arg(id)
+FOR NO KEY UPDATE OF i;
+
+
+-- name: TryLockInstanceRow :many
+-- LockInstanceRow for a job, which never waits: no row when another
+-- transaction holds the instance.
+SELECT i.id
+FROM instance i
+WHERE i.id = sqlc.arg(id)
+FOR NO KEY UPDATE OF i SKIP LOCKED;

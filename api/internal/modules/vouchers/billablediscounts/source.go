@@ -1,6 +1,6 @@
-// Package billablediscounts is the PRICE vouchers an instance redeemed, as
-// billing reads and consumes them: the voucher module's implementation of
-// billing's ports.DiscountSource.
+// Package billablediscounts is the PRICE vouchers an instance redeemed, and
+// the PRICE parts of its COMPOSITE ones, as billing reads and consumes them:
+// the voucher module's implementation of billing's ports.DiscountSource.
 package billablediscounts
 
 import (
@@ -98,7 +98,10 @@ func (s *Source) PreviewDiscount(ctx context.Context, organizationID uuid.UUID, 
 	if err != nil {
 		return nil, false, err
 	}
-	if voucher.Status != catalogue.StatusActive || voucher.VoucherType != catalogue.TypePrice ||
+	// A PRICE voucher, or a COMPOSITE with a PRICE part (V32-03 d): its other
+	// parts never reach composition.
+	priced := voucher.VoucherType == catalogue.TypePrice || voucher.VoucherType == catalogue.TypeComposite
+	if voucher.Status != catalogue.StatusActive || !priced ||
 		voucher.PriceDiscountType == nil || voucher.PriceDiscountValue == nil || voucher.PriceAppliesTo == nil {
 		return nil, true, nil
 	}

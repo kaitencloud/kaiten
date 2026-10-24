@@ -659,7 +659,7 @@ var legitimateQueries = map[string]string{
 			nextCursor hasMore
 			items {
 				id slug name version versionName lifecycleState pricingType
-				prices(status: "ACTIVE") {
+				prices(status: ACTIVE) {
 					id billingModel billingTiming billingPeriod currency unitAmountDecimal
 					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
 				}

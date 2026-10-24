@@ -27,6 +27,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/testtargetingrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/updatefeatureflag"
 	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/flaggrants"
 )
 
 const (
@@ -79,6 +80,9 @@ func NewUseCases(svc services.Container) *UseCases {
 	customerFacts := customertargetingfacts.New(svc.Pool)
 	instanceFacts := instancetargetingfacts.New(svc.Pool)
 	deploymentZoneFacts := deploymentzonetargetingfacts.New(svc.Pool)
+	// The flag variants a voucher grants, read through the vouchers module's
+	// own port (§7.4 rule 6).
+	flagGrants := flaggrants.New(svc.Pool)
 
 	return &UseCases{
 		CreateFeatureFlag: createfeatureflag.NewUseCase(createfeatureflag.Deps{
@@ -113,6 +117,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			CustomerFacts:       customerFacts,
 			InstanceFacts:       instanceFacts,
 			DeploymentZoneFacts: deploymentZoneFacts,
+			FlagGrants:          flagGrants,
 		}, pub),
 		BulkEvaluateFlags: bulkevaluateflags.NewUseCase(bulkevaluateflags.Deps{
 			UserProvider:        svc.UserProvider,
@@ -122,6 +127,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			CustomerFacts:       customerFacts,
 			InstanceFacts:       instanceFacts,
 			DeploymentZoneFacts: deploymentZoneFacts,
+			FlagGrants:          flagGrants,
 		}, pub),
 		GetManifest: getmanifest.NewUseCase(getmanifest.Deps{
 			UserProvider: svc.UserProvider,

@@ -1,6 +1,7 @@
 package billing_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
@@ -363,4 +364,114 @@ func TestAnActiveVouchersTermsAreFixed(t *testing.T) {
 	require.Equal(t, "UpdateVoucher.NotEditable", problemCode(t, fiber.StatusConflict, "PUT", "/api/vouchers/"+price.ID.String(), minimum("100")))
 	stored := commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "GET", "/api/vouchers/"+price.ID.String(), nil), fiber.StatusOK)
 	require.Equal(t, "2900", stored.RedemptionRules.MinimumSubscriptionAmount.UnitAmountDecimal)
+}
+
+// TestDiscountLimit: a line of an instance's invoices bears at most 20
+// discounts, the most a Stripe invoice item takes; a 21st redemption covering
+// it is refused whatever the provider, and a voucher covering other lines is
+// not (§11.4 check 10, V31-53).
+func TestDiscountLimit(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+	published := func(payload map[string]any) string {
+		t.Helper()
+		voucher := newVoucher(t, payload)
+		publish(t, voucher)
+		return *voucher.Code
+	}
+	for i := range 20 {
+		redeem(t, s.instance.Slug, published(percentOff("1", map[string]any{"name": fmt.Sprintf("Base %d", i)})))
+	}
+	path := "/api/instances/" + s.instance.Slug + "/vouchers/redeem"
+
+	twentyFirst := published(percentOff("1", map[string]any{"name": "Base 21"}))
+	require.Equal(t, "RedeemVoucher.DiscountLimitExceeded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path, map[string]any{"code": twentyFirst}))
+	validity := commonfixture.AssertJSONResponse[validatevoucher.Validity](t, call(t, "POST", "/api/vouchers/validate",
+		map[string]any{"code": twentyFirst, "instanceSlug": s.instance.Slug}), fiber.StatusOK)
+	require.False(t, validity.Valid)
+	require.Equal(t, catalogue.ReasonDiscountLimitExceeded, *validity.Reason)
+	selected := published(percentOff("1", map[string]any{"name": "Selected", "priceAppliesTo": "SELECTED_PRICES", "applicableLicensePriceIds": []string{s.monthly.ID.String()}}))
+	require.Equal(t, "RedeemVoucher.DiscountLimitExceeded", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path, map[string]any{"code": selected}),
+		"the same line, named")
+
+	addons := published(percentOff("1", map[string]any{"name": "Add-ons", "priceAppliesTo": "ADDONS"}))
+	require.Equal(t, "ACTIVE", redeem(t, s.instance.Slug, addons).Status, "no add-on line carries 20")
+}
+
+// TestTypedBoosts: a BOOLEAN or CONFIG entitlement takes a SET boost carrying
+// its value (V32-03 b), which the view applies after the licence and the
+// add-ons; any other shape is .InvalidGrant.
+func TestTypedBoosts(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	newEntitlement(t, "seats", 0)
+	for slug, entitlementType := range map[string]string{"sso": "BOOLEAN", "limits": "CONFIG"} {
+		commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/entitlements",
+			map[string]any{"name": slug, "slug": slug, "description": slug, "type": entitlementType}), fiber.StatusCreated)
+	}
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	grant(t, s.version.Slug, "seats", 10, 0)
+	for slug, value := range map[string]map[string]any{
+		"sso":    {"type": "boolean", "value": false},
+		"limits": {"type": "object", "value": map[string]any{"tier": "silver"}},
+	} {
+		resp := call(t, "POST", "/api/licenses/"+s.version.Slug+"/entitlements", map[string]any{"entitlementSlug": slug, "value": value})
+		require.Contains(t, []int{fiber.StatusOK, fiber.StatusCreated, fiber.StatusNoContent}, resp.StatusCode)
+	}
+
+	body := func(document map[string]any) map[string]any {
+		return map[string]any{
+			"name": "Pilot", "voucherType": "ENTITLEMENT_BOOST", "duration": "FOREVER",
+			"grants": []map[string]any{
+				{"entitlementSlug": "sso", "modifierType": "SET", "value": true},
+				{"entitlementSlug": "limits", "modifierType": "SET", "value": document},
+			},
+		}
+	}
+	boost := newVoucher(t, body(map[string]any{"tier": "gold", "regions": []any{"eu"}}))
+	require.Len(t, boost.Grants, 2)
+	for _, g := range boost.Grants {
+		require.Nil(t, g.ModifierValue)
+		switch g.EntitlementSlug {
+		case "sso":
+			require.JSONEq(t, `true`, string(g.Value))
+		case "limits":
+			require.JSONEq(t, `{"tier":"gold","regions":["eu"]}`, string(g.Value))
+		}
+	}
+	publish(t, boost)
+
+	// The same document written otherwise is no change; another one is.
+	same := body(map[string]any{"regions": []any{"eu"}, "tier": "gold"})
+	same["name"] = "Pilot programme"
+	commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "PUT", "/api/vouchers/"+boost.ID.String(), same), fiber.StatusOK)
+	require.Equal(t, "UpdateVoucher.NotEditable", problemCode(t, fiber.StatusConflict, "PUT", "/api/vouchers/"+boost.ID.String(),
+		body(map[string]any{"tier": "platinum"})))
+
+	redeem(t, s.instance.Slug, *boost.Code)
+	read := func(slug string) string {
+		t.Helper()
+		var raw []byte
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT value FROM instance_effective_entitlement WHERE instance_id = $1 AND entitlement_slug = $2`, s.instance.ID, slug).Scan(&raw))
+		return string(raw)
+	}
+	require.JSONEq(t, `{"type":"boolean","value":true}`, read("sso"))
+	require.JSONEq(t, `{"type":"object","value":{"tier":"gold","regions":["eu"]}}`, read("limits"))
+
+	for name, g := range map[string]map[string]any{
+		"AnAddOnABoolean":          {"entitlementSlug": "sso", "modifierType": "ADD", "modifierValue": "1"},
+		"AModifierValueOnABoolean": {"entitlementSlug": "sso", "modifierType": "SET", "modifierValue": "1"},
+		"AStringOnABoolean":        {"entitlementSlug": "sso", "modifierType": "SET", "value": "yes"},
+		"NoValueOnABoolean":        {"entitlementSlug": "sso", "modifierType": "SET"},
+		"AnArrayOnAConfig":         {"entitlementSlug": "limits", "modifierType": "SET", "value": []any{1}},
+		"UnlimitedOnAConfig":       {"entitlementSlug": "limits", "modifierType": "UNLIMITED"},
+		"AValueOnANumber":          {"entitlementSlug": "seats", "modifierType": "SET", "modifierValue": "5", "value": true},
+		"AValueInPlaceOfANumber":   {"entitlementSlug": "seats", "modifierType": "SET", "value": 5},
+	} {
+		t.Run(name, func(t *testing.T) {
+			require.Equal(t, "CreateVoucher.InvalidGrant", problemCode(t, fiber.StatusUnprocessableEntity, "POST", "/api/vouchers",
+				map[string]any{"name": "x", "voucherType": "ENTITLEMENT_BOOST", "duration": "FOREVER", "grants": []map[string]any{g}}))
+		})
+	}
 }

@@ -30,11 +30,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 )
 
-// RefusedCurrencies are the currencies on Stripe's special-case list, and the
-// three-decimal ones, whose minor units do not map onto Stripe's amounts at
-// tolerance 0 (§8.5 rule 6). To be confirmed by the Stripe sandbox spike.
-var RefusedCurrencies = []string{"BHD", "HUF", "ISK", "JOD", "KWD", "OMR", "TND", "TWD", "UGX"}
-
 // invoiceEvents are the event types sync reads.
 var invoiceEvents = []string{
 	"invoice.finalized", "invoice.paid", "invoice.payment_failed", "invoice.payment_action_required",
@@ -86,7 +81,7 @@ func (*Adapter) Capabilities() provider.Capabilities {
 	return provider.Capabilities{
 		PushesInvoices: true, EventFeed: true,
 		ChargeAutomatically: true, PaymentMethodCapture: true, BillingPortal: true,
-		Currencies: nil, RefusedCurrencies: RefusedCurrencies,
+		Currencies: Currencies, RefusedCurrencies: nil, MaxInvoiceItems: MaxInvoiceItems,
 	}
 }
 
@@ -351,7 +346,12 @@ func (a *Adapter) Finalize(ctx context.Context, ref provider.Ref, externalInvoic
 			return provider.Invoice{}, classify(err, objectInvoice)
 		}
 	}
-	params := &stripego.InvoiceFinalizeInvoiceParams{AutoAdvance: stripego.Bool(true)}
+	// Under automatic collection Stripe collects nothing before Kaiten has
+	// reconciled the invoice (§12.4 step 3, V31-23): Pay turns auto_advance on
+	// only after a MATCH. A SEND_INVOICE invoice is e-mailed and reminded by
+	// Stripe from its finalization.
+	autoAdvance := current.CollectionMethod != stripego.InvoiceCollectionMethodChargeAutomatically
+	params := &stripego.InvoiceFinalizeInvoiceParams{AutoAdvance: stripego.Bool(autoAdvance)}
 	params.SetIdempotencyKey(in.KaitenInvoiceID.String() + ":finalize")
 	finalized, err := sc.V1Invoices.FinalizeInvoice(ctx, externalInvoiceID, params)
 	if err != nil {
@@ -373,7 +373,11 @@ func (a *Adapter) GetInvoice(ctx context.Context, ref provider.Ref, externalInvo
 	if err != nil {
 		return provider.Invoice{}, err
 	}
-	inv, err := sc.V1Invoices.Retrieve(ctx, externalInvoiceID, nil)
+	// With its payments, each PaymentIntent expanded: what the last attempt
+	// is now (§12.5, V31-24 (c)).
+	params := &stripego.InvoiceRetrieveParams{}
+	params.AddExpand("payments.data.payment.payment_intent")
+	inv, err := sc.V1Invoices.Retrieve(ctx, externalInvoiceID, params)
 	if err != nil {
 		return provider.Invoice{}, classify(err, objectInvoice)
 	}
@@ -527,9 +531,7 @@ func (a *Adapter) read(ctx context.Context, sc *stripego.Client, inv *stripego.I
 		due := time.Unix(inv.DueDate, 0).UTC()
 		out.DueAt = &due
 	}
-	if inv.LastFinalizationError != nil {
-		out.LastPaymentError = string(inv.LastFinalizationError.Code)
-	}
+	out.PaymentState, out.LastPaymentError = paymentState(inv)
 	lines, err := a.lines(ctx, sc, inv)
 	if err != nil {
 		return provider.Invoice{}, err
@@ -585,3 +587,47 @@ func instant(epoch int64) *time.Time {
 
 // String keeps the adapter's printed form free of anything configured.
 func (a *Adapter) String() string { return fmt.Sprintf("stripe.Adapter{baseURL: %q}", a.opts.BaseURL) }
+
+// paymentState is what an invoice's last charge attempt is now, from its
+// payments' PaymentIntents (the Basil API's invoice.payments): requires_action
+// is a 3-D Secure confirmation the customer owes, processing an attempt with
+// no outcome yet, requires_payment_method a refusal, with its code -- the
+// decline code when there is one, expired_card for an expired card. Nothing
+// before an attempt, or without the expansion.
+func paymentState(inv *stripego.Invoice) (state, code string) {
+	if inv.Status == stripego.InvoiceStatusPaid || inv.Payments == nil {
+		return "", ""
+	}
+	var intent *stripego.PaymentIntent
+	for _, payment := range inv.Payments.Data {
+		if payment == nil || payment.Payment == nil || payment.Payment.PaymentIntent == nil {
+			continue
+		}
+		if intent == nil || payment.IsDefault {
+			intent = payment.Payment.PaymentIntent
+		}
+	}
+	if intent == nil {
+		return "", ""
+	}
+	switch intent.Status {
+	case stripego.PaymentIntentStatusRequiresAction:
+		return provider.PaymentStateRequiresAction, provider.PaymentCodeAuthenticationRequired
+	case stripego.PaymentIntentStatusProcessing:
+		return provider.PaymentStateProcessing, ""
+	case stripego.PaymentIntentStatusRequiresPaymentMethod:
+		failure := intent.LastPaymentError
+		if failure == nil {
+			return "", ""
+		}
+		switch {
+		case failure.Code == stripego.ErrorCodeExpiredCard || failure.DeclineCode == stripego.DeclineCodeExpiredCard:
+			return provider.PaymentStateFailed, provider.PaymentCodeExpiredCard
+		case failure.DeclineCode != "":
+			return provider.PaymentStateFailed, string(failure.DeclineCode)
+		default:
+			return provider.PaymentStateFailed, string(failure.Code)
+		}
+	}
+	return "", ""
+}

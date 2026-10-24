@@ -284,16 +284,9 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) (
 		return nil
 	}
 
-	// Step 4, automatic collection: charge it. Reconciliation reads the
-	// invoice after the charge, whatever its outcome.
-	if pushed.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY {
-		if err := p.charge(ctx, conn, *pushed, normalized); err != nil {
-			return err
-		}
-	}
-
-	// Step 5: read back, reconcile, release the discounts. A failed read
-	// leaves both to the next sync pass.
+	// Step 4: read back, reconcile, release the discounts. A failed read
+	// leaves them to the next sync pass -- and, under automatic collection,
+	// to the push queue, which reconciles before it charges.
 	callCtx, cancel = providers.Bound(ctx, p.cfg.Timeout)
 	read, err := conn.Adapter.GetInvoice(callCtx, conn.Ref, externalID)
 	cancel()
@@ -301,7 +294,30 @@ func (p *Pusher) Push(ctx context.Context, invoiceID uuid.UUID, finalize bool) (
 		slog.WarnContext(ctx, "invoice read-back failed; sync reconciles it", "invoice_id", row.ID, "error", err)
 		return nil
 	}
-	return Settle(ctx, p.deps, p.outbox, conn, *pushed, read, p.cfg.Timeout)
+	if err := Settle(ctx, p.deps, p.outbox, conn, *pushed, read, p.cfg.Timeout); err != nil {
+		return err
+	}
+
+	// Step 5, automatic collection: charge it, only on MATCH (V31-23).
+	if pushed.CollectionMethod == db.CollectionMethodCHARGEAUTOMATICALLY {
+		return p.chargeIfMatched(ctx, conn, pushed.ID, normalized)
+	}
+	return nil
+}
+
+// chargeIfMatched charges an issued invoice under automatic collection once
+// its reconciliation matched (§12.4 step 5, §12.7 rule 8). A MISMATCH is
+// parked by its reconciliation and never charged; an invoice not reconciled
+// yet stays in the queue, which reconciles it first next time.
+func (p *Pusher) chargeIfMatched(ctx context.Context, conn *provider.Connection, invoiceID uuid.UUID, normalized provider.NormalizedInvoice) error {
+	current, err := p.deps.Queries(ctx).GetInvoiceByID(ctx, invoiceID)
+	if err != nil {
+		return err
+	}
+	if current.ReconciliationStatus == nil || *current.ReconciliationStatus != db.ReconciliationStatusMATCHED {
+		return nil
+	}
+	return p.charge(ctx, conn, current, normalized)
 }
 
 // charging reports an issued invoice waiting for its automatic charge's
@@ -323,21 +339,20 @@ func (p *Pusher) resumeCharge(ctx context.Context, row db.InstanceInvoice) error
 	if err != nil {
 		return err
 	}
-	if err := p.charge(ctx, conn, row, normalized); err != nil {
-		return err
+	// Reconciled first, if the push could not read the invoice back: a charge
+	// waits for a MATCH (V31-23).
+	if row.ReconciliationStatus == nil {
+		callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
+		read, err := conn.Adapter.GetInvoice(callCtx, conn.Ref, deref(row.ExternalInvoiceID))
+		cancel()
+		if err != nil {
+			return nil // the next pass, or the sync, reconciles it
+		}
+		if err := Settle(ctx, p.deps, p.outbox, conn, row, read, p.cfg.Timeout); err != nil {
+			return err
+		}
 	}
-	q := p.deps.Queries(ctx)
-	current, err := q.GetInvoiceByID(ctx, row.ID)
-	if err != nil || current.ReconciliationStatus != nil {
-		return err
-	}
-	callCtx, cancel := providers.Bound(ctx, p.cfg.Timeout)
-	read, err := conn.Adapter.GetInvoice(callCtx, conn.Ref, deref(row.ExternalInvoiceID))
-	cancel()
-	if err != nil {
-		return nil // the next sync pass reconciles it
-	}
-	return Settle(ctx, p.deps, p.outbox, conn, current, read, p.cfg.Timeout)
+	return p.chargeIfMatched(ctx, conn, row.ID, normalized)
 }
 
 func pushable(row db.InstanceInvoice) bool {

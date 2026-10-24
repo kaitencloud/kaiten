@@ -24,7 +24,18 @@ type InstanceEntitlementUsagePeriodRolledOver struct {
 	ClosedPeriodEnd   *time.Time `json:"closed_period_end"`
 	NewPeriodStart    time.Time  `json:"new_period_start"`
 	IsSynthetic       bool       `json:"is_synthetic"`
+	// Reason is ANCHOR_CHANGED when the window configuration changed since
+	// the stored window opened -- the subscription a BILLING_PERIOD window
+	// follows, a lifetime counter that adopted a reset, a licence start --
+	// and PERIOD_ENDED otherwise, synthetic closures included (§6.7 rule 6).
+	Reason string `json:"reason" enum:"PERIOD_ENDED,ANCHOR_CHANGED"`
 }
+
+// Reasons of a closure.
+const (
+	ReasonPeriodEnded   = "PERIOD_ENDED"
+	ReasonAnchorChanged = "ANCHOR_CHANGED"
+)
 
 // rolloverClosure is one closed usage window, materialized as one
 // INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER event. ClosedPeriodStart/End
@@ -39,6 +50,7 @@ type rolloverClosure struct {
 	EventCount        int32
 	NewPeriodStart    time.Time
 	IsSynthetic       bool
+	Reason            string
 }
 
 // DefaultMaxRolloverClosures is how many windows one report may close when
@@ -77,7 +89,7 @@ func planRollover(
 	currentWindow period.Window,
 	resetPeriod period.ResetPeriod,
 	resetAnchor period.ResetAnchor,
-	licenseStart time.Time,
+	basis period.Basis,
 ) ([]rolloverClosure, error) {
 	if storedPeriodStart == nil {
 		// Lifetime-to-period adoption: there is no window to reconstruct the
@@ -87,28 +99,33 @@ func planRollover(
 			EventCount:     storedEventCount,
 			NewPeriodStart: currentWindow.Start,
 			IsSynthetic:    false,
+			Reason:         ReasonAnchorChanged,
 		}}, nil
 	}
 
-	storedWindow, err := period.Current(*storedPeriodStart, resetPeriod, resetAnchor, licenseStart)
+	storedWindow, err := period.CurrentOn(*storedPeriodStart, resetPeriod, resetAnchor, basis)
 	if err != nil {
 		return nil, err
 	}
 
 	if !storedWindow.Start.Equal(*storedPeriodStart) {
-		// The cadence/anchor/license-start configuration has shifted since
-		// this bucket was stored (e.g. start_license_date changed), so
-		// stored.period_start no longer aligns to any window boundary under
-		// the current configuration. The old window's end is not derivable
-		// under a phase it was never computed against -- same shape as the
-		// lifetime-adoption case above, just with a known start.
+		// The window configuration has shifted since this bucket was stored
+		// -- the subscription a BILLING_PERIOD window follows became live,
+		// converted, changed plan or ended, or start_license_date changed --
+		// so stored.period_start is no window start of the current
+		// configuration. One closure, ANCHOR_CHANGED, ends it at the instant
+		// of the change when one marks it (§6.7 rule 6); the windows of the
+		// new configuration that elapsed without a report are not
+		// materialized.
 		closedStart := *storedPeriodStart
 		return []rolloverClosure{{
 			ClosedPeriodStart: &closedStart,
+			ClosedPeriodEnd:   changeInstant(resetAnchor, basis, closedStart),
 			Value:             storedValue,
 			EventCount:        storedEventCount,
 			NewPeriodStart:    currentWindow.Start,
 			IsSynthetic:       false,
+			Reason:            ReasonAnchorChanged,
 		}}, nil
 	}
 
@@ -123,7 +140,7 @@ func planRollover(
 			return nil, errRolloverLimitExceeded
 		}
 
-		nextWindow, err := period.Next(closingWindow, resetPeriod, resetAnchor, licenseStart)
+		nextWindow, err := period.NextOn(closingWindow, resetPeriod, resetAnchor, basis)
 		if err != nil {
 			return nil, err
 		}
@@ -142,6 +159,7 @@ func planRollover(
 			EventCount:        eventCount,
 			NewPeriodStart:    nextWindow.Start,
 			IsSynthetic:       !first,
+			Reason:            ReasonPeriodEnded,
 		})
 
 		if nextWindow.Start.Equal(currentWindow.Start) {
@@ -150,4 +168,23 @@ func planRollover(
 		closingWindow = nextWindow
 		first = false
 	}
+}
+
+// changeInstant is the end of a window an anchor change closes (§6.7 rule
+// 6): the live subscription's anchor_at, else live_ended_at, for a
+// BILLING_PERIOD window; nil when that instant is not after the window's
+// start, and when no instant marks the change (a start_license_date edit).
+func changeInstant(resetAnchor period.ResetAnchor, basis period.Basis, start time.Time) *time.Time {
+	if resetAnchor != period.BillingPeriod {
+		return nil
+	}
+	instant := basis.LiveAnchor
+	if instant == nil {
+		instant = basis.LiveEndedAt
+	}
+	if instant == nil || !instant.After(start) {
+		return nil
+	}
+	end := *instant
+	return &end
 }

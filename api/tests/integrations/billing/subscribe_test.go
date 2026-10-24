@@ -210,8 +210,15 @@ func TestSubscribeInstance(t *testing.T) {
 		s := newSold(t, flatFee("2900", "MONTHLY"))
 		first := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "startAt": time.Now().UTC().AddDate(0, 0, -20)})
 		exec(t, `UPDATE instance_billing SET status = 'CANCELED', canceled_at = now() WHERE id = $1`, first.ID)
+		path := "/api/instances/" + s.instance.Slug + "/billing"
 
-		require.Equal(t, "SubscribeInstance.BoundaryConflict", problemCode(t, fiber.StatusConflict, "POST", "/api/instances/"+s.instance.Slug+"/billing",
+		// Two lives never overlap (V31-19).
+		require.Equal(t, "SubscribeInstance.StartAtBeforeCancellation", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path,
+			map[string]any{"basePriceId": s.monthly.ID, "startAt": first.AnchorAt}))
+		// Canceled at its own anchor, a start at that instant would issue its
+		// ACTIVATION on the first one's boundary.
+		exec(t, `UPDATE instance_billing SET canceled_at = anchor_at WHERE id = $1`, first.ID)
+		require.Equal(t, "SubscribeInstance.BoundaryConflict", problemCode(t, fiber.StatusConflict, "POST", path,
 			map[string]any{"basePriceId": s.monthly.ID, "startAt": first.AnchorAt}))
 
 		again := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})

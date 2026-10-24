@@ -125,9 +125,18 @@ RETURNING *;
 
 
 -- name: SetReconciliation :execrows
--- An invoice is reconciled once, right after its finalization.
+-- An invoice is reconciled once, right after its finalization. A MISMATCH of
+-- an invoice charged automatically and not charged yet parks it: out of the
+-- push queue, never charged, never overdue, until it is voided and
+-- recomposed (§12.7 rule 8, V31-23).
 UPDATE instance_invoice
 SET reconciliation_status              = sqlc.arg(reconciliation_status),
+    next_push_at                       = CASE
+                                           WHEN sqlc.arg(reconciliation_status)::reconciliation_status = 'MISMATCH'
+                                            AND collection_method = 'CHARGE_AUTOMATICALLY' AND status = 'PUSHED'
+                                           THEN NULL
+                                           ELSE next_push_at
+                                         END,
     reconciliation_detail              = sqlc.narg(reconciliation_detail),
     reconciled_at                      = sqlc.arg(now),
     provider_total_excluding_tax_minor = sqlc.arg(provider_total_excluding_tax_minor),
@@ -559,3 +568,13 @@ WHERE cb.payment_method_status = 'ACTIVE'
   AND cb.payment_method_exp_year IS NOT NULL
   AND cb.payment_method_exp_month IS NOT NULL
   AND make_date(cb.payment_method_exp_year, cb.payment_method_exp_month, 1) + interval '1 month' <= sqlc.arg(day)::date;
+
+
+-- name: AwaitChargeOutcome :execrows
+-- A charge the provider accepted with no outcome yet (processing): out of the
+-- push queue, PUSHED, until sync learns it paid or refused (§12.6).
+UPDATE instance_invoice
+SET next_push_at = NULL,
+    updated_at   = sqlc.arg(now)
+WHERE id = sqlc.arg(id)
+  AND status = 'PUSHED';

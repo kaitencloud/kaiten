@@ -50,9 +50,13 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: InsertVoucherGrant :exec
-INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, entitlement_id, modifier_type, modifier_value)
-VALUES (sqlc.arg(organization_id), sqlc.arg(voucher_id), sqlc.arg(entitlement_id), sqlc.arg(modifier_type),
-        CAST(sqlc.narg(modifier_value)::text AS NUMERIC));
+-- value is what a BOOLEAN or CONFIG SET boost sets, raw: true or false, or
+-- the CONFIG document (V32-03 b); NULL on a NUMBER grant.
+-- voucher_type is the voucher's, ENTITLEMENT_BOOST or COMPOSITE: part of the
+-- foreign key.
+INSERT INTO voucher_entitlement_grant (organization_id, voucher_id, voucher_type, entitlement_id, modifier_type, modifier_value, value)
+VALUES (sqlc.arg(organization_id), sqlc.arg(voucher_id), sqlc.arg(voucher_type), sqlc.arg(entitlement_id), sqlc.arg(modifier_type),
+        CAST(sqlc.narg(modifier_value)::text AS NUMERIC), sqlc.narg(value)::jsonb);
 
 
 -- name: DeleteVoucherGrants :exec
@@ -99,7 +103,7 @@ FOR UPDATE;
 
 -- name: ListVoucherGrants :many
 SELECT g.voucher_id, g.modifier_type, coalesce(g.modifier_value::text, '')::text AS modifier_value, e.slug AS entitlement_slug,
-       g.entitlement_id
+       g.entitlement_id, g.value
 FROM voucher_entitlement_grant g
 JOIN entitlement e ON e.id = g.entitlement_id AND e.organization_id = g.organization_id
 WHERE g.organization_id = sqlc.arg(organization_id)
@@ -151,3 +155,50 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 -- name: VoucherClock :one
 SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now;
+
+
+-- name: GetGrantableFlag :one
+-- A flag a FLAG_GRANT voucher may name, with the names of its variants
+-- (V32-03 c).
+SELECT f.id,
+       coalesce(array(SELECT v ->> 'name' FROM jsonb_array_elements(f.variants) v), '{}')::text[] AS variants
+FROM feature_flags f
+WHERE f.organization_id = sqlc.arg(organization_id)
+  AND f.slug = sqlc.arg(slug);
+
+
+-- name: InsertVoucherFlagGrant :exec
+INSERT INTO voucher_flag_grant (organization_id, voucher_id, voucher_type, flag_id, variant)
+VALUES (sqlc.arg(organization_id), sqlc.arg(voucher_id), sqlc.arg(voucher_type), sqlc.arg(flag_id), sqlc.arg(variant));
+
+
+-- name: DeleteVoucherFlagGrants :exec
+DELETE FROM voucher_flag_grant
+WHERE organization_id = sqlc.arg(organization_id)
+  AND voucher_id = sqlc.arg(voucher_id);
+
+
+-- name: ListVoucherFlagGrants :many
+SELECT g.voucher_id, f.slug AS flag_slug, g.variant
+FROM voucher_flag_grant g
+JOIN feature_flags f ON f.id = g.flag_id AND f.organization_id = g.organization_id
+WHERE g.organization_id = sqlc.arg(organization_id)
+  AND g.voucher_id = ANY (sqlc.arg(voucher_ids)::uuid[])
+ORDER BY f.slug;
+
+
+-- name: ListActiveFlagGrants :many
+-- The flag grants an instance holds at the request's instant (§7.4 rule 6):
+-- its ACTIVE redemptions in their window, the latest redeemed first. The
+-- flag evaluator reads them through the vouchers module's read port, one
+-- query per evaluation request; no billing table, no billing switch.
+SELECT g.flag_id, g.variant, iv.voucher_id, iv.id AS redemption_id
+FROM instance_voucher iv
+JOIN voucher_flag_grant g ON g.voucher_id = iv.voucher_id AND g.organization_id = iv.organization_id
+CROSS JOIN (SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS t) clock
+WHERE iv.organization_id = sqlc.arg(organization_id)
+  AND iv.instance_id = sqlc.arg(instance_id)
+  AND iv.status = 'ACTIVE'
+  AND iv.effective_starts_at <= clock.t
+  AND (iv.effective_expires_at IS NULL OR clock.t < iv.effective_expires_at)
+ORDER BY iv.redeemed_at DESC, iv.id DESC;

@@ -87,8 +87,19 @@ func kaitenInput(ec *openfeature.EvaluationContext) map[string]any {
 	return m
 }
 
-// EnrichWithServerFacts resolves the caller's licence and entitlement state from
-// its targeting key and writes them into the evaluation context.
+// Subject is the instance the licence facts, the entitlement facts and the
+// flag grants of an evaluation describe (§7.4 rule 5); Known is false when
+// there is none.
+type Subject struct {
+	InstanceID uuid.UUID
+	Known      bool
+}
+
+// EnrichWithServerFacts resolves the subject's licence and entitlement state
+// and writes them into the evaluation context, and returns the subject (§7.4
+// rule 5): the instance the caller names with kaiten.instanceSlug (or
+// kaiten.instanceId), else the oldest instance of the customer the targeting
+// key names.
 //
 // The server namespace is cleared FIRST, unconditionally, and only this function
 // ever repopulates it. That ordering is the whole guarantee: `ToEvaluationContext`
@@ -102,29 +113,55 @@ func kaitenInput(ec *openfeature.EvaluationContext) map[string]any {
 //
 // With the keys gone, a failure to resolve leaves a rule reading
 // `__kaiten.license.slug` unmatched, and the flag falls through to its default
-// variant — the safe direction for a gate.
+// variant — the safe direction for a gate. An instanceSlug that names no
+// instance of the organization resolves to no subject at all: it never falls
+// back to the oldest instance, which would judge another subject.
 func EnrichWithServerFacts(
 	ctx context.Context,
 	reader customertargetingfacts.Port,
+	instances instancetargetingfacts.Port,
 	orgID uuid.UUID,
 	ec *openfeature.EvaluationContext,
-) {
+) Subject {
 	facts := kaitenFacts(ec)
 	// Safe on a nil map, so this precedes the nil check below.
 	delete(facts, LicenseInput)
 	delete(facts, EntitlementsInput)
 
-	if ec.TargetingKey == "" || reader == nil {
-		return
+	if reader == nil {
+		return Subject{}
 	}
 
-	rows, err := reader.GetTargetingFactsByCustomerSlug(ctx, orgID, ec.TargetingKey)
+	var (
+		rows []customertargetingfacts.TargetingFact
+		err  error
+	)
+	input := kaitenInput(ec)
+	switch {
+	case namesInstance(input):
+		if instances == nil {
+			return Subject{}
+		}
+		row, ok := resolveInstance(ctx, instances, orgID, input)
+		if !ok {
+			return Subject{}
+		}
+		rows, err = reader.GetTargetingFactsByInstance(ctx, orgID, row.ID)
+		if err == nil && len(rows) == 0 {
+			// An instance with no licence row still is the subject.
+			return Subject{InstanceID: row.ID, Known: true}
+		}
+	case ec.TargetingKey != "":
+		rows, err = reader.GetTargetingFactsByCustomerSlug(ctx, orgID, ec.TargetingKey)
+	default:
+		return Subject{}
+	}
 	if err != nil || len(rows) == 0 {
 		// Not every targeting key is a customer slug — a host may target a user
 		// or a device. Nothing to enrich is normal, not an error.
 		slog.DebugContext(ctx, "ofrep: no targeting facts for key",
 			"targeting_key", ec.TargetingKey, "error", err)
-		return
+		return Subject{}
 	}
 
 	// Every row describes the same instance — the query scopes to one — so the
@@ -137,6 +174,14 @@ func EnrichWithServerFacts(
 		Type:       rows[0].LicenseType,
 	})
 	facts[EntitlementsInput] = entitlementFacts(rows)
+	return Subject{InstanceID: rows[0].InstanceID, Known: true}
+}
+
+// namesInstance is whether the caller names its instance, by slug or id.
+func namesInstance(input map[string]any) bool {
+	slug, _ := input["instanceSlug"].(string)
+	id, _ := input["instanceId"].(string)
+	return slug != "" || id != ""
 }
 
 // entitlementFacts shapes one entitlement per key, each in the shape of its

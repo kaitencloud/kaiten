@@ -19,6 +19,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,6 +43,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/telemetry"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -90,6 +93,8 @@ type Deps struct {
 	// Limits bound the visitor's confirms (§14.3); a job's completion is not
 	// counted.
 	Limits *checkout.Limits
+	// Vouchers checks the selection's voucher again (§11.4, §14.8 rule 5).
+	Vouchers createcheckoutsession.Vouchers
 }
 
 type UseCase struct {
@@ -126,9 +131,12 @@ func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UU
 	out, err := u.confirm(ctx, organizationID, sessionID, false)
 	if errors.Is(err, errTrialTaken) {
 		// Once: the session now has no trial to lose.
-		return u.confirm(ctx, organizationID, sessionID, false)
+		out, err = u.confirm(ctx, organizationID, sessionID, false)
 	}
-	return out, err
+	if err != nil {
+		return nil, translate(err)
+	}
+	return out, nil
 }
 
 // Complete is the completion a job runs (§12.9 step 3): the sync backstop,
@@ -147,7 +155,7 @@ func (u *UseCase) Complete(ctx context.Context, organizationID, sessionID uuid.U
 		return false, nil
 	}
 	if err != nil {
-		return false, err
+		return false, translate(err)
 	}
 	row, err := db.New(u.deps.Uof.DBTX(ctx)).GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
 	if err != nil {
@@ -213,6 +221,18 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	if err != nil {
 		return nil, err
 	}
+	// The voucher, checked again against the selection: up to 24 h passed.
+	// What the completion redeems is what this check accepted; the
+	// redemption does not check it again (§11.4).
+	var voucherCode, pricedCode *string
+	var voucher *catalogue.Voucher
+	if selection.Voucher != nil {
+		code := selection.Voucher.Code
+		if voucher, err = createcheckoutsession.SelectedVoucher(ctx, u.deps.Vouchers, operation, organizationID, code, row.LicensePriceID, selection.AddOns); err != nil {
+			return nil, err
+		}
+		voucherCode, pricedCode = &code, createcheckoutsession.PricedCode(voucher, code)
+	}
 
 	// The trial, checked again before anything is captured: consumed
 	// meanwhile, the session goes on without it.
@@ -228,7 +248,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 				// amount shown: it is never charged another one.
 				return nil, dueTodayChanged()
 			}
-			if err := u.dropTrial(ctx, q, row, selection, addOns); err != nil {
+			if err := u.dropTrial(ctx, q, row, selection, addOns, pricedCode); err != nil {
 				return nil, err
 			}
 			return u.confirm(ctx, organizationID, sessionID, job)
@@ -239,11 +259,16 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		none := int32(0)
 		trialDays = &none
 	}
-	preview, err := u.deps.Activation.PreviewActivation(ctx, organizationID, subscribeinstance.PreviewCommand{BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: trialDays})
+	preview, err := u.deps.Activation.PreviewActivation(ctx, organizationID, subscribeinstance.PreviewCommand{
+		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: trialDays, VoucherCode: pricedCode,
+	})
 	if err != nil {
 		return nil, err
 	}
 	due := preview.Composition.Total
+	if due > 0 && !createcheckoutsession.RecordableAtPayment(voucher) {
+		return nil, createcheckoutsession.VoucherInvalid(operation)
+	}
 	// With an amount due the instance starts on the fallback family's free
 	// version, and the payment moves it to the one bought (§9.12 rule 4
 	// step 3). Checked before any setup, so no card is asked for in vain.
@@ -351,7 +376,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		}
 		cmd := subscribeinstance.Command{
 			BasePriceID: row.LicensePriceID, ProviderKind: "NOOP", CollectionMethod: ptr("SEND_INVOICE"),
-			TrialDays: trialDays, AddOns: addOns, AllowMissingPaymentMethod: adopted == nil,
+			TrialDays: trialDays, AddOns: addOns, VoucherCode: voucherCode, AllowMissingPaymentMethod: adopted == nil,
 		}
 		if !free && providerKind != "" {
 			cmd.ProviderKind, cmd.CollectionMethod = providerKind, ptr("CHARGE_AUTOMATICALLY")
@@ -384,9 +409,19 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	})
 	if err != nil {
 		compensate()
+		if adopted != nil {
+			// After a setup the visitor gave a card: a failure here is one
+			// to watch (§12.9).
+			telemetry.CompletionFailed(ctx, err)
+		}
 		return nil, err
 	}
 	if instanceSlug != "" {
+		if due > 0 {
+			telemetry.SessionEntered(ctx, checkout.StatusAwaitingPayment)
+		} else {
+			telemetry.Completed(ctx, row.CreatedAt.Time, time.Now().UTC())
+		}
 		switch {
 		case adopted != nil:
 			// The provider customer the page created carries the Kaiten ids
@@ -508,9 +543,13 @@ func closed(row db.GetCheckoutSessionRow) error {
 }
 
 // dropTrial reprices an OPEN session without its trial, before any setup.
-func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetCheckoutSessionRow, selection checkout.Selection, addOns []subscribeinstance.SubscriptionAddon) error {
+func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetCheckoutSessionRow, selection checkout.Selection,
+	addOns []subscribeinstance.SubscriptionAddon, pricedCode *string,
+) error {
 	none := int32(0)
-	preview, err := u.deps.Activation.PreviewActivation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none})
+	preview, err := u.deps.Activation.PreviewActivation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{
+		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none, VoucherCode: pricedCode,
+	})
 	if err != nil {
 		return err
 	}
@@ -528,6 +567,38 @@ func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetChecko
 		TrialRefusedReason: &reason, Selection: stored, DueTodayMinor: preview.Composition.Total,
 		OrganizationID: row.OrganizationID, ID: row.ID,
 	})
+}
+
+// translate answers what the operations a confirm runs refuse -- the
+// subscription, the customer and the instance it creates -- under this
+// operation's name: a use case never answers under another's prefix
+// (Appendix A). The refusals the public contract names are mapped to them;
+// the others keep their reason.
+func translate(err error) error {
+	var refusal *kaitenerrors.Error
+	if !errors.As(err, &refusal) || strings.HasPrefix(refusal.Code, operation+".") {
+		return err
+	}
+	switch refusal.Code {
+	case "SubscribeInstance.VoucherInvalid":
+		// Opaque, as at the start (§14.8): why a code is refused is not the
+		// visitor's to learn.
+		return createcheckoutsession.VoucherInvalid(operation)
+	case "SubscribeInstance.ProviderUnavailable":
+		return kaitenerrors.Unavailable(operation+".ProviderUnavailable", "the payment provider could not be reached; retry in a moment").
+			WithRetryAfter(max(refusal.RetryAfter, 30*time.Second))
+	case "SubscribeInstance.ProviderNotConnected", "SubscribeInstance.CollectionMethodUnsupported",
+		"SubscribeInstance.UnsupportedCurrency", "SubscribeInstance.PaymentMethodRequired":
+		return kaitenerrors.UnprocessableEntity(operation+".ProviderCannotCapturePayment",
+			"this plan is paid, and the vendor has no payment provider that takes card payments")
+	case "SubscribeInstance.PriceNotFound", "SubscribeInstance.PriceDeprecated", "SubscribeInstance.LicenseNotPublished",
+		"SubscribeInstance.AddonInvalid":
+		return kaitenerrors.UnprocessableEntity(operation+".PriceNotPublic", "this price is no longer offered: start again")
+	}
+	for _, core := range []string{"SubscribeInstance", "CreateCustomer", "CreateInstance"} {
+		err = sessions.Rename(err, core, operation)
+	}
+	return err
 }
 
 // enforceLimits reports a customer and an instance to the organization's

@@ -545,7 +545,7 @@ func (q *Queries) GetOneCustomer(ctx context.Context, arg GetOneCustomerParams) 
 const getTargetingFactsByCustomerSlug = `-- name: GetTargetingFactsByCustomerSlug :many
 
 WITH primary_instance AS (
-  SELECT i.id, i.license_id
+  SELECT i.id, i.license_id, i.start_license_date
   FROM instance i
          JOIN customer c ON c.id = i.customer_id AND c.organization_id = i.organization_id
   WHERE c.organization_id = $1
@@ -554,14 +554,25 @@ WITH primary_instance AS (
   ORDER BY i.created_at, i.id
   LIMIT 1
 )
-SELECT l.slug           AS license_slug,
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
        lf.slug          AS license_family_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,
        iee.value        AS limit_value,
-       eu.value         AS usage_value
+       eu.value         AS usage_value,
+       eu.period_start  AS usage_period_start,
+       e.reset_period,
+       e.reset_anchor,
+       pi.start_license_date,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
        -- The instance's effective entitlements, as every reader of an
        -- instance's entitlement value reads them.
@@ -582,12 +593,21 @@ type GetTargetingFactsByCustomerSlugParams struct {
 }
 
 type GetTargetingFactsByCustomerSlugRow struct {
-	LicenseSlug       string      `json:"license_slug"`
-	LicenseFamilySlug string      `json:"license_family_slug"`
-	LicenseType       LicenseType `json:"license_type"`
-	EntitlementSlug   *string     `json:"entitlement_slug"`
-	LimitValue        []byte      `json:"limit_value"`
-	UsageValue        []byte      `json:"usage_value"`
+	InstanceID        uuid.UUID               `json:"instance_id"`
+	LicenseSlug       string                  `json:"license_slug"`
+	LicenseFamilySlug string                  `json:"license_family_slug"`
+	LicenseType       LicenseType             `json:"license_type"`
+	EntitlementSlug   *string                 `json:"entitlement_slug"`
+	LimitValue        []byte                  `json:"limit_value"`
+	UsageValue        []byte                  `json:"usage_value"`
+	UsagePeriodStart  pgtype.Timestamp        `json:"usage_period_start"`
+	ResetPeriod       *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor       *EntitlementResetAnchor `json:"reset_anchor"`
+	StartLicenseDate  pgtype.Timestamp        `json:"start_license_date"`
+	Now               pgtype.Timestamp        `json:"now"`
+	BillingStatus     string                  `json:"billing_status"`
+	BillingAnchorAt   pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt       pgtype.Timestamp        `json:"live_ended_at"`
 }
 
 // Server-side facts for feature-flag targeting: the licence a customer's
@@ -618,6 +638,11 @@ type GetTargetingFactsByCustomerSlugRow struct {
 // names one version and changes with every new one. Every licence has
 // a family in its own organization (license_family_id_fkey), so the join never
 // drops the row.
+//
+// The usage is the counter as stored; with the clock, the stored window's
+// start and the window configuration, all read by this one statement, the
+// caller resolves the current window lazily as every gauge read does (§6.1
+// rule 2, V31-57): a counter whose window has ended reads as the new one's.
 func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTargetingFactsByCustomerSlugParams) ([]GetTargetingFactsByCustomerSlugRow, error) {
 	rows, err := q.db.Query(ctx, getTargetingFactsByCustomerSlug, arg.OrganizationID, arg.CustomerSlug)
 	if err != nil {
@@ -628,12 +653,124 @@ func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTa
 	for rows.Next() {
 		var i GetTargetingFactsByCustomerSlugRow
 		if err := rows.Scan(
+			&i.InstanceID,
 			&i.LicenseSlug,
 			&i.LicenseFamilySlug,
 			&i.LicenseType,
 			&i.EntitlementSlug,
 			&i.LimitValue,
 			&i.UsageValue,
+			&i.UsagePeriodStart,
+			&i.ResetPeriod,
+			&i.ResetAnchor,
+			&i.StartLicenseDate,
+			&i.Now,
+			&i.BillingStatus,
+			&i.BillingAnchorAt,
+			&i.LiveEndedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTargetingFactsByInstance = `-- name: GetTargetingFactsByInstance :many
+WITH primary_instance AS (
+  SELECT i.id, i.license_id, i.start_license_date
+  FROM instance i
+  WHERE i.organization_id = $1
+    AND i.id = $2
+)
+SELECT pi.id            AS instance_id,
+       l.slug           AS license_slug,
+       lf.slug          AS license_family_slug,
+       l.type           AS license_type,
+       e.slug           AS entitlement_slug,
+       iee.value        AS limit_value,
+       eu.value         AS usage_value,
+       eu.period_start  AS usage_period_start,
+       e.reset_period,
+       e.reset_anchor,
+       pi.start_license_date,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
+       coalesce(ib.status::text, '')::text AS billing_status,
+       ib.anchor_at AS billing_anchor_at,
+       ib.live_ended_at
+FROM primary_instance pi
+       JOIN "license" l ON l.id = pi.license_id
+       -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
+       LEFT JOIN instance_billing ib ON ib.instance_id = pi.id
+       JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
+       -- The instance's effective entitlements, as every reader of an
+       -- instance's entitlement value reads them.
+       LEFT JOIN instance_effective_entitlement iee
+         ON iee.instance_id = pi.id AND iee.organization_id = $1
+       LEFT JOIN entitlement e
+         ON e.id = iee.entitlement_id AND e.organization_id = $1
+       LEFT JOIN entitlement_usage eu
+         ON eu.instance_id = pi.id
+        AND eu.entitlement_id = e.id
+        AND eu.organization_id = $1
+ORDER BY e.slug
+`
+
+type GetTargetingFactsByInstanceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+}
+
+type GetTargetingFactsByInstanceRow struct {
+	InstanceID        uuid.UUID               `json:"instance_id"`
+	LicenseSlug       string                  `json:"license_slug"`
+	LicenseFamilySlug string                  `json:"license_family_slug"`
+	LicenseType       LicenseType             `json:"license_type"`
+	EntitlementSlug   *string                 `json:"entitlement_slug"`
+	LimitValue        []byte                  `json:"limit_value"`
+	UsageValue        []byte                  `json:"usage_value"`
+	UsagePeriodStart  pgtype.Timestamp        `json:"usage_period_start"`
+	ResetPeriod       *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor       *EntitlementResetAnchor `json:"reset_anchor"`
+	StartLicenseDate  pgtype.Timestamp        `json:"start_license_date"`
+	Now               pgtype.Timestamp        `json:"now"`
+	BillingStatus     string                  `json:"billing_status"`
+	BillingAnchorAt   pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt       pgtype.Timestamp        `json:"live_ended_at"`
+}
+
+// The facts of one instance, the subject a caller names with
+// kaiten.instanceSlug (§7.4 rule 5): the same shape as
+// GetTargetingFactsByCustomerSlug, for that instance instead of the
+// customer's oldest.
+func (q *Queries) GetTargetingFactsByInstance(ctx context.Context, arg GetTargetingFactsByInstanceParams) ([]GetTargetingFactsByInstanceRow, error) {
+	rows, err := q.db.Query(ctx, getTargetingFactsByInstance, arg.OrganizationID, arg.InstanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTargetingFactsByInstanceRow
+	for rows.Next() {
+		var i GetTargetingFactsByInstanceRow
+		if err := rows.Scan(
+			&i.InstanceID,
+			&i.LicenseSlug,
+			&i.LicenseFamilySlug,
+			&i.LicenseType,
+			&i.EntitlementSlug,
+			&i.LimitValue,
+			&i.UsageValue,
+			&i.UsagePeriodStart,
+			&i.ResetPeriod,
+			&i.ResetAnchor,
+			&i.StartLicenseDate,
+			&i.Now,
+			&i.BillingStatus,
+			&i.BillingAnchorAt,
+			&i.LiveEndedAt,
 		); err != nil {
 			return nil, err
 		}
