@@ -244,7 +244,7 @@ test.describe('accessibility of the anonymous checkout of a publishable key', ()
       'true',
     );
     await expect(keys.anonymousCheckout()).toHaveAccessibleDescription(
-      /needs a site key and a secret/,
+      /needs a secret\. Keep the current one/,
     );
     await expectAccessibleInBothThemes(page);
   });

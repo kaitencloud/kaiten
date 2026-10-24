@@ -346,7 +346,7 @@ export const EditAnonymousCheckout: Story = {
     await waitFor(async () =>
       expect(
         await screen.findByText(
-          'Anonymous checkout needs a site key and a secret. Give both, or turn it off.',
+          'Anonymous checkout needs a secret. Keep the current one, or turn anonymous checkout off.',
         ),
       ).toBeVisible(),
     );
