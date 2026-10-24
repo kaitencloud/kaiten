@@ -8,7 +8,10 @@ import {
   createAddonsLicensesModel,
   createEmptyAddonsBillingModel,
 } from '../addons/addons.scenarios';
-import { createUsageEventsAuditTrailModel } from '../audit-trail/audit-trail.scenarios';
+import {
+  createFallbackMoveAuditTrailModel,
+  createUsageEventsAuditTrailModel,
+} from '../audit-trail/audit-trail.scenarios';
 import {
   createBillingDisabledModel,
   createAddonLinesModel,
@@ -211,6 +214,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   [
     'audit-trail/createUsageEventsAuditTrailModel',
     createUsageEventsAuditTrailModel,
+  ],
+  [
+    'audit-trail/createFallbackMoveAuditTrailModel',
+    createFallbackMoveAuditTrailModel,
   ],
   ['billing/createBillingStackModel', createBillingStackModel],
   ['billing/createBillingFullModel', createBillingFullModel],
