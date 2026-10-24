@@ -280,7 +280,9 @@ function PublishableKeyDialogContent({
         open
         title={words.title}
       >
-        <FormRecoveryAnnouncer recovery={recovery} />
+        {/* Only beside the form: a live region keeps the dialog in the accessibility
+            tree under the alert that asks before leaving the key shown once. */}
+        {!created && <FormRecoveryAnnouncer recovery={recovery} />}
         {created ? (
           <CreatedKeyView
             created={created}
