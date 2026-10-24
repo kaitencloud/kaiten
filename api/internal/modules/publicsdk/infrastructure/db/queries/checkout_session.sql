@@ -148,7 +148,8 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: LockTrialEmail :exec
 -- One trial per e-mail and family, under concurrency (INV-35, §24 #79): the
 -- completion that may start a trial serializes on (organization, e-mail).
-SELECT pg_advisory_xact_lock(hashtextextended(sqlc.arg(organization_id)::text || ':' || lower(sqlc.arg(email)::text), 0));
+-- The prefix keeps the key apart from the other data-keyed locks (§5.12).
+SELECT pg_advisory_xact_lock(hashtextextended('checkout-trial:' || sqlc.arg(organization_id)::text || ':' || lower(sqlc.arg(email)::text), 0));
 
 
 -- name: SetCheckoutSetupSession :exec

@@ -92,7 +92,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 	}
 	out.AddOns = addOns
 	if len(plans) == 0 {
-		return out, nil
+		return withoutCheckout(out), nil
 	}
 
 	licenseIDs := make([]uuid.UUID, 0, len(plans))
@@ -142,7 +142,17 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 		out.Capabilities.Checkout = out.Capabilities.Checkout || plan.SelfServe
 		out.Plans = append(out.Plans, plan)
 	}
-	return out, nil
+	return withoutCheckout(out), nil
+}
+
+// withoutCheckout closes the anonymous checkout of a catalogue nothing can be
+// checked out of: it needs capabilities.checkout too (§14.4, E-18).
+func withoutCheckout(out *PublicCatalog) *PublicCatalog {
+	if !out.Capabilities.Checkout {
+		out.Capabilities.AnonymousCheckout = false
+		out.Capabilities.TurnstileSiteKey = nil
+	}
+	return out
 }
 
 // selfServe is §14.4's rule: not CUSTOM, a default ACTIVE flat-fee price, and
