@@ -220,6 +220,69 @@ func (q *Queries) ListEntitlementExceptions(ctx context.Context, arg ListEntitle
 	return items, nil
 }
 
+const listEntitlementExceptionsByInstances = `-- name: ListEntitlementExceptionsByInstances :many
+SELECT x.instance_id, x.id, x.kind, x.value, x.starts_at, x.ends_at, x.reason, x.created_at, x.revoked_at,
+       e.slug AS entitlement_slug, e.type AS entitlement_type
+FROM instance_entitlement_exception x
+JOIN entitlement e ON e.id = x.entitlement_id AND e.organization_id = x.organization_id
+WHERE x.organization_id = $1
+  AND x.instance_id = ANY ($2::uuid[])
+ORDER BY x.instance_id, x.starts_at DESC, x.id DESC
+`
+
+type ListEntitlementExceptionsByInstancesParams struct {
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	InstanceIds    []uuid.UUID `json:"instance_ids"`
+}
+
+type ListEntitlementExceptionsByInstancesRow struct {
+	InstanceID      uuid.UUID                `json:"instance_id"`
+	ID              uuid.UUID                `json:"id"`
+	Kind            EntitlementExceptionKind `json:"kind"`
+	Value           []byte                   `json:"value"`
+	StartsAt        pgtype.Timestamp         `json:"starts_at"`
+	EndsAt          pgtype.Timestamp         `json:"ends_at"`
+	Reason          string                   `json:"reason"`
+	CreatedAt       pgtype.Timestamp         `json:"created_at"`
+	RevokedAt       pgtype.Timestamp         `json:"revoked_at"`
+	EntitlementSlug string                   `json:"entitlement_slug"`
+	EntitlementType EntitlementType          `json:"entitlement_type"`
+}
+
+// The exceptions of several instances, for Instance.entitlementExceptions:
+// each instance's in the order of the list route (§13.16).
+func (q *Queries) ListEntitlementExceptionsByInstances(ctx context.Context, arg ListEntitlementExceptionsByInstancesParams) ([]ListEntitlementExceptionsByInstancesRow, error) {
+	rows, err := q.db.Query(ctx, listEntitlementExceptionsByInstances, arg.OrganizationID, arg.InstanceIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEntitlementExceptionsByInstancesRow
+	for rows.Next() {
+		var i ListEntitlementExceptionsByInstancesRow
+		if err := rows.Scan(
+			&i.InstanceID,
+			&i.ID,
+			&i.Kind,
+			&i.Value,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.Reason,
+			&i.CreatedAt,
+			&i.RevokedAt,
+			&i.EntitlementSlug,
+			&i.EntitlementType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listExpiredExceptions = `-- name: ListExpiredExceptions :many
 SELECT x.id, x.organization_id
 FROM instance_entitlement_exception x

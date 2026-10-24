@@ -16,11 +16,12 @@ import (
 	"github.com/99designs/gqlgen/graphql/introspection"
 	"github.com/google/uuid"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
-	graphql2 "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
+	graphql3 "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
 	graphql1 "github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql"
 	schema5 "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
 	schema1 "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	schema3 "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/schema"
+	graphql2 "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	schema4 "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -210,6 +211,20 @@ type ComplexityRoot struct {
 		WarningThresholdPercent func(childComplexity int) int
 	}
 
+	EntitlementException struct {
+		CreatedAt       func(childComplexity int) int
+		EndsAt          func(childComplexity int) int
+		EntitlementSlug func(childComplexity int) int
+		EntitlementType func(childComplexity int) int
+		ID              func(childComplexity int) int
+		Kind            func(childComplexity int) int
+		Reason          func(childComplexity int) int
+		RevokedAt       func(childComplexity int) int
+		StartsAt        func(childComplexity int) int
+		Status          func(childComplexity int) int
+		Value           func(childComplexity int) int
+	}
+
 	EntitlementGroupSummary struct {
 		ID   func(childComplexity int) int
 		Name func(childComplexity int) int
@@ -237,33 +252,34 @@ type ComplexityRoot struct {
 	}
 
 	Instance struct {
-		Addons             func(childComplexity int) int
-		AuditTrails        func(childComplexity int, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) int
-		Billing            func(childComplexity int) int
-		CreatedAt          func(childComplexity int) int
-		CreatedBy          func(childComplexity int) int
-		Customer           func(childComplexity int) int
-		CustomerID         func(childComplexity int) int
-		CustomerSlug       func(childComplexity int) int
-		DeploymentZone     func(childComplexity int) int
-		DeploymentZoneID   func(childComplexity int) int
-		DeploymentZoneSlug func(childComplexity int) int
-		Description        func(childComplexity int) int
-		EndLicenseDate     func(childComplexity int) int
-		EntitlementUsage   func(childComplexity int) int
-		ID                 func(childComplexity int) int
-		Integrations       func(childComplexity int) int
-		License            func(childComplexity int) int
-		LicenseID          func(childComplexity int) int
-		LicenseSlug        func(childComplexity int) int
-		LifecycleStage     func(childComplexity int) int
-		Metadata           func(childComplexity int) int
-		Name               func(childComplexity int) int
-		Slug               func(childComplexity int) int
-		StartLicenseDate   func(childComplexity int) int
-		Status             func(childComplexity int) int
-		UpdatedAt          func(childComplexity int) int
-		UpdatedBy          func(childComplexity int) int
+		Addons                func(childComplexity int) int
+		AuditTrails           func(childComplexity int, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) int
+		Billing               func(childComplexity int) int
+		CreatedAt             func(childComplexity int) int
+		CreatedBy             func(childComplexity int) int
+		Customer              func(childComplexity int) int
+		CustomerID            func(childComplexity int) int
+		CustomerSlug          func(childComplexity int) int
+		DeploymentZone        func(childComplexity int) int
+		DeploymentZoneID      func(childComplexity int) int
+		DeploymentZoneSlug    func(childComplexity int) int
+		Description           func(childComplexity int) int
+		EndLicenseDate        func(childComplexity int) int
+		EntitlementExceptions func(childComplexity int, filter *string) int
+		EntitlementUsage      func(childComplexity int) int
+		ID                    func(childComplexity int) int
+		Integrations          func(childComplexity int) int
+		License               func(childComplexity int) int
+		LicenseID             func(childComplexity int) int
+		LicenseSlug           func(childComplexity int) int
+		LifecycleStage        func(childComplexity int) int
+		Metadata              func(childComplexity int) int
+		Name                  func(childComplexity int) int
+		Slug                  func(childComplexity int) int
+		StartLicenseDate      func(childComplexity int) int
+		Status                func(childComplexity int) int
+		UpdatedAt             func(childComplexity int) int
+		UpdatedBy             func(childComplexity int) int
 	}
 
 	InstanceAddon struct {
@@ -497,6 +513,7 @@ type InstanceResolver interface {
 	DeploymentZone(ctx context.Context, obj *schema.Instance) (*schema3.DeploymentZone, error)
 	Addons(ctx context.Context, obj *schema.Instance) ([]catalogue.InstanceAddon, error)
 	Billing(ctx context.Context, obj *schema.Instance) (*graphql1.InstanceBillingSummary, error)
+	EntitlementExceptions(ctx context.Context, obj *schema.Instance, filter *string) ([]graphql2.EntitlementException, error)
 	AuditTrails(ctx context.Context, obj *schema.Instance, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema.AuditTrailPage, error)
 	EntitlementUsage(ctx context.Context, obj *schema.Instance) ([]schema.EntitlementUsage, error)
 }
@@ -523,7 +540,7 @@ type LicensePriceResolver interface {
 }
 type QueryResolver interface {
 	Health(ctx context.Context) (string, error)
-	Addons(ctx context.Context, limit *int, cursor *string) (*graphql2.AddonPage, error)
+	Addons(ctx context.Context, limit *int, cursor *string) (*graphql3.AddonPage, error)
 	Components(ctx context.Context, limit *int, cursor *string) (*schema5.ComponentPage, error)
 	Component(ctx context.Context, id *uuid.UUID, slug *string) (*schema5.Component, error)
 	Customers(ctx context.Context, hasIntegration *string, limit *int, cursor *string) (*schema1.CustomerPage, error)
@@ -1222,6 +1239,73 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.Entitlement.WarningThresholdPercent(childComplexity), true
 
+	case "EntitlementException.createdAt":
+		if e.ComplexityRoot.EntitlementException.CreatedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.CreatedAt(childComplexity), true
+	case "EntitlementException.endsAt":
+		if e.ComplexityRoot.EntitlementException.EndsAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.EndsAt(childComplexity), true
+	case "EntitlementException.entitlementSlug":
+		if e.ComplexityRoot.EntitlementException.EntitlementSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.EntitlementSlug(childComplexity), true
+	case "EntitlementException.entitlementType":
+		if e.ComplexityRoot.EntitlementException.EntitlementType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.EntitlementType(childComplexity), true
+	case "EntitlementException.id":
+		if e.ComplexityRoot.EntitlementException.ID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.ID(childComplexity), true
+	case "EntitlementException.kind":
+		if e.ComplexityRoot.EntitlementException.Kind == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.Kind(childComplexity), true
+	case "EntitlementException.reason":
+		if e.ComplexityRoot.EntitlementException.Reason == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.Reason(childComplexity), true
+	case "EntitlementException.revokedAt":
+		if e.ComplexityRoot.EntitlementException.RevokedAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.RevokedAt(childComplexity), true
+	case "EntitlementException.startsAt":
+		if e.ComplexityRoot.EntitlementException.StartsAt == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.StartsAt(childComplexity), true
+	case "EntitlementException.status":
+		if e.ComplexityRoot.EntitlementException.Status == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.Status(childComplexity), true
+	case "EntitlementException.value":
+		if e.ComplexityRoot.EntitlementException.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementException.Value(childComplexity), true
+
 	case "EntitlementGroupSummary.id":
 		if e.ComplexityRoot.EntitlementGroupSummary.ID == nil {
 			break
@@ -1410,6 +1494,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Instance.EndLicenseDate(childComplexity), true
+	case "Instance.entitlementExceptions":
+		if e.ComplexityRoot.Instance.EntitlementExceptions == nil {
+			break
+		}
+
+		args, err := ec.field_Instance_entitlementExceptions_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.Instance.EntitlementExceptions(childComplexity, args["filter"].(*string)), true
 	case "Instance.entitlementUsage":
 		if e.ComplexityRoot.Instance.EntitlementUsage == nil {
 			break
@@ -2986,6 +3081,67 @@ extend type Query {
   entitlements(limit: Int, cursor: String): EntitlementPage!
 }
 `, BuiltIn: false},
+	{Name: "../../../../modules/entitlements/schema/entitlement_exception.graphqls", Input: `"""
+How an exception sets its entitlement: SET works on every type, ADD and
+UNLIMITED on NUMBER and NUMBER_AI_CREDIT only.
+"""
+enum EntitlementExceptionKind {
+  SET
+  ADD
+  UNLIMITED
+}
+
+"""
+An exception's status at the read.
+"""
+enum EntitlementExceptionStatus {
+  SCHEDULED
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+"""
+Which exceptions of an instance to list.
+"""
+enum EntitlementExceptionFilter {
+  """Neither revoked nor ended, scheduled ones included."""
+  ACTIVE
+  """Every exception of the instance, revoked and ended ones included."""
+  ALL
+}
+
+"""
+The vendor's dated decision on one entitlement of one instance, without a
+code: the last layer of its effective entitlements. Never gated by billing.
+"""
+type EntitlementException {
+  id: UUID!
+  entitlementSlug: String!
+  entitlementType: EntitlementType!
+  kind: EntitlementExceptionKind!
+  """
+  The value in the {type, value} shape of a licence grant; null for UNLIMITED.
+  """
+  value: Map
+  startsAt: Time!
+  """Null: no end."""
+  endsAt: Time
+  """Why the vendor decided it."""
+  reason: String!
+  status: EntitlementExceptionStatus!
+  createdAt: Time!
+  revokedAt: Time
+}
+
+extend type Instance {
+  """
+  The instance's entitlement exceptions, latest start first, as
+  GET /instances/{instanceSlug}/entitlement-exceptions lists them.
+  """
+  entitlementExceptions(filter: EntitlementExceptionFilter = ACTIVE): [EntitlementException!]!
+}
+`, BuiltIn: false},
 	{Name: "../../../../modules/instances/schema/audit_trail.graphqls", Input: `"""
 AuditTrail records a single domain event captured from the outbox CDC pipeline.
 """
@@ -3929,6 +4085,34 @@ func (ec *executionContext) childFields_Entitlement(ctx context.Context, field g
 	return nil, fmt.Errorf("no field named %q was found under type Entitlement", field.Name)
 }
 
+func (ec *executionContext) childFields_EntitlementException(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "id":
+		return ec.fieldContext_EntitlementException_id(ctx, field)
+	case "entitlementSlug":
+		return ec.fieldContext_EntitlementException_entitlementSlug(ctx, field)
+	case "entitlementType":
+		return ec.fieldContext_EntitlementException_entitlementType(ctx, field)
+	case "kind":
+		return ec.fieldContext_EntitlementException_kind(ctx, field)
+	case "value":
+		return ec.fieldContext_EntitlementException_value(ctx, field)
+	case "startsAt":
+		return ec.fieldContext_EntitlementException_startsAt(ctx, field)
+	case "endsAt":
+		return ec.fieldContext_EntitlementException_endsAt(ctx, field)
+	case "reason":
+		return ec.fieldContext_EntitlementException_reason(ctx, field)
+	case "status":
+		return ec.fieldContext_EntitlementException_status(ctx, field)
+	case "createdAt":
+		return ec.fieldContext_EntitlementException_createdAt(ctx, field)
+	case "revokedAt":
+		return ec.fieldContext_EntitlementException_revokedAt(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type EntitlementException", field.Name)
+}
+
 func (ec *executionContext) childFields_EntitlementGroupSummary(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -4033,6 +4217,8 @@ func (ec *executionContext) childFields_Instance(ctx context.Context, field grap
 		return ec.fieldContext_Instance_addons(ctx, field)
 	case "billing":
 		return ec.fieldContext_Instance_billing(ctx, field)
+	case "entitlementExceptions":
+		return ec.fieldContext_Instance_entitlementExceptions(ctx, field)
 	case "auditTrails":
 		return ec.fieldContext_Instance_auditTrails(ctx, field)
 	case "entitlementUsage":
@@ -4562,6 +4748,20 @@ func (ec *executionContext) field_Instance_auditTrails_args(ctx context.Context,
 		return nil, err
 	}
 	args["cursor"] = arg4
+	return args, nil
+}
+
+func (ec *executionContext) field_Instance_entitlementExceptions_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "filter",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOEntitlementExceptionFilter2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["filter"] = arg0
 	return args, nil
 }
 
@@ -5457,7 +5657,7 @@ func (ec *executionContext) fieldContext_Addon_prices(ctx context.Context, field
 	return fc, nil
 }
 
-func (ec *executionContext) _AddonPage_items(ctx context.Context, field graphql.CollectedField, obj *graphql2.AddonPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _AddonPage_items(ctx context.Context, field graphql.CollectedField, obj *graphql3.AddonPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -5489,7 +5689,7 @@ func (ec *executionContext) fieldContext_AddonPage_items(_ context.Context, fiel
 	return fc, nil
 }
 
-func (ec *executionContext) _AddonPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *graphql2.AddonPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _AddonPage_nextCursor(ctx context.Context, field graphql.CollectedField, obj *graphql3.AddonPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -5512,7 +5712,7 @@ func (ec *executionContext) fieldContext_AddonPage_nextCursor(_ context.Context,
 	return graphql.NewScalarFieldContext("AddonPage", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
-func (ec *executionContext) _AddonPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *graphql2.AddonPage) (ret graphql.Marshaler) {
+func (ec *executionContext) _AddonPage_hasMore(ctx context.Context, field graphql.CollectedField, obj *graphql3.AddonPage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
 		ec.OperationContext,
@@ -7722,6 +7922,259 @@ func (ec *executionContext) fieldContext_Entitlement_entitlementGroups(_ context
 	return fc, nil
 }
 
+func (ec *executionContext) _EntitlementException_id(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_id(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_id(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_entitlementSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EntitlementSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_entitlementSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_entitlementType(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_entitlementType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EntitlementType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v schema4.Type) graphql.Marshaler {
+			return ec.marshalNEntitlementType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐType(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_entitlementType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type EntitlementType does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_kind(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_kind(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Kind, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNEntitlementExceptionKind2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_kind(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type EntitlementExceptionKind does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_value(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v map[string]any) graphql.Marshaler {
+			return ec.marshalOMap2map(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type Map does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_startsAt(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_startsAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.StartsAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_startsAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_endsAt(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_endsAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EndsAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_endsAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_reason(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_reason(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Reason, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_reason(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_status(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_status(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Status, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNEntitlementExceptionStatus2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_status(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type EntitlementExceptionStatus does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_createdAt(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_createdAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v time.Time) graphql.Marshaler {
+			return ec.marshalNTime2timeᚐTime(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_createdAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementException_revokedAt(ctx context.Context, field graphql.CollectedField, obj *graphql2.EntitlementException) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementException_revokedAt(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.RevokedAt, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *time.Time) graphql.Marshaler {
+			return ec.marshalOTime2ᚖtimeᚐTime(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementException_revokedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementException", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
 func (ec *executionContext) _EntitlementGroupSummary_id(ctx context.Context, field graphql.CollectedField, obj *schema4.EntitlementGroupSummary) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8756,6 +9209,50 @@ func (ec *executionContext) fieldContext_Instance_billing(_ context.Context, fie
 		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 			return ec.childFields_InstanceBillingSummary(ctx, field)
 		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _Instance_entitlementExceptions(ctx context.Context, field graphql.CollectedField, obj *schema.Instance) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Instance_entitlementExceptions(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.Instance().EntitlementExceptions(ctx, obj, fc.Args["filter"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []graphql2.EntitlementException) graphql.Marshaler {
+			return ec.marshalNEntitlementException2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋgraphqlᚐEntitlementExceptionᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_Instance_entitlementExceptions(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Instance",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_EntitlementException(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_Instance_entitlementExceptions_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
 	}
 	return fc, nil
 }
@@ -11494,7 +11991,7 @@ func (ec *executionContext) _Query_addons(ctx context.Context, field graphql.Col
 			return ec.Resolvers.Query().Addons(ctx, fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
-		func(ctx context.Context, selections ast.SelectionSet, v *graphql2.AddonPage) graphql.Marshaler {
+		func(ctx context.Context, selections ast.SelectionSet, v *graphql3.AddonPage) graphql.Marshaler {
 			return ec.marshalNAddonPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐAddonPage(ctx, selections, v)
 		},
 		true,
@@ -13948,7 +14445,7 @@ func (ec *executionContext) _Addon(ctx context.Context, sel ast.SelectionSet, ob
 
 var addonPageImplementors = []string{"AddonPage"}
 
-func (ec *executionContext) _AddonPage(ctx context.Context, sel ast.SelectionSet, obj *graphql2.AddonPage) graphql.Marshaler {
+func (ec *executionContext) _AddonPage(ctx context.Context, sel ast.SelectionSet, obj *graphql3.AddonPage) graphql.Marshaler {
 	fields := graphql.CollectFields(ec.OperationContext, sel, addonPageImplementors)
 
 	out := graphql.NewFieldSet(fields)
@@ -15005,6 +15502,94 @@ func (ec *executionContext) _Entitlement(ctx context.Context, sel ast.SelectionS
 	return out
 }
 
+var entitlementExceptionImplementors = []string{"EntitlementException"}
+
+func (ec *executionContext) _EntitlementException(ctx context.Context, sel ast.SelectionSet, obj *graphql2.EntitlementException) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entitlementExceptionImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntitlementException")
+		case "id":
+			out.Values[i] = ec._EntitlementException_id(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entitlementSlug":
+			out.Values[i] = ec._EntitlementException_entitlementSlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entitlementType":
+			out.Values[i] = ec._EntitlementException_entitlementType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "kind":
+			out.Values[i] = ec._EntitlementException_kind(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._EntitlementException_value(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "startsAt":
+			out.Values[i] = ec._EntitlementException_startsAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "endsAt":
+			out.Values[i] = ec._EntitlementException_endsAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "reason":
+			out.Values[i] = ec._EntitlementException_reason(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "status":
+			out.Values[i] = ec._EntitlementException_status(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "createdAt":
+			out.Values[i] = ec._EntitlementException_createdAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "revokedAt":
+			out.Values[i] = ec._EntitlementException_revokedAt(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var entitlementGroupSummaryImplementors = []string{"EntitlementGroupSummary"}
 
 func (ec *executionContext) _EntitlementGroupSummary(ctx context.Context, sel ast.SelectionSet, obj *schema4.EntitlementGroupSummary) graphql.Marshaler {
@@ -15629,6 +16214,44 @@ func (ec *executionContext) _Instance(ctx context.Context, sel ast.SelectionSet,
 				}()
 				res = ec._Instance_billing(ctx, field, obj)
 				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "entitlementExceptions":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._Instance_entitlementExceptions(ctx, field, obj)
+				if res == graphql.Null {
 					atomic.AddUint32(&fs.Invalids, 1)
 				}
 				return res
@@ -18309,11 +18932,11 @@ func (ec *executionContext) marshalNAddon2ᚕgithubᚗcomᚋkaitencloudᚋkaiten
 	return ret
 }
 
-func (ec *executionContext) marshalNAddonPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐAddonPage(ctx context.Context, sel ast.SelectionSet, v graphql2.AddonPage) graphql.Marshaler {
+func (ec *executionContext) marshalNAddonPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐAddonPage(ctx context.Context, sel ast.SelectionSet, v graphql3.AddonPage) graphql.Marshaler {
 	return ec._AddonPage(ctx, sel, &v)
 }
 
-func (ec *executionContext) marshalNAddonPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐAddonPage(ctx context.Context, sel ast.SelectionSet, v *graphql2.AddonPage) graphql.Marshaler {
+func (ec *executionContext) marshalNAddonPage2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐAddonPage(ctx context.Context, sel ast.SelectionSet, v *graphql3.AddonPage) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
@@ -18555,6 +19178,58 @@ func (ec *executionContext) marshalNEntitlement2ᚖgithubᚗcomᚋkaitencloudᚋ
 	return ec._Entitlement(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNEntitlementException2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋgraphqlᚐEntitlementException(ctx context.Context, sel ast.SelectionSet, v graphql2.EntitlementException) graphql.Marshaler {
+	return ec._EntitlementException(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNEntitlementException2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋgraphqlᚐEntitlementExceptionᚄ(ctx context.Context, sel ast.SelectionSet, v []graphql2.EntitlementException) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNEntitlementException2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋgraphqlᚐEntitlementException(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
+func (ec *executionContext) unmarshalNEntitlementExceptionKind2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntitlementExceptionKind2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNEntitlementExceptionStatus2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntitlementExceptionStatus2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) marshalNEntitlementGroupSummary2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐEntitlementGroupSummary(ctx context.Context, sel ast.SelectionSet, v *schema4.EntitlementGroupSummary) graphql.Marshaler {
 	if v == nil {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
@@ -18577,6 +19252,23 @@ func (ec *executionContext) marshalNEntitlementPage2ᚖgithubᚗcomᚋkaitenclou
 		return graphql.Null
 	}
 	return ec._EntitlementPage(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalNEntitlementType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐType(ctx context.Context, v any) (schema4.Type, error) {
+	tmp, err := graphql.UnmarshalString(v)
+	res := schema4.Type(tmp)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNEntitlementType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐType(ctx context.Context, sel ast.SelectionSet, v schema4.Type) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
 }
 
 func (ec *executionContext) marshalNEntitlementUsage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐEntitlementUsage(ctx context.Context, sel ast.SelectionSet, v schema.EntitlementUsage) graphql.Marshaler {
@@ -19223,6 +19915,24 @@ func (ec *executionContext) marshalODeploymentZone2ᚖgithubᚗcomᚋkaitencloud
 		return graphql.Null
 	}
 	return ec._DeploymentZone(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOEntitlementExceptionFilter2ᚖstring(ctx context.Context, v any) (*string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	res, err := graphql.UnmarshalString(v)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntitlementExceptionFilter2ᚖstring(ctx context.Context, sel ast.SelectionSet, v *string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(*v)
+	return res
 }
 
 func (ec *executionContext) marshalOEntitlementGroupSummary2ᚕᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐEntitlementGroupSummaryᚄ(ctx context.Context, sel ast.SelectionSet, v []*schema4.EntitlementGroupSummary) graphql.Marshaler {

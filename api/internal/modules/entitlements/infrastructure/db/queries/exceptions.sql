@@ -108,3 +108,15 @@ WITH marked AS (
 SELECT i.id, i.slug
 FROM marked m
 JOIN instance i ON i.id = m.instance_id AND i.organization_id = m.organization_id;
+
+
+-- name: ListEntitlementExceptionsByInstances :many
+-- The exceptions of several instances, for Instance.entitlementExceptions:
+-- each instance's in the order of the list route (§13.16).
+SELECT x.instance_id, x.id, x.kind, x.value, x.starts_at, x.ends_at, x.reason, x.created_at, x.revoked_at,
+       e.slug AS entitlement_slug, e.type AS entitlement_type
+FROM instance_entitlement_exception x
+JOIN entitlement e ON e.id = x.entitlement_id AND e.organization_id = x.organization_id
+WHERE x.organization_id = sqlc.arg(organization_id)
+  AND x.instance_id = ANY (sqlc.arg(instance_ids)::uuid[])
+ORDER BY x.instance_id, x.starts_at DESC, x.id DESC;
