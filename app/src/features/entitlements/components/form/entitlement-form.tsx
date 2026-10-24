@@ -4,7 +4,11 @@ import { useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
-import { StackedFormDialogCard } from '@/functionals/stacked-form-dialog';
+import {
+  StackedFormDialogCard,
+  StackedFormDialogDirtyState,
+  useStackedFormDialogClose,
+} from '@/functionals/stacked-form-dialog';
 import {
   StepStack,
   StepStackContainer,
@@ -34,6 +38,7 @@ export const EntitlementForm = ({
 }: EntitlementFormProps) => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const requestClose = useStackedFormDialogClose();
   const formId = useId();
   const { form, refusal } = useEntitlementMutationForm(entitlement, onSuccess);
   // The type is immutable once set, so an existing non-NUMBER entitlement has
@@ -48,6 +53,10 @@ export const EntitlementForm = ({
   ) : null;
 
   function handleCancel() {
+    if (requestClose) {
+      requestClose();
+      return;
+    }
     if (onCancel) {
       onCancel();
       return;
@@ -105,6 +114,11 @@ export const EntitlementForm = ({
   return (
     <form id={formId} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
       <form.AppForm>
+        <form.Subscribe selector={(state) => state.isDefaultValue}>
+          {(isDefaultValue) => (
+            <StackedFormDialogDirtyState dirty={!isDefaultValue} />
+          )}
+        </form.Subscribe>
         {layout === 'dialog' ? (
           <StepStack embedded orientation="bottom-right">
             <StepStackContainer className="justify-start">

@@ -2,6 +2,9 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"github.com/google/uuid"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
+	"net/http"
 	"testing"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -31,4 +34,23 @@ func TestReportedSeparatesAIImmutableReplayAndNumericJournalReplay(t *testing.T)
 	numericReplay := reported(original, true, nil)
 	require.Nil(t, numericReplay.Source)
 	require.Nil(t, numericReplay.Provenance)
+}
+
+func TestExtractedNumericReportPreservesExceptionSourceAndLockedLicence(t *testing.T) {
+	licenceID := uuid.New()
+	licenceSlug := "locked-version"
+	st := &State{Pair: &UsageContext{LicenseID: licenceID, LicenseSlug: &licenceSlug, EntitlementSlug: "pool", Source: "exception", Provenance: []byte(`{}`), EffectiveValue: []byte(`{"type":"number","value":10}`)}, Limit: usage.Limit{Threshold: 10}, AggregationMethod: "SUM"}
+	eff, err := (numberKind{}).plan(st, &Command{Value: 1, Behavior: BehaviorAppend})
+	require.NoError(t, err)
+	require.Equal(t, "exception", eff.Response.Source)
+	require.Equal(t, licenceID, eff.Response.LicenseID)
+	require.Equal(t, licenceSlug, eff.Response.LicenseSlug)
+}
+
+func TestExtractedNumericReportKeepsInvalidBehaviorUnprocessable(t *testing.T) {
+	_, err := (numberKind{}).plan(&State{Pair: &UsageContext{}, AggregationMethod: "SUM"}, &Command{Behavior: "invalid"})
+	var domain *apierrors.Error
+	require.ErrorAs(t, err, &domain)
+	require.Equal(t, "ReportEntitlementUsageMetric.InvalidBehavior", domain.Code)
+	require.Equal(t, http.StatusUnprocessableEntity, domain.HTTPStatus())
 }

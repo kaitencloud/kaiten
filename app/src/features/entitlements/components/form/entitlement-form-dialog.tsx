@@ -23,7 +23,6 @@ export function EntitlementFormDialog({
       stacked
       loadingFields={4}
       className="sm:max-w-lg"
-      confirmOnClose={false}
       open={open}
       onOpenChange={onOpenChange}
       title={

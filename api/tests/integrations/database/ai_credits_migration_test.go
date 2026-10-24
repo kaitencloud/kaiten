@@ -12,8 +12,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
 )
 
-// aiCreditsPrevious is the migration right before 20261022230000_ai_credits.
-const aiCreditsPrevious = 20261022220000
+// aiCreditsPrevious is the migration right before 20261024173426_ai_credits.
+const aiCreditsPrevious = 20261022234000
 
 // TestAICreditsMigration_AppliesWhetherOrNotBillingAddedTheKeysFirst: the
 // migration adds entitlement_id_organization_id_key and

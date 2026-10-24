@@ -1,6 +1,7 @@
+import { hasScope } from '@/lib/granted-scopes';
+import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
 import { useQuery } from '@tanstack/react-query';
 import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
-import { dataModelIcons } from '@/lib/data-model-icons';
 import { useTranslation } from 'react-i18next';
 import {
   canPerformAction,
@@ -82,18 +83,7 @@ export function useResolvedBillingRoutes(): SideNavRouteDefinition[] {
 }
 
 export function SideNavPrimaryRoutes({ pathname }: SideNavRoutesProps) {
-  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
-  const routes = aiEnabled
-    ? [
-        ...topLevelRoutes,
-        {
-          Icon: dataModelIcons.model,
-          path: '/ai/models',
-          titleKey: 'AI.title',
-        },
-      ]
-    : topLevelRoutes;
-  return <SideNavRouteList pathname={pathname} routes={routes} />;
+  return <SideNavRouteList pathname={pathname} routes={topLevelRoutes} />;
 }
 
 /** The first-level entries of billing, drawn between the Catalog and the Integrations. */
@@ -133,7 +123,16 @@ export function useResolvedIntegrationsItems() {
  * session that may read them.
  */
 export function useResolvedCatalogItems() {
-  return useResolvedSubRoutes(catalogSubRoutes);
+  const routes = useResolvedSubRoutes(catalogSubRoutes);
+  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
+  const { scopes, isPending } = useGrantedScopes();
+  const mayReadModels =
+    !isPending &&
+    OPERATION_SCOPES.listModels.every((scope) => hasScope(scopes, scope));
+  const { t } = useTranslation();
+  return aiEnabled && mayReadModels
+    ? [...routes, { label: t('AI.Models.title'), path: '/catalog/models' }]
+    : routes;
 }
 
 export function SideNavFooterRoutes({ pathname }: SideNavRoutesProps) {

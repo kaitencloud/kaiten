@@ -1,17 +1,25 @@
 # AI credits console
 
-`/ai/models` owns the catalogue and full-page model editor; `/ai/matrix` owns
-family conversion rules. Their common `/ai` route fails closed behind the
-platform `ai-credits` flag, independently of the public management API.
+`/catalog/models` owns the shared catalogue and full-page model editor. Existing
+`/ai/models`, `/ai/models/new` and `/ai/models/:modelSlug/edit` URLs redirect in
+place, retaining entitlement/version search context. `/ai/matrix` remains a
+secondary family comparison, linked from an entitlement's Calculation tab.
+The primary journey is `/catalog/entitlements/:entitlementSlug/calculation`.
+The feature flag gates each calculation/catalogue section independently of the
+public management API; unavailable flags (including failed evaluation) explain
+availability in place rather than returning a generic 404.
 
 Models use generated REST schemas/mutations and cursor-complete catalogue reads.
 The family matrix uses `Query.models` + `licenseFamily.versions` with entitlements
 and active conversion rules in one generated GraphQL document. Editors mutate
 REST and invalidate both REST keys and the GraphQL matrix/wildcard-impact reads.
-Rule identity cannot change on update. Wildcards price future non-archived
+The single rule editor lives in `domains/ai-credits`; this feature retains its
+screens, matrix GraphQL query and wildcard-impact read. Rule identity cannot change on update. Wildcards price future non-archived
 catalogue models; rules without grants remain visible with a warning.
 
-Pricing presets only fill the rate vector. The synthetic typical-call preview
+Pricing presets replace the complete rate vector only after explicit confirmation.
+Blank cache-read/cache-write rates inherit the input-token rate; explicit zero
+prices those tokens for free. Other blank dimensions are unpriced. The synthetic typical-call preview
 uses exact decimal arithmetic and is explicitly non-authoritative. Vendor costs
 are REST-only. There is no summary/dashboard/reconciliation API in V1.
 
@@ -22,9 +30,64 @@ Models' status changes are reversible; archived catalogue entries stay visible.
 The matrix omits archived rules, but retains rules whose pool is not granted.
 
 Instance AI usage lives in the instances feature, with status, date range and
-transaction filters supported by the read API. Two-decimal summaries are paired
+transaction filters supported by the read API. Adaptive two-to-six-decimal credit summaries are paired
 with the complete stored inference record. Limits and soft maxima use the effective
 usage gauge, including billing add-on/boost policy; an add-on-only pool needs no
 licence grant lookup. Lean V1 records do not carry pricing
 snapshots or persisted warnings, so the console does not invent them. Reservations
 are read-only; no provider request or usage-report write is made by the UI.
+
+
+## Catalogue and editors
+
+The catalogue shares search across its desktop identity/provider/status table and
+mobile cards; both retain model identifiers, modality, lifecycle and Edit.
+Model configuration puts identity first, with description, aliases and vendor pricing
+in native disclosures that reopen for invalid fields. Supplier
+costs are optional USD rates, separate from customer credit conversion.
+Display labels are localized; API enum values and exact decimal strings remain
+unchanged, as do immutable identities, metadata and query invalidation.
+
+The matrix keeps version context pinned within its local scrolling table. Rule
+editing remains inline before the matrix: the named editor receives focus when
+its reads complete, and Cancel or successful Save restores the originating
+control. Reads have scoped loading/error/retry states; failed writes retain the
+form and show an inline error alongside the existing toast. The server remains
+the sole authority for billing, limits and final rounding.
+
+
+## Entitlement context and permissions
+
+Catalogue and matrix links carry `entitlementSlug` and exact `licenseSlug` search
+parameters. A Back to entitlement action returns to the same Calculation tab
+with that version. Model create/edit/save/cancel links retain this context.
+A contextual matrix resolves the selected version's family and shows only the
+fixed entitlement's rules across its versions; its shared editor never asks for
+another pool. Legacy matrix visits without context keep the general pool picker.
+
+UI scope checks use the shared token query through `hooks/use-granted-scopes`,
+`hasScope` and generated operation requirements. Known missing scopes suppress
+queries/actions; unknown claims defer to the API and its inline refusals. Model
+pages require model reads; matrix reads require model and licence reads. Editors
+require the corresponding writes. No introspection endpoint, backend scope or
+charging behavior was added.
+
+## OpenRouter onboarding
+
+`/catalog/models/import` explicitly opens the public catalogue, then reviews a
+single model in the existing ModelForm. Unknown types require manual selection;
+variable/incomplete/unsupported prices import identity with manual vendor pricing.
+An explicit consent checkbox associates the source identifier without claiming
+that user-edited costs are an applied provider snapshot. Collision checks use the
+complete local catalogue. Public fetches omit credentials and referrer.
+
+`/catalog/models/:modelSlug/source` reads the local model without contacting a
+provider. Check/Choose source are explicit reads. Source linking and selected
+price/name/description application require consent/write access; nothing is
+preselected. Fresh identity/source/selected-field checks prevent stale-preview
+clobbering, while unselected costs and metadata survive. Missing source values
+never clear saved fields, and a disappeared source never archives a model.
+Manual edits also fresh-read and merge changed fields, including nested costs,
+rejecting concurrent changes to an explicitly edited field or cost dimension.
+There remains a GET-to-PUT race because the API has no compare-and-swap version.
+Supplier USD rates never update entitlement customer-credit conversion rules.

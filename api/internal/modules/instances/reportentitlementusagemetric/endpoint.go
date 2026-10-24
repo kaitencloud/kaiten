@@ -64,8 +64,8 @@ func (r *Request) Resolve(ctx huma.Context) []error {
 // struct published four readOnly properties as required, so a generated
 // client believed it had to send them.
 type ReportEntitlementUsageBody struct {
-	Value    schema.ReportUsageValue `json:"value" doc:"Reported entitlement value, discriminated by the 'type' field. Usage reporting accepts the number variant only."`
-	Behavior string                  `json:"behavior,omitempty" doc:"Report behavior: append folds the value into the stored total through the aggregation method; set overwrites it" enum:"append,set"`
+	Value    schema.ReportUsageValue `json:"value" doc:"Usage input for an entitlement, discriminated by type. Ordinary numeric entitlements accept number with append or set. NUMBER_AI_CREDIT is a numeric entitlement with model-usage calculation: send ai_usage to reserve or commit provider quantities, or number with append for credit adjustments/refunds. Read responses remain numeric credit counters."`
+	Behavior string                  `json:"behavior,omitempty" doc:"Numeric behavior: append folds the value into the counter; set replaces it for ordinary NUMBER entitlements. AI credit entitlements accept only append adjustments. For ai_usage, omit behavior or use append; phase selects reserve or commit." enum:"append,set"`
 	Metadata map[string]any          `json:"metadata,omitempty" doc:"Optional metadata for the usage report, a JSON object stored with it in the usage history when its compact encoding is at most 4 KiB. Above that it is not stored, the report is still counted, and the response carries Kaiten-Metadata-Dropped: too_large. It must contain no personal data: anyone who can read the organization's instances can read it, for as long as the usage history is kept. Numbers are read as 64-bit floats, so send large identifiers as strings."`
 }
 
@@ -141,7 +141,7 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 		if request.Body.Value.Number == nil && request.Body.Value.AI == nil {
 			return nil, apierrors.UnprocessableEntity(
 				"ReportEntitlementUsageMetric.InvalidValueType",
-				"value must be a NumberEntitlementValue for usage reporting",
+				"value must be a number or ai_usage input for usage reporting",
 			)
 		}
 

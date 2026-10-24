@@ -25,10 +25,7 @@ export type EditableLicenseEntitlement = {
 // NUMBER_AI_CREDIT is a NUMBER-family type on the API side: same numeric
 // value, same cap, same overage rules. The grant editor therefore treats it
 // exactly like NUMBER.
-type CatalogueEntitlementType =
-  | Entitlement['type']
-  | LicenseEntitlement['entitlementType']
-  | null;
+type CatalogueEntitlementType = LicenseEntitlement['entitlementType'] | null;
 
 export const isNumericEntitlementType = (
   type: CatalogueEntitlementType,

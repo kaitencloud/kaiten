@@ -13,6 +13,7 @@ export type {
 } from './license-entitlements-card.types';
 
 export function LicenseEntitlementsCard({
+  licenseSlug,
   addButtonLabel,
   description,
   emptyMessage,
@@ -86,6 +87,8 @@ export function LicenseEntitlementsCard({
   );
 
   const columns = useEntitlementColumns({
+    licenseSlug,
+    entitlements,
     closeEdit,
     editingEntitlementId,
     editingField,
