@@ -407,16 +407,30 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 	})
 
 	t.Run("FeatureFlagTargetingFacts", func(t *testing.T) {
+		// The columns both shapes have: the query now also returns what the
+		// lazy window read needs (V31-57).
+		type fact struct {
+			LicenseSlug       string
+			LicenseFamilySlug string
+			LicenseType       customersdb.LicenseType
+			EntitlementSlug   *string
+			LimitValue        []byte
+			UsageValue        []byte
+		}
 		customers := customersdb.New(testServer.Dependencies.DB)
 		for _, customerSlug := range catalogue.customers {
-			want := legacyRows[customersdb.GetTargetingFactsByCustomerSlugRow](t, legacyTargetingFacts, org, customerSlug)
-			got, err := customers.GetTargetingFactsByCustomerSlug(ctx, customersdb.GetTargetingFactsByCustomerSlugParams{
+			want := legacyRows[fact](t, legacyTargetingFacts, org, customerSlug)
+			rows, err := customers.GetTargetingFactsByCustomerSlug(ctx, customersdb.GetTargetingFactsByCustomerSlugParams{
 				OrganizationID: org, CustomerSlug: customerSlug,
 			})
 			require.NoError(t, err)
 			if len(want) == 0 {
-				require.Empty(t, got, "customer %s", customerSlug)
+				require.Empty(t, rows, "customer %s", customerSlug)
 				continue
+			}
+			got := make([]fact, len(rows))
+			for i, row := range rows {
+				got[i] = fact{row.LicenseSlug, row.LicenseFamilySlug, row.LicenseType, row.EntitlementSlug, row.LimitValue, row.UsageValue}
 			}
 			require.Equal(t, want, got, "customer %s", customerSlug)
 		}

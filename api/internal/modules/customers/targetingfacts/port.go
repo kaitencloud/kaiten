@@ -7,12 +7,16 @@ package targetingfacts
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
+	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 )
 
 // Customer is the subset of customer fields a targeting rule can reference.
@@ -80,14 +84,44 @@ func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organization
 
 	facts := make([]TargetingFact, len(rows))
 	for i, row := range rows {
+		usage, err := currentUsage(row)
+		if err != nil {
+			return nil, err
+		}
 		facts[i] = TargetingFact{
 			LicenseSlug:       row.LicenseSlug,
 			LicenseFamilySlug: row.LicenseFamilySlug,
 			LicenseType:       string(row.LicenseType),
 			EntitlementSlug:   row.EntitlementSlug,
 			LimitValue:        row.LimitValue,
-			UsageValue:        row.UsageValue,
+			UsageValue:        usage,
 		}
 	}
 	return facts, nil
+}
+
+// currentUsage is the usage of the current window, read lazily as every
+// gauge read is (§6.1 rule 2, V31-57): a periodic counter whose stored window
+// is not the current one -- it ended, or the configuration changed -- reads
+// as the new window's, 0, until the next report rolls it over. A lifetime
+// counter, or a value that is no usage, is the one stored.
+func currentUsage(row db.GetTargetingFactsByCustomerSlugRow) ([]byte, error) {
+	if row.ResetPeriod == nil || row.ResetAnchor == nil || len(row.UsageValue) == 0 {
+		return row.UsageValue, nil
+	}
+	stored, err := entitlementvalue.ParseNumberUsageValue(row.UsageValue)
+	if err != nil {
+		return row.UsageValue, nil //nolint:nilerr // not a NUMBER usage: nothing to resolve
+	}
+	var storedStart *time.Time
+	if row.UsagePeriodStart.Valid {
+		start := row.UsagePeriodStart.Time.UTC()
+		storedStart = &start
+	}
+	window, _, err := period.ResolveCurrent(row.Now.Time.UTC(), storedStart, period.ResetPeriod(*row.ResetPeriod),
+		period.ResetAnchor(*row.ResetAnchor), row.StartLicenseDate.Time.UTC())
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(entitlementvalue.ResolveCurrentWindowUsage(stored, storedStart, window))
 }

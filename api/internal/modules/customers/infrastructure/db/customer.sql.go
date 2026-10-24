@@ -545,7 +545,7 @@ func (q *Queries) GetOneCustomer(ctx context.Context, arg GetOneCustomerParams) 
 const getTargetingFactsByCustomerSlug = `-- name: GetTargetingFactsByCustomerSlug :many
 
 WITH primary_instance AS (
-  SELECT i.id, i.license_id
+  SELECT i.id, i.license_id, i.start_license_date
   FROM instance i
          JOIN customer c ON c.id = i.customer_id AND c.organization_id = i.organization_id
   WHERE c.organization_id = $1
@@ -559,7 +559,12 @@ SELECT l.slug           AS license_slug,
        l.type           AS license_type,
        e.slug           AS entitlement_slug,
        iee.value        AS limit_value,
-       eu.value         AS usage_value
+       eu.value         AS usage_value,
+       eu.period_start  AS usage_period_start,
+       e.reset_period,
+       e.reset_anchor,
+       pi.start_license_date,
+       date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 FROM primary_instance pi
        JOIN "license" l ON l.id = pi.license_id
        JOIN license_family lf ON lf.id = l.family_id AND lf.organization_id = l.organization_id
@@ -582,12 +587,17 @@ type GetTargetingFactsByCustomerSlugParams struct {
 }
 
 type GetTargetingFactsByCustomerSlugRow struct {
-	LicenseSlug       string      `json:"license_slug"`
-	LicenseFamilySlug string      `json:"license_family_slug"`
-	LicenseType       LicenseType `json:"license_type"`
-	EntitlementSlug   *string     `json:"entitlement_slug"`
-	LimitValue        []byte      `json:"limit_value"`
-	UsageValue        []byte      `json:"usage_value"`
+	LicenseSlug       string                  `json:"license_slug"`
+	LicenseFamilySlug string                  `json:"license_family_slug"`
+	LicenseType       LicenseType             `json:"license_type"`
+	EntitlementSlug   *string                 `json:"entitlement_slug"`
+	LimitValue        []byte                  `json:"limit_value"`
+	UsageValue        []byte                  `json:"usage_value"`
+	UsagePeriodStart  pgtype.Timestamp        `json:"usage_period_start"`
+	ResetPeriod       *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor       *EntitlementResetAnchor `json:"reset_anchor"`
+	StartLicenseDate  pgtype.Timestamp        `json:"start_license_date"`
+	Now               pgtype.Timestamp        `json:"now"`
 }
 
 // Server-side facts for feature-flag targeting: the licence a customer's
@@ -618,6 +628,11 @@ type GetTargetingFactsByCustomerSlugRow struct {
 // names one version and changes with every new one. Every licence has
 // a family in its own organization (license_family_id_fkey), so the join never
 // drops the row.
+//
+// The usage is the counter as stored; with the clock, the stored window's
+// start and the window configuration, all read by this one statement, the
+// caller resolves the current window lazily as every gauge read does (§6.1
+// rule 2, V31-57): a counter whose window has ended reads as the new one's.
 func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTargetingFactsByCustomerSlugParams) ([]GetTargetingFactsByCustomerSlugRow, error) {
 	rows, err := q.db.Query(ctx, getTargetingFactsByCustomerSlug, arg.OrganizationID, arg.CustomerSlug)
 	if err != nil {
@@ -634,6 +649,11 @@ func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTa
 			&i.EntitlementSlug,
 			&i.LimitValue,
 			&i.UsageValue,
+			&i.UsagePeriodStart,
+			&i.ResetPeriod,
+			&i.ResetAnchor,
+			&i.StartLicenseDate,
+			&i.Now,
 		); err != nil {
 			return nil, err
 		}
