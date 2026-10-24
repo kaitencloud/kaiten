@@ -5,9 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
@@ -33,13 +38,15 @@ func NewExpiry(uof *uow.UnitOfWork) *Expiry {
 }
 
 // Pass announces up to limit ended exceptions, each in its own transaction.
-// One that fails is logged and left for the next pass.
+// One that fails is logged and left for the next pass. It also records the
+// exceptions in force, by kind (§19.1).
 func (e *Expiry) Pass(ctx context.Context, limit int) (announced int, err error) {
 	q := db.New(e.uof.DBTX(ctx))
 	now, err := Now(ctx, q)
 	if err != nil {
 		return 0, err
 	}
+	recordActive(ctx, q, now)
 	ended, err := q.ListExpiredExceptions(ctx, db.ListExpiredExceptionsParams{
 		Now: Timestamp(now), PageSize: int32(limit), //nolint:gosec // bounded by the batch size
 	})
@@ -88,4 +95,36 @@ func (e *Expiry) one(ctx context.Context, organizationID, id uuid.UUID) (done bo
 		return Emit(ctx, e.outbox, organizationID, instance.ID, events.InstanceEntitlementExceptionExpired, list[0])
 	})
 	return done, err
+}
+
+// activeGauge is kaiten.entitlements.exceptions.active.
+var activeGauge = sync.OnceValue(func() metric.Int64Gauge {
+	g, err := otel.GetMeterProvider().Meter("kaiten.entitlements").Int64Gauge("kaiten.entitlements.exceptions.active",
+		metric.WithDescription("Entitlement exceptions in force, all organizations, by kind (SET, ADD, UNLIMITED)"), metric.WithUnit("{exception}"))
+	if err != nil {
+		slog.Warn("failed to register an entitlements metric", "metric", "kaiten.entitlements.exceptions.active", "error", err)
+		return nil
+	}
+	return g
+})
+
+// recordActive records the exceptions in force at now, 0 for a kind without
+// any; a failed read records nothing.
+func recordActive(ctx context.Context, q *db.Queries, now time.Time) {
+	g := activeGauge()
+	if g == nil {
+		return
+	}
+	rows, err := q.CountActiveExceptions(ctx, Timestamp(now))
+	if err != nil {
+		slog.WarnContext(ctx, "entitlement exceptions gauge not read", "error", err)
+		return
+	}
+	counts := map[string]int64{KindSet: 0, KindAdd: 0, KindUnlimited: 0}
+	for _, row := range rows {
+		counts[string(row.Kind)] = row.Active
+	}
+	for kind, n := range counts {
+		g.Record(ctx, n, metric.WithAttributes(attribute.String("kind", kind)))
+	}
 }

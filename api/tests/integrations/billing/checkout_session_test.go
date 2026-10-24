@@ -140,6 +140,9 @@ func TestCheckoutSessionStart(t *testing.T) {
 	down := startCheckout(t, key.Key, with(order, "turnstileToken", "down"))
 	require.Equal(t, fiber.StatusServiceUnavailable, down.StatusCode)
 	require.Equal(t, "30", down.Header.Get("Retry-After"))
+	require.Equal(t, "CreateCheckoutSession.TurnstileUnavailable",
+		startProblem(t, key.Key, with(order, "turnstileToken", "internal"), fiber.StatusServiceUnavailable).Code,
+		"Cloudflare's internal-error decides nothing: not the visitor's token refused")
 	require.Equal(t, lastAddress(t), turnstileRemoteIP.Load(), "the visitor's address, as the gateway saw it")
 
 	both := with(with(order, "licenseSlug", community.Slug), "billingPeriod", "MONTHLY")

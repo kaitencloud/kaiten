@@ -34,6 +34,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/keys"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/telemetry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/shared/random"
 	"github.com/kaitencloud/kaiten/api/internal/shared/token"
@@ -238,6 +239,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	if err != nil {
 		return nil, err
 	}
+	telemetry.SessionEntered(ctx, checkout.StatusOpen)
 	return out, nil
 }
 
@@ -253,6 +255,9 @@ func (u *UseCase) verifyTurnstile(ctx context.Context, start Start, key db.GetPu
 		return turnstileNotConfigured()
 	}
 	result, err := u.deps.Turnstile.Verify(ctx, secret, tok, start.RemoteIP)
+	if err != nil {
+		telemetry.TurnstileVerified(ctx, telemetry.TurnstileUnavailable)
+	}
 	if errors.Is(err, turnstile.ErrUnavailable) {
 		return kaitenerrors.Unavailable(operation+".TurnstileUnavailable", "the challenge could not be verified: try again").WithRetryAfter(30 * time.Second)
 	}
@@ -260,8 +265,10 @@ func (u *UseCase) verifyTurnstile(ctx context.Context, start Start, key db.GetPu
 		return err
 	}
 	if !result.Success || !slices.ContainsFunc(key.AllowedOrigins, func(origin string) bool { return hostOf(origin) == result.Hostname }) {
+		telemetry.TurnstileVerified(ctx, telemetry.TurnstileFailed)
 		return kaitenerrors.UnprocessableEntity(operation+".TurnstileFailed", "the challenge was not passed: solve it again")
 	}
+	telemetry.TurnstileVerified(ctx, telemetry.TurnstileSuccess)
 	return nil
 }
 

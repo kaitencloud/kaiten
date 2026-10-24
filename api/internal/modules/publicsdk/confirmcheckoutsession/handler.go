@@ -42,6 +42,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/telemetry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -404,9 +405,19 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	})
 	if err != nil {
 		compensate()
+		if adopted != nil {
+			// After a setup the visitor gave a card: a failure here is one
+			// to watch (§12.9).
+			telemetry.CompletionFailed(ctx, err)
+		}
 		return nil, err
 	}
 	if instanceSlug != "" {
+		if due > 0 {
+			telemetry.SessionEntered(ctx, checkout.StatusAwaitingPayment)
+		} else {
+			telemetry.Completed(ctx, row.CreatedAt.Time, time.Now().UTC())
+		}
 		switch {
 		case adopted != nil:
 			// The provider customer the page created carries the Kaiten ids
