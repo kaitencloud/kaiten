@@ -204,8 +204,8 @@ func schemaFingerprint(ctx context.Context, t *testing.T, pool *pgxpool.Pool) st
 
 // publicSchemaObjects lists everything left in the public schema apart from
 // goose's own bookkeeping - what down-to-0 should have removed. An
-// extension's members are not counted: 20261022220000 creates btree_gist and
-// its Down keeps it on purpose, since another object may use it by then.
+// extension's members are not counted: the schema creates none, and one an
+// operator installed is not the migrations' to remove.
 func publicSchemaObjects(ctx context.Context, t *testing.T, pool *pgxpool.Pool) []string {
 	t.Helper()
 

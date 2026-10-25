@@ -4,12 +4,6 @@
 -- (V32-03), and the billing-period reset anchor (V32-04). They use the values
 -- 20261021000000 added. The view is untouched here (20261021030000).
 
--- GiST equality on UUID, for the exclusion constraint of
--- instance_entitlement_exception: the schema's first extension. Trusted since
--- PostgreSQL 13, so the role that runs the migrations creates it with CREATE
--- on the database. The Down keeps it: another object may use it by then.
-CREATE EXTENSION IF NOT EXISTS btree_gist;
-
 -- The vendor's explicit decision on one entitlement of one instance, for a
 -- window and without a code (V32-03 a): the last layer of the effective view
 -- (INV-38). An entitlement feature, independent of billing.
@@ -83,12 +77,7 @@ CREATE TABLE "instance_entitlement_exception"
   CONSTRAINT "instance_entitlement_exception_revoked_check" CHECK (("revoked_at" IS NULL) = ("revoked_by_id" IS NULL)),
   CONSTRAINT "instance_entitlement_exception_expired_notified_check" CHECK (
     "expired_notified_at" IS NULL OR "ends_at" IS NOT NULL
-    ),
-  CONSTRAINT "instance_entitlement_exception_window_excl" EXCLUDE USING gist (
-    "instance_id" WITH =,
-    "entitlement_id" WITH =,
-    tsrange("starts_at", "ends_at", '[)') WITH &&
-    ) WHERE ("revoked_at" IS NULL)
+    )
 );
 
 -- The list route (startsAt descending, then id) and the instance CASCADE.
@@ -101,6 +90,48 @@ CREATE INDEX "idx_instance_entitlement_exception_entitlement"
 CREATE INDEX "idx_instance_entitlement_exception_expiry"
   ON "instance_entitlement_exception" ("ends_at")
   WHERE "revoked_at" IS NULL AND "ends_at" IS NOT NULL AND "expired_notified_at" IS NULL;
+
+-- At most one live exception per instance and entitlement at any instant: two
+-- unrevoked windows of one pair never overlap. A trigger rather than an
+-- EXCLUDE USING gist constraint, which needs btree_gist for the UUID equality,
+-- and managed PostgreSQL does not always allow an extension (Azure allow-lists
+-- none by default). It raises what the constraint raised -- exclusion_violation
+-- naming instance_entitlement_exception_window_excl -- so a caller tells the two
+-- apart by nothing.
+--
+-- The advisory lock does what the constraint's index did for concurrent
+-- writers: the second writer of a pair waits for the first to commit, and its
+-- check, a new snapshot under READ COMMITTED, then sees the first's row.
+CREATE FUNCTION "instance_entitlement_exception_window_excl"() RETURNS trigger
+  LANGUAGE plpgsql AS $fn$
+BEGIN
+  IF NEW."revoked_at" IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+  PERFORM pg_advisory_xact_lock(
+    hashtextextended(NEW."instance_id"::text || '/' || NEW."entitlement_id"::text, 20261022220000));
+  IF EXISTS (
+    SELECT 1 FROM "instance_entitlement_exception" e
+    WHERE e."instance_id" = NEW."instance_id"
+      AND e."entitlement_id" = NEW."entitlement_id"
+      AND e."id" <> NEW."id"
+      AND e."revoked_at" IS NULL
+      AND tsrange(e."starts_at", e."ends_at", '[)') && tsrange(NEW."starts_at", NEW."ends_at", '[)')
+  ) THEN
+    RAISE EXCEPTION 'an unrevoked exception of instance % on entitlement % already covers part of this window',
+        NEW."instance_id", NEW."entitlement_id"
+      USING ERRCODE = 'exclusion_violation',
+            CONSTRAINT = 'instance_entitlement_exception_window_excl',
+            TABLE = 'instance_entitlement_exception';
+  END IF;
+  RETURN NEW;
+END
+$fn$;
+
+CREATE TRIGGER "instance_entitlement_exception_window_excl"
+  BEFORE INSERT OR UPDATE OF "instance_id", "entitlement_id", "starts_at", "ends_at", "revoked_at"
+  ON "instance_entitlement_exception"
+  FOR EACH ROW EXECUTE FUNCTION "instance_entitlement_exception_window_excl"();
 
 -- The target of voucher_flag_grant's composite foreign key. Cannot fail: id is
 -- the primary key.
@@ -196,8 +227,7 @@ ALTER TABLE "entitlement"
 -- +goose StatementBegin
 -- Every v3.2 object of this migration holds a vendor decision that the earlier
 -- schema cannot represent: the Down refuses while one exists, then drops the
--- objects and restores the constraints of 20261016090000 verbatim. The
--- extension stays.
+-- objects and restores the constraints of 20261016090000 verbatim.
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM "instance_entitlement_exception") THEN
@@ -253,4 +283,5 @@ DROP TABLE IF EXISTS "voucher_flag_grant";
 ALTER TABLE "feature_flags" DROP CONSTRAINT IF EXISTS "feature_flags_id_organization_id_key";
 
 DROP TABLE IF EXISTS "instance_entitlement_exception";
+DROP FUNCTION IF EXISTS "instance_entitlement_exception_window_excl"();
 -- +goose StatementEnd
