@@ -60,6 +60,9 @@ func TestMain(m *testing.M) {
 			cfg.Billing.Enabled = true
 			// Tests close periods themselves; the job would race them.
 			cfg.Billing.PeriodClose.Interval = -1
+			// Only providerServer pushes: this server's pass would claim its
+			// invoices with no provider to push them to, and put them off.
+			cfg.Billing.Push.Interval = -1
 		},
 		ConnectorEntitlements: entitlements,
 		TurnstileVerifyURL:    turnstile.URL,
@@ -69,6 +72,7 @@ func TestMain(m *testing.M) {
 		ConfigOverride: func(cfg *config.Config) {
 			cfg.Billing.Enabled = true
 			cfg.Billing.PeriodClose.Interval = -1
+			cfg.Billing.Push.Interval = -1
 		},
 		PlatformCredential: true,
 	})
