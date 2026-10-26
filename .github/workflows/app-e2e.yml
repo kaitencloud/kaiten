@@ -170,7 +170,10 @@ jobs:
   browser_smoke:
     name: App Firefox and WebKit smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The smoke takes a minute or two. Firefox and WebKit need more system
+    # packages than Chromium, so a slow Ubuntu mirror (see e2e_app) keeps this
+    # job's setup alone past 15 minutes: it never reached the tests twice in a row.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: ./.github/actions/setup-app-e2e
