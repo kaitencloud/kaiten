@@ -163,8 +163,8 @@ function Frame({
 
 const nextButton = () => screen.findByRole('button', { name: /^Next/ });
 
-// The first step of the wizard: the two kinds the release ships, the two that come later
-// shown disabled, and the name every voucher needs before it goes on.
+// The first step of the wizard: the four kinds V1 ships (V32-03), a discount chosen at
+// first, and the name every voucher needs before it goes on.
 export const WizardKinds: Story = {
   parameters: { msw: { handlers: handlersFor() } },
   render: () => (
@@ -179,10 +179,10 @@ export const WizardKinds: Story = {
     await expect(
       screen.getByRole('button', { name: /^Boost/ }),
     ).toHaveAttribute('aria-pressed', 'false');
-    for (const later of ['Feature grant', 'Bundle']) {
-      await expect(
-        screen.getByRole('button', { name: new RegExp(`^${later}`) }),
-      ).toHaveAttribute('aria-disabled', 'true');
+    for (const kind of ['Feature grant', 'Bundle']) {
+      const button = screen.getByRole('button', { name: new RegExp(`^${kind}`) });
+      await expect(button).not.toHaveAttribute('aria-disabled', 'true');
+      await expect(button).toHaveAttribute('aria-pressed', 'false');
     }
 
     await userEvent.click(await nextButton());
@@ -191,8 +191,8 @@ export const WizardKinds: Story = {
   },
 };
 
-// The offer of a boost: a change to add, and only the entitlements that carry a number
-// to choose among.
+// The offer of a boost: a change to add, and the entitlements it can raise or set (the
+// ones that carry a number, and a BOOLEAN or CONFIG one with a SET, V32-03 (b)).
 export const WizardBoostOffer: Story = {
   parameters: { msw: { handlers: handlersFor() } },
   render: () => (
@@ -214,7 +214,7 @@ export const WizardBoostOffer: Story = {
     const offered = (await screen.findAllByRole('option')).map((option) =>
       option.textContent?.trim(),
     );
-    await expect(offered.sort()).toEqual(['AI credits', 'Tokens']);
+    await expect(offered.sort()).toEqual(['AI credits', 'SSO', 'Theme', 'Tokens']);
   },
 };
 
