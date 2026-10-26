@@ -107,16 +107,31 @@ func New(kind provider.Kind) *Fake {
 var _ provider.Adapter = (*Fake)(nil)
 
 // Currencies restricts the currencies the fake accepts.
-func (f *Fake) Currencies(currencies ...string) { f.caps.Currencies = currencies }
+func (f *Fake) Currencies(currencies ...string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.caps.Currencies = currencies
+}
 
 // MaxInvoiceItems caps the items of one invoice, 0 for none.
-func (f *Fake) MaxInvoiceItems(limit int) { f.caps.MaxInvoiceItems = limit }
+func (f *Fake) MaxInvoiceItems(limit int) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.caps.MaxInvoiceItems = limit
+}
 
 // Kind implements provider.Adapter.
 func (f *Fake) Kind() provider.Kind { return f.kind }
 
-// Capabilities implements provider.Adapter.
-func (f *Fake) Capabilities() provider.Capabilities { return f.caps }
+// Capabilities implements provider.Adapter. A test changes them while the
+// push job reads them, so both go through the lock.
+func (f *Fake) Capabilities() provider.Capabilities {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	caps := f.caps
+	caps.Currencies = slices.Clone(f.caps.Currencies)
+	return caps
+}
 
 // FailNext makes the next call of op fail with err, before it acts. Calls
 // queue: FailNext twice fails the next two calls.
