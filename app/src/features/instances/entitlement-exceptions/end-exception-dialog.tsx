@@ -9,6 +9,7 @@ import {
   StackedFormDialogPanel,
 } from '@/functionals/stacked-form-dialog';
 import { useSingleFlightMutate } from '@/hooks/use-single-flight';
+import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
 import { hasScope } from '@/lib/granted-scopes';
 import { useInstanceDetail } from '../components/instance-detail/instance-detail-context';
 import {
@@ -29,10 +30,17 @@ export function EndExceptionDialog({
   const access = useGrantedScopes();
   const queryClient = useQueryClient();
   const allowed =
-    !access.isPending && hasScope(access.scopes, 'write:instances');
+    !access.isPending &&
+    OPERATION_SCOPES.revokeEntitlementException.every((scope) =>
+      hasScope(access.scopes, scope),
+    );
   const exceptions = useQuery({
     ...entitlementExceptionsQueryOptions(instanceSlug),
-    enabled: !access.isPending && hasScope(access.scopes, 'read:instances'),
+    enabled:
+      !access.isPending &&
+      OPERATION_SCOPES.listEntitlementExceptions.every((scope) =>
+        hasScope(access.scopes, scope),
+      ),
   });
   const exception = exceptions.data?.find((row) => row.id === exceptionId);
   const mutation = useMutation({

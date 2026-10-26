@@ -1,5 +1,6 @@
 import { hasScope } from '@/lib/granted-scopes';
 import { allFeatureFlagsOptions } from '@/lib/api/all-pages-query-options';
+import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -67,7 +68,9 @@ export function useVoucherReferences({
     ...allFeatureFlagsOptions(),
     enabled:
       !flagAccess.isPending &&
-      hasScope(flagAccess.scopes, 'read:feature_flags'),
+      OPERATION_SCOPES.getFeatureFlags.every((scope) =>
+        hasScope(flagAccess.scopes, scope),
+      ),
     retry: false,
   });
   const prices = useVoucherPrices({

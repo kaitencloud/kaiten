@@ -11,6 +11,7 @@ import {
   StackedFormDialogPanel,
 } from '@/functionals/stacked-form-dialog';
 import { createFormSubmitHandler } from '@/hooks/form';
+import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
 import { hasScope } from '@/lib/granted-scopes';
 import { useInstanceDetail } from '../components/instance-detail/instance-detail-context';
 import { ExceptionFields } from './exception-fields';
@@ -27,7 +28,10 @@ export function CreateExceptionDialog({ onClose }: { onClose: () => void }) {
     getEntitlementsUsageMetricsOptions({ path: { instanceSlug } }),
   );
   const allowed =
-    !access.isPending && hasScope(access.scopes, 'write:instances');
+    !access.isPending &&
+    OPERATION_SCOPES.createEntitlementException.every((scope) =>
+      hasScope(access.scopes, scope),
+    );
   const KEY = 'Pages.EntitlementExceptions';
   return (
     <StackedFormDialog

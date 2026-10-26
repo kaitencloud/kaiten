@@ -19,6 +19,7 @@ import {
   createActionsColumn,
 } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
+import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
 import { hasScope } from '@/lib/granted-scopes';
 import { useInstanceDetail } from '../components/instance-detail/instance-detail-context';
 import { entitlementExceptionsQueryOptions } from './exception-query-options';
@@ -29,8 +30,21 @@ export function ExceptionsCard() {
   const instanceSlug = instance.slug ?? instance.id;
   const access = useGrantedScopes();
   const queryClient = useQueryClient();
-  const read = !access.isPending && hasScope(access.scopes, 'read:instances');
-  const write = !access.isPending && hasScope(access.scopes, 'write:instances');
+  const read =
+    !access.isPending &&
+    OPERATION_SCOPES.listEntitlementExceptions.every((scope) =>
+      hasScope(access.scopes, scope),
+    );
+  const create =
+    !access.isPending &&
+    OPERATION_SCOPES.createEntitlementException.every((scope) =>
+      hasScope(access.scopes, scope),
+    );
+  const revoke =
+    !access.isPending &&
+    OPERATION_SCOPES.revokeEntitlementException.every((scope) =>
+      hasScope(access.scopes, scope),
+    );
   const exceptions = useQuery({
     ...entitlementExceptionsQueryOptions(instanceSlug),
     enabled: read,
@@ -47,7 +61,7 @@ export function ExceptionsCard() {
   const KEY = 'Pages.EntitlementExceptions';
   const Icon = dataModelIcons.entitlement;
   function renderActions(exception: EntitlementException) {
-    if (!write || !['ACTIVE', 'SCHEDULED'].includes(exception.status))
+    if (!revoke || !['ACTIVE', 'SCHEDULED'].includes(exception.status))
       return null;
     return (
       <TableActions>
@@ -130,7 +144,7 @@ export function ExceptionsCard() {
             </TableCard.HeaderSubtitle>
           </TableCard.HeaderHeading>
         </TableCard.HeaderLeading>
-        {write && (
+        {create && (
           <Button
             nativeButton={false}
             role="link"
