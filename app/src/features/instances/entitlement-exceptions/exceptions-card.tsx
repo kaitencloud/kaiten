@@ -52,6 +52,8 @@ export function ExceptionsCard() {
     return (
       <TableActions>
         <Button
+          nativeButton={false}
+          role="link"
           variant="ghost"
           size="sm"
           render={
@@ -130,6 +132,8 @@ export function ExceptionsCard() {
         </TableCard.HeaderLeading>
         {write && (
           <Button
+            nativeButton={false}
+            role="link"
             render={
               <Link
                 to="/customers/instances/$instanceSlug/entitlements/exceptions/new"
