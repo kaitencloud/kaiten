@@ -242,7 +242,7 @@ test.describe('the catalogue of vouchers, read in French', () => {
 });
 
 test.describe('the wizard that makes a voucher, read in French', () => {
-  test('the kinds, the two that come later and what a step that is not valid says', async ({
+  test('all four kinds are available, and an invalid step says what is missing', async ({
     page,
   }) => {
     await page.goto('/catalog/vouchers/new');
@@ -264,14 +264,18 @@ test.describe('the wizard that makes a voucher, read in French', () => {
       'aria-pressed',
       'false',
     );
-    for (const later of ['Activation de fonctionnalité', 'Lot']) {
-      await expect(button(page, new RegExp(`^${later}`))).toHaveAttribute(
-        'aria-disabled',
-        'true',
-      );
-      await expect(button(page, new RegExp(`^${later}`))).toContainText(
+    for (const kind of [
+      'Bonus de droits',
+      'Activation de fonctionnalité',
+      'Lot',
+    ]) {
+      const choice = button(page, new RegExp(`^${kind}`));
+      await expect(choice).not.toHaveAttribute('aria-disabled', 'true');
+      await expect(choice).not.toContainText(
         'Disponible dans une prochaine version',
       );
+      await choice.click();
+      await expect(choice).toHaveAttribute('aria-pressed', 'true');
     }
 
     await button(page, /^Suivant/).click();

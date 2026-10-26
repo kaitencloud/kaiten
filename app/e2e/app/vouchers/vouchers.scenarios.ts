@@ -225,8 +225,7 @@ const REDEMPTIONS: Redemption[] = [
   }),
 ];
 
-// What the voucher wizard offers a boost: the numbers of the catalogue, with the two kinds
-// it must not offer.
+// The boost catalogue includes numeric entitlements and BOOLEAN/CONFIG SET grants.
 const CREDITS = buildEntitlement({
   name: 'AI credits',
   slug: 'ai-credits',
@@ -247,7 +246,7 @@ const voucherCatalogue = () => ({
   vouchers: VOUCHERS,
 });
 
-/** The catalogue of add-ons, with the two entitlements of the catalogue that cannot be boosted. */
+/** The add-on catalogue, extended with the AI credits and configuration entitlements. */
 const addonCatalogue = () => ({
   ...ADDONS_WORLD.addonCatalogue,
   entitlements: {
@@ -311,7 +310,7 @@ export function createVouchersNotShippedBillingModel() {
 
 /**
  * The license families, what the versions grant and the entitlements of the catalogue: the
- * numbers a boost can change, a flag, and a configuration it cannot.
+ * numbers a boost can change, and a BOOLEAN and CONFIG it can SET.
  */
 export function createVouchersLicensesModel() {
   return new LicenseAppModel({

@@ -7,7 +7,10 @@ import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { signInWithScopes } from '../_support/session-scopes';
-import { InstanceEntitlementExceptions } from '../_support/model/instance-entitlement-exceptions';
+import { buildEntitlement, buildGrant } from '../_support/fixtures';
+import { InstanceAppModel } from '../_support/model/instance-app-model';
+import { LicenseAppModel } from '../_support/model/license-app-model';
+import { identityProvenance } from '../_support/model/effective-entitlement';
 import { BillingAppModel } from '../_support/model/billing-app-model';
 import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import {
@@ -18,6 +21,7 @@ import { BILLED_NOW } from '../billing/billed-instances';
 import type { EntitlementException } from '@/api-client';
 
 const BASE = '/customers/instances/initech-prod/entitlements';
+const SSO = buildEntitlement({ name: 'SSO', slug: 'sso', type: 'BOOLEAN' });
 const row = (
   overrides: Partial<EntitlementException> = {},
 ): EntitlementException => ({
@@ -36,12 +40,31 @@ const row = (
   ...overrides,
 });
 async function install(page: Page, rows: EntitlementException[] = []) {
-  const instances = createVouchersInstancesModel();
-  const licenses = createVouchersLicensesModel();
-  instances.entitlementExceptions = new InstanceEntitlementExceptions({
-    catalogue: licenses.listEntitlements(),
-    rows,
+  const licenseState = createVouchersLicensesModel().serializeForMsw();
+  const license = licenseState.licenses.find((item) => item.slug === 'pro')!;
+  const grant = buildGrant({ entitlement: SSO, license, value: true });
+  licenseState.entitlements.push(SSO);
+  licenseState.pricing.grants.push(grant);
+  const licenses = LicenseAppModel.fromSerialized(licenseState);
+
+  // The exception lowers an existing BOOLEAN grant, as in S22-076(b).
+  const instanceState = createVouchersInstancesModel().serializeForMsw();
+  instanceState.licenseEntitlements.push(grant);
+  instanceState.entitlementUsagesByInstance['initech-prod']!.push({
+    entitlementId: SSO.id,
+    entitlementSlug: 'sso',
+    licenseId: license.id,
+    licenseSlug: license.slug!,
+    source: 'license',
+    value: grant.value,
+    limit: grant.value,
+    provenance: identityProvenance(grant),
   });
+  instanceState.entitlementExceptions = {
+    catalogue: licenseState.entitlements,
+    rows,
+  };
+  const instances = InstanceAppModel.fromSerialized(instanceState);
   await installInstanceAppMocks(page, instances);
   await installLicenseAppMocks(page, licenses);
   await installBillingAppMocks(
@@ -133,6 +156,12 @@ test('ends an exception from a deep link and refreshes the effective provenance'
     .dblclick();
   await expect(page).toHaveURL(BASE);
   await expect(page.getByText('Ended', { exact: true }).last()).toBeVisible();
+  await expect(
+    page.getByRole('button', { name: 'Provenance of SSO', exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole('row').filter({ hasText: 'SSO' }).first(),
+  ).toContainText('Enabled');
   expect(writes).toHaveLength(1);
 });
 

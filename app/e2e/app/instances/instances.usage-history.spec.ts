@@ -131,7 +131,7 @@ test.describe('the usage history of an entitlement', () => {
 
   test('exports every report of the period as a CSV, under a name of its own, and not only the pages that were read', async ({
     page,
-  }) => {
+  }, testInfo) => {
     const history = new UsageHistoryDriver(page);
     const exports = recordWrites(page, /\/usage\/reports\/export$/, ['GET']);
     await installInstanceAppMocks(page, createBilledInstancesModel());
@@ -148,9 +148,9 @@ test.describe('the usage history of an entitlement', () => {
     expect(file.suggestedFilename()).toBe(
       'usage-acme-production-api-calls-20261007T120000Z.csv',
     );
-    const lines = (await readFile((await file.path()) ?? '', 'utf8'))
-      .trim()
-      .split('\n');
+    const filePath = testInfo.outputPath('usage-reports.csv');
+    await file.saveAs(filePath);
+    const lines = (await readFile(filePath, 'utf8')).trim().split('\n');
     expect(lines[0]).toContain('report_seq');
     // Only 100 were on screen: the file holds the 130.
     expect(lines).toHaveLength(131);
