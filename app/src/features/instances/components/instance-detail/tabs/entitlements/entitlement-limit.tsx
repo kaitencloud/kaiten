@@ -156,13 +156,17 @@ export function EntitlementLimitFigure({
 export function AddonSourceHint({ row }: { row: Pick<LimitRow, 'source'> }) {
   const { t } = useTranslation();
 
-  if (row.source !== 'addon') {
+  if (row.source !== 'addon' && row.source !== 'exception') {
     return null;
   }
 
   return (
     <span className="text-xs text-muted-foreground" data-testid="limit-source">
-      {t(KEYS.fromAddons)}
+      {t(
+        row.source === 'exception'
+          ? 'Pages.EntitlementExceptions.fromException'
+          : KEYS.fromAddons,
+      )}
     </span>
   );
 }

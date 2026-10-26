@@ -1,7 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { Suspense } from 'react';
+import { createFileRoute, Outlet } from '@tanstack/react-router';
 import {
   InstanceDetailEntitlementsTab,
   readEntitlementsSearch,
+  entitlementExceptionsQueryOptions,
 } from '@/features/instances';
 import i18n from '@/lib/i18n/config';
 
@@ -14,6 +16,10 @@ export const Route = createFileRoute(
   '/customers/instances/$instanceSlug/entitlements',
 )({
   component: InstanceDetailEntitlementsRoute,
+  loader: ({ context, params }) =>
+    context.queryClient.prefetchQuery(
+      entitlementExceptionsQueryOptions(params.instanceSlug),
+    ),
   validateSearch: (search) => readEntitlementsSearch(search),
   beforeLoad: () => ({
     getTitle: () =>
@@ -25,9 +31,14 @@ function InstanceDetailEntitlementsRoute() {
   const { from, history, to } = Route.useSearch();
 
   return (
-    <InstanceDetailEntitlementsTab
-      historyParam={history}
-      historyRange={{ from, to }}
-    />
+    <>
+      <InstanceDetailEntitlementsTab
+        historyParam={history}
+        historyRange={{ from, to }}
+      />
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
+    </>
   );
 }

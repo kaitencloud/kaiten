@@ -1,3 +1,7 @@
+import {
+  InstanceEntitlementExceptions,
+  type ExceptionModelSeed,
+} from './instance-entitlement-exceptions';
 import { z } from 'zod';
 import type {
   InstanceWritable,
@@ -74,6 +78,7 @@ export type InstanceAppModelSeed = InstanceUsageHistorySeed & {
   // Active MetadataField declarations for INSTANCE. They drive the typed
   // metadata card on the detail page and the metadata step of the form.
   metadataFields?: MetadataFieldRow[];
+  entitlementExceptions?: ExceptionModelSeed;
   entitlementUsagesByInstance?: Record<string, EntitlementUsage[]>;
   instances?: Instance[];
   licenseEntitlements?: LicenseEntitlement[];
@@ -114,6 +119,7 @@ export class InstanceAppModel {
   private sequence: number;
   /** The journal of the entitlements of the instances, and what the organization keeps of it. */
   usageHistory: InstanceUsageHistory;
+  entitlementExceptions: InstanceEntitlementExceptions;
   private readonly errors = new ErrorInjector<InstanceErrorOp>();
 
   /**
@@ -129,6 +135,7 @@ export class InstanceAppModel {
       customers: state.customers,
       deploymentZones: state.deploymentZones,
       metadataFields: state.metadataFields,
+      entitlementExceptions: state.entitlementExceptions,
       entitlementUsagesByInstance: state.entitlementUsagesByInstance,
       instances: state.instances,
       licenseEntitlements: state.licenseEntitlements,
@@ -152,6 +159,7 @@ export class InstanceAppModel {
       customers: clone(this.customers),
       deploymentZones: clone(this.deploymentZones),
       metadataFields: clone(this.metadataFields),
+      entitlementExceptions: this.entitlementExceptions.serialize(),
       entitlementUsagesByInstance: clone(this.entitlementUsagesByInstance),
       instances: clone(this.instances),
       licenseEntitlements: clone(this.licenseEntitlements),
@@ -200,6 +208,26 @@ export class InstanceAppModel {
       z.array(zLicense),
       seed.licenses ?? [],
       'InstanceAppModel seed.licenses',
+    );
+    this.entitlementExceptions = new InstanceEntitlementExceptions(
+      seed.entitlementExceptions ?? {
+        catalogue: this.licenseEntitlements.flatMap((grant) =>
+          grant.entitlementSlug
+            ? [
+                {
+                  id: grant.entitlementSlug,
+                  slug: grant.entitlementSlug,
+                  type:
+                    grant.value.type === 'boolean'
+                      ? ('BOOLEAN' as const)
+                      : grant.value.type === 'object'
+                        ? ('CONFIG' as const)
+                        : ('NUMBER' as const),
+                },
+              ]
+            : [],
+        ),
+      },
     );
     this.sequence = this.instances.length + 1;
 
@@ -278,8 +306,32 @@ export class InstanceAppModel {
   }
 
   getEntitlementsUsageMetrics(instanceSlug: string) {
+    const instance = this.findInstance(instanceSlug);
+    const license = this.licenses.find(
+      (item) => item.id === instance.licenseId,
+    );
+    return this.entitlementExceptions.apply(
+      instanceSlug,
+      this.entitlementUsagesByInstance[instanceSlug] ?? [],
+      Date.now(),
+      { licenseId: instance.licenseId, licenseSlug: license?.slug ?? '' },
+    );
+  }
+
+  listEntitlementExceptions(instanceSlug: string, filter: 'active' | 'all') {
     this.findInstance(instanceSlug);
-    return clone(this.entitlementUsagesByInstance[instanceSlug] ?? []);
+    return this.entitlementExceptions.list(instanceSlug, filter, Date.now());
+  }
+  createEntitlementException(
+    instanceSlug: string,
+    body: import('@/api-client').NewEntitlementException,
+  ) {
+    this.findInstance(instanceSlug);
+    return this.entitlementExceptions.create(instanceSlug, body, Date.now());
+  }
+  revokeEntitlementException(instanceSlug: string, id: string) {
+    this.findInstance(instanceSlug);
+    this.entitlementExceptions.revoke(instanceSlug, id, Date.now());
   }
 
   /**

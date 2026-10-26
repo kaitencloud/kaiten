@@ -462,4 +462,20 @@ describe('explaining how a limit is composed', () => {
     expect(text).toBe('100,000 license + 50,000 voucher = 150,000');
     expect(text).not.toContain('SECRET');
   });
+
+  describe('the last exception layer', () => {
+    const exception = { instanceEntitlementExceptionId: 'exception-1', kind: 'SET' as const, value: { type: 'number' as const, value: 20 }, startsAt: '2026-10-01T00:00:00Z', endsAt: null };
+    it('lets SET lower an unlimited grant and keeps the served effective value', () => {
+      expect(read({ license: license(-1), exception, number: number({ afterBoosts: -1, effective: 20 }) })).toBe('set to 20 by the exception = 20');
+    });
+    it('adds to the served value after boosts', () => {
+      expect(read({ exception: { ...exception, kind: 'ADD' }, number: number({ afterBoosts: 100, effective: 120 }) })).toBe('100 before the exception + 20 exception = 120');
+    });
+    it('names UNLIMITED as an exception grant', () => {
+      expect(read({ exception: { ...exception, kind: 'UNLIMITED', value: null }, number: number({ effective: -1, unlimited: true }) })).toBe('Unlimited, granted by an exception');
+    });
+    it('preserves unlimited when ADD follows an unlimited license', () => {
+      expect(read({ license: license(-1), exception: { ...exception, kind: 'ADD' }, number: number({ afterBoosts: -1, effective: -1, unlimited: true }) })).toBe('Unlimited, granted by the license');
+    });
+  });
 });

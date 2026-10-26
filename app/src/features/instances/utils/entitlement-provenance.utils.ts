@@ -5,17 +5,23 @@ import type {
   ProvenanceBoost,
   ProvenanceLicense,
   ProvenanceNumber,
+  ProvenanceException,
 } from '@/api-client';
 
-/**
- * A provenance as the API sends it. The OpenAPI document declares `license` and
- * `number` required and never null, while the handler sends null for a license that
- * does not grant the entitlement and for a number that no add-on and no voucher
- * changes (the identity case). Everything is read as if it could be absent or null.
- */
+import {
+  getGrantedBy,
+  isNumberValue,
+  readAddon,
+  readBoost,
+} from './entitlement-provenance.readers';
+
+type ReadGrant = { amount: number; quantity: number };
+
+/** The generated provenance, read defensively for older saved worlds. */
 export type ServedProvenance = {
   addons?: readonly ProvenanceAddon[] | null;
   boosts?: readonly ProvenanceBoost[] | null;
+  exception?: ProvenanceException | null;
   license?: ProvenanceLicense | null;
   number?: ProvenanceNumber | null;
 };
@@ -24,7 +30,7 @@ export type ServedProvenance = {
 export type { Provenance };
 
 /** Who grants an entitlement without a limit. */
-export type LimitSource = 'addon' | 'license' | 'voucher';
+export type LimitSource = 'addon' | 'license' | 'voucher' | 'exception';
 
 /**
  * One term of the arithmetic that gives a limit. The terms read from left to right as
@@ -39,6 +45,8 @@ export type LimitSource = 'addon' | 'license' | 'voucher';
  *   license and the add-ons give), adds to it or multiplies it. It never names a code.
  */
 export type LimitTerm =
+  | { amount: number; kind: 'beforeException' }
+  | { amount: number; kind: 'exception'; operation: 'add' | 'set' }
   | { amount: number; kind: 'license' }
   | {
       amount: number;
@@ -53,64 +61,6 @@ export type LimitTerm =
 export type LimitExplanation =
   | { effective: number; kind: 'composed'; terms: LimitTerm[] }
   | { grantedBy: LimitSource[]; kind: 'unlimited' };
-
-const UNLIMITED = -1;
-
-const isNumberValue = (value: unknown): value is { value: number } =>
-  typeof value === 'object' &&
-  value !== null &&
-  (value as { type?: unknown }).type === 'number' &&
-  typeof (value as { value?: unknown }).value === 'number';
-
-const BEHAVIORS = new Set<string>(['ADD', 'MAX', 'OVERRIDE']);
-const MODIFIERS = new Set<string>(['ADD', 'MULTIPLY', 'SET', 'UNLIMITED']);
-
-type ReadGrant = { amount: number; quantity: number };
-
-/** What an attachment grants, or nothing when what it says cannot be read. */
-function readAddon(addon: ProvenanceAddon): ReadGrant | null {
-  if (
-    !BEHAVIORS.has(addon.overrideBehavior) ||
-    !isNumberValue(addon.value) ||
-    !Number.isFinite(addon.quantity)
-  ) {
-    return null;
-  }
-
-  return { amount: addon.value.value, quantity: addon.quantity };
-}
-
-function readBoost(boost: ProvenanceBoost): number | null {
-  if (!MODIFIERS.has(boost.modifierType)) {
-    return null;
-  }
-
-  return typeof boost.modifierValue === 'number' ? boost.modifierValue : null;
-}
-
-function getGrantedBy(
-  license: ProvenanceLicense | null | undefined,
-  addons: readonly ProvenanceAddon[],
-  boosts: readonly ProvenanceBoost[],
-): LimitSource[] {
-  const sources: LimitSource[] = [];
-
-  if (isNumberValue(license?.value) && license.value.value === UNLIMITED) {
-    sources.push('license');
-  }
-  if (
-    addons.some(
-      (addon) => isNumberValue(addon.value) && addon.value.value === UNLIMITED,
-    )
-  ) {
-    sources.push('addon');
-  }
-  if (boosts.some((boost) => boost.modifierType === 'UNLIMITED')) {
-    sources.push('voucher');
-  }
-
-  return sources;
-}
 
 /**
  * How the effective limit of a number is composed, from what the API says each layer
@@ -136,6 +86,30 @@ export function explainLimit(
   if (!provenance || !number) {
     return null;
   }
+  const exception = provenance.exception;
+  if (exception?.kind === 'UNLIMITED')
+    return { kind: 'unlimited', grantedBy: ['exception'] };
+  if (exception && isNumberValue(exception.value) && exception.kind === 'SET')
+    return {
+      kind: 'composed',
+      effective: number.effective,
+      terms: [
+        { kind: 'exception', operation: 'set', amount: exception.value.value },
+      ],
+    };
+  if (
+    exception?.kind === 'ADD' &&
+    !number.unlimited &&
+    isNumberValue(exception.value)
+  )
+    return {
+      kind: 'composed',
+      effective: number.effective,
+      terms: [
+        { kind: 'beforeException', amount: number.afterBoosts },
+        { kind: 'exception', operation: 'add', amount: exception.value.value },
+      ],
+    };
   const addons = provenance.addons ?? [];
   const boosts = provenance.boosts ?? [];
 
@@ -254,6 +228,7 @@ const KEYS = {
 } as const;
 
 const SOURCE_KEYS: Record<LimitSource, string> = {
+  exception: 'Pages.EntitlementExceptions.fromException',
   addon: KEYS.sourceAddon,
   license: KEYS.sourceLicense,
   voucher: KEYS.sourceVoucher,
@@ -269,6 +244,17 @@ function formatOperand(term: LimitTerm, format: Format): string {
   const { t } = format;
 
   switch (term.kind) {
+    case 'beforeException':
+      return t('Pages.EntitlementExceptions.beforeException', {
+        amount: formatAmount(term.amount, format),
+      });
+    case 'exception':
+      return t(
+        term.operation === 'set'
+          ? 'Pages.EntitlementExceptions.exceptionSet'
+          : 'Pages.EntitlementExceptions.exceptionTerm',
+        { amount: formatAmount(term.amount, format) },
+      );
     case 'license':
       return t(KEYS.license, { amount: formatAmount(term.amount, format) });
     case 'addon': {
@@ -300,6 +286,7 @@ function getSign(term: LimitTerm, index: number): string {
   if (index === 0) {
     return '';
   }
+  if (term.kind === 'exception' && term.operation === 'add') return '+ ';
   if (term.kind === 'addon' && term.operation === 'add') {
     return '+ ';
   }

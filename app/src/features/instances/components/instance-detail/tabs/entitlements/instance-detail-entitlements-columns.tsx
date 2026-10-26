@@ -1,3 +1,4 @@
+import { EntitlementProvenanceLayers } from './entitlement-provenance-layers';
 import { Link } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -78,10 +79,10 @@ function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
     meta: { cellClassName: 'text-right', headerClassName: 'text-right' },
     cell: ({ row }) => {
       if (row.original.entitlementType === 'BOOLEAN') {
-        return row.original.value > 0 ? (
-          <CheckCircle className="ml-auto size-4 text-success-subtle-foreground" />
+        return row.original.enabled ? (
+          <CheckCircle role="img" aria-label={t('Pages.EntitlementExceptions.enabled')} className="ml-auto size-4 text-success-subtle-foreground" />
         ) : (
-          <XCircle className="ml-auto size-4 text-muted-foreground" />
+          <XCircle role="img" aria-label={t('Pages.EntitlementExceptions.disabled')} className="ml-auto size-4 text-muted-foreground" />
         );
       }
 
@@ -123,6 +124,10 @@ function buildThresholdColumn(
         <EntitlementLimitFigure locale={locale} row={row.original} />
         <SoftLimitHint locale={locale} row={row.original} t={t} />
         <AddonSourceHint row={row.original} />
+        <EntitlementProvenanceLayers
+          provenance={row.original.provenance}
+          name={row.original.entitlementName}
+        />
       </span>
     ),
   };

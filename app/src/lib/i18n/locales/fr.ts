@@ -5322,6 +5322,85 @@ export default {
         },
       },
     },
+    EntitlementExceptions: {
+      provenanceName: 'Provenance de {{name}}',
+      title: 'Exceptions de droits',
+      description:
+        'Dérogations datées pour cette instance, appliquées après la licence, les add-ons et les boosts. La facturation ne change pas.',
+      create: 'Créer une exception',
+      save: 'Créer l’exception',
+      end: 'Mettre fin à l’exception',
+      endTitle: 'Mettre fin à cette exception ?',
+      endDescription:
+        'Une exception active cesse immédiatement. Une exception planifiée ne commencera pas. Son historique et son motif sont conservés.',
+      entitlement: 'Droit',
+      kind: 'Opération',
+      value: 'Valeur',
+      reason: 'Motif',
+      reasonHelp:
+        'Obligatoire, 500 caractères maximum. Visible uniquement du vendeur ; jamais renvoyé dans la provenance publique.',
+      startsAt: 'Début (UTC)',
+      endsAt: 'Fin (UTC)',
+      startsHelp:
+        'Laissez vide pour commencer maintenant. Une date future planifie l’exception ; les dates passées sont acceptées.',
+      endsHelp:
+        'Laissez vide pour ne pas fixer de fin. Sinon, choisissez une date après le début et après maintenant.',
+      status: 'État',
+      statuses: {
+        ACTIVE: 'Active',
+        SCHEDULED: 'Planifiée',
+        EXPIRED: 'Expirée',
+        REVOKED: 'Terminée',
+      },
+      kinds: {
+        SET: 'Fixer la valeur',
+        ADD: 'Ajouter',
+        UNLIMITED: 'Rendre illimité',
+        MULTIPLY: 'Multiplier',
+      },
+      enabled: 'Activé',
+      disabled: 'Désactivé',
+      unlimited: 'Illimité',
+      noEnd: 'Sans fin',
+      empty: 'Cette instance n’a aucune exception de droits.',
+      loading: 'Chargement des exceptions',
+      forbidden: 'Votre session ne permet pas cette action.',
+      notFound: 'Cette exception est introuvable.',
+      lowerWarning:
+        'Ce SET réduit la valeur dont l’instance dispose actuellement. L’exception est prioritaire, y compris sur un droit illimité, pendant toute sa période.',
+      overlap:
+        'Une autre exception couvre déjà cette période. Consultez-la avant de réessayer.',
+      openOverlap: 'Consulter l’exception existante',
+      errors: {
+        entitlement: 'Choisissez un droit.',
+        reason: 'Saisissez un motif de 1 à 500 caractères.',
+        kind: 'BOOLEAN et CONFIG acceptent uniquement SET.',
+        value:
+          'Saisissez un nombre positif ou nul pour SET, strictement positif pour ADD.',
+        json: 'Saisissez un objet JSON, sans tableau ni valeur null.',
+        date: 'Saisissez une date UTC valide.',
+        window: 'La fin doit être après le début et après maintenant.',
+      },
+      refusals: {
+        InvalidValue: 'Cette valeur ne correspond pas au type du droit.',
+        InvalidKind: 'Cette opération ne convient pas au type du droit.',
+        InvalidWindow: 'La fin doit être après le début et après maintenant.',
+        ReasonRequired: 'Saisissez un motif de 1 à 500 caractères.',
+        EntitlementNotFound: 'Ce droit n’existe plus.',
+      },
+      provenance: 'Provenance',
+      exception: 'Exception',
+      beforeException: '{{amount}} avant l’exception',
+      exceptionTerm: '{{amount}} exception',
+      exceptionSet: 'fixé à {{amount}} par l’exception',
+      fromException: 'une exception',
+      fromLicense: 'Licence',
+      fromAddon: 'Add-on',
+      fromBoost: 'Boost de voucher',
+      window: 'Du {{start}} au {{end}}',
+      cascade:
+        'Supprimer ce droit supprime aussi toutes les exceptions de ses clients.',
+    },
     Vouchers: {
       Extensions: {
         flagsLoading: 'Chargement des flags',

@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstanceDetailEntitlementsTab } from '../instance-detail-entitlements-tab';
+vi.mock('../../../../../entitlement-exceptions/exceptions-card', () => ({ ExceptionsCard: () => null }));
 const { drawer, navigate, navigateTo } = vi.hoisted(() => ({
   drawer: vi.fn(),
   navigate: vi.fn(),

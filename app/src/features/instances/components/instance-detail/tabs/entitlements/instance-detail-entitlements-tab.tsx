@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Navigate, useNavigate, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { ExceptionsCard } from '../../../../entitlement-exceptions/exceptions-card';
 import { TableCard } from '@/functionals/table';
 import { useCanPerform } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
@@ -132,6 +133,7 @@ export const InstanceDetailEntitlementsTab = ({
         />
       </TableCard>
 
+      <ExceptionsCard />
       {historyRow?.entitlementSlug ? (
         <UsageHistoryDrawer
           entitlementName={historyRow.entitlementName}

@@ -99,7 +99,7 @@ import { Route as CustomersInstancesInstanceSlugIndexRouteImport } from './route
 import { Route as CustomersInstancesInstanceSlugAuditTrailRouteImport } from './routes/customers/instances/$instanceSlug/audit-trail'
 import { Route as CustomersInstancesInstanceSlugBillingRouteRouteImport } from './routes/customers/instances/$instanceSlug/billing/route'
 import { Route as CustomersInstancesInstanceSlugEditRouteImport } from './routes/customers/instances/$instanceSlug/edit'
-import { Route as CustomersInstancesInstanceSlugEntitlementsRouteImport } from './routes/customers/instances/$instanceSlug/entitlements'
+import { Route as CustomersInstancesInstanceSlugEntitlementsRouteRouteImport } from './routes/customers/instances/$instanceSlug/entitlements/route'
 import { Route as CustomersInstancesNewIndexRouteImport } from './routes/customers/instances/new/index'
 import { Route as IntegrationsPublishableKeysKeyIdEditRouteImport } from './routes/integrations/publishable-keys/$keyId/edit'
 import { Route as IntegrationsPublishableKeysNewIndexRouteImport } from './routes/integrations/publishable-keys/new/index'
@@ -124,7 +124,9 @@ import { Route as CustomersInstancesInstanceSlugBillingPlanChangeRouteImport } f
 import { Route as CustomersInstancesInstanceSlugBillingRedeemVoucherRouteImport } from './routes/customers/instances/$instanceSlug/billing/redeem-voucher'
 import { Route as CustomersInstancesInstanceSlugBillingSubscribeRouteImport } from './routes/customers/instances/$instanceSlug/billing/subscribe'
 import { Route as CustomersInstancesInstanceSlugBillingTermsRouteImport } from './routes/customers/instances/$instanceSlug/billing/terms'
+import { Route as CustomersInstancesInstanceSlugEntitlementsExceptionsNewRouteImport } from './routes/customers/instances/$instanceSlug/entitlements/exceptions/new'
 import { Route as IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport } from './routes/integrations/service-accounts/$serviceAccountSlug/tokens/new/index'
+import { Route as CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRouteImport } from './routes/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -630,8 +632,8 @@ const CustomersInstancesInstanceSlugEditRoute =
     path: '/edit',
     getParentRoute: () => CustomersInstancesInstanceSlugRouteRoute,
   } as any)
-const CustomersInstancesInstanceSlugEntitlementsRoute =
-  CustomersInstancesInstanceSlugEntitlementsRouteImport.update({
+const CustomersInstancesInstanceSlugEntitlementsRouteRoute =
+  CustomersInstancesInstanceSlugEntitlementsRouteRouteImport.update({
     id: '/entitlements',
     path: '/entitlements',
     getParentRoute: () => CustomersInstancesInstanceSlugRouteRoute,
@@ -780,12 +782,27 @@ const CustomersInstancesInstanceSlugBillingTermsRoute =
     path: '/terms',
     getParentRoute: () => CustomersInstancesInstanceSlugBillingRouteRoute,
   } as any)
+const CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute =
+  CustomersInstancesInstanceSlugEntitlementsExceptionsNewRouteImport.update({
+    id: '/exceptions/new',
+    path: '/exceptions/new',
+    getParentRoute: () => CustomersInstancesInstanceSlugEntitlementsRouteRoute,
+  } as any)
 const IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute =
   IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport.update(
     {
       id: '/$serviceAccountSlug/tokens/new/',
       path: '/$serviceAccountSlug/tokens/new/',
       getParentRoute: () => IntegrationsServiceAccountsRouteRoute,
+    } as any,
+  )
+const CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute =
+  CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRouteImport.update(
+    {
+      id: '/exceptions/$exceptionId/revoke',
+      path: '/exceptions/$exceptionId/revoke',
+      getParentRoute: () =>
+        CustomersInstancesInstanceSlugEntitlementsRouteRoute,
     } as any,
   )
 
@@ -860,6 +877,7 @@ export interface FileRoutesByFullPath {
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
+  '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
@@ -870,7 +888,6 @@ export interface FileRoutesByFullPath {
   '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
-  '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
   '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
   '/invoices/$invoiceId/lines/$lineId': typeof InvoicesInvoiceIdLinesLineIdRoute
   '/releases/deployment-zone/$zoneSlug/peers': typeof ReleasesDeploymentZoneZoneSlugPeersRoute
@@ -905,7 +922,9 @@ export interface FileRoutesByFullPath {
   '/catalog/licenses/versions/new/': typeof CatalogLicensesVersionsNewIndexRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
+  '/customers/instances/$instanceSlug/entitlements/exceptions/new': typeof CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
+  '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke': typeof CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -956,6 +975,7 @@ export interface FileRoutesByTo {
   '/releases/$releaseSlug': typeof ReleasesReleaseSlugIndexRoute
   '/releases/deployment-zone': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new': typeof ReleasesNewIndexRoute
+  '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
@@ -966,7 +986,6 @@ export interface FileRoutesByTo {
   '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
-  '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
   '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
   '/invoices/$invoiceId/lines/$lineId': typeof InvoicesInvoiceIdLinesLineIdRoute
   '/releases/deployment-zone/$zoneSlug/peers': typeof ReleasesDeploymentZoneZoneSlugPeersRoute
@@ -1001,7 +1020,9 @@ export interface FileRoutesByTo {
   '/catalog/licenses/versions/new': typeof CatalogLicensesVersionsNewIndexRoute
   '/customers/$customerSlug/instances/new': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingIndexRoute
+  '/customers/instances/$instanceSlug/entitlements/exceptions/new': typeof CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
+  '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke': typeof CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -1075,6 +1096,7 @@ export interface FileRoutesById {
   '/releases/deployment-zone/': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new/': typeof ReleasesNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
+  '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
@@ -1085,7 +1107,6 @@ export interface FileRoutesById {
   '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
-  '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRoute
   '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
   '/invoices/$invoiceId/lines/$lineId': typeof InvoicesInvoiceIdLinesLineIdRoute
   '/releases/deployment-zone/$zoneSlug/peers': typeof ReleasesDeploymentZoneZoneSlugPeersRoute
@@ -1120,7 +1141,9 @@ export interface FileRoutesById {
   '/catalog/licenses/versions/new/': typeof CatalogLicensesVersionsNewIndexRoute
   '/customers/$customerSlug/instances/new/': typeof CustomersCustomerSlugInstancesNewIndexRoute
   '/customers/instances/$instanceSlug/billing/': typeof CustomersInstancesInstanceSlugBillingIndexRoute
+  '/customers/instances/$instanceSlug/entitlements/exceptions/new': typeof CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute
   '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRoute
+  '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke': typeof CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -1195,6 +1218,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zone/'
     | '/releases/new/'
     | '/customers/instances/$instanceSlug/billing'
+    | '/customers/instances/$instanceSlug/entitlements'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
@@ -1205,7 +1229,6 @@ export interface FileRouteTypes {
     | '/catalog/vouchers/$voucherId/edit'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
-    | '/customers/instances/$instanceSlug/entitlements'
     | '/integrations/publishable-keys/$keyId/edit'
     | '/invoices/$invoiceId/lines/$lineId'
     | '/releases/deployment-zone/$zoneSlug/peers'
@@ -1240,7 +1263,9 @@ export interface FileRouteTypes {
     | '/catalog/licenses/versions/new/'
     | '/customers/$customerSlug/instances/new/'
     | '/customers/instances/$instanceSlug/billing/'
+    | '/customers/instances/$instanceSlug/entitlements/exceptions/new'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
+    | '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -1291,6 +1316,7 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug'
     | '/releases/deployment-zone'
     | '/releases/new'
+    | '/customers/instances/$instanceSlug/entitlements'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
@@ -1301,7 +1327,6 @@ export interface FileRouteTypes {
     | '/catalog/vouchers/$voucherId/edit'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
-    | '/customers/instances/$instanceSlug/entitlements'
     | '/integrations/publishable-keys/$keyId/edit'
     | '/invoices/$invoiceId/lines/$lineId'
     | '/releases/deployment-zone/$zoneSlug/peers'
@@ -1336,7 +1361,9 @@ export interface FileRouteTypes {
     | '/catalog/licenses/versions/new'
     | '/customers/$customerSlug/instances/new'
     | '/customers/instances/$instanceSlug/billing'
+    | '/customers/instances/$instanceSlug/entitlements/exceptions/new'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new'
+    | '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke'
   id:
     | '__root__'
     | '/'
@@ -1409,6 +1436,7 @@ export interface FileRouteTypes {
     | '/releases/deployment-zone/'
     | '/releases/new/'
     | '/customers/instances/$instanceSlug/billing'
+    | '/customers/instances/$instanceSlug/entitlements'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
@@ -1419,7 +1447,6 @@ export interface FileRouteTypes {
     | '/catalog/vouchers/$voucherId/edit'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
-    | '/customers/instances/$instanceSlug/entitlements'
     | '/integrations/publishable-keys/$keyId/edit'
     | '/invoices/$invoiceId/lines/$lineId'
     | '/releases/deployment-zone/$zoneSlug/peers'
@@ -1454,7 +1481,9 @@ export interface FileRouteTypes {
     | '/catalog/licenses/versions/new/'
     | '/customers/$customerSlug/instances/new/'
     | '/customers/instances/$instanceSlug/billing/'
+    | '/customers/instances/$instanceSlug/entitlements/exceptions/new'
     | '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
+    | '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -2128,7 +2157,7 @@ declare module '@tanstack/react-router' {
       id: '/customers/instances/$instanceSlug/entitlements'
       path: '/entitlements'
       fullPath: '/customers/instances/$instanceSlug/entitlements'
-      preLoaderRoute: typeof CustomersInstancesInstanceSlugEntitlementsRouteImport
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugRouteRoute
     }
     '/customers/instances/new/': {
@@ -2299,12 +2328,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CustomersInstancesInstanceSlugBillingTermsRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugBillingRouteRoute
     }
+    '/customers/instances/$instanceSlug/entitlements/exceptions/new': {
+      id: '/customers/instances/$instanceSlug/entitlements/exceptions/new'
+      path: '/exceptions/new'
+      fullPath: '/customers/instances/$instanceSlug/entitlements/exceptions/new'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugEntitlementsExceptionsNewRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugEntitlementsRouteRoute
+    }
     '/integrations/service-accounts/$serviceAccountSlug/tokens/new/': {
       id: '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
       path: '/$serviceAccountSlug/tokens/new'
       fullPath: '/integrations/service-accounts/$serviceAccountSlug/tokens/new/'
       preLoaderRoute: typeof IntegrationsServiceAccountsServiceAccountSlugTokensNewIndexRouteImport
       parentRoute: typeof IntegrationsServiceAccountsRouteRoute
+    }
+    '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke': {
+      id: '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke'
+      path: '/exceptions/$exceptionId/revoke'
+      fullPath: '/customers/instances/$instanceSlug/entitlements/exceptions/$exceptionId/revoke'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugEntitlementsRouteRoute
     }
   }
 }
@@ -2363,11 +2406,29 @@ const CustomersInstancesInstanceSlugBillingRouteRouteWithChildren =
     CustomersInstancesInstanceSlugBillingRouteRouteChildren,
   )
 
+interface CustomersInstancesInstanceSlugEntitlementsRouteRouteChildren {
+  CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute: typeof CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute
+  CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute: typeof CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute
+}
+
+const CustomersInstancesInstanceSlugEntitlementsRouteRouteChildren: CustomersInstancesInstanceSlugEntitlementsRouteRouteChildren =
+  {
+    CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute:
+      CustomersInstancesInstanceSlugEntitlementsExceptionsNewRoute,
+    CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute:
+      CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute,
+  }
+
+const CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren =
+  CustomersInstancesInstanceSlugEntitlementsRouteRoute._addFileChildren(
+    CustomersInstancesInstanceSlugEntitlementsRouteRouteChildren,
+  )
+
 interface CustomersInstancesInstanceSlugRouteRouteChildren {
   CustomersInstancesInstanceSlugBillingRouteRoute: typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
+  CustomersInstancesInstanceSlugEntitlementsRouteRoute: typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
   CustomersInstancesInstanceSlugAuditTrailRoute: typeof CustomersInstancesInstanceSlugAuditTrailRoute
   CustomersInstancesInstanceSlugEditRoute: typeof CustomersInstancesInstanceSlugEditRoute
-  CustomersInstancesInstanceSlugEntitlementsRoute: typeof CustomersInstancesInstanceSlugEntitlementsRoute
   CustomersInstancesInstanceSlugIndexRoute: typeof CustomersInstancesInstanceSlugIndexRoute
 }
 
@@ -2375,12 +2436,12 @@ const CustomersInstancesInstanceSlugRouteRouteChildren: CustomersInstancesInstan
   {
     CustomersInstancesInstanceSlugBillingRouteRoute:
       CustomersInstancesInstanceSlugBillingRouteRouteWithChildren,
+    CustomersInstancesInstanceSlugEntitlementsRouteRoute:
+      CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren,
     CustomersInstancesInstanceSlugAuditTrailRoute:
       CustomersInstancesInstanceSlugAuditTrailRoute,
     CustomersInstancesInstanceSlugEditRoute:
       CustomersInstancesInstanceSlugEditRoute,
-    CustomersInstancesInstanceSlugEntitlementsRoute:
-      CustomersInstancesInstanceSlugEntitlementsRoute,
     CustomersInstancesInstanceSlugIndexRoute:
       CustomersInstancesInstanceSlugIndexRoute,
   }

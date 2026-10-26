@@ -80,7 +80,7 @@ export const EntitlementTableActions = ({
       });
     }
 
-    return undefined;
+    return t('Pages.EntitlementExceptions.cascade');
   };
 
   return (

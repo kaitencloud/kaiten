@@ -225,6 +225,7 @@ export function createDevMockConfig({
     billingBlocks: billingBlocks.instances,
     customers: world.customers,
     deploymentZones: world.deploymentZones,
+    entitlementExceptions: { catalogue: world.entitlements },
     entitlementUsagesByInstance: world.entitlementUsagesByInstance,
     instances: world.instances,
     licenseEntitlements: world.licenseEntitlements,

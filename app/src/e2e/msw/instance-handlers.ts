@@ -1,5 +1,8 @@
 import { HttpResponse } from 'msw/http';
 import {
+  handleCreateEntitlementException,
+  handleListEntitlementExceptions,
+  handleRevokeEntitlementException,
   handleCreateInstance,
   handleDeleteInstance,
   handleExportOrganizationUsageReports,
@@ -40,6 +43,37 @@ export const instanceHandlers = (
   model: InstanceAppModel,
   persist: PersistMswState = noop,
 ) => [
+  handleListEntitlementExceptions(
+    withErrorHandling('Exception list failed', ({ params, request }) => {
+      const filter = new URL(request.url).searchParams.get('filter');
+      return HttpResponse.json(
+        model.listEntitlementExceptions(
+          params.instanceSlug,
+          filter === 'all' ? 'all' : 'active',
+        ),
+      );
+    }),
+  ),
+  handleCreateEntitlementException(
+    withErrorHandling(
+      'Exception creation failed',
+      async ({ params, request }) => {
+        const created = model.createEntitlementException(
+          params.instanceSlug,
+          await request.json(),
+        );
+        persist();
+        return HttpResponse.json(created, { status: 201 });
+      },
+    ),
+  ),
+  handleRevokeEntitlementException(
+    withErrorHandling('Exception revocation failed', ({ params }) => {
+      model.revokeEntitlementException(params.instanceSlug, params.exceptionId);
+      persist();
+      return new HttpResponse(null, { status: 204 });
+    }),
+  ),
   graphqlOperationHandler({
     GetInstancesWithRelations: () => model.getInstancesWithRelations(),
     // The fields the model declares are instance fields: another resource type

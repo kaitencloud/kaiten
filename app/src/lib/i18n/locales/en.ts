@@ -5248,6 +5248,85 @@ export default {
         },
       },
     },
+    EntitlementExceptions: {
+      provenanceName: 'Provenance of {{name}}',
+      title: 'Entitlement exceptions',
+      description:
+        'Dated overrides for this instance, applied after licenses, add-ons and boosts. Billing does not change.',
+      create: 'Create an exception',
+      save: 'Create exception',
+      end: 'End exception',
+      endTitle: 'End this exception?',
+      endDescription:
+        'An active exception stops immediately. A scheduled exception will never start. The record and its reason are kept.',
+      entitlement: 'Entitlement',
+      kind: 'Operation',
+      value: 'Value',
+      reason: 'Reason',
+      reasonHelp:
+        'Required, up to 500 characters. Visible to the vendor only; never returned in public provenance.',
+      startsAt: 'Starts at (UTC)',
+      endsAt: 'Ends at (UTC)',
+      startsHelp:
+        'Leave empty to start now. A future date schedules the exception; past dates are accepted.',
+      endsHelp:
+        'Leave empty for no end. Otherwise choose a time after the start and after now.',
+      status: 'Status',
+      statuses: {
+        ACTIVE: 'Active',
+        SCHEDULED: 'Scheduled',
+        EXPIRED: 'Expired',
+        REVOKED: 'Ended',
+      },
+      kinds: {
+        SET: 'Set value',
+        ADD: 'Add',
+        UNLIMITED: 'Make unlimited',
+        MULTIPLY: 'Multiply',
+      },
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      unlimited: 'Unlimited',
+      noEnd: 'No end',
+      empty: 'No entitlement exceptions for this instance.',
+      loading: 'Loading exceptions',
+      forbidden: 'Your session cannot perform this action.',
+      notFound: 'This exception was not found.',
+      lowerWarning:
+        'This SET lowers the value the instance currently holds. The exception takes precedence, including over unlimited grants, for its whole window.',
+      overlap:
+        'Another exception overlaps this period. Review it before trying again.',
+      openOverlap: 'Review the existing exception',
+      errors: {
+        entitlement: 'Choose an entitlement.',
+        reason: 'Enter a reason from 1 to 500 characters.',
+        kind: 'BOOLEAN and CONFIG accept SET only.',
+        value:
+          'Enter a non-negative number for SET or a positive number for ADD.',
+        json: 'Enter a JSON object, without an array or null.',
+        date: 'Enter a valid UTC date.',
+        window: 'The end must be after the start and after now.',
+      },
+      refusals: {
+        InvalidValue: 'This value does not match the entitlement type.',
+        InvalidKind: 'This operation is not valid for the entitlement type.',
+        InvalidWindow: 'The end must be after the start and after now.',
+        ReasonRequired: 'Enter a reason from 1 to 500 characters.',
+        EntitlementNotFound: 'This entitlement no longer exists.',
+      },
+      provenance: 'Provenance',
+      exception: 'Exception',
+      beforeException: '{{amount}} before the exception',
+      exceptionTerm: '{{amount}} exception',
+      exceptionSet: 'set to {{amount}} by the exception',
+      fromException: 'an exception',
+      fromLicense: 'License',
+      fromAddon: 'Add-on',
+      fromBoost: 'Voucher boost',
+      window: 'From {{start}} until {{end}}',
+      cascade:
+        'Deleting this entitlement also deletes all its customer exceptions.',
+    },
     Vouchers: {
       Extensions: {
         flagsLoading: 'Loading feature flags',

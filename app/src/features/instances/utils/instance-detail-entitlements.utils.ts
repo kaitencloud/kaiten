@@ -193,9 +193,11 @@ export const buildEntitlementsRows = (
         usage?.limitCapExceededOveragePercent ??
         getLicenseEntitlementOveragePercent(entitlement),
       enabled:
-        entitlement.value?.type === 'boolean'
-          ? (entitlement.value.value as boolean)
-          : null,
+        usage?.limit?.type === 'boolean'
+          ? usage.limit.value
+          : entitlement.value?.type === 'boolean'
+            ? (entitlement.value.value as boolean)
+            : null,
       source: usage?.source ?? 'license',
       provenance: usage?.provenance ?? null,
     } as const;

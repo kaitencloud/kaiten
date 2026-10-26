@@ -16,7 +16,7 @@ const ROW_TYPES = {
 
 /**
  * The row of an entitlement the instance has a usage for and its license grants no
- * value of: the add-ons it holds are what grant it (`source` is `addon`), and so the
+ * value of: add-ons or an exception grant it, and so the
  * row is read off the usage alone. The catalogue names it, by the slug the usage
  * carries; without a catalogue entry the slug does, and without a slug its id.
  *
@@ -28,7 +28,8 @@ export function buildUsageOnlyRow(
   { iconBySlug, nameBySlug, typeBySlug }: CatalogueLookups,
 ): InstanceEntitlementRow {
   const slug = usage.entitlementSlug || null;
-  const type = ROW_TYPES[usage.value?.type ?? 'number'] ?? 'NUMBER';
+  const type =
+    ROW_TYPES[usage.limit?.type ?? usage.value?.type ?? 'number'] ?? 'NUMBER';
 
   return {
     entitlementId: usage.entitlementId,
@@ -47,7 +48,11 @@ export function buildUsageOnlyRow(
     limitCapExceededOveragePercent:
       usage.limitCapExceededOveragePercent ?? null,
     enabled:
-      usage.value?.type === 'boolean' ? (usage.value.value as boolean) : null,
+      usage.limit?.type === 'boolean'
+        ? usage.limit.value
+        : usage.value?.type === 'boolean'
+          ? usage.value.value
+          : null,
     source: usage.source ?? 'license',
     provenance: usage.provenance ?? null,
   };
