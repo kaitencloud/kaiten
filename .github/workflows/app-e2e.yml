@@ -122,7 +122,11 @@ jobs:
   e2e_app:
     name: E2E App (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A shard's tests take 13 to 22 minutes. Its setup takes about one, except
+    # when the Ubuntu mirror is slow: `playwright install --with-deps` then spends
+    # 6 to 14 minutes fetching fonts (23 MB at 39 kB/s), and two or three shards a
+    # run hit it. At 30 the slowest was cancelled in every run with a test left.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
