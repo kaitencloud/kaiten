@@ -1,6 +1,6 @@
 import { expect, test } from '../_support/app-test';
 import { BillingNavDriver } from '../_support/drivers/billing-nav.driver';
-import { persistLanguage } from '../_support/language';
+import { persistLanguage, startInLanguage } from '../_support/language';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-app-mocks';
 import { createBillingDisabledModel } from '../billing/billing.scenarios';
@@ -42,13 +42,14 @@ test('renders the explanation of a billing link and its breadcrumb in French', a
 }) => {
   const nav = new BillingNavDriver(page);
 
+  // Before the first load, so the page starts in French: storing it on a first
+  // page and navigating again raced Mock Service Worker's own reload of that
+  // first page, which interrupted the navigation to /invoices.
+  await startInLanguage(page, 'fr');
   await installBillingAppMocks(
     page,
     createBillingDisabledModel('DEPLOYMENT_DISABLED'),
   );
-  // The language is stored once the page is on the app's origin.
-  await page.goto('/settings');
-  await persistLanguage(page, 'fr');
 
   await page.goto('/invoices');
 
