@@ -37,6 +37,8 @@ export {
   MODIFIER_TYPES,
   NAME_MAX_LENGTH,
   newGrant,
+  newFlagGrant,
+  readConfigValue,
   readFixedAmount,
   readModifierValue,
   readPercentage,

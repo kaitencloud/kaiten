@@ -1,4 +1,6 @@
 import { useStore } from '@tanstack/react-form';
+import { useTranslation } from 'react-i18next';
+import { FlagGrantsPanel } from './flag-grants-panel';
 import { withForm } from '@/hooks/form';
 import type { VoucherReferences } from '../../hooks/use-voucher-references';
 import { voucherFormOpts } from '../../schemas';
@@ -19,6 +21,8 @@ export const OfferStep = withForm({
   ...voucherFormOpts,
   props: {} as OfferStepProps,
   render: function OfferStepRender({ form, references }) {
+    const { t } = useTranslation();
+    const parts = useStore(form.store, (state) => state.values);
     const voucherType = useStore(
       form.store,
       (state) => state.values.voucherType,
@@ -26,14 +30,47 @@ export const OfferStep = withForm({
 
     return (
       <div className="space-y-6">
-        {voucherType === 'ENTITLEMENT_BOOST' ? (
+        {voucherType === 'COMPOSITE' && (
+          <div className="space-y-3">
+            <p>{t('Pages.Vouchers.Extensions.compositeRequired')}</p>
+            <form.AppField name="hasPrice">
+              {(field) => (
+                <field.CheckboxField
+                  label={t('Features.Billing.VoucherType.PRICE')}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="hasBoost">
+              {(field) => (
+                <field.CheckboxField
+                  label={t('Features.Billing.VoucherType.ENTITLEMENT_BOOST')}
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="hasFlags">
+              {(field) => (
+                <field.CheckboxField
+                  label={t('Features.Billing.VoucherType.FLAG_GRANT')}
+                />
+              )}
+            </form.AppField>
+          </div>
+        )}
+        {(voucherType === 'ENTITLEMENT_BOOST' ||
+          (voucherType === 'COMPOSITE' && parts.hasBoost)) && (
           <BoostPanel
             entitlements={references.entitlements}
             form={form}
             licenses={references.licenses}
           />
-        ) : (
+        )}
+        {(voucherType === 'PRICE' ||
+          (voucherType === 'COMPOSITE' && parts.hasPrice)) && (
           <DiscountPanel form={form} prices={references.prices} />
+        )}
+        {(voucherType === 'FLAG_GRANT' ||
+          (voucherType === 'COMPOSITE' && parts.hasFlags)) && (
+          <FlagGrantsPanel form={form} flags={references.flags} />
         )}
         <DurationFields form={form} />
       </div>

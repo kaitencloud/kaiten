@@ -29,7 +29,10 @@ import { zServedEntitlementUsage } from '../contracts/served-entitlement-usage';
 import type { AddonContribution } from './billing-instance-addons';
 import type { BoostContribution } from './billing-vouchers';
 import { BillingProblem } from './billing-problem';
-import { composeEffectiveNumber } from './effective-entitlement';
+import {
+  identityProvenance,
+  composeEffectiveNumber,
+} from './effective-entitlement';
 import { ErrorInjector } from './error-injector';
 import {
   InstanceUsageHistory,
@@ -301,6 +304,37 @@ export class InstanceAppModel {
           candidate.licenseSlug === licenseSlug &&
           candidate.entitlementSlug === usage.entitlementSlug,
       );
+      if (
+        grant &&
+        (grant.value.type === 'boolean' || grant.value.type === 'object')
+      ) {
+        const typed = boosts.filter(
+          (boost) =>
+            boost.entitlementSlug === usage.entitlementSlug &&
+            boost.typedValue !== undefined,
+        );
+        const last = typed.at(-1)?.typedValue;
+        usage.limit =
+          last === undefined
+            ? clone(grant.value)
+            : typeof last === 'boolean'
+              ? { type: 'boolean', value: last }
+              : { type: 'object', value: clone(last) };
+        usage.provenance = identityProvenance(grant);
+        usage.provenance.boosts = typed.map((boost) => ({
+          ...boost,
+          modifierValue: null,
+          value:
+            typeof boost.typedValue === 'boolean'
+              ? { type: 'boolean' as const, value: boost.typedValue }
+              : {
+                  type: 'object' as const,
+                  value: boost.typedValue as Record<string, unknown>,
+                },
+          effectiveExpiresAt: boost.effectiveExpiresAt ?? null,
+        }));
+        continue;
+      }
       if (grant?.value.type !== 'number' || grant.value.value === -1) {
         continue;
       }

@@ -5323,6 +5323,36 @@ export default {
       },
     },
     Vouchers: {
+      Extensions: {
+        flagsLoading: 'Chargement des flags',
+        flagsReadRequired:
+          'Votre session doit pouvoir lire les flags pour choisir un octroi.',
+        flagsEmpty:
+          'Aucun flag disponible. Créez un flag et ses variantes avant de créer un octroi.',
+        booleanWarning:
+          'Ce SET désactive {{entitlement}}, même si la licence l’accorde. Il s’applique à chaque instance qui utilise ce voucher.',
+        enabled: 'Activé',
+        disabled: 'Désactivé',
+        flagDetail:
+          'Accorde une variante de flag pendant la durée de l’utilisation.',
+        compositeDetail:
+          'Réunit au moins deux éléments parmi une remise, un boost et des octrois de flags.',
+        compositeRequired:
+          'Choisissez au moins deux éléments pour le voucher composite.',
+        flagsRequired: 'Ajoutez au moins un octroi de flag.',
+        flagRequired: 'Choisissez un flag, une seule fois chacun.',
+        variantRequired: 'Choisissez une variante de ce flag.',
+        setOnly: 'Les droits BOOLEAN et CONFIG acceptent uniquement SET.',
+        jsonObject: 'Saisissez un objet JSON, sans tableau ni valeur null.',
+        flags: 'Octrois de flags',
+        flag: 'Flag',
+        variant: 'Variante',
+        addFlag: 'Ajouter un octroi de flag',
+        removeFlag: 'Retirer l’octroi de flag {{position}}',
+        flagOffer: 'Octrois de flags : {{grants}}, {{duration}}',
+        compositeDuration:
+          'La remise compte les factures à partir de la prochaine ; les boosts et octrois de flags comptent les périodes de facturation à partir de l’utilisation.',
+      },
       title: 'Codes promo',
       subtitle:
         'Des codes qui donnent à une instance une remise sur ses factures ou un bonus de droits.',

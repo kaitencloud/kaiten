@@ -111,7 +111,33 @@ async function toEligibility() {
 }
 
 describe('the kind of voucher', () => {
-  it('offers the two kinds and shows the two that come later, as available later and not to be chosen', async () => {
+  it('chooses a flag and variant and describes them in the review', async () => {
+    renderScreen(<VoucherWizardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: /^Feature grant/ }));
+    await toOffer('Flag preview');
+    await userEvent.click(await screen.findByRole('button', { name: 'Add a feature grant' }));
+    await userEvent.click(screen.getByRole('combobox', { name: /^Feature flag/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Beta Access' }));
+    await userEvent.click(screen.getByRole('combobox', { name: /^Variant/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'beta' }));
+    await next();
+    await next();
+    expect(await screen.findByTestId('voucher-review')).toHaveTextContent('beta-access: beta');
+  });
+
+  it('offers only SET and a switch for a BOOLEAN boost', async () => {
+    renderScreen(<VoucherWizardPage />);
+    await userEvent.click(await screen.findByRole('button', { name: /^Boost/ }));
+    await toOffer('Boolean boost');
+    await userEvent.click(await screen.findByRole('button', { name: /Add a change/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Choose an entitlement/ }));
+    await userEvent.click(await screen.findByRole('option', { name: 'SSO' }));
+    expect(await screen.findByRole('switch', { name: /^Value/ })).not.toBeChecked();
+    await userEvent.click(screen.getByRole('combobox', { name: /^Change/ }));
+    expect(await screen.findByRole('option', { name: 'Set to' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Add' })).not.toBeInTheDocument();
+  });
+  it('offers and selects all four contract types', async () => {
     renderScreen(<VoucherWizardPage />);
 
     const discount = await screen.findByRole('button', { name: /^Discount/ });
@@ -119,12 +145,11 @@ describe('the kind of voucher', () => {
     expect(screen.getByRole('button', { name: /^Boost/ })).toHaveAttribute('aria-pressed', 'false');
     for (const later of ['Feature grant', 'Bundle']) {
       const choice = screen.getByRole('button', { name: new RegExp(`^${later}`) });
-      expect(choice).toHaveAttribute('aria-disabled', 'true');
-      expect(choice).toHaveAccessibleDescription('Available in a later version');
+      expect(choice).not.toHaveAttribute('aria-disabled', 'true');
       await userEvent.click(choice);
-      expect(choice).toHaveAttribute('aria-pressed', 'false');
+      expect(choice).toHaveAttribute('aria-pressed', 'true');
     }
-    expect(discount).toHaveAttribute('aria-pressed', 'true');
+    expect(discount).toHaveAttribute('aria-pressed', 'false');
   });
 
   it('cannot be left without a name, and says so on the field only once it was asked', async () => {
@@ -225,7 +250,7 @@ describe('the offer of a boost', () => {
     expect(await screen.findByLabelText(/^Number of billing periods/)).toBeInTheDocument();
   });
 
-  it('offers the entitlements that carry a number and no other', async () => {
+  it('offers every entitlement type', async () => {
     await toBoost();
 
     await userEvent.click(await screen.findByRole('button', { name: /Add a change/ }));
@@ -233,8 +258,8 @@ describe('the offer of a boost', () => {
 
     expect(await screen.findByRole('option', { name: 'Tokens' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'AI credits' })).toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'SSO' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('option', { name: 'Theme' })).not.toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'SSO' })).toBeInTheDocument();
+    expect(screen.getByRole('option', { name: 'Theme' })).toBeInTheDocument();
   });
 
   it('asks no value of a change that lifts the limit, and a value above 0 of one that adds or multiplies', async () => {

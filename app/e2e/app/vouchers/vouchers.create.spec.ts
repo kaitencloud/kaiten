@@ -19,9 +19,7 @@ test.describe('the kind of voucher', () => {
     await installVouchersWorld(page);
   });
 
-  test('offers the two kinds the release ships, and shows the two that come later, disabled and as available later', async ({
-    page,
-  }) => {
+  test('offers all four contract types', async ({ page }) => {
     const wizard = new VoucherWizardDriver(page);
 
     await wizard.goto();
@@ -32,17 +30,16 @@ test.describe('the kind of voucher', () => {
     );
     await expect(wizard.kind('Boost')).toHaveAttribute('aria-pressed', 'false');
     for (const later of ['Feature grant', 'Bundle'] as const) {
-      await expect(wizard.kind(later)).toHaveAttribute('aria-disabled', 'true');
-      await expect(wizard.kind(later)).toContainText(
-        'Available in a later version',
+      await expect(wizard.kind(later)).not.toHaveAttribute(
+        'aria-disabled',
+        'true',
       );
-      // It stays in the tab order and can be pressed, and nothing happens.
       await wizard.kind(later).click({ force: true });
-      await expect(wizard.kind(later)).toHaveAttribute('aria-pressed', 'false');
+      await expect(wizard.kind(later)).toHaveAttribute('aria-pressed', 'true');
     }
     await expect(wizard.kind('Discount')).toHaveAttribute(
       'aria-pressed',
-      'true',
+      'false',
     );
   });
 

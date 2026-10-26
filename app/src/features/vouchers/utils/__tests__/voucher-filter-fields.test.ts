@@ -95,6 +95,6 @@ describe('the fields of the list', () => {
     const type = field(VOUCHER_FILTER_IDS.type);
 
     expect(type?.accessor(WELCOME)).toBe('PRICE');
-    expect(type?.options?.map(({ value }) => value)).toEqual(['PRICE', 'ENTITLEMENT_BOOST']);
+    expect(type?.options?.map(({ value }) => value)).toEqual(['PRICE', 'ENTITLEMENT_BOOST', 'FLAG_GRANT', 'COMPOSITE']);
   });
 });

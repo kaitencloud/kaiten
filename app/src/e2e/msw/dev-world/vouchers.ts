@@ -1,5 +1,6 @@
 import type {
   Customer,
+  FeatureFlag,
   InvoiceLine,
   License,
   Redemption,
@@ -18,6 +19,7 @@ import { daysAgo, daysFromNow } from './dates';
 /** What the vouchers of the world refer to: the customers and the license versions. */
 type VouchersWorld = {
   customers: Customer[];
+  featureFlags: FeatureFlag[];
   licenses: License[];
 };
 
@@ -49,7 +51,11 @@ const licenseId = (licenses: License[], slug: string) =>
  * invoice of its year. A redemption of the archived voucher was revoked, another ran
  * out.
  */
-export function createVouchers({ customers, licenses }: VouchersWorld): {
+export function createVouchers({
+  customers,
+  licenses,
+  featureFlags,
+}: VouchersWorld): {
   boostedInstances: string[];
   seed: BillingVouchersSeed;
 } {
@@ -266,6 +272,12 @@ export function createVouchers({ customers, licenses }: VouchersWorld): {
     boostedInstances: ['globex-production', 'globex-staging'],
     seed: {
       known: {
+        flags: Object.fromEntries(
+          featureFlags.map((flag) => [
+            flag.slug ?? '',
+            (flag.variants ?? []).map((variant) => variant.name),
+          ]),
+        ),
         customers: customers.flatMap(({ slug }) => (slug ? [slug] : [])),
         licenseIds: licenses.map(({ id }) => id),
       },

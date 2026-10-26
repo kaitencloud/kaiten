@@ -117,6 +117,11 @@ beforeEach(() => {
 });
 
 describe('the redemptions of a voucher, led by the instance', () => {
+  it('names a composite type and reads its served invoice counter', () => {
+    renderWithClient(<RedemptionsTable now={NOW} redemptions={[{ ...DISCOUNT_ROW, voucherType: 'COMPOSITE' }]} subject="instance" />);
+    expect(row('initech-annual')).toHaveTextContent('Bundle');
+    expect(row('initech-annual')).toHaveTextContent('1/3 invoices');
+  });
   it('says for each when it was redeemed, the window it applies in, the invoices a discount used and its state', () => {
     renderWithClient(
       <RedemptionsTable now={NOW} redemptions={ROWS} subject="instance" />,
@@ -195,7 +200,7 @@ describe('the redemptions of a voucher, led by the instance', () => {
     );
 
     expect(
-      screen.getByRole('link', { name: 'initech-annual' }),
+      screen.getByRole('link', { name: /^initech-annual/ }),
     ).toHaveAttribute('href', '/customers/instances/initech-annual/billing');
   });
 });

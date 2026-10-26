@@ -94,9 +94,8 @@ export function buildVoucherNames({
   };
 }
 
-/**
- * Whether a boost can change an entitlement: only the numeric ones have a value to set,
- * add to or multiply (`CreateVoucher.InvalidGrant` refuses the others).
- */
+/** Every served entitlement type can be boosted; BOOLEAN and CONFIG take SET only. */
 export const isBoostable = (entitlement: Pick<Entitlement, 'type'>): boolean =>
-  entitlement.type === 'NUMBER' || entitlement.type === 'NUMBER_AI_CREDIT';
+  ['NUMBER', 'NUMBER_AI_CREDIT', 'BOOLEAN', 'CONFIG'].includes(
+    entitlement.type ?? '',
+  );

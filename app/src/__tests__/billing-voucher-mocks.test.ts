@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vite-plus/test';
 import type {
   EntitlementUsage,
+  FeatureFlag,
   Invoice,
   InvoicePreview,
   Redemption,
@@ -11,6 +12,8 @@ import type {
 import { createDevMockConfig } from '@/e2e/msw/dev-world';
 import { createMockHandlers, undeclaredApiRequest } from '@/e2e/msw/handlers';
 import { server } from './msw-server';
+import { buildVoucher } from '../../e2e/app/_support/fixtures';
+import { onlyActiveMembersChange } from '../../e2e/app/_support/model/billing-voucher-rules';
 
 // What the mocks standing in for the vouchers answer: the same refusals, with the same
 // codes, in the order the API checks them (api/internal/modules/vouchers), and the same
@@ -72,6 +75,31 @@ beforeEach(() => {
 });
 
 describe('the vouchers, as the mocks serve them', () => {
+  it('keeps published flags and typed values immutable and ignores JSON key order', () => {
+    const body = { name: 'Published bundle', code: 'PUBLISHED-BUNDLE', voucherType: 'COMPOSITE' as const, duration: 'ONE_TIME' as const, flagGrants: [{ flagSlug: 'preview', variant: 'on' }], grants: [{ entitlementSlug: 'settings', modifierType: 'SET' as const, value: { a: 1, b: 2 } }] };
+    const stored = { ...buildVoucher({ ...body, id: 'published', status: 'ACTIVE' }), priceDiscountType: null, priceDiscountValue: null, priceAppliesTo: null, currency: null };
+    expect(onlyActiveMembersChange(stored, { ...body, grants: [{ ...body.grants[0]!, value: { b: 2, a: 1 } }] })).toBe(true);
+    expect(onlyActiveMembersChange(stored, { ...body, grants: [{ ...body.grants[0]!, value: { a: 3, b: 2 } }] })).toBe(false);
+    expect(onlyActiveMembersChange(stored, { ...body, flagGrants: [{ ...body.flagGrants[0]!, variant: 'changed' }] })).toBe(false);
+  });
+  it('accepts FLAG_GRANT and COMPOSITE and refuses duplicate or unknown variants', async () => {
+    const flags = await items<FeatureFlag>(await send('GET', '/feature-flags'));
+    const flag = flags.find((item) => item.slug && item.variants?.length);
+    expect(flag).toBeDefined();
+    const grant = { flagSlug: flag!.slug, variant: flag!.variants![0]!.name };
+    const body = { name: 'Flag preview', voucherType: 'FLAG_GRANT', duration: 'ONE_TIME', flagGrants: [grant] };
+    const created = await send('POST', '/vouchers', body);
+    expect(created.status).toBe(201);
+    expect((await json<Voucher>(created)).flagGrants).toEqual([grant]);
+    const composite = await send('POST', '/vouchers', percentOff({ voucherType: 'COMPOSITE', flagGrants: [grant] }));
+    expect(composite.status).toBe(201);
+    const duplicate = await send('POST', '/vouchers', { ...body, flagGrants: [grant, grant] });
+    expect((await refusal(duplicate)).code).toBe('CreateVoucher.DuplicateFlagGrant');
+    const invalid = await send('POST', '/vouchers', { ...body, flagGrants: [{ ...grant, variant: 'missing' }] });
+    expect((await refusal(invalid)).code).toBe('CreateVoucher.InvalidFlagGrant');
+    const tooFew = await send('POST', '/vouchers', { ...body, voucherType: 'COMPOSITE' });
+    expect((await refusal(tooFew)).code).toBe('CreateVoucher.InvalidComposite');
+  });
   it('lists them newest first with their codes, and filters by status, type and customer', async () => {
     const all = await items<Voucher>(await send('GET', '/vouchers'));
     const byStatus = await items<Voucher>(

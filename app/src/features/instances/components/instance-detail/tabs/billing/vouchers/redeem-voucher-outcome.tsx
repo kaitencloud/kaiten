@@ -28,7 +28,10 @@ export function RedeemVoucherOutcome({
   outcome,
 }: RedeemVoucherOutcomeProps) {
   const { i18n, t } = useTranslation();
-  const { changes, invoice, redemption } = outcome;
+  const { changes, flagGrants = [], invoice, redemption } = outcome;
+  const hasPrice =
+    outcome.hasPrice ??
+    (redemption.voucherType === 'PRICE' || redemption.applicationsMax !== null);
   const base = 'Pages.Customers.Instances.Detail.Billing.Vouchers.Outcome';
   const statusRef = useAlertFocus(true, outcome);
 
@@ -55,7 +58,7 @@ export function RedeemVoucherOutcome({
             value={formatUtcDate(redemption.effectiveExpiresAt, i18n.language)}
           />
         ) : null}
-        {redemption.voucherType === 'PRICE' ? (
+        {hasPrice ? (
           <DetailCard.Row
             label={t(`${base}.applications`)}
             value={
@@ -66,6 +69,14 @@ export function RedeemVoucherOutcome({
           />
         ) : null}
       </DetailCard.Rows>
+      {flagGrants.length > 0 && (
+        <DetailCard.Row
+          label={t('Pages.Vouchers.Extensions.flags')}
+          value={flagGrants
+            .map((grant) => `${grant.flagSlug}: ${grant.variant}`)
+            .join(', ')}
+        />
+      )}
       {changes.length > 0 ? (
         <div className="space-y-1.5">
           <p className="text-sm font-medium">{t(`${base}.changes`)}</p>
@@ -112,7 +123,7 @@ export function RedeemVoucherOutcome({
           </DetailCard.Rows>
         </div>
       ) : null}
-      {redemption.voucherType === 'PRICE' && !invoice ? (
+      {hasPrice && !invoice ? (
         <p className="text-sm text-muted-foreground">
           {t(`${base}.discountNote`)}
         </p>

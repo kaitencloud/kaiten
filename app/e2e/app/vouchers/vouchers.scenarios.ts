@@ -239,7 +239,10 @@ const BRANDING = buildEntitlement({
 });
 
 const voucherCatalogue = () => ({
-  known: { customers: ['hooli', 'initech'] },
+  known: {
+    customers: ['hooli', 'initech'],
+    flags: { 'beta-access': ['control', 'beta'] },
+  },
   redemptions: REDEMPTIONS,
   vouchers: VOUCHERS,
 });

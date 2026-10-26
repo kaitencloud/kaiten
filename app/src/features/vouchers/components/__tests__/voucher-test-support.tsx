@@ -1,3 +1,4 @@
+import { createFeatureFlagsListModel } from '../../../../../e2e/app/feature-flags/feature-flags.scenarios';
 import { HttpResponse } from 'msw';
 import { Suspense } from 'react';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
@@ -6,6 +7,7 @@ import type { Addon, Customer, Entitlement, License } from '@/api-client';
 import {
   handleGetBillingCapabilities,
   handleGetLicenses,
+  handleGetFeatureFlags,
   handleListAddons,
   handleListCustomers,
   handleListEntitlements,
@@ -36,6 +38,7 @@ export const ALL_SCOPES = [
   'read:addons',
   'read:entitlements',
   'read:instances',
+  'read:feature_flags',
 ] as const;
 
 export const TOKENS = buildEntitlement({
@@ -87,6 +90,11 @@ export function serveReferences({
   licenses?: License[];
 } = {}) {
   server.use(
+    handleGetFeatureFlags(() =>
+      HttpResponse.json(
+        pageOf(createFeatureFlagsListModel().listFeatureFlags()),
+      ),
+    ),
     handleGetBillingCapabilities({
       body: billingCapabilitiesProfiles.stackWithVouchers(),
     }),

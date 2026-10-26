@@ -59,10 +59,47 @@ exports[`the recovery descriptor of the voucher wizard > stores values of the sh
     "firstTimeOnly": {
       "type": "boolean",
     },
+    "flagGrants": {
+      "items": {
+        "properties": {
+          "flagSlug": {
+            "type": "string",
+          },
+          "key": {
+            "type": "string",
+          },
+          "variant": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "flagSlug",
+          "variant",
+          "key",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
     "grants": {
       "items": {
         "properties": {
+          "booleanValue": {
+            "type": "boolean",
+          },
           "entitlementSlug": {
+            "type": "string",
+          },
+          "entitlementType": {
+            "enum": [
+              "NUMBER",
+              "NUMBER_AI_CREDIT",
+              "BOOLEAN",
+              "CONFIG",
+            ],
+            "type": "string",
+          },
+          "jsonValue": {
             "type": "string",
           },
           "key": {
@@ -83,13 +120,22 @@ exports[`the recovery descriptor of the voucher wizard > stores values of the sh
         },
         "required": [
           "entitlementSlug",
-          "key",
           "modifierType",
+          "key",
           "modifierValue",
         ],
         "type": "object",
       },
       "type": "array",
+    },
+    "hasBoost": {
+      "type": "boolean",
+    },
+    "hasFlags": {
+      "type": "boolean",
+    },
+    "hasPrice": {
+      "type": "boolean",
     },
     "maxRedemptions": {},
     "minimumAmount": {
@@ -154,6 +200,10 @@ exports[`the recovery descriptor of the voucher wizard > stores values of the sh
     "expiresAt",
     "firstTimeOnly",
     "grants",
+    "flagGrants",
+    "hasPrice",
+    "hasBoost",
+    "hasFlags",
     "maxRedemptions",
     "minimumAmount",
     "minimumCurrency",

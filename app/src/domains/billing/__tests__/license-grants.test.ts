@@ -39,7 +39,7 @@ describe('what a license grants of a number', () => {
   it('is nothing for a flag or a configuration, which have no number', () => {
     expect(
       readLicenseGrant('Pro', licenseGrant({ type: 'boolean', value: true })),
-    ).toBeNull();
+    ).toEqual({ licenseName: 'Pro', enabled: true, value: null, percent: null });
     expect(
       readLicenseGrant('Pro', licenseGrant({ type: 'object', value: {} })),
     ).toBeNull();

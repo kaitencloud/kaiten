@@ -8,6 +8,7 @@ import { getLicenseEntitlementOveragePercent } from '@/domains/entitlement-usage
  * the overage allowance it tolerates (null when it has none to lower).
  */
 export type LicenseGrantReading = {
+  enabled?: boolean;
   licenseName: string;
   percent: number | null;
   value: number | null;
@@ -22,6 +23,13 @@ export function readLicenseGrant(
   licenseName: string,
   grant: LicenseEntitlement,
 ): LicenseGrantReading | null {
+  if (grant.value?.type === 'boolean')
+    return {
+      licenseName,
+      enabled: grant.value.value,
+      value: null,
+      percent: null,
+    };
   const percent = getLicenseEntitlementOveragePercent(grant);
   if (percent === null || grant.value?.type !== 'number') {
     return null;

@@ -230,6 +230,16 @@ describe('redeeming a code', () => {
     expect(screen.getByTestId('redeem-outcome')).toHaveTextContent('The next 3 invoices');
   });
 
+  it('shows granted flags for a composite without inventing a discount', async () => {
+    serveCode({ redeem: () => HttpResponse.json({ ...BOOST_REDEMPTION, voucherType: 'COMPOSITE' }, { status: 201 }), validity: { valid: true, voucher: { ...STORAGE_BOOST, voucherType: 'COMPOSITE', flagGrants: [{ flagSlug: 'preview', variant: 'on' }] } } });
+    renderDialog();
+    await typeAndCheck();
+    await userEvent.click(await screen.findByRole('button', { name: 'Redeem the code' }));
+    expect(await screen.findByTestId('redeem-outcome')).toHaveTextContent('preview: on');
+    expect(screen.queryByTestId('redeem-outcome-invoice')).not.toBeInTheDocument();
+    expect(screen.getByTestId('redeem-outcome')).not.toHaveTextContent('The discount will show');
+  });
+
   it('says only that the discount will show on the next invoice when there is no upcoming invoice to read', async () => {
     serveCode({
       redeem: () => HttpResponse.json(DISCOUNT_REDEMPTION, { status: 201 }),

@@ -28,6 +28,7 @@ export function buildVoucher({
   durationInPeriods,
   expiresAt,
   grants = [],
+  flagGrants = [],
   id,
   maxRedemptions,
   name,
@@ -54,6 +55,7 @@ export function buildVoucher({
   durationInPeriods?: number;
   expiresAt?: string;
   grants?: Grant[];
+  flagGrants?: Voucher['flagGrants'];
   id: string;
   maxRedemptions?: number;
   name: string;
@@ -69,7 +71,9 @@ export function buildVoucher({
   updatedAt?: string;
   voucherType?: Voucher['voucherType'];
 }): Voucher {
-  const isPrice = voucherType === 'PRICE';
+  const isPrice =
+    voucherType === 'PRICE' ||
+    (voucherType === 'COMPOSITE' && priceDiscountType != null);
 
   return {
     applicableAddonIds,
@@ -84,8 +88,8 @@ export function buildVoucher({
     duration,
     durationInPeriods: durationInPeriods ?? null,
     expiresAt: expiresAt ?? null,
-    flagGrants: [],
-    grants: isPrice ? [] : grants,
+    flagGrants,
+    grants: voucherType === 'PRICE' ? [] : grants,
     id,
     maxRedemptions: maxRedemptions ?? null,
     name,

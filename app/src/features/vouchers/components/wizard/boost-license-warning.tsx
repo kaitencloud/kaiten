@@ -28,6 +28,21 @@ export function BoostLicenseWarning({
   licenses,
 }: BoostLicenseWarningProps) {
   const { i18n, t } = useTranslation();
+  if (
+    grant.entitlementType === 'BOOLEAN' &&
+    !grant.booleanValue &&
+    licenses.some((license) => license.enabled)
+  ) {
+    return (
+      <LicenseGrantWarning testId="boost-license-warning">
+        <p>
+          {t('Pages.Vouchers.Extensions.booleanWarning', {
+            entitlement: entitlementName,
+          })}
+        </p>
+      </LicenseGrantWarning>
+    );
+  }
   const value =
     grant.modifierType === 'SET'
       ? readModifierValue(grant.modifierValue)

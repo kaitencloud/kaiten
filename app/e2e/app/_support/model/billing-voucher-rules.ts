@@ -26,6 +26,7 @@ const DECIMAL = /^\d+(\.\d+)?$/;
 export type VoucherReferences = {
   /** The type of an entitlement of the organization, or nothing when it has none by that slug. */
   entitlementType(slug: string): string | undefined;
+  flagVariants?(slug: string): readonly string[] | undefined;
   hasAddon(id: string): boolean;
   hasAddonPrice(id: string): boolean;
   hasCustomer(slug: string): boolean;
@@ -171,20 +172,6 @@ function checkBoost(
   operation: string,
   references: VoucherReferences,
 ) {
-  if (
-    draft.priceDiscountType !== undefined ||
-    draft.priceDiscountValue !== undefined ||
-    draft.currency !== undefined ||
-    draft.priceAppliesTo !== undefined ||
-    (draft.applicableLicensePriceIds?.length ?? 0) > 0 ||
-    (draft.applicableAddonPriceIds?.length ?? 0) > 0
-  ) {
-    throw unprocessable(
-      operation,
-      'InvalidDiscount',
-      'an ENTITLEMENT_BOOST discounts nothing: omit the price members',
-    );
-  }
   if (!draft.grants?.length) {
     throw unprocessable(
       operation,
@@ -219,7 +206,7 @@ function checkReferences(
     has: (id: string) => boolean,
   ) => (ids ?? []).some((id) => !has(id));
 
-  if (draft.voucherType === 'PRICE') {
+  if (draft.voucherType === 'PRICE' || draft.voucherType === 'COMPOSITE') {
     if (missing(draft.applicableLicensePriceIds, references.hasLicensePrice)) {
       throw notFound(
         operation,
@@ -294,16 +281,6 @@ export function checkDraft(
     }
   }
   if (
-    draft.voucherType !== 'PRICE' &&
-    draft.voucherType !== 'ENTITLEMENT_BOOST'
-  ) {
-    throw unprocessable(
-      operation,
-      'UnsupportedType',
-      'a voucher is PRICE or ENTITLEMENT_BOOST',
-    );
-  }
-  if (
     (draft.duration === 'REPEATING') !==
       (draft.durationInPeriods !== undefined) ||
     (draft.durationInPeriods !== undefined && draft.durationInPeriods < 1)
@@ -347,17 +324,59 @@ export function checkDraft(
       );
     }
   }
-  if (draft.voucherType === 'PRICE') {
-    if ((draft.grants?.length ?? 0) > 0) {
+  const price = draft.priceDiscountType !== undefined;
+  const boost = Boolean(draft.grants?.length);
+  const flags = Boolean(draft.flagGrants?.length);
+  if (
+    draft.voucherType === 'COMPOSITE' &&
+    [price, boost, flags].filter(Boolean).length < 2
+  ) {
+    throw unprocessable(
+      operation,
+      'InvalidComposite',
+      'a COMPOSITE carries at least two families',
+    );
+  }
+  if (
+    draft.voucherType !== 'COMPOSITE' &&
+    ((draft.voucherType !== 'PRICE' && price) ||
+      (draft.voucherType !== 'ENTITLEMENT_BOOST' && boost) ||
+      (draft.voucherType !== 'FLAG_GRANT' && flags))
+  )
+    throw unprocessable(
+      operation,
+      'InvalidDiscount',
+      'a single-family voucher carries only its family',
+    );
+  if (price || draft.voucherType === 'PRICE') checkDiscount(draft, operation);
+  if (boost || draft.voucherType === 'ENTITLEMENT_BOOST')
+    checkBoost(draft, operation, references);
+  if (flags || draft.voucherType === 'FLAG_GRANT') {
+    if (!flags)
       throw unprocessable(
         operation,
-        'InvalidDiscount',
-        'a PRICE voucher grants nothing: omit grants',
+        'FlagGrantsRequired',
+        'a flag grant names a flag',
       );
+    const seen = new Set<string>();
+    for (const grant of draft.flagGrants ?? []) {
+      if (seen.has(grant.flagSlug))
+        throw unprocessable(
+          operation,
+          'DuplicateFlagGrant',
+          'a flag is granted once',
+        );
+      seen.add(grant.flagSlug);
+      const variants = references.flagVariants?.(grant.flagSlug);
+      if (!variants)
+        throw notFound(operation, 'FlagNotFound', 'the flag does not exist');
+      if (!variants.includes(grant.variant))
+        throw unprocessable(
+          operation,
+          'InvalidFlagGrant',
+          'the variant does not exist',
+        );
     }
-    checkDiscount(draft, operation);
-  } else {
-    checkBoost(draft, operation, references);
   }
   checkReferences(draft, operation, references);
 }
@@ -415,14 +434,33 @@ export function onlyActiveMembersChange(
       : a.currency === b.currency &&
         sameDecimal(a.unitAmountDecimal, b.unitAmountDecimal);
   const grants = draft.grants ?? [];
+  const flags = draft.flagGrants ?? [];
+  const canonicalValue = (value: unknown) =>
+    JSON.stringify(value ?? null, (_key, item: unknown) =>
+      item && typeof item === 'object' && !Array.isArray(item)
+        ? Object.fromEntries(
+            Object.entries(item).sort(([left], [right]) =>
+              left.localeCompare(right),
+            ),
+          )
+        : item,
+    );
 
   return (
+    stored.flagGrants.length === flags.length &&
+    flags.every((grant) =>
+      stored.flagGrants.some(
+        (held) =>
+          held.flagSlug === grant.flagSlug && held.variant === grant.variant,
+      ),
+    ) &&
     stored.grants.length === grants.length &&
     grants.every((grant) =>
       stored.grants.some(
         (held) =>
           held.entitlementSlug === grant.entitlementSlug &&
           held.modifierType === grant.modifierType &&
+          canonicalValue(held.value) === canonicalValue(grant.value) &&
           sameDecimal(held.modifierValue, grant.modifierValue),
       ),
     ) &&
@@ -571,7 +609,8 @@ export function instanceRefusal(
     return { reason: 'CURRENCY_MISMATCH' };
   }
   if (
-    voucher.voucherType === 'ENTITLEMENT_BOOST' &&
+    (voucher.voucherType === 'ENTITLEMENT_BOOST' ||
+      voucher.voucherType === 'COMPOSITE') &&
     !voucher.grants.some((grant) => {
       const type = entitlementTypeOf(grant.entitlementSlug);
 
@@ -707,10 +746,7 @@ export function boostEnd(
   redeemedAt: Date,
   subscription: Pick<InstanceBilling, 'billingPeriod'> | undefined,
 ): string | undefined {
-  if (
-    voucher.voucherType !== 'ENTITLEMENT_BOOST' ||
-    voucher.duration === 'FOREVER'
-  ) {
+  if (voucher.voucherType === 'PRICE' || voucher.duration === 'FOREVER') {
     return undefined;
   }
   const months = subscription ? PERIOD_MONTHS[subscription.billingPeriod] : 1;

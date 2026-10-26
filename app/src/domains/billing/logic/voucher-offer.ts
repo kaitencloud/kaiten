@@ -18,6 +18,7 @@ export type VoucherOfferInput = {
   currency?: string | null;
   duration: Voucher['duration'];
   durationInPeriods?: number | null;
+  flagGrants?: Voucher['flagGrants'] | null;
   grants?: readonly Grant[] | null;
   priceAppliesTo?: Voucher['priceAppliesTo'];
   priceDiscountType?: Voucher['priceDiscountType'];
@@ -118,6 +119,21 @@ export function describeGrant(
   grant: Grant,
   { entitlementNames, t }: Pick<OfferOptions, 'entitlementNames' | 't'>,
 ): string {
+  const typed = grant.value;
+  if (typed != null) {
+    return t('Features.Billing.Voucher.Offer.Change.SET', {
+      entitlement:
+        entitlementNames?.[grant.entitlementSlug] ?? grant.entitlementSlug,
+      value:
+        typeof typed === 'boolean'
+          ? t(
+              typed
+                ? 'Pages.Vouchers.Extensions.enabled'
+                : 'Pages.Vouchers.Extensions.disabled',
+            )
+          : JSON.stringify(typed),
+    });
+  }
   const value = grant.modifierValue ?? '';
   const number = Number(value);
 
@@ -137,6 +153,36 @@ export function describeVoucherOffer(
 ): string {
   const { language, t } = options;
 
+  if (voucher.voucherType === 'FLAG_GRANT') {
+    return t('Pages.Vouchers.Extensions.flagOffer', {
+      grants: (voucher.flagGrants ?? [])
+        .map(({ flagSlug, variant }) => `${flagSlug}: ${variant}`)
+        .join(', '),
+      duration: describeBoostDuration(voucher, t),
+    });
+  }
+  if (voucher.voucherType === 'COMPOSITE') {
+    const parts: string[] = [];
+    if (voucher.priceDiscountType != null)
+      parts.push(
+        describeVoucherOffer({ ...voucher, voucherType: 'PRICE' }, options),
+      );
+    if (voucher.grants?.length)
+      parts.push(
+        describeVoucherOffer(
+          { ...voucher, voucherType: 'ENTITLEMENT_BOOST' },
+          options,
+        ),
+      );
+    if (voucher.flagGrants?.length)
+      parts.push(
+        describeVoucherOffer(
+          { ...voucher, voucherType: 'FLAG_GRANT' },
+          options,
+        ),
+      );
+    return parts.join('; ');
+  }
   if (voucher.voucherType === 'ENTITLEMENT_BOOST') {
     return t('Features.Billing.Voucher.Offer.boost', {
       changes: (voucher.grants ?? [])

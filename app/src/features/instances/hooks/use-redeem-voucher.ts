@@ -5,6 +5,7 @@ import type {
   InvoicePreview,
   Redemption,
   Validity,
+  Voucher,
 } from '@/api-client';
 import {
   getEntitlementsUsageMetricsOptions,
@@ -36,6 +37,8 @@ export type CheckedCode = {
  */
 export type RedeemOutcome = {
   changes: EffectiveChange[];
+  flagGrants?: Voucher['flagGrants'];
+  hasPrice?: boolean;
   invoice: { after: InvoicePreview; before: InvoicePreview } | null;
   redemption: Redemption;
 };
@@ -118,17 +121,24 @@ export function useRedeemVoucher(instanceSlug: string) {
         redemption.voucherId,
       );
       const after = await readState();
+      const hasPrice =
+        redemption.voucherType === 'PRICE' ||
+        (redemption.voucherType === 'COMPOSITE' &&
+          Boolean(checked.validity.voucher?.priceDiscountType));
 
       setOutcome({
+        flagGrants: checked.validity.voucher?.flagGrants ?? [],
+        hasPrice,
         changes:
-          redemption.voucherType === 'ENTITLEMENT_BOOST'
+          redemption.voucherType === 'ENTITLEMENT_BOOST' ||
+          redemption.voucherType === 'COMPOSITE'
             ? diffEffectiveValues(
                 before.usage ?? undefined,
                 after.usage ?? undefined,
               )
             : [],
         invoice:
-          redemption.voucherType === 'PRICE' && before.invoice && after.invoice
+          hasPrice && before.invoice && after.invoice
             ? { after: after.invoice, before: before.invoice }
             : null,
         redemption,

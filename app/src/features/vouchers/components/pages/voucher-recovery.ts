@@ -24,9 +24,9 @@ const fieldsOf = (schema: { shape: object }) =>
  */
 export const voucherRecovery = defineFormRecovery<VoucherFormValues>({
   formId: 'vouchers.create',
-  version: 1,
+  version: 2,
   omit: ['code'],
-  ignore: ['grants[].key'],
+  ignore: ['grants[].key', 'flagGrants[].key'],
   steps: VOUCHER_STEPS,
   stepFields: {
     eligibility: fieldsOf(eligibilityStepSchema),
@@ -50,6 +50,10 @@ export const voucherRecovery = defineFormRecovery<VoucherFormValues>({
     durationInPeriods: { key: `${LABELS}.durationInPeriods` },
     expiresAt: { key: `${LABELS}.expiresAt` },
     firstTimeOnly: { key: `${LABELS}.firstTimeOnly` },
+    flagGrants: { key: 'Pages.Vouchers.Extensions.flags' },
+    hasPrice: { key: 'Features.Billing.VoucherType.PRICE' },
+    hasBoost: { key: 'Features.Billing.VoucherType.ENTITLEMENT_BOOST' },
+    hasFlags: { key: 'Features.Billing.VoucherType.FLAG_GRANT' },
     grants: { key: `${LABELS}.grants` },
     maxRedemptions: { key: `${LABELS}.maxRedemptions` },
     minimumAmount: { key: `${LABELS}.minimumAmount` },

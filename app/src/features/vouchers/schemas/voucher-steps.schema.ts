@@ -5,6 +5,7 @@ import {
   isModifierValue,
   readFixedAmount,
   readPercentage,
+  readConfigValue,
   type VoucherFormValues,
   voucherFormSchema,
 } from './voucher.schema';
@@ -22,7 +23,42 @@ function checkOffer(values: Partial<VoucherFormValues>, issue: Issue) {
       issue(['durationInPeriods'], `${ERRORS}.durationInPeriods`);
     }
   }
-  if (values.voucherType === 'ENTITLEMENT_BOOST') {
+  const composite = values.voucherType === 'COMPOSITE';
+  const price =
+    values.voucherType === 'PRICE' || (composite && values.hasPrice);
+  const boost =
+    values.voucherType === 'ENTITLEMENT_BOOST' ||
+    (composite && values.hasBoost);
+  const flags =
+    values.voucherType === 'FLAG_GRANT' || (composite && values.hasFlags);
+  if (
+    composite &&
+    [values.hasPrice, values.hasBoost, values.hasFlags].filter(Boolean).length <
+      2
+  ) {
+    issue(['hasPrice'], 'Pages.Vouchers.Extensions.compositeRequired');
+  }
+  if (flags) {
+    const grants = values.flagGrants ?? [];
+    if (!grants.length)
+      issue(['flagGrants'], 'Pages.Vouchers.Extensions.flagsRequired');
+    const seen = new Set<string>();
+    grants.forEach((grant, index) => {
+      if (!grant.flagSlug || seen.has(grant.flagSlug)) {
+        issue(
+          ['flagGrants', index, 'flagSlug'],
+          'Pages.Vouchers.Extensions.flagRequired',
+        );
+      }
+      seen.add(grant.flagSlug);
+      if (!grant.variant || grant.variant.length > 255)
+        issue(
+          ['flagGrants', index, 'variant'],
+          'Pages.Vouchers.Extensions.variantRequired',
+        );
+    });
+  }
+  if (boost) {
     const grants = values.grants ?? [];
 
     if (grants.length === 0) {
@@ -36,16 +72,31 @@ function checkOffer(values: Partial<VoucherFormValues>, issue: Issue) {
         issue(['grants', index, 'entitlementSlug'], `${ERRORS}.duplicate`);
       }
       seen.add(grant.entitlementSlug);
-      if (!isModifierValue(grant.modifierType, grant.modifierValue)) {
+      const typed =
+        grant.entitlementType === 'BOOLEAN' ||
+        grant.entitlementType === 'CONFIG';
+      if (typed && grant.modifierType !== 'SET')
+        issue(
+          ['grants', index, 'modifierType'],
+          'Pages.Vouchers.Extensions.setOnly',
+        );
+      if (
+        grant.entitlementType === 'CONFIG' &&
+        readConfigValue(grant.jsonValue ?? '') === null
+      )
+        issue(
+          ['grants', index, 'jsonValue'],
+          'Pages.Vouchers.Extensions.jsonObject',
+        );
+      if (!typed && !isModifierValue(grant.modifierType, grant.modifierValue)) {
         issue(
           ['grants', index, 'modifierValue'],
           `${ERRORS}.${grant.modifierType === 'SET' ? 'setValue' : 'positiveValue'}`,
         );
       }
     });
-
-    return;
   }
+  if (!price) return;
   if (values.priceDiscountType === 'PERCENTAGE') {
     if (readPercentage(values.percentage ?? '') === null) {
       issue(['percentage'], `${ERRORS}.percentage`);
@@ -128,6 +179,10 @@ export const offerStepSchema = voucherFormSchema
     duration: true,
     durationInPeriods: true,
     grants: true,
+    flagGrants: true,
+    hasPrice: true,
+    hasBoost: true,
+    hasFlags: true,
     percentage: true,
     priceAppliesTo: true,
     priceDiscountType: true,

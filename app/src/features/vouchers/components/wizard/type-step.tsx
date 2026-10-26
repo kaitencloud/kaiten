@@ -4,24 +4,15 @@ import { ChoiceButton } from '@/components/choice-button';
 import { getVoucherTypeLabelKey, VOUCHER_TYPES } from '@/domains/billing';
 import { withForm } from '@/hooks/form';
 import { voucherFormOpts } from '../../schemas';
-import { LATER_VOUCHER_TYPES } from '../../utils/voucher-labels';
 
 const TYPE_DETAIL_KEYS = {
   ENTITLEMENT_BOOST: 'Pages.Vouchers.Wizard.Type.Detail.ENTITLEMENT_BOOST',
   PRICE: 'Pages.Vouchers.Wizard.Type.Detail.PRICE',
+  FLAG_GRANT: 'Pages.Vouchers.Extensions.flagDetail',
+  COMPOSITE: 'Pages.Vouchers.Extensions.compositeDetail',
 } as const satisfies Record<(typeof VOUCHER_TYPES)[number], string>;
 
-const LATER_TYPE_LABEL_KEYS = {
-  COMPOSITE: 'Pages.Vouchers.Wizard.Type.COMPOSITE',
-  FLAG_GRANT: 'Pages.Vouchers.Wizard.Type.FLAG_GRANT',
-} as const satisfies Record<(typeof LATER_VOUCHER_TYPES)[number], string>;
-
-/**
- * The first step: what the voucher is called and what it is. Two kinds exist in this
- * release, a discount on the invoices and a boost of an entitlement; the two that come
- * later are shown, and say so, rather than left out. What the other kind had filled in
- * is kept in the form and never sent, so that switching back restores it.
- */
+/** The four contract types. Switching type keeps the other families as unsent input. */
 export const TypeStep = withForm({
   ...voucherFormOpts,
   render: function TypeStepRender({ form }) {
@@ -40,19 +31,6 @@ export const TypeStep = withForm({
       );
     }
 
-    function renderLaterType(type: (typeof LATER_VOUCHER_TYPES)[number]) {
-      return (
-        <ChoiceButton
-          detail={t('Pages.Vouchers.Wizard.Type.later')}
-          disabled
-          key={type}
-          label={t(LATER_TYPE_LABEL_KEYS[type])}
-          onSelect={() => undefined}
-          selected={false}
-        />
-      );
-    }
-
     return (
       <div className="space-y-6">
         <div
@@ -65,7 +43,6 @@ export const TypeStep = withForm({
           </p>
           <div className="grid gap-2 sm:grid-cols-2">
             {VOUCHER_TYPES.map(renderType)}
-            {LATER_VOUCHER_TYPES.map(renderLaterType)}
           </div>
         </div>
         <form.AppField name="name">

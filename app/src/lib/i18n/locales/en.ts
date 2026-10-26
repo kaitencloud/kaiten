@@ -5249,6 +5249,34 @@ export default {
       },
     },
     Vouchers: {
+      Extensions: {
+        flagsLoading: 'Loading feature flags',
+        flagsReadRequired:
+          'Your session needs permission to read feature flags before choosing a grant.',
+        flagsEmpty:
+          'No feature flags are available. Create a flag and its variants before creating a grant.',
+        booleanWarning:
+          'This SET disables {{entitlement}} even when the license grants it. It applies to every instance that redeems this voucher.',
+        enabled: 'Enabled',
+        disabled: 'Disabled',
+        flagDetail: 'Grants a feature flag variant for the redemption window.',
+        compositeDetail:
+          'Combines at least two of discount, boost and feature grants.',
+        compositeRequired: 'Choose at least two parts for the bundle.',
+        flagsRequired: 'Add at least one feature grant.',
+        flagRequired: 'Choose a flag only once.',
+        variantRequired: 'Choose a variant of this flag.',
+        setOnly: 'BOOLEAN and CONFIG entitlements take SET only.',
+        jsonObject: 'Enter a JSON object, without an array or null.',
+        flags: 'Feature grants',
+        flag: 'Feature flag',
+        variant: 'Variant',
+        addFlag: 'Add a feature grant',
+        removeFlag: 'Remove feature grant {{position}}',
+        flagOffer: 'Feature grants: {{grants}}, {{duration}}',
+        compositeDuration:
+          'The discount counts invoices from the next invoice; boosts and feature grants count billing periods from redemption.',
+      },
       title: 'Vouchers',
       subtitle:
         'Codes that give an instance a discount on its invoices or a boost of its entitlements.',

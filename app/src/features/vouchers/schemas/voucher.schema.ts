@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { zGrant, zVoucherDraft } from '@/api-client/zod.gen';
+import { zFlagGrant, zGrant, zVoucherDraft } from '@/api-client/zod.gen';
 import { majorToMinorDecimal } from '@/lib/money';
 
 /** The largest count the API takes: an int32. */
@@ -32,13 +32,39 @@ const optionalCount = (error: string) =>
   );
 
 /** One change of a boost, as the form holds it: the value is the text typed. */
-export const grantFormSchema = z.object({
-  entitlementSlug: z.string(),
-  // What tells the row from the others as the person adds and takes away: never sent.
+export const grantFormSchema = zGrant
+  .pick({ entitlementSlug: true, modifierType: true })
+  .extend({
+    // What tells the row from the others as the person adds and takes away: never sent.
+    key: z.string(),
+    modifierValue: z.string(),
+    entitlementType: z
+      .enum(['NUMBER', 'NUMBER_AI_CREDIT', 'BOOLEAN', 'CONFIG'])
+      .optional(),
+    booleanValue: z.boolean().optional(),
+    jsonValue: z.string().optional(),
+  });
+
+export const flagGrantFormSchema = zFlagGrant.extend({
   key: z.string(),
-  modifierType: z.enum(MODIFIER_TYPES),
-  modifierValue: z.string(),
+  variant: z.string(),
 });
+
+export function newFlagGrant() {
+  return { key: crypto.randomUUID(), flagSlug: '', variant: '' };
+}
+
+/** CONFIG values are objects, never arrays, primitives or null. */
+export function readConfigValue(text: string): Record<string, unknown> | null {
+  try {
+    const value: unknown = JSON.parse(text);
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
 
 export type GrantFormValues = z.infer<typeof grantFormSchema>;
 
@@ -53,6 +79,8 @@ export function newGrant(): GrantFormValues {
     key: `grant-${grantCount}`,
     modifierType: 'ADD',
     modifierValue: '',
+    booleanValue: false,
+    jsonValue: '{}',
   };
 }
 
@@ -84,6 +112,10 @@ export const voucherFormSchema = zVoucherDraft
     expiresAt: z.string(),
     firstTimeOnly: z.boolean(),
     grants: z.array(grantFormSchema),
+    flagGrants: z.array(flagGrantFormSchema),
+    hasPrice: z.boolean(),
+    hasBoost: z.boolean(),
+    hasFlags: z.boolean(),
     maxRedemptions: optionalCount(`${ERRORS}.maxRedemptions`),
     minimumAmount: z.string(),
     minimumCurrency: z.string(),
@@ -162,6 +194,10 @@ export const initialVoucherFormValues: VoucherFormValues = {
   expiresAt: '',
   firstTimeOnly: false,
   grants: [],
+  flagGrants: [],
+  hasPrice: true,
+  hasBoost: false,
+  hasFlags: false,
   maxRedemptions: Number.NaN,
   minimumAmount: '',
   minimumCurrency: '',

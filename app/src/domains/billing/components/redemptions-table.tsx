@@ -44,7 +44,12 @@ function SubjectCell({
   const { t } = useTranslation();
 
   if (subject === 'instance') {
-    return <span className="font-mono text-sm">{redemption.instanceSlug}</span>;
+    return (
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="font-mono text-sm">{redemption.instanceSlug}</span>
+        <VoucherTypeBadge type={redemption.voucherType} />
+      </div>
+    );
   }
 
   return (
@@ -95,7 +100,10 @@ function WindowCell({ redemption }: { redemption: Redemption }) {
 function ApplicationsCell({ redemption }: { redemption: Redemption }) {
   const { t } = useTranslation();
 
-  if (redemption.voucherType !== 'PRICE') {
+  if (
+    redemption.voucherType !== 'PRICE' &&
+    redemption.voucherType !== 'COMPOSITE'
+  ) {
     return <span className="text-muted-foreground">{t('Common.none')}</span>;
   }
 

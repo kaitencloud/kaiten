@@ -27,6 +27,11 @@ export const DurationFields = withForm({
 
     return (
       <div className="grid gap-4 sm:grid-cols-2">
+        {voucherType === 'COMPOSITE' && (
+          <p className="sm:col-span-2 text-sm text-muted-foreground">
+            {t('Pages.Vouchers.Extensions.compositeDuration')}
+          </p>
+        )}
         <form.AppField name="duration">
           {(field) => (
             <field.SelectField

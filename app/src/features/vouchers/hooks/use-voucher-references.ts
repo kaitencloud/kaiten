@@ -1,7 +1,13 @@
+import { hasScope } from '@/lib/granted-scopes';
+import { allFeatureFlagsOptions } from '@/lib/api/all-pages-query-options';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { addonVersionsQueryOptions, useCanPerform } from '@/domains/billing';
+import {
+  addonVersionsQueryOptions,
+  useCanPerform,
+  useGrantedScopes,
+} from '@/domains/billing';
 import {
   voucherCustomersQueryOptions,
   voucherEntitlementsQueryOptions,
@@ -56,6 +62,14 @@ export function useVoucherReferences({
     enabled: mayListEntitlements,
     retryOnMount,
   });
+  const flagAccess = useGrantedScopes();
+  const flags = useQuery({
+    ...allFeatureFlagsOptions(),
+    enabled:
+      !flagAccess.isPending &&
+      hasScope(flagAccess.scopes, 'read:feature_flags'),
+    retry: false,
+  });
   const prices = useVoucherPrices({
     enabled: withPrices,
     entitlements: entitlements.data?.items,
@@ -80,7 +94,7 @@ export function useVoucherReferences({
     ],
   );
 
-  return { addons, customers, entitlements, licenses, names, prices };
+  return { addons, customers, entitlements, flags, licenses, names, prices };
 }
 
 export type VoucherReferences = ReturnType<typeof useVoucherReferences>;

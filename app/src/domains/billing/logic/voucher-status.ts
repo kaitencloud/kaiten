@@ -72,6 +72,8 @@ export type VoucherType = Voucher['voucherType'];
 export const VOUCHER_TYPES = [
   'PRICE',
   'ENTITLEMENT_BOOST',
+  'FLAG_GRANT',
+  'COMPOSITE',
 ] as const satisfies readonly VoucherType[];
 
 const VOUCHER_TYPE_LABEL_KEYS = {

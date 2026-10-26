@@ -2,6 +2,12 @@
 
 A voucher is a code that gives an instance a discount on its invoices or a boost of its entitlements. This feature is the catalogue of vouchers, where billing is on and the release ships them: it lists them with a search by name, code or customer, makes one in a wizard that ends on a review in plain language and a publish, opens a voucher to give its code, say what it does, show its details and list what was redeemed of it, revokes a redemption with its reason, publishes or archives a voucher, and changes what a published one lets change. What an instance redeemed, and the dialog that applies a code to it, are the Billing tab of the instance, in [instances](../instances/README.md); the discount lines of an invoice are drawn by the [billing domain](../../domains/billing/README.md).
 
+## v3.2 contract
+
+The wizard offers PRICE, ENTITLEMENT_BOOST, FLAG_GRANT and COMPOSITE. A composite selects at least two families; only selected families are sent. Every entitlement type can be boosted: numeric modifiers carry `modifierValue`, BOOLEAN and CONFIG use SET with `value`. Flag rows select an organization flag and one of its variants, without duplicate flags. Draft editing, the review and the detail preserve and describe all families. Recovery version 2 excludes the code and ignores both row keys.
+
+REST `Redemption` serves the voucher type and application counts, but no invoice id or `appliesFromInvoice`. The console cannot link a starting invoice from that response. Public `SessionRedemption.appliesFromInvoice` is a separate contract.
+
 ## Routes
 
 | Path                                   | Route file                                             | What it renders                                                                                                                                                                     |

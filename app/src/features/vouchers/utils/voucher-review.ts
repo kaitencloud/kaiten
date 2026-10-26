@@ -20,6 +20,7 @@ export type VoucherReviewInput = NullableOptional<
     | 'durationInPeriods'
     | 'expiresAt'
     | 'grants'
+    | 'flagGrants'
     | 'maxRedemptions'
     | 'priceAppliesTo'
     | 'priceDiscountType'

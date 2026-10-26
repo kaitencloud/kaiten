@@ -46,8 +46,8 @@ describe('the entitlements a boost can change', () => {
     expect(
       isBoostable(buildEntitlement({ name: 'Credits', slug: 'credits', type: 'NUMBER_AI_CREDIT' })),
     ).toBe(true);
-    expect(isBoostable(buildEntitlement({ name: 'SSO', slug: 'sso', type: 'BOOLEAN' }))).toBe(false);
-    expect(isBoostable(buildEntitlement({ name: 'Theme', slug: 'theme', type: 'CONFIG' }))).toBe(false);
+    expect(isBoostable(buildEntitlement({ name: 'SSO', slug: 'sso', type: 'BOOLEAN' }))).toBe(true);
+    expect(isBoostable(buildEntitlement({ name: 'Theme', slug: 'theme', type: 'CONFIG' }))).toBe(true);
   });
 });
 

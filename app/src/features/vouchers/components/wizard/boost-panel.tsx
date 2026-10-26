@@ -25,11 +25,9 @@ type BoostPanelProps = {
 };
 
 /**
- * The offer of a boost: which numeric entitlements it changes, and how. A boost sets an
- * entitlement to a value, adds to it, multiplies it or lifts its limit; each is a
- * line, and an entitlement is changed once. Only the entitlements that carry a number
- * are offered, since the others have no value to change. A SET below what a license
- * grants is warned about on its line, and is sent all the same.
+ * A boost changes each entitlement once. Numeric grants offer every modifier;
+ * BOOLEAN and CONFIG accept SET with a typed value. A lowering SET warns on its
+ * line and remains permitted.
  */
 export const BoostPanel = withForm({
   ...voucherFormOpts,
@@ -85,7 +83,25 @@ export const BoostPanel = withForm({
                     key={grant.key}
                   >
                     <div className="grid items-start gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1.4fr)_minmax(0,1fr)_auto]">
-                      <form.AppField name={`grants[${index}].entitlementSlug`}>
+                      <form.AppField
+                        name={`grants[${index}].entitlementSlug`}
+                        listeners={{
+                          onChange: ({ value }) => {
+                            const type = entitlements.data?.items.find(
+                              (item) => item.slug === value,
+                            )?.type;
+                            form.setFieldValue(
+                              `grants[${index}].entitlementType`,
+                              type,
+                            );
+                            if (type === 'BOOLEAN' || type === 'CONFIG')
+                              form.setFieldValue(
+                                `grants[${index}].modifierType`,
+                                'SET',
+                              );
+                          },
+                        }}
+                      >
                         {(field) => (
                           <field.ComboboxField
                             getOptionLabel={(slug: unknown) =>
@@ -116,11 +132,35 @@ export const BoostPanel = withForm({
                               )
                             }
                             label={t('Pages.Vouchers.Wizard.Labels.modifier')}
-                            options={[...MODIFIER_TYPES]}
+                            options={
+                              grant.entitlementType === 'BOOLEAN' ||
+                              grant.entitlementType === 'CONFIG'
+                                ? ['SET']
+                                : [...MODIFIER_TYPES]
+                            }
                           />
                         )}
                       </form.AppField>
-                      {grant.modifierType === 'UNLIMITED' ? (
+                      {grant.entitlementType === 'BOOLEAN' ? (
+                        <form.AppField name={`grants[${index}].booleanValue`}>
+                          {(field) => (
+                            <field.SwitchField
+                              label={t('Pages.Vouchers.Wizard.Labels.value')}
+                            />
+                          )}
+                        </form.AppField>
+                      ) : grant.entitlementType === 'CONFIG' ? (
+                        <form.AppField name={`grants[${index}].jsonValue`}>
+                          {(field) => (
+                            <field.JsonField
+                              label={t('Pages.Vouchers.Wizard.Labels.value')}
+                              description={t(
+                                'Pages.Vouchers.Extensions.jsonObject',
+                              )}
+                            />
+                          )}
+                        </form.AppField>
+                      ) : grant.modifierType === 'UNLIMITED' ? (
                         <p className="self-center pt-6 text-sm text-muted-foreground">
                           {t('Pages.Vouchers.Wizard.unlimitedNote')}
                         </p>

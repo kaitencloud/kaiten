@@ -6,10 +6,10 @@ import { voucherRecovery } from '../pages/voucher-recovery';
 describe('the recovery descriptor of the voucher wizard', () => {
   it('pins the identity of what is stored, and keeps the code out of it', () => {
     expect(voucherRecovery.formId).toBe('vouchers.create');
-    expect(voucherRecovery.version).toBe(1);
+    expect(voucherRecovery.version).toBe(2);
     // The glossary keeps a code out of every storage of the browser.
     expect(voucherRecovery.omit).toEqual(['code']);
-    expect(voucherRecovery.ignore).toEqual(['grants[].key']);
+    expect(voucherRecovery.ignore).toEqual(['grants[].key', 'flagGrants[].key']);
     expect(voucherRecovery.steps).toEqual(['type', 'offer', 'eligibility', 'review']);
   });
 

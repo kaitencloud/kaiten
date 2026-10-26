@@ -17,6 +17,11 @@ type Placement = { field: string; step: AskingStep };
 // the API's own words, where the person is looking.
 const PLACEMENTS: Readonly<Record<string, Placement>> = {
   BoostUnsupportedEntitlementType: { field: 'grants', step: 'offer' },
+  FlagNotFound: { field: 'flagGrants', step: 'offer' },
+  FlagGrantsRequired: { field: 'flagGrants', step: 'offer' },
+  DuplicateFlagGrant: { field: 'flagGrants', step: 'offer' },
+  InvalidFlagGrant: { field: 'flagGrants', step: 'offer' },
+  InvalidComposite: { field: 'hasPrice', step: 'offer' },
   CodeConflict: { field: 'code', step: 'eligibility' },
   CurrencyRequired: { field: 'currency', step: 'offer' },
   CustomerNotFound: { field: 'restrictedCustomerSlug', step: 'eligibility' },

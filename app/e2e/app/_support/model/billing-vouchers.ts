@@ -58,6 +58,7 @@ export type BillingVouchersSeed = {
   known?: {
     customers?: string[];
     licenseIds?: string[];
+    flags?: Record<string, string[]>;
   };
   redemptions?: Redemption[];
   vouchers?: Voucher[];
@@ -65,7 +66,11 @@ export type BillingVouchersSeed = {
 
 export type SerializedBillingVouchers = {
   armedProblems: Array<[VoucherOperation, ArmedBillingProblem]>;
-  known: { customers: string[]; licenseIds: string[] };
+  known: {
+    customers: string[];
+    licenseIds: string[];
+    flags?: Record<string, string[]>;
+  };
   redemptions: Redemption[];
   sequence: number;
   vouchers: Voucher[];
@@ -93,6 +98,7 @@ export type BoostContribution = {
   modifierType: 'ADD' | 'MULTIPLY' | 'SET' | 'UNLIMITED';
   redeemedAt: string;
   value?: number;
+  typedValue?: boolean | Record<string, unknown>;
   voucherEntitlementGrantId: string;
   voucherId: string;
 };
@@ -123,14 +129,18 @@ const denied = (code: string, detail: string, status = 404) =>
  * API serves them (api/internal/modules/vouchers): the same checks in the same order
  * with the same codes, so that the console is exercised against the reasons it will
  * really be given, and the same quirks it must work around -- an update of an
- * ACTIVE voucher writes the rules and the description it is given and ignores a changed
- * grant. The expiry job is not run: a voucher is EXPIRED where a world seeds it so. A
+ * ACTIVE voucher keeps its offer immutable. The expiry job is not run: a voucher
+ * is EXPIRED where a world seeds it so. A
  * redemption changes what the rest of the model answers: its voucher's count, the
  * effective values of the instance for a boost and the next invoice for a discount.
  */
 export class BillingVouchers {
   private readonly problems = new ArmedProblems<VoucherOperation>();
-  private known: { customers: string[]; licenseIds: string[] };
+  private known: {
+    customers: string[];
+    licenseIds: string[];
+    flags?: Record<string, string[]>;
+  };
   private redemptions: Redemption[];
   private sequence = 1;
   private vouchers: Editable<Voucher>[];
@@ -160,6 +170,7 @@ export class BillingVouchers {
     this.known = {
       customers: [...(seed.known?.customers ?? [])],
       licenseIds: [...(seed.known?.licenseIds ?? [])],
+      flags: clone(seed.known?.flags ?? {}),
     };
   }
 
@@ -400,7 +411,7 @@ export class BillingVouchers {
       'createdAt' | 'id' | 'redemptionsCount' | 'status' | 'updatedAt'
     >,
   ): Voucher {
-    const isPrice = draft.voucherType === 'PRICE';
+    const isPrice = draft.priceDiscountType != null;
 
     return {
       applicableAddonIds: [...(draft.applicableAddonIds ?? [])],
@@ -504,6 +515,7 @@ export class BillingVouchers {
   private references(): VoucherReferences {
     return {
       ...this.world,
+      flagVariants: (slug) => this.known.flags?.[slug],
       hasCustomer: (slug) =>
         this.world.hasCustomer(slug) || this.known.customers.includes(slug),
       hasLicense: (id) =>
@@ -660,7 +672,7 @@ export class BillingVouchers {
       {
         applicationsCount: 0,
         applicationsMax:
-          voucher.voucherType === 'PRICE'
+          voucher.voucherType === 'PRICE' || voucher.priceDiscountType != null
             ? (applicationsMaxOf(voucher) ?? null)
             : null,
         codeHint: voucher.codeHint,
@@ -833,7 +845,7 @@ export class BillingVouchers {
     if (!voucher) {
       return 'unknown';
     }
-    if (voucher.status !== 'ACTIVE' || voucher.voucherType !== 'PRICE') {
+    if (voucher.status !== 'ACTIVE' || voucher.priceDiscountType == null) {
       return 'invalid';
     }
     const now = this.nowIso();
@@ -866,7 +878,8 @@ export class BillingVouchers {
       .filter(
         (redemption) =>
           redemption.instanceSlug === instanceSlug &&
-          redemption.voucherType === 'PRICE',
+          (redemption.voucherType === 'PRICE' ||
+            this.find(redemption.voucherId)?.priceDiscountType != null),
       )
       .flatMap((redemption) => {
         const voucher = this.find(redemption.voucherId);
@@ -906,7 +919,8 @@ export class BillingVouchers {
       .filter(
         (redemption) =>
           redemption.instanceSlug === instanceSlug &&
-          redemption.voucherType === 'ENTITLEMENT_BOOST' &&
+          (redemption.voucherType === 'ENTITLEMENT_BOOST' ||
+            redemption.voucherType === 'COMPOSITE') &&
           isInForce(redemption, now),
       )
       .sort((a, b) => Date.parse(a.redeemedAt) - Date.parse(b.redeemedAt))
@@ -918,6 +932,7 @@ export class BillingVouchers {
           instanceVoucherId: redemption.id,
           modifierType: grant.modifierType,
           redeemedAt: redemption.redeemedAt,
+          typedValue: grant.value ?? undefined,
           value:
             grant.modifierValue == null
               ? undefined

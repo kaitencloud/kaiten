@@ -1,3 +1,5 @@
+import { createFeatureFlagsListModel } from '../feature-flags/feature-flags.scenarios';
+import { installFeatureFlagAppMocks } from '../_support/mocks/install-feature-flag-app-mocks';
 import type { Page } from '@playwright/test';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installInstanceAppMocks } from '../_support/mocks/install-instance-app-mocks';
@@ -18,6 +20,7 @@ export async function installVouchersWorld(
   page: Page,
   billing = createVouchersBillingModel(),
 ) {
+  await installFeatureFlagAppMocks(page, createFeatureFlagsListModel());
   await installInstanceAppMocks(page, createVouchersInstancesModel());
   await installLicenseAppMocks(page, createVouchersLicensesModel());
   await installBillingAppMocks(page, billing);

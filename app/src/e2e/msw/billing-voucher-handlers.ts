@@ -30,6 +30,8 @@ const VOUCHER_STATUSES: readonly Voucher['status'][] = [
 const VOUCHER_TYPES: readonly Voucher['voucherType'][] = [
   'PRICE',
   'ENTITLEMENT_BOOST',
+  'FLAG_GRANT',
+  'COMPOSITE',
 ];
 const REDEMPTION_STATUSES: readonly Redemption['status'][] = [
   'ACTIVE',

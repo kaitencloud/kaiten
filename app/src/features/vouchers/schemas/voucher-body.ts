@@ -12,6 +12,8 @@ import { majorToMinorDecimal, minorToMajorDecimal } from '@/lib/money';
 import {
   initialVoucherFormValues,
   newGrant,
+  newFlagGrant,
+  readConfigValue,
   readFixedAmount,
   readPercentage,
   type GrantFormValues,
@@ -79,6 +81,19 @@ export function redemptionRulesToFormValues(
 }
 
 function grantToBody(grant: GrantFormValues): Grant {
+  if (
+    grant.entitlementType === 'BOOLEAN' ||
+    grant.entitlementType === 'CONFIG'
+  ) {
+    return {
+      entitlementSlug: grant.entitlementSlug,
+      modifierType: 'SET',
+      value:
+        grant.entitlementType === 'BOOLEAN'
+          ? Boolean(grant.booleanValue)
+          : (readConfigValue(grant.jsonValue ?? '') ?? {}),
+    };
+  }
   return {
     entitlementSlug: grant.entitlementSlug,
     modifierType: grant.modifierType,
@@ -113,7 +128,14 @@ function priceMembers(values: VoucherFormValues): Partial<VoucherDraft> {
 export function voucherFormValuesToBody(
   values: VoucherFormValues,
 ): VoucherDraft {
-  const boost = values.voucherType === 'ENTITLEMENT_BOOST';
+  const composite = values.voucherType === 'COMPOSITE';
+  const boost =
+    values.voucherType === 'ENTITLEMENT_BOOST' ||
+    (composite && values.hasBoost);
+  const price =
+    values.voucherType === 'PRICE' || (composite && values.hasPrice);
+  const flags =
+    values.voucherType === 'FLAG_GRANT' || (composite && values.hasFlags);
 
   return {
     applicableAddonIds: values.applicableAddonIds,
@@ -127,13 +149,21 @@ export function voucherFormValuesToBody(
         : undefined,
     expiresAt: toOptionalInstant(values.expiresAt),
     grants: boost ? values.grants.map(grantToBody) : undefined,
+    ...(flags
+      ? {
+          flagGrants: values.flagGrants.map(({ flagSlug, variant }) => ({
+            flagSlug,
+            variant,
+          })),
+        }
+      : {}),
     maxRedemptions: toOptionalCount(values.maxRedemptions),
     name: values.name.trim(),
     redemptionRules: redemptionRulesToBody(values),
     restrictedCustomerSlug: toOptionalText(values.restrictedCustomerSlug),
     startsAt: toOptionalInstant(values.startsAt),
     voucherType: values.voucherType,
-    ...(boost ? {} : priceMembers(values)),
+    ...(price ? priceMembers(values) : {}),
   };
 }
 
@@ -164,7 +194,25 @@ export function voucherToFormValues(voucher: Voucher): VoucherFormValues {
       entitlementSlug: grant.entitlementSlug,
       modifierType: grant.modifierType,
       modifierValue: grant.modifierValue ?? '',
+      entitlementType:
+        typeof grant.value === 'boolean'
+          ? 'BOOLEAN'
+          : grant.value != null
+            ? 'CONFIG'
+            : undefined,
+      booleanValue: typeof grant.value === 'boolean' ? grant.value : false,
+      jsonValue:
+        grant.value != null && typeof grant.value === 'object'
+          ? JSON.stringify(grant.value, null, 2)
+          : '{}',
     })),
+    flagGrants: voucher.flagGrants.map((grant) => ({
+      ...newFlagGrant(),
+      ...grant,
+    })),
+    hasPrice: voucher.priceDiscountType != null,
+    hasBoost: voucher.grants.length > 0,
+    hasFlags: voucher.flagGrants.length > 0,
     maxRedemptions: voucher.maxRedemptions ?? Number.NaN,
     name: voucher.name,
     percentage: fixed ? '' : (voucher.priceDiscountValue ?? ''),
