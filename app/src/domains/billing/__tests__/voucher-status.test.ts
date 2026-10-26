@@ -66,7 +66,15 @@ describe('the words of a voucher', () => {
       ),
     ];
 
-    expect(keys).toHaveLength(10);
+    // V32-03 (c, d) adds FLAG_GRANT and COMPOSITE to V1: five voucher states,
+    // four kinds and three redemption states must all have words in both locales.
+    expect(VOUCHER_TYPES).toEqual([
+      'PRICE',
+      'ENTITLEMENT_BOOST',
+      'FLAG_GRANT',
+      'COMPOSITE',
+    ]);
+    expect(keys).toHaveLength(12);
     for (const key of keys) {
       expect(read(en, key), key).toEqual(expect.any(String));
       expect(read(fr, key), key).toEqual(expect.any(String));

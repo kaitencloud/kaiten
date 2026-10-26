@@ -66,7 +66,7 @@ export function getRedemptionStatus(
   return redemption.status;
 }
 
-/** What a voucher is (`Voucher.voucherType`): V1 ships a discount on the invoices and a boost of an entitlement. */
+/** What a voucher is (`Voucher.voucherType`): V1 includes all four kinds (V32-03). */
 export type VoucherType = Voucher['voucherType'];
 
 export const VOUCHER_TYPES = [

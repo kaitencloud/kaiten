@@ -16,7 +16,7 @@ import { installVouchersWorld } from '../vouchers/install-vouchers-world';
 // The vouchers as a person who cannot use a mouse or a screen meets them: no violation on the
 // list, on each step of the wizard, on the page of a voucher and on the card of an instance, in
 // either theme; each dialog keeping the focus inside while it is open and closing on Escape;
-// what cannot be chosen yet kept in the tab order with the reason said to whoever reaches it.
+// every V1 kind reached and selected by the keyboard, with its description read aloud.
 
 test.beforeEach(async ({ page }) => {
   await page.clock.setFixedTime(new Date(BILLED_NOW));
@@ -68,7 +68,7 @@ test.describe('accessibility of the list of vouchers', () => {
 });
 
 test.describe('accessibility of the wizard that makes a voucher', () => {
-  test('the first step has no violations in either theme, with the two kinds that come later greyed out', async ({
+  test('the first step has no violations in either theme, with all four V1 kinds available', async ({
     page,
   }) => {
     const wizard = new VoucherWizardDriver(page);
@@ -78,21 +78,47 @@ test.describe('accessibility of the wizard that makes a voucher', () => {
     await expectAccessibleInBothThemes(page);
   });
 
-  test('the kinds that come later stay in the tab order and say why to whoever reaches them', async ({
+  test('feature grants and bundles are described and can be selected in the tab order', async ({
     page,
   }) => {
     const wizard = new VoucherWizardDriver(page);
     await wizard.goto();
 
-    await wizard.kind('Feature grant').focus();
+    // V32-03 (c, d) brings both kinds into V1. They are now usable choices,
+    // with a description and a pressed state a screen reader can announce.
+    await wizard.kind('Boost').focus();
+    await page.keyboard.press('Tab');
 
     await expect(wizard.kind('Feature grant')).toBeFocused();
-    await expect(wizard.kind('Feature grant')).toHaveAttribute(
+    await expect(wizard.kind('Feature grant')).toBeEnabled();
+    await expect(wizard.kind('Feature grant')).not.toHaveAttribute(
       'aria-disabled',
       'true',
     );
-    await expect(wizard.kind('Feature grant')).toContainText(
-      'Available in a later version',
+    await expect(wizard.kind('Feature grant')).toHaveAccessibleDescription(
+      'Grants a feature flag variant for the redemption window.',
+    );
+    await page.keyboard.press('Enter');
+    await expect(wizard.kind('Feature grant')).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+
+    await page.keyboard.press('Tab');
+    await expect(wizard.kind('Bundle')).toBeFocused();
+    await expect(wizard.kind('Bundle')).toBeEnabled();
+    await expect(wizard.kind('Bundle')).not.toHaveAttribute(
+      'aria-disabled',
+      'true',
+    );
+    await expect(wizard.kind('Bundle')).toHaveAccessibleDescription(
+      'Combines at least two of discount, boost and feature grants.',
+    );
+    await page.keyboard.press('Space');
+    await expect(wizard.kind('Bundle')).toHaveAttribute('aria-pressed', 'true');
+    await expect(wizard.kind('Feature grant')).toHaveAttribute(
+      'aria-pressed',
+      'false',
     );
   });
 
