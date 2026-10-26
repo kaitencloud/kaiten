@@ -52,6 +52,7 @@ export function EntitlementProvenanceLayers({
       <PopoverTrigger
         render={
           <Button
+            data-row-actions
             size="sm"
             variant="ghost"
             aria-label={t(`${KEY}.provenanceName`, { name })}

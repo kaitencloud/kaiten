@@ -20,7 +20,8 @@ Dates are entered in UTC. A lowering SET warns before submission, and an overlap
 opens the conflicting record using the documented Problem `exceptionId`.
 
 Public provenance displays typed boosts and the final exception's effect and
-window, including exception-only rows. It never reads a reason or actor. Reasons
+window, including exception-only rows. Its control opens the note without
+navigating the entitlement row. It never reads a reason or actor. Reasons
 remain in the vendor exception panel. The current REST contract serves neither
 an author nor a revoker, so those columns from screen 17 (V-99) remain unavailable.
 
