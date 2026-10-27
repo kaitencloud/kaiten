@@ -1,3 +1,4 @@
+import { expectAiCapabilityAfterNavigation } from '../_support/assertions/ai-capability';
 import { expect, expectToast, recordWrites, test } from '../_support/app-test';
 import { AddonsListDriver } from '../_support/drivers/addons-list.driver';
 import { LicensePriceDrawerDriver } from '../_support/drivers/license-price-drawer.driver';
@@ -285,16 +286,9 @@ test.describe('adding a price', () => {
     const prices = new LicensePricesDriver(page);
     const drawer = new LicensePriceDrawerDriver(page);
     const writes = recordWrites(page, PRICE_WRITES);
-    const capabilityResponse = page.waitForResponse(
-      (response) =>
-        new URL(response.url()).pathname === '/api/ai/capabilities' &&
-        response.request().method() === 'GET',
+    await expectAiCapabilityAfterNavigation(page, () =>
+      prices.goto('pro-v4', 'Pro'),
     );
-    await prices.goto('pro-v4', 'Pro');
-    const capability = await capabilityResponse;
-    expect(capability.status()).toBe(200);
-    expect(await capability.json()).toEqual({ enabled: true });
-    expect(capability.headers()['cache-control']).toContain('no-store');
     await prices.addPrice().click();
     await drawer.chooseModel('Usage-based');
     await expect(drawer.meterOption('AI credits')).toBeEnabled();
