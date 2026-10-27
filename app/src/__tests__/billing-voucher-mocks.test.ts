@@ -347,6 +347,22 @@ describe('the vouchers, as the mocks serve them', () => {
     );
   });
 
+  it('deletes a voucher never redeemed, whatever its state, and refuses one redeemed', async () => {
+    const draft = await send('DELETE', '/vouchers/voucher-summer-sale');
+    const expired = await send('DELETE', '/vouchers/voucher-spring-promo');
+    const redeemed = await send('DELETE', '/vouchers/voucher-black-friday');
+    const unknown = await send('DELETE', '/vouchers/voucher-unknown');
+
+    expect(draft.status).toBe(204);
+    expect(expired.status).toBe(204);
+    expect((await send('GET', '/vouchers/voucher-summer-sale')).status).toBe(404);
+    expect(redeemed.status).toBe(409);
+    expect((await refusal(redeemed)).code).toBe('DeleteVoucher.Redeemed');
+    expect((await send('GET', '/vouchers/voucher-black-friday')).status).toBe(200);
+    expect(unknown.status).toBe(404);
+    expect((await refusal(unknown)).code).toBe('DeleteVoucher.NotFound');
+  });
+
   it('replaces a draft in full but its type', async () => {
     const draft = await json<Voucher>(
       await send('GET', '/vouchers/voucher-summer-sale'),

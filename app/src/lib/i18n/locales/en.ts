@@ -5377,6 +5377,14 @@ export default {
           confirm: 'Archive',
           success: 'Voucher archived',
         },
+        delete: {
+          label: 'Delete',
+          title: 'Delete {{name}}?',
+          description:
+            'No instance has redeemed this voucher. It is deleted with its offer, and its code can be given to another voucher. A voucher redeemed at least once is history and cannot be deleted: archive it instead.',
+          confirm: 'Delete',
+          success: 'Voucher deleted',
+        },
       },
       Code: {
         label: 'Voucher code',
@@ -7026,6 +7034,7 @@ export default {
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: 'Organization token issued',
         VOUCHER_ARCHIVED: 'Voucher archived',
         VOUCHER_CREATED: 'Voucher created',
+        VOUCHER_DELETED: 'Voucher deleted',
         VOUCHER_EXHAUSTED: 'Voucher fully redeemed',
         VOUCHER_EXPIRED: 'Voucher expired',
         VOUCHER_PUBLISHED: 'Voucher published',

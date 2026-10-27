@@ -146,6 +146,7 @@ var awaitingSDKOperations = map[string]string{
 	"updateVoucher":            awaitsBilling,
 	"publishVoucher":           awaitsBilling,
 	"archiveVoucher":           awaitsBilling,
+	"deleteVoucher":            awaitsBilling,
 	"listVoucherRedemptions":   awaitsBilling,
 	"validateVoucher":          awaitsBilling,
 	"redeemVoucher":            awaitsBilling,

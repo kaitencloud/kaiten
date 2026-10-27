@@ -42,6 +42,7 @@ type Editable<T> = { -readonly [K in keyof T]: T[K] };
 export type VoucherOperation =
   | 'archiveVoucher'
   | 'createVoucher'
+  | 'deleteVoucher'
   | 'getVoucher'
   | 'listInstanceVouchers'
   | 'listVoucherRedemptions'
@@ -487,6 +488,24 @@ export class BillingVouchers {
     }
 
     return this.setStatus(voucher, 'ARCHIVED');
+  }
+
+  /**
+   * `DELETE /vouchers/{voucherId}`: a voucher no instance ever redeemed, whatever its
+   * state. The checkouts waiting for their payment, which the API also refuses for, are
+   * not modelled.
+   */
+  deleteVoucher(id: string) {
+    this.problems.consume('deleteVoucher');
+    const voucher = this.require(id, 'DeleteVoucher');
+    if (voucher.redemptionsCount > 0) {
+      throw denied(
+        'DeleteVoucher.Redeemed',
+        'this voucher was redeemed: it is history and cannot be deleted; archive it instead',
+        409,
+      );
+    }
+    this.vouchers = this.vouchers.filter((candidate) => candidate !== voucher);
   }
 
   private setStatus(

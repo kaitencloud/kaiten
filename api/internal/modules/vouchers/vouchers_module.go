@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/archivevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/createvoucher"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/deletevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/expiry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/getvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/listinstancevouchers"
@@ -29,6 +30,7 @@ type UseCases struct {
 	UpdateVoucher          *updatevoucher.UseCase
 	PublishVoucher         *publishvoucher.UseCase
 	ArchiveVoucher         *archivevoucher.UseCase
+	DeleteVoucher          *deletevoucher.UseCase
 	ListVoucherRedemptions *listvoucherredemptions.UseCase
 	ValidateVoucher        *validatevoucher.UseCase
 	RedeemVoucher          *redeemvoucher.UseCase
@@ -52,6 +54,7 @@ func NewUseCases(svc services.Container) *UseCases {
 		UpdateVoucher:          updatevoucher.NewUseCase(deps),
 		PublishVoucher:         publishvoucher.NewUseCase(deps),
 		ArchiveVoucher:         archivevoucher.NewUseCase(deps),
+		DeleteVoucher:          deletevoucher.NewUseCase(deps),
 		ListVoucherRedemptions: listvoucherredemptions.NewUseCase(deps),
 		ValidateVoucher:        validatevoucher.NewUseCase(deps),
 		RedeemVoucher:          redeemvoucher.NewUseCase(deps),

@@ -101,6 +101,26 @@ WHERE v.organization_id = sqlc.arg(organization_id)
 FOR UPDATE;
 
 
+-- name: DeleteVoucher :exec
+-- Its grants and flag grants go with it (ON DELETE CASCADE), which releases
+-- the entitlements and flags they pinned and frees its code. A redemption
+-- holds it (RESTRICT): the use case refuses first, under LockVoucher.
+DELETE
+FROM voucher
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
+
+
+-- name: VoucherAwaitsPayment :one
+-- Whether a checkout waiting for its payment applies the voucher: its
+-- ACTIVATION already discounted it, and the payment records the redemption
+-- by the code (§9.10 rule 3). No foreign key holds pending_selection.
+SELECT EXISTS (SELECT 1
+               FROM instance_billing ib
+               WHERE ib.organization_id = sqlc.arg(organization_id)
+                 AND ib.pending_selection -> 'voucher' ->> 'voucherId' = sqlc.arg(voucher_id)::uuid::text)::boolean AS pending;
+
+
 -- name: ListVoucherGrants :many
 SELECT g.voucher_id, g.modifier_type, coalesce(g.modifier_value::text, '')::text AS modifier_value, e.slug AS entitlement_slug,
        g.entitlement_id, g.value

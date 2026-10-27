@@ -172,6 +172,7 @@ export const AUDIT_EVENT_LABEL_KEYS = {
     'Features.AuditTrail.events.SYSTEM_ORGANIZATION_TOKEN_ISSUED',
   VOUCHER_ARCHIVED: 'Features.AuditTrail.events.VOUCHER_ARCHIVED',
   VOUCHER_CREATED: 'Features.AuditTrail.events.VOUCHER_CREATED',
+  VOUCHER_DELETED: 'Features.AuditTrail.events.VOUCHER_DELETED',
   VOUCHER_EXHAUSTED: 'Features.AuditTrail.events.VOUCHER_EXHAUSTED',
   VOUCHER_EXPIRED: 'Features.AuditTrail.events.VOUCHER_EXPIRED',
   VOUCHER_PUBLISHED: 'Features.AuditTrail.events.VOUCHER_PUBLISHED',

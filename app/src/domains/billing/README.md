@@ -599,7 +599,8 @@ page holds, or an export the API streams.
   The transitions a thing goes through may be fewer than three: a voucher is published and
   archived and never put back on sale, so `VersionLifecycleAction` and
   `VersionLifecycleKeys` are generic over the transitions they say, and the block that
-  stops the archiving of a default is optional.
+  stops the archiving of a default is optional. `VersionDraftDeleteAction` deletes a voucher
+  no instance redeemed too, whatever its state: its guard is the count of its redemptions.
 - **A voucher shows the status the API stores.** The API sets EXPIRED once an ACTIVE
   voucher's end has passed (the billing-lifecycle job) and EXHAUSTED with the redemption
   that reaches its maximum, so `VoucherStatusBadge`, the filter and the column of the list

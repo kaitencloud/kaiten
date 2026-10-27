@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import { Button } from '@/components/ui/button';
 import { useCanPerform } from '@/domains/billing';
+import { VoucherDeleteAction } from './voucher-delete-action';
 import { VoucherLifecycleAction } from './voucher-lifecycle-action';
 
 type VoucherActionsProps = {
@@ -15,8 +16,9 @@ type VoucherActionsProps = {
  * wizard that made it, published, or archived; a published one has its name, description,
  * end date and maximum changed in a dialog, or is archived; the ones the API closed
  * (fully redeemed, expired) and the archived ones can only be read. A discount offers the
- * boost that goes with it. The state read here is the stored one: a voucher past its
- * window still takes the changes that lift it.
+ * boost that goes with it. One no instance redeemed can be deleted, whatever its state.
+ * The state read here is the stored one: a voucher past its window still takes the
+ * changes that lift it.
  */
 export function VoucherActions({ voucher }: VoucherActionsProps) {
   const { t } = useTranslation();
@@ -82,6 +84,7 @@ export function VoucherActions({ voucher }: VoucherActionsProps) {
           variant="outline"
         />
       ) : null}
+      <VoucherDeleteAction voucher={voucher} />
       {draft ? (
         <VoucherLifecycleAction transition="publish" voucher={voucher} />
       ) : null}

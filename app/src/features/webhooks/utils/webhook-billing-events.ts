@@ -190,6 +190,10 @@ export const BILLING_WEBHOOK_EVENTS = {
     type: 'com.kaiten.voucher.v1.created',
     group: 'voucher',
   },
+  VOUCHER_DELETED: {
+    type: 'com.kaiten.voucher.v1.deleted',
+    group: 'voucher',
+  },
   VOUCHER_EXHAUSTED: {
     type: 'com.kaiten.voucher.v1.exhausted',
     group: 'voucher',

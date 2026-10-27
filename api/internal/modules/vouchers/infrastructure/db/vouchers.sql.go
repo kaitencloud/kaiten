@@ -88,6 +88,26 @@ func (q *Queries) CountLicenses(ctx context.Context, arg CountLicensesParams) (i
 	return column_1, err
 }
 
+const deleteVoucher = `-- name: DeleteVoucher :exec
+DELETE
+FROM voucher
+WHERE organization_id = $1
+  AND id = $2
+`
+
+type DeleteVoucherParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	ID             uuid.UUID `json:"id"`
+}
+
+// Its grants and flag grants go with it (ON DELETE CASCADE), which releases
+// the entitlements and flags they pinned and frees its code. A redemption
+// holds it (RESTRICT): the use case refuses first, under LockVoucher.
+func (q *Queries) DeleteVoucher(ctx context.Context, arg DeleteVoucherParams) error {
+	_, err := q.db.Exec(ctx, deleteVoucher, arg.OrganizationID, arg.ID)
+	return err
+}
+
 const deleteVoucherFlagGrants = `-- name: DeleteVoucherFlagGrants :exec
 DELETE FROM voucher_flag_grant
 WHERE organization_id = $1
@@ -720,6 +740,28 @@ func (q *Queries) UpdateVoucher(ctx context.Context, arg UpdateVoucherParams) er
 		arg.ID,
 	)
 	return err
+}
+
+const voucherAwaitsPayment = `-- name: VoucherAwaitsPayment :one
+SELECT EXISTS (SELECT 1
+               FROM instance_billing ib
+               WHERE ib.organization_id = $1
+                 AND ib.pending_selection -> 'voucher' ->> 'voucherId' = $2::uuid::text)::boolean AS pending
+`
+
+type VoucherAwaitsPaymentParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	VoucherID      uuid.UUID `json:"voucher_id"`
+}
+
+// Whether a checkout waiting for its payment applies the voucher: its
+// ACTIVATION already discounted it, and the payment records the redemption
+// by the code (§9.10 rule 3). No foreign key holds pending_selection.
+func (q *Queries) VoucherAwaitsPayment(ctx context.Context, arg VoucherAwaitsPaymentParams) (bool, error) {
+	row := q.db.QueryRow(ctx, voucherAwaitsPayment, arg.OrganizationID, arg.VoucherID)
+	var pending bool
+	err := row.Scan(&pending)
+	return pending, err
 }
 
 const voucherClock = `-- name: VoucherClock :one

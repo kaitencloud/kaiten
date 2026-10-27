@@ -311,7 +311,8 @@ export const DetailOfABoost: Story = {
   },
 };
 
-// A draft is finished where it was made, published, or archived; it has no redemptions.
+// A draft is finished where it was made, published, archived or deleted; it has no
+// redemptions.
 export const DetailOfADraft: Story = {
   parameters: { msw: { handlers: handlersFor(DRAFT) } },
   render: () => (
@@ -324,13 +325,14 @@ export const DetailOfADraft: Story = {
       await screen.findByRole('button', { name: 'Publish' }),
     ).toBeVisible();
     await expect(screen.getByRole('button', { name: 'Archive' })).toBeVisible();
+    await expect(screen.getByRole('button', { name: 'Delete' })).toBeVisible();
     await expect(
       await screen.findByText('No instance has redeemed this voucher yet.'),
     ).toBeVisible();
   },
 };
 
-// An archived voucher can only be read.
+// An archived voucher is read, and deleted only when no instance redeemed it, as here.
 export const DetailOfAnArchivedVoucher: Story = {
   parameters: { msw: { handlers: handlersFor(ARCHIVED) } },
   render: () => (
@@ -347,5 +349,8 @@ export const DetailOfAnArchivedVoucher: Story = {
         screen.queryByRole('button', { name: action }),
       ).not.toBeInTheDocument();
     }
+    await expect(
+      await screen.findByRole('button', { name: 'Delete' }),
+    ).toBeVisible();
   },
 };
