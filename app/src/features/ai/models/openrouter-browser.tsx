@@ -3,7 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { Model } from '@/api-client';
-import { useAiNavigationContext } from '@/domains/ai-credits';
+import {
+  useAiNavigationContext,
+  useAiAccess,
+  assertAiRequestAllowed,
+} from '@/domains/ai-credits';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AiLoading, AiQueryError } from '../ai-section';
@@ -53,14 +57,19 @@ export function OpenRouterBrowser({
 }) {
   const { t } = useTranslation();
   const context = useAiNavigationContext();
+  const access = useAiAccess();
   const [search, setSearch] = useState('');
   const [limit, setLimit] = useState(30);
   const query = useQuery({
     queryKey: ['openrouter', 'public-catalogue'],
-    queryFn: async ({ signal }) => ({
-      entries: await fetchOpenRouterCatalogue(signal),
-      checkedAt: new Date().toISOString(),
-    }),
+    enabled: access.allows('listModels'),
+    queryFn: async ({ signal, client }) => {
+      assertAiRequestAllowed(client);
+      return {
+        entries: await fetchOpenRouterCatalogue(signal),
+        checkedAt: new Date().toISOString(),
+      };
+    },
     staleTime: 0,
     retry: false,
     refetchOnWindowFocus: false,
@@ -72,6 +81,7 @@ export function OpenRouterBrowser({
       value.toLocaleLowerCase().includes(needle),
     ),
   );
+  if (!access.available) return null;
   if (query.isPending) return <AiLoading label={t('AI.OpenRouter.loading')} />;
   if (query.isError)
     return (

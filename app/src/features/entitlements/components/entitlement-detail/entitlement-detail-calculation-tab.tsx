@@ -245,6 +245,7 @@ export function EntitlementDetailCalculationTab(props: CalculationProps) {
   const { entitlement } = useEntitlementDetailContext();
   const access = useAiAccess();
   const { t } = useTranslation();
+  if (!access.available) return null;
   if (entitlement.type !== 'NUMBER_AI_CREDIT')
     return <p>{t('AI.Calculation.notCalculated')}</p>;
   const mayRead =

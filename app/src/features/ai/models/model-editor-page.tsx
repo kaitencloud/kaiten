@@ -13,6 +13,7 @@ export function ModelEditorPage({ modelSlug }: { modelSlug?: string }) {
     ...getModelOptions({ path: { modelSlug: modelSlug ?? '' } }),
     enabled: Boolean(modelSlug) && mayWrite,
   });
+  if (!access.available) return null;
   if (access.isPending)
     return <AiLoading label={t('AI.Calculation.loadingAccess')} />;
   if (!mayWrite) return <p role="status">{t('AI.Calculation.modelDenied')}</p>;

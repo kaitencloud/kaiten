@@ -31,6 +31,7 @@ const stopPropagation = (event: MouseEvent) => {
 type UseEntitlementColumnsOptions = {
   entitlements: Entitlement[];
   licenseSlug?: string;
+  mayConfigureAi?: boolean;
   closeEdit: () => void;
   editingEntitlementId: string | null;
   editingField: LicenseEntitlementEditingField | null;
@@ -52,6 +53,7 @@ type UseEntitlementColumnsOptions = {
 export function useEntitlementColumns({
   entitlements,
   licenseSlug,
+  mayConfigureAi = false,
   closeEdit,
   editingEntitlementId,
   editingField,
@@ -127,6 +129,7 @@ export function useEntitlementColumns({
               entitlementSlug={entitlementSlug}
               definition={definition}
               licenseSlug={licenseSlug}
+              mayConfigureAi={mayConfigureAi}
             />
           );
         },
@@ -319,6 +322,7 @@ export function useEntitlementColumns({
   }, [
     catalogueById,
     licenseSlug,
+    mayConfigureAi,
     closeEdit,
     editingEntitlementId,
     editingField,

@@ -1,7 +1,6 @@
 import { hasScope } from '@/lib/granted-scopes';
 import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
-import { useQuery } from '@tanstack/react-query';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { useAiAccess } from '@/domains/ai-credits';
 import { useTranslation } from 'react-i18next';
 import {
   canPerformAction,
@@ -124,7 +123,8 @@ export function useResolvedIntegrationsItems() {
  */
 export function useResolvedCatalogItems() {
   const routes = useResolvedSubRoutes(catalogSubRoutes);
-  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
+  const access = useAiAccess();
+  const aiEnabled = access.available;
   const { scopes, isPending } = useGrantedScopes();
   const mayReadModels =
     !isPending &&

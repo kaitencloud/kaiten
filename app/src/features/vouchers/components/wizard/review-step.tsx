@@ -1,3 +1,5 @@
+import { useAiAccess } from '@/domains/ai-credits';
+import { visibleVoucherGrants } from '../../utils/visible-voucher-grants';
 import { useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
 import { VoucherTypeBadge } from '@/domains/billing';
@@ -21,8 +23,18 @@ export const ReviewStep = withForm({
   props: {} as ReviewStepProps,
   render: function ReviewStepRender({ form, references }) {
     const { i18n, t } = useTranslation();
+    const access = useAiAccess();
     const values = useStore(form.store, (state) => state.values);
-    const sentences = describeVoucherReview(voucherFormValuesToBody(values), {
+    const body = voucherFormValuesToBody(values);
+    const projection = {
+      ...body,
+      grants: visibleVoucherGrants(
+        body.grants ?? [],
+        references.names,
+        access.available,
+      ).map(({ grant }) => grant),
+    };
+    const sentences = describeVoucherReview(projection, {
       language: i18n.language,
       names: references.names,
       t,

@@ -1,3 +1,5 @@
+import { QueryClient } from '@tanstack/react-query';
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { expect, it } from 'vite-plus/test';
 import { HttpResponse } from 'msw/http';
 import { handleListModels, handleGetLicenses, handleListConversionRules } from '@/api-client/msw.gen';
@@ -17,7 +19,9 @@ it('lists exact wildcard impact across versions without excluding ungranted pool
     { modelSlug: null, entitlementSlug: 'credits', grantedByLicense: false },
     { modelSlug: 'exact', entitlementSlug: 'excluded' },
   ])));
-  const rows = await wildcardQueryOptions.queryFn!({ signal: new AbortController().signal } as never);
+  const client = new QueryClient();
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
+  const rows = await wildcardQueryOptions.queryFn!({ signal: new AbortController().signal, client } as never);
   expect(rows).toEqual([{ licenseSlug: 'version-one', entitlementSlug: 'credits' }, { licenseSlug: 'version-two', entitlementSlug: 'credits' }]);
 });
 it('inherits generated model constraints and accepts optional disjoint cache costs', () => {

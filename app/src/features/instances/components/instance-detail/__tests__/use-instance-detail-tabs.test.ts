@@ -3,9 +3,11 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { useInstanceDetailTabs } from '../use-instance-detail-tabs';
 
 const { billing, pathname } = vi.hoisted(() => ({
-  billing: { enabled: true, mayRead: true, ai: false },
+  billing: { enabled: true, mayRead: true, ai: false, aiCapability: false },
   pathname: { current: '/customers/instances/globex-production' },
 }));
+
+vi.mock('@/domains/ai-credits/use-ai-access', () => ({ useAiAccess: () => ({ available: billing.aiCapability && billing.ai, allows: () => billing.aiCapability && billing.ai }) }));
 
 vi.mock('@tanstack/react-query', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@tanstack/react-query')>()),
@@ -30,6 +32,7 @@ beforeEach(() => {
   billing.enabled = true;
   billing.mayRead = true;
  billing.ai = false;
+ billing.aiCapability = false;
 });
 
 function activeTabAt(path: string, slug = 'globex-production') {
@@ -42,6 +45,7 @@ function activeTabAt(path: string, slug = 'globex-production') {
 describe('useInstanceDetailTabs', () => {
  it('adds the flagged AI tab without changing Billing access', () => {
   billing.ai = true;
+  billing.aiCapability = true;
   billing.enabled = false;
   const {result} = renderHook(() => useInstanceDetailTabs('globex-production'));
   expect(result.current.items.map((item) => item.value)).toEqual(['ai-usage', 'overview', 'entitlements', 'audit-trail']);

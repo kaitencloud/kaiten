@@ -1,3 +1,4 @@
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { AiNavigationProvider, type AiNavigationContext } from '@/domains/ai-credits';
 import { Suspense, type ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -26,6 +27,7 @@ const model = { id: 'test-model', createdAt: '2026-10-19T00:00:00Z', updatedAt: 
 function renderForm(value?: Model, context: AiNavigationContext = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
   client.setQueryData(wildcardQueryOptions.queryKey, [{ licenseSlug: 'pro-v1', entitlementSlug: 'credits' }]);
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   render(<QueryClientProvider client={client}><Suspense fallback={null}><AiNavigationProvider context={context}><ModelForm model={value} /></AiNavigationProvider></Suspense></QueryClientProvider>);
 }
 beforeEach(() => { server.use(handleGetModel(() => HttpResponse.json(model))); configure({ asyncUtilTimeout: 30000 }); i18n.addResourceBundle('en', 'translation', en, true, true); void i18n.changeLanguage('en'); });

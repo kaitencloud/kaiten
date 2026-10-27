@@ -41,7 +41,8 @@ export const InstanceDetailEntitlementsTab = ({
   const router = useRouter();
   const navigate = useNavigate();
   const EntitlementIcon = dataModelIcons.entitlement;
-  const { entitlementsRows, instance } = useInstanceDetail();
+  const { entitlementsRows, canonicalEntitlementsRows, instance } =
+    useInstanceDetail();
   const instanceSlug = instance.slug ?? instance.id;
   const [groupFilter, setGroupFilter] = useState('all');
   // The history is read with the scope of the instances, which the page itself
@@ -51,7 +52,19 @@ export const InstanceDetailEntitlementsTab = ({
     locale,
     canViewHistory ? { history: { instanceSlug } } : undefined,
   );
-  const historyRow = findHistoryRow(entitlementsRows, historyParam);
+  const historyRow = findHistoryRow(
+    canonicalEntitlementsRows ?? entitlementsRows,
+    historyParam,
+  );
+  // Financial journal links may name hidden or deleted live resources. Do not fetch
+  // operational AI definitions to recover a label: the journal authorizes the read.
+  const liveTarget = (canonicalEntitlementsRows ?? entitlementsRows).find(
+    (row) => row.entitlementSlug === historyParam,
+  );
+  const evidenceSlug =
+    canViewHistory && historyParam && (!liveTarget || historyRow)
+      ? historyParam
+      : undefined;
 
   const getEntitlementPath = (entitlement: InstanceEntitlementRow) =>
     entitlement.entitlementSlug
@@ -134,10 +147,10 @@ export const InstanceDetailEntitlementsTab = ({
       </TableCard>
 
       <ExceptionsCard />
-      {historyRow?.entitlementSlug ? (
+      {evidenceSlug ? (
         <UsageHistoryDrawer
-          entitlementName={historyRow.entitlementName}
-          entitlementSlug={historyRow.entitlementSlug}
+          entitlementName={historyRow?.entitlementName ?? evidenceSlug}
+          entitlementSlug={evidenceSlug}
           instanceName={instance.name}
           instanceSlug={instanceSlug}
           // The drawer drops with it the period it was read for.
@@ -165,7 +178,7 @@ export const InstanceDetailEntitlementsTab = ({
           range={historyRange}
         />
       ) : null}
-      {historyParam !== undefined && !historyRow ? (
+      {historyParam !== undefined && !evidenceSlug ? (
         // A link to a history that is not one (a flag, an entitlement the instance
         // does not have): the page opens as it is, with no drawer.
         <Navigate

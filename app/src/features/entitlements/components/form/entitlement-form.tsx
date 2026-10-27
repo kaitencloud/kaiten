@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { StepNextButton } from '@/components/form/step-next-button';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
@@ -37,6 +38,7 @@ export const EntitlementForm = ({
   onCancel,
 }: EntitlementFormProps) => {
   const { t } = useTranslation();
+  const access = useAiAccess();
   const navigate = useNavigate();
   const requestClose = useStackedFormDialogClose();
   const formId = useId();
@@ -111,6 +113,7 @@ export const EntitlementForm = ({
     );
   }
 
+  if (isAiEntitlement(entitlement?.type) && !access.available) return null;
   return (
     <form id={formId} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
       <form.AppForm>

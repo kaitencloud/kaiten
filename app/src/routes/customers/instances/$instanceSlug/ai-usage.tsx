@@ -1,14 +1,13 @@
-import { createFileRoute, notFound } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { InstanceAiUsageTab } from '@/features/instances';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { requireAiAccess } from '@/domains/ai-credits';
 import i18n from '@/lib/i18n/config';
 export const Route = createFileRoute(
   '/customers/instances/$instanceSlug/ai-usage',
 )({
   component: InstanceAiUsageTab,
   beforeLoad: async ({ context }) => {
-    if (!(await context.queryClient.ensureQueryData(aiCreditsFlagQueryOptions)))
-      throw notFound();
+    await requireAiAccess(context.queryClient);
     return { getTitle: () => i18n.t('AI.Usage.title') };
   },
 });

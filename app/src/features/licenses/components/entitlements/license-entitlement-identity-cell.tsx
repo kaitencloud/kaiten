@@ -8,11 +8,13 @@ export function LicenseEntitlementIdentityCell({
   entitlementSlug,
   definition,
   licenseSlug,
+  mayConfigureAi = false,
 }: {
   entitlement: EditableLicenseEntitlement;
   entitlementSlug: string;
   definition?: Entitlement;
   licenseSlug?: string;
+  mayConfigureAi?: boolean;
 }) {
   const { t } = useTranslation();
   return (
@@ -26,7 +28,8 @@ export function LicenseEntitlementIdentityCell({
         <span className="font-mono text-xs text-muted-foreground">
           {entitlementSlug}
         </span>
-        {licenseSlug &&
+        {mayConfigureAi &&
+        licenseSlug &&
         definition?.type === 'NUMBER_AI_CREDIT' &&
         definition.slug ? (
           <Link

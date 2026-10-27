@@ -17,3 +17,16 @@ export {
 } from './ai-navigation';
 
 export { FormDetails } from './form-details';
+
+export {
+  aiAccessQueryOptions,
+  readCurrentAiAccess,
+  requireAiAccess,
+  isAiEntitlement,
+  AI_ACCESS_FRESHNESS_MS,
+} from './ai-access';
+export {
+  subscribeAiAccess,
+  assertAiRequestAllowed,
+  revokeAiAccess,
+} from './ai-request-guard';

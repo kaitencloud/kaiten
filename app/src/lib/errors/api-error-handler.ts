@@ -164,7 +164,10 @@ export function handleApiError(
     logger.error(error);
     return {
       code: 'UNKNOWN',
-      message: error.message,
+      message:
+        error.message === 'AIUsage.Disabled'
+          ? t('AI.Errors.unavailable')
+          : error.message,
       originalError: error,
     };
   }

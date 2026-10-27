@@ -15,6 +15,7 @@ export function ModelSourcePage({ modelSlug }: { modelSlug: string }) {
     enabled: mayRead,
     refetchOnWindowFocus: false,
   });
+  if (!access.available) return null;
   if (access.isPending || (mayRead && query.isPending))
     return <AiLoading label={t('AI.Models.loading')} />;
   if (!mayRead)

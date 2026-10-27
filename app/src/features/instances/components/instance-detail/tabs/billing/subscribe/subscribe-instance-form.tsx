@@ -17,6 +17,7 @@ import { createFormSubmitHandler } from '@/hooks/form';
 import { useSubscribeAddons } from '../../../../../hooks/use-subscribe-addons';
 import { useSubscribeInstanceForm } from '../../../../../hooks/use-subscribe-instance-form';
 import { useSubscribeVoucherCheck } from '../../../../../hooks/use-subscribe-voucher-check';
+import { useInstanceDetail } from '../../../instance-detail-context';
 import { BillingEmailNotice } from './billing-email-notice';
 import { AddonsReadNotice } from '../addons/addons-read-notice';
 import { SubscribeAddonsField } from './subscribe-addons-field';
@@ -71,8 +72,10 @@ export function SubscribeInstanceForm({
     familyId,
     instanceSlug,
   });
-  const voucherChecker = useSubscribeVoucherCheck(instanceSlug);
+  const { entitlements } = useInstanceDetail();
+  const voucherChecker = useSubscribeVoucherCheck(instanceSlug, entitlements);
   const { failure, form } = useSubscribeInstanceForm({
+    assertVoucherAllowed: voucherChecker.assertCodeAllowed,
     addons,
     canceledAt,
     defaultTrialDays,

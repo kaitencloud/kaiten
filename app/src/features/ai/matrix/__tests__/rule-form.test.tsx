@@ -1,4 +1,4 @@
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -24,6 +24,7 @@ it('keeps wildcard identity, clears a guard with null and sends only the rate ve
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
   client.setQueryData(allEntitlementsOptions().queryKey, { items: [{ id: 'pool', description: '', createdAt: '2026-10-19T00:00:00Z', updatedAt: '2026-10-19T00:00:00Z', slug: 'credits', name: 'Credits', type: 'NUMBER_AI_CREDIT', aggregationMethod: 'SUM' }], hasMore: false });
   client.setQueryData(modelsQueryOptions.queryKey, { items: [], hasMore: false });
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   render(<QueryClientProvider client={client}><Suspense fallback={null}><RuleForm licenseSlug="pro-v1" rule={rule} onSaved={saved} /></Suspense></QueryClientProvider>);
   expect(await screen.findByLabelText('Credit pool')).toBeDisabled();
   expect(screen.getByLabelText('Model')).toBeDisabled();
@@ -39,6 +40,7 @@ function renderRuleEditor() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
   client.setQueryData(allEntitlementsOptions().queryKey, { items: [{ id: 'pool', createdAt: '2026-10-19T00:00:00Z', updatedAt: '2026-10-19T00:00:00Z', description: '', slug: 'credits', name: 'Credits', type: 'NUMBER_AI_CREDIT', aggregationMethod: 'SUM' }], hasMore: false });
   client.setQueryData(modelsQueryOptions.queryKey, { items: [], hasMore: false });
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   render(<QueryClientProvider client={client}><RuleForm licenseSlug="pro-v1" rule={{ id: 'fixture', entitlementSlug: 'credits', rates: { perRequest: '0.1234567891', perInputToken: '0.0000000001', perCachedInputToken: '0' }, chargeOnError: 'NEVER', minimumCreditsPerRequest: '0' } as ConversionRule} onSaved={vi.fn()} /></QueryClientProvider>);
 }
 it('qualifies cached blank/zero pricing and requires explicit confirmation before replacing customized rates', async () => {
@@ -79,9 +81,10 @@ it('retains exact edited rates when saving fails and presents an inline error', 
 
 it('suppresses the shared general editor’s pool read when scopes are known denied', async () => {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  client.setQueryData(aiCreditsFlagQueryOptions.queryKey, true);
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   client.setQueryData(grantedScopesQueryKey, ['write:licenses', 'read:models']);
   client.setQueryData(modelsQueryOptions.queryKey, { items: [], hasMore: false });
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   render(<QueryClientProvider client={client}><RuleForm licenseSlug="pro-v1" onSaved={vi.fn()} /></QueryClientProvider>);
   expect(await screen.findByRole('status')).toHaveTextContent('cannot select a credit pool');
   expect(client.getQueryCache().find({ queryKey: allEntitlementsOptions().queryKey })?.isActive()).toBe(false);

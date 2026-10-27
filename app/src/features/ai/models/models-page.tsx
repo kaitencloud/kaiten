@@ -136,7 +136,10 @@ export function ModelsPage() {
   const context = useAiNavigationContext();
   const access = useAiAccess();
   const { t } = useTranslation();
-  const query = useQuery(modelsQueryOptions);
+  const query = useQuery({
+    ...modelsQueryOptions,
+    enabled: access.allows('listModels'),
+  });
   const [search, setSearch] = useState('');
   const searchId = useId();
   const ModelIcon = dataModelIcons.model;
@@ -175,6 +178,7 @@ export function ModelsPage() {
   function renderModel(model: Model) {
     return <ModelCard key={model.slug} model={model} />;
   }
+  if (!access.available) return null;
   return (
     <Page>
       <Page.Header>

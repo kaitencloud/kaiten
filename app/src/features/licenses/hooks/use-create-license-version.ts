@@ -1,3 +1,5 @@
+import { useAiAccess } from '@/domains/ai-credits';
+import { assertCopiableGrants } from '../utils/ai-grant-preflight';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import type { Entitlement, License, LicenseWritable } from '@/api-client';
@@ -38,6 +40,7 @@ type CreateVersionResult = {
  */
 export function useCreateLicenseVersion(entitlements: Entitlement[]) {
   const queryClient = useQueryClient();
+  const access = useAiAccess();
   const { isEnabled: hasBilling } = useBillingCapabilities();
   const { copyPrices, fetchCopiablePrices } = useLicensePriceCopy();
   const { createLicenseWithGrants } = useLicenseSave(entitlements);
@@ -50,6 +53,7 @@ export function useCreateLicenseVersion(entitlements: Entitlement[]) {
       draftEntitlements,
       afterGrants,
     }: CreateVersionOptions): Promise<CreateVersionResult> => {
+      assertCopiableGrants(draftEntitlements, entitlements, access.available);
       const pricesToCopy =
         hasBilling && wantsPrices && baseLicense.slug
           ? await fetchCopiablePrices(baseLicense.slug)
@@ -74,6 +78,8 @@ export function useCreateLicenseVersion(entitlements: Entitlement[]) {
       return { error, hasPrices: pricesToCopy.length > 0, license };
     },
     [
+      access.available,
+      entitlements,
       copyPrices,
       createLicenseWithGrants,
       fetchCopiablePrices,

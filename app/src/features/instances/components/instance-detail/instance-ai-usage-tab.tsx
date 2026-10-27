@@ -1,3 +1,4 @@
+import { useAiAccess } from '@/domains/ai-credits';
 import { Suspense, useState } from 'react';
 import {
   useInfiniteQuery,
@@ -96,7 +97,13 @@ function PoolUsage({
       <AiUsageSummary usage={usage} name={name} />
       <div className="space-y-6 px-4 py-5 sm:px-6">
         <section aria-label={t('AI.Usage.reservations')} className="space-y-3">
-          <h3 className={reservations.isSuccess && !reservations.data.items?.length ? 'sr-only' : 'text-sm font-semibold'}>
+          <h3
+            className={
+              reservations.isSuccess && !reservations.data.items?.length
+                ? 'sr-only'
+                : 'text-sm font-semibold'
+            }
+          >
             {t('AI.Usage.reservations')}
           </h3>
           {reservations.isError ? (
@@ -271,6 +278,15 @@ function PoolUsage({
 }
 
 export function InstanceAiUsageTab() {
+  const access = useAiAccess();
+  return access.available &&
+    (access.allows('listAiInferences') ||
+      access.allows('listAiReservations')) ? (
+    <EnabledInstanceAiUsageTab />
+  ) : null;
+}
+
+function EnabledInstanceAiUsageTab() {
   const { t } = useTranslation();
   const { instance } = useInstanceDetail();
   const { data: entitlements } = useSuspenseQuery(allEntitlementsOptions());

@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { useAiAccess } from '@/domains/ai-credits';
 import { useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { useBillingCapabilities, useCanPerform } from '@/domains/billing';
@@ -15,7 +14,8 @@ import { getActiveTabFromPathname } from '@/lib/detail';
  */
 export function useInstanceDetailTabs(instanceSlug: string) {
   const { t } = useTranslation();
-  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
+  const access = useAiAccess();
+  const aiEnabled = access.available;
   const { isEnabled: hasBilling } = useBillingCapabilities();
   const mayReadBilling = useCanPerform('subscription.read');
   const pathname = useRouterState({
@@ -38,7 +38,7 @@ export function useInstanceDetailTabs(instanceSlug: string) {
   });
   const params = { instanceSlug };
   const items = [
-    ...(aiEnabled
+    ...(aiEnabled && access.allows('listAiInferences')
       ? [
           {
             label: t('AI.Usage.title'),

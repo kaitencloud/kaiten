@@ -14,6 +14,7 @@ export function AiCatalogueLayout({
 }: PropsWithChildren<{ context: AiNavigationContext }>) {
   const access = useAiAccess();
   const { t } = useTranslation();
+  if (!access.available) return null;
   return (
     <AiNavigationProvider context={context}>
       <div className="space-y-5">

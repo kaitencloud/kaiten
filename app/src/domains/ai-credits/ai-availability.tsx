@@ -1,10 +1,8 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/components/ui/button';
-import { AiLoading } from './ai-section';
-import { useAiAccess } from './use-ai-access';
+import type { useAiAccess } from './use-ai-access';
 
-/** The boolean flag fails closed on evaluation errors, so never call false "disabled". */
+/** Off, pending, stale and failed rollout checks expose no AI panel or retry UI. */
 export function AiAvailability({
   access,
   children,
@@ -17,21 +15,7 @@ export function AiAvailability({
   deniedMessage?: string;
 }) {
   const { t } = useTranslation();
-  if (access.isPending)
-    return <AiLoading label={t('AI.Calculation.loadingAccess')} />;
-  if (!access.available)
-    return (
-      <div role="status" className="space-y-3 rounded-lg border p-5">
-        <p>{t('AI.Calculation.unavailable')}</p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => access.flag.refetch()}
-        >
-          {t('Common.retry')}
-        </Button>
-      </div>
-    );
+  if (!access.available || access.isPending) return null;
   if (!mayRead)
     return (
       <p role="status" className="rounded-lg border p-5">

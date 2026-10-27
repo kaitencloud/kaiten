@@ -1,3 +1,4 @@
+import { useAiAccess } from '@/domains/ai-credits';
 import { SourceEntryDetails } from './openrouter-browser';
 import { WildcardImpact } from './model-wildcard-impact';
 import {
@@ -67,6 +68,7 @@ export function ModelForm({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const client = useQueryClient();
+  const access = useAiAccess();
   const [saveError, setSaveError] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
   const create = useMutation(createModelMutation());
@@ -95,6 +97,8 @@ export function ModelForm({
     onSubmit: async ({ value }) => {
       setSaveError(null);
       try {
+        if (!access.allows(model ? 'updateModel' : 'createModel'))
+          throw new Error('AIUsage.Disabled');
         const edited = {
           ...value,
           externalIds: value.externalIds
@@ -145,6 +149,7 @@ export function ModelForm({
       }
     },
   });
+  if (!access.available) return null;
   return (
     <Page>
       <Page.Header>

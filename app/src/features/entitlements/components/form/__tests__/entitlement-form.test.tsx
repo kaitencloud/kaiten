@@ -7,6 +7,8 @@ import { EntitlementForm } from '../entitlement-form';
 
 // Mock external dependencies only
 const mockNavigate = vi.fn();
+const rollout = vi.hoisted(() => ({ available: false }));
+vi.mock('@/domains/ai-credits/use-ai-access', () => ({ useAiAccess: () => ({ available: rollout.available, isPending: false, allows: () => rollout.available }) }));
 
 // The Subscribe mock reads this, so a test can drive the branches that key off
 // aggregationMethod and resetPeriod.
@@ -264,6 +266,7 @@ const createWrapper = () => {
 
 describe('EntitlementForm', () => {
   beforeEach(() => {
+    rollout.available = false;
     vi.clearAllMocks();
     formState.values = { ...defaultFormValues };
   });
@@ -362,6 +365,7 @@ describe('EntitlementForm', () => {
     });
 
     it('keeps the meter configuration step for an AI credit entitlement', () => {
+      rollout.available = true;
       const pool = { id: 'ai-pool', name: 'AI pool', slug: 'ai-pool', type: 'NUMBER_AI_CREDIT', aggregationMethod: 'SUM' } as Entitlement;
       formState.values.type = 'NUMBER_AI_CREDIT';
       render(<EntitlementForm layout="dialog" entitlement={pool} />, { wrapper: createWrapper() });

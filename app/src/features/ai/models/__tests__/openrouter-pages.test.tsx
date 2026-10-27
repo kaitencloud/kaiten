@@ -9,7 +9,7 @@ import { handleGetModel, handleUpdateModel, handleListModels, handleCreateModel 
 import { server } from '@/__tests__/msw-server';
 import en from '@/lib/i18n/locales/en';
 import { grantedScopesQueryKey } from '@/lib/granted-scopes';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { modelsQueryOptions, AiNavigationProvider } from '@/domains/ai-credits';
 import { ModelSourcePage } from '../model-source-page';
 import { ModelImportPage } from '../model-import-page';
@@ -30,7 +30,7 @@ let fresh: Model;
 let writes: Record<string, unknown>[];
 function mount(child: ReactNode, scopes: string[] = ['read:models', 'write:models']) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
-  client.setQueryData(aiCreditsFlagQueryOptions.queryKey, true);
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   client.setQueryData(grantedScopesQueryKey, scopes);
   client.setQueryData(modelsQueryOptions.queryKey, { items: [], hasMore: false });
   client.setQueryData(wildcardQueryOptions.queryKey, []);

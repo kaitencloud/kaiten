@@ -402,7 +402,7 @@ describe('InstanceDetailEntitlementsTab', () => {
       expect(navigateTo).not.toHaveBeenCalled();
     });
 
-    it.each(['sso', 'seats', ''])(
+    it.each(['sso', ''])(
       'drops the link %j, which names no counter of this instance, and opens the page as it is',
       (historyParam) => {
         useInstanceDetailMock.mockReturnValue({
@@ -448,4 +448,12 @@ describe('InstanceDetailEntitlementsTab', () => {
       },
     );
   });
+});
+
+it('keeps an invoice-linked hidden/deleted journal usable without exposing an operational row', () => {
+  useInstanceDetailMock.mockReturnValue({ instance: { id: 'ins', slug: 'instance', name: 'Instance' }, entitlementsRows: [], canonicalEntitlementsRows: [], entitlementsMetrics: { total: 0, enabled: 0, nearThreshold: 0, numberEntitlements: [] } });
+  render(<InstanceDetailEntitlementsTab historyParam="deleted-ai-pool" historyRange={{ from: '2026-10-01T00:00:00Z', to: '2026-10-27T00:00:00Z' }} />);
+  expect(drawer).toHaveBeenCalledWith(expect.objectContaining({ entitlementSlug: 'deleted-ai-pool', entitlementName: 'deleted-ai-pool', range: { from: '2026-10-01T00:00:00Z', to: '2026-10-27T00:00:00Z' } }));
+  expect(screen.queryByText('deleted-ai-pool')).toBeNull();
+  expect(navigateTo).not.toHaveBeenCalled();
 });

@@ -1,3 +1,4 @@
+import { requireAiAccess } from '@/domains/ai-credits';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
 import { EntitlementDetailCalculationTab } from '@/features/entitlements';
@@ -11,7 +12,10 @@ export const Route = createFileRoute(
   '/catalog/entitlements/$entitlementSlug/calculation',
 )({
   validateSearch: (search) => calculationSearchSchema.parse(search),
-  beforeLoad: () => ({ getTitle: () => i18n.t('AI.Calculation.title') }),
+  beforeLoad: async ({ context }) => {
+    await requireAiAccess(context.queryClient);
+    return { getTitle: () => i18n.t('AI.Calculation.title') };
+  },
   component: CalculationRoute,
 });
 function CalculationRoute() {

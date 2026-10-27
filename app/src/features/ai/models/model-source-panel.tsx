@@ -1,12 +1,17 @@
+import {
+  useSourceAbortSignal,
+  readSourceModel,
+} from './use-source-abort-signal';
 import { ModelSourceDiff } from './model-source-diff';
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { getModel, updateModel, type Model } from '@/api-client';
-import { FRESH_READ_OPTIONS, isSameField } from '@/lib/api/fresh-write';
+import { updateModel, type Model } from '@/api-client';
+import { isSameField } from '@/lib/api/fresh-write';
 import {
   invalidateAiQueries,
+  assertAiRequestAllowed,
   useAiNavigationContext,
 } from '@/domains/ai-credits';
 import { Button } from '@/components/ui/button';
@@ -39,6 +44,7 @@ export function SourcePanel({
   const { t } = useTranslation();
   const context = useAiNavigationContext();
   const client = useQueryClient();
+  const abort = useSourceAbortSignal();
   const [model, setModel] = useState(initialModel);
   const [preview, setPreview] = useState<Preview>();
   const [choose, setChoose] = useState(false);
@@ -56,14 +62,8 @@ export function SourcePanel({
     bindingError = openRouterErrorMessage(failure, t);
   }
   async function readFresh() {
-    const { data } = await getModel({
-      ...FRESH_READ_OPTIONS,
-      path: { modelSlug: model.slug },
-      throwOnError: true,
-    });
-    if (data.id !== model.id || data.slug !== model.slug)
-      throw new OpenRouterError('modelRecreated');
-    return data;
+    assertAiRequestAllowed(client);
+    return readSourceModel(model, abort.current.signal);
   }
   function showPreview(
     fresh: Model,
@@ -91,7 +91,8 @@ export function SourcePanel({
       const fresh = await readFresh();
       const binding = readOpenRouterSource(fresh.metadata);
       if (!binding) throw new OpenRouterError('sourceNotAssociated');
-      const entries = await fetchOpenRouterCatalogue();
+      assertAiRequestAllowed(client);
+      const entries = await fetchOpenRouterCatalogue(abort.current.signal);
       setModel(fresh);
       const entry = entries.find((item) => item.id === binding.sourceId);
       if (!entry) {

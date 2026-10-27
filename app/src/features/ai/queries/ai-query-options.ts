@@ -1,3 +1,4 @@
+import { assertAiRequestAllowed, revokeAiAccess } from '@/domains/ai-credits';
 import {
   aiMatrixQueryKey,
   aiWildcardImpactQueryKey,
@@ -7,23 +8,37 @@ import { queryOptions } from '@tanstack/react-query';
 import { listConversionRules } from '@/api-client';
 import type { AiMatrixQuery } from '@/api-client/graphql/graphql';
 import { allLicensesOptions } from '@/lib/api/all-pages-query-options';
-import { graphqlClient } from '@/lib/graphql-client';
+import { graphqlClient, GraphQLRequestError } from '@/lib/graphql-client';
 import { AI_MATRIX } from './ai.queries';
 
 export const matrixQueryKey = aiMatrixQueryKey;
 export const matrixQueryOptions = (familySlug: string) =>
   queryOptions({
     queryKey: [...matrixQueryKey, familySlug],
-    queryFn: ({ signal }) =>
-      graphqlClient.request<AiMatrixQuery>(
-        AI_MATRIX.toString(),
-        { familySlug },
-        signal,
-      ),
+    queryFn: async ({ signal, client }) => {
+      assertAiRequestAllowed(client);
+      try {
+        return await graphqlClient.request<AiMatrixQuery>(
+          AI_MATRIX.toString(),
+          { familySlug },
+          signal,
+        );
+      } catch (error) {
+        if (
+          error instanceof GraphQLRequestError &&
+          error.errors.some(
+            (item) => item.extensions?.code === 'AIUsage.Disabled',
+          )
+        )
+          revokeAiAccess(client);
+        throw error;
+      }
+    },
   });
 export const wildcardQueryOptions = queryOptions({
   queryKey: aiWildcardImpactQueryKey,
-  queryFn: async ({ signal }) => {
+  queryFn: async ({ signal, client }) => {
+    assertAiRequestAllowed(client);
     const licenses = await allLicensesOptions().queryFn({ signal });
     const rows: { licenseSlug: string; entitlementSlug: string }[] = [];
     for (const license of licenses.items) {

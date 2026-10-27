@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { EntityIcon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
 import { useRouterState } from '@tanstack/react-router';
@@ -120,6 +121,7 @@ const getEntitlementTabs = (
   t: ReturnType<typeof useTranslation>['t'],
   entitlement: Entitlement,
   licenseSlug?: string,
+  mayCalculateAi = false,
 ) => {
   return [
     {
@@ -129,7 +131,7 @@ const getEntitlementTabs = (
       value: 'overview',
       search: { licenseSlug },
     },
-    ...(entitlement.type === 'NUMBER_AI_CREDIT'
+    ...(mayCalculateAi && entitlement.type === 'NUMBER_AI_CREDIT'
       ? [
           {
             label: t('AI.Calculation.title'),
@@ -155,6 +157,7 @@ function EntitlementDetailLayout({
   entitlementSlug,
 }: PropsWithChildren<{ entitlementSlug: string }>) {
   const { i18n, t } = useTranslation();
+  const access = useAiAccess();
   const activeTab = useEntitlementActiveTab(entitlementSlug);
   const licenseSlug = useRouterState({
     select: (state) => {
@@ -187,6 +190,8 @@ function EntitlementDetailLayout({
             t,
             entitlement,
             licenseSlug,
+            access.allows('getLicenses') &&
+              access.allows('listConversionRules'),
           )}
         />
         <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
@@ -200,6 +205,8 @@ export function EntitlementDetailPageContent({
   entitlement,
   entitlementSlug,
 }: EntitlementDetailPageContentProps) {
+  const access = useAiAccess();
+  if (isAiEntitlement(entitlement.type) && !access.available) return null;
   return (
     <EntitlementDetailProvider entitlement={entitlement}>
       <EntitlementDetailLayout entitlementSlug={entitlementSlug}>

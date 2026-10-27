@@ -5,14 +5,21 @@ import {
   type ApiOperationId,
 } from '@/lib/api/operation-scopes.gen';
 import { hasScope } from '@/lib/granted-scopes';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { aiAccessQueryOptions } from './ai-access';
 
 /** UI affordances only: unknown token scopes defer to the API. */
 export function useAiAccess() {
-  const flag = useQuery(aiCreditsFlagQueryOptions);
+  const flag = useQuery(aiAccessQueryOptions());
   const { scopes, isPending } = useGrantedScopes();
+  // The shared QueryClient deadline revokes expiry; rendering reads only its subscribed snapshot.
+  const available =
+    flag.isSuccess &&
+    !flag.isStale &&
+    !flag.isError &&
+    flag.data?.enabled === true;
   function allows(operation: ApiOperationId) {
     return (
+      available &&
       !isPending &&
       OPERATION_SCOPES[operation].every((scope) => hasScope(scopes, scope))
     );
@@ -20,7 +27,7 @@ export function useAiAccess() {
   return {
     flag,
     isPending: flag.isPending || isPending,
-    available: flag.data === true && !flag.isError,
+    available,
     allows,
   };
 }

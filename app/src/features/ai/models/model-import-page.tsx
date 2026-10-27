@@ -30,6 +30,7 @@ export function ModelImportPage() {
     useState<ModelWritable['modality']>();
   const mayRead = access.allows('listModels');
   const query = useQuery({ ...modelsQueryOptions, enabled: mayRead });
+  if (!access.available) return null;
   if (access.isPending || (mayRead && query.isPending))
     return <AiLoading label={t('AI.Models.loading')} />;
   if (!mayRead || !access.allows('createModel'))

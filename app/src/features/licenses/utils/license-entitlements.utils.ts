@@ -8,6 +8,7 @@ import { formatNumber } from '@/lib/format-date';
 import type { Entitlement, LicenseEntitlement } from '@/api-client';
 
 export type EditableLicenseEntitlement = {
+  catalogueEntitlementType?: Entitlement['type'] | null;
   configValue?: Record<string, unknown>;
   enabled: boolean | null;
   entitlementIcon?: string | null;
@@ -90,6 +91,8 @@ export const resolveLicenseEntitlements = (
       entitlementId:
         getDynamicEntitlementId(entitlement) ?? fallbackEntitlementId ?? null,
       entitlementName: entitlement.entitlementName,
+      catalogueEntitlementType:
+        entitlement.entitlementType ?? fallbackEntitlementType ?? null,
       entitlementType: toEditableEntitlementType(
         entitlement.entitlementType ?? fallbackEntitlementType,
       ),

@@ -299,5 +299,37 @@ function platformFlagQueryOptions(flag: PlatformFlag) {
 export const demoSandboxFlagQueryOptions =
   platformFlagQueryOptions(DEMO_SANDBOX_FLAG);
 
-export const aiCreditsFlagQueryOptions =
-  platformFlagQueryOptions(AI_CREDITS_FLAG);
+/** AI alone requires a fresh network evaluation, never the provider's old map. */
+export const aiCreditsFlagQueryOptions = queryOptions({
+  queryKey: [...featureFlagsQueryKey, AI_CREDITS_FLAG],
+  queryFn: async () => {
+    const source = await resolveSource();
+    if (!source) return false;
+    try {
+      // A separate domain leaves demo-sandbox's provider and refresh semantics intact.
+      await OpenFeature.setProviderAndWait(
+        'kaiten-ai-rollout',
+        new OFREPWebProvider({
+          baseUrl: source.baseUrl,
+          headersFactory: source.headers,
+          cacheMode: 'disabled',
+          pollInterval: 0,
+          disableVisibilityRefresh: true,
+        }),
+        source.context,
+      );
+      const client = OpenFeature.getClient('kaiten-ai-rollout');
+      const details = client.getBooleanDetails(AI_CREDITS_FLAG, false);
+      return (
+        client.providerStatus === 'READY' &&
+        details.value === true &&
+        !details.errorCode &&
+        ['STATIC', 'TARGETING_MATCH', 'SPLIT'].includes(details.reason ?? '')
+      );
+    } catch {
+      return false;
+    }
+  },
+  staleTime: 0,
+  retry: false,
+});

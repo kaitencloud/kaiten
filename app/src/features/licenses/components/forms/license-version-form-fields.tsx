@@ -1,5 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { useAiAccess } from '@/domains/ai-credits';
 import {
   Card,
   CardContent,
@@ -151,7 +150,10 @@ export function LicenseVersionFieldsCard({
   syncDraftEntitlementsFromBase,
   t,
 }: LicenseVersionFieldsCardProps) {
-  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
+  const access = useAiAccess();
+  const aiEnabled =
+    access.allows('listConversionRules') &&
+    access.allows('createConversionRule');
   const unknownVersionLabel = t('Pages.Licenses.List.unknownVersion');
 
   return (

@@ -4,8 +4,7 @@ import {
   DisplayOrderField,
 } from './entitlement-presentation-fields';
 import { FormDetails } from '@/domains/ai-credits';
-import { useQuery } from '@tanstack/react-query';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { useAiAccess } from '@/domains/ai-credits';
 import { IconPicker } from '@/components/ui/icon-picker';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
@@ -163,18 +162,20 @@ export function EntitlementTypeFields({
   form,
 }: EntitlementTypeFieldsProps) {
   const { t } = useTranslation();
-  const { data: aiEnabled } = useQuery(aiCreditsFlagQueryOptions);
-  const typeOptions =
-    aiEnabled || entitlement?.type === 'NUMBER_AI_CREDIT'
-      ? [
-          ...entitlementTypeOptions,
-          { label: t('AI.credits'), value: 'NUMBER_AI_CREDIT' },
-        ]
-      : entitlementTypeOptions;
+  const access = useAiAccess();
+  const aiEnabled = access.allows(
+    entitlement ? 'updateEntitlement' : 'createEntitlement',
+  );
+  const typeOptions = aiEnabled
+    ? [
+        ...entitlementTypeOptions,
+        { label: t('AI.credits'), value: 'NUMBER_AI_CREDIT' },
+      ]
+    : entitlementTypeOptions;
 
   return (
     <div className={cn(className)}>
-      {entitlement?.type === 'NUMBER_AI_CREDIT' ? (
+      {aiEnabled && entitlement?.type === 'NUMBER_AI_CREDIT' ? (
         <p className="text-sm font-medium">
           {t('AI.credits')} · {t('AI.Minimal.sumFixed')}
         </p>
@@ -202,7 +203,7 @@ export function EntitlementTypeFields({
       )}
       <form.Subscribe selector={(state: any) => state.values.type}>
         {(type: string) =>
-          type === 'NUMBER' || type === 'NUMBER_AI_CREDIT' ? (
+          type === 'NUMBER' || (aiEnabled && type === 'NUMBER_AI_CREDIT') ? (
             <>
               {type === 'NUMBER_AI_CREDIT' ? (
                 !entitlement ? (

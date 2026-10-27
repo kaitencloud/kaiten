@@ -1,7 +1,7 @@
 import { AiNavigationProvider, type AiNavigationContext } from '@/domains/ai-credits';
 import { getEntitlementOptions, getLicenseOptions } from '@/api-client/@tanstack/react-query.gen';
 import type { Entitlement } from '@/api-client';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -23,7 +23,7 @@ beforeEach(async () => { i18n.addResourceBundle('en', 'translation', en, true, t
 const rule = { id: 'rule-fixture', licenseSlug: 'pro-v1', entitlementSlug: 'credits', modelSlug: null, requestType: null, rates: { perRequest: '0.0000000001' }, minimumCreditsPerRequest: '0', maximumCreditsPerRequest: null, chargeOnError: 'NEVER', status: 'ACTIVE', grantedByLicense: false } as ConversionRule;
 function renderMatrix(withMatrix = true, context: AiNavigationContext = {}, scopes: readonly string[] | null = null) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
-  client.setQueryData(aiCreditsFlagQueryOptions.queryKey, true);
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   client.setQueryData(grantedScopesQueryKey, scopes);
   client.setQueryData(allLicenseFamiliesOptions().queryKey, { items: [{ id: 'family', slug: 'pro', currentVersion: { name: 'Pro' } as License } as LicenseFamilyView], hasMore: false });
   client.setQueryData(allEntitlementsOptions().queryKey, { items: [{ id: 'credits', createdAt: '2026-10-19T00:00:00Z', updatedAt: '2026-10-19T00:00:00Z', description: '', slug: 'credits', name: 'Credits', type: 'NUMBER_AI_CREDIT', aggregationMethod: 'SUM' }], hasMore: false });

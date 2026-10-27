@@ -1,3 +1,4 @@
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { Suspense } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -21,6 +22,7 @@ it('shows reserved credits, soft maximum, open reservations and cursor-complete 
     return HttpResponse.json(cursor ? { items: [{ ...record, transactionId: 'older', model: 'unknown-model', authorized: false, denialReason: 'UNKNOWN_MODEL', credits: { computed: '0', charged: '0' } }], hasMore: false } : { items: [record], hasMore: true, nextCursor: 'older-cursor' });
   }));
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   client.setQueryData(allEntitlementsOptions().queryKey, { items: [{ id: 'pool', name: 'Credits', description: '', createdAt: '2026-10-19T00:00:00Z', updatedAt: '2026-10-19T00:00:00Z', slug: 'credits', type: 'NUMBER_AI_CREDIT' }], hasMore: false });
   client.setQueryData(getEntitlementsUsageMetricsOptions({ path: { instanceSlug: 'fixture-instance' } }).queryKey, [{ entitlementId: 'pool', entitlementSlug: 'credits', licenseSlug: 'pro-v1', licenseId: 'license', source: 'addon', limitCapExceededOveragePercent: 20, reserved: '2.500000', value: { type: 'number', value: 4.123456 }, limit: { type: 'number', value: 10 } }]);
   render(<QueryClientProvider client={client}><Suspense fallback={null}><InstanceAiUsageTab /></Suspense></QueryClientProvider>);

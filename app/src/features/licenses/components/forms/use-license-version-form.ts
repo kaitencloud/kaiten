@@ -2,7 +2,7 @@ import {
   aiMatrixQueryKey,
   aiWildcardImpactQueryKey,
 } from '@/domains/ai-credits';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { readCurrentAiAccess, useAiAccess } from '@/domains/ai-credits';
 import { copyConversionRules } from '../../hooks/copy-conversion-rules';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
@@ -112,6 +112,7 @@ function useSubmitLicenseVersion({
   const { t } = useTranslation();
   const router = useRouter();
   const createVersion = useCreateLicenseVersion(entitlements);
+  const access = useAiAccess();
   const queryClient = useQueryClient();
   return async (value: LicenseVersionFormValues) => {
     try {
@@ -125,7 +126,9 @@ function useSubmitLicenseVersion({
       }
       const aiEnabled =
         value.copyAiRules &&
-        (await queryClient.ensureQueryData(aiCreditsFlagQueryOptions));
+        access.allows('listConversionRules') &&
+        access.allows('createConversionRule') &&
+        (await readCurrentAiAccess(queryClient));
       // The body is built before the request, outside `send`. A version created and
       // left a draft by a failed grant, price or publish is an accepted send: its own
       // page is where the vendor finishes it, so the input is not offered again.
@@ -250,14 +253,12 @@ export function useLicenseVersionForm({
     setDraftEntitlements,
     updateDraftEntitlementGrant,
   } = useLicenseEntitlementsDraft(startingRows);
-
   const {
     hasInitializedBaseEntitlements,
     selectedBaseLicenseSlug,
     initializeBaseEntitlements,
     setSelectedBaseLicenseSlug,
   } = useLicenseVersionFormStore(startingBaseSlug);
-
   const syncDraftEntitlementsFromBase = useSyncDraftEntitlementsFromBase({
     entitlements,
     queryClient,
@@ -272,7 +273,6 @@ export function useLicenseVersionForm({
     startedWithBase: startingRows !== undefined,
     syncDraftEntitlementsFromBase,
   });
-
   const submit = useSubmitLicenseVersion({
     availableLicenses,
     draftEntitlements,

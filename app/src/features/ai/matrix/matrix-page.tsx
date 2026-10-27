@@ -280,6 +280,7 @@ export function MatrixPage() {
     access.allows('getLicenses') &&
     access.allows('listConversionRules') &&
     (!context.entitlementSlug || access.allows('getEntitlement'));
+  if (!access.available) return null;
   return (
     <div className="space-y-5">
       <BackToEntitlement />

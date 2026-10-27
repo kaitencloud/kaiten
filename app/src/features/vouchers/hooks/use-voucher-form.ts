@@ -1,3 +1,5 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
+import { voucherEntitlementsQueryOptions } from '../queries';
 import { type AnyFormApi, useStore } from '@tanstack/react-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
@@ -82,6 +84,7 @@ export function useVoucherForm({
 }: UseVoucherFormOptions = {}) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
+  const access = useAiAccess();
   const restored = recovery?.restored;
   const initialStep =
     restored?.stepIndex ??
@@ -126,6 +129,28 @@ export function useVoucherForm({
       setFailure(null);
       try {
         const body = voucherFormValuesToBody(value);
+        if (
+          !access.available &&
+          (body.grants?.length || saved?.grants.length)
+        ) {
+          const catalogue =
+            queryClient.getQueryData(voucherEntitlementsQueryOptions().queryKey)
+              ?.items ?? [];
+          const targets = [...(body.grants ?? []), ...(saved?.grants ?? [])];
+          // Do not turn invisible stored grants into deletion through a full replacement.
+          if (
+            targets.some(
+              (grant) =>
+                !catalogue.some(
+                  (item) =>
+                    item.slug === grant.entitlementSlug &&
+                    !isAiEntitlement(item.type),
+                ),
+            )
+          ) {
+            throw new Error('AIUsage.Disabled');
+          }
+        }
         // The body is built before the request, outside `send`: an error while building
         // it is not an answer that never came. A publication still has to follow it.
         const created = () => create.mutateAsync({ body });

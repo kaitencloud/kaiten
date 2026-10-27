@@ -21,7 +21,10 @@ export {
 } from './queries';
 export { readEntitlementsSearch } from './schemas/entitlements-search.schema';
 
-export { entitlementExceptionsQueryOptions } from './entitlement-exceptions/exception-query-options';
+export {
+  entitlementExceptionsQueryOptions,
+  requireExceptionAccess,
+} from './entitlement-exceptions/exception-query-options';
 export { CreateExceptionDialog } from './entitlement-exceptions/create-exception-dialog';
 export { EndExceptionDialog } from './entitlement-exceptions/end-exception-dialog';
 export { InstanceAiUsageTab } from './components/instance-detail/instance-ai-usage-tab';

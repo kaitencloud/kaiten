@@ -11,7 +11,7 @@ import { listConversionRulesQueryKey } from '@/api-client/@tanstack/react-query.
 import { server } from '@/__tests__/msw-server';
 import { modelsQueryOptions } from '@/domains/ai-credits';
 import { allLicensesOptions } from '@/lib/api/all-pages-query-options';
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import en from '@/lib/i18n/locales/en';
 import { EntitlementDetailCalculationTab } from '../entitlement-detail-calculation-tab';
@@ -26,7 +26,7 @@ async function renderCalculation({ flag = true, scopes = null, search = '?licens
   flag?: boolean; scopes?: readonly string[] | null; search?: string; seedRules?: boolean;
 } = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
-  client.setQueryData(aiCreditsFlagQueryOptions.queryKey, flag);
+  setAiAccessInputsForTest(client, { capability: true, flag });
   client.setQueryData(grantedScopesQueryKey, scopes);
   client.setQueryData(allLicensesOptions().queryKey, { items: [{ id: 'one', slug: 'pro-v1', name: 'Pro', version: '1', createdAt: '2026-10-23T00:00:00Z', updatedAt: '2026-10-23T00:00:00Z', description: '', type: 'PAID', isDefault: false }, { id: 'two', slug: 'pro-v2', name: 'Pro', version: '2', createdAt: '2026-10-23T00:00:00Z', updatedAt: '2026-10-23T00:00:00Z', description: '', type: 'PAID', isDefault: true }], hasMore: false });
   client.setQueryData(modelsQueryOptions.queryKey, { items: [], hasMore: false });
@@ -86,7 +86,8 @@ it.each([{ flag: false, scopes: null }, { flag: true, scopes: ['read:entitlement
   let reads = 0;
   server.use(handleGetLicenses(() => { reads++; return HttpResponse.json({ items: [], hasMore: false }); }), handleListModels(() => { reads++; return HttpResponse.json({ items: [], hasMore: false }); }), handleListConversionRules(() => { reads++; return HttpResponse.json([]); }));
   const { client } = await renderCalculation({ flag, scopes, seedRules: false });
-  await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(flag ? 'cannot read calculation' : 'currently unavailable'));
+  if (flag) await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('cannot read calculation'));
+  else expect(screen.queryByRole('status')).not.toBeInTheDocument();
   expect(screen.queryByLabelText('License version')).not.toBeInTheDocument();
   expect(client.getQueryCache().findAll({ queryKey: listConversionRulesQueryKey({ path: { licenseSlug: 'pro-v2' }, query: { entitlementSlug: 'credits', status: 'ACTIVE' } }) })).toHaveLength(0);
   expect(reads).toBe(0);

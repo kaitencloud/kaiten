@@ -1,4 +1,4 @@
-import { aiCreditsFlagQueryOptions } from '@/lib/feature-flags';
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import type { ComponentProps, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -25,7 +25,7 @@ const models = [
 ] as Model[];
 function renderCatalogue() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  client.setQueryData(aiCreditsFlagQueryOptions.queryKey, true);
+  setAiAccessInputsForTest(client, { capability: true, flag: true });
   client.setQueryData(grantedScopesQueryKey, null);
   client.setQueryData(modelsQueryOptions.queryKey, { items: models, hasMore: false });
   render(<QueryClientProvider client={client}><ModelsPage /></QueryClientProvider>);

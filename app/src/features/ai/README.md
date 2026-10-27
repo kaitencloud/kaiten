@@ -5,9 +5,12 @@
 place, retaining entitlement/version search context. `/ai/matrix` remains a
 secondary family comparison, linked from an entitlement's Calculation tab.
 The primary journey is `/catalog/entitlements/:entitlementSlug/calculation`.
-The feature flag gates each calculation/catalogue section independently of the
-public management API; unavailable flags (including failed evaluation) explain
-availability in place rather than returning a generic 404.
+AI routes guard before child loaders: deployment capability **and** successful
+platform rollout must both be true. Off/missing/error/stale capability or flag
+state hides all AI navigation, forms and loading/unavailable/retry panels; direct
+and legacy operational links return not found. Operation scopes still apply.
+The management API enforces its own default-off deployment policy independently
+of these console affordances.
 
 Models use generated REST schemas/mutations and cursor-complete catalogue reads.
 The family matrix uses `Query.models` + `licenseFamily.versions` with entitlements
@@ -91,3 +94,30 @@ Manual edits also fresh-read and merge changed fields, including nested costs,
 rejecting concurrent changes to an explicitly edited field or cost dimension.
 There remains a GET-to-PUT race because the API has no compare-and-swap version.
 Supplier USD rates never update entitlement customer-credit conversion rules.
+
+## Local opt-in and synthetic tests
+
+A prepared local API needs `ai_usage.enabled: true` in its mounted
+`docker/config/api.yaml`, and the local platform evaluation needs `ai-credits`
+true. An environment variable not forwarded to the API container does not opt in.
+Neither a localhost URL nor an auth-bypass build opens either input implicitly.
+Changing configuration, seeding data or mutating hosted flags is a separate action.
+
+MSW/E2E defaults both inputs off. `aiCapability: { enabled: true }` and
+`flagEvaluations: { 'ai-credits': true }` are separate explicit mock slots; ordinary
+fixtures must not opt in globally. Node unit tests do not verify a real browser,
+provider or server. Same-session browser/DevTools evidence is still required for
+interactive verification when those tools/runtime are authorized.
+
+Operational entitlement/grant/price/voucher views project original catalogue
+`NUMBER_AI_CREDIT` identity, never normalized `NUMBER`. Canonical grant arrays and
+serializer payloads stay intact. A new version refuses known AI or unresolved
+canonical grant/price copies before creation while off; it never skips hidden
+rows. The server must also refuse copies whose filtered base no longer provides
+complete canonical relations. Ordinary full-replace writes depend on server-side
+preservation of unchanged hidden relations.
+
+Invoice-linked ordinary `?history=` journal drawers and exports are immutable
+financial evidence and remain readable under their existing permissions, including
+hidden or deleted live resources. This exception does not enable operational
+catalogue links, inference history, reservations or AI writes.

@@ -11,6 +11,7 @@ export function WildcardImpact() {
   const mayRead =
     access.allows('getLicenses') && access.allows('listConversionRules');
   const query = useQuery({ ...wildcardQueryOptions, enabled: mayRead });
+  if (!access.available) return null;
   return (
     <aside className="space-y-2 rounded-md bg-warning-subtle p-3 text-sm text-warning-subtle-foreground">
       <p>{t('AI.wildcardWarning')}</p>

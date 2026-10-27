@@ -46,6 +46,24 @@ an author nor a revoker, so those columns from screen 17 (V-99) remain unavailab
 - **Detail loader.** `beforeLoad` ensures the instance and sets the breadcrumb title to its name. The loader then calls `ensureInstanceDetailData` (the instance, then its customer, license, usage and license entitlements), and preloads the deployment zones, the release overview and the releases.
 - **Dialogs.** They follow [dialog via route](../../../docs/03-patterns/dialog-via-route.md). `?mode=configure` is validated by the route's search schema, and closing the dialog or saving returns to the detail page without it.
 
+## AI rollout
+
+AI operational rows, exception controls and known AI-bearing voucher admission use
+current successful server readiness **and** platform `ai-credits` evaluation.
+Off, pending, stale or failed checks hide AI; ordinary NUMBER/BOOLEAN/CONFIG
+exception controls and coupon behavior remain available. Retained AI form drafts
+are not cleared, but their operational controls and submission are disabled.
+
+Voucher classification uses original catalogue types or an original discriminator
+returned on a grant, never its numeric value or arbitrary CONFIG keys. The grant
+contract does not currently declare that discriminator: opaque codes/price IDs and
+unclassified targets remain server-authoritative, without extra catalogue scopes
+or blanket ordinary-price denial. Known AI codes are rechecked before confirmation
+and each boundary retry. Live AI grant/delta projections disappear on gate loss;
+completed redemption identities and invoice amounts remain financial evidence.
+The journal `?history=` drawer/export likewise remains readable for hidden or
+deleted live resources without opening operational AI links.
+
 ## Structure
 
 ```text

@@ -1,3 +1,4 @@
+vi.mock('@/domains/ai-credits/use-ai-access', () => ({ useAiAccess: () => ({ available: false }) }));
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import type { ReleaseManagementOverviewRelease } from '@/domains/release-management';
@@ -95,4 +96,17 @@ describe('useInstanceDetailDerivedState release status', () => {
   it('has no status when the release cannot be resolved', () => {
     expect(releaseStatusOf([], 'production', [])).toBeNull();
   });
+});
+
+it('filters live AI rows before metrics by their original type while retaining canonical evidence', () => {
+  const { result } = renderHook(() => useInstanceDetailDerivedState({
+    instance: {} as never,
+    entitlements: [{ id: 'ordinary', name: 'Seats', slug: 'seats', type: 'NUMBER' }, { id: 'ai', name: 'Credits', slug: 'credits', type: 'NUMBER_AI_CREDIT' }] as never,
+    licenseEntitlements: [{ entitlementName: 'Seats', entitlementSlug: 'seats', entitlementType: 'NUMBER', value: { type: 'number', value: 10 } }, { entitlementName: 'Credits', entitlementSlug: 'credits', entitlementType: 'NUMBER_AI_CREDIT', value: { type: 'number', value: 100 } }] as never,
+    entitlementUsages: [], deploymentZones: [], overviewReleases: [], releases: [],
+  }));
+  expect(result.current.entitlementsRows.map((row) => row.entitlementSlug)).toEqual(['seats']);
+  expect(result.current.entitlementsMetrics.total).toBe(1);
+  expect(result.current.canonicalEntitlementsRows).toHaveLength(2);
+  expect(result.current.canonicalEntitlementsRows[1]).toMatchObject({ entitlementType: 'NUMBER', catalogueEntitlementType: 'NUMBER_AI_CREDIT' });
 });
