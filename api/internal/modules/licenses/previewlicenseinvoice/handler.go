@@ -14,7 +14,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/effective"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
-	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -73,10 +72,6 @@ type meter struct {
 func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scenario) (*rating.InvoicePreview, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
-		return nil, err
-	}
-	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
-	if err := operationalaccess.RequireSlug(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, licenseSlug); err != nil {
 		return nil, err
 	}
 	samples, err := parseSamples(scenario.SampleUsage)

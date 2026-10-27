@@ -42,6 +42,7 @@ import (
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	organizationdb "github.com/kaitencloud/kaiten/api/internal/modules/organization/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -645,6 +646,8 @@ func newDogfoodingSourceServer(t *testing.T, organizationID uuid.UUID, sinkBaseU
 	sourceServer := tests.NewTestServer(testDb, tests.TestServerOptions{
 		OrganizationID: &organizationID,
 		UsageReporter:  usageReporter,
+		// This metering fixture does not configure a trusted AI flag source.
+		PlatformFlags: aitest.Flags(false),
 		ConfigOverride: func(cfg *config.Config) {
 			cfg.Metered.Enabled = true
 			cfg.Metered.OrganizationID = setup.KaitenOrgID.String()

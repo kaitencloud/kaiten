@@ -230,13 +230,22 @@ test.describe('the offer of a boost', () => {
     }
   });
 
-  test('offers AI credits only when deployment readiness and platform rollout are explicitly enabled', async ({
+  test('offers AI credits only when server availability and platform rollout are explicitly enabled', async ({
     page,
   }) => {
     await installAiCapability(page, true);
     await installFlagEvaluations(page, { 'ai-credits': true });
     const wizard = new VoucherWizardDriver(page);
+    const capabilityResponse = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === '/api/ai/capabilities' &&
+        response.request().method() === 'GET',
+    );
     await wizard.goto();
+    const capability = await capabilityResponse;
+    expect(capability.status()).toBe(200);
+    expect(await capability.json()).toEqual({ enabled: true });
+    expect(capability.headers()['cache-control']).toContain('no-store');
     await wizard.startAs('Boost', 'AI credits opt-in');
     await wizard.addChange().click();
     expect((await wizard.offeredEntitlements(0)).sort()).toEqual([

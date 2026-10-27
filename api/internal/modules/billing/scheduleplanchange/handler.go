@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/ports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -39,15 +40,6 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 		return nil, err
 	}
 	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
-	if !u.deps.AIPolicy.Enabled(ctx) {
-		hasAI, err := u.deps.Queries(ctx).SubscriptionSelectionHasAI(ctx, db.SubscriptionSelectionHasAIParams{OrganizationID: user.OrganizationID, InstanceSlug: instanceSlug, BasePriceID: priceID, MoveToLicenseID: nil, AddonSlugs: []string{}, VoucherCode: nil})
-		if err != nil {
-			return nil, err
-		}
-		if hasAI {
-			return nil, u.deps.AIPolicy.RequireEnabled(ctx)
-		}
-	}
 	var result *subscriptions.InstanceBilling
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -90,6 +82,11 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 		case target.Currency != sub.Currency:
 			return kaitenerrors.UnprocessableEntity(operation+".CurrencyMismatch",
 				"the boundary's invoice bills the old plan and the new one in one currency: "+sub.Currency)
+		}
+		// Only the new target is admission. The existing plan and held add-ons
+		// remain financial basis, not a reason to block an ordinary target.
+		if err := operationalaccess.RequireLicense(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, target.LicenseID); err != nil {
+			return err
 		}
 		if sub.InstanceID != nil && u.deps.Addons != nil && target.BillingPeriod != nil {
 			stranded, err := u.deps.Addons.Incompatible(ctx, user.OrganizationID, *sub.InstanceID, target.LicenseID, *target.BillingPeriod)

@@ -123,8 +123,13 @@ permission to consume a pool. Models, conversion rules, inference/reservation
 reads, external classified catalogue/usage views and AI-target mutations use the
 same policy. Internal billing/effective arithmetic, immutable journals/exports,
 audit evidence and invoices remain readable under their existing scopes,
-including deleted-resource financial evidence. Trusted fulfilment of already-paid
-ACTIVATION checkouts remains financial bookkeeping, not operational AI admission.
+including deleted-resource financial evidence. Ordinary licence invoice previews
+also stay independent of AI availability: they compute financial amounts without
+admitting usage or charging anything. Scheduled plan changes check the new target
+licence only, not the existing plan or held add-ons already in the billing basis.
+New subscription activation still preflights its complete selected/held grants.
+Trusted fulfilment of already-paid ACTIVATION checkouts remains financial
+bookkeeping, not operational AI admission.
 
 AI maintenance and gauges resolve the current flag separately for each
 organization on each run; disabled/unavailable organizations have no AI expiry

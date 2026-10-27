@@ -319,6 +319,7 @@ func newEffectiveCatalogue(t *testing.T) effectiveCatalogue {
 }
 
 func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	catalogue := newEffectiveCatalogue(t)
 	ctx := t.Context()
