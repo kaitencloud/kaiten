@@ -47,6 +47,9 @@ type ActivationPreview struct {
 // It answers the subscribe's own refusals for the base price; the caller has
 // checked what the public catalogue offers.
 func (u *UseCase) PreviewActivation(ctx context.Context, organizationID uuid.UUID, cmd PreviewCommand) (*ActivationPreview, error) {
+	if err := u.requireOperationalSelection(ctx, organizationID, "", cmd.BasePriceID, nil, cmd.AddOns, cmd.VoucherCode); err != nil {
+		return nil, err
+	}
 	q := u.deps.Queries(ctx)
 	base, err := u.deps.Catalogue.Price(ctx, organizationID, cmd.BasePriceID)
 	if err != nil {

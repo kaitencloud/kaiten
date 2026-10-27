@@ -15,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -28,11 +29,16 @@ import (
 // transaction Transact opened for that ctx, with no db.New(...) or
 // licenseview.New(...) at the call site.
 type CommandRepository struct {
-	uof *uow.UnitOfWork
+	uof    *uow.UnitOfWork
+	policy aiusage.Policy
 }
 
-func NewCommandRepository(uof *uow.UnitOfWork) *CommandRepository {
-	return &CommandRepository{uof: uof}
+func NewCommandRepository(uof *uow.UnitOfWork, policy ...aiusage.Policy) *CommandRepository {
+	p := aiusage.Policy{}
+	if len(policy) > 0 {
+		p = policy[0]
+	}
+	return &CommandRepository{uof: uof, policy: p}
 }
 
 // q resolves this module's own sqlc Queries bound to whatever DBTX is
@@ -53,6 +59,10 @@ func (r *CommandRepository) AssociateEntitlementToLicense(ctx context.Context, l
 	}
 	entitlement, err := r.resolveEntitlementSlug(ctx, command.EntitlementSlug, organizationID)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := r.policy.RequireType(string(entitlement.Type)); err != nil {
 		return nil, err
 	}
 

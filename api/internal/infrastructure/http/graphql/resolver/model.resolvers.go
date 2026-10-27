@@ -14,5 +14,5 @@ import (
 
 // Models is the resolver for the models field.
 func (r *queryResolver) Models(ctx context.Context, status *schema.Status) ([]schema.Model, error) {
-	return modelsGraphql.Models(ctx, r.ModelsQueries, status)
+	return modelsGraphql.Models(ctx, r.ModelsQueries, r.AIPolicy, status)
 }

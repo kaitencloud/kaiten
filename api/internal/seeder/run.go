@@ -12,9 +12,11 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 type RunOptions struct {
+	AIPolicy        aiusage.Policy
 	OrganizationIDs []uuid.UUID
 	UsageReporter   services.UsageReporter
 }
@@ -46,7 +48,7 @@ func converges(profile Profile) bool {
 
 func Run(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, opts RunOptions) error {
 	if len(opts.OrganizationIDs) > 0 {
-		return runForOrganizations(ctx, pool, profiles, opts.OrganizationIDs, opts.UsageReporter)
+		return runForOrganizations(ctx, pool, profiles, opts.OrganizationIDs, opts.UsageReporter, opts.AIPolicy)
 	}
 
 	if err := EnsureTrackerTable(ctx, pool); err != nil {
@@ -54,6 +56,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, opts RunOp
 	}
 
 	sc := NewSeederContext(pool, opts.UsageReporter)
+	sc.AIPolicy = opts.AIPolicy
 	for _, profile := range profiles {
 		alreadyRun, err := HasRun(ctx, pool, profile.Name())
 		if err != nil {
@@ -82,7 +85,7 @@ func Run(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, opts RunOp
 	return nil
 }
 
-func runForOrganizations(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, organizationIDs []uuid.UUID, usageReporter services.UsageReporter) error {
+func runForOrganizations(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, organizationIDs []uuid.UUID, usageReporter services.UsageReporter, policy aiusage.Policy) error {
 	scopedProfiles := make([]OrganizationScopedProfile, 0, len(profiles))
 	for _, profile := range profiles {
 		scopedProfile, ok := profile.(OrganizationScopedProfile)
@@ -102,6 +105,7 @@ func runForOrganizations(ctx context.Context, pool *pgxpool.Pool, profiles []Pro
 	}
 
 	sc := NewSeederContext(pool, usageReporter)
+	sc.AIPolicy = policy
 	for _, profile := range scopedProfiles {
 		slog.Info("▶️  Seeding profile for existing organizations...", "profile", profile.Name(), "organizations", organizationIDs)
 		if err := profile.SeedOrganizations(ctx, sc, targetOrganizations); err != nil {

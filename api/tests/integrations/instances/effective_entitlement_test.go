@@ -327,7 +327,7 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 		for _, instanceID := range catalogue.instances {
 			want := legacyRows[db.GetEntitlementsUsageForInstanceWithFallbackRow](t, legacyEntitlementsUsageForInstance, org, instanceID)
 			got, err := instancesDB.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
-				OrganizationID: org, InstanceID: instanceID,
+				OrganizationID: org, InstanceID: instanceID, HideAi: false,
 			})
 			require.NoError(t, err)
 			normalize := func(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) {
@@ -406,7 +406,7 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 		for _, instanceSlug := range catalogue.instanceSlugs {
 			want := legacyRows[entitlementsdb.GetEntitlementGroupUsageRow](t, legacyEntitlementGroupUsage, instanceSlug, catalogue.groupSlug, org)
 			got, err := groups.GetEntitlementGroupUsage(ctx, entitlementsdb.GetEntitlementGroupUsageParams{
-				OrganizationID: org, InstanceSlug: instanceSlug, GroupSlug: catalogue.groupSlug,
+				OrganizationID: org, InstanceSlug: instanceSlug, GroupSlug: catalogue.groupSlug, HideAi: false,
 			})
 			require.NoError(t, err)
 			normalize := func(rows []entitlementsdb.GetEntitlementGroupUsageRow) {
@@ -436,7 +436,7 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 		for _, customerSlug := range catalogue.customers {
 			want := legacyRows[fact](t, legacyTargetingFacts, org, customerSlug)
 			rows, err := customers.GetTargetingFactsByCustomerSlug(ctx, customersdb.GetTargetingFactsByCustomerSlugParams{
-				OrganizationID: org, CustomerSlug: customerSlug,
+				OrganizationID: org, CustomerSlug: customerSlug, HideAi: false,
 			})
 			require.NoError(t, err)
 			if len(want) == 0 {

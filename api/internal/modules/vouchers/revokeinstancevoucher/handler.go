@@ -53,6 +53,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, instanceVouc
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, locked.VoucherID, u.deps.AIPolicy); err != nil {
+			return err
+		}
 		if locked.Status != db.InstanceVoucherStatusACTIVE {
 			return kaitenerrors.Conflict(operation+".NotActive", "only an ACTIVE redemption can be revoked")
 		}

@@ -15,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -29,13 +30,17 @@ type Filter struct {
 }
 
 type Reader struct {
-	User    currentuser.Provider
-	Queries *db.Queries
+	AIPolicy aiusage.Policy
+	User     currentuser.Provider
+	Queries  *db.Queries
 }
 
 func (r Reader) pair(ctx context.Context, instance, pool string) (db.ResolveAIReadPairRow, uuid.UUID, error) {
 	user, err := r.User.GetUser(ctx)
 	if err != nil {
+		return db.ResolveAIReadPairRow{}, uuid.Nil, err
+	}
+	if err := r.AIPolicy.RequireEnabled(); err != nil {
 		return db.ResolveAIReadPairRow{}, uuid.Nil, err
 	}
 	pair, err := r.Queries.ResolveAIReadPair(ctx, db.ResolveAIReadPairParams{OrganizationID: user.OrganizationID, InstanceSlug: instance, EntitlementSlug: pool})

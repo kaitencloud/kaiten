@@ -22,5 +22,5 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug, status, billingModel
 	if err != nil {
 		return nil, err
 	}
-	return prices.List(ctx, queries, user.OrganizationID, licenseID, status, billingModel)
+	return prices.ListOperational(ctx, queries, user.OrganizationID, licenseID, status, billingModel, !u.deps.AIPolicy.Enabled)
 }

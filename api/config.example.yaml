@@ -128,6 +128,12 @@ connectors:
   # VAULT_CONNECTORS_BASE_PATH — where connector settings live in Vault.
   vault_base_path: kaiten/connectors
 
+# The startup-fixed AI rollout switch, independent of billing and customer flags.
+# Off blocks AI operations/catalogue access, not immutable financial evidence.
+# Enable explicitly in a local-development config; deployment defaults stay off.
+ai_usage:
+  enabled: false                    # KAITEN_AI_USAGE_ENABLED
+
 # The usage report path.
 usage:
   # A report against a periodic entitlement first closes every window elapsed

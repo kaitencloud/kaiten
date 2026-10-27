@@ -53,7 +53,16 @@ func Get(ctx context.Context, queries *db.Queries, organizationID, licenseID, pr
 // List reads a version's prices in display order, optionally one status or
 // billing model.
 func List(ctx context.Context, queries *db.Queries, organizationID, licenseID uuid.UUID, status, billingModel string) ([]Price, error) {
-	params := db.ListLicensePricesParams{OrganizationID: organizationID, LicenseID: licenseID, Status: nil, BillingModel: nil}
+	return list(ctx, queries, organizationID, licenseID, status, billingModel, false)
+}
+
+// ListOperational filters only the external catalogue, never the billing basis.
+func ListOperational(ctx context.Context, queries *db.Queries, organizationID, licenseID uuid.UUID, status, billingModel string, hideAI bool) ([]Price, error) {
+	return list(ctx, queries, organizationID, licenseID, status, billingModel, hideAI)
+}
+
+func list(ctx context.Context, queries *db.Queries, organizationID, licenseID uuid.UUID, status, billingModel string, hideAI bool) ([]Price, error) {
+	params := db.ListLicensePricesParams{HideAi: hideAI, OrganizationID: organizationID, LicenseID: licenseID, Status: nil, BillingModel: nil}
 	if status != "" {
 		s := db.PriceStatus(status)
 		params.Status = &s
@@ -77,7 +86,16 @@ func List(ctx context.Context, queries *db.Queries, organizationID, licenseID uu
 // display order, keyed by version: one statement for the whole batch, where List
 // asks for one version. A version with no price has no entry.
 func ListForLicenses(ctx context.Context, queries *db.Queries, organizationID uuid.UUID, licenseIDs []uuid.UUID) (map[uuid.UUID][]Price, error) {
+	return listForLicenses(ctx, queries, organizationID, licenseIDs, false)
+}
+
+func ListForLicensesOperational(ctx context.Context, queries *db.Queries, organizationID uuid.UUID, licenseIDs []uuid.UUID, hideAI bool) (map[uuid.UUID][]Price, error) {
+	return listForLicenses(ctx, queries, organizationID, licenseIDs, hideAI)
+}
+
+func listForLicenses(ctx context.Context, queries *db.Queries, organizationID uuid.UUID, licenseIDs []uuid.UUID, hideAI bool) (map[uuid.UUID][]Price, error) {
 	rows, err := queries.ListLicensePricesByLicenses(ctx, db.ListLicensePricesByLicensesParams{
+		HideAi:         hideAI,
 		OrganizationID: organizationID, LicenseIds: licenseIDs,
 	})
 	if err != nil {

@@ -20,8 +20,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familyevents"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/dbmap"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -47,6 +49,7 @@ type Transition struct {
 // Deps lists exactly what a transition needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	Uof           *uow.UnitOfWork
 	UsageReporter services.UsageReporter
@@ -81,6 +84,9 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.License, er
 
 	var moved *schema.License
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if err := operationalaccess.RequireSlug(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, slug); err != nil {
+			return err
+		}
 		license, family, err := h.repo.apply(ctx, h.transition, slug, user.ID, user.OrganizationID)
 		if err != nil {
 			return err

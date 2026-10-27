@@ -47,6 +47,15 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, priceID uuid.UU
 		if err != nil {
 			return err
 		}
+		if !u.deps.AIPolicy.Enabled && price.MetersEntitlementID != nil {
+			hasAI, err := q.AddonMeterIsAI(ctx, db.AddonMeterIsAIParams{OrganizationID: user.OrganizationID, EntitlementID: *price.MetersEntitlementID})
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return u.deps.AIPolicy.RequireEnabled()
+			}
+		}
 		if price.Status == db.PriceStatusDEPRECATED {
 			return kaitenerrors.Conflict(operation+".AlreadyDeprecated", "the price is already deprecated")
 		}

@@ -40,5 +40,15 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, all bool) ([
 	if err != nil {
 		return nil, err
 	}
-	return exceptions.List(ctx, q, user.OrganizationID, instance, nil, !all, now)
+	rows, err := exceptions.List(ctx, q, user.OrganizationID, instance, nil, !all, now)
+	if err != nil {
+		return nil, err
+	}
+	visible := make([]exceptions.EntitlementException, 0, len(rows))
+	for _, row := range rows {
+		if u.deps.AIPolicy.RequireType(row.EntitlementType) == nil {
+			visible = append(visible, row)
+		}
+	}
+	return visible, nil
 }

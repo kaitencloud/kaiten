@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
@@ -27,6 +28,11 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, draft prices.
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if draft.MeteredEntitlementSlug != "" {
+		if err := licenseview.RequireOperational(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, draft.MeteredEntitlementSlug); err != nil {
+			return nil, err
+		}
 	}
 	if draft.BillingTiming == "" {
 		draft.BillingTiming = prices.TimingAdvance

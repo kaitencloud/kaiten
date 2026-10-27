@@ -10,6 +10,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
@@ -17,8 +18,11 @@ import (
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	instancedb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -31,11 +35,12 @@ func aiReport(t *testing.T, instance, pool string, value map[string]any, headers
 }
 
 func TestAIUsageReserveCommitAndReplay(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance := newInstances(t, 1)[0]
 	pool, err := createentitlement.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB)).CreateEntitlement(t.Context(), createentitlement.CreateEntitlementInput{Name: "AI Credits", Slug: "ai-credits", Type: entitlementschema.NumberAICredit, AggregationMethod: ptr.To(entitlementschema.Sum)}, testDb.DefaultData.OrganizationID)
 	require.NoError(t, err)
-	assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, pool.Slug, 5, 0)
+	assignAIPoolToLicense(t, instance.LicenseSlug, pool.Slug, 5, 0)
 	_, err = testServer.Dependencies.DB.Exec(t.Context(), `WITH m AS (
 		INSERT INTO model (organization_id,name,slug,vendor,modality,created_by_id,updated_by_id)
 		VALUES ($1,'Synthetic','synthetic-model','synthetic','TEXT',$2,$2) RETURNING id)
@@ -71,11 +76,12 @@ func TestAIUsageReserveCommitAndReplay(t *testing.T) {
 }
 
 func TestAIHistoryAndRelease(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance := newInstances(t, 1)[0]
 	pool, err := createentitlement.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB)).CreateEntitlement(t.Context(), createentitlement.CreateEntitlementInput{Name: "Credits", Slug: "history-credits", Type: entitlementschema.NumberAICredit, AggregationMethod: ptr.To(entitlementschema.Sum)}, testDb.DefaultData.OrganizationID)
 	require.NoError(t, err)
-	assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, pool.Slug, 100, 0)
+	assignAIPoolToLicense(t, instance.LicenseSlug, pool.Slug, 100, 0)
 	_, err = testServer.Dependencies.DB.Exec(t.Context(), `WITH m AS (INSERT INTO model (organization_id,name,slug,vendor,modality,created_by_id,updated_by_id) VALUES ($1,'Synthetic','history-model','v','TEXT',$2,$2) RETURNING id) INSERT INTO credit_conversion_rule (organization_id,license_id,entitlement_id,model_id,rate_per_request,charge_on_error,created_by_id,updated_by_id) SELECT $1,$3,$4,id,2,'ALWAYS',$2,$2 FROM m`, testDb.DefaultData.OrganizationID, testDb.DefaultData.UserID, instance.LicenseID, pool.ID)
 	require.NoError(t, err)
 	reserve := map[string]any{"type": "ai_usage", "phase": "reserve", "transactionId": "history-tx", "model": "history-model", "requestType": "COMPLETION"}
@@ -107,10 +113,11 @@ func TestAIHistoryAndRelease(t *testing.T) {
 }
 
 func TestAICommitRecordsUnknownModelAndDeduplicatesUnauthorizedEvent(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance := newInstances(t, 1)[0]
 	pool := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 0)
-	assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, pool.Slug, 10, 0)
+	assignAIPoolToLicense(t, instance.LicenseSlug, pool.Slug, 10, 0)
 	for _, id := range []string{"unknown-one", "unknown-two"} {
 		response := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": id, "model": "missing-model", "requestType": "COMPLETION", "requestStatus": "SUCCESS", "usage": map[string]any{"inputTokens": 123}}), http.StatusOK)
 		require.False(t, *response.AI.Authorized)
@@ -132,7 +139,7 @@ func newAIUsagePair(t *testing.T, limit int32) (*instanceschema.Instance, *entit
 	instance := newInstances(t, 1)[0]
 	pool := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 80)
 	overagePercent := entitlementvalue.DefaultLimitCapExceededOveragePercent(float64(limit))
-	assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, pool.Slug, limit, overagePercent)
+	assignAIPoolToLicense(t, instance.LicenseSlug, pool.Slug, limit, overagePercent)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `WITH m AS (
 		INSERT INTO model (organization_id,name,slug,vendor,modality,created_by_id,updated_by_id)
 		VALUES ($1,'Lifecycle','lifecycle-model','synthetic','TEXT',$2,$2) RETURNING id)
@@ -201,6 +208,7 @@ func concurrentAIReports(t *testing.T, instance, pool string, values ...map[stri
 }
 
 func TestAIConcurrentLastCreditReserves(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 1)
 	beforeEvents := recordedEvents(t)
@@ -232,6 +240,7 @@ func TestAIConcurrentLastCreditReserves(t *testing.T) {
 }
 
 func TestAIConcurrentIdenticalCommitsChargeOnce(t *testing.T) {
+	useAIForThisTest(t)
 	for _, reserved := range []bool{false, true} {
 		name := "bare commit"
 		if reserved {
@@ -286,6 +295,7 @@ func TestAIConcurrentIdenticalCommitsChargeOnce(t *testing.T) {
 }
 
 func TestAIExpiredReservationIgnoredBeforeSweepAndLateCommitChargedInFull(t *testing.T) {
+	useAIForThisTest(t)
 	for _, swept := range []bool{false, true} {
 		name := "before sweep"
 		if swept {
@@ -338,6 +348,7 @@ func TestAIExpiredReservationIgnoredBeforeSweepAndLateCommitChargedInFull(t *tes
 }
 
 func TestAIReleasedOperationIsSettledAndReplaysOnlyIdenticalNotSent(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 10)
 	reserve := aiUsageBody("reserve", "released", 5)
@@ -367,6 +378,7 @@ func TestAIReleasedOperationIsSettledAndReplaysOnlyIdenticalNotSent(t *testing.T
 }
 
 func TestAIStaleWindowReplayWritesNoCounterOperationOrOutbox(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 100)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE entitlement SET reset_period='MONTH',reset_anchor='CALENDAR' WHERE id=$1`, pool.ID)
@@ -400,6 +412,7 @@ func TestAIStaleWindowReplayWritesNoCounterOperationOrOutbox(t *testing.T) {
 }
 
 func TestAIMultipleOperationsI2AndNumericRefundGap(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 100)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE entitlement SET reset_period='MONTH',reset_anchor='CALENDAR' WHERE id=$1;`, pool.ID)
@@ -439,6 +452,7 @@ func TestAIMultipleOperationsI2AndNumericRefundGap(t *testing.T) {
 }
 
 func TestAINumericGateIncludesReservationsAndPartialRefundReopensHeadroom(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 5)
 	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "held", 4)), http.StatusOK)
@@ -460,6 +474,7 @@ func TestAINumericGateIncludesReservationsAndPartialRefundReopensHeadroom(t *tes
 }
 
 func TestAIReservationAcrossRolloverChargesNewWindow(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 10)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE entitlement SET reset_period='MONTH',reset_anchor='CALENDAR' WHERE id=$1`, pool.ID)
@@ -493,6 +508,7 @@ func TestAIReservationAcrossRolloverChargesNewWindow(t *testing.T) {
 }
 
 func TestAIPhaseReplayIdentityAndHorizon(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 100)
 	reserve := aiUsageBody("reserve", "identity", 2)
@@ -517,7 +533,7 @@ func TestAIPhaseReplayIdentityAndHorizon(t *testing.T) {
 	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, reserve), http.StatusConflict)
 	require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
 	otherPool := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 0)
-	assignEntitlementToLicenseWithOverage(t, instance.LicenseSlug, otherPool.Slug, 100, 0)
+	assignAIPoolToLicense(t, instance.LicenseSlug, otherPool.Slug, 100, 0)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `INSERT INTO credit_conversion_rule (organization_id,license_id,entitlement_id,rate_per_output_token,created_by_id,updated_by_id) VALUES ($1,$2,$3,1,$4,$4)`, testDb.DefaultData.OrganizationID, instance.LicenseID, otherPool.ID, testDb.DefaultData.UserID)
 	require.NoError(t, err)
 	bare := aiUsageBody("commit", "identity", 3)
@@ -537,6 +553,7 @@ func TestAIPhaseReplayIdentityAndHorizon(t *testing.T) {
 }
 
 func TestAICommitOverrideRecordsAndPricesActualModel(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 100)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `WITH m AS (
@@ -560,6 +577,7 @@ func TestAICommitOverrideRecordsAndPricesActualModel(t *testing.T) {
 }
 
 func TestAICommitCommercialFailuresRecordedWithoutCharge(t *testing.T) {
+	useAIForThisTest(t)
 	for _, scenario := range []struct {
 		name, update, reason, warning, reserveCode string
 	}{
@@ -596,6 +614,7 @@ func TestAICommitCommercialFailuresRecordedWithoutCharge(t *testing.T) {
 }
 
 func TestAISoftMaximumAndUnlimitedGate(t *testing.T) {
+	useAIForThisTest(t)
 	t.Run("soft maximum", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		instance, pool := newAIUsagePair(t, 10)
@@ -628,6 +647,7 @@ func TestAISoftMaximumAndUnlimitedGate(t *testing.T) {
 }
 
 func TestAIWireRejectsMissingMalformedIDsAndInvalidPhases(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 10)
 	for _, phase := range []string{"reserve", "commit"} {
@@ -647,4 +667,20 @@ func TestAIWireRejectsMissingMalformedIDsAndInvalidPhases(t *testing.T) {
 	reserve["model"] = "missing-model"
 	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, reserve), http.StatusUnprocessableEntity)
 	require.Equal(t, "ReportEntitlementUsageMetric.UnknownModel", problem.Code)
+}
+
+// Explicit AI fixture only. No ordinary helper or process-wide default opts in.
+func useAIForThisTest(t *testing.T) {
+	t.Helper()
+	previous := testServer
+	enabled := tests.NewTestServer(testDb, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.AIUsage.Enabled = true }})
+	testServer = enabled
+	t.Cleanup(func() { testServer = previous; require.NoError(t, enabled.Close()) })
+}
+
+func assignAIPoolToLicense(t *testing.T, licenseSlug, entitlementSlug string, threshold, overagePercent int32) {
+	t.Helper()
+	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB), aiusage.Policy{Enabled: true})
+	_, err := repo.AssociateEntitlementToLicense(t.Context(), licenseSlug, &associateentitlementwithlicense.Command{EntitlementSlug: entitlementSlug, Value: map[string]any{"type": "number", "value": threshold}, LimitCapExceededOveragePercent: &overagePercent}, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
+	require.NoError(t, err)
 }

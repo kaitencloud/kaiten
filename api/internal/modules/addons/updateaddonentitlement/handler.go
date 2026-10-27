@@ -40,6 +40,9 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, entitlementSlug string
 		if err != nil {
 			return err
 		}
+		if err := u.deps.AIPolicy.RequireType(string(existing.EntitlementType)); err != nil {
+			return err
+		}
 		if err := catalogue.RefuseBilled(ctx, q, operation, user.OrganizationID, locked.Row.ID); err != nil {
 			return err
 		}

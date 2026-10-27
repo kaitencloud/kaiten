@@ -10,16 +10,23 @@ import (
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 type QueryRepository struct {
+	policy     aiusage.Policy
 	repository *db.Queries
 }
 
-func NewQueryRepository(repository *db.Queries) *QueryRepository {
+func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
 	return &QueryRepository{
+		policy:     policy,
 		repository: repository,
 	}
 }
@@ -41,6 +48,9 @@ func (r *QueryRepository) GetLicenseEntitlement(ctx context.Context, licenseSlug
 		}
 	}
 
+	if err := r.policy.RequireType(string(result.EntitlementType)); err != nil {
+		return nil, err
+	}
 	valueMap, err := entitlementvalue.ToMap(result.Value)
 	if err != nil {
 		return nil, err

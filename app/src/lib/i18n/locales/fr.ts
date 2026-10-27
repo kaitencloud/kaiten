@@ -112,6 +112,7 @@ export default {
     slugInvalid:
       'Utilisez au moins deux lettres minuscules, chiffres ou tirets ; commencez et terminez par une lettre ou un chiffre.',
     Errors: {
+      unavailable: 'Les fonctionnalités IA sont actuellement indisponibles.',
       aiIdempotencyKeyUnsupported:
         'L’usage IA utilise son identifiant de transaction. Retirez l’en-tête Idempotency-Key et réessayez.',
       slugConflict: 'Ce slug de modèle est déjà utilisé.',

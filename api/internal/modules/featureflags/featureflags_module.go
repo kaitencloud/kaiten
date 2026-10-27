@@ -28,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/updatefeatureflag"
 	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/flaggrants"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 const (
@@ -76,8 +77,8 @@ func NewUseCases(svc services.Container) *UseCases {
 		slog.Warn("featureflags: no platform organization configured, every flag evaluation is metered and audited", "error", err)
 	}
 
-	entitlementCatalogue := catalogue.New(svc.Pool)
-	customerFacts := customertargetingfacts.New(svc.Pool)
+	entitlementCatalogue := catalogue.New(svc.Pool, aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled})
+	customerFacts := customertargetingfacts.New(svc.Pool, aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled})
 	instanceFacts := instancetargetingfacts.New(svc.Pool)
 	deploymentZoneFacts := deploymentzonetargetingfacts.New(svc.Pool)
 	// The flag variants a voucher grants, read through the vouchers module's

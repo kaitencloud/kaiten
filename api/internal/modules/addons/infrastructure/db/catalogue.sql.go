@@ -749,6 +749,7 @@ LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id 
 WHERE p.organization_id = $1
   AND p.addon_id = ANY ($2::uuid[])
   AND ($3::price_status IS NULL OR p.status = $3)
+AND (NOT $4::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
 ORDER BY p.display_order, p.id
 `
 
@@ -756,6 +757,7 @@ type ListAddonPricesParams struct {
 	OrganizationID uuid.UUID    `json:"organization_id"`
 	AddonIds       []uuid.UUID  `json:"addon_ids"`
 	Status         *PriceStatus `json:"status"`
+	HideAi         bool         `json:"hide_ai"`
 }
 
 type ListAddonPricesRow struct {
@@ -782,7 +784,12 @@ type ListAddonPricesRow struct {
 }
 
 func (q *Queries) ListAddonPrices(ctx context.Context, arg ListAddonPricesParams) ([]ListAddonPricesRow, error) {
-	rows, err := q.db.Query(ctx, listAddonPrices, arg.OrganizationID, arg.AddonIds, arg.Status)
+	rows, err := q.db.Query(ctx, listAddonPrices,
+		arg.OrganizationID,
+		arg.AddonIds,
+		arg.Status,
+		arg.HideAi,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1117,7 +1124,7 @@ func (q *Queries) LockAddonFamilyBySlug(ctx context.Context, arg LockAddonFamily
 }
 
 const lockAddonPrice = `-- name: LockAddonPrice :one
-SELECT p.id, p.status, p.is_default
+SELECT p.id, p.status, p.is_default, p.meters_entitlement_id
 FROM addon_price p
 WHERE p.organization_id = $1
   AND p.addon_id = $2
@@ -1132,15 +1139,21 @@ type LockAddonPriceParams struct {
 }
 
 type LockAddonPriceRow struct {
-	ID        uuid.UUID   `json:"id"`
-	Status    PriceStatus `json:"status"`
-	IsDefault bool        `json:"is_default"`
+	ID                  uuid.UUID   `json:"id"`
+	Status              PriceStatus `json:"status"`
+	IsDefault           bool        `json:"is_default"`
+	MetersEntitlementID *uuid.UUID  `json:"meters_entitlement_id"`
 }
 
 func (q *Queries) LockAddonPrice(ctx context.Context, arg LockAddonPriceParams) (LockAddonPriceRow, error) {
 	row := q.db.QueryRow(ctx, lockAddonPrice, arg.OrganizationID, arg.AddonID, arg.ID)
 	var i LockAddonPriceRow
-	err := row.Scan(&i.ID, &i.Status, &i.IsDefault)
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.IsDefault,
+		&i.MetersEntitlementID,
+	)
 	return i, err
 }
 

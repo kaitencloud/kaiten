@@ -39,6 +39,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/setsessionaddonquantity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/updatepublishablekey"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/validatesessionvoucher"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
@@ -129,6 +130,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		Secrets: keys.NewVaultSecretStore(svc.Config.Connectors.VaultBasePath),
 	}
 	catalog := getpubliccatalog.NewUseCase(getpubliccatalog.Deps{
+		AIPolicy:  aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
 		Uof:       svc.Uof,
 		Gate:      billingGate,
 		Providers: svc.BillingProviders,

@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
@@ -20,6 +21,7 @@ import (
 // Queries here, since it binds to the cross-cutting outbox module's own
 // generated db package, not this module's.
 type Deps struct {
+	AIPolicy         aiusage.Policy
 	UserProvider     currentuser.Provider
 	Queries          *db.Queries
 	UsageReporter    services.UsageReporter
@@ -48,7 +50,7 @@ type InstanceEntitlementValueGet struct {
 func NewUseCase(deps Deps) *UseCase {
 	return &UseCase{
 		deps:       deps,
-		repository: NewQueryRepository(deps.Queries),
+		repository: NewQueryRepository(deps.Queries, deps.AIPolicy),
 		outboxRepo: deps.OutboxRepository,
 	}
 }
@@ -59,12 +61,12 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug string, entitlementS
 		return nil, err
 	}
 
-	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesCheckedEntitlementSlug)
-
 	entitlement, err := h.repository.GetEntitlementUsageMetrics(ctx, instanceSlug, entitlementSlug, user.OrganizationID)
 	if err != nil {
 		return nil, err
 	}
+
+	h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesCheckedEntitlementSlug)
 
 	instance, err := h.deps.Queries.GetOneInstance(ctx, db.GetOneInstanceParams{
 		OrganizationID: user.OrganizationID,

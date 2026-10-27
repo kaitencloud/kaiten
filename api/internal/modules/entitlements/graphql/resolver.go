@@ -10,13 +10,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // GetEntitlements returns a cursor-paginated page of entitlement
 // definitions (groups included) for the current organization.
-func GetEntitlements(ctx context.Context, queries *db.Queries, limit int32, cursor *string) (*schema.EntitlementPage, error) {
+func GetEntitlements(ctx context.Context, queries *db.Queries, policy aiusage.Policy, limit int32, cursor *string) (*schema.EntitlementPage, error) {
 	identity, ok := principal.FromContext(ctx)
 	if !ok {
 		return nil, ErrMissingIdentity
@@ -40,6 +41,7 @@ func GetEntitlements(ctx context.Context, queries *db.Queries, limit int32, curs
 	}
 
 	entitlements, err := queries.GetEntitlementsByCursor(ctx, db.GetEntitlementsByCursorParams{
+		HideAi:          !policy.Enabled,
 		OrganizationID:  identity.OrganizationID,
 		CursorCreatedAt: cursorCreatedAt,
 		CursorID:        cursorID,

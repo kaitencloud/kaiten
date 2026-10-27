@@ -7,6 +7,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -16,6 +17,7 @@ import (
 // public read port -- this module never imports entitlements' generated
 // db package directly.
 type Deps struct {
+	AIPolicy          aiusage.Policy
 	UserProvider      currentuser.Provider
 	Queries           *db.Queries
 	EntitlementReader licenseview.Port
@@ -29,7 +31,7 @@ type UseCase struct {
 func NewUseCase(deps Deps) *UseCase {
 	return &UseCase{
 		deps:       deps,
-		repository: NewQueryRepository(deps.Queries, deps.EntitlementReader),
+		repository: NewQueryRepository(deps.Queries, deps.EntitlementReader, deps.AIPolicy),
 	}
 }
 

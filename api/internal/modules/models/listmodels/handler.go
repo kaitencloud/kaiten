@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -22,6 +23,7 @@ type Filter struct {
 }
 
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Queries      *db.Queries
 }
@@ -31,6 +33,9 @@ func NewUseCase(deps Deps) *UseCase { return &UseCase{deps: deps} }
 func (h *UseCase) Execute(ctx context.Context, filter Filter, limit int32, cursor *string) (pagination.Page[*schema.Model], error) {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
+		return pagination.Page[*schema.Model]{}, err
+	}
+	if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
 		return pagination.Page[*schema.Model]{}, err
 	}
 	var createdAt *time.Time

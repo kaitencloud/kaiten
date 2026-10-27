@@ -24,5 +24,9 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID) (*catalogue.
 	if err != nil {
 		return nil, err
 	}
-	return &voucher, nil
+	visible, err := catalogue.VisibleVoucher(ctx, u.deps.Queries(ctx), user.OrganizationID, u.deps.AIPolicy, voucher)
+	if err != nil {
+		return nil, err
+	}
+	return &visible, nil
 }

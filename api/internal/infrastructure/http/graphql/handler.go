@@ -41,6 +41,7 @@ import (
 	releasesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/releases/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/fiberapi"
 )
 
@@ -107,6 +108,7 @@ const (
 
 // Config holds the configuration for the GraphQL handler.
 type Config struct {
+	AIPolicy            aiusage.Policy
 	EnablePlayground    bool
 	EnableIntrospection bool
 	// BillingGate is the switch the add-on catalogue sits behind, the one the
@@ -188,7 +190,7 @@ func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
 // ever be charged.
 func newExecutableSchema(pool *pgxpool.Pool, config Config) graphql.ExecutableSchema {
 	return generated.NewExecutableSchema(generated.Config{
-		Resolvers:  resolver.NewResolver(pool, config.BillingGate),
+		Resolvers:  resolver.NewResolver(pool, config.BillingGate, config.AIPolicy),
 		Complexity: newComplexityRoot(),
 	})
 }
@@ -294,13 +296,13 @@ func withOperationDeadline(next http.Handler) http.Handler {
 func (h *Handler) newLoaders() *dataloader.Loaders {
 	loaders := dataloader.NewLoaders()
 	resolver.RegisterBillingGate(loaders, h.config.BillingGate)
-	addonsGraphql.RegisterDataloaders(loaders, addonsdb.New(h.pool))
+	addonsGraphql.RegisterDataloaders(loaders, addonsdb.New(h.pool), h.config.AIPolicy)
 	billingGraphql.RegisterDataloaders(loaders, billingdb.New(h.pool))
 	customersGraphql.RegisterDataloaders(loaders, customersdb.New(h.pool))
 	deploymentzonesGraphql.RegisterDataloaders(loaders, deploymentzonesdb.New(h.pool))
-	entitlementsGraphql.RegisterDataloaders(loaders, entitlementsdb.New(h.pool))
-	instancesGraphql.RegisterDataloaders(loaders, instancesdb.New(h.pool))
-	licensesGraphql.RegisterDataloaders(loaders, licensesdb.New(h.pool))
+	entitlementsGraphql.RegisterDataloaders(loaders, entitlementsdb.New(h.pool), h.config.AIPolicy)
+	instancesGraphql.RegisterDataloaders(loaders, instancesdb.New(h.pool), h.config.AIPolicy)
+	licensesGraphql.RegisterDataloaders(loaders, licensesdb.New(h.pool), h.config.AIPolicy)
 	releasesGraphql.RegisterDataloaders(loaders, releaselink.New(h.pool), deploymentzonereleaselink.New(h.pool), instancereleaselink.New(h.pool))
 
 	return loaders

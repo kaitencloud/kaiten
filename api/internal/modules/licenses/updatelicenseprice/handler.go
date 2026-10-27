@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
@@ -57,6 +58,16 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 		}
 		if stored == nil {
 			return kaitenerrors.NotFoundf(operation+".NotFound", "price %s not found on license %q", priceID, licenseSlug)
+		}
+		if stored.Metered != nil {
+			if err := licenseview.RequireOperational(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, stored.Metered.EntitlementSlug); err != nil {
+				return err
+			}
+		}
+		if patch.MeteredEntitlementSlug != nil && *patch.MeteredEntitlementSlug != "" {
+			if err := licenseview.RequireOperational(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, *patch.MeteredEntitlementSlug); err != nil {
+				return err
+			}
 		}
 		if version.LifecycleState != db.LicenseLifecycleStateDRAFT {
 			return kaitenerrors.Conflict(operation+".VersionNotDraft",

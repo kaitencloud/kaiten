@@ -16,7 +16,14 @@ import (
 )
 
 func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSlug string, command *Command) (result *Result, resultErr error) {
+	user, err := h.deps.UserProvider.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
 	if command.AI != nil {
+		if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+			return nil, err
+		}
 		if command.TransactionID != nil {
 			return nil, kaitenerrors.UnprocessableEntity("ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported", "AI usage uses value.transactionId; do not send Idempotency-Key")
 		}
@@ -24,19 +31,33 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 			return nil, err
 		}
 	}
-	defer func() {
-		if result == nil {
-			recordAIReport(ctx, command, nil, resultErr)
-		} else {
-			recordAIReport(ctx, command, result.Usage, resultErr)
-		}
-	}()
-	user, err := h.deps.UserProvider.GetUser(ctx)
-	if err != nil {
-		return nil, err
+	if h.deps.AIPolicy.Enabled {
+		defer func() {
+			if result == nil {
+				recordAIReport(ctx, command, nil, resultErr)
+			} else {
+				recordAIReport(ctx, command, result.Usage, resultErr)
+			}
+		}()
 	}
-	if command.AI == nil || command.AI.Phase == "commit" {
+	// Preserve the ordinary attempt counter for missing/ungranted targets,
+	// unsupported types and validation/load failures. While off, classify the
+	// original entitlement before those failures: known AI never counts. Submit
+	// after this report's owned transaction unwinds, because the reporter queue
+	// may block. A caller-owned ambient transaction can still surround Execute.
+	ordinaryAttempt := command.AI == nil
+	if ordinaryAttempt && !h.deps.AIPolicy.Enabled {
+		eligible, err := h.ordinaryAttempt(ctx, user.OrganizationID, entitlementSlug)
+		if err != nil {
+			return nil, err
+		}
+		ordinaryAttempt = eligible
+	}
+	if h.deps.AIPolicy.Enabled && (command.AI == nil || command.AI.Phase == "commit") {
 		h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesReportedEntitlementSlug)
+	}
+	if !h.deps.AIPolicy.Enabled && ordinaryAttempt {
+		defer func() { h.finishOrdinaryAttempt(user.OrganizationID, resultErr) }()
 	}
 	properties, tooLarge, err := encodeMetadata(command.Metadata)
 	if err != nil {
@@ -62,6 +83,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 			}
 			return err
 		}
+
 		st.Properties = properties
 		st.TransactionID = command.TransactionID
 		if err := h.loadAI(ctx, st, command, instanceSlug); err != nil {

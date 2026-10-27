@@ -2,14 +2,19 @@ package removeentitlementfromgroup
 
 import (
 	"context"
+	"errors"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Queries      *db.Queries
 }
@@ -33,6 +38,15 @@ func (h *UseCase) Execute(ctx context.Context, groupSlug string, entitlementSlug
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return err
+	}
+	if !h.deps.AIPolicy.Enabled {
+		target, err := h.deps.Queries.GetEntitlement(ctx, db.GetEntitlementParams{OrganizationID: user.OrganizationID, Slug: entitlementSlug})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if err := h.deps.AIPolicy.RequireType(string(target.Type)); err != nil {
+			return err
+		}
 	}
 
 	if err := h.repository.RemoveEntitlementFromGroup(ctx, groupSlug, entitlementSlug, user.OrganizationID); err != nil {

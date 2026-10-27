@@ -3,15 +3,19 @@ package kaiten
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/modules/models"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/createmodel"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/deletemodel"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models/getaiusagecapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/getmodel"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/listmodels"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/updatemodel"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
+	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // Models is the organization-scoped model catalogue.
@@ -52,4 +56,13 @@ func (m Models) Delete(ctx context.Context, cl caller.OrganizationCaller, slug s
 		return err
 	}
 	return m.uc.DeleteModel.Execute(bindOrganization(ctx, cl), slug)
+}
+
+// Capabilities is the one auth-only deployment read on this namespace. A zero
+// caller is denied even though readiness requires no product permission.
+func (m Models) Capabilities(_ context.Context, cl caller.OrganizationCaller) (getaiusagecapabilities.Capabilities, error) {
+	if cl.UserID() == uuid.Nil || cl.OrganizationID() == uuid.Nil {
+		return getaiusagecapabilities.Capabilities{}, apierrors.Unauthorized("Auth.NoIdentity", "no identity found in context")
+	}
+	return m.uc.Capabilities.Read(), nil
 }

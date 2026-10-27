@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	instancesschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -20,12 +21,18 @@ import (
 // Repository defines the interface for getting entitlement group usage.
 // QueryRepository implements Repository using sqlc queries.
 type QueryRepository struct {
+	policy     aiusage.Policy
 	repository *db.Queries
 }
 
 // NewQueryRepository creates a new QueryRepository.
-func NewQueryRepository(repository *db.Queries) *QueryRepository {
+func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
 	return &QueryRepository{
+		policy:     policy,
 		repository: repository,
 	}
 }
@@ -33,6 +40,7 @@ func NewQueryRepository(repository *db.Queries) *QueryRepository {
 // GetEntitlementGroupUsage returns the aggregated usage for an entitlement group for a given instance.
 func (r *QueryRepository) GetEntitlementGroupUsage(ctx context.Context, groupSlug string, instanceSlug string, organizationID uuid.UUID) ([]*schema.EntitlementGroupUsage, error) {
 	params := db.GetEntitlementGroupUsageParams{
+		HideAi:         !r.policy.Enabled,
 		GroupSlug:      groupSlug,
 		InstanceSlug:   instanceSlug,
 		OrganizationID: organizationID,

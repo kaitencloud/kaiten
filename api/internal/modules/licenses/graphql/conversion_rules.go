@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/conversionrules"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 const LicenseConversionRulesLoaderName = "LicenseConversionRulesLoader"
@@ -20,7 +21,7 @@ type ConversionRulesKey struct {
 	Status    schema.ConversionRuleStatus
 }
 
-func newConversionRulesBatchFn(q *db.Queries) dataloaderLib.BatchFunc[ConversionRulesKey, []*schema.ConversionRule] {
+func newConversionRulesBatchFn(q *db.Queries, policy aiusage.Policy) dataloaderLib.BatchFunc[ConversionRulesKey, []*schema.ConversionRule] {
 	return func(ctx context.Context, keys []ConversionRulesKey) []*dataloaderLib.Result[[]*schema.ConversionRule] {
 		results := make([]*dataloaderLib.Result[[]*schema.ConversionRule], len(keys))
 		org, err := getOrganizationID(ctx)
@@ -30,6 +31,10 @@ func newConversionRulesBatchFn(q *db.Queries) dataloaderLib.BatchFunc[Conversion
 			}
 		}
 		if err != nil {
+			fail(err)
+			return results
+		}
+		if err := policy.RequireEnabled(); err != nil {
 			fail(err)
 			return results
 		}

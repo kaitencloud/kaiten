@@ -25,6 +25,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
 	demoprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/demo"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/debezium"
 	"github.com/kaitencloud/kaiten/api/tests"
 )
@@ -41,6 +42,7 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	t.Cleanup(testDB.TearDown)
 
 	sc := seeder.NewSeederContext(testDB.DbPool, nil)
+	sc.AIPolicy = aiusage.Policy{Enabled: true}
 	require.NoError(t, demoprofile.NewProfile().Seed(ctx, sc))
 
 	var orgID string
@@ -293,7 +295,7 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 
 	// Both Premium customers are Premium to a flag rule, whichever version they
 	// are on: the facts carry the family, and the demo's rules read it (F1).
-	facts := customertargetingfacts.New(testDB.DbPool)
+	facts := customertargetingfacts.New(testDB.DbPool, aiusage.Policy{Enabled: true})
 	for customerSlug, versionSlug := range map[string]string{
 		"sakura-tokyo": "premium-v2",
 		"kappa-kyoto":  "premium",

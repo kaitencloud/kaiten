@@ -36,6 +36,9 @@ func (t Transition) Move(ctx context.Context, deps Deps, box *outbox.ScopedRepos
 		if err != nil {
 			return err
 		}
+		if err := RequireOperational(ctx, q, user.OrganizationID, locked.Row.ID, deps.AIPolicy); err != nil {
+			return err
+		}
 		if string(locked.Row.LifecycleState) != t.From {
 			return kaitenerrors.Conflict(t.WrongStateCode,
 				fmt.Sprintf("add-on %q is %s, not %s", slug, locked.Row.LifecycleState, t.From))

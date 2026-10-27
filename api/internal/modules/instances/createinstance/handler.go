@@ -12,9 +12,11 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -24,6 +26,7 @@ import (
 // port (see validator.NewLister) -- this module never imports
 // metadatafields' generated db package directly.
 type Deps struct {
+	AIPolicy             aiusage.Policy
 	UserProvider         currentuser.Provider
 	UsageReporter        services.UsageReporter
 	Uof                  *uow.UnitOfWork
@@ -61,6 +64,9 @@ func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Instan
 		return nil, err
 	}
 
+	if err := operationalaccess.RequireLicense(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, command.LicenseID); err != nil {
+		return nil, err
+	}
 	// Validate metadata against the org's declared schema for INSTANCE.
 	// INSTANCE is tolerant (additionalProperties: true). See the module
 	// README in metadatafields/ for the convention.
@@ -173,6 +179,9 @@ func (h *UseCase) persistInstance(ctx context.Context, userID, orgID uuid.UUID, 
 // makes no outside call (§9.12 rules 3 and 9). The slug is not retried: a
 // conflict aborts the caller's transaction anyway.
 func (h *UseCase) Persist(ctx context.Context, orgID, userID uuid.UUID, command *Command) (*schema.Instance, error) {
+	if err := operationalaccess.RequireLicense(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, orgID, command.LicenseID); err != nil {
+		return nil, err
+	}
 	slug, err := slugutil.GenerateUnique(command.Name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate slug: %w", err)

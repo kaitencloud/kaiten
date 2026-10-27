@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/google/uuid"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 
@@ -13,11 +14,21 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
+// TargetClassifier is the query-only catalogue-type seam needed to distinguish
+// ordinary attempt accounting from an off-state AI denial, before validation.
+type TargetClassifier interface {
+	EntitlementType(context.Context, uuid.UUID, string) (string, error)
+}
+
 type Deps struct {
+	// Nil binds to this use case's owning QueryRepository, never an allow policy.
+	TargetClassifier  TargetClassifier
+	AIPolicy          aiusage.Policy
 	ReservationTTL    time.Duration
 	ReservationMaxTTL time.Duration
 	UserProvider      currentuser.Provider
@@ -59,6 +70,7 @@ const usageReportMeter = "kaiten.usage.report"
 type UseCase struct {
 	deps                Deps
 	queryRepo           *QueryRepository
+	targetClassifier    TargetClassifier
 	commandRepo         *CommandRepository
 	outbox              *outbox.ScopedRepository
 	maxRolloverClosures int
@@ -142,9 +154,15 @@ func NewUseCase(deps Deps) *UseCase {
 		slog.Warn("failed to register usage report metric", "metric", "ledger.unavailable", "error", err)
 	}
 
+	queryRepo := NewQueryRepository(deps.Uof)
+	classifier := deps.TargetClassifier
+	if classifier == nil {
+		classifier = queryRepo
+	}
 	return &UseCase{
+		targetClassifier:    classifier,
 		deps:                deps,
-		queryRepo:           NewQueryRepository(deps.Uof),
+		queryRepo:           queryRepo,
 		commandRepo:         NewCommandRepository(deps.Uof),
 		outbox:              outbox.NewScopedRepository(deps.Uof),
 		maxRolloverClosures: maxRolloverClosures,

@@ -25,8 +25,11 @@ import (
 // seedAI writes every consumption through the normal report use case, never a
 // second counter writer. Provider usage is synthetic and contains no prompts.
 func (p *Profile) seedAI(ctx context.Context, sc *seeder.SeederContext, actor currentuser.Provider, instances []seededInstance) error {
+	if !sc.AIPolicy.Enabled {
+		return nil
+	}
 	modelSlug := "sushi-assistant"
-	_, err := createmodel.NewUseCase(createmodel.Deps{UserProvider: actor, Uof: uow.NewUnitOfWork(sc.Pool())}).Execute(ctx, &createmodel.Command{Name: "Sushi assistant", Slug: modelSlug, Vendor: "synthetic", Modality: modelschema.Text, Status: modelschema.Active, ExternalIDs: []string{"sushi-assistant-v1"}, VendorCosts: modelschema.VendorCosts{Currency: "USD"}})
+	_, err := createmodel.NewUseCase(createmodel.Deps{AIPolicy: sc.AIPolicy, UserProvider: actor, Uof: uow.NewUnitOfWork(sc.Pool())}).Execute(ctx, &createmodel.Command{Name: "Sushi assistant", Slug: modelSlug, Vendor: "synthetic", Modality: modelschema.Text, Status: modelschema.Active, ExternalIDs: []string{"sushi-assistant-v1"}, VendorCosts: modelschema.VendorCosts{Currency: "USD"}})
 	if err != nil {
 		return fmt.Errorf("seed AI model: %w", err)
 	}

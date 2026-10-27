@@ -14,10 +14,12 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 }
@@ -33,6 +35,9 @@ func NewUseCase(deps Deps) *UseCase {
 func (h *UseCase) Execute(ctx context.Context, slug string, id uuid.UUID) error {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
+		return err
+	}
+	if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
 		return err
 	}
 	return h.deps.Uof.Transact(ctx, func(ctx context.Context) error {

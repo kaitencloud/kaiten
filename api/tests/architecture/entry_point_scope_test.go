@@ -277,6 +277,7 @@ func TestEveryHumaOperationDeclaresAScope(t *testing.T) {
 var registrarOperationArg = map[string]int{
 	"RegisterScoped":                     1,
 	"RegisterAuthorizationIntrospection": 1,
+	"RegisterAIUsageCapabilities":        1,
 	"RegisterPlatform":                   1,
 	"RegisterPlatformForOrganization":    1,
 	"RegisterPublishable":                1,
@@ -300,6 +301,7 @@ var scopelessRegistrars = map[string]string{
 var registrarPathNamespace = map[string]string{
 	"RegisterScoped":                     "",
 	"RegisterAuthorizationIntrospection": "",
+	"RegisterAIUsageCapabilities":        "",
 	"RegisterPlatform":                   platformPathPrefix,
 	"RegisterPlatformForOrganization":    platformPathPrefix,
 	"RegisterPublishable":                publicPathPrefix,
@@ -420,6 +422,7 @@ func TestCoreAndPlatformRegistrarsPartitionThePaths(t *testing.T) {
 var callerConstructorForRegistrar = map[string]string{
 	"RegisterScoped":                     "Organization",
 	"RegisterAuthorizationIntrospection": "Organization",
+	"RegisterAIUsageCapabilities":        "Organization",
 	"RegisterPlatform":                   "Platform",
 	"RegisterPlatformForOrganization":    "Platform",
 	"RegisterPublishable":                "PublishableKey",
@@ -480,7 +483,7 @@ func TestEveryRegisteredOperationResolvesItsCaller(t *testing.T) {
 
 				// Register*(api, operation, scope, handler): the handler is last.
 				handlerArg := opArg + 2
-				if name == "RegisterAuthorizationIntrospection" {
+				if name == "RegisterAuthorizationIntrospection" || name == "RegisterAIUsageCapabilities" {
 					handlerArg = opArg + 1
 				}
 				if len(call.Args) <= handlerArg {
@@ -501,7 +504,8 @@ func TestEveryRegisteredOperationResolvesItsCaller(t *testing.T) {
 						"%s: operation %q is registered with a handler this walk cannot follow to a "+
 							"function body, so nothing proves it resolves a caller -- pass a function "+
 							"literal or a function declared in the same package",
-						pos, id))
+						pos, id,
+					))
 					return true
 				}
 
@@ -512,13 +516,15 @@ func TestEveryRegisteredOperationResolvesItsCaller(t *testing.T) {
 						"%s: operation %q resolves no caller -- caller.%s is what refuses a credential of "+
 							"the wrong class now that no middleware does, and a handler without one reaches "+
 							"no facade method, so its scope goes unenforced too",
-						pos, id, want))
+						pos, id, want,
+					))
 				case !resolved[want]:
 					violations = append(violations, fmt.Sprintf(
 						"%s: operation %q is registered with %s but its handler resolves caller.%s -- the "+
 							"registrar and the constructor are the two halves of one declaration and they "+
 							"disagree; this fails closed at runtime for the wrong reason",
-						pos, id, name, strings.Join(sortedKeys(resolved), "/")))
+						pos, id, name, strings.Join(sortedKeys(resolved), "/"),
+					))
 				}
 				return true
 			})

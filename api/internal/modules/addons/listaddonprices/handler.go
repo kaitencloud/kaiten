@@ -30,7 +30,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, status string) ([]pric
 		s := db.PriceStatus(status)
 		filter = &s
 	}
-	all, err := catalogue.Prices(ctx, q, user.OrganizationID, []uuid.UUID{addon.ID}, filter)
+	all, err := catalogue.PricesOperational(ctx, q, user.OrganizationID, []uuid.UUID{addon.ID}, filter, !u.deps.AIPolicy.Enabled)
 	if err != nil {
 		return nil, err
 	}

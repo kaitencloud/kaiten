@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -24,6 +25,7 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	UsageReporter services.UsageReporter
 	Uof           *uow.UnitOfWork
@@ -52,6 +54,10 @@ func NewUseCase(deps Deps) *UseCase {
 func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitlement, error) {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
+		return nil, err
+	}
+
+	if err := h.deps.AIPolicy.RequireType(string(request.Type)); err != nil {
 		return nil, err
 	}
 

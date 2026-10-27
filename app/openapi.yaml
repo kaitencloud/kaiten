@@ -1994,6 +1994,14 @@ components:
         - updatedAt
       type: object
       x-kaiten-payload: "#/components/schemas/Cancellation"
+    Capabilities:
+      additionalProperties: false
+      properties:
+        enabled:
+          type: boolean
+      required:
+        - enabled
+      type: object
     CheckoutConfirmation:
       additionalProperties: false
       properties:
@@ -15675,6 +15683,9 @@ components:
         description:
           description: What this value means, shown by the editor
           type: string
+        entitlementType:
+          description: Original catalogue type on a known entitlement entry only, not a metadata or CONFIG key
+          type: string
         entries:
           description: Shape of each known key, for a map whose entries differ. Named after the key
           items:
@@ -15755,6 +15766,11 @@ components:
     TargetingRuleRehearsal:
       additionalProperties: false
       properties:
+        entitlementTypes:
+          additionalProperties:
+            type: string
+          description: Original catalogue types by known entitlement slug; classifies facts.entitlements without interpreting arbitrary CONFIG or metadata keys
+          type: object
         evaluationError:
           description: Why the engine could not answer, when it could not — e.g. the rule reads a host attribute this context does not carry. At a real evaluation the rule would simply not match
           type: string
@@ -15774,6 +15790,7 @@ components:
           description: Whether the rule lints clean
           type: boolean
       required:
+        - entitlementTypes
         - facts
         - issues
         - valid
@@ -19254,6 +19271,44 @@ paths:
       summary: Unarchive an add-on version
       tags:
         - addons
+  /ai/capabilities:
+    get:
+      description: Startup-fixed readiness only, not authorization to consume AI credits. Available while AI is disabled. Responses must not be cached.
+      operationId: getAiUsageCapabilities
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Capabilities"
+          description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth: []
+      summary: Read AI deployment readiness
+      tags:
+        - ai
   /authorization:
     get:
       description: Returns current stored grants for an active human or service-token caller, not JWT permissions. No permission is required. Credentials and token identifiers are never returned. Responses must not be cached.

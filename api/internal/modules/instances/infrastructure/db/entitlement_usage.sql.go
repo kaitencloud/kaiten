@@ -421,11 +421,12 @@ SELECT
   coalesce(ib.status::text, '')::text AS billing_status,
   ib.anchor_at      AS billing_anchor_at,
   ib.live_ended_at,
- (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
+ (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE (NOT $1::boolean OR e.type <> 'NUMBER_AI_CREDIT')
+ AND a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
 FROM instance i
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = i.id
- AND iee.organization_id = $1
+ AND iee.organization_id = $2
 JOIN entitlement e
   ON e.id = iee.entitlement_id
 LEFT JOIN "license" l
@@ -436,12 +437,13 @@ LEFT JOIN instance_billing ib
 LEFT JOIN entitlement_usage eu
   ON eu.instance_id = i.id
  AND eu.entitlement_id = iee.entitlement_id
- AND eu.organization_id = $1
-WHERE i.id = $2
-  AND i.organization_id = $1
+ AND eu.organization_id = $2
+WHERE i.id = $3
+  AND i.organization_id = $2
 `
 
 type GetEntitlementsUsageForInstanceWithFallbackParams struct {
+	HideAi         bool      `json:"hide_ai"`
 	OrganizationID uuid.UUID `json:"organization_id"`
 	InstanceID     uuid.UUID `json:"instance_id"`
 }
@@ -476,7 +478,7 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 // trip, since every row in one call already agrees on "now" by construction.
 // The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Context, arg GetEntitlementsUsageForInstanceWithFallbackParams) ([]GetEntitlementsUsageForInstanceWithFallbackRow, error) {
-	rows, err := q.db.Query(ctx, getEntitlementsUsageForInstanceWithFallback, arg.OrganizationID, arg.InstanceID)
+	rows, err := q.db.Query(ctx, getEntitlementsUsageForInstanceWithFallback, arg.HideAi, arg.OrganizationID, arg.InstanceID)
 	if err != nil {
 		return nil, err
 	}

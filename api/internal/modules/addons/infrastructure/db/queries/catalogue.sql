@@ -214,11 +214,12 @@ LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id 
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.addon_id = ANY (sqlc.arg(addon_ids)::uuid[])
   AND (sqlc.narg(status)::price_status IS NULL OR p.status = sqlc.narg(status))
+AND (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
 ORDER BY p.display_order, p.id;
 
 
 -- name: LockAddonPrice :one
-SELECT p.id, p.status, p.is_default
+SELECT p.id, p.status, p.is_default, p.meters_entitlement_id
 FROM addon_price p
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.addon_id = sqlc.arg(addon_id)

@@ -47,6 +47,9 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, command NewAddo
 		if err != nil {
 			return err
 		}
+		if err := u.deps.AIPolicy.RequireType(string(entitlement.Type)); err != nil {
+			return err
+		}
 		value, percent, behavior, err := command.Normalize(operation, entitlement.Type)
 		if err != nil {
 			return err

@@ -49,6 +49,13 @@ func (h *UseCase) load(ctx context.Context, organizationID uuid.UUID, instanceSl
 		return nil, err
 	}
 
+	// The persisted pool type is authoritative, including numeric adjustments and replay.
+	if pair.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+		if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+			return nil, err
+		}
+	}
+
 	if pair.EntitlementType != db.EntitlementTypeNUMBER && pair.EntitlementType != db.EntitlementTypeNUMBERAICREDIT {
 		return nil, kaitenerrors.Validation(
 			"ReportEntitlementUsageMetric.UnsupportedEntitlementType",

@@ -97,7 +97,15 @@ func current(versions []Addon) *Addon {
 // Prices reads the prices of the given versions, in display order, keyed by
 // version.
 func Prices(ctx context.Context, q *db.Queries, organizationID uuid.UUID, addonIDs []uuid.UUID, status *db.PriceStatus) (map[uuid.UUID][]prices.Price, error) {
-	rows, err := q.ListAddonPrices(ctx, db.ListAddonPricesParams{OrganizationID: organizationID, AddonIds: addonIDs, Status: status})
+	return pricesFor(ctx, q, organizationID, addonIDs, status, false)
+}
+
+func PricesOperational(ctx context.Context, q *db.Queries, organizationID uuid.UUID, addonIDs []uuid.UUID, status *db.PriceStatus, hideAI bool) (map[uuid.UUID][]prices.Price, error) {
+	return pricesFor(ctx, q, organizationID, addonIDs, status, hideAI)
+}
+
+func pricesFor(ctx context.Context, q *db.Queries, organizationID uuid.UUID, addonIDs []uuid.UUID, status *db.PriceStatus, hideAI bool) (map[uuid.UUID][]prices.Price, error) {
+	rows, err := q.ListAddonPrices(ctx, db.ListAddonPricesParams{HideAi: hideAI, OrganizationID: organizationID, AddonIds: addonIDs, Status: status})
 	if err != nil {
 		return nil, err
 	}

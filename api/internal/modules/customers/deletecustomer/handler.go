@@ -8,12 +8,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	Uof           *uow.UnitOfWork
 	UsageReporter services.UsageReporter
@@ -40,6 +43,15 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 	}
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if !h.deps.AIPolicy.Enabled {
+			hasAI, err := db.New(h.deps.Uof.DBTX(ctx)).CustomerHasAI(ctx, db.CustomerHasAIParams{OrganizationID: user.OrganizationID, Slug: slug})
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return h.deps.AIPolicy.RequireEnabled()
+			}
+		}
 		deletedCustomer, err := h.repo.DeleteCustomer(ctx, user.OrganizationID, slug)
 		if err != nil {
 			return err

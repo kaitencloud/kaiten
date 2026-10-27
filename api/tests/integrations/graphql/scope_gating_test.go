@@ -13,6 +13,7 @@ import (
 	gqlparser "github.com/vektah/gqlparser/v2"
 	"github.com/vektah/gqlparser/v2/ast"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	kaitengraphql "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
@@ -325,7 +326,12 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 	for _, module := range scope.OrganizationModules() {
 		readScopes = append(readScopes, scope.Read(module))
 	}
-	server := newBillingServer(t, nil, readScopes...)
+	server := tests.NewTestServer(testDb, tests.TestServerOptions{Scopes: readScopes, ConfigOverride: func(cfg *config.Config) {
+		cfg.Billing.Enabled = true
+		cfg.Billing.PeriodClose.Interval = -1
+		cfg.AIUsage.Enabled = true
+	}})
+	t.Cleanup(func() { require.NoError(t, server.Close()) })
 
 	variables := map[string]any{
 		"customer":  customer.Slug,

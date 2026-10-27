@@ -8,11 +8,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	Queries       *db.Queries
 	UsageReporter services.UsageReporter
@@ -26,7 +28,7 @@ type UseCase struct {
 func NewUseCase(deps Deps) *UseCase {
 	return &UseCase{
 		deps:       deps,
-		repository: NewQueryRepository(deps.Queries),
+		repository: NewQueryRepository(deps.Queries, deps.AIPolicy),
 	}
 }
 

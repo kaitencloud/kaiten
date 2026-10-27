@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/revokeinstancevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/updatevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/validatevoucher"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 type UseCases struct {
@@ -40,6 +41,7 @@ type UseCases struct {
 
 func NewUseCases(svc services.Container) *UseCases {
 	deps := catalogue.Deps{
+		AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
 		UserProvider: svc.UserProvider,
 		Uof:          svc.Uof,
 		Gate:         gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),

@@ -92,6 +92,28 @@ func (q *Queries) DeleteEntitlementGroup(ctx context.Context, arg DeleteEntitlem
 	return i, err
 }
 
+const entitlementGroupHasAI = `-- name: EntitlementGroupHasAI :one
+SELECT EXISTS (
+ SELECT 1 FROM entitlement_group g
+ JOIN entitlement_group_membership m ON m.entitlement_group_id = g.id AND m.organization_id = g.organization_id
+ JOIN entitlement e ON e.id = m.entitlement_id AND e.organization_id = g.organization_id
+ WHERE g.organization_id = $1 AND g.slug = $2
+   AND e.type = 'NUMBER_AI_CREDIT'
+)::boolean
+`
+
+type EntitlementGroupHasAIParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+func (q *Queries) EntitlementGroupHasAI(ctx context.Context, arg EntitlementGroupHasAIParams) (bool, error) {
+	row := q.db.QueryRow(ctx, entitlementGroupHasAI, arg.OrganizationID, arg.Slug)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getEntitlementGroup = `-- name: GetEntitlementGroup :one
 SELECT eg.id,
        eg.name,
@@ -143,12 +165,14 @@ JOIN instance i ON i.slug = $1 AND i.organization_id = eg.organization_id
 LEFT JOIN entitlement_usage eu ON eu.entitlement_id = e.id AND eu.instance_id = i.id AND eu.organization_id = eg.organization_id
 LEFT JOIN instance_effective_entitlement iee ON iee.entitlement_id = e.id AND iee.instance_id = i.id
 LEFT JOIN instance_billing ib ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
-WHERE eg.slug = $2
-  AND eg.organization_id = $3
+WHERE (NOT $2::boolean OR e.type <> 'NUMBER_AI_CREDIT')
+ AND eg.slug = $3
+  AND eg.organization_id = $4
 `
 
 type GetEntitlementGroupUsageParams struct {
 	InstanceSlug   string    `json:"instance_slug"`
+	HideAi         bool      `json:"hide_ai"`
 	GroupSlug      string    `json:"group_slug"`
 	OrganizationID uuid.UUID `json:"organization_id"`
 }
@@ -177,7 +201,12 @@ type GetEntitlementGroupUsageRow struct {
 // of a separate GetDatabaseNow round trip.
 // The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 func (q *Queries) GetEntitlementGroupUsage(ctx context.Context, arg GetEntitlementGroupUsageParams) ([]GetEntitlementGroupUsageRow, error) {
-	rows, err := q.db.Query(ctx, getEntitlementGroupUsage, arg.InstanceSlug, arg.GroupSlug, arg.OrganizationID)
+	rows, err := q.db.Query(ctx, getEntitlementGroupUsage,
+		arg.InstanceSlug,
+		arg.HideAi,
+		arg.GroupSlug,
+		arg.OrganizationID,
+	)
 	if err != nil {
 		return nil, err
 	}

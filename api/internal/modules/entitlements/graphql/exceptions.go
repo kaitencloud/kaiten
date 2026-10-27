@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // EntitlementExceptionsLoaderName loads Instance.entitlementExceptions.
@@ -43,7 +44,7 @@ type EntitlementException struct {
 	RevokedAt *time.Time
 }
 
-func newEntitlementExceptionsBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []EntitlementException] {
+func newEntitlementExceptionsBatchFn(queries *db.Queries, policy aiusage.Policy) dataloaderLib.BatchFunc[uuid.UUID, []EntitlementException] {
 	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[[]EntitlementException] {
 		results := make([]*dataloaderLib.Result[[]EntitlementException], len(keys))
 		fail := func(err error) []*dataloaderLib.Result[[]EntitlementException] {
@@ -68,6 +69,9 @@ func newEntitlementExceptionsBatchFn(queries *db.Queries) dataloaderLib.BatchFun
 		}
 		byInstance := map[uuid.UUID][]EntitlementException{}
 		for _, row := range rows {
+			if policy.RequireType(string(row.EntitlementType)) != nil {
+				continue
+			}
 			x, err := toEntitlementException(row, now)
 			if err != nil {
 				return fail(err)

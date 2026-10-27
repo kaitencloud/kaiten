@@ -14,8 +14,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familydefault"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familyevents"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -23,6 +25,7 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	UsageReporter services.UsageReporter
 	Uof           *uow.UnitOfWork
@@ -75,6 +78,15 @@ func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Licens
 		return nil, err
 	}
 
+	if !command.opensFamily() && !h.deps.AIPolicy.Enabled {
+		hasAI, err := db.New(h.deps.Uof.DBTX(ctx)).LicenseFamilyHasAI(ctx, db.LicenseFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: command.FamilyID, FamilySlug: command.FamilySlug})
+		if err != nil {
+			return nil, err
+		}
+		if hasAI {
+			return nil, h.deps.AIPolicy.RequireEnabled()
+		}
+	}
 	if command.Slug != nil {
 		if _, err := slugutil.New(*command.Slug); err != nil {
 			return nil, kaitenerrors.Validation("CreateLicense.InvalidSlug", slugutil.InvalidReason(*command.Slug))

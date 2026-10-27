@@ -38,6 +38,15 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 	if err != nil {
 		return nil, err
 	}
+	if !u.deps.AIPolicy.Enabled {
+		hasAI, err := u.deps.Queries(ctx).SubscriptionSelectionHasAI(ctx, db.SubscriptionSelectionHasAIParams{OrganizationID: user.OrganizationID, InstanceSlug: instanceSlug, BasePriceID: priceID, MoveToLicenseID: nil, AddonSlugs: []string{}, VoucherCode: nil})
+		if err != nil {
+			return nil, err
+		}
+		if hasAI {
+			return nil, u.deps.AIPolicy.RequireEnabled()
+		}
+	}
 	var result *subscriptions.InstanceBilling
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -118,7 +127,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 			subscriptions.PlanChangeSchedule{
 				InstanceSlug: sub.InstanceSlug, FromPriceID: sub.BaseLicensePriceID,
 				ToPriceID: target.ID, EffectiveAt: sub.CurrentPeriodEnd.Time.UTC(),
-			}, nil))
+			}, nil,
+		))
 	})
 	if err != nil {
 		return nil, err

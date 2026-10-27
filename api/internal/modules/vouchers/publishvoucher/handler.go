@@ -36,6 +36,9 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID) (*catalogue.
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, voucherID, u.deps.AIPolicy); err != nil {
+			return err
+		}
 		if locked.Status != db.VoucherStatusDRAFT {
 			return kaitenerrors.Conflict(operation+".NotADraft", "only a DRAFT voucher can be published")
 		}

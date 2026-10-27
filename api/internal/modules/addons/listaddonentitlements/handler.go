@@ -26,9 +26,11 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string) ([]catalogue.Ad
 	if err != nil {
 		return nil, err
 	}
-	grants := make([]catalogue.AddonEntitlement, len(rows))
-	for i, row := range rows {
-		grants[i] = catalogue.ToGrant(row)
+	grants := make([]catalogue.AddonEntitlement, 0, len(rows))
+	for _, row := range rows {
+		if u.deps.AIPolicy.RequireType(string(row.EntitlementType)) == nil {
+			grants = append(grants, catalogue.ToGrant(row))
+		}
 	}
 	return grants, nil
 }

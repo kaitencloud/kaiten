@@ -8,15 +8,19 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // Models returns the whole catalogue for the matrix, not just its first REST
 // page. The GraphQL scope gate requires read:models before reaching this query.
-func Models(ctx context.Context, queries *db.Queries, status *schema.Status) ([]schema.Model, error) {
+func Models(ctx context.Context, queries *db.Queries, policy aiusage.Policy, status *schema.Status) ([]schema.Model, error) {
 	i, ok := principal.FromContext(ctx)
 	if !ok {
 		return nil, apierrors.Unauthorized("Auth.NoIdentity", "no identity found in context")
+	}
+	if err := policy.RequireEnabled(); err != nil {
+		return nil, err
 	}
 	rows, err := queries.AllModels(ctx, db.AllModelsParams{OrganizationID: i.OrganizationID, Status: (*db.ModelStatus)(status)})
 	if err != nil {

@@ -54,6 +54,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*cata
 		if candidate == nil {
 			return catalogue.Refusal{Reason: catalogue.ReasonNotFound, Rule: ""}.Error(operation)
 		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, candidate.Row.ID, u.deps.AIPolicy); err != nil {
+			return err
+		}
 		now, err := catalogue.Now(ctx, q)
 		if err != nil {
 			return err

@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -30,6 +31,11 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 	}
 	if price == nil {
 		return nil, kaitenerrors.NotFoundf("GetLicensePrice.NotFound", "price %s not found on license %q", priceID, licenseSlug)
+	}
+	if price.Metered != nil {
+		if err := licenseview.RequireOperational(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, price.Metered.EntitlementSlug); err != nil {
+			return nil, err
+		}
 	}
 	return price, nil
 }

@@ -36,6 +36,9 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, familySlug string) err
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, locked.Row.ID, u.deps.AIPolicy); err != nil {
+			return err
+		}
 		familyID, err := q.GetLicenseFamilyIDBySlug(ctx, db.GetLicenseFamilyIDBySlugParams{OrganizationID: user.OrganizationID, Slug: familySlug})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return kaitenerrors.NotFoundf(operation+".FamilyNotFound", "license family %q not found", familySlug)

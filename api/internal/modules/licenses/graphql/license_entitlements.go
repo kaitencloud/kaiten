@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 )
 
@@ -23,7 +24,7 @@ const (
 // license ID. There is no batched SQL for multiple licenses yet, so the batch
 // iterates keys — still one round-trip per license server-side, versus one
 // HTTP round-trip per license from the browser before.
-func newLicenseEntitlementsBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []schema.LicenseEntitlement] {
+func newLicenseEntitlementsBatchFn(queries *db.Queries, policy aiusage.Policy) dataloaderLib.BatchFunc[uuid.UUID, []schema.LicenseEntitlement] {
 	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[[]schema.LicenseEntitlement] {
 		results := make([]*dataloaderLib.Result[[]schema.LicenseEntitlement], len(keys))
 
@@ -36,7 +37,7 @@ func newLicenseEntitlementsBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[
 		}
 
 		for i, licenseID := range keys {
-			entitlements, err := loadLicenseEntitlements(ctx, queries, identity.OrganizationID, licenseID)
+			entitlements, err := loadLicenseEntitlements(ctx, queries, identity.OrganizationID, licenseID, policy)
 			if err != nil {
 				results[i] = &dataloaderLib.Result[[]schema.LicenseEntitlement]{Error: err}
 				continue
@@ -51,6 +52,7 @@ func loadLicenseEntitlements(
 	ctx context.Context,
 	queries *db.Queries,
 	organizationID, licenseID uuid.UUID,
+	policy aiusage.Policy,
 ) ([]schema.LicenseEntitlement, error) {
 	rows, err := queries.GetEntitlementsForLicense(ctx, db.GetEntitlementsForLicenseParams{
 		LicenseID:      licenseID,
@@ -60,14 +62,17 @@ func loadLicenseEntitlements(
 		return nil, err
 	}
 
-	licenseEntitlements := make([]schema.LicenseEntitlement, len(rows))
-	for i, ent := range rows {
+	licenseEntitlements := make([]schema.LicenseEntitlement, 0, len(rows))
+	for _, ent := range rows {
+		if policy.RequireType(string(ent.EntitlementType)) != nil {
+			continue
+		}
 		valueMap, err := entitlementvalue.ToMap(ent.Value)
 		if err != nil {
 			return nil, err
 		}
 
-		licenseEntitlements[i] = schema.LicenseEntitlement{
+		licenseEntitlements = append(licenseEntitlements, schema.LicenseEntitlement{
 			EntitlementSlug:                ent.EntitlementSlug,
 			EntitlementName:                ent.EntitlementName,
 			EntitlementType:                string(ent.EntitlementType),
@@ -79,7 +84,7 @@ func loadLicenseEntitlements(
 			UpdatedAt:                      ent.UpdatedAt.Time,
 			Value:                          valueMap,
 			LimitCapExceededOveragePercent: int16PtrToInt32Ptr(ent.LimitCapExceededOveragePercent),
-		}
+		})
 	}
 	return licenseEntitlements, nil
 }

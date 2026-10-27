@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
@@ -23,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Profile defines the interface that all seed profiles must implement.
@@ -38,6 +40,7 @@ type Profile interface {
 // SeederContext provides access to all modules' use cases and direct database queries.
 // It encapsulates the dependencies needed by seed profiles.
 type SeederContext struct {
+	AIPolicy aiusage.Policy
 	// Module use cases
 	Components      *components.UseCases
 	Customers       *customers.UseCases
@@ -90,10 +93,10 @@ func NewSeederContext(pool *pgxpool.Pool, usageReporter services.UsageReporter) 
 // container it says it to is the same one the server builds.
 func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContext {
 	app, err := kaiten.New(kaiten.Options{
-		DB: sc.pool,
-		// Zero CoreConfig: seeding is driven by profiles and a pool, and takes no
-		// settings. Note this is now merely the absence of configuration -- it used
-		// to be what accidentally kept an unstoppable worker from starting.
+		DB:     sc.pool,
+		Config: seedConfig(sc.AIPolicy),
+		// Only AI's explicit deployment policy is copied. Other settings retain
+		// the seeder's existing zero configuration; no workers start here.
 		UserProvider: &currentuser.StaticUserProvider{
 			UserID:         userID,
 			OrganizationID: orgID,
@@ -125,6 +128,7 @@ func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContex
 	m := app.Modules()
 
 	return &SeederContext{
+		AIPolicy:        sc.AIPolicy,
 		Components:      m.Components,
 		Customers:       m.Customers,
 		DeploymentZones: m.DeploymentZones,
@@ -156,4 +160,12 @@ func (sc *SeederContext) Exec(ctx context.Context, query string, args ...any) er
 		return fmt.Errorf("seeder exec failed: %w", err)
 	}
 	return nil
+}
+
+// seedConfig preserves the seeder's unrelated zero configuration. AI alone is
+// opted in from the explicit seed command's deployment configuration.
+func seedConfig(policy aiusage.Policy) config.CoreConfig {
+	cfg := config.CoreConfig{}
+	cfg.AIUsage.Enabled = policy.Enabled
+	return cfg
 }

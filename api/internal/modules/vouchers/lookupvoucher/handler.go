@@ -22,5 +22,9 @@ func (u *UseCase) Execute(ctx context.Context, code string) (*catalogue.Voucher,
 	if err != nil {
 		return nil, err
 	}
-	return &voucher, nil
+	visible, err := catalogue.VisibleVoucher(ctx, u.deps.Queries(ctx), user.OrganizationID, u.deps.AIPolicy, voucher)
+	if err != nil {
+		return nil, err
+	}
+	return &visible, nil
 }

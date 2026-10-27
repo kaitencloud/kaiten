@@ -17,11 +17,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps is what the catalogue reads.
 type Deps struct {
-	Uof *uow.UnitOfWork
+	AIPolicy aiusage.Policy
+	Uof      *uow.UnitOfWork
 	// Gate keeps the priced catalogue behind the billing switch, as the
 	// licence price routes are.
 	Gate gate.Gate
@@ -99,11 +101,11 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 	for _, p := range plans {
 		licenseIDs = append(licenseIDs, p.ID)
 	}
-	priceRows, err := q.ListPublicPlanPrices(ctx, db.ListPublicPlanPricesParams{OrganizationID: organizationID, LicenseIds: licenseIDs})
+	priceRows, err := q.ListPublicPlanPrices(ctx, db.ListPublicPlanPricesParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, LicenseIds: licenseIDs})
 	if err != nil {
 		return nil, err
 	}
-	grantRows, err := q.ListPublicPlanEntitlements(ctx, db.ListPublicPlanEntitlementsParams{OrganizationID: organizationID, LicenseIds: licenseIDs})
+	grantRows, err := q.ListPublicPlanEntitlements(ctx, db.ListPublicPlanEntitlementsParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, LicenseIds: licenseIDs})
 	if err != nil {
 		return nil, err
 	}
@@ -222,11 +224,11 @@ func (u *UseCase) addOns(ctx context.Context, q *db.Queries, organizationID uuid
 	for _, r := range rows {
 		ids = append(ids, r.ID)
 	}
-	priceRows, err := q.ListPublicAddonPrices(ctx, db.ListPublicAddonPricesParams{OrganizationID: organizationID, AddonIds: ids})
+	priceRows, err := q.ListPublicAddonPrices(ctx, db.ListPublicAddonPricesParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, AddonIds: ids})
 	if err != nil {
 		return nil, nil, err
 	}
-	grantRows, err := q.ListPublicAddonEntitlements(ctx, db.ListPublicAddonEntitlementsParams{OrganizationID: organizationID, AddonIds: ids})
+	grantRows, err := q.ListPublicAddonEntitlements(ctx, db.ListPublicAddonEntitlementsParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, AddonIds: ids})
 	if err != nil {
 		return nil, nil, err
 	}

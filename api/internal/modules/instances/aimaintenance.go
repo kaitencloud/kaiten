@@ -16,7 +16,7 @@ import (
 // startAIMaintenance closes expired reservations without ever moving money.
 // The request gate ignores them immediately; the sweep only updates bookkeeping.
 func startAIMaintenance(svc services.Container) {
-	if !svc.BackgroundWorkers || svc.Pool == nil {
+	if !svc.Config.AIUsage.Enabled || !svc.BackgroundWorkers || svc.Pool == nil {
 		return
 	}
 	expiredMetric, _ := otel.Meter("kaiten.ai_usage").Int64Counter("ai_credit_holds_expired_total")

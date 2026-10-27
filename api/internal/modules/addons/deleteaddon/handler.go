@@ -34,6 +34,9 @@ func (u *UseCase) Execute(ctx context.Context, slug string) error {
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, locked.Row.ID, u.deps.AIPolicy); err != nil {
+			return err
+		}
 		attached, err := q.AddonWasAttached(ctx, db.AddonWasAttachedParams{OrganizationID: user.OrganizationID, AddonID: locked.Row.ID})
 		if err != nil {
 			return err

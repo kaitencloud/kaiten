@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
@@ -29,6 +30,10 @@ func ruleBody() map[string]any {
 }
 
 func ruleFixture(t *testing.T) string {
+	previous := testServer
+	enabled := tests.NewTestServer(testDb, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.AIUsage.Enabled = true }})
+	testServer = enabled
+	t.Cleanup(func() { testServer = previous; require.NoError(t, enabled.Close()) })
 	t.Helper()
 	l := newLicenses(t, 1)[0]
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `INSERT INTO entitlement (organization_id,name,slug,type,aggregation_method) VALUES ($1,'AI credits','ai-credits','NUMBER_AI_CREDIT','SUM')`, testDb.DefaultData.OrganizationID)

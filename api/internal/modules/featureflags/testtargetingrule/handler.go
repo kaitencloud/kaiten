@@ -37,6 +37,7 @@ func NewUseCase(deps Deps) *UseCase {
 // computed for the given context, and — when the rule lints clean — whether it
 // matched.
 type Rehearsal struct {
+	EntitlementTypes map[string]string
 	// Facts is the __kaiten namespace as the enrichment produced it for this
 	// context: what a rule actually reads, which is usually the answer to why
 	// it did or did not match.
@@ -83,9 +84,15 @@ func (h *UseCase) Execute(
 	ofrep.EnrichWithServerFacts(ctx, h.deps.CustomerFacts, h.deps.InstanceFacts, user.OrganizationID, &evaluationContext)
 	ofrep.EnrichWithInstanceFacts(ctx, h.deps.InstanceFacts, h.deps.CustomerFacts, h.deps.DeploymentZoneFacts, user.OrganizationID, &evaluationContext)
 
+	known := common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)
+	types := make(map[string]string, len(known))
+	for _, entitlement := range known {
+		types[entitlement.Slug] = entitlement.DeclaredType
+	}
 	rehearsal := &Rehearsal{
-		Facts:  factsOf(evaluationContext),
-		Issues: featureflag.LintTargetingRuleIssues(rule, common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)),
+		EntitlementTypes: types,
+		Facts:            factsOf(evaluationContext),
+		Issues:           featureflag.LintTargetingRuleIssues(rule, known),
 	}
 	rehearsal.Valid = len(rehearsal.Issues) == 0
 

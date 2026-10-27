@@ -82,6 +82,7 @@ export const OPERATION_SCOPES = {
   getAddon: ['read:addons'],
   getAddonEntitlement: ['read:addons'],
   getAddonFamily: ['read:addons'],
+  getAiUsageCapabilities: [],
   getAuditTrails: ['read:instances'],
   getAuthorization: [],
   getBillingCapabilities: ['read:billing'],

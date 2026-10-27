@@ -7,12 +7,14 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/getentitlement"
 	entitlementsdb "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -115,6 +117,8 @@ func TestCreateEntitlement_ResetPeriod(t *testing.T) {
 	})
 
 	t.Run("WhenNumberAICreditWithResetPeriod_Creates", func(t *testing.T) {
+		aiServer := tests.NewTestServer(testDb, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.AIUsage.Enabled = true }})
+		t.Cleanup(func() { require.NoError(t, aiServer.Close()) })
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		payload := schema.Entitlement{
 			Name:              "AI credits monthly",
@@ -125,7 +129,7 @@ func TestCreateEntitlement_ResetPeriod(t *testing.T) {
 		}
 		req := commonfixture.NewJSONRequest(t, "POST", "/api/entitlements", payload)
 
-		resp, err := testServer.App.Test(req, fiber.TestConfig{})
+		resp, err := aiServer.App.Test(req, fiber.TestConfig{})
 		require.NoError(t, err)
 		defer commonfixture.MustCloseBody(t, resp.Body)
 

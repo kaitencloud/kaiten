@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -59,6 +60,12 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, command NewAddo
 	if err != nil {
 		return nil, err
 	}
+	if draft.MeteredEntitlementSlug != "" {
+		if err := licenseview.RequireOperational(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, draft.MeteredEntitlementSlug); err != nil {
+			return nil, err
+		}
+	}
+
 	var created prices.Price
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)

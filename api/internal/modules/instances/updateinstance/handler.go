@@ -7,9 +7,11 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/patchutil"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -20,6 +22,7 @@ import (
 // port (see validator.NewLister) -- this module never imports
 // metadatafields' generated db package directly.
 type Deps struct {
+	AIPolicy             aiusage.Policy
 	UserProvider         currentuser.Provider
 	Uof                  *uow.UnitOfWork
 	MetadataFieldsLister validator.MetadataFieldsLister
@@ -66,6 +69,14 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) (*
 			return err
 		}
 
+		if command.LicenseID != currentInstance.LicenseID {
+			if err := operationalaccess.RequireLicense(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, currentInstance.LicenseID); err != nil {
+				return err
+			}
+			if err := operationalaccess.RequireLicense(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, command.LicenseID); err != nil {
+				return err
+			}
+		}
 		// Validate metadata against the org's declared schema for INSTANCE.
 		// INSTANCE is tolerant (additionalProperties: true) — unknown keys flow
 		// through unchanged (auto-reported metadata stays forward-compat) but

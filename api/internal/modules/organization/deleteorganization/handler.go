@@ -8,15 +8,21 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 type UseCase struct {
-	uof *uow.UnitOfWork
+	uof    *uow.UnitOfWork
+	policy aiusage.Policy
 }
 
-func NewUseCase(uof *uow.UnitOfWork) *UseCase {
-	return &UseCase{uof: uof}
+func NewUseCase(uof *uow.UnitOfWork, policies ...aiusage.Policy) *UseCase {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
+	return &UseCase{uof: uof, policy: policy}
 }
 
 // Execute deletes the organization for real. Everything it owns — customers,
@@ -34,6 +40,15 @@ func NewUseCase(uof *uow.UnitOfWork) *UseCase {
 // organization credential can reach it at all.
 func (h *UseCase) Execute(ctx context.Context, organizationID uuid.UUID) error {
 	return h.uof.Transact(ctx, func(ctx context.Context) error {
+		if !h.policy.Enabled {
+			hasAI, err := db.New(h.uof.DBTX(ctx)).OrganizationHasAI(ctx, organizationID)
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return h.policy.RequireEnabled()
+			}
+		}
 		txRepo := NewCommandRepository(db.New(h.uof.DBTX(ctx)))
 
 		existed, err := txRepo.DeleteOrganization(ctx, organizationID)

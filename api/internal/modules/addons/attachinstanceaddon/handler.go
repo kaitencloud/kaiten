@@ -59,6 +59,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewI
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, addon.ID, u.deps.AIPolicy); err != nil {
+			return err
+		}
 		if addon.LifecycleState == db.LicenseLifecycleStateARCHIVED {
 			return archived()
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // LicensePricesLoaderName loads a licence version's prices, for License.prices.
@@ -18,7 +19,7 @@ const LicensePricesLoaderName = "LicensePricesLoader"
 // one statement, every status, in display order -- what GET
 // /licenses/{slug}/prices answers for each of them. A page of 200 versions is
 // one query here, not 200.
-func newLicensePricesBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []prices.Price] {
+func newLicensePricesBatchFn(queries *db.Queries, policy aiusage.Policy) dataloaderLib.BatchFunc[uuid.UUID, []prices.Price] {
 	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[[]prices.Price] {
 		results := make([]*dataloaderLib.Result[[]prices.Price], len(keys))
 		fail := func(err error) []*dataloaderLib.Result[[]prices.Price] {
@@ -32,7 +33,7 @@ func newLicensePricesBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.U
 		if err != nil {
 			return fail(err)
 		}
-		byLicense, err := prices.ListForLicenses(ctx, queries, organizationID, keys)
+		byLicense, err := prices.ListForLicensesOperational(ctx, queries, organizationID, keys, !policy.Enabled)
 		if err != nil {
 			return fail(err)
 		}

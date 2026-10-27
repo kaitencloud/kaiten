@@ -27,6 +27,9 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, entitlementSlug string
 	if err != nil {
 		return nil, err
 	}
+	if err := u.deps.AIPolicy.RequireType(string(row.EntitlementType)); err != nil {
+		return nil, err
+	}
 	grant := catalogue.ToGrant(row)
 	return &grant, nil
 }

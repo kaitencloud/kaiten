@@ -13,21 +13,37 @@ import (
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 type QueryRepository struct {
+	policy     aiusage.Policy
 	repository *db.Queries
 }
 
-func NewQueryRepository(repository *db.Queries) *QueryRepository {
+func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
 	return &QueryRepository{
+		policy:     policy,
 		repository: repository,
 	}
 }
 
 func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instanceSlug string, entitlementSlug string, organizationID uuid.UUID) (*entitlementUsageSchema.EntitlementUsage, error) {
+	if !r.policy.Enabled {
+		target, err := r.repository.GetEntitlementContextBySlug(ctx, db.GetEntitlementContextBySlugParams{OrganizationID: organizationID, InstanceSlug: instanceSlug, EntitlementSlug: entitlementSlug})
+		if err != nil {
+			return nil, err
+		}
+		if err := r.policy.RequireType(string(target.EntitlementType)); err != nil {
+			return nil, err
+		}
+	}
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
 	result, err := r.repository.GetEntitlementUsageForInstanceOrDefault(ctx, db.GetEntitlementUsageForInstanceOrDefaultParams{
 		OrganizationID:  organizationID,
@@ -45,6 +61,12 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 	if result.EntitlementID == nil {
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotFound", "Entitlement with slug %q not found", entitlementSlug)
 	}
+	if result.EntitlementType != nil {
+		if err := r.policy.RequireType(string(*result.EntitlementType)); err != nil {
+			return nil, err
+		}
+	}
+
 	if result.GrantedEntitlementID == nil {
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotAssigned", "Entitlement with slug %q is not assigned to the license used by instance %q", entitlementSlug, instanceSlug)
 	}

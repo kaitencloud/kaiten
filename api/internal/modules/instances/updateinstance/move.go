@@ -72,7 +72,7 @@ func (h *UseCase) OverQuota(ctx context.Context, instanceSlug string) ([]string,
 		return nil, err
 	}
 	rows, err := db.New(h.deps.Uof.DBTX(ctx)).GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
-		OrganizationID: user.OrganizationID, InstanceID: instance.ID,
+		OrganizationID: user.OrganizationID, InstanceID: instance.ID, HideAi: false,
 	})
 	if err != nil {
 		return nil, err

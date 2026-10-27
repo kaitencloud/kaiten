@@ -47,6 +47,21 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 			return err
 		}
 		before := locked.Addon()
+		if command.IsDefault != before.IsDefault && !u.deps.AIPolicy.Enabled {
+			hasAI, err := q.AddonFamilyHasAI(ctx, db.AddonFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: &locked.Row.FamilyID, FamilySlug: nil})
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return u.deps.AIPolicy.RequireEnabled()
+			}
+		}
+		sameMax := command.MaxQuantity == nil && before.MaxQuantity == nil || command.MaxQuantity != nil && before.MaxQuantity != nil && *command.MaxQuantity == *before.MaxQuantity
+		if !sameMax {
+			if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, locked.Row.ID, u.deps.AIPolicy); err != nil {
+				return err
+			}
+		}
 		if command.IsDefault && before.LifecycleState != catalogue.Published {
 			return catalogue.DefaultMustBePublished(operation)
 		}

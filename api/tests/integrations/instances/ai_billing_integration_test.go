@@ -16,6 +16,7 @@ import (
 )
 
 func TestAIBillingJournalAndPhaseReplay(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 10)
 	reserve := aiUsageBody("reserve", "journal-op", 3)
@@ -63,6 +64,7 @@ func TestAIBillingJournalAndPhaseReplay(t *testing.T) {
 }
 
 func TestAIRejectsNumericIdempotencyNamespace(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 20)
 	headers := map[string]string{"Idempotency-Key": "shared-key"}
@@ -97,6 +99,7 @@ func TestAIRejectsNumericIdempotencyNamespace(t *testing.T) {
 }
 
 func TestAIGateUsesBillingAddonLimit(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 2)
 	// Create only test-owned catalogue/attachment rows. No provider or live stack.
@@ -147,6 +150,7 @@ func TestAIGateUsesBillingAddonLimit(t *testing.T) {
 // Billing checks the grant after replay lookup. AI must keep the same ordering
 // for both immutable phase snapshots even when no effective grant remains.
 func TestAIPhaseReplayAfterEffectiveGrantRemoval(t *testing.T) {
+	useAIForThisTest(t)
 	for _, phase := range []string{"reserve", "commit"} {
 		t.Run(phase, func(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, testDb.Reset()) })

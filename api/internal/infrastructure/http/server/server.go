@@ -38,6 +38,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/jit"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/fiberapi"
 )
 
@@ -829,6 +830,7 @@ func IsPublicPlatformAPIPath(path string) bool {
 
 func (s *Server) registerGraphQL(router fiber.Router) {
 	gqlHandler := graphqlHandler.NewHandler(s.deps.DB, graphqlHandler.Config{
+		AIPolicy:            aiusage.Policy{Enabled: s.cfg.AIUsage.Enabled},
 		EnablePlayground:    s.cfg.GraphQL.PlaygroundEnabled,
 		EnableIntrospection: s.cfg.GraphQL.IntrospectionEnabled,
 		// The same switch the modules that serve the add-ons over REST build.

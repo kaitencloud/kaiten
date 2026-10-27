@@ -36,6 +36,9 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID) (*catalogue.
 		if err != nil {
 			return err
 		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, voucherID, u.deps.AIPolicy); err != nil {
+			return err
+		}
 		if locked.Status == db.VoucherStatusARCHIVED {
 			return kaitenerrors.Conflict(operation+".AlreadyArchived", "the voucher is already archived")
 		}

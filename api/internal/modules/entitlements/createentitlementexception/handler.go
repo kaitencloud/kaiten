@@ -72,6 +72,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		if err != nil {
 			return err
 		}
+		if err := u.deps.AIPolicy.RequireType(string(entitlement.Type)); err != nil {
+			return err
+		}
 		value, err := checkValue(entitlement.Type, cmd.Kind, cmd.Value)
 		if err != nil {
 			return err

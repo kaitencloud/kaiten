@@ -9,12 +9,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familyevents"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	Uof           *uow.UnitOfWork
 	UsageReporter services.UsageReporter
@@ -52,6 +55,9 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 
 	familyDeleted := false
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if err := operationalaccess.RequireSlug(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, slug); err != nil {
+			return err
+		}
 		deletedLicense, family, err := h.repo.deleteVersion(ctx, user.OrganizationID, slug)
 		if err != nil {
 			return err

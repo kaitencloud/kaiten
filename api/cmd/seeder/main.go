@@ -30,6 +30,7 @@ import (
 	saasprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/saas"
 	stresstest "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/stress-test"
 	"github.com/kaitencloud/kaiten/api/internal/seeder/seedkit"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/atomicfile"
 	"github.com/kaitencloud/kaiten/api/internal/shared/jwtutil"
 	"github.com/kaitencloud/kaiten/api/pkg/otelcommon"
@@ -227,6 +228,7 @@ func runProfiles(allProfiles []seeder.Profile, profileNames []string, clean bool
 	}
 
 	if err := seeder.Run(ctx, pool, profiles, seeder.RunOptions{
+		AIPolicy:        aiusage.Policy{Enabled: cfg.AIUsage.Enabled},
 		OrganizationIDs: organizationIDs,
 		UsageReporter:   usageReporter,
 	}); err != nil {

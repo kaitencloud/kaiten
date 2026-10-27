@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Dataloader names
@@ -25,7 +26,7 @@ const (
 
 // RegisterDataloaders registers instance dataloaders to the shared loaders
 // container.
-func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
+func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, policy aiusage.Policy) {
 	// Customer.instances / License.instances.
 	loaders.Register(InstancesByCustomerLoaderName, dataloaderLib.NewBatchedLoader(
 		newInstancesByCustomerBatchFn(queries),
@@ -40,7 +41,7 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
 	// Instance.entitlementUsage -- what GET /instances/{slug}/entitlements
 	// returns.
 	loaders.Register(EntitlementUsageLoaderName, dataloaderLib.NewBatchedLoader(
-		newEntitlementUsageBatchFn(queries),
+		newEntitlementUsageBatchFn(queries, policy),
 	))
 }
 
@@ -49,7 +50,7 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
 // single-instance, so the batch iterates keys — still one SQL round-trip per
 // instance server-side.
 
-func newEntitlementUsageBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []schema.EntitlementUsage] {
+func newEntitlementUsageBatchFn(queries *db.Queries, policy aiusage.Policy) dataloaderLib.BatchFunc[uuid.UUID, []schema.EntitlementUsage] {
 	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[[]schema.EntitlementUsage] {
 		results := make([]*dataloaderLib.Result[[]schema.EntitlementUsage], len(keys))
 
@@ -64,6 +65,7 @@ func newEntitlementUsageBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uui
 		for i, instanceID := range keys {
 			done := effectivelookup.Time(ctx, effectivelookup.ReaderGraphQL)
 			rows, err := queries.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
+				HideAi:         !policy.Enabled,
 				OrganizationID: organizationID,
 				InstanceID:     instanceID,
 			})

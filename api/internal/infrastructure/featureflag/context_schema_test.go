@@ -198,3 +198,22 @@ func TestEveryLeafSaysWhatItMeans(t *testing.T) {
 		}
 	}
 }
+
+func TestKnownEntriesRetainDeclaredTypesWithoutChangingEvaluationShapes(t *testing.T) {
+	t.Parallel()
+	roots := featureflag.TargetingContextRoots([]featureflag.KnownEntitlement{
+		{Slug: "pool", Type: featureflag.EntitlementNumber, DeclaredType: "NUMBER_AI_CREDIT"},
+		{Slug: "quota", Type: featureflag.EntitlementNumber, DeclaredType: "NUMBER"},
+		{Slug: "config", Type: featureflag.EntitlementConfig, DeclaredType: "CONFIG"},
+	})
+	entitlements := rootNamed(t, rootNamed(t, roots, "__kaiten").Fields, "entitlements")
+	pool := rootNamed(t, entitlements.Entries, "pool")
+	require.Equal(t, "NUMBER_AI_CREDIT", pool.EntitlementType)
+	require.Equal(t, featureflag.TargetingTypeObject, pool.Type)
+	quota := rootNamed(t, entitlements.Entries, "quota")
+	require.Equal(t, "NUMBER", quota.EntitlementType)
+	require.Equal(t, pool.Type, quota.Type)
+	config := rootNamed(t, entitlements.Entries, "config")
+	require.Equal(t, "CONFIG", config.EntitlementType)
+	require.Empty(t, config.Values.EntitlementType, "arbitrary CONFIG keys have no catalogue annotation")
+}

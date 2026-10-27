@@ -1,7 +1,9 @@
 // Specific management/report codes override server English details only for
 // this feature; all older error handling keeps its existing contract.
 export const AI_API_ERROR_KEYS: Record<string, string> = {
- 'ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported': 'AI.Errors.aiIdempotencyKeyUnsupported',
+  'AIUsage.Disabled': 'AI.Errors.unavailable',
+  'ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported':
+    'AI.Errors.aiIdempotencyKeyUnsupported',
   'CreateModel.InvalidModel': 'Errors.api.VALIDATION',
   'UpdateModel.InvalidModel': 'Errors.api.VALIDATION',
   'CreateModel.SlugConflict': 'AI.Errors.slugConflict',

@@ -14,6 +14,7 @@ import (
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -33,12 +34,18 @@ type licenseEntitlementRow struct {
 // membership -- it never imports entitlements' own generated db package
 // directly.
 type QueryRepository struct {
+	policy            aiusage.Policy
 	repository        *db.Queries
 	entitlementReader licenseview.Port
 }
 
-func NewQueryRepository(repository *db.Queries, entitlementReader licenseview.Port) *QueryRepository {
+func NewQueryRepository(repository *db.Queries, entitlementReader licenseview.Port, policies ...aiusage.Policy) *QueryRepository {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
 	return &QueryRepository{
+		policy:            policy,
 		repository:        repository,
 		entitlementReader: entitlementReader,
 	}
@@ -66,6 +73,7 @@ func (r *QueryRepository) GetLicenseEntitlements(ctx context.Context, licenseSlu
 
 	// Query 2: fetch a cursor-paginated page of entitlements for this license
 	entitlements, err := r.repository.GetEntitlementsForLicenseByCursor(ctx, db.GetEntitlementsForLicenseByCursorParams{
+		HideAi:          !r.policy.Enabled,
 		LicenseID:       license.ID,
 		OrganizationID:  organizationID,
 		CursorCreatedAt: pgtime.TimePtrToPgTimestamp(cursorCreatedAt),

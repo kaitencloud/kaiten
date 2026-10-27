@@ -35,7 +35,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, includeRemov
 		if err != nil {
 			return err
 		}
-		out, err = catalogue.InstanceAddons(ctx, q, user.OrganizationID, instanceID, sub, includeRemoved, nil)
+		out, err = catalogue.InstanceAddonsOperational(ctx, q, user.OrganizationID, instanceID, sub, includeRemoved, nil, !u.deps.AIPolicy.Enabled)
 		return err
 	})
 	if err != nil {

@@ -25,6 +25,11 @@ otel:
   endpoint: jaeger:4318
   insecure: true
 
+ai_usage:
+  # Explicit workshop opt-in. Deployments must not mount this local-dev file.
+  # The console additionally requires its local/platform ai-credits flag.
+  enabled: true
+
 billing:
   # Off by default in the API itself: the licence price routes and the invoice
   # preview answer 403 Billing.Disabled. On here so the console can be built

@@ -338,6 +338,9 @@ api:
   configMountPath: /etc/kaiten
 
   config:
+    # Startup-fixed deployment switch. Customer flags cannot enable the API.
+    ai_usage:
+      enabled: false
     logging:
       level: warn
       format: json

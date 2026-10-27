@@ -76,13 +76,50 @@ The shared configuration loader accepts:
 
 | Variable | Default |
 | --- | --- |
+| `KAITEN_AI_USAGE_ENABLED` | `false` |
 | `KAITEN_USAGE_IDEMPOTENCY_WINDOW` | `840h` (minimum `24h`) |
 | `KAITEN_AI_RESERVATION_DEFAULT_TTL` | `10m` |
 | `KAITEN_AI_RESERVATION_MAX_TTL` | `1h` |
 
 The default TTL must be positive and no greater than the maximum. `ttlSeconds`
-may override it per reserve. Runtime APIs are not feature-flagged; the console
-is hidden behind the platform `ai-credits` flag until rollout.
+may override it per reserve. `ai_usage.enabled` is a startup-fixed deployment
+switch, default false. Customer flags, billing licences, SDK opt-in and localhost
+cannot enable the API. Omitted policies deny. Operational refusals are 403
+`AIUsage.Disabled`, including reserve, commit, NOT_SENT release, exact AI replay
+and numeric adjustments/replay of a persisted AI pool. Ordinary numeric attempt accounting is retained, including missing,
+unsupported and validation/load-failed targets: while off a query-only original
+catalogue-type check runs before those failures, and the attempt is submitted
+after this report’s owned transaction unwinds (an ambient caller transaction may
+still surround the call). A known-AI denial counts nothing; a failed type lookup
+fails closed rather than guessing that the target is ordinary. GraphQL reports the same
+code/status through its existing error presenter.
+
+GET `/ai/capabilities` requires an authenticated organization caller, no extra
+product scope, returns only deployment readiness and sets `Cache-Control: no-store`.
+It remains available while off; readiness is not permission to consume a pool.
+Models, conversion rules, inference/reservation reads, external classified
+catalogue/usage views and AI-target mutations use the same policy. Internal
+billing/effective arithmetic, immutable journals/exports, audit evidence and
+invoices remain readable under their existing scopes, including deleted-resource
+financial evidence. Disabling starts no AI maintenance or AI gauges and never
+cleans up data or changes retention.
+
+For prepared local development, `docker/config/api.yaml` explicitly enables the
+server; the console additionally requires a current successful platform
+`ai-credits` evaluation. API examples and shipped Helm defaults remain off; Helm
+opt-in is `api.config.ai_usage.enabled=true`. The explicit demo seed inherits the
+same setting and skips all AI data while off. The identity-only `dev` profile and
+startup do not seed product flags. Do not run a seed or change hosted flags merely
+to enable a UI.
+
+A startup switch is not an instantaneous cluster kill switch: old replicas remain
+enabled until replacement and already-admitted atomic transactions can finish.
+Quiesce and drain provider calls before planned disable. Blanket off-state denial
+can leave pending reservations/settlement uncertain; retain transaction identities
+and surface uncertainty, rather than treating denial as zero-price/unmetered
+success. A drain protocol requires separate design/approval. New-version creation
+of an AI-bearing licence family is refused while off because the request supplies
+no canonical copy-source version; ordinary metadata edits preserve hidden relations.
 
 ## Reads and events
 
@@ -128,6 +165,19 @@ write no debit journal row. The gate uses the effective entitlement at the singl
 post-lock report instant, including add-ons, vouchers and instance exceptions.
 The AI migration follows billing's latest migration; rolling back AI leaves
 billing's effective entitlement view and shared foreign-key targets intact.
+
+### Trusted paid activation fulfilment
+
+The AI rollout switch does not roll back truthful payment booking. A trusted
+internal **already-PAID ACTIVATION** may fulfil its existing pending selection
+through `billing/incomplete.Settle`, including the licence move and
+`AttachPaid`/`RedeemPaid`. This is a narrow financial fulfilment exception, not
+new AI admission: new external AI mutations and every AI model/rule/catalogue,
+usage/reserve/commit/release/replay operation remain gated while off. No deferred
+activation status, retry lifecycle, repricing or alteration of the original
+billing basis is introduced. Blocking this fulfilment instead requires a
+separately designed durable deferred lifecycle; silently skipping it or rolling
+back recorded payment is not safe.
 
 ### Unmerged prototype databases
 
