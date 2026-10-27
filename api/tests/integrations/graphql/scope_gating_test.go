@@ -20,6 +20,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
 	entitlementsschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
@@ -310,7 +312,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 		t.Context(), createentitlement.CreateEntitlementInput{Name: "Read Everything AI Credits", Slug: "read-everything-ai-credits", Type: entitlementsschema.NumberAICredit, AggregationMethod: ptr.To(entitlementsschema.Sum)}, testDb.DefaultData.OrganizationID,
 	)
 	require.NoError(t, err)
-	associateNumberEntitlement(t, license.Slug, pool.Slug, 10)
+	associateNumberEntitlement(t, license.Slug, pool.Slug, 10, aiusage.Policy{Flags: aitest.Flags(true)})
 	_, err = testServer.Dependencies.DB.Exec(t.Context(), `
 		INSERT INTO credit_conversion_rule (organization_id, license_id, entitlement_id, rate_per_request, created_by_id, updated_by_id)
 		VALUES ($1, $2, $3, 0.25, $4, $4)`, testDb.DefaultData.OrganizationID, license.ID, pool.ID, testDb.DefaultData.UserID)
@@ -326,10 +328,9 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 	for _, module := range scope.OrganizationModules() {
 		readScopes = append(readScopes, scope.Read(module))
 	}
-	server := tests.NewTestServer(testDb, tests.TestServerOptions{Scopes: readScopes, ConfigOverride: func(cfg *config.Config) {
+	server := tests.NewTestServer(testDb, tests.TestServerOptions{Scopes: readScopes, PlatformFlags: aitest.Flags(true), ConfigOverride: func(cfg *config.Config) {
 		cfg.Billing.Enabled = true
 		cfg.Billing.PeriodClose.Interval = -1
-		cfg.AIUsage.Enabled = true
 	}})
 	t.Cleanup(func() { require.NoError(t, server.Close()) })
 

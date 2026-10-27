@@ -35,23 +35,24 @@ type Reader struct {
 	Queries  *db.Queries
 }
 
-func (r Reader) pair(ctx context.Context, instance, pool string) (db.ResolveAIReadPairRow, uuid.UUID, error) {
+func (r Reader) pair(ctx context.Context, instance, pool string) (context.Context, db.ResolveAIReadPairRow, uuid.UUID, error) {
 	user, err := r.User.GetUser(ctx)
 	if err != nil {
-		return db.ResolveAIReadPairRow{}, uuid.Nil, err
+		return ctx, db.ResolveAIReadPairRow{}, uuid.Nil, err
 	}
-	if err := r.AIPolicy.RequireEnabled(); err != nil {
-		return db.ResolveAIReadPairRow{}, uuid.Nil, err
+	ctx = r.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := r.AIPolicy.RequireEnabled(ctx); err != nil {
+		return ctx, db.ResolveAIReadPairRow{}, uuid.Nil, err
 	}
 	pair, err := r.Queries.ResolveAIReadPair(ctx, db.ResolveAIReadPairParams{OrganizationID: user.OrganizationID, InstanceSlug: instance, EntitlementSlug: pool})
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = apierrors.NotFound("ListAiInferences.ContextNotFound", "AI credit pool is not granted to this instance")
 	}
-	return pair, user.OrganizationID, err
+	return ctx, pair, user.OrganizationID, err
 }
 
 func (r Reader) Inferences(ctx context.Context, instance, pool string, filter Filter) (schema.AiInferencePage, error) {
-	pair, org, err := r.pair(ctx, instance, pool)
+	ctx, pair, org, err := r.pair(ctx, instance, pool)
 	if err != nil {
 		return schema.AiInferencePage{}, err
 	}
@@ -104,7 +105,7 @@ func (r Reader) Inferences(ctx context.Context, instance, pool string, filter Fi
 }
 
 func (r Reader) Reservations(ctx context.Context, instance, pool string) (schema.AiReservations, error) {
-	pair, org, err := r.pair(ctx, instance, pool)
+	ctx, pair, org, err := r.pair(ctx, instance, pool)
 	if err != nil {
 		return schema.AiReservations{}, err
 	}

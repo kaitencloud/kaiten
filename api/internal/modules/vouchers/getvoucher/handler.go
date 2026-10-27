@@ -19,6 +19,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID) (*catalogue.
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	voucher, err := catalogue.One(ctx, u.deps.Queries(ctx), user.OrganizationID, &voucherID, nil, true,
 		kaitenerrors.NotFoundf("GetVoucher.NotFound", "voucher %s not found", voucherID))
 	if err != nil {

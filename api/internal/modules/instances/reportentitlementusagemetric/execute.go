@@ -20,8 +20,9 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if command.AI != nil {
-		if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+		if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
 			return nil, err
 		}
 		if command.TransactionID != nil {
@@ -31,7 +32,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 			return nil, err
 		}
 	}
-	if h.deps.AIPolicy.Enabled {
+	if h.deps.AIPolicy.Enabled(ctx) {
 		defer func() {
 			if result == nil {
 				recordAIReport(ctx, command, nil, resultErr)
@@ -46,17 +47,17 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 	// after this report's owned transaction unwinds, because the reporter queue
 	// may block. A caller-owned ambient transaction can still surround Execute.
 	ordinaryAttempt := command.AI == nil
-	if ordinaryAttempt && !h.deps.AIPolicy.Enabled {
+	if ordinaryAttempt && !h.deps.AIPolicy.Enabled(ctx) {
 		eligible, err := h.ordinaryAttempt(ctx, user.OrganizationID, entitlementSlug)
 		if err != nil {
 			return nil, err
 		}
 		ordinaryAttempt = eligible
 	}
-	if h.deps.AIPolicy.Enabled && (command.AI == nil || command.AI.Phase == "commit") {
+	if h.deps.AIPolicy.Enabled(ctx) && (command.AI == nil || command.AI.Phase == "commit") {
 		h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesReportedEntitlementSlug)
 	}
-	if !h.deps.AIPolicy.Enabled && ordinaryAttempt {
+	if !h.deps.AIPolicy.Enabled(ctx) && ordinaryAttempt {
 		defer func() { h.finishOrdinaryAttempt(user.OrganizationID, resultErr) }()
 	}
 	properties, tooLarge, err := encodeMetadata(command.Metadata)

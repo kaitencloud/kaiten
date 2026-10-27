@@ -36,7 +36,8 @@ func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Model,
 	if err != nil {
 		return nil, err
 	}
-	if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
 		return nil, err
 	}
 	model, params, err := catalogue.Prepare(*command, "CreateModel")

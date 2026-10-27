@@ -34,6 +34,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var updated catalogue.Voucher
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -49,7 +50,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 			draft.Code = stored.Code
 		}
 		var preserved []string
-		if !u.deps.AIPolicy.Enabled {
+		if !u.deps.AIPolicy.Enabled(ctx) {
 			// Hidden omissions are not deletions. Exact echoes are preservation, but
 			// changed AI grants are refused before UpdateVoucher or grant replacement.
 			draft.Grants = slices.Clone(draft.Grants)
@@ -69,7 +70,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 						sameModifier = e1 == nil && e2 == nil && x.Equal(y)
 					}
 					if requested.ModifierType != old.ModifierType || !sameModifier || !sameJSON(requested.Value, old.Value) {
-						return u.deps.AIPolicy.RequireEnabled()
+						return u.deps.AIPolicy.RequireEnabled(ctx)
 					}
 					draft.Grants[i] = old
 					matched = true
@@ -143,7 +144,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 			return err
 		}
 		if locked.Status == db.VoucherStatusDRAFT {
-			if err := catalogue.WriteOperationalGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.Grants, resolved.Entitlements, !u.deps.AIPolicy.Enabled); err != nil {
+			if err := catalogue.WriteOperationalGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.Grants, resolved.Entitlements, !u.deps.AIPolicy.Enabled(ctx)); err != nil {
 				return err
 			}
 			if err := catalogue.WriteFlagGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.FlagGrants, resolved.Flags); err != nil {

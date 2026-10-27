@@ -52,6 +52,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	familyDeleted := false
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {

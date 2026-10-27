@@ -41,15 +41,16 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		if !h.deps.AIPolicy.Enabled {
+		if !h.deps.AIPolicy.Enabled(ctx) {
 			hasAI, err := db.New(h.deps.Uof.DBTX(ctx)).InstanceHasAI(ctx, db.InstanceHasAIParams{OrganizationID: user.OrganizationID, Slug: slug})
 			if err != nil {
 				return err
 			}
 			if hasAI {
-				return h.deps.AIPolicy.RequireEnabled()
+				return h.deps.AIPolicy.RequireEnabled(ctx)
 			}
 		}
 		deletedInstance, err := h.repo.DeleteInstance(ctx, user.ID, user.OrganizationID, slug)

@@ -19,7 +19,7 @@ func (h *UseCase) ordinaryAttempt(ctx context.Context, organizationID uuid.UUID,
 	if err != nil {
 		return false, err
 	} // unknown type must not be guessed ordinary
-	if err := h.deps.AIPolicy.RequireType(kind); err != nil {
+	if err := h.deps.AIPolicy.RequireType(ctx, kind); err != nil {
 		return false, err
 	}
 	return true, nil

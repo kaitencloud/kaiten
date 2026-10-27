@@ -125,7 +125,7 @@ type UseCases struct {
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
 	deps := access.Deps{
-		AIPolicy:        aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+		AIPolicy:        aiusage.Policy{Flags: svc.PlatformFlags},
 		UserProvider:    svc.UserProvider,
 		Uof:             svc.Uof,
 		Gate:            gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),

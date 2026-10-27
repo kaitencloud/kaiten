@@ -29,6 +29,7 @@ func (t Transition) Move(ctx context.Context, deps Deps, box *outbox.ScopedRepos
 	if err != nil {
 		return nil, err
 	}
+	ctx = deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var moved Addon
 	err = deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := deps.Queries(ctx)

@@ -24,7 +24,7 @@ type (
 func RegisterEndpoint(api huma.API, app Facade) {
 	kaitenhuma.RegisterAIUsageCapabilities(api, huma.Operation{
 		OperationID: "getAiUsageCapabilities", Method: http.MethodGet, Path: "/ai/capabilities",
-		Summary: "Read AI deployment readiness", Description: "Startup-fixed readiness only, not authorization to consume AI credits. Available while AI is disabled. Responses must not be cached.",
+		Summary: "Read AI platform rollout availability", Description: "Current organization-scoped platform flag only, not authorization to consume AI credits. Available while AI is disabled. Responses must not be cached.",
 		Tags: []string{"ai"}, Errors: []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError},
 	}, func(ctx context.Context, _ *Request) (*Response, error) {
 		cl, err := caller.Organization(ctx)

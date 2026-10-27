@@ -170,12 +170,13 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 		return err
 	}
 
-	if err := p.seedAI(ctx, orgCtx, &currentuser.StaticUserProvider{UserID: opsTeamID, OrganizationID: organization.ID}, instancesSeeded); err != nil {
+	// Step 9: ordinary product flags, never the platform's AI rollout flag.
+	if err := p.seedFeatureFlags(ctx, orgCtx); err != nil {
 		return err
 	}
 
-	// Step 9: feature flags
-	if err := p.seedFeatureFlags(ctx, orgCtx); err != nil {
+	// Read the target's platform eligibility before optional synthetic AI data.
+	if err := p.seedAI(ctx, orgCtx, &currentuser.StaticUserProvider{UserID: opsTeamID, OrganizationID: organization.ID}, instancesSeeded); err != nil {
 		return err
 	}
 

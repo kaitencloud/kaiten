@@ -27,6 +27,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, addonSlug string) e
 	if err != nil {
 		return err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	return u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
 		write, err := catalogue.LockAttachment(ctx, q, user.OrganizationID, instanceSlug, addonSlug, operation)

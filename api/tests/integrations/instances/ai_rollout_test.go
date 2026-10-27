@@ -10,8 +10,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/tests"
 	fixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -129,7 +129,7 @@ func TestEnabledAIStillRequiresScopeAndTenantIdentity(t *testing.T) {
 		{Scopes: []string{"read:models"}},
 		{OrganizationID: new(uuid.New())},
 	} {
-		options.ConfigOverride = func(cfg *config.Config) { cfg.AIUsage.Enabled = true }
+		options.PlatformFlags = aitest.Flags(true)
 		scoped := tests.NewTestServer(testDb, options)
 		t.Cleanup(func() { require.NoError(t, scoped.Close()) })
 		response, err := scoped.App.Test(fixture.NewJSONRequest(t, http.MethodPost, "/api/instances/"+instance.Slug+"/entitlements/"+pool.Slug+"/usage", map[string]any{"value": aiUsageBody("reserve", "unauthorized", 1)}), fiber.TestConfig{})

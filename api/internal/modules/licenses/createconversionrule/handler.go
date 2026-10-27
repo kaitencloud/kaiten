@@ -40,7 +40,8 @@ func (h *UseCase) Execute(ctx context.Context, slug string, cmd *Command) (*sche
 	if err != nil {
 		return nil, err
 	}
-	if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
 		return nil, err
 	}
 	params, err := conversionrules.Prepare(cmd.Pricing, "CreateConversionRule")

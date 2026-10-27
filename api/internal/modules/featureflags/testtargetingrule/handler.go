@@ -12,12 +12,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/openfeature/ofrep"
 	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container: the catalogue the lint checks slugs against, and the
 // three fact ports the real evaluation path enriches from.
 type Deps struct {
+	AIPolicy             aiusage.Policy
 	UserProvider         currentuser.Provider
 	EntitlementCatalogue catalogue.Port
 	CustomerFacts        customertargetingfacts.Port
@@ -75,6 +77,7 @@ func (h *UseCase) Execute(
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	evaluationContext := openfeature.EvaluationContext{
 		TargetingKey: targetingKey,

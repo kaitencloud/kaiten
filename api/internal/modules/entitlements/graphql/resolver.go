@@ -41,7 +41,7 @@ func GetEntitlements(ctx context.Context, queries *db.Queries, policy aiusage.Po
 	}
 
 	entitlements, err := queries.GetEntitlementsByCursor(ctx, db.GetEntitlementsByCursorParams{
-		HideAi:          !policy.Enabled,
+		HideAi:          !policy.Enabled(ctx),
 		OrganizationID:  identity.OrganizationID,
 		CursorCreatedAt: cursorCreatedAt,
 		CursorID:        cursorID,

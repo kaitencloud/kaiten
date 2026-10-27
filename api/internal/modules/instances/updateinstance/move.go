@@ -31,7 +31,7 @@ func (h *UseCase) MoveToVersion(ctx context.Context, instanceSlug string, licens
 	if current.LicenseID == licenseID {
 		return nil
 	}
-	_, err = h.Execute(ctx, &Command{
+	_, err = h.ExecuteWithinOperation(ctx, &Command{
 		Name:             current.Name,
 		Description:      current.Description,
 		CustomerID:       current.CustomerID,

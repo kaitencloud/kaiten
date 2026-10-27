@@ -72,8 +72,9 @@ UI scope checks use the shared token query through `hooks/use-granted-scopes`,
 `hasScope` and generated operation requirements. Known missing scopes suppress
 queries/actions; unknown claims defer to the API and its inline refusals. Model
 pages require model reads; matrix reads require model and licence reads. Editors
-require the corresponding writes. No introspection endpoint, backend scope or
-charging behavior was added.
+require the corresponding writes. The authenticated `/ai/capabilities` read
+reports the organization's platform rollout decision without adding a product
+read scope; it does not replace grant authorization or change charging behavior.
 
 ## OpenRouter onboarding
 
@@ -97,11 +98,15 @@ Supplier USD rates never update entitlement customer-credit conversion rules.
 
 ## Local opt-in and synthetic tests
 
-A prepared local API needs `ai_usage.enabled: true` in its mounted
-`docker/config/api.yaml`, and the local platform evaluation needs `ai-credits`
-true. An environment variable not forwarded to the API container does not opt in.
-Neither a localhost URL nor an auth-bypass build opens either input implicitly.
-Changing configuration, seeding data or mutating hosted flags is a separate action.
+The API uses the real platform-owned `ai-credits` flag, default/fallback false;
+there is no deployment enable boolean. Prepared local development names the
+trusted Dogfooding source independently of metering. The separately invoked
+`local-ai` profile can converge its flag for the actual Sushi organization; the
+ordinary demo profile only reads eligibility and never enables the flag. The
+real local frontend also needs the matching platform URL/read-only token source.
+See [the local workshop](../../../../DEVELOPMENT.md#explicit-local-ai-workshop).
+Neither localhost nor SDK opt-in authorizes AI. Seed/credential actions need
+separate authorization; only deliberately mocked E2E uses its fake flag source.
 
 MSW/E2E defaults both inputs off. `aiCapability: { enabled: true }` and
 `flagEvaluations: { 'ai-credits': true }` are separate explicit mock slots; ordinary

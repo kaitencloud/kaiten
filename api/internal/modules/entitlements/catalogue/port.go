@@ -44,6 +44,7 @@ func New(pool *pgxpool.Pool, policies ...aiusage.Policy) Port {
 }
 
 func (p *port) List(ctx context.Context, organizationID uuid.UUID) ([]Entitlement, error) {
+	ctx = p.policy.ForOrganization(ctx, organizationID)
 	rows, err := p.queries.GetEntitlements(ctx, organizationID)
 	if err != nil {
 		return nil, err
@@ -51,7 +52,7 @@ func (p *port) List(ctx context.Context, organizationID uuid.UUID) ([]Entitlemen
 
 	entitlements := make([]Entitlement, 0, len(rows))
 	for _, row := range rows {
-		if p.policy.RequireType(string(row.Type)) != nil {
+		if p.policy.RequireType(ctx, string(row.Type)) != nil {
 			continue
 		}
 		entitlements = append(entitlements, Entitlement{Slug: row.Slug, Type: schema.Type(row.Type)})

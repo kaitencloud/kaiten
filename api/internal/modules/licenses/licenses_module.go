@@ -73,26 +73,26 @@ func NewUseCases(svc services.Container, preview previewlicenseinvoice.Sources) 
 	queries := db.New(svc.Pool)
 	entitlementReader := licenseview.New(svc.Pool)
 	priceDeps := prices.Deps{
-		AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+		AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 		UserProvider: svc.UserProvider,
 		Uof:          svc.Uof,
 		Gate:         gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),
 	}
 	return &UseCases{
-		CreateConversionRule:  createconversionrule.NewUseCase(createconversionrule.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
-		UpdateConversionRule:  updateconversionrule.NewUseCase(updateconversionrule.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
-		GetConversionRule:     getconversionrule.NewUseCase(getconversionrule.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Queries: db.New(svc.Uof.Ambient())}),
-		ArchiveConversionRule: archiveconversionrule.NewUseCase(archiveconversionrule.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
-		ListConversionRules:   listconversionrules.NewUseCase(listconversionrules.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Queries: db.New(svc.Uof.Ambient())}),
+		CreateConversionRule:  createconversionrule.NewUseCase(createconversionrule.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		UpdateConversionRule:  updateconversionrule.NewUseCase(updateconversionrule.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		GetConversionRule:     getconversionrule.NewUseCase(getconversionrule.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Queries: db.New(svc.Uof.Ambient())}),
+		ArchiveConversionRule: archiveconversionrule.NewUseCase(archiveconversionrule.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		ListConversionRules:   listconversionrules.NewUseCase(listconversionrules.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Queries: db.New(svc.Uof.Ambient())}),
 
 		CreateLicense: createlicense.NewUseCase(createlicense.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			UsageReporter: svc.UsageReporter,
 			Uof:           svc.Uof,
 		}),
 		DeleteLicense: deletelicense.NewUseCase(deletelicense.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,
@@ -114,53 +114,53 @@ func NewUseCases(svc services.Container, preview previewlicenseinvoice.Sources) 
 			Queries:      queries,
 		}),
 		UpdateLicense: updatelicense.NewUseCase(updatelicense.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Uof:          svc.Uof,
 		}),
 		PublishLicense: publishlicense.NewUseCase(publishlicense.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,
 		}),
 		ArchiveLicense: archivelicense.NewUseCase(archivelicense.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,
 		}),
 		UnarchiveLicense: unarchivelicense.NewUseCase(unarchivelicense.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,
 		}),
 		AssociateEntitlementWithLicense: associateentitlementwithlicense.NewUseCase(associateentitlementwithlicense.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			UsageReporter: svc.UsageReporter,
 			Uof:           svc.Uof,
 		}),
 		GetLicenseEntitlement: getlicenseentitlement.NewUseCase(getlicenseentitlement.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
 		GetLicenseEntitlements: getlicenseentitlements.NewUseCase(getlicenseentitlements.Deps{
-			AIPolicy:          aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:          aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:      svc.UserProvider,
 			Queries:           queries,
 			EntitlementReader: entitlementReader,
 		}),
 		DeleteLicenseEntitlement: deletelicenseentitlement.NewUseCase(deletelicenseentitlement.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			UsageReporter: svc.UsageReporter,
 			Uof:           svc.Uof,
 		}),
 		UpdateLicenseEntitlement: updatelicenseentitlement.NewUseCase(updatelicenseentitlement.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Uof:          svc.Uof,
 		}),
@@ -171,7 +171,7 @@ func NewUseCases(svc services.Container, preview previewlicenseinvoice.Sources) 
 		DeprecateLicensePrice: deprecatelicenseprice.NewUseCase(priceDeps),
 		PreviewLicenseInvoice: previewlicenseinvoice.NewUseCase(priceDeps, preview),
 		UpdateLicenseFamily: updatelicensefamily.NewUseCase(updatelicensefamily.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: priceDeps.Gate,
 		}),
 	}

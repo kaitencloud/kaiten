@@ -22,15 +22,14 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
-	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
 	demoprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/demo"
 	devprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/dev"
+	localaiprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/local-ai"
 	saasprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/saas"
 	stresstest "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/stress-test"
 	"github.com/kaitencloud/kaiten/api/internal/seeder/seedkit"
-	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/atomicfile"
 	"github.com/kaitencloud/kaiten/api/internal/shared/jwtutil"
 	"github.com/kaitencloud/kaiten/api/pkg/otelcommon"
@@ -55,6 +54,7 @@ func main() {
 Supports multiple profiles for different use cases:
   - dev: OSS-only local stack -- the shared TMNT identities on the Kaiten Sushi Shop org shell, no product data.
   - demo: the Kaiten Sushi Shop org's full B2B SaaS product data -- the default local/demo dataset.
+  - local-ai: explicit local platform ai-credits flag, default off, targeting only Kaiten Sushi Shop; convergent.
   - saas: SaaS-stack local identities -- the same TMNT identities on Kaiten (Dogfooding) and an empty Demo Sandbox.
   - stress-test: High-volume seed across 4 orgs for load testing.
 
@@ -109,6 +109,7 @@ func seedProfiles() []seeder.Profile {
 	return []seeder.Profile{
 		devprofile.NewProfile(),
 		demoprofile.NewProfile(),
+		localaiprofile.NewProfile(),
 		saasprofile.NewProfile(),
 		stresstest.NewProfile(),
 	}
@@ -122,6 +123,13 @@ func runProfiles(allProfiles []seeder.Profile, profileNames []string, clean bool
 	cfg, err := config.LoadConfig()
 	if err != nil {
 		return fmt.Errorf("error loading config: %w", err)
+	}
+	if err := validateLocalAIProfile(profileNames, cfg.Metered, clean); err != nil {
+		return err
+	}
+	platformOrganizationID, err := cfg.Metered.ResolvePlatformOrgID()
+	if err != nil {
+		return fmt.Errorf("resolve seeder platform organization: %w", err)
 	}
 	slog.SetDefault(otelcommon.NewLogger(cfg.Logging.Level, cfg.Logging.Format))
 
@@ -200,37 +208,25 @@ func runProfiles(allProfiles []seeder.Profile, profileNames []string, clean bool
 		}
 	}
 
+	flags, reporter, err := newSeedPlatformFlags(ctx, pool, cfg.Metered)
+	if err != nil {
+		return err
+	}
+	if reporter != nil {
+		defer reporter.Close()
+	}
 	var usageReporter services.UsageReporter
 	if cfg.Metered.Enabled {
-		// uuid.Nil means no platform organization to exempt, and the reporter
-		// spells that as an empty OrgID -- it refuses the nil uuid written out,
-		// on the grounds that omitting an id and writing down a fake one are
-		// different intents.
-		organizationID, err := cfg.Metered.ResolvePlatformOrgID()
-		if err != nil {
-			return fmt.Errorf("resolve dogfooding organization: %w", err)
-		}
-		var selfOrgID string
-		if organizationID != uuid.Nil {
-			selfOrgID = organizationID.String()
-		}
-		reporter, err := dogfooding.NewReporter(ctx, dogfooding.Config{
-			APIURL: cfg.Metered.APIURL,
-			OrgID:  selfOrgID,
-		}, cfg.Metered.TokenFile)
-		if err != nil {
-			return fmt.Errorf("initialize seeder dogfooding reporter: %w", err)
-		}
-		defer reporter.Close()
-		// Seeding must never abort because a tracked instance reached a finite
-		// dogfooding cap — report usage, but swallow threshold enforcement.
+		// Reporting and flag reads share one remote client; the seed only
+		// suppresses threshold enforcement, never rollout enforcement.
 		usageReporter = seeder.NonEnforcing(reporter)
 	}
 
 	if err := seeder.Run(ctx, pool, profiles, seeder.RunOptions{
-		AIPolicy:        aiusage.Policy{Enabled: cfg.AIUsage.Enabled},
-		OrganizationIDs: organizationIDs,
-		UsageReporter:   usageReporter,
+		PlatformFlags:          flags,
+		PlatformOrganizationID: platformOrganizationID,
+		OrganizationIDs:        organizationIDs,
+		UsageReporter:          usageReporter,
 	}); err != nil {
 		return fmt.Errorf("error seeding profiles: %w", err)
 	}

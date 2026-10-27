@@ -147,6 +147,19 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	return u.ExecuteWithinOperation(ctx, instanceSlug, cmd)
+}
+
+// ExecuteWithinOperation composes a parent operation using its already-resolved
+// platform decision. It performs no provider evaluation while a transaction is held.
+func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
+	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 	if err := u.requireOperationalSelection(ctx, user.OrganizationID, instanceSlug, cmd.BasePriceID, cmd.MoveToLicenseID, cmd.AddOns, cmd.VoucherCode); err != nil {
 		return nil, err
 	}
@@ -803,7 +816,7 @@ func ensureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connectio
 }
 
 func (u *UseCase) requireOperationalSelection(ctx context.Context, organizationID uuid.UUID, instanceSlug string, priceID uuid.UUID, licenseID *uuid.UUID, addons []SubscriptionAddon, voucherCode *string) error {
-	if u.deps.AIPolicy.Enabled {
+	if u.deps.AIPolicy.Enabled(ctx) {
 		return nil
 	}
 	slugs := make([]string, 0, len(addons))
@@ -820,7 +833,7 @@ func (u *UseCase) requireOperationalSelection(ctx context.Context, organizationI
 		return err
 	}
 	if hasAI {
-		return u.deps.AIPolicy.RequireEnabled()
+		return u.deps.AIPolicy.RequireEnabled(ctx)
 	}
 	return nil
 }

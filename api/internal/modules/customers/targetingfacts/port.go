@@ -87,10 +87,11 @@ func (p *port) GetOneCustomerBySlug(ctx context.Context, organizationID uuid.UUI
 }
 
 func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organizationID uuid.UUID, customerSlug string) ([]TargetingFact, error) {
+	ctx = p.policy.ForOrganization(ctx, organizationID)
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderOFREP)
 	defer done()
 	rows, err := p.queries.GetTargetingFactsByCustomerSlug(ctx, db.GetTargetingFactsByCustomerSlugParams{
-		HideAi:         !p.policy.Enabled,
+		HideAi:         !p.policy.Enabled(ctx),
 		OrganizationID: organizationID,
 		CustomerSlug:   customerSlug,
 	})
@@ -101,10 +102,11 @@ func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organization
 }
 
 func (p *port) GetTargetingFactsByInstance(ctx context.Context, organizationID, instanceID uuid.UUID) ([]TargetingFact, error) {
+	ctx = p.policy.ForOrganization(ctx, organizationID)
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderOFREP)
 	defer done()
 	rows, err := p.queries.GetTargetingFactsByInstance(ctx, db.GetTargetingFactsByInstanceParams{
-		HideAi:         !p.policy.Enabled,
+		HideAi:         !p.policy.Enabled(ctx),
 		OrganizationID: organizationID,
 		InstanceID:     instanceID,
 	})

@@ -65,7 +65,7 @@ func newEntitlementUsageBatchFn(queries *db.Queries, policy aiusage.Policy) data
 		for i, instanceID := range keys {
 			done := effectivelookup.Time(ctx, effectivelookup.ReaderGraphQL)
 			rows, err := queries.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
-				HideAi:         !policy.Enabled,
+				HideAi:         !policy.Enabled(ctx),
 				OrganizationID: organizationID,
 				InstanceID:     instanceID,
 			})

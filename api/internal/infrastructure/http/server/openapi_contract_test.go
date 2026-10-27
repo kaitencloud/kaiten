@@ -135,6 +135,13 @@ func assertEveryOperationDeclaresItsScope(t *testing.T, oapi *huma.OpenAPI, expe
 			assert.Len(t, op.Security, 1)
 			return
 		}
+		if expectedScheme == kaitenhuma.BearerAuth && method == "GET" && path == "/ai/capabilities" {
+			assert.Equal(t, "getAiUsageCapabilities", op.OperationID)
+			assert.Empty(t, scopes, "rollout availability requires authentication but no extra product grant")
+			assert.Len(t, op.Security, 1)
+			assert.Len(t, op.Security[0], 1)
+			return
+		}
 		require.NotEmpty(t, scopes, "%s %s must say which scope it needs", method, path)
 
 		for _, s := range scopes {

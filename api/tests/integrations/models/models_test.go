@@ -9,8 +9,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/tests"
@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 	if err != nil {
 		panic(err)
 	}
-	server = tests.NewTestServer(testDB, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.AIUsage.Enabled = true }})
+	server = tests.NewTestServer(testDB, tests.TestServerOptions{PlatformFlags: aitest.Flags(true)})
 	code := m.Run()
 	testDB.TearDown()
 	os.Exit(code)

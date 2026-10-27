@@ -33,7 +33,7 @@ func newLicensePricesBatchFn(queries *db.Queries, policy aiusage.Policy) dataloa
 		if err != nil {
 			return fail(err)
 		}
-		byLicense, err := prices.ListForLicensesOperational(ctx, queries, organizationID, keys, !policy.Enabled)
+		byLicense, err := prices.ListForLicensesOperational(ctx, queries, organizationID, keys, !policy.Enabled(ctx))
 		if err != nil {
 			return fail(err)
 		}

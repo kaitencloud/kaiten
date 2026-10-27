@@ -37,6 +37,7 @@ func (h *UseCase) Execute(ctx context.Context, groupSlug string, command *Comman
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if err := licenseview.RequireOperational(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, command.EntitlementSlug); err != nil {
 		return err
 	}

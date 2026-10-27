@@ -244,6 +244,7 @@ func (h *Handler) graphqlHandler() fiber.Handler {
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				// Propagate identity from Fiber context to GraphQL context
 				ctx := principal.ContextWithPrincipal(r.Context(), i)
+				ctx = h.config.AIPolicy.Resolve(ctx, cl.OrganizationID())
 				// Add dataloaders to context
 				ctx = dataloader.ContextWithLoaders(ctx, loaders)
 				ctx = withScopeCheck(ctx, check)

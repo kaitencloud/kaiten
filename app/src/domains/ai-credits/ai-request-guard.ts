@@ -1,6 +1,7 @@
 import { subscribeAiFlagUnavailable } from '@/lib/ai-feature-flag-events';
 import type { Query, QueryClient } from '@tanstack/react-query';
 import { client } from '@/api-client/client.gen';
+import type { ResolvedRequestOptions } from '@/api-client/client';
 import {
   aiAccessQueryKey,
   hasCurrentAiAccess,
@@ -117,7 +118,10 @@ export function subscribeAiAccess(queryClient: QueryClient) {
     for (const controller of active.values()) controller.abort();
     active.clear();
   }
-  const requestGuard = async (request: Request) => {
+  const requestGuard = async (
+    request: Request,
+    options: ResolvedRequestOptions,
+  ) => {
     const pathname = new URL(request.url).pathname;
     const baseUrl = client.getConfig().baseUrl;
     const basePath = baseUrl
@@ -138,10 +142,9 @@ export function subscribeAiAccess(queryClient: QueryClient) {
       request.method !== 'GET' &&
       request.headers.get('Content-Type')?.includes('json')
     ) {
-      const body = (await request
-        .clone()
-        .json()
-        .catch(() => null)) as {
+      // The generated client retains the structured body alongside serializedBody.
+      // Inspect it without teeing/consuming the transport stream of ordinary writes.
+      const body = options.body as {
         type?: string;
         entitlementSlug?: string;
         value?: { type?: string };

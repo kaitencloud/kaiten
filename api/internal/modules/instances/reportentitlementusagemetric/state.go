@@ -51,7 +51,7 @@ func (h *UseCase) load(ctx context.Context, organizationID uuid.UUID, instanceSl
 
 	// The persisted pool type is authoritative, including numeric adjustments and replay.
 	if pair.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
-		if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+		if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
 			return nil, err
 		}
 	}

@@ -25,7 +25,10 @@ import (
 // seedAI writes every consumption through the normal report use case, never a
 // second counter writer. Provider usage is synthetic and contains no prompts.
 func (p *Profile) seedAI(ctx context.Context, sc *seeder.SeederContext, actor currentuser.Provider, instances []seededInstance) error {
-	if !sc.AIPolicy.Enabled {
+	// Read eligibility for this target before any AI use case opens a transaction.
+	// A demo seed never creates or updates the platform's rollout flag.
+	ctx = sc.AIPolicy.Resolve(ctx, sc.OrganizationID)
+	if !sc.AIPolicy.Enabled(ctx) {
 		return nil
 	}
 	modelSlug := "sushi-assistant"

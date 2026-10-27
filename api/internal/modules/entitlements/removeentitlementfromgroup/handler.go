@@ -39,12 +39,13 @@ func (h *UseCase) Execute(ctx context.Context, groupSlug string, entitlementSlug
 	if err != nil {
 		return err
 	}
-	if !h.deps.AIPolicy.Enabled {
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if !h.deps.AIPolicy.Enabled(ctx) {
 		target, err := h.deps.Queries.GetEntitlement(ctx, db.GetEntitlementParams{OrganizationID: user.OrganizationID, Slug: entitlementSlug})
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		if err := h.deps.AIPolicy.RequireType(string(target.Type)); err != nil {
+		if err := h.deps.AIPolicy.RequireType(ctx, string(target.Type)); err != nil {
 			return err
 		}
 	}

@@ -28,6 +28,7 @@ func (u *UseCase) Execute(ctx context.Context, slug string) error {
 	if err != nil {
 		return err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	return u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
 		locked, err := catalogue.Lock(ctx, q, user.OrganizationID, slug, operation+".NotFound")

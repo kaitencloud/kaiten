@@ -33,6 +33,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, command NewAddo
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var grant catalogue.AddonEntitlement
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -47,7 +48,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, command NewAddo
 		if err != nil {
 			return err
 		}
-		if err := u.deps.AIPolicy.RequireType(string(entitlement.Type)); err != nil {
+		if err := u.deps.AIPolicy.RequireType(ctx, string(entitlement.Type)); err != nil {
 			return err
 		}
 		value, percent, behavior, err := command.Normalize(operation, entitlement.Type)

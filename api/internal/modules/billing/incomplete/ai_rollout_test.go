@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 )
 
 // Characterizes the narrow exception's admission floor without a database:
@@ -18,7 +19,7 @@ func TestPaidFulfilmentExceptionRejectsOtherInvoicesBeforeAnyDependency(t *testi
 			{Kind: db.InvoiceKind("RENEWAL"), Status: db.InvoiceStatusPAID},
 			{Kind: db.InvoiceKindACTIVATION, Status: db.InvoiceStatus("DRAFT")},
 		} {
-			applied, err := Settle(t.Context(), access.Deps{AIPolicy: aiusage.Policy{Enabled: enabled}}, nil, nil, invoice, invoice.BoundaryAt.Time)
+			applied, err := Settle(t.Context(), access.Deps{AIPolicy: aiusage.Policy{Flags: aitest.Flags(enabled)}}, nil, nil, invoice, invoice.BoundaryAt.Time)
 			require.NoError(t, err)
 			require.False(t, applied)
 		}

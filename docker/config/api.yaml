@@ -25,10 +25,12 @@ otel:
   endpoint: jaeger:4318
   insecure: true
 
-ai_usage:
-  # Explicit workshop opt-in. Deployments must not mount this local-dev file.
-  # The console additionally requires its local/platform ai-credits flag.
-  enabled: true
+metered:
+  # Trusted LOCAL platform source, independent of usage reporting. No AI switch:
+  # missing/default-off ai-credits denies until explicit `task seed:ai` prepares
+  # Dogfooding's rule for the actual Sushi organization. Startup never seeds it.
+  enabled: false
+  organization_external_id: org_dogfooding
 
 billing:
   # Off by default in the API itself: the licence price routes and the invoice

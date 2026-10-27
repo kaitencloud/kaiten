@@ -37,6 +37,8 @@ func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *Que
 }
 
 func (r *QueryRepository) GetEntitlementsUsageMetrics(ctx context.Context, instanceSlug string, organizationID uuid.UUID) ([]entitlementUsageSchema.EntitlementUsage, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	instanceID, err := r.resolveInstanceSlug(ctx, instanceSlug, organizationID)
 	if err != nil {
 		return nil, err
@@ -45,7 +47,7 @@ func (r *QueryRepository) GetEntitlementsUsageMetrics(ctx context.Context, insta
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
 	defer done()
 	entitlements, err := r.repository.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
-		HideAi:         !r.policy.Enabled,
+		HideAi:         !r.policy.Enabled(ctx),
 		OrganizationID: organizationID,
 		InstanceID:     instanceID,
 	})

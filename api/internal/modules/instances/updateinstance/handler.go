@@ -47,6 +47,18 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) (*
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	return h.ExecuteWithinOperation(ctx, command, slug)
+}
+
+// ExecuteWithinOperation applies an update within an admitted parent operation.
+func (h *UseCase) ExecuteWithinOperation(ctx context.Context, command *Command, slug string) (*schema.Instance, error) {
+	user, err := h.deps.UserProvider.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = h.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 
 	// The endpoint's pattern tag already rejects a malformed slug, but the
 	// format rule lives in slugutil, not in a struct tag: check it here too

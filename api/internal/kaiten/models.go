@@ -58,11 +58,11 @@ func (m Models) Delete(ctx context.Context, cl caller.OrganizationCaller, slug s
 	return m.uc.DeleteModel.Execute(bindOrganization(ctx, cl), slug)
 }
 
-// Capabilities is the one auth-only deployment read on this namespace. A zero
+// Capabilities is the one auth-only platform-flag read on this namespace. A zero
 // caller is denied even though readiness requires no product permission.
-func (m Models) Capabilities(_ context.Context, cl caller.OrganizationCaller) (getaiusagecapabilities.Capabilities, error) {
+func (m Models) Capabilities(ctx context.Context, cl caller.OrganizationCaller) (getaiusagecapabilities.Capabilities, error) {
 	if cl.UserID() == uuid.Nil || cl.OrganizationID() == uuid.Nil {
 		return getaiusagecapabilities.Capabilities{}, apierrors.Unauthorized("Auth.NoIdentity", "no identity found in context")
 	}
-	return m.uc.Capabilities.Read(), nil
+	return m.uc.Capabilities.Read(bindOrganization(ctx, cl), cl.OrganizationID()), nil
 }

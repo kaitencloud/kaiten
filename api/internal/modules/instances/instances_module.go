@@ -77,14 +77,14 @@ func NewUseCases(svc services.Container) *UseCases {
 	retention := usageledger.Retention{Reader: svc.EntitlementConfig, Settings: ledgerSettings}
 	useCases := &UseCases{
 		BillableUsage:  billableusage.New(svc.Pool, svc.Uof, retention),
-		AIInferences:   listaiinferences.UseCase{Reader: aihistory.Reader{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, User: svc.UserProvider, Queries: queries}},
-		AIReservations: listaireservations.UseCase{Reader: aihistory.Reader{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, User: svc.UserProvider, Queries: queries}},
+		AIInferences:   listaiinferences.UseCase{Reader: aihistory.Reader{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, User: svc.UserProvider, Queries: queries}},
+		AIReservations: listaireservations.UseCase{Reader: aihistory.Reader{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, User: svc.UserProvider, Queries: queries}},
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
 		CreateInstance: createinstance.NewUseCase(createinstance.Deps{
-			AIPolicy:             aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			UsageReporter:        svc.UsageReporter,
 			Uof:                  svc.Uof,
@@ -95,7 +95,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		DeleteInstance: deleteinstance.NewUseCase(deleteinstance.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,
@@ -117,7 +117,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:          svc.Uof,
 		}),
 		UpdateInstance: updateinstance.NewUseCase(updateinstance.Deps{
-			AIPolicy:             aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			Uof:                  svc.Uof,
 			MetadataFieldsLister: validator.NewLister(svc.Pool),
@@ -127,7 +127,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		ReportEntitlementUsageMetric: reportentitlementusagemetric.NewUseCase(reportentitlementusagemetric.Deps{
-			AIPolicy:            aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:            aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:        svc.UserProvider,
 			UsageReporter:       svc.UsageReporter,
 			Uof:                 svc.Uof,
@@ -137,14 +137,14 @@ func NewUseCases(svc services.Container) *UseCases {
 			ReservationMaxTTL:   svc.Config.AIUsage.ReservationMaxTTL,
 		}),
 		GetEntitlementUsageMetrics: getentitlementusagemetrics.NewUseCase(getentitlementusagemetrics.Deps{
-			AIPolicy:         aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:         aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:     svc.UserProvider,
 			Queries:          queries,
 			UsageReporter:    svc.UsageReporter,
 			OutboxRepository: outbox.NewOutboxRepository(outboxdb.New(svc.Pool)),
 		}),
 		GetEntitlementsUsageMetrics: getentitlementsusagemetrics.NewUseCase(getentitlementsusagemetrics.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Queries:       queries,
 			UsageReporter: svc.UsageReporter,

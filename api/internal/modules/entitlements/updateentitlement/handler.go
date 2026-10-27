@@ -44,9 +44,10 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	if command.Type != nil {
-		if err := h.deps.AIPolicy.RequireType(string(*command.Type)); err != nil {
+		if err := h.deps.AIPolicy.RequireType(ctx, string(*command.Type)); err != nil {
 			return err
 		}
 	}
@@ -61,7 +62,7 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 		}
 
 		if currentEntitlement.Type != nil {
-			if err := h.deps.AIPolicy.RequireType(string(*currentEntitlement.Type)); err != nil {
+			if err := h.deps.AIPolicy.RequireType(ctx, string(*currentEntitlement.Type)); err != nil {
 				return err
 			}
 		}

@@ -21,10 +21,10 @@ import { getStoredDevToken } from './local-auth';
  * in a context shaped so that a rule can read the organization's tracked
  * instance (`__kaiten.instance.metadata.demo`).
  *
- * Local and e2e builds have no platform flag service: there the app's own API
- * plays that part, with the session's credential, as it always has. A deployed
- * build with none configured (self-hosted) evaluates nothing, and every
- * platform flag is off.
+ * Ordinary local demo flags retain the session-source fallback. AI never uses
+ * a customer catalog: real local builds need the same platform URL/read-only
+ * token wiring as hosted builds. Only explicit mocked E2E builds can use their
+ * MSW source for AI. A build without a trusted platform source keeps AI off.
  *
  * The flags themselves, each created in the KbK's Dogfooding organization by
  * saas-api's bootstrap (internal/modules/kbkbootstrap/flags.go):
@@ -303,7 +303,13 @@ export const demoSandboxFlagQueryOptions =
 export const aiCreditsFlagQueryOptions = queryOptions({
   queryKey: [...featureFlagsQueryKey, AI_CREDITS_FLAG],
   queryFn: async () => {
-    const source = await resolveSource();
+    // Session/customer flags are never rollout authority, even in real local dev.
+    // A partially configured platform source must not fall back to MSW either.
+    const source = usesPlatform()
+      ? await platformSource()
+      : BYPASS_AUTH && !env.PLATFORM_API_URL && !env.PLATFORM_FLAGS_TOKEN
+        ? await localSource()
+        : null;
     if (!source) return false;
     try {
       // A separate domain leaves demo-sandbox's provider and refresh semantics intact.
@@ -324,7 +330,7 @@ export const aiCreditsFlagQueryOptions = queryOptions({
         client.providerStatus === 'READY' &&
         details.value === true &&
         !details.errorCode &&
-        ['STATIC', 'TARGETING_MATCH', 'SPLIT'].includes(details.reason ?? '')
+        ['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT'].includes(details.reason ?? '')
       );
     } catch {
       return false;

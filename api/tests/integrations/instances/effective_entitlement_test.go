@@ -17,6 +17,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 )
 
 // The readers of an instance's entitlement value moved from joining
@@ -274,7 +276,7 @@ func newEffectiveCatalogue(t *testing.T) effectiveCatalogue {
 	unlimited := newEntitlement(t)
 	assignEntitlementToLicense(t, license, unlimited.Slug, -1)
 	credits := newEntitlementWithType(t, entitlementschema.NumberAICredit)
-	assignEntitlementToLicenseWithOverage(t, license, credits.Slug, 250, 0)
+	assignEntitlementToLicenseWithOverage(t, license, credits.Slug, 250, 0, aiusage.Policy{Flags: aitest.Flags(true)})
 	on := newEntitlementWithType(t, entitlementschema.Boolean)
 	assignBooleanEntitlementToLicense(t, license, on.Slug, true)
 	off := newEntitlementWithType(t, entitlementschema.Boolean)

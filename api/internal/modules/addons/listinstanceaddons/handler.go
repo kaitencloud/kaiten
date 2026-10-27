@@ -21,6 +21,19 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, includeRemov
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	return u.ExecuteWithinOperation(ctx, instanceSlug, includeRemoved)
+}
+
+// ExecuteWithinOperation composes a parent operation using its already-resolved
+// platform decision. It performs no provider evaluation while a transaction is held.
+func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug string, includeRemoved bool) ([]catalogue.InstanceAddon, error) {
+	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 	var out []catalogue.InstanceAddon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -35,7 +48,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, includeRemov
 		if err != nil {
 			return err
 		}
-		out, err = catalogue.InstanceAddonsOperational(ctx, q, user.OrganizationID, instanceID, sub, includeRemoved, nil, !u.deps.AIPolicy.Enabled)
+		out, err = catalogue.InstanceAddonsOperational(ctx, q, user.OrganizationID, instanceID, sub, includeRemoved, nil, !u.deps.AIPolicy.Enabled(ctx))
 		return err
 	})
 	if err != nil {

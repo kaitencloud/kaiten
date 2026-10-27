@@ -40,6 +40,7 @@ func (h *UseCase) Execute(ctx context.Context, licenseSlug string, limit int32, 
 	if err != nil {
 		return pagination.Page[schema.LicenseEntitlement]{}, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	var cursorKey *pagination.CreatedAtCursor
 	if cursor != nil {

@@ -64,7 +64,7 @@ func loadLicenseEntitlements(
 
 	licenseEntitlements := make([]schema.LicenseEntitlement, 0, len(rows))
 	for _, ent := range rows {
-		if policy.RequireType(string(ent.EntitlementType)) != nil {
+		if policy.RequireType(ctx, string(ent.EntitlementType)) != nil {
 			continue
 		}
 		valueMap, err := entitlementvalue.ToMap(ent.Value)

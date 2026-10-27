@@ -83,6 +83,7 @@ func (u *UseCase) Execute(ctx context.Context, check VoucherCheck) (*Validity, e
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if err := u.limitPrincipal(ctx, user.OrganizationID, user.ID); err != nil {
 		return nil, err
 	}
@@ -150,6 +151,7 @@ func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Vou
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if err := u.limitSession(ctx, check.SessionID, check.CustomerID); err != nil {
 		return nil, err
 	}
@@ -225,6 +227,14 @@ type VisitorCheck struct {
 // may redeem it, nil whatever else, the answer hiding why. The checkout's own
 // limits bound the attempts (§14.8).
 func (u *UseCase) Visitor(ctx context.Context, check VisitorCheck) (*catalogue.Voucher, error) {
+	ctx = u.deps.AIPolicy.Resolve(ctx, check.OrganizationID)
+	return u.VisitorWithinOperation(ctx, check)
+}
+
+// VisitorWithinOperation consumes a parent operation's platform decision.
+func (u *UseCase) VisitorWithinOperation(ctx context.Context, check VisitorCheck) (*catalogue.Voucher, error) {
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, check.OrganizationID)
+
 	q := u.deps.Queries(ctx)
 	subject := catalogue.Subject{CustomerID: nil, Instance: nil, Plan: nil, Visitor: &catalogue.Visitor{AddonIDs: check.AddonIDs}}
 	known := true

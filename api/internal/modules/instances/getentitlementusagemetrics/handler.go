@@ -60,6 +60,7 @@ func (h *UseCase) Execute(ctx context.Context, instanceSlug string, entitlementS
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	entitlement, err := h.repository.GetEntitlementUsageMetrics(ctx, instanceSlug, entitlementSlug, user.OrganizationID)
 	if err != nil {

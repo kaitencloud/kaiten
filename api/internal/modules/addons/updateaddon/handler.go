@@ -39,6 +39,7 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var updated catalogue.Addon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -47,13 +48,13 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 			return err
 		}
 		before := locked.Addon()
-		if command.IsDefault != before.IsDefault && !u.deps.AIPolicy.Enabled {
+		if command.IsDefault != before.IsDefault && !u.deps.AIPolicy.Enabled(ctx) {
 			hasAI, err := q.AddonFamilyHasAI(ctx, db.AddonFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: &locked.Row.FamilyID, FamilySlug: nil})
 			if err != nil {
 				return err
 			}
 			if hasAI {
-				return u.deps.AIPolicy.RequireEnabled()
+				return u.deps.AIPolicy.RequireEnabled(ctx)
 			}
 		}
 		sameMax := command.MaxQuantity == nil && before.MaxQuantity == nil || command.MaxQuantity != nil && before.MaxQuantity != nil && *command.MaxQuantity == *before.MaxQuantity

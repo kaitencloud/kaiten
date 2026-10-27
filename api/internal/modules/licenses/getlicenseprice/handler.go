@@ -20,6 +20,7 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	queries := u.deps.Queries(ctx)
 	licenseID, err := prices.VersionID(ctx, queries, "GetLicensePrice.NotFound", user.OrganizationID, licenseSlug)
 	if err != nil {

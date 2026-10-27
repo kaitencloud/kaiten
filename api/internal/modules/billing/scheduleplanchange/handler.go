@@ -38,13 +38,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, priceID uuid
 	if err != nil {
 		return nil, err
 	}
-	if !u.deps.AIPolicy.Enabled {
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if !u.deps.AIPolicy.Enabled(ctx) {
 		hasAI, err := u.deps.Queries(ctx).SubscriptionSelectionHasAI(ctx, db.SubscriptionSelectionHasAIParams{OrganizationID: user.OrganizationID, InstanceSlug: instanceSlug, BasePriceID: priceID, MoveToLicenseID: nil, AddonSlugs: []string{}, VoucherCode: nil})
 		if err != nil {
 			return nil, err
 		}
 		if hasAI {
-			return nil, u.deps.AIPolicy.RequireEnabled()
+			return nil, u.deps.AIPolicy.RequireEnabled(ctx)
 		}
 	}
 	var result *subscriptions.InstanceBilling

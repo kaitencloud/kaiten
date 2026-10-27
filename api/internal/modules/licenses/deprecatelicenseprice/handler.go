@@ -33,6 +33,7 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	var deprecated *prices.Price
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {

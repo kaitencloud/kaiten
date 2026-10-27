@@ -29,6 +29,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID) (*catalogue.
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var moved catalogue.Voucher
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)

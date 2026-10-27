@@ -10,7 +10,7 @@ export function subscribeAiFlagUnavailable(onUnavailable: () => void) {
       client.providerStatus === 'READY' &&
       (details.value !== true ||
         details.errorCode ||
-        !['STATIC', 'TARGETING_MATCH', 'SPLIT'].includes(details.reason ?? ''))
+        !['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT'].includes(details.reason ?? ''))
     )
       onUnavailable();
   };

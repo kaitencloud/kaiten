@@ -29,6 +29,7 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, draft prices.
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if draft.MeteredEntitlementSlug != "" {
 		if err := licenseview.RequireOperational(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, draft.MeteredEntitlementSlug); err != nil {
 			return nil, err

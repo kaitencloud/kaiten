@@ -10,7 +10,6 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
@@ -20,6 +19,7 @@ import (
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/tests"
@@ -673,14 +673,16 @@ func TestAIWireRejectsMissingMalformedIDsAndInvalidPhases(t *testing.T) {
 func useAIForThisTest(t *testing.T) {
 	t.Helper()
 	previous := testServer
-	enabled := tests.NewTestServer(testDb, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.AIUsage.Enabled = true }})
+	enabled := tests.NewTestServer(testDb, tests.TestServerOptions{PlatformFlags: aitest.Flags(true)})
 	testServer = enabled
 	t.Cleanup(func() { testServer = previous; require.NoError(t, enabled.Close()) })
 }
 
 func assignAIPoolToLicense(t *testing.T, licenseSlug, entitlementSlug string, threshold, overagePercent int32) {
 	t.Helper()
-	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB), aiusage.Policy{Enabled: true})
-	_, err := repo.AssociateEntitlementToLicense(t.Context(), licenseSlug, &associateentitlementwithlicense.Command{EntitlementSlug: entitlementSlug, Value: map[string]any{"type": "number", "value": threshold}, LimitCapExceededOveragePercent: &overagePercent}, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
+	policy := aiusage.Policy{Flags: aitest.Flags(true)}
+	ctx := policy.Resolve(t.Context(), testDb.DefaultData.OrganizationID)
+	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB), policy)
+	_, err := repo.AssociateEntitlementToLicense(ctx, licenseSlug, &associateentitlementwithlicense.Command{EntitlementSlug: entitlementSlug, Value: map[string]any{"type": "number", "value": threshold}, LimitCapExceededOveragePercent: &overagePercent}, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
 	require.NoError(t, err)
 }

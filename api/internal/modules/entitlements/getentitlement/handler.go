@@ -34,6 +34,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.Entitlement
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	entitlement, err := h.repository.GetEntitlement(ctx, slug, user.OrganizationID)
 	if err != nil {

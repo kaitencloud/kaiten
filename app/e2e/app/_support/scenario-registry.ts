@@ -105,6 +105,7 @@ import {
   createSdkServiceAccount,
 } from '../integrations/integrations.scenarios';
 import {
+  createAiMeterCatalogModel,
   createBilledCatalogModel,
   createDraftPricesModel,
   createFamilySettingsCatalogModel,
@@ -202,6 +203,7 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createNumberedLicenseFamilyModel,
   ],
   ['licenses/createPricedCatalogModel', createPricedCatalogModel],
+  ['licenses/createAiMeterCatalogModel', createAiMeterCatalogModel],
   ['licenses/createBilledCatalogModel', createBilledCatalogModel],
   ['licenses/createDraftPricesModel', createDraftPricesModel],
   ['licenses/createFreeDraftModel', createFreeDraftModel],

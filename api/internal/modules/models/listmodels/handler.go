@@ -35,7 +35,8 @@ func (h *UseCase) Execute(ctx context.Context, filter Filter, limit int32, curso
 	if err != nil {
 		return pagination.Page[*schema.Model]{}, err
 	}
-	if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
 		return pagination.Page[*schema.Model]{}, err
 	}
 	var createdAt *time.Time

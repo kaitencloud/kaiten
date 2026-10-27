@@ -208,7 +208,7 @@ func RegisterAuthorizationIntrospection[I, O any](api huma.API, op huma.Operatio
 	huma.Register(api, op, handler)
 }
 
-// RegisterAIUsageCapabilities publishes deployment readiness, not product grants.
+// RegisterAIUsageCapabilities publishes current platform flag availability, not product grants.
 // This auth-only exception is fixed to one operation; authorization introspection
 // remains separately reserved for /authorization.
 func RegisterAIUsageCapabilities[I, O any](api huma.API, op huma.Operation, handler func(context.Context, *I) (*O, error)) {

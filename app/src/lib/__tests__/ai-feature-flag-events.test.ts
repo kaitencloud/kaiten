@@ -10,6 +10,12 @@ it('does not discard editors on a successful true refresh, but immediately revok
   state.value = false; state.handlers.get('changed')!(); expect(revoke).toHaveBeenCalledOnce();
   dispose(); expect(state.handlers.size).toBe(0);
 });
+it('retains a current successful default variant but revokes an errored default', () => {
+  const revoke = vi.fn(); const dispose = subscribeAiFlagUnavailable(revoke);
+  state.reason = 'DEFAULT'; state.handlers.get('ready')!(); expect(revoke).not.toHaveBeenCalled();
+  state.errorCode = 'FLAG_NOT_FOUND'; state.handlers.get('changed')!(); expect(revoke).toHaveBeenCalledOnce();
+  dispose();
+});
 it('revokes stale/error evaluations and a stale provider even if their cached value was true', () => {
   const revoke = vi.fn(); const dispose = subscribeAiFlagUnavailable(revoke);
   state.reason = 'STALE'; state.handlers.get('changed')!();

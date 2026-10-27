@@ -33,6 +33,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, priceID uuid.UU
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var deprecated prices.Price
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -47,13 +48,13 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, priceID uuid.UU
 		if err != nil {
 			return err
 		}
-		if !u.deps.AIPolicy.Enabled && price.MetersEntitlementID != nil {
+		if !u.deps.AIPolicy.Enabled(ctx) && price.MetersEntitlementID != nil {
 			hasAI, err := q.AddonMeterIsAI(ctx, db.AddonMeterIsAIParams{OrganizationID: user.OrganizationID, EntitlementID: *price.MetersEntitlementID})
 			if err != nil {
 				return err
 			}
 			if hasAI {
-				return u.deps.AIPolicy.RequireEnabled()
+				return u.deps.AIPolicy.RequireEnabled(ctx)
 			}
 		}
 		if price.Status == db.PriceStatusDEPRECATED {

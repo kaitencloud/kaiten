@@ -34,6 +34,7 @@ func (h *UseCase) Execute(ctx context.Context, licenseSlug, entitlementSlug stri
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	licenseEntitlement, err := h.repository.GetLicenseEntitlement(ctx, licenseSlug, entitlementSlug, user.OrganizationID)
 	if err != nil {

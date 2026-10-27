@@ -11,6 +11,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -41,7 +42,7 @@ func TestOrdinaryMetadataFailuresKeepAttemptAccountingOffAndOn(t *testing.T) {
 				org := uuid.New()
 				classifier := &targetTypeStub{kind: target.kind, err: target.err}
 				reporter := &rolloutReporter{}
-				u := NewUseCase(Deps{AIPolicy: aiusage.Policy{Enabled: enabled}, TargetClassifier: classifier, UserProvider: &currentuser.StaticUserProvider{UserID: uuid.New(), OrganizationID: org}, UsageReporter: reporter})
+				u := NewUseCase(Deps{AIPolicy: aiusage.Policy{Flags: aitest.Flags(enabled)}, TargetClassifier: classifier, UserProvider: &currentuser.StaticUserProvider{UserID: uuid.New(), OrganizationID: org}, UsageReporter: reporter})
 				// Real Execute unwinds before Transact. No database can be used,
 				// and every ordinary attempt still counts despite metadata failure.
 				_, err := u.Execute(t.Context(), "missing-instance", "target", &Command{Metadata: map[string]any{"unsupported": make(chan int)}})

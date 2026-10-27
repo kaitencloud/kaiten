@@ -19273,7 +19273,7 @@ paths:
         - addons
   /ai/capabilities:
     get:
-      description: Startup-fixed readiness only, not authorization to consume AI credits. Available while AI is disabled. Responses must not be cached.
+      description: Current organization-scoped platform flag only, not authorization to consume AI credits. Available while AI is disabled. Responses must not be cached.
       operationId: getAiUsageCapabilities
       responses:
         "200":
@@ -19306,7 +19306,7 @@ paths:
           description: Internal Server Error
       security:
         - bearerAuth: []
-      summary: Read AI deployment readiness
+      summary: Read AI platform rollout availability
       tags:
         - ai
   /authorization:

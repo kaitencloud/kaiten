@@ -18,6 +18,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, entitlementSlug string
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	q := u.deps.Queries(ctx)
 	addon, err := catalogue.Get(ctx, q, user.OrganizationID, addonSlug, code)
 	if err != nil {
@@ -27,7 +28,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, entitlementSlug string
 	if err != nil {
 		return nil, err
 	}
-	if err := u.deps.AIPolicy.RequireType(string(row.EntitlementType)); err != nil {
+	if err := u.deps.AIPolicy.RequireType(ctx, string(row.EntitlementType)); err != nil {
 		return nil, err
 	}
 	grant := catalogue.ToGrant(row)

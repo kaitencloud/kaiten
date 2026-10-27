@@ -139,7 +139,7 @@ func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 	return &UseCases{
 		GetOrganization:    getorganization.NewUseCase(queries),
-		DeleteOrganization: deleteorganization.NewUseCase(svc.Uof, aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}),
+		DeleteOrganization: deleteorganization.NewUseCase(svc.Uof, aiusage.Policy{Flags: svc.PlatformFlags}),
 		DeleteMembership:   deletemembership.NewUseCase(queries),
 		AddMembership:      addmembership.NewUseCase(svc.Uof),
 		EnsureOrganization: ensureorganization.NewUseCase(queries),

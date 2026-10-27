@@ -49,32 +49,32 @@ type UseCases struct {
 // NewUseCases creates a new UseCases instance with all use cases initialized.
 func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
-	exceptionDeps := exceptions.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Uof: svc.Uof}
+	exceptionDeps := exceptions.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}
 	return &UseCases{
 		CreateEntitlement: createentitlement.NewUseCase(createentitlement.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			UsageReporter: svc.UsageReporter,
 			Uof:           svc.Uof,
 		}),
 		DeleteEntitlement: deleteentitlement.NewUseCase(deleteentitlement.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,
 		}),
 		GetEntitlement: getentitlement.NewUseCase(getentitlement.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
 		GetEntitlements: getentitlements.NewUseCase(getentitlements.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
 		UpdateEntitlement: updateentitlement.NewUseCase(updateentitlement.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Uof:          svc.Uof,
 		}),
@@ -96,23 +96,23 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:          svc.Uof,
 		}),
 		DeleteEntitlementGroup: deleteentitlementgroup.NewUseCase(deleteentitlementgroup.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			UsageReporter: svc.UsageReporter,
 			Uof:           svc.Uof,
 		}),
 		AddEntitlementToGroup: addentitlementtogroup.NewUseCase(addentitlementtogroup.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Uof:          svc.Uof,
 		}),
 		RemoveEntitlementFromGroup: removeentitlementfromgroup.NewUseCase(removeentitlementfromgroup.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
 		GetEntitlementGroupUsage: getentitlementgroupusage.NewUseCase(getentitlementgroupusage.Deps{
-			AIPolicy:     aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),

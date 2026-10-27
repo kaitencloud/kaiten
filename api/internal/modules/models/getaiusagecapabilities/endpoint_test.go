@@ -18,6 +18,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/models/getaiusagecapabilities"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/pkg/fiberapi"
 )
 
@@ -25,8 +26,7 @@ func TestCapabilitiesAreAuthenticatedReadinessWithoutProductScopes(t *testing.T)
 	t.Parallel()
 	for _, enabled := range []bool{false, true} {
 		cfg := config.CoreConfig{}
-		cfg.AIUsage.Enabled = enabled
-		app, err := kaiten.New(kaiten.Options{Config: cfg})
+		app, err := kaiten.New(kaiten.Options{Config: cfg, PlatformFlags: aitest.Flags(enabled)})
 		require.NoError(t, err)
 		t.Cleanup(app.Close)
 		for _, scopes := range [][]string{{}, {"read:models"}, {"read:instances"}} {

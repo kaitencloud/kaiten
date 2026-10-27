@@ -23,6 +23,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -93,7 +94,7 @@ func TestIdentityRefusalIsNotReplacedByRolloutReadiness(t *testing.T) {
 	t.Parallel()
 	refusal := errors.New("identity refused")
 	for _, enabled := range []bool{false, true} {
-		_, err := getmodel.NewUseCase(getmodel.Deps{UserProvider: refusedIdentity{refusal}, AIPolicy: aiusage.Policy{Enabled: enabled}}).Execute(t.Context(), "model")
+		_, err := getmodel.NewUseCase(getmodel.Deps{UserProvider: refusedIdentity{refusal}, AIPolicy: aiusage.Policy{Flags: aitest.Flags(enabled)}}).Execute(t.Context(), "model")
 		require.ErrorIs(t, err, refusal)
 	}
 }

@@ -47,7 +47,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		DeleteCustomer: deletecustomer.NewUseCase(deletecustomer.Deps{
-			AIPolicy:      aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,

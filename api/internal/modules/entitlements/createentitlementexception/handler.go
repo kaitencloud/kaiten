@@ -58,6 +58,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var created exceptions.EntitlementException
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -72,7 +73,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		if err != nil {
 			return err
 		}
-		if err := u.deps.AIPolicy.RequireType(string(entitlement.Type)); err != nil {
+		if err := u.deps.AIPolicy.RequireType(ctx, string(entitlement.Type)); err != nil {
 			return err
 		}
 		value, err := checkValue(entitlement.Type, cmd.Kind, cmd.Value)

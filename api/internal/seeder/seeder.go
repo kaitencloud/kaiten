@@ -41,6 +41,8 @@ type Profile interface {
 // It encapsulates the dependencies needed by seed profiles.
 type SeederContext struct {
 	AIPolicy aiusage.Policy
+	// PlatformFlags is the selected trusted source, shared with every org graph.
+	PlatformFlags services.PlatformFlags
 	// Module use cases
 	Components      *components.UseCases
 	Customers       *customers.UseCases
@@ -93,10 +95,10 @@ func NewSeederContext(pool *pgxpool.Pool, usageReporter services.UsageReporter) 
 // container it says it to is the same one the server builds.
 func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContext {
 	app, err := kaiten.New(kaiten.Options{
-		DB:     sc.pool,
-		Config: seedConfig(sc.AIPolicy),
-		// Only AI's explicit deployment policy is copied. Other settings retain
-		// the seeder's existing zero configuration; no workers start here.
+		DB:            sc.pool,
+		Config:        config.CoreConfig{},
+		PlatformFlags: sc.PlatformFlags,
+		// Preserve the seeder's unrelated zero configuration; no workers start here.
 		UserProvider: &currentuser.StaticUserProvider{
 			UserID:         userID,
 			OrganizationID: orgID,
@@ -128,7 +130,8 @@ func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContex
 	m := app.Modules()
 
 	return &SeederContext{
-		AIPolicy:        sc.AIPolicy,
+		AIPolicy:        aiusage.Policy{Flags: sc.PlatformFlags},
+		PlatformFlags:   sc.PlatformFlags,
 		Components:      m.Components,
 		Customers:       m.Customers,
 		DeploymentZones: m.DeploymentZones,
@@ -160,12 +163,4 @@ func (sc *SeederContext) Exec(ctx context.Context, query string, args ...any) er
 		return fmt.Errorf("seeder exec failed: %w", err)
 	}
 	return nil
-}
-
-// seedConfig preserves the seeder's unrelated zero configuration. AI alone is
-// opted in from the explicit seed command's deployment configuration.
-func seedConfig(policy aiusage.Policy) config.CoreConfig {
-	cfg := config.CoreConfig{}
-	cfg.AIUsage.Enabled = policy.Enabled
-	return cfg
 }

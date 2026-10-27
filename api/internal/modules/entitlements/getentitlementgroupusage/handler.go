@@ -37,6 +37,7 @@ func (h *UseCase) Execute(ctx context.Context, groupSlug string, instanceSlug st
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	items, err := h.repository.GetEntitlementGroupUsage(ctx, groupSlug, instanceSlug, user.OrganizationID)
 	if err != nil {

@@ -36,6 +36,7 @@ func (h *UseCase) Execute(ctx context.Context, limit int32, cursor *string) (pag
 	if err != nil {
 		return pagination.Page[*schema.Entitlement]{}, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	var cursorKey *pagination.CreatedAtCursor
 	if cursor != nil {

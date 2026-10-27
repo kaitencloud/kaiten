@@ -63,6 +63,7 @@ func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Instan
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	if err := operationalaccess.RequireLicense(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, command.LicenseID); err != nil {
 		return nil, err

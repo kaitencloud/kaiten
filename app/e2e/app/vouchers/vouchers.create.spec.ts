@@ -216,10 +216,18 @@ test.describe('the offer of a boost', () => {
     await wizard.addChange().click();
     // V32-03(b): BOOLEAN and CONFIG can be boosted with SET only.
     expect((await wizard.offeredEntitlements(0)).sort()).toEqual([
+      'Advanced Analytics',
+      'Branding',
       'Seats',
       'Storage',
       'Tokens',
     ]);
+    for (const entitlement of ['Advanced Analytics', 'Branding']) {
+      await wizard.chooseEntitlement(0, entitlement);
+      await wizard.modifier(0).click();
+      await expect(page.getByRole('option')).toHaveText(['Set to']);
+      await page.keyboard.press('Escape');
+    }
   });
 
   test('offers AI credits only when deployment readiness and platform rollout are explicitly enabled', async ({

@@ -73,7 +73,7 @@ func newAddonPricesBatchFn(queries *db.Queries, policy aiusage.Policy) dataloade
 		if !ok {
 			return fail(dataloader.ErrMissingIdentity)
 		}
-		byAddon, err := catalogue.PricesOperational(ctx, queries, i.OrganizationID, keys, nil, !policy.Enabled)
+		byAddon, err := catalogue.PricesOperational(ctx, queries, i.OrganizationID, keys, nil, !policy.Enabled(ctx))
 		if err != nil {
 			return fail(err)
 		}

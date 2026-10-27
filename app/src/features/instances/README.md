@@ -62,7 +62,11 @@ or blanket ordinary-price denial. Known AI codes are rechecked before confirmati
 and each boundary retry. Live AI grant/delta projections disappear on gate loss;
 completed redemption identities and invoice amounts remain financial evidence.
 The journal `?history=` drawer/export likewise remains readable for hidden or
-deleted live resources without opening operational AI links.
+deleted live resources without opening operational AI links. An unlisted target
+is checked through the permission-scoped financial reports endpoint with `limit=1`,
+independently of the selected dates. The API resolves the pair before filtering:
+a successful empty page is still a valid journal; a missing pair returns 404 and
+opens no drawer. The selected period and outside-retention guidance are preserved.
 
 ## Structure
 

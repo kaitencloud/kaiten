@@ -19,6 +19,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 )
 
+// PlatformFlags reads rollout flags from the operator-selected, platform-owned
+// source. It is independent of usage metering and commercial entitlements.
+// Nil is closed; unlike connector licensing there is no always-enabled fallback.
+type PlatformFlags interface {
+	BooleanValue(context.Context, uuid.UUID, string) (bool, error)
+}
+
 type UsageReporter interface {
 	// TrackAsync fires a usage report in the background.
 	// The caller blocks under backpressure while the bounded report queue is saturated.
@@ -204,6 +211,7 @@ type Container struct {
 	UserProvider  currentuser.Provider
 	Config        config.CoreConfig
 	UsageReporter UsageReporter
+	PlatformFlags PlatformFlags
 
 	// ConnectorEntitlements answers whether an organization's license permits a
 	// connector. Never nil: see ConnectorEntitlementsOrAlways.

@@ -126,11 +126,12 @@ type Ports struct {
 func NewUseCases(svc services.Container, from Ports) *UseCases {
 	billingGate := gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL)
 	deps := keys.Deps{
+		AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 		UserProvider: svc.UserProvider, Uof: svc.Uof, Gate: billingGate,
 		Secrets: keys.NewVaultSecretStore(svc.Config.Connectors.VaultBasePath),
 	}
 	catalog := getpubliccatalog.NewUseCase(getpubliccatalog.Deps{
-		AIPolicy:  aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled},
+		AIPolicy:  aiusage.Policy{Flags: svc.PlatformFlags},
 		Uof:       svc.Uof,
 		Gate:      billingGate,
 		Providers: svc.BillingProviders,
@@ -151,17 +152,20 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		AuthenticatePublishableKey:  authenticatepublishablekey.NewUseCase(deps),
 		GetPublicCatalog:            catalog,
 		CreateSessionCheckout: createsessioncheckout.NewUseCase(createsessioncheckout.Deps{
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider, Catalog: catalog, Subscriber: from.Subscriber,
 			CustomerBilling: from.CustomerBilling, OpenSetup: from.OpenSetup, CompleteSetup: from.CompleteSetup,
 			Invoices: from.Invoices, BillingEmails: from.BillingEmails,
 		}),
 		CreateCheckoutSession: createcheckoutsession.NewUseCase(createcheckoutsession.Deps{
-			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
+			AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags},
+			Uof:      svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
 			Turnstile: turnstile.NewClient(svc.TurnstileVerifyURL), Limits: checkout.StartLimits(svc.Config.Billing.CheckoutLimits),
 			Vouchers: from.CheckoutVouchers,
 		}),
-		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation, Payments: from.CheckoutSetup}),
+		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, Uof: svc.Uof, Activation: from.Activation, Payments: from.CheckoutSetup}),
 		ConfirmCheckoutSession: confirmcheckoutsession.NewUseCase(confirmcheckoutsession.Deps{
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider, Uof: svc.Uof, Catalog: catalog, Activation: from.Activation,
 			Customers: from.CheckoutCustomers, Instances: from.CheckoutInstances, Subscriber: from.CheckoutSubscriber,
 			Setup: from.CheckoutSetup, UsageReporter: svc.UsageReporter, Limits: checkout.ConfirmLimits(svc.Config.Billing.CheckoutLimits),
@@ -178,11 +182,13 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		ValidateSessionVoucher:        validatesessionvoucher.NewUseCase(from.Vouchers),
 		RedeemSessionVoucher:          redeemsessionvoucher.NewUseCase(from.VoucherLimit, from.SessionRedeemer),
 		SetSessionAddonQuantity: setsessionaddonquantity.NewUseCase(setsessionaddonquantity.Deps{
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider, Catalog: catalog,
 			List: from.AddonList, Attach: from.AddonAttach, SetQuantity: from.AddonQuantity,
 		}),
 		GetSessionPortal: getsessionportal.NewUseCase(getsessionportal.Deps{
-			Queries: sessionDeps.Queries, Catalog: catalog, Subscription: from.Subscription, Checkout: from.Checkout, UpcomingInvoice: from.UpcomingInvoice,
+			AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags},
+			Queries:  sessionDeps.Queries, Catalog: catalog, Subscription: from.Subscription, Checkout: from.Checkout, UpcomingInvoice: from.UpcomingInvoice,
 			Entitlements: from.Entitlements, AddOns: from.AddonList, Vouchers: from.Redemptions, CustomerBilling: from.CustomerBilling,
 		}),
 	}

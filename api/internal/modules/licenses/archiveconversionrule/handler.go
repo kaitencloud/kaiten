@@ -37,7 +37,8 @@ func (h *UseCase) Execute(ctx context.Context, slug string, id uuid.UUID) error 
 	if err != nil {
 		return err
 	}
-	if err := h.deps.AIPolicy.RequireEnabled(); err != nil {
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
 		return err
 	}
 	return h.deps.Uof.Transact(ctx, func(ctx context.Context) error {

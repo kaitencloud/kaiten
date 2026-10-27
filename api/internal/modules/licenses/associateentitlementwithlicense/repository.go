@@ -54,6 +54,7 @@ func (r *CommandRepository) entitlements(ctx context.Context) licenseview.Port {
 }
 
 func (r *CommandRepository) AssociateEntitlementToLicense(ctx context.Context, licenseSlug string, command *Command, userID uuid.UUID, organizationID uuid.UUID) (*schema.LicenseEntitlement, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
 	if err := prices.RefuseBilled(ctx, r.q(ctx), "AssociateEntitlementToLicense", organizationID, licenseSlug); err != nil {
 		return nil, err
 	}
@@ -62,7 +63,7 @@ func (r *CommandRepository) AssociateEntitlementToLicense(ctx context.Context, l
 		return nil, err
 	}
 
-	if err := r.policy.RequireType(string(entitlement.Type)); err != nil {
+	if err := r.policy.RequireType(ctx, string(entitlement.Type)); err != nil {
 		return nil, err
 	}
 

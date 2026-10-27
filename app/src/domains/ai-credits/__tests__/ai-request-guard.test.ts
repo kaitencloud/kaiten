@@ -1,10 +1,12 @@
 import { QueryClient } from '@tanstack/react-query';
+import type { ResolvedRequestOptions } from '@/api-client/client';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 import { aiAccessQueryOptions, AI_ACCESS_FRESHNESS_MS } from '../ai-access';
 import { subscribeAiAccess } from '../ai-request-guard';
-const { requestHooks, responseHooks, errorHooks } = vi.hoisted(() => ({ requestHooks: new Set<(request: Request) => Promise<Request>>(), responseHooks: new Set<(response: Response, request: Request) => Response>(), errorHooks: new Set<(error: unknown) => unknown>() }));
+type RequestHook = (request: Request, options: ResolvedRequestOptions) => Promise<Request>;
+const { requestHooks, responseHooks, errorHooks } = vi.hoisted(() => ({ requestHooks: new Set<RequestHook>(), responseHooks: new Set<(response: Response, request: Request) => Response>(), errorHooks: new Set<(error: unknown) => unknown>() }));
 vi.mock('@/api-client/client.gen', () => ({ client: { getConfig: () => ({ baseUrl: 'http://api.test/api' }), interceptors: {
-  request: { use: (fn: (request: Request) => Promise<Request>) => requestHooks.add(fn), eject: (fn: (request: Request) => Promise<Request>) => requestHooks.delete(fn) },
+  request: { use: (fn: RequestHook) => requestHooks.add(fn), eject: (fn: RequestHook) => requestHooks.delete(fn) },
   response: { use: (fn: (response: Response, request: Request) => Response) => responseHooks.add(fn), eject: (fn: (response: Response, request: Request) => Response) => responseHooks.delete(fn) },
   error: { use: (fn: (error: unknown) => unknown) => errorHooks.add(fn), eject: (fn: (error: unknown) => unknown) => errorHooks.delete(fn) },
 } } }));
@@ -12,7 +14,12 @@ vi.mock('@/lib/session-identity', () => ({ getSessionIdentity: () => ({ userId: 
 beforeEach(() => { requestHooks.clear(); responseHooks.clear(); errorHooks.clear(); });
 function install() {
   const client = new QueryClient(); const dispose = subscribeAiAccess(client);
-  return { client, dispose, request: [...requestHooks][0] };
+  const hook = [...requestHooks][0];
+  const request = (value: Request, body?: unknown) => hook(value, {
+    url: value.url, headers: value.headers, body,
+    serializedBody: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { client, dispose, request };
 }
 it.each(['/models', '/models/model', '/licenses/pro/conversion-rules', '/instances/instance/entitlements/credits/usage/inferences', '/instances/instance/entitlements/credits/usage/reservations'])('blocks %s before the transport when off', async (path) => {
   const { request, dispose } = install(); const transport = vi.fn();
@@ -24,7 +31,7 @@ it('allows immutable reports/export while live AI targets and nested meters rema
   client.setQueryData([{ _id: 'listEntitlements' }], { items: [{ slug: 'credits', type: 'NUMBER_AI_CREDIT' }] });
   for (const suffix of ['reports', 'reports/export']) await expect(request(new Request(`http://api.test/api/instances/instance/entitlements/credits/usage/${suffix}`))).resolves.toBeInstanceOf(Request);
   await expect(request(new Request('http://api.test/api/entitlements/credits'))).rejects.toThrow();
-  await expect(request(new Request('http://api.test/api/licenses/pro/prices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ meteredEntitlementSlug: 'credits' }) }))).rejects.toThrow();
+  await expect(request(new Request('http://api.test/api/licenses/pro/prices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ meteredEntitlementSlug: 'credits' }) }), { meteredEntitlementSlug: 'credits' })).rejects.toThrow();
   dispose();
 });
 it('rejects stale true and cancels in-flight AI requests/query data after denial, not a fresh background check', async () => {

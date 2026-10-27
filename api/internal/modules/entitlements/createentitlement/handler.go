@@ -56,8 +56,9 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
-	if err := h.deps.AIPolicy.RequireType(string(request.Type)); err != nil {
+	if err := h.deps.AIPolicy.RequireType(ctx, string(request.Type)); err != nil {
 		return nil, err
 	}
 

@@ -21,6 +21,7 @@ func (u *UseCase) Execute(ctx context.Context, status, voucherType, restrictedCu
 	if err != nil {
 		return pagination.Page[catalogue.Voucher]{}, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	page, err := pagination.ParseKeyset(cursor, limit, "Vouchers")
 	if err != nil {
 		return pagination.Page[catalogue.Voucher]{}, err

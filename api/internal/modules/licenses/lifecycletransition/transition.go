@@ -81,6 +81,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.License, er
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	var moved *schema.License
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {

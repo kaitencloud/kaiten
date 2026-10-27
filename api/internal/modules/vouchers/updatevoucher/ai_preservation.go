@@ -1,6 +1,7 @@
 package updatevoucher
 
 import (
+	"context"
 	"time"
 
 	"github.com/shopspring/decimal"
@@ -44,7 +45,7 @@ func requireUnchangedAIBehavior(stored catalogue.Voucher, draft catalogue.Vouche
 	sameTime := func(a, b *time.Time) bool { return a == nil && b == nil || a != nil && b != nil && a.Equal(*b) }
 	sameCount := stored.MaxRedemptions == nil && draft.MaxRedemptions == nil || stored.MaxRedemptions != nil && draft.MaxRedemptions != nil && *stored.MaxRedemptions == *draft.MaxRedemptions
 	if !onlyActiveMembersChange(stored, comparison) || !sameTime(stored.ExpiresAt, draft.ExpiresAt) || !sameCount {
-		return (aiusage.Policy{}).RequireEnabled()
+		return (aiusage.Policy{}).RequireEnabled(context.Background())
 	}
 	return nil
 }

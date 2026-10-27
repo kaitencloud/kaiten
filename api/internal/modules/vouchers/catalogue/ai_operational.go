@@ -16,7 +16,8 @@ import (
 // Updates reconstruct preserved hidden grants first and may echo those unchanged;
 // creates pass no preserved slugs and cannot introduce AI relations.
 func CheckDraftOperational(ctx context.Context, q *db.Queries, org uuid.UUID, policy aiusage.Policy, draft VoucherDraft, preserved []string, oldLicensePrices, oldAddonPrices []uuid.UUID) error {
-	if policy.Enabled {
+	ctx = policy.ForOrganization(ctx, org)
+	if policy.Enabled(ctx) {
 		return nil
 	}
 	for _, grant := range draft.Grants {
@@ -28,7 +29,7 @@ func CheckDraftOperational(ctx context.Context, q *db.Queries, org uuid.UUID, po
 			return err
 		}
 		if string(target.Type) == "NUMBER_AI_CREDIT" && !slices.Contains(preserved, grant.EntitlementSlug) {
-			return policy.RequireEnabled()
+			return policy.RequireEnabled(ctx)
 		}
 	}
 	refs, err := q.VoucherAIPriceReferences(ctx, db.VoucherAIPriceReferencesParams{OrganizationID: org, LicensePriceIds: draft.ApplicableLicensePriceIDs, AddonPriceIds: draft.ApplicableAddonPriceIDs})
@@ -41,14 +42,15 @@ func CheckDraftOperational(ctx context.Context, q *db.Queries, org uuid.UUID, po
 			old = oldAddonPrices
 		}
 		if !slices.Contains(old, ref.ID) {
-			return policy.RequireEnabled()
+			return policy.RequireEnabled(ctx)
 		}
 	}
 	return nil
 }
 
 func RequireOperational(ctx context.Context, q *db.Queries, org, id uuid.UUID, policy aiusage.Policy) error {
-	if policy.Enabled {
+	ctx = policy.ForOrganization(ctx, org)
+	if policy.Enabled(ctx) {
 		return nil
 	}
 	voucher, err := One(ctx, q, org, &id, nil, false, nil)
@@ -56,7 +58,7 @@ func RequireOperational(ctx context.Context, q *db.Queries, org, id uuid.UUID, p
 		return err
 	}
 	for _, grant := range voucher.Grants {
-		if err := policy.RequireType(grant.EntitlementType); err != nil {
+		if err := policy.RequireType(ctx, grant.EntitlementType); err != nil {
 			return err
 		}
 	}
@@ -66,12 +68,13 @@ func RequireOperational(ctx context.Context, q *db.Queries, org, id uuid.UUID, p
 // VisibleVoucher projects relations only. Canonical mutation/billing reads are
 // never replaced by this view, and immutable events remain canonical.
 func VisibleVoucher(ctx context.Context, q *db.Queries, org uuid.UUID, policy aiusage.Policy, voucher Voucher) (Voucher, error) {
-	if policy.Enabled {
+	ctx = policy.ForOrganization(ctx, org)
+	if policy.Enabled(ctx) {
 		return voucher, nil
 	}
 	visible := make([]Grant, 0, len(voucher.Grants))
 	for _, grant := range voucher.Grants {
-		if policy.RequireType(grant.EntitlementType) == nil {
+		if policy.RequireType(ctx, grant.EntitlementType) == nil {
 			visible = append(visible, grant)
 		}
 	}

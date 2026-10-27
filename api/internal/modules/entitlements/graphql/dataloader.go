@@ -68,7 +68,7 @@ func newEntitlementBySlugBatchFn(queries *db.Queries, policy aiusage.Policy) dat
 
 		for i, key := range keys {
 			if entitlement, found := bySlug[key]; found {
-				if err := policy.RequireType(string(*entitlement.Type)); err != nil {
+				if err := policy.RequireType(ctx, string(*entitlement.Type)); err != nil {
 					results[i] = &dataloaderLib.Result[schema.Entitlement]{Error: err}
 				} else {
 					results[i] = &dataloaderLib.Result[schema.Entitlement]{Data: entitlement}

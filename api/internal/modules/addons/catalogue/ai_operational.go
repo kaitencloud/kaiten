@@ -10,7 +10,8 @@ import (
 )
 
 func RequireOperational(ctx context.Context, q *db.Queries, org, id uuid.UUID, policy aiusage.Policy) error {
-	if policy.Enabled {
+	ctx = policy.ForOrganization(ctx, org)
+	if policy.Enabled(ctx) {
 		return nil
 	}
 	hasAI, err := q.AddonHasAI(ctx, db.AddonHasAIParams{OrganizationID: org, AddonID: id})
@@ -18,7 +19,7 @@ func RequireOperational(ctx context.Context, q *db.Queries, org, id uuid.UUID, p
 		return err
 	}
 	if hasAI {
-		return policy.RequireEnabled()
+		return policy.RequireEnabled(ctx)
 	}
 	return nil
 }

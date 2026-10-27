@@ -34,7 +34,7 @@ func newConversionRulesBatchFn(q *db.Queries, policy aiusage.Policy) dataloaderL
 			fail(err)
 			return results
 		}
-		if err := policy.RequireEnabled(); err != nil {
+		if err := policy.RequireEnabled(ctx); err != nil {
 			fail(err)
 			return results
 		}

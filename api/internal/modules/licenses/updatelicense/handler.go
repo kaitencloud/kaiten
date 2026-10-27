@@ -58,9 +58,10 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		if !h.deps.AIPolicy.Enabled {
+		if !h.deps.AIPolicy.Enabled(ctx) {
 			q := db.New(h.deps.Uof.DBTX(ctx))
 			current, err := q.GetOneLicense(ctx, db.GetOneLicenseParams{OrganizationID: user.OrganizationID, Slug: slug})
 			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
@@ -81,7 +82,7 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 						return err
 					}
 					if hasAI {
-						return h.deps.AIPolicy.RequireEnabled()
+						return h.deps.AIPolicy.RequireEnabled(ctx)
 					}
 				}
 			}

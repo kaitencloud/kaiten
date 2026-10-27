@@ -47,6 +47,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if err := licenseview.RequireOperational(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, slug); err != nil {
 		return err
 	}

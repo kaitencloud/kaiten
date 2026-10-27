@@ -19,7 +19,7 @@ func Models(ctx context.Context, queries *db.Queries, policy aiusage.Policy, sta
 	if !ok {
 		return nil, apierrors.Unauthorized("Auth.NoIdentity", "no identity found in context")
 	}
-	if err := policy.RequireEnabled(); err != nil {
+	if err := policy.RequireEnabled(ctx); err != nil {
 		return nil, err
 	}
 	rows, err := queries.AllModels(ctx, db.AllModelsParams{OrganizationID: i.OrganizationID, Status: (*db.ModelStatus)(status)})

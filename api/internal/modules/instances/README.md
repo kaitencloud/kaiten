@@ -76,50 +76,78 @@ The shared configuration loader accepts:
 
 | Variable | Default |
 | --- | --- |
-| `KAITEN_AI_USAGE_ENABLED` | `false` |
 | `KAITEN_USAGE_IDEMPOTENCY_WINDOW` | `840h` (minimum `24h`) |
 | `KAITEN_AI_RESERVATION_DEFAULT_TTL` | `10m` |
 | `KAITEN_AI_RESERVATION_MAX_TTL` | `1h` |
 
 The default TTL must be positive and no greater than the maximum. `ttlSeconds`
-may override it per reserve. `ai_usage.enabled` is a startup-fixed deployment
-switch, default false. Customer flags, billing licences, SDK opt-in and localhost
-cannot enable the API. Omitted policies deny. Operational refusals are 403
-`AIUsage.Disabled`, including reserve, commit, NOT_SENT release, exact AI replay
-and numeric adjustments/replay of a persisted AI pool. Ordinary numeric attempt accounting is retained, including missing,
+may override it per reserve. AI rollout authority is the **platform-owned Kaiten
+`ai-credits` feature flag**, not a configuration boolean. Customer flags,
+billing licences, SDK opt-in and localhost cannot enable the API. An absent,
+disabled, unready, malformed or failed source denies AI. Omitted policies deny.
+Operational refusals are 403 `AIUsage.Disabled`, including reserve, commit,
+NOT_SENT release, exact AI replay and numeric adjustments/replay of a persisted
+AI pool. Ordinary numeric attempt accounting is retained, including missing,
 unsupported and validation/load-failed targets: while off a query-only original
 catalogue-type check runs before those failures, and the attempt is submitted
-after this report’s owned transaction unwinds (an ambient caller transaction may
+after this report's owned transaction unwinds (an ambient caller transaction may
 still surround the call). A known-AI denial counts nothing; a failed type lookup
-fails closed rather than guessing that the target is ordinary. GraphQL reports the same
-code/status through its existing error presenter.
+fails closed rather than guessing that the target is ordinary. GraphQL reports
+the same code/status through its existing error presenter.
+
+The operator selects one trusted source using the existing platform organization
+and API URL/token-file wiring, independently of `metered.enabled`. A remote
+source never falls back to customer/local flags when unavailable. Without a
+remote source, the local reader evaluates flags only from the explicitly named
+platform organization; no organization means no authority and therefore denial.
+A platform organization is not automatically exempt from this rollout flag.
+The existing Kaiten repository/evaluator and OFREP provider remain the evaluators;
+no second flag engine is introduced. Each remote reporter has a private stable
+OpenFeature domain, so a separate reporter or credential rotation cannot replace
+its flag authority. Credential-source loss is denied once the existing one-second
+watcher observes it; there is no instantaneous file-removal cutover guarantee.
+
+Owning operations resolve the authenticated organization's live flag **once,
+before their transaction, planning, replay or writes**. Helpers and GraphQL
+loaders consume the private organization-bound decision, never call providers
+under locks, and reject a snapshot for another organization. Composed checkouts
+use explicit consume-only module ports. A new operation always re-evaluates,
+even if its context contains an earlier positive snapshot. The trusted source's
+OFREP evaluations use explicitly closed AI-facts readers, preventing a rollout
+flag from recursively evaluating itself or targeting on gated AI facts.
 
 GET `/ai/capabilities` requires an authenticated organization caller, no extra
-product scope, returns only deployment readiness and sets `Cache-Control: no-store`.
-It remains available while off; readiness is not permission to consume a pool.
-Models, conversion rules, inference/reservation reads, external classified
-catalogue/usage views and AI-target mutations use the same policy. Internal
-billing/effective arithmetic, immutable journals/exports, audit evidence and
-invoices remain readable under their existing scopes, including deleted-resource
-financial evidence. Disabling starts no AI maintenance or AI gauges and never
-cleans up data or changes retention.
+product scope, returns the current same-organization platform decision and sets
+`Cache-Control: no-store`. It remains available while off; availability is not
+permission to consume a pool. Models, conversion rules, inference/reservation
+reads, external classified catalogue/usage views and AI-target mutations use the
+same policy. Internal billing/effective arithmetic, immutable journals/exports,
+audit evidence and invoices remain readable under their existing scopes,
+including deleted-resource financial evidence. Trusted fulfilment of already-paid
+ACTIVATION checkouts remains financial bookkeeping, not operational AI admission.
 
-For prepared local development, `docker/config/api.yaml` explicitly enables the
-server; the console additionally requires a current successful platform
-`ai-credits` evaluation. API examples and shipped Helm defaults remain off; Helm
-opt-in is `api.config.ai_usage.enabled=true`. The explicit demo seed inherits the
-same setting and skips all AI data while off. The identity-only `dev` profile and
-startup do not seed product flags. Do not run a seed or change hosted flags merely
-to enable a UI.
+AI maintenance and gauges resolve the current flag separately for each
+organization on each run; disabled/unavailable organizations have no AI expiry
+writes or observed AI gauges. General retention and billing jobs are unchanged.
+No data is deleted or rewritten when the flag is disabled.
 
-A startup switch is not an instantaneous cluster kill switch: old replicas remain
-enabled until replacement and already-admitted atomic transactions can finish.
-Quiesce and drain provider calls before planned disable. Blanket off-state denial
-can leave pending reservations/settlement uncertain; retain transaction identities
-and surface uncertainty, rather than treating denial as zero-price/unmetered
-success. A drain protocol requires separate design/approval. New-version creation
-of an AI-bearing licence family is refused while off because the request supplies
-no canonical copy-source version; ordinary metadata edits preserve hidden relations.
+For prepared local development, configure the trusted local platform organization.
+The **separately authorized `local-ai` profile** converges its `ai-credits` flag;
+the ordinary demo profile only reads eligibility before synthetic AI data and
+never enables the flag. The identity-only `dev` profile and startup do not seed
+product flags. API examples/Helm contain durations, not a rollout switch. See [local development](../../../../DEVELOPMENT.md) for the
+operator-owned source/credential setup; no localhost or credential-class bypass
+can authorize AI. Do not run a seed or change hosted flags merely to enable a UI.
+
+There is no positive cache and no restart requirement for new-operation
+revocation. Already-admitted atomic operations can finish using their local
+decision; this is not an instantaneous cluster kill switch. Quiesce and drain
+provider calls before planned disable. Blanket off-state denial can leave pending
+reservations/settlement uncertain; retain transaction identities and surface
+uncertainty instead of treating denial as zero-price/unmetered success. A drain
+protocol requires separate design/approval. New-version creation of an AI-bearing
+licence family is refused while off because the request supplies no canonical
+copy-source version; ordinary metadata edits preserve hidden relations.
 
 ## Reads and events
 

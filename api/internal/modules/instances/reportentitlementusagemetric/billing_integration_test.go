@@ -12,11 +12,12 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 func TestDirectAIReportRejectsGenericKeyBeforeDatabase(t *testing.T) {
-	h := NewUseCase(Deps{AIPolicy: aiusage.Policy{Enabled: true}, UserProvider: &currentuser.StaticUserProvider{UserID: uuid.New(), OrganizationID: uuid.New()}})
+	h := NewUseCase(Deps{AIPolicy: aiusage.Policy{Flags: aitest.Flags(true)}, UserProvider: &currentuser.StaticUserProvider{UserID: uuid.New(), OrganizationID: uuid.New()}})
 	key := "numeric-key"
 	result, err := h.Execute(context.Background(), "instance", "pool", &Command{TransactionID: &key, AI: &schema.AiUsageValue{TransactionID: "ai-key", Phase: "commit"}})
 	require.Nil(t, result)

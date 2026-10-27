@@ -15,7 +15,8 @@ import (
 )
 
 func RequireLicense(ctx context.Context, dbtx uow.DBTX, policy aiusage.Policy, org, id uuid.UUID) error {
-	if policy.Enabled {
+	ctx = policy.ForOrganization(ctx, org)
+	if policy.Enabled(ctx) {
 		return nil
 	}
 	hasAI, err := db.New(dbtx).LicenseHasAI(ctx, db.LicenseHasAIParams{OrganizationID: org, LicenseID: id})
@@ -23,13 +24,14 @@ func RequireLicense(ctx context.Context, dbtx uow.DBTX, policy aiusage.Policy, o
 		return err
 	}
 	if hasAI {
-		return policy.RequireEnabled()
+		return policy.RequireEnabled(ctx)
 	}
 	return nil
 }
 
 func RequireSlug(ctx context.Context, dbtx uow.DBTX, policy aiusage.Policy, org uuid.UUID, slug string) error {
-	if policy.Enabled {
+	ctx = policy.ForOrganization(ctx, org)
+	if policy.Enabled(ctx) {
 		return nil
 	}
 	row, err := db.New(dbtx).GetLicenseIDBySlug(ctx, db.GetLicenseIDBySlugParams{OrganizationID: org, Slug: slug})

@@ -77,14 +77,15 @@ func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Licens
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
-	if !command.opensFamily() && !h.deps.AIPolicy.Enabled {
+	if !command.opensFamily() && !h.deps.AIPolicy.Enabled(ctx) {
 		hasAI, err := db.New(h.deps.Uof.DBTX(ctx)).LicenseFamilyHasAI(ctx, db.LicenseFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: command.FamilyID, FamilySlug: command.FamilySlug})
 		if err != nil {
 			return nil, err
 		}
 		if hasAI {
-			return nil, h.deps.AIPolicy.RequireEnabled()
+			return nil, h.deps.AIPolicy.RequireEnabled(ctx)
 		}
 	}
 	if command.Slug != nil {

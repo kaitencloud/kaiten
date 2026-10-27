@@ -33,6 +33,8 @@ func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *Que
 }
 
 func (r *QueryRepository) GetEntitlement(ctx context.Context, slug string, organizationID uuid.UUID) (*schema.Entitlement, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	params := db.GetEntitlementParams{
 		Slug:           slug,
 		OrganizationID: organizationID,
@@ -45,7 +47,7 @@ func (r *QueryRepository) GetEntitlement(ctx context.Context, slug string, organ
 		}
 		return nil, err
 	}
-	if err := r.policy.RequireType(string(entitlement.Type)); err != nil {
+	if err := r.policy.RequireType(ctx, string(entitlement.Type)); err != nil {
 		return nil, err
 	}
 	result := dbmap.ToEntitlement(&entitlement)

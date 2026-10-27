@@ -39,8 +39,10 @@ func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *Que
 
 // GetEntitlementGroupUsage returns the aggregated usage for an entitlement group for a given instance.
 func (r *QueryRepository) GetEntitlementGroupUsage(ctx context.Context, groupSlug string, instanceSlug string, organizationID uuid.UUID) ([]*schema.EntitlementGroupUsage, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	params := db.GetEntitlementGroupUsageParams{
-		HideAi:         !r.policy.Enabled,
+		HideAi:         !r.policy.Enabled(ctx),
 		GroupSlug:      groupSlug,
 		InstanceSlug:   instanceSlug,
 		OrganizationID: organizationID,

@@ -31,6 +31,8 @@ func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *Que
 }
 
 func (r *QueryRepository) GetEntitlements(ctx context.Context, organizationID uuid.UUID, limitPlusOne int32, cursor *pagination.CreatedAtCursor) ([]*schema.Entitlement, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	var (
 		cursorCreatedAt pgtype.Timestamp
 		cursorID        *uuid.UUID
@@ -41,7 +43,7 @@ func (r *QueryRepository) GetEntitlements(ctx context.Context, organizationID uu
 	}
 
 	entitlements, err := r.repository.GetEntitlementsByCursor(ctx, db.GetEntitlementsByCursorParams{
-		HideAi:          !r.policy.Enabled,
+		HideAi:          !r.policy.Enabled(ctx),
 		OrganizationID:  organizationID,
 		CursorCreatedAt: cursorCreatedAt,
 		CursorID:        cursorID,

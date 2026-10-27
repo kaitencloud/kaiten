@@ -9,8 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
 	"github.com/kaitencloud/kaiten/api/tests"
@@ -31,7 +32,7 @@ func ruleBody() map[string]any {
 
 func ruleFixture(t *testing.T) string {
 	previous := testServer
-	enabled := tests.NewTestServer(testDb, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.AIUsage.Enabled = true }})
+	enabled := tests.NewTestServer(testDb, tests.TestServerOptions{PlatformFlags: aitest.Flags(true)})
 	testServer = enabled
 	t.Cleanup(func() { testServer = previous; require.NoError(t, enabled.Close()) })
 	t.Helper()
@@ -68,14 +69,14 @@ func TestConversionRulesLifecycle(t *testing.T) {
 	require.Equal(t, created, read)
 	list := fixture.AssertJSONResponse[[]schema.ConversionRule](t, ruleRequest(t, "GET", path+"?entitlementSlug=ai-credits&modelSlug=ai-model", nil), 200)
 	require.Len(t, list, 1)
-	newLicenseEntitlementWithThreshold(t, "test-license-1", "ai-credits", 10)
+	newLicenseEntitlementWithThreshold(t, "test-license-1", "ai-credits", 10, aiusage.Policy{Flags: aitest.Flags(true)})
 	read = fixture.AssertJSONResponse[schema.ConversionRule](t, ruleRequest(t, "GET", idpath, nil), 200)
 	require.True(t, read.GrantedByLicense)
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), `DELETE FROM license_entitlement WHERE entitlement_id=(SELECT id FROM entitlement WHERE slug='ai-credits' AND organization_id=$1)`, testDb.DefaultData.OrganizationID)
 	require.NoError(t, err)
 	read = fixture.AssertJSONResponse[schema.ConversionRule](t, ruleRequest(t, "GET", idpath, nil), 200)
 	require.False(t, read.GrantedByLicense)
-	newLicenseEntitlementWithThreshold(t, "test-license-1", "ai-credits", 10)
+	newLicenseEntitlementWithThreshold(t, "test-license-1", "ai-credits", 10, aiusage.Policy{Flags: aitest.Flags(true)})
 	read = fixture.AssertJSONResponse[schema.ConversionRule](t, ruleRequest(t, "GET", idpath, nil), 200)
 	require.True(t, read.GrantedByLicense)
 	require.Equal(t, created.ID, read.ID)

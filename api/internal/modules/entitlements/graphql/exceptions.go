@@ -69,7 +69,7 @@ func newEntitlementExceptionsBatchFn(queries *db.Queries, policy aiusage.Policy)
 		}
 		byInstance := map[uuid.UUID][]EntitlementException{}
 		for _, row := range rows {
-			if policy.RequireType(string(row.EntitlementType)) != nil {
+			if policy.RequireType(ctx, string(row.EntitlementType)) != nil {
 				continue
 			}
 			x, err := toEntitlementException(row, now)

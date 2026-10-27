@@ -6,8 +6,8 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/tests"
@@ -15,7 +15,7 @@ import (
 )
 
 func TestAICreditPoolRequiresSum(t *testing.T) {
-	aiServer := tests.NewTestServer(testDb, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.AIUsage.Enabled = true }})
+	aiServer := tests.NewTestServer(testDb, tests.TestServerOptions{PlatformFlags: aitest.Flags(true)})
 	t.Cleanup(func() { require.NoError(t, aiServer.Close()) })
 	for _, aggregation := range []schema.AggregationMethod{schema.Count, schema.Average, schema.Max, schema.Min, schema.Latest} {
 		t.Run("create/"+string(aggregation), func(t *testing.T) {

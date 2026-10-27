@@ -1,4 +1,6 @@
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import { listUsageReportsOptions } from '@/api-client/@tanstack/react-query.gen';
 import { Navigate, useNavigate, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -61,8 +63,25 @@ export const InstanceDetailEntitlementsTab = ({
   const liveTarget = (canonicalEntitlementsRows ?? entitlementsRows).find(
     (row) => row.entitlementSlug === historyParam,
   );
+  const needsEvidence =
+    canViewHistory && Boolean(historyParam) && !liveTarget;
+  const evidence = useQuery({
+    ...listUsageReportsOptions({
+      path: { instanceSlug, entitlementSlug: historyParam ?? '' },
+      // Resolve the journal independently of the selected period. The API
+      // resolves the tenant-scoped pair before filtering (unknown pairs are 404).
+      query: { limit: 1 },
+    }),
+    enabled: needsEvidence,
+    retry: false,
+  });
+  // A successful financial read proves the pair even when this period is empty.
+  const hasEvidence = evidence.isSuccess;
+  const evidencePending = needsEvidence && evidence.isPending;
   const evidenceSlug =
-    canViewHistory && historyParam && (!liveTarget || historyRow)
+    canViewHistory &&
+    historyParam &&
+    (historyRow || (needsEvidence && hasEvidence))
       ? historyParam
       : undefined;
 
@@ -178,7 +197,7 @@ export const InstanceDetailEntitlementsTab = ({
           range={historyRange}
         />
       ) : null}
-      {historyParam !== undefined && !evidenceSlug ? (
+      {historyParam !== undefined && !evidenceSlug && !evidencePending ? (
         // A link to a history that is not one (a flag, an entitlement the instance
         // does not have): the page opens as it is, with no drawer.
         <Navigate

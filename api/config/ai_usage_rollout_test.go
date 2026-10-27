@@ -1,48 +1,32 @@
 package config_test
 
 import (
+	"reflect"
 	"testing"
+	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/config"
 )
 
-func TestAIUsageRolloutDefaultsOff(t *testing.T) {
+func TestAIUsageConfigContainsDurationsNotRolloutAuthority(t *testing.T) {
 	minimum(t)
-	t.Setenv("KAITEN_AI_USAGE_ENABLED", "")
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
-	assert.False(t, cfg.AIUsage.Enabled)
-	assert.False(t, config.CoreConfig{}.AIUsage.Enabled)
-}
-
-func TestAIUsageRolloutEnvironmentOverridesFile(t *testing.T) {
-	for _, tc := range []struct {
-		name, file, environment string
-		enabled                 bool
-	}{
-		{"file opt in", "true", "", true},
-		{"environment opt in", "false", "true", true},
-		{"environment turns off", "true", "false", false},
-		{"explicitly off", "false", "false", false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			minimum(t)
-			write(t, "config.yaml", "ai_usage:\n  enabled: "+tc.file+"\n")
-			t.Setenv("KAITEN_AI_USAGE_ENABLED", tc.environment)
-			cfg, err := config.LoadConfig()
-			require.NoError(t, err)
-			assert.Equal(t, tc.enabled, cfg.AIUsage.Enabled)
-		})
+	require.Positive(t, cfg.AIUsage.IdempotencyWindow)
+	require.Positive(t, cfg.AIUsage.ReservationTTL)
+	require.GreaterOrEqual(t, cfg.AIUsage.ReservationMaxTTL, cfg.AIUsage.ReservationTTL)
+	for field := range reflect.TypeFor[config.AIUsage]().NumField() {
+		require.Equal(t, reflect.TypeFor[time.Duration](), reflect.TypeFor[config.AIUsage]().Field(field).Type)
 	}
 }
 
-func TestAIUsageRolloutInvalidValueRefusesStartup(t *testing.T) {
+func TestAIUsageDurationEnvironmentOverridesFile(t *testing.T) {
 	minimum(t)
-	t.Setenv("KAITEN_AI_USAGE_ENABLED", "not-a-boolean")
+	write(t, "config.yaml", "ai_usage:\n  reservation_ttl: 1m\n")
+	t.Setenv("KAITEN_AI_RESERVATION_DEFAULT_TTL", "2m")
 	cfg, err := config.LoadConfig()
-	require.Error(t, err)
-	assert.Nil(t, cfg)
+	require.NoError(t, err)
+	require.Equal(t, 2*time.Minute, cfg.AIUsage.ReservationTTL)
 }

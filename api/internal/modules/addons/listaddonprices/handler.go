@@ -20,6 +20,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, status string) ([]pric
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	q := u.deps.Queries(ctx)
 	addon, err := catalogue.Get(ctx, q, user.OrganizationID, addonSlug, "ListAddonPrices.AddonNotFound")
 	if err != nil {
@@ -30,7 +31,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, status string) ([]pric
 		s := db.PriceStatus(status)
 		filter = &s
 	}
-	all, err := catalogue.PricesOperational(ctx, q, user.OrganizationID, []uuid.UUID{addon.ID}, filter, !u.deps.AIPolicy.Enabled)
+	all, err := catalogue.PricesOperational(ctx, q, user.OrganizationID, []uuid.UUID{addon.ID}, filter, !u.deps.AIPolicy.Enabled(ctx))
 	if err != nil {
 		return nil, err
 	}

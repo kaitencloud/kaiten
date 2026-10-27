@@ -77,8 +77,9 @@ func NewUseCases(svc services.Container) *UseCases {
 		slog.Warn("featureflags: no platform organization configured, every flag evaluation is metered and audited", "error", err)
 	}
 
-	entitlementCatalogue := catalogue.New(svc.Pool, aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled})
-	customerFacts := customertargetingfacts.New(svc.Pool, aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled})
+	entitlementCatalogue := catalogue.New(svc.Pool, aiusage.Policy{Flags: svc.PlatformFlags})
+	customerFacts := customertargetingfacts.New(svc.Pool, aiusage.Policy{Flags: svc.PlatformFlags})
+	closedCustomerFacts := customertargetingfacts.New(svc.Pool, aiusage.Policy{})
 	instanceFacts := instancetargetingfacts.New(svc.Pool)
 	deploymentZoneFacts := deploymentzonetargetingfacts.New(svc.Pool)
 	// The flag variants a voucher grants, read through the vouchers module's
@@ -87,6 +88,7 @@ func NewUseCases(svc services.Container) *UseCases {
 
 	return &UseCases{
 		CreateFeatureFlag: createfeatureflag.NewUseCase(createfeatureflag.Deps{
+			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			UsageReporter:        svc.UsageReporter,
 			Uof:                  svc.Uof,
@@ -106,11 +108,14 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		UpdateFeatureFlag: updatefeatureflag.NewUseCase(updatefeatureflag.Deps{
+			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			Uof:                  svc.Uof,
 			EntitlementCatalogue: entitlementCatalogue,
 		}),
 		EvaluateFlag: evaluateflag.NewUseCase(evaluateflag.Deps{
+			ClosedCustomerFacts: closedCustomerFacts,
+			AIPolicy:            aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:        svc.UserProvider,
 			Queries:             queries,
 			UsageReporter:       svc.UsageReporter,
@@ -121,6 +126,8 @@ func NewUseCases(svc services.Container) *UseCases {
 			FlagGrants:          flagGrants,
 		}, pub),
 		BulkEvaluateFlags: bulkevaluateflags.NewUseCase(bulkevaluateflags.Deps{
+			ClosedCustomerFacts: closedCustomerFacts,
+			AIPolicy:            aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:        svc.UserProvider,
 			Queries:             queries,
 			UsageReporter:       svc.UsageReporter,
@@ -139,10 +146,12 @@ func NewUseCases(svc services.Container) *UseCases {
 		// path lints against, which is what makes the editor's verdict and the
 		// save's verdict the same verdict.
 		GetTargetingContext: gettargetingcontext.NewUseCase(gettargetingcontext.Deps{
+			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			EntitlementCatalogue: entitlementCatalogue,
 		}),
 		LintTargetingRule: linttargetingrule.NewUseCase(linttargetingrule.Deps{
+			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			EntitlementCatalogue: entitlementCatalogue,
 		}),
@@ -150,6 +159,7 @@ func NewUseCases(svc services.Container) *UseCases {
 		// evaluations use, so what an author sees in a dry run is what a
 		// client's evaluation will read.
 		TestTargetingRule: testtargetingrule.NewUseCase(testtargetingrule.Deps{
+			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			EntitlementCatalogue: entitlementCatalogue,
 			CustomerFacts:        customerFacts,

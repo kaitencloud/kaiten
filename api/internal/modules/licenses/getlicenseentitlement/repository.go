@@ -32,6 +32,8 @@ func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *Que
 }
 
 func (r *QueryRepository) GetLicenseEntitlement(ctx context.Context, licenseSlug, entitlementSlug string, organizationID uuid.UUID) (*schema.LicenseEntitlement, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	args := db.GetEntitlementForLicenseParams{
 		OrganizationID:  organizationID,
 		LicenseSlug:     licenseSlug,
@@ -48,7 +50,7 @@ func (r *QueryRepository) GetLicenseEntitlement(ctx context.Context, licenseSlug
 		}
 	}
 
-	if err := r.policy.RequireType(string(result.EntitlementType)); err != nil {
+	if err := r.policy.RequireType(ctx, string(result.EntitlementType)); err != nil {
 		return nil, err
 	}
 	valueMap, err := entitlementvalue.ToMap(result.Value)

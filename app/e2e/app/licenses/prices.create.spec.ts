@@ -4,9 +4,14 @@ import { LicensePriceDrawerDriver } from '../_support/drivers/license-price-draw
 import { LicensePricesDriver } from '../_support/drivers/license-prices.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
+import {
+  installAiCapability,
+  installFlagEvaluations,
+} from '../_support/mocks/install-app-mocks';
 import { createAddonsBillingModel } from '../addons/addons.scenarios';
 import { createBillingStackModel } from '../billing/billing.scenarios';
 import {
+  createAiMeterCatalogModel,
   createDraftPricesModel,
   createFreeDraftModel,
   createPricedCatalogModel,
@@ -242,6 +247,65 @@ test.describe('adding a price', () => {
       'A metered price is always billed in arrears',
     );
     await expect(drawer.period()).toHaveCount(0);
+  });
+
+  for (const inputs of [
+    { capability: false, flag: false },
+    { capability: true, flag: false },
+    { capability: false, flag: true },
+  ]) {
+    test(`keeps ordinary meters but hides the AI pool with capability=${inputs.capability}, flag=${inputs.flag}`, async ({
+      page,
+    }) => {
+      await installAiCapability(page, inputs.capability);
+      await installFlagEvaluations(page, { 'ai-credits': inputs.flag });
+      await installLicenseAppMocks(page, createAiMeterCatalogModel());
+      const prices = new LicensePricesDriver(page);
+      const drawer = new LicensePriceDrawerDriver(page);
+      await prices.goto('pro-v4', 'Pro');
+      await prices.addPrice().click();
+      await drawer.chooseModel('Usage-based');
+      expect(await drawer.meterOptions()).toEqual([
+        'Credits',
+        'Requests',
+        'Traces',
+        'Seats',
+      ]);
+      await expect(drawer.meterOption('Credits')).toBeEnabled();
+      await expect(drawer.meterOption('AI credits')).toHaveCount(0);
+    });
+  }
+
+  test('offers and sends a dedicated AI meter only with both rollout inputs explicitly enabled', async ({
+    page,
+  }) => {
+    await installAiCapability(page, true);
+    await installFlagEvaluations(page, { 'ai-credits': true });
+    await installLicenseAppMocks(page, createAiMeterCatalogModel());
+    const prices = new LicensePricesDriver(page);
+    const drawer = new LicensePriceDrawerDriver(page);
+    const writes = recordWrites(page, PRICE_WRITES);
+    await prices.goto('pro-v4', 'Pro');
+    await prices.addPrice().click();
+    await drawer.chooseModel('Usage-based');
+    await expect(drawer.meterOption('AI credits')).toBeEnabled();
+    await drawer.chooseMeter('AI credits');
+    await drawer.amount().fill('0.075');
+    await drawer.submit('Create price').click();
+    await expectToast(page, 'Price created');
+    expect(writes).toEqual([
+      {
+        body: {
+          billingModel: 'USAGE_BASED',
+          billingTiming: 'ARREARS',
+          currency: 'USD',
+          meteredEntitlementSlug: 'ai-credits',
+          unitAmountDecimal: '7.5',
+        },
+        method: 'POST',
+        pathname: '/api/licenses/pro-v4/prices',
+      },
+    ]);
   });
 
   test('sends a usage price for the entitlement it meters, per the unit it is sold in', async ({

@@ -24,11 +24,11 @@ type UseCases struct {
 func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Uof.Ambient())
 	return &UseCases{
-		Capabilities: getaiusagecapabilities.UseCase{Policy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}},
-		CreateModel:  createmodel.NewUseCase(createmodel.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
-		GetModel:     getmodel.NewUseCase(getmodel.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Queries: queries}),
-		ListModels:   listmodels.NewUseCase(listmodels.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Queries: queries}),
-		UpdateModel:  updatemodel.NewUseCase(updatemodel.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
-		DeleteModel:  deletemodel.NewUseCase(deletemodel.Deps{AIPolicy: aiusage.Policy{Enabled: svc.Config.AIUsage.Enabled}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		Capabilities: getaiusagecapabilities.UseCase{Policy: aiusage.Policy{Flags: svc.PlatformFlags}},
+		CreateModel:  createmodel.NewUseCase(createmodel.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		GetModel:     getmodel.NewUseCase(getmodel.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Queries: queries}),
+		ListModels:   listmodels.NewUseCase(listmodels.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Queries: queries}),
+		UpdateModel:  updatemodel.NewUseCase(updatemodel.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
+		DeleteModel:  deletemodel.NewUseCase(deletemodel.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}),
 	}
 }

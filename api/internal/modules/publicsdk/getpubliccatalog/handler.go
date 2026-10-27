@@ -53,6 +53,14 @@ func NewUseCase(deps Deps) *UseCase { return &UseCase{deps: deps} }
 // Execute reads the organization's public catalogue. The organization comes
 // from the publishable key, through the facade, never from the request.
 func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Query) (*PublicCatalog, error) {
+	ctx = u.deps.AIPolicy.Resolve(ctx, organizationID)
+	return u.ExecuteWithinOperation(ctx, organizationID, query)
+}
+
+// ExecuteWithinOperation consumes a parent operation's platform decision.
+func (u *UseCase) ExecuteWithinOperation(ctx context.Context, organizationID uuid.UUID, query Query) (*PublicCatalog, error) {
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, organizationID)
+
 	if err := u.deps.Gate.Require(ctx, organizationID); err != nil {
 		return nil, err
 	}
@@ -101,11 +109,11 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 	for _, p := range plans {
 		licenseIDs = append(licenseIDs, p.ID)
 	}
-	priceRows, err := q.ListPublicPlanPrices(ctx, db.ListPublicPlanPricesParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, LicenseIds: licenseIDs})
+	priceRows, err := q.ListPublicPlanPrices(ctx, db.ListPublicPlanPricesParams{HideAi: !u.deps.AIPolicy.Enabled(ctx), OrganizationID: organizationID, LicenseIds: licenseIDs})
 	if err != nil {
 		return nil, err
 	}
-	grantRows, err := q.ListPublicPlanEntitlements(ctx, db.ListPublicPlanEntitlementsParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, LicenseIds: licenseIDs})
+	grantRows, err := q.ListPublicPlanEntitlements(ctx, db.ListPublicPlanEntitlementsParams{HideAi: !u.deps.AIPolicy.Enabled(ctx), OrganizationID: organizationID, LicenseIds: licenseIDs})
 	if err != nil {
 		return nil, err
 	}
@@ -224,11 +232,11 @@ func (u *UseCase) addOns(ctx context.Context, q *db.Queries, organizationID uuid
 	for _, r := range rows {
 		ids = append(ids, r.ID)
 	}
-	priceRows, err := q.ListPublicAddonPrices(ctx, db.ListPublicAddonPricesParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, AddonIds: ids})
+	priceRows, err := q.ListPublicAddonPrices(ctx, db.ListPublicAddonPricesParams{HideAi: !u.deps.AIPolicy.Enabled(ctx), OrganizationID: organizationID, AddonIds: ids})
 	if err != nil {
 		return nil, nil, err
 	}
-	grantRows, err := q.ListPublicAddonEntitlements(ctx, db.ListPublicAddonEntitlementsParams{HideAi: !u.deps.AIPolicy.Enabled, OrganizationID: organizationID, AddonIds: ids})
+	grantRows, err := q.ListPublicAddonEntitlements(ctx, db.ListPublicAddonEntitlementsParams{HideAi: !u.deps.AIPolicy.Enabled(ctx), OrganizationID: organizationID, AddonIds: ids})
 	if err != nil {
 		return nil, nil, err
 	}

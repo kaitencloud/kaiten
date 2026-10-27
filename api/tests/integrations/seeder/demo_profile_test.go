@@ -42,7 +42,7 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	t.Cleanup(testDB.TearDown)
 
 	sc := seeder.NewSeederContext(testDB.DbPool, nil)
-	sc.AIPolicy = aiusage.Policy{Enabled: true}
+	sc.PlatformFlags = enabledSeedPlatformFlags{}
 	require.NoError(t, demoprofile.NewProfile().Seed(ctx, sc))
 
 	var orgID string
@@ -295,7 +295,7 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 
 	// Both Premium customers are Premium to a flag rule, whichever version they
 	// are on: the facts carry the family, and the demo's rules read it (F1).
-	facts := customertargetingfacts.New(testDB.DbPool, aiusage.Policy{Enabled: true})
+	facts := customertargetingfacts.New(testDB.DbPool, aiusage.Policy{Flags: enabledSeedPlatformFlags{}})
 	for customerSlug, versionSlug := range map[string]string{
 		"sakura-tokyo": "premium-v2",
 		"kappa-kyoto":  "premium",
@@ -462,6 +462,8 @@ func TestDemoNotificationsOpenWhatTheyAreAbout(t *testing.T) {
 	t.Cleanup(testDB.TearDown)
 
 	sc := seeder.NewSeederContext(testDB.DbPool, nil)
+	// This notification fixture explicitly includes synthetic AI assignments.
+	sc.PlatformFlags = enabledSeedPlatformFlags{}
 	require.NoError(t, demoprofile.NewProfile().Seed(ctx, sc))
 
 	var orgID, userID uuid.UUID
@@ -678,4 +680,11 @@ func stringColumn(t *testing.T, ctx context.Context, testDB *tests.TestDatabase,
 	values, err := pgx.CollectRows(rows, pgx.RowTo[string])
 	require.NoError(t, err)
 	return values
+}
+
+// Positive AI-inclusive fixtures opt in here, never through default seeding.
+type enabledSeedPlatformFlags struct{}
+
+func (enabledSeedPlatformFlags) BooleanValue(context.Context, uuid.UUID, string) (bool, error) {
+	return true, nil
 }

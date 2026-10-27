@@ -52,6 +52,8 @@ func NewQueryRepository(repository *db.Queries, entitlementReader licenseview.Po
 }
 
 func (r *QueryRepository) GetLicenseEntitlements(ctx context.Context, licenseSlug string, organizationID uuid.UUID, limit int32, cursor *pagination.CreatedAtCursor) (pagination.Page[schema.LicenseEntitlement], error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	// Query 1: resolve license slug → ID
 	license, err := r.repository.GetOneLicense(ctx, db.GetOneLicenseParams{
 		OrganizationID: organizationID,
@@ -73,7 +75,7 @@ func (r *QueryRepository) GetLicenseEntitlements(ctx context.Context, licenseSlu
 
 	// Query 2: fetch a cursor-paginated page of entitlements for this license
 	entitlements, err := r.repository.GetEntitlementsForLicenseByCursor(ctx, db.GetEntitlementsForLicenseByCursorParams{
-		HideAi:          !r.policy.Enabled,
+		HideAi:          !r.policy.Enabled(ctx),
 		LicenseID:       license.ID,
 		OrganizationID:  organizationID,
 		CursorCreatedAt: pgtime.TimePtrToPgTimestamp(cursorCreatedAt),
