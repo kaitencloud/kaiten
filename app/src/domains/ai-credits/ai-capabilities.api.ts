@@ -1,6 +1,6 @@
 import { getAiUsageCapabilities } from '@/api-client';
 
-/** Read deployment readiness through the generated authenticated Core client. */
+/** Read current platform rollout availability through the authenticated Core client. */
 export async function readAiCapability(signal: AbortSignal): Promise<boolean> {
   const { data } = await getAiUsageCapabilities({
     cache: 'no-store',

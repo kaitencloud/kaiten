@@ -26,18 +26,15 @@ import { getStoredDevToken } from './local-auth';
  * token wiring as hosted builds. Only explicit mocked E2E builds can use their
  * MSW source for AI. A build without a trusted platform source keeps AI off.
  *
- * The flags themselves, each created in the KbK's Dogfooding organization by
- * saas-api's bootstrap (internal/modules/kbkbootstrap/flags.go):
- * - `demo-sandbox` (`DEMO_SANDBOX_FLAG`): the demo banner and seed/reset card,
- *   for organizations whose tracked instance is a demo.
+ * SaaS bootstrap (internal/modules/kbkbootstrap/flags.go) creates `demo-sandbox`
+ * in Dogfooding for demo organizations' banner and seed/reset card.
  *
  * Outbound webhooks are not one of them: an organization has them when its
  * Kaiten licence grants it webhook events (any number but 0), which saas-api
  * checks on every webhooks route,
  * and the console reads the answer off those routes (`domains/webhooks`).
  *
- * Why not a React-bound client: it lives in React context, so it cannot be read
- * from a router `beforeLoad`, which runs before the tree renders.
+ * The client is readable by router `beforeLoad`, before React context exists.
  */
 export const DEMO_SANDBOX_FLAG = 'demo-sandbox';
 export const AI_CREDITS_FLAG = 'ai-credits';
@@ -299,41 +296,52 @@ function platformFlagQueryOptions(flag: PlatformFlag) {
 export const demoSandboxFlagQueryOptions =
   platformFlagQueryOptions(DEMO_SANDBOX_FLAG);
 
+let aiEvaluation: { subject: string; pending: Promise<boolean> } | null = null;
+
 /** AI alone requires a fresh network evaluation, never the provider's old map. */
 export const aiCreditsFlagQueryOptions = queryOptions({
   queryKey: [...featureFlagsQueryKey, AI_CREDITS_FLAG],
   queryFn: async () => {
-    // Session/customer flags are never rollout authority, even in real local dev.
-    // A partially configured platform source must not fall back to MSW either.
+    // Only trusted platform wiring or an explicit MSW bypass can supply AI flags.
     const source = usesPlatform()
       ? await platformSource()
       : BYPASS_AUTH && !env.PLATFORM_API_URL && !env.PLATFORM_FLAGS_TOKEN
         ? await localSource()
         : null;
     if (!source) return false;
+    const subject = `${source.baseUrl} ${String(source.context.targetingKey)}`;
+    // Share pending initialization: replacing it revokes healthy StrictMode reads.
+    if (aiEvaluation?.subject === subject) return aiEvaluation.pending;
+    const pending = OpenFeature.setProviderAndWait(
+      'kaiten-ai-rollout',
+      new OFREPWebProvider({
+        baseUrl: source.baseUrl,
+        headersFactory: source.headers,
+        cacheMode: 'disabled',
+        pollInterval: 0,
+        disableVisibilityRefresh: true,
+      }),
+      source.context,
+    )
+      .then(() => {
+        const client = OpenFeature.getClient('kaiten-ai-rollout');
+        const details = client.getBooleanDetails(AI_CREDITS_FLAG, false);
+        return (
+          client.providerStatus === 'READY' &&
+          details.value === true &&
+          !details.errorCode &&
+          ['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT'].includes(
+            details.reason ?? '',
+          )
+        );
+      })
+      .catch(() => false);
+    aiEvaluation = { subject, pending };
     try {
-      // A separate domain leaves demo-sandbox's provider and refresh semantics intact.
-      await OpenFeature.setProviderAndWait(
-        'kaiten-ai-rollout',
-        new OFREPWebProvider({
-          baseUrl: source.baseUrl,
-          headersFactory: source.headers,
-          cacheMode: 'disabled',
-          pollInterval: 0,
-          disableVisibilityRefresh: true,
-        }),
-        source.context,
-      );
-      const client = OpenFeature.getClient('kaiten-ai-rollout');
-      const details = client.getBooleanDetails(AI_CREDITS_FLAG, false);
-      return (
-        client.providerStatus === 'READY' &&
-        details.value === true &&
-        !details.errorCode &&
-        ['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT'].includes(details.reason ?? '')
-      );
-    } catch {
-      return false;
+      return await pending;
+    } finally {
+      // Never retain a completed result, and never clear another subject's read.
+      if (aiEvaluation?.pending === pending) aiEvaluation = null;
     }
   },
   staleTime: 0,

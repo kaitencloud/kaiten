@@ -114,6 +114,11 @@ fixtures must not opt in globally. Node unit tests do not verify a real browser,
 provider or server. Same-session browser/DevTools evidence is still required for
 interactive verification when those tools/runtime are authorized.
 
+Concurrent availability observers share only a pending platform evaluation for
+one source/subject. Replacing an initializing OFREP provider would close it and
+emit an error that cancels healthy capability reads, notably on StrictMode
+remount. Completed evaluations are never retained; the next read evaluates anew.
+
 Operational entitlement/grant/price/voucher views project original catalogue
 `NUMBER_AI_CREDIT` identity, never normalized `NUMBER`. Canonical grant arrays and
 serializer payloads stay intact. A new version refuses known AI or unresolved

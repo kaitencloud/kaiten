@@ -39,6 +39,22 @@ it('accepts a positive bulk-only OFREP fixture, refreshes it, then denies revoca
   expect(await evaluate()).toBe(false);
 });
 
+it('shares only an in-flight evaluation and re-reads after it settles', async () => {
+  let complete!: (response: Response) => void;
+  const fetch = vi.fn(() => new Promise<Response>((resolve) => { complete = resolve; }));
+  vi.stubGlobal('fetch', fetch);
+  const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+  const evaluate = () => aiCreditsFlagQueryOptions.queryFn?.({} as never);
+  const first = evaluate();
+  const second = evaluate();
+  await vi.waitFor(() => expect(fetch).toHaveBeenCalledOnce());
+  complete(fakeEvaluation(true));
+  expect(await Promise.all([first, second])).toEqual([true, true]);
+  fetch.mockImplementation(async () => fakeEvaluation(false));
+  expect(await evaluate()).toBe(false);
+  expect(fetch).toHaveBeenCalledTimes(2);
+});
+
 it.each(['DEFAULT', 'STATIC', 'TARGETING_MATCH', 'SPLIT'])('does not revoke a current positive %s provider initialization', async (reason) => {
   vi.stubGlobal('fetch', vi.fn(async () => fakeEvaluation(true, reason)));
   const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
