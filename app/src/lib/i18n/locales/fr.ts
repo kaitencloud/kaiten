@@ -6109,7 +6109,10 @@ export default {
         slug: 'Utilisez des lettres minuscules, des chiffres et des tirets.',
       },
       resources: {
+        addons: 'Add-ons',
+        billing: 'Facturation',
         components: 'Composants',
+        customer_sessions: 'Sessions client',
         customers: 'Clients',
         deployment_zones: 'Zones de déploiement',
         entitlements: 'Droits',
@@ -6120,9 +6123,12 @@ export default {
         notifications: 'Notifications',
         organizations: 'Organisations',
         profile: 'Profil',
+        publishable_keys: 'Clés publiables',
         releases: 'Versions',
         tokens: 'Jetons',
         users: 'Utilisateurs',
+        voucher_redemptions: 'Utilisations de codes promo',
+        vouchers: 'Codes promo',
         webhooks: 'Webhooks',
       },
       local: {

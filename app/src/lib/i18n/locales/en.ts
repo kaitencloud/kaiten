@@ -6021,7 +6021,10 @@ export default {
         slug: 'Use lowercase letters, numbers and hyphens.',
       },
       resources: {
+        addons: 'Add-ons',
+        billing: 'Billing',
         components: 'Components',
+        customer_sessions: 'Customer sessions',
         customers: 'Customers',
         deployment_zones: 'Deployment zones',
         entitlements: 'Entitlements',
@@ -6032,9 +6035,12 @@ export default {
         notifications: 'Notifications',
         organizations: 'Organizations',
         profile: 'Profile',
+        publishable_keys: 'Publishable keys',
         releases: 'Releases',
         tokens: 'Tokens',
         users: 'Users',
+        voucher_redemptions: 'Voucher redemptions',
+        vouchers: 'Vouchers',
         webhooks: 'Webhooks',
       },
       local: {
