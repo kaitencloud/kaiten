@@ -285,8 +285,9 @@ func TestUnitOfWork_EventWithoutHeaders(t *testing.T) {
 	}
 	require.NotNil(t, ourEvent)
 
-	// Verify headers are null/empty
-	assert.Nil(t, ourEvent.Headers)
+	// No producer headers: only the actor the outbox records, system:kaiten
+	// for work no user made (§5 Conventions).
+	assert.JSONEq(t, `{"actor_id": "00000000-0000-0000-0000-000000000001"}`, string(ourEvent.Headers))
 }
 
 // TestUnitOfWork_EventWithComplexPayload tests handling of complex nested structures

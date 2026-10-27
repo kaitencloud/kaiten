@@ -42,6 +42,14 @@ code {
   * {
     @apply border-border outline-ring/50;
   }
+  /* The title of a page takes the focus by script when a dialog closed over a page that was
+     drawn again (see lib/dialog-opener). An editable title is a button that sits 8px outside
+     the heading on each side, against the icon: the ring is drawn inside it, and rounded as
+     the button is. */
+  h1[tabindex="-1"]:focus-visible:has(> button) {
+    border-radius: var(--radius-md);
+    outline-offset: -2px;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings:

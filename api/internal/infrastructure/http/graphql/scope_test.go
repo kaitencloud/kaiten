@@ -31,6 +31,8 @@ import (
 )
 
 var (
+	readAddons          = scope.Read(scope.Addons)
+	readBilling         = scope.Read(scope.Billing)
 	readComponents      = scope.Read(scope.Components)
 	readCustomers       = scope.Read(scope.Customers)
 	readDeploymentZones = scope.Read(scope.DeploymentZones)
@@ -48,7 +50,7 @@ var (
 func TestScopeTablesCoverTheServedSchema(t *testing.T) {
 	t.Parallel()
 
-	require.NoError(t, scopeGate{}.Validate(newExecutableSchema(nil)))
+	require.NoError(t, scopeGate{}.Validate(newExecutableSchema(nil, Config{})))
 }
 
 // TestScopeTablesRefuseASchemaTheyDoNotCover is what stops a type, or a root
@@ -194,7 +196,7 @@ func TestGraphQLAnswersAMissingScopeWithTheProblemRESTReturns(t *testing.T) {
 func TestEveryScopedFieldIsRefusedWithoutItsScope(t *testing.T) {
 	t.Parallel()
 
-	schema := newExecutableSchema(nil).Schema()
+	schema := newExecutableSchema(nil, Config{}).Schema()
 	paths := pathsFromQuery(schema)
 
 	checked := 0
@@ -362,10 +364,13 @@ func TestClientDocumentsRequireTheseScopes(t *testing.T) {
 	want := map[string][]string{
 		"console/GetInstancesWithRelations": {readInstances, readCustomers, readLicenses},
 		"console/GetCustomersWithInstances": {readCustomers, readInstances, readLicenses},
+		"console/GetInstancesBilling":       {readInstances, readBilling},
 		"console/GetDashboardData":          {readCustomers, readInstances, readLicenses},
 		"console/GetCustomers":              {readCustomers},
 		"console/GetInstances":              {readInstances, readLicenses},
 		"console/GetLicenses":               {readLicenses},
+		"console/GetLicensesWithPrices":     {readLicenses},
+		"console/GetCatalogPrices":          {readLicenses, readAddons},
 		"console/GetGlobalAuditTrail":       {readOrganizations},
 		heaviestClientQuery: {
 			readReleases, readComponents, readDeploymentZones, readInstances, readCustomers,
@@ -701,7 +706,7 @@ func do(t *testing.T, app *fiber.App, req *http.Request) (int, http.Header, []by
 func operationOf(t *testing.T, document, name string) *ast.OperationDefinition {
 	t.Helper()
 
-	doc, errs := gqlparser.LoadQueryWithRules(newExecutableSchema(nil).Schema(), document, nil)
+	doc, errs := gqlparser.LoadQueryWithRules(newExecutableSchema(nil, Config{}).Schema(), document, nil)
 	require.Empty(t, errs, "the document must be valid against the schema")
 
 	operation := doc.Operations.ForName(name)
@@ -723,7 +728,7 @@ func requiredScopesOf(t *testing.T, document, name string) []string {
 // reads, so a test can doctor it without touching the one every other test --
 // and the server -- shares.
 func copyOfServedSchema() *ast.Schema {
-	served := newExecutableSchema(nil).Schema()
+	served := newExecutableSchema(nil, Config{}).Schema()
 
 	query := *served.Query
 	query.Fields = slices.Clone(served.Query.Fields)

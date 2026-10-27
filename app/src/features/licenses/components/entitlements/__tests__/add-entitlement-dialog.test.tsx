@@ -6,6 +6,8 @@ import { AddEntitlementDialog } from '../add-entitlement-dialog';
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
+    // The number field groups its digits in the console's language.
+    i18n: { resolvedLanguage: 'en' },
     t: (key: string, fallback?: unknown) => {
       if (key === 'Pages.Licenses.Entitlements.Status.unlimited') {
         return 'Unlimited';

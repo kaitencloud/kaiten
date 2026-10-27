@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vite-plus/test';
 import type { Entitlement } from '@/api-client';
 import {
+  hasBillingPeriodOnWrongCadence,
   hasImmutableResetPeriod,
+  isBillingPeriodCadence,
   RESET_PERIOD_NONE,
   resolveResetFields,
 } from '../entitlement-reset-period.shared';
@@ -127,6 +129,56 @@ describe('resolveResetFields', () => {
         resetAnchor: undefined,
       });
     });
+  });
+});
+
+describe('the billing date', () => {
+  it('follows a month or a year and nothing shorter', () => {
+    expect(['MONTH', 'YEAR'].every(isBillingPeriodCadence)).toBe(true);
+    expect(
+      ['HOUR', 'DAY', 'WEEK', RESET_PERIOD_NONE, ''].some(
+        isBillingPeriodCadence,
+      ),
+    ).toBe(false);
+    expect(isBillingPeriodCadence(undefined)).toBe(false);
+  });
+
+  it('sends the pair as the person picked it on a month', () => {
+    expect(
+      resolveResetFields(
+        formValues({ resetPeriod: 'MONTH', resetAnchor: 'BILLING_PERIOD' }),
+      ),
+    ).toEqual({ resetPeriod: 'MONTH', resetAnchor: 'BILLING_PERIOD' });
+  });
+
+  it('echoes a stored billing date as it is, whatever the form holds', () => {
+    expect(
+      resolveResetFields(
+        formValues({ resetPeriod: 'YEAR', resetAnchor: 'CALENDAR' }),
+        storedEntitlement({
+          resetPeriod: 'MONTH',
+          resetAnchor: 'BILLING_PERIOD',
+        }),
+      ),
+    ).toEqual({ resetPeriod: 'MONTH', resetAnchor: 'BILLING_PERIOD' });
+  });
+
+  it('is on the wrong cadence only when the pair would be sent', () => {
+    expect(
+      hasBillingPeriodOnWrongCadence(
+        formValues({ resetPeriod: 'WEEK', resetAnchor: 'BILLING_PERIOD' }),
+      ),
+    ).toBe(true);
+    expect(
+      hasBillingPeriodOnWrongCadence(
+        formValues({ resetPeriod: 'MONTH', resetAnchor: 'BILLING_PERIOD' }),
+      ),
+    ).toBe(false);
+    expect(
+      hasBillingPeriodOnWrongCadence(
+        formValues({ resetAnchor: 'BILLING_PERIOD' }),
+      ),
+    ).toBe(false);
   });
 });
 

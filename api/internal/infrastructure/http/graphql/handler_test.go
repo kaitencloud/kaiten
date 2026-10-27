@@ -99,7 +99,7 @@ func TestGraphQLHandlerPersistsQueriesAcrossRequests(t *testing.T) {
 func TestParserTokenLimitAdmitsEveryLegitimateQuery(t *testing.T) {
 	t.Parallel()
 
-	schema := newExecutableSchema(nil).Schema()
+	schema := newExecutableSchema(nil, Config{}).Schema()
 	for _, queries := range []map[string]string{legitimateQueries, parserSDKQueries} {
 		for name, query := range queries {
 			t.Run(name, func(t *testing.T) {
@@ -215,6 +215,21 @@ func TestComplexityLimitAdmitsEveryLegitimateQuery(t *testing.T) {
 			require.LessOrEqual(t, queryComplexityAsSent(t, name), cost,
 				"%s is dearer than the ceiling, so it is the ceiling now: read complexityLimit against it", name)
 		}
+	})
+
+	// The console's one document for the prices of the catalog reads two lists at the
+	// largest page, each version with all its prices, and is still under the ceiling: it
+	// is what lets the price picker of a voucher read every version in one request. The
+	// number moves with the document or with the cost of a version's prices, and this is
+	// where that is noticed before the limit refuses it.
+	t.Run("the console's prices of the catalog", func(t *testing.T) {
+		t.Parallel()
+
+		cost := queryComplexityAsSent(t, "console/GetCatalogPrices")
+
+		require.Equal(t, 242_800, cost)
+		require.Less(t, cost, queryComplexityAsSent(t, heaviestClientQuery),
+			"a document dearer than the ceiling is the ceiling: read complexityLimit against it")
 	})
 
 	// The SDK's documents do not leave their page to the caller: they name one,
@@ -459,7 +474,7 @@ func newTestAppWithPrincipal(t *testing.T, config Config, i *principal.Principal
 func queryComplexityAsSent(t *testing.T, name string) int {
 	t.Helper()
 
-	es := newExecutableSchema(nil)
+	es := newExecutableSchema(nil, Config{})
 
 	doc, errs := gqlparser.LoadQueryWithRules(es.Schema(), legitimateQueries[name], nil)
 	require.Empty(t, errs, "the query must still be valid against the schema")
@@ -479,7 +494,7 @@ func queryComplexity(t *testing.T, query string) int {
 	// The server's own schema, cost model included -- see newExecutableSchema.
 	// Building a bare generated.Config here would measure gqlgen's structural
 	// default instead, and every number in this file would be a fiction.
-	es := newExecutableSchema(nil)
+	es := newExecutableSchema(nil, Config{})
 
 	// Nil rules means the default set -- the same one gqlgen's executor
 	// validates an incoming operation with.
@@ -594,6 +609,9 @@ const consolePage = 200
 var legitimateVariables = map[string]map[string]any{
 	"console/GetInstancesWithRelations": {"limit": consolePage},
 	"console/GetCustomersWithInstances": {"limit": consolePage},
+	"console/GetInstancesBilling":       {"limit": consolePage},
+	"console/GetLicensesWithPrices":     {"limit": consolePage},
+	"console/GetCatalogPrices":          {"limit": consolePage, "withLicenses": true, "withAddons": true},
 	heaviestClientQuery:                 {"limit": consolePage},
 	"console/MetadataFields":            {"limit": consolePage},
 	// The most the audit trail asks for, once "load more" has been pressed.
@@ -627,6 +645,49 @@ var legitimateQueries = map[string]string{
 			}
 		}
 	}`,
+	"console/GetInstancesBilling": `query GetInstancesBilling($limit: Int, $cursor: String) {
+		instances(limit: $limit, cursor: $cursor) {
+			nextCursor hasMore
+			items {
+				slug
+				billing { status providerKind currentPeriodEnd cancelAtPeriodEnd pastDueSince trialEndsAt }
+			}
+		}
+	}`,
+	"console/GetLicensesWithPrices": `query GetLicensesWithPrices($limit: Int, $cursor: String) {
+		licenses(limit: $limit, cursor: $cursor) {
+			nextCursor hasMore
+			items {
+				id slug name version versionName lifecycleState pricingType
+				prices(status: ACTIVE) {
+					id billingModel billingTiming billingPeriod currency unitAmountDecimal
+					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
+				}
+			}
+		}
+	}`,
+	"console/GetCatalogPrices": `query GetCatalogPrices($limit: Int, $licensesCursor: String, $addonsCursor: String, $withLicenses: Boolean!, $withAddons: Boolean!) {
+		licenses(limit: $limit, cursor: $licensesCursor) @include(if: $withLicenses) {
+			nextCursor hasMore
+			items {
+				id name version lifecycleState
+				prices {
+					id billingModel billingTiming billingPeriod currency unitAmountDecimal
+					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
+				}
+			}
+		}
+		addons(limit: $limit, cursor: $addonsCursor) @include(if: $withAddons) {
+			nextCursor hasMore
+			items {
+				id name versionName lifecycleState
+				prices {
+					id billingModel billingTiming billingPeriod currency unitAmountDecimal
+					meteredEntitlement saleUnitFactor displayLabel displayOrder isDefault status
+				}
+			}
+		}
+	}`,
 	"console/GetCustomers": `query GetCustomers {
 		customers { items { id slug name createdAt } }
 	}`,
@@ -656,6 +717,7 @@ var legitimateQueries = map[string]string{
 			items {
 				id eventName eventType instanceId instanceSlug instanceName customerName
 				payload timestamp
+				actor { id name kind }
 			}
 		}
 	}`,

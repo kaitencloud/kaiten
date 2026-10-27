@@ -36,6 +36,12 @@ to finish. Saving access leaves the drawer open and preserves unsaved profile
 changes. Confirmation labels name their action and distinguish deletion from
 ordinary access updates; role/direct-scope changes are summarized before saving.
 
+The profile (name and e-mail) is replaced as a whole by `PUT /users/{id}`, so saving it
+goes through `saveProfileOnFresh` (`user-management.api.ts`): the user is read again and
+only the field the form changed is put on top of it (see
+[forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole)).
+The form compares with what it opened with, then with what it saved.
+
 Effective access is shown by resource, including role/direct provenance;
 administrator authority is described as full access rather than one wildcard
 scope. Error summaries receive focus, lazy form fields reserve loading space,

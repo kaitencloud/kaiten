@@ -661,6 +661,11 @@ func TestEveryRegistrarPassesItsOwnPackagesRequiredScope(t *testing.T) {
 				if !isRegistrar {
 					return true
 				}
+				// A registrar that takes no scope has nothing to publish; it is
+				// bounded by its path and caller class instead (entry_point_scope_test.go).
+				if _, scopeless := scopelessRegistrars[name]; scopeless {
+					return true
+				}
 
 				// Introspection declares authentication, deliberately no permission.
 				if name == "RegisterAuthorizationIntrospection" {

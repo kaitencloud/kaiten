@@ -1,10 +1,11 @@
 -- name: CreateAuditTrail :one
 -- Returns the id so the caller can announce the entry on the same transaction --
 -- see the Announcer in ../../subscriber.
-INSERT INTO audit_trail (organization_id, instance_id, event_name, event_type, occurred_at, payload)
+INSERT INTO audit_trail (organization_id, instance_id, actor_id, event_name, event_type, occurred_at, payload)
 VALUES (
   sqlc.arg(organization_id),
   sqlc.narg(instance_id),
+  sqlc.narg(actor_id),
   sqlc.arg(event_name),
   sqlc.arg(event_type),
   sqlc.arg(occurred_at),
@@ -27,6 +28,10 @@ SELECT
   c.id AS customer_id,
   c.slug AS customer_slug,
   c.name AS customer_name,
+  at.actor_id,
+  u.name AS actor_name,
+  COALESCE(u.type::text, '')::text AS actor_type,
+  u.external_id AS actor_external_id,
   at.event_name,
   at.event_type,
   at.occurred_at,
@@ -34,6 +39,7 @@ SELECT
 FROM audit_trail at
 LEFT JOIN instance i ON at.instance_id = i.id
 LEFT JOIN customer c ON i.customer_id = c.id
+LEFT JOIN "user" u ON u.id = at.actor_id
 WHERE at.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(event_name)::text IS NULL OR at.event_name = sqlc.narg(event_name))
   AND (sqlc.narg(after_ts)::timestamptz IS NULL OR at.occurred_at >= sqlc.narg(after_ts))
@@ -53,12 +59,17 @@ SELECT
   at.id,
   at.instance_id,
   i.slug AS instance_slug,
+  at.actor_id,
+  u.name AS actor_name,
+  COALESCE(u.type::text, '')::text AS actor_type,
+  u.external_id AS actor_external_id,
   at.event_name,
   at.event_type,
   at.occurred_at,
   at.payload
 FROM audit_trail at
 INNER JOIN instance i ON at.instance_id = i.id
+LEFT JOIN "user" u ON u.id = at.actor_id
 WHERE at.organization_id = sqlc.arg(organization_id)
   AND i.slug = sqlc.arg(instance_slug)
   AND (sqlc.narg(event_name)::text IS NULL OR at.event_name = sqlc.narg(event_name))

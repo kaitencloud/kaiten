@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familyview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
@@ -53,15 +54,28 @@ func (r *QueryRepository) ListFamilies(
 		return nil, err
 	}
 
+	fallbackIDs := make([]*uuid.UUID, len(rows))
+	for i := range rows {
+		fallbackIDs[i] = rows[i].FallbackLicenseFamilyID
+	}
+	fallbacks, err := familyview.FallbackSlugs(ctx, r.repository, organizationID, fallbackIDs...)
+	if err != nil {
+		return nil, err
+	}
+
 	families := make([]*schema.LicenseFamilyView, 0, len(rows))
 	familyIDs := make([]uuid.UUID, 0, len(rows))
 	for _, row := range rows {
 		families = append(families, &schema.LicenseFamilyView{
-			ID:           row.ID,
-			Slug:         row.Slug,
-			VersionCount: row.VersionCount,
-			CreatedAt:    row.CreatedAt.Time,
-			UpdatedAt:    row.UpdatedAt.Time,
+			ID:                           row.ID,
+			Slug:                         row.Slug,
+			VersionCount:                 row.VersionCount,
+			IsPublic:                     row.IsPublic,
+			FallbackLicenseFamilySlug:    familyview.SlugOf(fallbacks, row.FallbackLicenseFamilyID),
+			TrialEndWithoutPaymentMethod: string(row.TrialEndWithoutPaymentMethod),
+			TrialReminderDays:            row.TrialReminderDays,
+			CreatedAt:                    row.CreatedAt.Time,
+			UpdatedAt:                    row.UpdatedAt.Time,
 		})
 		familyIDs = append(familyIDs, row.ID)
 	}

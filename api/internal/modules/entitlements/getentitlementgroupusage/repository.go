@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
@@ -62,14 +63,15 @@ func (r *QueryRepository) GetEntitlementGroupUsage(ctx context.Context, groupSlu
 			// now (database time) comes from row.Now -- folded into
 			// GetEntitlementGroupUsage itself rather than a separate
 			// GetDatabaseNow round trip.
-			window, err := period.Current(row.Now.Time.UTC(), period.ResetPeriod(*row.ResetPeriod), period.ResetAnchor(*row.ResetAnchor), row.StartLicenseDate.Time.UTC())
-			if err != nil {
-				return nil, err
-			}
-
 			var storedPeriodStart *time.Time
 			if row.PeriodStart.Valid {
 				storedPeriodStart = ptr.To(row.PeriodStart.Time.UTC())
+			}
+			basis := period.NewBasis(row.StartLicenseDate.Time.UTC(), row.BillingStatus,
+				pgtime.PgTimeStampToTimePtr(row.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(row.LiveEndedAt))
+			window, _, err := period.ResolveCurrentOn(row.Now.Time.UTC(), storedPeriodStart, period.ResetPeriod(*row.ResetPeriod), period.ResetAnchor(*row.ResetAnchor), basis)
+			if err != nil {
+				return nil, err
 			}
 			resolved := entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
 

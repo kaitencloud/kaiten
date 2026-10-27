@@ -3,6 +3,11 @@ import { useRouter } from '@tanstack/react-router';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GradientButton } from '@/components/gradient-button';
+import {
+  type InstancesBilling,
+  useActionAccess,
+  useCanPerform,
+} from '@/domains/billing';
 import { metadataFieldsActiveQueryOptions } from '@/domains/metadata-fields';
 import {
   type FilterFieldDefinition,
@@ -25,6 +30,8 @@ import {
 } from './instance-table-columns';
 
 type InstancesTableProps = {
+  /** The subscription of each instance, where billing is on and the session may read it: adds the Billing column. */
+  billing?: InstancesBilling;
   instances: InstanceRow[];
 };
 
@@ -33,8 +40,14 @@ type InstancesTableProps = {
 // filters, and close a metadata dialog opened in the meantime.
 const NO_METADATA_FIELDS: MetadataFieldDescriptor[] = [];
 
-export const InstancesTable = ({ instances }: InstancesTableProps) => {
+export const InstancesTable = ({ billing, instances }: InstancesTableProps) => {
   const { t } = useTranslation();
+  const mayCreate = useCanPerform('instances.create');
+  const deploy = useActionAccess('instance.update');
+  const deletion = useActionAccess('instances.delete');
+  // The column of actions is there until the token says the session may do none of them:
+  // drawn once the scopes are known it would rebuild the columns under whatever is open.
+  const withActions = deploy.isPending || deploy.allowed || deletion.allowed;
   const router = useRouter();
 
   // Soft-fetch the active MetadataField list. As on the DZ page, a
@@ -64,8 +77,9 @@ export const InstancesTable = ({ instances }: InstancesTableProps) => {
   );
 
   const columns = useMemo(
-    () => createColumns(t, metadataFields, showExtraMetadata),
-    [t, metadataFields, showExtraMetadata],
+    () =>
+      createColumns(t, metadataFields, showExtraMetadata, billing, withActions),
+    [t, metadataFields, showExtraMetadata, billing, withActions],
   );
 
   const customerOptions = useMemo(() => {
@@ -192,10 +206,12 @@ export const InstancesTable = ({ instances }: InstancesTableProps) => {
         <FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Search filterId="name" />
           <FilterTableLayout.Actions>
-            <GradientButton
-              to="/customers/instances/new"
-              label={t('Pages.Customers.Instances.Mutation.titleNew')}
-            />
+            {mayCreate ? (
+              <GradientButton
+                to="/customers/instances/new"
+                label={t('Pages.Customers.Instances.Mutation.titleNew')}
+              />
+            ) : null}
           </FilterTableLayout.Actions>
         </FilterTableLayout.ToolbarRow>
         <FilterTableLayout.Filters />

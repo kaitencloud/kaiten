@@ -44,6 +44,30 @@ const (
 	// is. currentuser.GetUser does accept it, because it names an organization and
 	// an actor, which is the whole question that provider answers.
 	KindSystem Kind = "system"
+
+	// KindPublishableKey authenticates a vendor's web page by its publishable key
+	// (pk_), on the /api/public routes only. It names an organization and no
+	// actor: UserID is uuid.Nil, there are no scopes, and JIT provisioning skips
+	// it. What bounds it is that only caller.PublishableKey accepts it, and only
+	// the public catalogue asks for that caller.
+	KindPublishableKey Kind = "publishable_key"
+
+	// KindCustomerSession authenticates a vendor's customer, through a session
+	// (kst_) the vendor's backend minted, on the /api/public/session routes
+	// only. UserID is the vendor principal that minted the session: Kaiten
+	// cannot tell the vendor's end users apart, so the writes a session makes
+	// are attributed to whoever vouched for it. It carries no scopes; what
+	// bounds it is its customer (and instance, when bound), in CustomerSession,
+	// and that only caller.CustomerSession accepts it.
+	KindCustomerSession Kind = "customer_session"
+
+	// KindCheckoutSession authenticates an anonymous visitor through the ksc_
+	// of the checkout session it started (V32-01), on that session's routes
+	// only. It names an organization and no actor: UserID is uuid.Nil, the
+	// completion's writes are recorded under system:kaiten (§13.12). What
+	// bounds it is its one session, in CheckoutSessionID, and that only
+	// caller.CheckoutSession accepts it.
+	KindCheckoutSession Kind = "checkout_session"
 )
 
 // ErrCodeWrongCredentialKind and ErrMsgWrongCredentialKind are the single answer
@@ -88,6 +112,22 @@ type Principal struct {
 	// it is not client-controllable, and it is what links a minted organization
 	// token back to its parent for cascade revocation and audit attribution.
 	PlatformTokenID uuid.UUID `json:"-"`
+	// CustomerSession is what a customer session is bound to, set if and only
+	// if Kind is KindCustomerSession.
+	CustomerSession *CustomerSession `json:"-"`
+	// PublishableKeyID is the key that authenticated the request, set if and
+	// only if Kind is KindPublishableKey or KindCheckoutSession.
+	PublishableKeyID uuid.UUID `json:"-"`
+	// CheckoutSessionID is the session a ksc_ authenticates when Kind is
+	// KindCheckoutSession, PublishableKeyID then being the key that started
+	// it; on the KindSystem principal that completes that session, it names
+	// the session its events carry as checkoutSessionId (§24 #76).
+	CheckoutSessionID uuid.UUID `json:"-"`
+	// ClientAddress is the visitor's address as the gateway saw it, on the
+	// public surface only, read from X-Envoy-External-Address and never from
+	// a client's own X-Forwarded-For (§14.2): Turnstile's remoteip and the
+	// per-address limits read it.
+	ClientAddress string `json:"-"`
 	// OrganizationTokenID identifies a proxy-exchanged machine credential. Its
 	// permissions are loaded from storage on every Core request.
 	OrganizationTokenID uuid.UUID    `json:"-"`
@@ -119,4 +159,26 @@ func (p *Principal) HasScope(required string) bool {
 // Delegates to scope.HasAllScopes for centralized permission logic
 func (p *Principal) HasAllScopes(required []string) bool {
 	return scope.HasAllScopes(p.Scopes, required)
+}
+
+// CheckoutSession is what a checkout session's authenticator resolves (V32-01):
+// the session, its organization, the publishable key that started it and that
+// key's allowed origins. The principal keeps the ids.
+type CheckoutSession struct {
+	ID               uuid.UUID
+	OrganizationID   uuid.UUID
+	PublishableKeyID uuid.UUID
+	AllowedOrigins   []string
+}
+
+// CustomerSession is the customer, and optionally the instance, a customer
+// session acts for, and the browser origins it may be used from: the union of
+// its organization's live publishable keys' allowed origins.
+type CustomerSession struct {
+	ID             uuid.UUID
+	CustomerID     uuid.UUID
+	CustomerSlug   string
+	InstanceID     *uuid.UUID
+	InstanceSlug   *string
+	AllowedOrigins []string
 }

@@ -52,6 +52,9 @@ func TestGetAuditTrails(t *testing.T) {
 		require.Equal(t, instances[0].Slug, actual.Items[0].InstanceSlug)
 		require.Equal(t, instances[0].Slug, actual.Items[1].InstanceSlug)
 		require.Equal(t, "kaiten.v1.entitlement.value.get", actual.Items[0].EventName)
+		require.NotNil(t, actual.Items[0].Actor, "who the entry is recorded under (E-27)")
+		require.Equal(t, testDb.DefaultData.UserID, actual.Items[0].Actor.ID)
+		require.Equal(t, "USER", actual.Items[0].Actor.Kind)
 		require.False(t, actual.HasMore)
 	})
 

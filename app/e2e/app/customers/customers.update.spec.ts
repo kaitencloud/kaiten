@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { expect, expectToast, test } from '../_support/app-test';
 import { CustomerDetailDriver } from '../_support/drivers/customer-detail.driver';
 import { CustomerFormDriver } from '../_support/drivers/customer-form.driver';
@@ -41,3 +42,31 @@ test('updates a customer from the detail page edit mode', async ({ page }) => {
   await expect(page).toHaveURL('/customers/acme-corp');
   await detail.expectLoaded('Acme Europe');
 });
+
+// The dialog is opened by a link of the page, which the page draws again when the dialog closes:
+// the focus has to come back to the link, not fall to the page.
+for (const [closing, close] of [
+  ['Escape', (page: Page) => page.keyboard.press('Escape')],
+  [
+    'Cancel',
+    (page: Page) => page.getByRole('button', { name: 'Cancel' }).click(),
+  ],
+] as const) {
+  test(`gives the focus back to the Edit link when the dialog is closed with ${closing}`, async ({
+    page,
+  }) => {
+    const detail = new CustomerDetailDriver(page);
+
+    await installCustomerAppMocks(page, createEditableCustomerModel());
+    await detail.goto('acme-corp');
+    await detail.expectLoaded('Acme Corp');
+    await detail.editButton().focus();
+    await page.keyboard.press('Enter');
+    await expect(page.getByRole('dialog')).toBeVisible();
+
+    await close(page);
+
+    await expect(page).toHaveURL('/customers/acme-corp');
+    await expect(detail.editButton()).toBeFocused();
+  });
+}

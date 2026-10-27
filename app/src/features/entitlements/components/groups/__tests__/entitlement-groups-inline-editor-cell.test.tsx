@@ -4,7 +4,13 @@ import { HttpResponse } from 'msw/http';
 import { describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Entitlement } from '@/api-client';
-import { handleUpdateEntitlement } from '@/api-client/msw.gen';
+import {
+  handleGetEntitlement,
+  handleUpdateEntitlement,
+} from '@/api-client/msw.gen';
+// For its side effect: the REST client then throws an `ApiError`, which carries the
+// words of the API's refusal.
+import '@/lib/api/bootstrap';
 import { EntitlementGroupsInlineEditorCell } from '../entitlement-groups-inline-editor-cell';
 
 vi.mock('../entitlement-group-selector', () => ({
@@ -46,6 +52,10 @@ vi.mock('../entitlement-group-selector', () => ({
   ),
 }));
 
+const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+
+vi.mock('sonner', () => ({ toast }));
+
 describe('EntitlementGroupsInlineEditorCell', () => {
   it('updates entitlement groups inline with the entitlement writable payload', async () => {
     const entitlement: Entitlement = {
@@ -70,6 +80,8 @@ describe('EntitlementGroupsInlineEditorCell', () => {
 
     const updates: Array<{ entitlementSlug: string; body: unknown }> = [];
     server.use(
+      // The entitlement as the API holds it: the update reads it again first.
+      handleGetEntitlement(() => HttpResponse.json(entitlement)),
       handleUpdateEntitlement(async ({ params, request }) => {
         updates.push({
           entitlementSlug: params.entitlementSlug,
@@ -140,6 +152,92 @@ describe('EntitlementGroupsInlineEditorCell', () => {
       expect(
         screen.queryByRole('button', { name: 'Edit groups' }),
       ).not.toBeInTheDocument();
+    });
+  });
+  describe('an entitlement changed meanwhile', () => {
+    const entitlement: Entitlement = {
+      createdAt: '2026-03-01T09:00:00.000Z',
+      description: 'Track API calls',
+      entitlementGroups: [{ id: 'group-usage', name: 'Usage', slug: 'usage' }],
+      icon: 'lucide:zap',
+      id: 'entitlement-1',
+      name: 'API Calls',
+      slug: 'api-calls',
+      type: 'NUMBER',
+      updatedAt: '2026-03-01T09:00:00.000Z',
+      userFacing: false,
+      displayOrder: 0,
+    } as Entitlement;
+
+    const renderCell = () => {
+      const queryClient = new QueryClient({
+        defaultOptions: {
+          mutations: { retry: false },
+          queries: { retry: false },
+        },
+      });
+      render(
+        <QueryClientProvider client={queryClient}>
+          <EntitlementGroupsInlineEditorCell entitlement={entitlement} />
+        </QueryClientProvider>,
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Edit groups' }));
+    };
+
+    it('puts the groups on top of the entitlement as the API holds it now', async () => {
+      const updates: unknown[] = [];
+      server.use(
+        // Another tab changed the icon and the description since the list loaded.
+        handleGetEntitlement(() =>
+          HttpResponse.json({
+            ...entitlement,
+            description: 'Edited in another tab',
+            icon: 'lucide:bolt',
+          }),
+        ),
+        handleUpdateEntitlement(async ({ request }) => {
+          updates.push(await request.json());
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+
+      renderCell();
+
+      await waitFor(() => {
+        expect(updates).toEqual([
+          expect.objectContaining({
+            description: 'Edited in another tab',
+            groupSlugs: ['usage', 'billing'],
+            icon: 'lucide:bolt',
+          }),
+        ]);
+      });
+    });
+
+    it('writes nothing and gives the groups back when the entitlement was deleted meanwhile', async () => {
+      const updates: unknown[] = [];
+      server.use(
+        handleGetEntitlement(() =>
+          HttpResponse.json(
+            { detail: 'The entitlement does not exist', status: 404 },
+            { status: 404 },
+          ),
+        ),
+        handleUpdateEntitlement(async ({ request }) => {
+          updates.push(await request.json());
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+
+      renderCell();
+
+      await waitFor(() =>
+        expect(toast.error).toHaveBeenCalledWith(
+          'The entitlement does not exist',
+        ),
+      );
+      expect(updates).toEqual([]);
     });
   });
 });

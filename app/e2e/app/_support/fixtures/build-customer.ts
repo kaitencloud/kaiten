@@ -6,10 +6,21 @@ export const TEST_USER = {
 } as const;
 
 /**
+ * The platform user as the API serves it: `system:kaiten`, the actor of what no person
+ * of the organization did, such as the customer an anonymous checkout creates. Its row
+ * is pinned to this id and named Kaiten.
+ */
+export const SYSTEM_USER = {
+  id: '00000000-0000-0000-0000-000000000001',
+  name: 'Kaiten',
+} as const;
+
+/**
  * Build a minimal Customer fixture for use in scenario factories.
  * Only `id`, `name`, and `slug` are required — all other fields have sensible defaults.
  */
 export function buildCustomer({
+  billingEmail,
   createdAt = '2026-03-01T09:00:00.000Z',
   domain,
   externalCustomerId = null,
@@ -18,6 +29,8 @@ export function buildCustomer({
   slug,
   updatedAt = createdAt,
 }: {
+  /** Where the invoices of the customer are sent; absent when there is none. */
+  billingEmail?: string;
   createdAt?: string;
   domain?: string;
   externalCustomerId?: string | null;
@@ -27,6 +40,7 @@ export function buildCustomer({
   updatedAt?: string;
 }): Customer {
   return {
+    billingEmail,
     createdAt,
     createdBy: TEST_USER,
     domain,

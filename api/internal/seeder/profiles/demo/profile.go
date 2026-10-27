@@ -12,17 +12,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/createcomponent"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/createdeploymentzone"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/updatedeploymentzone"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
-	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
-	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
-	instancesdb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
@@ -167,7 +165,7 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 	}
 
 	// Step 8: usage metrics
-	if err := p.seedUsageMetrics(ctx, orgCtx, organization.ID, now, instancesSeeded, entitlementIDs); err != nil {
+	if err := p.seedUsageMetrics(ctx, orgCtx, organization.ID, instancesSeeded, entitlementIDs); err != nil {
 		return err
 	}
 
@@ -760,7 +758,6 @@ func (p *Profile) seedUsageMetrics(
 	ctx context.Context,
 	orgCtx *seeder.SeederContext,
 	orgID uuid.UUID,
-	now time.Time,
 	instances []seededInstance,
 	entitlementIDs map[string]uuid.UUID,
 ) error {
@@ -778,35 +775,19 @@ func (p *Profile) seedUsageMetrics(
 				continue
 			}
 
-			entID, ok := entitlementIDs[entSlug]
-			if !ok {
+			if _, ok := entitlementIDs[entSlug]; !ok {
 				continue
 			}
-			ent, ok := entitlementBySlug(entSlug)
-			if !ok {
-				return fmt.Errorf("report usage %q/%q: entitlement not defined", inst.ID, entSlug)
-			}
-
-			usageBytes, err := entitlementvalue.ToBytes(&entitlementvalue.NumberUsageValue{
-				Type:       entitlementvalue.TypeNumber,
-				Value:      float64(usage.Value),
-				EventCount: usage.EventCount,
-			})
-			if err != nil {
-				return err
-			}
-
-			periodStart, err := usagePeriodStart(ent, now, inst.StartLicenseDate)
-			if err != nil {
-				return fmt.Errorf("report usage %q/%q: %w", inst.ID, entSlug, err)
-			}
-
-			if err := instancesdb.New(orgCtx.Pool()).ReportEntitlementUsage(ctx, instancesdb.ReportEntitlementUsageParams{
-				EntitlementID:  entID,
-				InstanceID:     inst.ID,
-				Value:          usageBytes,
-				OrganizationID: orgID,
-				PeriodStart:    periodStart,
+			// Written with its usage_ledger row, so the journal explains the
+			// seeded counter. A periodic entitlement (monthly-orders resets
+			// MONTH/CALENDAR) lands in its current window, which is what the
+			// dashboard shows; the others are lifetime counters.
+			if err := reportentitlementusagemetric.WriteSnapshot(ctx, uow.NewUnitOfWork(orgCtx.Pool()), reportentitlementusagemetric.Snapshot{
+				OrganizationID:  orgID,
+				InstanceSlug:    inst.Slug,
+				EntitlementSlug: entSlug,
+				Value:           float64(usage.Value),
+				EventCount:      usage.EventCount,
 			}); err != nil {
 				return fmt.Errorf("report usage %q/%q: %w", inst.ID, entSlug, err)
 			}
@@ -821,27 +802,6 @@ func (p *Profile) seedUsageMetrics(
 // one the report path would store: the start of the window now falls in when
 // ent resets, NULL when it is a lifetime counter.
 //
-// The read path computes that window from the same definition and shows a
-// periodic row's usage only when the row is dated to it -- a row dated to
-// anything else is a window already over, and reads as zero. So the decision
-// is made here, from the entitlement, and not from a list of slugs kept beside
-// it: such a list is how monthly-orders came to have month-dated usage rows
-// while the entitlement itself, created without a reset period, counted over
-// the life of the instance.
-func usagePeriodStart(ent entitlementDef, now, licenseStart time.Time) (pgtype.Timestamp, error) {
-	if ent.ResetPeriod == nil {
-		return pgtype.Timestamp{}, nil
-	}
-	if ent.ResetAnchor == nil {
-		return pgtype.Timestamp{}, fmt.Errorf("entitlement %q resets without an anchor", ent.Slug)
-	}
-
-	window, err := period.Current(now, *ent.ResetPeriod, *ent.ResetAnchor, licenseStart)
-	if err != nil {
-		return pgtype.Timestamp{}, fmt.Errorf("entitlement %q: %w", ent.Slug, err)
-	}
-	return pgtype.Timestamp{Time: window.Start, Valid: true}, nil
-}
 
 // ── Feature Flags ──────────────────────────────────────────────────────────
 

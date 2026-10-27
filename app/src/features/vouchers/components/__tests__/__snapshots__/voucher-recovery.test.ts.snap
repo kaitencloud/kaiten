@@ -1,0 +1,219 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of the voucher wizard > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "amount": {
+      "type": "string",
+    },
+    "annualOnly": {
+      "type": "boolean",
+    },
+    "applicableAddonIds": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "applicableAddonPriceIds": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "applicableLicenseIds": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "applicableLicensePriceIds": {
+      "items": {
+        "type": "string",
+      },
+      "type": "array",
+    },
+    "code": {
+      "type": "string",
+    },
+    "currency": {
+      "type": "string",
+    },
+    "description": {
+      "maxLength": 2000,
+      "type": "string",
+    },
+    "duration": {
+      "enum": [
+        "ONE_TIME",
+        "REPEATING",
+        "FOREVER",
+      ],
+      "type": "string",
+    },
+    "durationInPeriods": {},
+    "expiresAt": {
+      "type": "string",
+    },
+    "firstTimeOnly": {
+      "type": "boolean",
+    },
+    "flagGrants": {
+      "items": {
+        "properties": {
+          "flagSlug": {
+            "type": "string",
+          },
+          "key": {
+            "type": "string",
+          },
+          "variant": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "flagSlug",
+          "variant",
+          "key",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
+    "grants": {
+      "items": {
+        "properties": {
+          "booleanValue": {
+            "type": "boolean",
+          },
+          "entitlementSlug": {
+            "type": "string",
+          },
+          "entitlementType": {
+            "enum": [
+              "NUMBER",
+              "NUMBER_AI_CREDIT",
+              "BOOLEAN",
+              "CONFIG",
+            ],
+            "type": "string",
+          },
+          "jsonValue": {
+            "type": "string",
+          },
+          "key": {
+            "type": "string",
+          },
+          "modifierType": {
+            "enum": [
+              "SET",
+              "ADD",
+              "MULTIPLY",
+              "UNLIMITED",
+            ],
+            "type": "string",
+          },
+          "modifierValue": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "entitlementSlug",
+          "modifierType",
+          "key",
+          "modifierValue",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
+    "hasBoost": {
+      "type": "boolean",
+    },
+    "hasFlags": {
+      "type": "boolean",
+    },
+    "hasPrice": {
+      "type": "boolean",
+    },
+    "maxRedemptions": {},
+    "minimumAmount": {
+      "type": "string",
+    },
+    "minimumCurrency": {
+      "type": "string",
+    },
+    "name": {
+      "maxLength": 200,
+      "minLength": 1,
+      "type": "string",
+    },
+    "percentage": {
+      "type": "string",
+    },
+    "priceAppliesTo": {
+      "enum": [
+        "LICENSE_BASE",
+        "ADDONS",
+        "BOTH",
+        "SELECTED_PRICES",
+      ],
+      "type": "string",
+    },
+    "priceDiscountType": {
+      "enum": [
+        "PERCENTAGE",
+        "FIXED_AMOUNT",
+      ],
+      "type": "string",
+    },
+    "restrictedCustomerSlug": {
+      "type": "string",
+    },
+    "startsAt": {
+      "type": "string",
+    },
+    "voucherType": {
+      "enum": [
+        "PRICE",
+        "ENTITLEMENT_BOOST",
+        "FLAG_GRANT",
+        "COMPOSITE",
+      ],
+      "type": "string",
+    },
+  },
+  "required": [
+    "voucherType",
+    "amount",
+    "annualOnly",
+    "applicableAddonIds",
+    "applicableAddonPriceIds",
+    "applicableLicenseIds",
+    "applicableLicensePriceIds",
+    "code",
+    "currency",
+    "description",
+    "duration",
+    "durationInPeriods",
+    "expiresAt",
+    "firstTimeOnly",
+    "grants",
+    "flagGrants",
+    "hasPrice",
+    "hasBoost",
+    "hasFlags",
+    "maxRedemptions",
+    "minimumAmount",
+    "minimumCurrency",
+    "name",
+    "percentage",
+    "priceAppliesTo",
+    "priceDiscountType",
+    "restrictedCustomerSlug",
+    "startsAt",
+  ],
+  "type": "object",
+}
+`;

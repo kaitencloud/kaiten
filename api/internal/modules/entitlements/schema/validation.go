@@ -1,6 +1,7 @@
 package schema
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -143,7 +144,7 @@ func ValidateResetConfiguration(entitlementType Type, aggregationMethod *Aggrega
 		return fmt.Errorf("resetAnchor is required when resetPeriod is set")
 	}
 	if !resetAnchor.Valid() {
-		return fmt.Errorf("resetAnchor must be one of CALENDAR, LICENSE_START")
+		return fmt.Errorf("resetAnchor must be one of CALENDAR, LICENSE_START, BILLING_PERIOD")
 	}
 	if !IsNumberFamily(entitlementType) {
 		return fmt.Errorf("resetPeriod is only allowed when type is NUMBER or NUMBER_AI_CREDIT")
@@ -151,9 +152,17 @@ func ValidateResetConfiguration(entitlementType Type, aggregationMethod *Aggrega
 	if aggregationMethod != nil && *aggregationMethod == Latest {
 		return fmt.Errorf("resetPeriod is incompatible with aggregationMethod LATEST")
 	}
+	if *resetAnchor == period.BillingPeriod && *resetPeriod != period.Month && *resetPeriod != period.Year {
+		return ErrBillingPeriodCadence
+	}
 
 	return nil
 }
+
+// ErrBillingPeriodCadence is BILLING_PERIOD on a cadence other than MONTH or
+// YEAR (entitlement_reset_anchor_billing_period_check, V32-04): a 422
+// .InvalidResetAnchor, not the 400 of the other reset rules.
+var ErrBillingPeriodCadence = errors.New("resetAnchor BILLING_PERIOD takes resetPeriod MONTH or YEAR")
 
 // ValidateWarningThresholdConfiguration enforces the entitlement-level
 // early-warning field: warningThresholdPercent is only meaningful for

@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 import { useTranslation } from 'react-i18next';
+import { useDialogFinalFocus } from './use-dialog-final-focus';
 import { useDialogInitialFocus } from './use-dialog-initial-focus';
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
@@ -48,6 +49,7 @@ function DialogContent({
   overlayClassName,
   variant = 'default',
   initialFocus,
+  finalFocus,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
@@ -56,12 +58,19 @@ function DialogContent({
 }) {
   const { t } = useTranslation();
   const { contentRef, handleInitialFocus } = useDialogInitialFocus(initialFocus);
+  const { finalFocus: handleFinalFocus, rememberOpener } =
+    useDialogFinalFocus(finalFocus);
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Popup
         ref={contentRef}
-        initialFocus={handleInitialFocus}
+        initialFocus={(openType) => {
+          rememberOpener();
+
+          return handleInitialFocus(openType);
+        }}
+        finalFocus={handleFinalFocus}
         data-slot="dialog-content"
         data-variant={variant}
         className={cn(

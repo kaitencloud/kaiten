@@ -15,7 +15,19 @@ type UnitFieldsCarrier = Pick<
   | 'saleUnitFactor'
 >;
 
-/** Normalizes NUMBER units: an all-or-none base pair and optional sale trio. */
+/**
+ * The types that report a numeric meter: the ones that may carry units, a periodic
+ * window and an early-warning threshold. Mirrors the API's number-family check.
+ */
+export const isNumberFamily = (
+  type: EntitlementWritable['type'] | undefined,
+): boolean => type === 'NUMBER' || type === 'NUMBER_AI_CREDIT';
+
+/**
+ * Normalizes the units of a numeric entitlement: an all-or-none base pair and an
+ * optional sale trio. Any other type carries none. The full-replace PUT erases what
+ * it leaves out, so a number-family entitlement keeps its units through every edit.
+ */
 export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
   body.unitSingular = normalizeUnitLabel(body.unitSingular);
   body.unitPlural = normalizeUnitLabel(body.unitPlural);
@@ -29,7 +41,7 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
     body.saleUnitFactor = undefined;
   }
 
-  if (body.type !== 'NUMBER' || !body.unitSingular || !body.unitPlural) {
+  if (!isNumberFamily(body.type) || !body.unitSingular || !body.unitPlural) {
     body.unitSingular = undefined;
     body.unitPlural = undefined;
     body.saleUnitSingular = undefined;
@@ -50,8 +62,12 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
 };
 
 /**
- * Builds the complete replacement PUT for inline rename, icon and group edits.
- * Echoes immutable resetPeriod/resetAnchor: omission would attempt removal.
+ * Builds the complete replacement PUT for the form and for inline rename, icon and
+ * group edits. Echoes immutable resetPeriod/resetAnchor: omission would attempt
+ * removal. Echoes the early-warning threshold too, which no screen edits: the API
+ * stores 0 (the warning off) for a numeric entitlement sent without one. Only a
+ * numeric entitlement echoes it: the API returns 0 for every type but refuses any
+ * threshold on the others, so a boolean or a config entitlement sends none.
  */
 export const entitlementToUpdateBody = (
   entitlement: Entitlement,
@@ -76,6 +92,12 @@ export const entitlementToUpdateBody = (
     saleUnitFactor: entitlement.saleUnitFactor ?? undefined,
     resetPeriod: entitlement.resetPeriod,
     resetAnchor: entitlement.resetAnchor,
+    ...(isNumberFamily(entitlement.type)
+      ? {
+          warningThresholdPercent:
+            entitlement.warningThresholdPercent ?? undefined,
+        }
+      : {}),
     ...overrides,
   };
 

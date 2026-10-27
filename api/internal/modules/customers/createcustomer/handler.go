@@ -58,6 +58,11 @@ func NewUseCase(deps Deps) *UseCase {
 // calling EnforceCreationLimit separately first, which would report usage
 // twice for one logical creation.
 func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Customer, error) {
+	if email := command.BillingEmail; email != nil && *email != "" {
+		if err := schema.ValidateBillingEmail("CreateCustomer", *email); err != nil {
+			return nil, err
+		}
+	}
 	u, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
@@ -131,6 +136,19 @@ func (h *UseCase) EnforceCreationLimit(ctx context.Context, orgID uuid.UUID, slu
 	return err
 }
 
+// Persist creates the customer, with a slug derived from its name, in the
+// transaction ctx carries, and enforces no creation limit: its caller, an
+// anonymous checkout's completion, enforced it before its transaction, which
+// makes no outside call (§9.12 rules 3 and 9). The slug is not retried: a
+// conflict aborts the caller's transaction anyway.
+func (h *UseCase) Persist(ctx context.Context, orgID, userID uuid.UUID, command *Command) (*schema.Customer, error) {
+	slug, err := slugutil.GenerateUnique(command.Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate slug: %w", err)
+	}
+	return h.persistCustomer(ctx, orgID, userID, command, slug)
+}
+
 func (h *UseCase) recordRejectedCreation(ctx context.Context, orgID uuid.UUID, name, slug string) {
 	event := outbox.NewOutboxMessage(
 		orgID,
@@ -157,7 +175,11 @@ func (h *UseCase) persistCustomer(ctx context.Context, orgID, userID uuid.UUID, 
 	var customer *schema.Customer
 
 	err := h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		createdCustomer, err := h.repo.CreateCustomer(ctx, command.Name, slug, command.ExternalCustomerID, command.Domain, orgID, userID)
+		var billingEmail []string
+		if command.BillingEmail != nil {
+			billingEmail = []string{*command.BillingEmail}
+		}
+		createdCustomer, err := h.repo.CreateCustomer(ctx, command.Name, slug, command.ExternalCustomerID, command.Domain, orgID, userID, billingEmail...)
 		if err != nil {
 			return err
 		}
@@ -174,7 +196,7 @@ func (h *UseCase) persistCustomer(ctx context.Context, orgID, userID uuid.UUID, 
 			orgID,
 			events.CustomerCreated.Name,
 			events.CustomerCreated.Type,
-			createdCustomer,
+			createdCustomer.WithoutPersonalData(),
 			nil,
 		)
 

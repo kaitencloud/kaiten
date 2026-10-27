@@ -57,9 +57,12 @@ When the last two are not both set, the dev server and the `VITE_LOCAL_AUTH` and
 E2E builds read the flags from `VITE_API_URL`; any other build evaluates
 nothing, so every such flag is off and the console hides the demo banner. The
 logic is in `app/src/lib/feature-flags.ts`. The webhooks pages do not depend on
-these: the console shows them where `GET /api/webhooks` answers
+these flags: the console shows them where `GET /api/webhooks` answers
 (`app/src/domains/webhooks/`), which only Kaiten Cloud's saas-api does, for an
-organization whose licence carries them.
+organization whose licence carries them. It asks only where webhooks can exist:
+a build that names `VITE_KAITEN_PLATFORM_API_URL` (Kaiten Cloud's), or a dev or
+e2e build started with `VITE_KAITEN_WEBHOOKS=true`. A self-hosted build never
+sends the request.
 
 All four values reach the browser. None of them is a secret.
 
@@ -74,6 +77,7 @@ them.
 | `VITE_E2E_BYPASS_AUTH` | `true` skips sign-in: the app renders without Clerk and without tokens. For the Playwright app suite and `pnpm run dev:mock`. |
 | `VITE_E2E_MSW` | `true` lets the Playwright app suite start Mock Service Worker in the browser and serve the API from mocks (`app/src/e2e/msw/`). |
 | `VITE_MOCK_API` | `true` serves the whole API from mocks in the browser (`app/src/e2e/msw/dev.ts`), with no backend behind the dev server. `pnpm run dev:mock` sets it, with `VITE_E2E_BYPASS_AUTH`, and sets `VITE_LOCAL_AUTH` to `false`, which would otherwise win over the bypass. Ignored when `VITE_E2E_MSW` is `true`. |
+| `VITE_KAITEN_WEBHOOKS` | `true` tells a dev server or an e2e build that a saas-api answers `/api/webhooks` behind it, so the console asks (`app/src/domains/webhooks/`). The Playwright app suite sets it. Without it, and without `VITE_KAITEN_PLATFORM_API_URL`, the console never calls `GET /webhooks`: `pnpm run dev:mock` and a dev server over the open-source stack have no webhooks. |
 | `VITE_MOCK_NOTIFICATIONS` | `true` serves only the notifications endpoints from mocks (`app/src/e2e/msw/notifications-dev-seed.ts`); every other request reaches the real API. Ignored when `VITE_E2E_MSW` or `VITE_MOCK_API` is `true`. |
 
 ### Read by the build tooling

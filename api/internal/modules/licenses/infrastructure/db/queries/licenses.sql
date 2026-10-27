@@ -37,7 +37,7 @@ LIMIT sqlc.arg(limit_plus_one);
 -- reads: it is the row that says which product this is a version of. Nothing
 -- infers it from name.
 INSERT INTO license (name, slug, description, type, version_name, is_default, features, organization_id, family_id,
-                     lifecycle_state)
+                     lifecycle_state, pricing_type, trial_period_days, requires_payment_method, self_serve_cta_url)
 VALUES ($1,
        $2,
        $3,
@@ -47,7 +47,11 @@ VALUES ($1,
        $7,
        sqlc.arg(organization_id),
        sqlc.arg(family_id),
-       sqlc.arg(lifecycle_state))
+       sqlc.arg(lifecycle_state),
+       sqlc.arg(pricing_type),
+       sqlc.narg(trial_period_days),
+       sqlc.arg(requires_payment_method),
+       sqlc.narg(self_serve_cta_url))
 RETURNING *;
 
 
@@ -89,6 +93,12 @@ RETURNING *;
 -- lifecycle rules and record their events. is_default is written
 -- as sent, and license_default_must_be_published_check refuses a default that
 -- is not PUBLISHED.
+--
+-- The commercial columns are keep-if-absent: a NULL argument leaves the
+-- column as it is, so a client that predates them (or sends a representation
+-- without them) never resets them. trial_period_days and self_serve_cta_url
+-- are cleared by their *_clear flags rather than by NULL, which already means
+-- "keep".
 UPDATE license l
 SET name        = sqlc.arg(name),
     description = sqlc.arg(description),
@@ -96,6 +106,16 @@ SET name        = sqlc.arg(name),
     version_name = sqlc.narg(version_name),
     is_default  = sqlc.arg(is_default),
     features    = sqlc.arg(features),
+    pricing_type = COALESCE(sqlc.narg(pricing_type)::pricing_type, l.pricing_type),
+    trial_period_days = CASE
+      WHEN sqlc.arg(trial_period_days_clear)::bool THEN NULL
+      ELSE COALESCE(sqlc.narg(trial_period_days)::integer, l.trial_period_days)
+    END,
+    requires_payment_method = COALESCE(sqlc.narg(requires_payment_method)::bool, l.requires_payment_method),
+    self_serve_cta_url = CASE
+      WHEN sqlc.arg(self_serve_cta_url_clear)::bool THEN NULL
+      ELSE COALESCE(sqlc.narg(self_serve_cta_url)::text, l.self_serve_cta_url)
+    END,
     updated_at  = now()
 FROM user_on_organization uo
 WHERE uo.organization_id = sqlc.arg(organization_id)

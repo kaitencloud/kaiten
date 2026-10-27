@@ -6,3 +6,7 @@ export {
   featureFlagQueryOptions,
   featureFlagsQueryOptions,
 } from './feature-flag-query-options';
+export {
+  type SaveFeatureFlagVariables,
+  saveFeatureFlagOnFresh,
+} from './feature-flag-save';

@@ -1,0 +1,532 @@
+package billing_test
+
+import (
+	"fmt"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+	"github.com/stretchr/testify/require"
+
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelsubscription"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
+	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
+	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
+)
+
+func cancel(t *testing.T, instanceSlug string, body map[string]any) cancelsubscription.CanceledSubscription {
+	t.Helper()
+	return commonfixture.AssertJSONResponse[cancelsubscription.CanceledSubscription](t,
+		call(t, "POST", "/api/instances/"+instanceSlug+"/billing/cancel", body), fiber.StatusOK)
+}
+
+func billingCall(t *testing.T, method, instanceSlug, suffix string, body any) subscriptions.InstanceBilling {
+	t.Helper()
+	return commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t,
+		call(t, method, "/api/instances/"+instanceSlug+"/billing"+suffix, body), fiber.StatusOK)
+}
+
+// backdateTrial moves a trial's anchor, period and end back by days.
+func backdateTrial(t *testing.T, subscriptionID any, days int) {
+	t.Helper()
+	exec(t, `UPDATE instance_billing
+	            SET anchor_at = anchor_at - make_interval(days => $2), started_at = started_at - make_interval(days => $2),
+	                current_period_start = current_period_start - make_interval(days => $2),
+	                current_period_end = current_period_end - make_interval(days => $2),
+	                trial_ends_at = trial_ends_at - make_interval(days => $2),
+	                trial_will_end_at = trial_will_end_at - make_interval(days => $2)
+	          WHERE id = $1`, subscriptionID, days)
+}
+
+func TestTrials(t *testing.T) {
+	t.Run("ATrial_BillsNothing_UntilTheCloseConvertsIt", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 14})
+		require.Equal(t, subscriptions.StatusTrial, started.Status)
+		require.Nil(t, started.ActivationInvoice)
+		require.True(t, started.TrialEndsAt.Equal(started.AnchorAt.Add(14*24*time.Hour)))
+		require.True(t, started.CurrentPeriodEnd.Equal(*started.TrialEndsAt))
+
+		backdateTrial(t, started.ID, 15)
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 1, report.Closed)
+		require.Equal(t, "ACTIVATION", report.Invoices[0].Kind)
+		trialEnd := started.TrialEndsAt.AddDate(0, 0, -15)
+		require.True(t, report.Invoices[0].BoundaryAt.Equal(trialEnd))
+
+		billing := readBilling(t, s.instance.Slug)
+		require.Equal(t, subscriptions.StatusActive, billing.Status)
+		require.True(t, billing.AnchorAt.Equal(trialEnd))
+		require.True(t, billing.CurrentPeriodEnd.Equal(trialEnd.AddDate(0, 1, 0)))
+		changes := outboxPayloads(t, "INSTANCE_BILLING_STATUS_CHANGED")
+		require.Len(t, changes, 1)
+		require.Equal(t, "TRIAL_ENDED", changes[0]["reason"])
+	})
+
+	// PR19-01: an all-ARREARS plan has no ACTIVATION (§8.1); its trial's
+	// conversion closes without an invoice, and the batch goes on.
+	t.Run("ATrialOnAnArrearsPlan_ConvertsWithoutAnInvoice", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		arrears := flatFee("2900", "MONTHLY")
+		arrears["billingTiming"] = "ARREARS"
+		s := newSold(t, arrears)
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 14})
+		require.Equal(t, subscriptions.StatusTrial, started.Status)
+		customer := newCustomer(t, "globex")
+		other := newInstance(t, "Globex", customer.ID, s.version.ID)
+		renewing := subscribe(t, other.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 0})
+
+		backdateTrial(t, started.ID, 15)
+		backdate(t, renewing.ID, 1)
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 2, report.Closed, "the conversion does not stop the batch")
+		require.Len(t, report.Invoices, 1)
+		require.Equal(t, "RENEWAL", report.Invoices[0].Kind)
+		require.Equal(t, subscriptions.StatusActive, readBilling(t, s.instance.Slug).Status)
+	})
+
+	t.Run("TheLicencesTrial_IsTheDefault_AndZeroIsNone", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		exec(t, `UPDATE license SET trial_period_days = 7 WHERE id = $1`, s.version.ID)
+		require.Equal(t, "SubscribeInstance.InvalidTrialDays", problemCode(t, fiber.StatusUnprocessableEntity, "POST",
+			"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"basePriceId": s.monthly.ID, "trialDays": -1}))
+		// Above a year is refused too, and never reaches the anchor arithmetic,
+		// where a large value used to overflow time.Duration into a 500.
+		for _, days := range []int64{366, 2147483647} {
+			require.Equal(t, "SubscribeInstance.InvalidTrialDays", problemCode(t, fiber.StatusUnprocessableEntity, "POST",
+				"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"basePriceId": s.monthly.ID, "trialDays": days}))
+		}
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		require.Equal(t, subscriptions.StatusTrial, started.Status)
+
+		customer := newCustomer(t, "globex")
+		other := newInstance(t, "Globex", customer.ID, s.version.ID)
+		require.Equal(t, subscriptions.StatusActive, subscribe(t, other.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 0}).Status)
+	})
+
+	// INV-32: a trial is consumed when it starts, whatever happens next; the
+	// customer's next subscribe to the family gets no default trial, and only
+	// an explicit trialDays grants another.
+	t.Run("ADefaultTrial_IsGivenOncePerCustomerAndFamily", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		exec(t, `UPDATE license SET trial_period_days = 14 WHERE id = $1`, s.version.ID)
+		require.Equal(t, subscriptions.StatusTrial, subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID}).Status)
+		cancel(t, s.instance.Slug, map[string]any{})
+
+		second := newInstance(t, "Acme staging", s.instance.CustomerID, s.version.ID)
+		started := subscribe(t, second.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		require.Equal(t, subscriptions.StatusActive, started.Status, "the trial was consumed by the first instance")
+		require.NotNil(t, started.ActivationInvoice)
+		cancel(t, second.Slug, map[string]any{"mode": "IMMEDIATE"})
+
+		third := newInstance(t, "Acme dev", s.instance.CustomerID, s.version.ID)
+		require.Equal(t, subscriptions.StatusTrial, subscribe(t, third.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 7}).Status,
+			"the vendor grants another, explicitly")
+
+		other := newCustomer(t, "globex")
+		fourth := newInstance(t, "Globex prod", other.ID, s.version.ID)
+		require.Equal(t, subscriptions.StatusTrial, subscribe(t, fourth.Slug, map[string]any{"basePriceId": s.monthly.ID}).Status, "per customer")
+		var rows int
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT count(*) FROM customer_trial`).Scan(&rows))
+		require.Equal(t, 2, rows, "one per customer and family: the first record stays")
+	})
+
+	t.Run("ACanceledTrial_IsCanceledAtOnce_WithoutAnInvoice", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 14})
+		canceled := cancel(t, s.instance.Slug, map[string]any{})
+		require.Equal(t, subscriptions.StatusCanceled, canceled.Status)
+		require.Nil(t, canceled.FinalInvoice)
+		require.Empty(t, listInvoices(t, "/api/invoices").Items)
+	})
+}
+
+func TestCancelAndReactivate(t *testing.T) {
+	t.Run("AtPeriodEnd_ThePeriodRunsOut_ThenTheFinalInvoiceCancels", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		arrears := flatFee("2900", "MONTHLY")
+		arrears["billingTiming"] = "ARREARS"
+		s := newSold(t, arrears)
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+
+		scheduled := cancel(t, s.instance.Slug, map[string]any{"reason": "moving on"})
+		require.Equal(t, subscriptions.StatusActive, scheduled.Status)
+		require.True(t, scheduled.CancelAtPeriodEnd)
+		cancel(t, s.instance.Slug, map[string]any{})
+		require.Len(t, outboxPayloads(t, "INSTANCE_BILLING_CANCELLATION_SCHEDULED"), 1, "a second request changes nothing")
+
+		backdate(t, started.ID, 1)
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 1, report.Closed)
+		require.Equal(t, "FINAL", report.Invoices[0].Kind)
+		final := getInvoice(t, report.Invoices[0].ID)
+		require.Len(t, final.Lines, 1, "the arrears base of the period that ended")
+		require.EqualValues(t, 2900, final.Total)
+
+		billing := readBilling(t, s.instance.Slug)
+		require.Equal(t, subscriptions.StatusCanceled, billing.Status)
+		require.True(t, billing.CanceledAt.Equal(started.CurrentPeriodEnd.AddDate(0, -1, 0)), "at the backdated boundary")
+		canceled := outboxPayloads(t, "INSTANCE_BILLING_CANCELED")
+		require.Len(t, canceled, 1)
+		require.Equal(t, final.ID.String(), canceled[0]["finalInvoiceId"])
+		require.Equal(t, 0, closePeriods(t, map[string]any{}).Closed, "a canceled subscription is never due")
+	})
+
+	t.Run("AScheduledCancellation_CanBeReverted", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		require.Equal(t, "ReactivateSubscription.NotScheduledForCancellation", problemCode(t, fiber.StatusConflict, "POST",
+			"/api/instances/"+s.instance.Slug+"/billing/reactivate", nil))
+		cancel(t, s.instance.Slug, map[string]any{})
+		reactivated := billingCall(t, "POST", s.instance.Slug, "/reactivate", nil)
+		require.False(t, reactivated.CancelAtPeriodEnd)
+		require.Nil(t, reactivated.CancelRequestedAt)
+		require.Len(t, outboxPayloads(t, "INSTANCE_BILLING_CANCELLATION_REVERTED"), 1)
+	})
+
+	t.Run("Immediately_TheFinalInvoiceBillsTheUsageSoFar", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := meteredSold(t)
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		reportTokens(t, s.instance.Slug, 130500)
+
+		canceled := cancel(t, s.instance.Slug, map[string]any{"mode": "IMMEDIATE"})
+		require.Equal(t, subscriptions.StatusCanceled, canceled.Status)
+		require.NotNil(t, canceled.FinalInvoice)
+		require.Equal(t, "FINAL", canceled.FinalInvoice.Kind)
+		final := getInvoice(t, canceled.FinalInvoice.ID)
+		require.Len(t, final.Lines, 1)
+		require.EqualValues(t, 2440, final.Lines[0].Amount)
+
+		require.Equal(t, "CancelSubscription.NotActive", problemCode(t, fiber.StatusConflict, "POST",
+			"/api/instances/"+s.instance.Slug+"/billing/cancel", map[string]any{}))
+		require.Equal(t, "ReactivateSubscription.Canceled", problemCode(t, fiber.StatusConflict, "POST",
+			"/api/instances/"+s.instance.Slug+"/billing/reactivate", nil))
+	})
+
+	t.Run("Immediately_TheFinalInvoiceCarriesTheLiveNames", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		exec(t, `UPDATE instance SET name = 'Renamed prod' WHERE id = $1`, s.instance.ID)
+		exec(t, `UPDATE customer SET name = 'Renamed customer' WHERE id = (SELECT customer_id FROM instance WHERE id = $1)`, s.instance.ID)
+
+		canceled := cancel(t, s.instance.Slug, map[string]any{"mode": "IMMEDIATE"})
+		require.NotNil(t, canceled.FinalInvoice)
+		var instanceName, customerName string
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT instance_name, customer_name FROM instance_invoice WHERE id = $1`, canceled.FinalInvoice.ID).Scan(&instanceName, &customerName))
+		require.Equal(t, "Renamed prod", instanceName)
+		require.Equal(t, "Renamed customer", customerName)
+	})
+
+	t.Run("AnEndedPeriodNotYetClosed_RefusesChanges", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		backdate(t, started.ID, 1)
+		require.Equal(t, "CancelSubscription.BoundaryPending", problemCode(t, fiber.StatusConflict, "POST",
+			"/api/instances/"+s.instance.Slug+"/billing/cancel", map[string]any{}))
+		require.Equal(t, "UpdateInstanceBilling.BoundaryPending", problemCode(t, fiber.StatusConflict, "PATCH",
+			"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"daysUntilDue": 3}))
+		resp := call(t, "POST", "/api/instances/"+s.instance.Slug+"/billing/cancel", map[string]any{})
+		_ = resp.Body.Close()
+		require.Equal(t, fiber.StatusConflict, resp.StatusCode)
+		require.Equal(t, "60", resp.Header.Get("Retry-After"), "Appendix A: every BoundaryPending says when to retry")
+	})
+}
+
+func TestPlanChanges(t *testing.T) {
+	t.Run("AScheduledChange_IsAppliedByTheNextRenewal", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		scale := newVersion(t, "Scale", licenseschema.Published)
+		annual := createPrice(t, scale.Slug, flatFee("49000", "ANNUAL"))
+		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+
+		scheduled := billingCall(t, "PUT", s.instance.Slug, "/scheduled-change", map[string]any{"licensePriceId": annual.ID})
+		require.NotNil(t, scheduled.ScheduledChange)
+		require.Equal(t, annual.ID, scheduled.ScheduledChange.Price.ID)
+		require.True(t, scheduled.ScheduledChange.EffectiveAt.Equal(started.CurrentPeriodEnd))
+		billingCall(t, "PUT", s.instance.Slug, "/scheduled-change", map[string]any{"licensePriceId": annual.ID})
+		require.Len(t, outboxPayloads(t, "INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED"), 1, "the same target again changes nothing")
+
+		require.Equal(t, "DeprecateLicensePrice.PlanChangeTarget", problemCode(t, fiber.StatusConflict, "POST",
+			"/api/licenses/"+scale.Slug+"/prices/"+annual.ID.String()+"/deprecate", nil))
+		require.Equal(t, "ArchiveLicense.PlanChangeTarget", problemCode(t, fiber.StatusConflict, "POST",
+			"/api/licenses/"+scale.Slug+"/archive", nil))
+
+		backdate(t, started.ID, 1)
+		report := closePeriods(t, map[string]any{})
+		require.Equal(t, 1, report.Closed)
+		renewal := getInvoice(t, report.Invoices[0].ID)
+		require.Len(t, renewal.Lines, 1)
+		require.EqualValues(t, 49000, renewal.Lines[0].Amount, "the new plan's year, in advance")
+		require.Equal(t, annual.ID, *renewal.Lines[0].LicensePriceID)
+
+		billing := readBilling(t, s.instance.Slug)
+		require.Equal(t, annual.ID, billing.BasePrice.ID)
+		require.Equal(t, "ANNUAL", billing.BillingPeriod)
+		require.Nil(t, billing.ScheduledChange)
+		boundary := started.CurrentPeriodEnd.AddDate(0, -1, 0)
+		require.True(t, billing.AnchorAt.Equal(boundary), "the change anchors the new periods")
+		require.True(t, billing.CurrentPeriodEnd.Equal(boundary.AddDate(1, 0, 0)))
+		var licenseID string
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `SELECT license_id::text FROM instance WHERE id = $1`, s.instance.ID).Scan(&licenseID))
+		require.Equal(t, scale.ID.String(), licenseID, "the instance moved to the new version")
+		require.Len(t, outboxPayloads(t, "INSTANCE_BILLING_PLAN_CHANGED"), 1)
+	})
+
+	t.Run("TheTarget_IsChecked", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		draft := newVersion(t, "Draft", licenseschema.Draft)
+		unpublished := createPrice(t, draft.Slug, flatFee("100", "MONTHLY"))
+		dollars := newVersion(t, "US", licenseschema.Published)
+		usd := flatFee("100", "MONTHLY")
+		usd["currency"] = "USD"
+		inDollars := createPrice(t, dollars.Slug, usd)
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		path := "/api/instances/" + s.instance.Slug + "/billing/scheduled-change"
+
+		require.Equal(t, "CancelPlanChange.NoPlanChangeScheduled", problemCode(t, fiber.StatusConflict, "DELETE", path, nil))
+		for code, id := range map[string]any{
+			"SchedulePlanChange.SamePrice":           s.monthly.ID,
+			"SchedulePlanChange.LicenseNotPublished": unpublished.ID,
+			"SchedulePlanChange.CurrencyMismatch":    inDollars.ID,
+		} {
+			require.Equal(t, code, problemCode(t, fiber.StatusUnprocessableEntity, "PUT", path, map[string]any{"licensePriceId": id}))
+		}
+
+		target := createPrice(t, newVersion(t, "Scale", licenseschema.Published).Slug, flatFee("4900", "MONTHLY"))
+		billingCall(t, "PUT", s.instance.Slug, "/scheduled-change", map[string]any{"licensePriceId": target.ID})
+		cancel(t, s.instance.Slug, map[string]any{})
+		require.Nil(t, readBilling(t, s.instance.Slug).ScheduledChange, "a cancellation drops the change")
+		require.Len(t, outboxPayloads(t, "INSTANCE_BILLING_PLAN_CHANGE_CANCELED"), 1)
+	})
+
+	t.Run("ATrial_CannotChangePlan", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 7})
+		require.Equal(t, "SchedulePlanChange.TrialInProgress", problemCode(t, fiber.StatusConflict, "PUT",
+			"/api/instances/"+s.instance.Slug+"/billing/scheduled-change", map[string]any{"licensePriceId": s.monthly.ID}))
+	})
+}
+
+func TestPastDue(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+	overdue := lifecycle.NewOverdue(uow.NewUnitOfWork(testDb.DbPool), 2*time.Hour)
+
+	moved, err := overdue.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Zero(t, moved)
+
+	exec(t, `UPDATE instance_invoice SET due_at = issued_at, days_until_due = 0, issued_at = issued_at WHERE id = $1`, started.ActivationInvoice.ID)
+	moved, err = overdue.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Equal(t, 1, moved)
+	billing := readBilling(t, s.instance.Slug)
+	require.Equal(t, subscriptions.StatusPastDue, billing.Status)
+	require.NotNil(t, billing.PastDueSince)
+
+	act(t, started.ActivationInvoice.ID, "mark-paid", map[string]any{}, fiber.StatusOK)
+	billing = readBilling(t, s.instance.Slug)
+	require.Equal(t, subscriptions.StatusActive, billing.Status, "settling it clears PAST_DUE at once")
+	require.Nil(t, billing.PastDueSince)
+	var reasons []any
+	for _, change := range outboxPayloads(t, "INSTANCE_BILLING_STATUS_CHANGED") {
+		reasons = append(reasons, change["reason"])
+	}
+	require.ElementsMatch(t, []any{"INVOICE_OVERDUE", "SETTLED"}, reasons)
+}
+
+func TestSubscriptionTerms(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+
+	own := billingCall(t, "PATCH", s.instance.Slug, "", map[string]any{"daysUntilDue": 7, "collectionMethod": "SEND_INVOICE"})
+	require.EqualValues(t, 7, *own.DaysUntilDueOverride)
+	require.Equal(t, "SEND_INVOICE", *own.CollectionMethodOverride)
+
+	kept := billingCall(t, "PATCH", s.instance.Slug, "", map[string]any{})
+	require.EqualValues(t, 7, *kept.DaysUntilDueOverride, "an omitted member is left alone")
+
+	back := billingCall(t, "PATCH", s.instance.Slug, "", map[string]any{"daysUntilDue": nil})
+	require.Nil(t, back.DaysUntilDueOverride, "null restores the organization's default")
+	require.EqualValues(t, 30, back.DaysUntilDue)
+	require.Equal(t, "UpdateInstanceBilling.InvalidDaysUntilDue", problemCode(t, fiber.StatusUnprocessableEntity, "PATCH",
+		"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"daysUntilDue": 400}))
+	_ = invoices.StatusManual
+}
+
+// TestTrialReminder: trial_will_end fires the family's trialReminderDays
+// before the trial ends (V32-07): the subscribe stores reminderAt from the
+// lead as it is then, a later change of the family moves no running trial,
+// step (e) announces it once, and a trial no longer than the lead announces
+// it at once (§9.2 rule 7).
+func TestTrialReminder(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	const event = "INSTANCE_BILLING_TRIAL_WILL_END"
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	families := commonfixture.AssertJSONResponse[pagination.Page[licenseschema.LicenseFamilyView]](t,
+		call(t, "GET", "/api/license-families", nil), fiber.StatusOK)
+	require.Len(t, families.Items, 1)
+	familyPath := "/api/license-families/" + families.Items[0].Slug
+	require.Equal(t, fiber.StatusOK, call(t, "PATCH", familyPath, map[string]any{"trialReminderDays": 2}).StatusCode)
+
+	started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "trialDays": 14})
+	require.NotNil(t, started.ReminderAt)
+	require.True(t, started.ReminderAt.Equal(started.TrialEndsAt.Add(-2*24*time.Hour)), "the family's lead")
+	require.Empty(t, outboxPayloads(t, event), "not due yet")
+
+	require.Equal(t, fiber.StatusOK, call(t, "PATCH", familyPath, map[string]any{"trialReminderDays": 5}).StatusCode)
+	require.True(t, readBilling(t, s.instance.Slug).ReminderAt.Equal(*started.ReminderAt), "a running trial keeps its lead")
+
+	uof := uow.NewUnitOfWork(testDb.DbPool)
+	reminders := lifecycle.NewTrialReminders(uof, lifecycle.NewTrialAnnouncer(uof, billablecatalogue.New(uof), nil))
+	sent, err := reminders.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Zero(t, sent)
+	backdateTrial(t, started.ID, 12)
+	sent, err = reminders.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Equal(t, 1, sent)
+	payloads := outboxPayloads(t, event)
+	require.Len(t, payloads, 1)
+	require.Equal(t, s.instance.Slug, payloads[0]["instanceSlug"])
+	require.NotNil(t, payloads[0]["reminderAt"])
+	// What the vendor's e-mail needs, read at emission (§15.2 rule 9).
+	require.Equal(t, map[string]any{"slug": s.instance.Slug, "name": s.instance.Name}, payloads[0]["instance"])
+	require.Equal(t, s.version.Name, payloads[0]["licenseName"])
+	require.Equal(t, families.Items[0].Slug, payloads[0]["familySlug"])
+	require.EqualValues(t, 2, payloads[0]["daysLeft"], "12 of 14 days are gone")
+	require.Contains(t, payloads[0]["customer"], "billingEmail")
+	require.Nil(t, payloads[0]["paymentMethod"], "NOOP: no card")
+	sent, err = reminders.Pass(t.Context(), 100)
+	require.NoError(t, err)
+	require.Zero(t, sent, "once per trial")
+
+	// A trial shorter than the lead (another family: the default 3 days)
+	// announces its end at once.
+	short := newSold(t, flatFee("1900", "MONTHLY"))
+	quick := subscribe(t, short.instance.Slug, map[string]any{"basePriceId": short.monthly.ID, "trialDays": 2})
+	require.True(t, quick.ReminderAt.Before(quick.AnchorAt), "the lead is longer than the trial")
+	payloads = outboxPayloads(t, event)
+	require.Len(t, payloads, 2)
+	var announced map[string]any
+	for _, p := range payloads {
+		if p["instanceSlug"] == short.instance.Slug {
+			announced = p
+		}
+	}
+	require.NotNil(t, announced)
+	require.EqualValues(t, 2, announced["daysLeft"])
+	charge, ok := announced["charge"].(map[string]any)
+	require.True(t, ok, "the conversion's ACTIVATION, as previewed")
+	require.EqualValues(t, 1900, charge["amount"])
+	require.Equal(t, "MONTHLY", charge["billingPeriod"])
+}
+
+// TestLockOrder: a close that applies a plan change writes the instance, and
+// an add-on write locks the instance before reading the subscription. Both
+// now take the instance first (§9 Concurrency rule 1, V31-34, S07-104), so a
+// race between them waits or skips, and never fails on a deadlock (40P01).
+func TestLockOrder(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	scale := newVersion(t, "Scale", licenseschema.Published)
+	annual := createPrice(t, scale.Slug, flatFee("49000", "ANNUAL"))
+	addon := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats", "pricingType": "FREE"})
+	fits(t, addon.Slug, s.version.Slug)
+	fits(t, addon.Slug, scale.Slug)
+	customer := newCustomer(t, "globex")
+
+	for round := range 8 {
+		instance := newInstance(t, fmt.Sprintf("Globex %d", round), customer.ID, s.version.ID)
+		started := subscribe(t, instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		attach(t, instance.Slug, addon.Slug, 1)
+		billingCall(t, "PUT", instance.Slug, "/scheduled-change", map[string]any{"licensePriceId": annual.ID})
+		backdate(t, started.ID, 1)
+
+		var wg sync.WaitGroup
+		statuses := make([]int, 2)
+		wg.Add(2)
+		go func() {
+			defer wg.Done()
+			resp := call(t, "POST", "/api/billing/close-periods", map[string]any{"instanceSlug": instance.Slug})
+			statuses[0] = resp.StatusCode
+		}()
+		go func() {
+			defer wg.Done()
+			resp := call(t, "PATCH", "/api/instances/"+instance.Slug+"/addons/"+addon.Slug, map[string]any{"quantity": 2})
+			statuses[1] = resp.StatusCode
+		}()
+		wg.Wait()
+		require.Equal(t, fiber.StatusOK, statuses[0], "round %d: the close", round)
+		require.Contains(t, []int{fiber.StatusOK, fiber.StatusConflict}, statuses[1], "round %d: the add-on write waits or is refused, never fails", round)
+	}
+}
+
+// TestAddonWriteWaitsForALicenseMove: an add-on write that waits for a close
+// moving the instance to another licence version finds the instance, and the
+// add-on the new version still fits, once the move commits (§8, §9.4 "an
+// add-on the new version fits stays", §9 Concurrency rule 1). The move is held
+// open here instead of raced, so the wait is certain: locking the instance in
+// a query that also joined its licence made the re-check at the end of the
+// wait see the new instance against the old licence and answer 404
+// SetInstanceAddonQuantity.InstanceNotFound.
+func TestAddonWriteWaitsForALicenseMove(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	s := newSold(t, flatFee("2900", "MONTHLY"))
+	scale := newVersion(t, "Scale", licenseschema.Published)
+	addon := newAddon(t, map[string]any{"name": "Extra seats", "slug": "extra-seats", "pricingType": "FREE"})
+	fits(t, addon.Slug, s.version.Slug)
+	fits(t, addon.Slug, scale.Slug)
+	instance := newInstance(t, "Globex", newCustomer(t, "globex").ID, s.version.ID)
+	subscribe(t, instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+	attach(t, instance.Slug, addon.Slug, 1)
+
+	// What the close writes in its transaction: the escape from the instance
+	// freeze, then the move, the instance row locked until the commit.
+	move, err := testDb.DbPool.Begin(t.Context())
+	require.NoError(t, err)
+	defer func() { _ = move.Rollback(t.Context()) }()
+	_, err = move.Exec(t.Context(), `SELECT set_config('kaiten.billing_apply_plan_change', 'on', TRUE)`)
+	require.NoError(t, err)
+	_, err = move.Exec(t.Context(), `UPDATE instance SET license_id = $1 WHERE slug = $2`, scale.ID, instance.Slug)
+	require.NoError(t, err)
+
+	status := make(chan int, 1)
+	go func() {
+		status <- call(t, "PATCH", "/api/instances/"+instance.Slug+"/addons/"+addon.Slug, map[string]any{"quantity": 2}).StatusCode
+	}()
+	require.Eventually(t, func() bool {
+		var waiting int
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+			`SELECT count(*) FROM pg_stat_activity WHERE wait_event_type = 'Lock' AND query LIKE '%LockInstanceForAddons%'`).Scan(&waiting))
+		return waiting == 1
+	}, 10*time.Second, 10*time.Millisecond, "the add-on write waits on the instance the move holds")
+	require.NoError(t, move.Commit(t.Context()))
+
+	select {
+	case got := <-status:
+		require.Equal(t, fiber.StatusOK, got, "the instance and its add-on are still there, on the new version")
+	case <-time.After(10 * time.Second):
+		require.Fail(t, "the add-on write never returned")
+	}
+}

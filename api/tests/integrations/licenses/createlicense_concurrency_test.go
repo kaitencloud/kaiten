@@ -147,16 +147,20 @@ func TestCreateLicense_TriggerNumbersConcurrentInsertsOnItsOwn(t *testing.T) {
 			defer func() { _ = tx.Rollback(context.Background()) }()
 
 			row, err := db.New(tx).CreateLicense(t.Context(), db.CreateLicenseParams{
-				Name:           "Raw Concurrent Family",
-				Slug:           fmt.Sprintf("raw-concurrent-%d", i),
-				Description:    "Inserted without the repository's lock",
-				Type:           db.LicenseTypeDEVELOPMENT,
-				VersionName:    nil,
-				IsDefault:      false,
-				Features:       nil,
-				OrganizationID: testDb.DefaultData.OrganizationID,
-				FamilyID:       first.FamilyID,
-				LifecycleState: db.LicenseLifecycleStatePUBLISHED,
+				PricingType:           db.PricingTypeCUSTOM,
+				TrialPeriodDays:       nil,
+				RequiresPaymentMethod: false,
+				SelfServeCtaUrl:       nil,
+				Name:                  "Raw Concurrent Family",
+				Slug:                  fmt.Sprintf("raw-concurrent-%d", i),
+				Description:           "Inserted without the repository's lock",
+				Type:                  db.LicenseTypeDEVELOPMENT,
+				VersionName:           nil,
+				IsDefault:             false,
+				Features:              nil,
+				OrganizationID:        testDb.DefaultData.OrganizationID,
+				FamilyID:              first.FamilyID,
+				LifecycleState:        db.LicenseLifecycleStatePUBLISHED,
 			})
 			if err != nil {
 				errs[i] = err

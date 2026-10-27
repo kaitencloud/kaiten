@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createOutboxEvent = `-- name: CreateOutboxEvent :exec
@@ -18,26 +19,30 @@ INSERT INTO outbox_events (organization_id,
                            data,
                            headers,
                            traceparent,
-                           tracestate)
+                           tracestate,
+                           occurred_at)
 VALUES ($1,
     $2,
     $3,
     $4,
     $5,
     $6,
-    $7)
+    $7,
+    COALESCE($8::timestamptz, now()))
 `
 
 type CreateOutboxEventParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	EventName      string    `json:"event_name"`
-	EventType      string    `json:"event_type"`
-	Data           []byte    `json:"data"`
-	Headers        []byte    `json:"headers"`
-	Traceparent    string    `json:"traceparent"`
-	Tracestate     *string   `json:"tracestate"`
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	EventName      string             `json:"event_name"`
+	EventType      string             `json:"event_type"`
+	Data           []byte             `json:"data"`
+	Headers        []byte             `json:"headers"`
+	Traceparent    string             `json:"traceparent"`
+	Tracestate     *string            `json:"tracestate"`
+	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
 }
 
+// occurred_at NULL means the column default, the writing transaction's now().
 func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventParams) error {
 	_, err := q.db.Exec(ctx, createOutboxEvent,
 		arg.OrganizationID,
@@ -47,6 +52,7 @@ func (q *Queries) CreateOutboxEvent(ctx context.Context, arg CreateOutboxEventPa
 		arg.Headers,
 		arg.Traceparent,
 		arg.Tracestate,
+		arg.OccurredAt,
 	)
 	return err
 }
@@ -59,6 +65,17 @@ type CreateOutboxEventsParams struct {
 	Headers        []byte    `json:"headers"`
 	Traceparent    string    `json:"traceparent"`
 	Tracestate     *string   `json:"tracestate"`
+}
+
+type CreateOutboxEventsAtParams struct {
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	EventName      string             `json:"event_name"`
+	EventType      string             `json:"event_type"`
+	Data           []byte             `json:"data"`
+	Headers        []byte             `json:"headers"`
+	Traceparent    string             `json:"traceparent"`
+	Tracestate     *string            `json:"tracestate"`
+	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
 }
 
 const deleteOutboxEvent = `-- name: DeleteOutboxEvent :exec
@@ -115,6 +132,23 @@ func (q *Queries) GetPendingOutboxEventsWithOrg(ctx context.Context, batchSize i
 		return nil, err
 	}
 	return items, nil
+}
+
+const getSystemUserID = `-- name: GetSystemUserID :one
+SELECT id
+FROM "user"
+WHERE external_id = 'system:kaiten'
+  AND deleted_at IS NULL
+`
+
+// system:kaiten's user, the actor of the work Kaiten does on its own behalf
+// (platformidentity.ExternalID), resolved by its identity rather than by the
+// constant id an older row may not have.
+func (q *Queries) GetSystemUserID(ctx context.Context) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getSystemUserID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const listOutboxEvents = `-- name: ListOutboxEvents :many

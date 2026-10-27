@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { createDevMockConfig } from '@/e2e/msw/dev-world';
+import { createMockHandlers, undeclaredApiRequest } from '@/e2e/msw/handlers';
+import { server } from './msw-server';
 
 // The records of `pnpm run dev:mock` (src/e2e/msw/dev-world), tested here
 // rather than beside them: the unit project leaves out every e2e/ folder.
@@ -24,6 +26,12 @@ const entitlementSlugs = new Set(
   slot(config.entitlements).entitlements.map(({ slug }) => slug),
 );
 const instanceSlugs = new Set(instanceSlot.instances.map(({ slug }) => slug));
+const customerSlugs = new Set(
+  slot(config.customers).customers?.map(({ slug }) => slug),
+);
+const invoiceIds = new Set(
+  slot(slot(config.billing).invoices).invoices.map(({ id }) => id),
+);
 const zoneIds = new Set(releaseManagement.deploymentZones.map(({ id }) => id));
 const releaseIds = new Set(releaseManagement.releases.map(({ id }) => id));
 
@@ -31,6 +39,7 @@ describe('dev world', () => {
   it('seeds every area of the console', () => {
     expect(Object.keys(config).sort()).toEqual([
       'auditTrail',
+      'billing',
       'connectors',
       'customers',
       'dashboard',
@@ -100,13 +109,569 @@ describe('dev world', () => {
       []) {
       const instance = /^\/customers\/instances\/([^/]+)/.exec(actionUrl);
       const release = /^\/releases\/([^/]+)$/.exec(actionUrl);
+      const invoice = /^\/invoices\/([^/]+)$/.exec(actionUrl);
+      const customer = /^\/customers\/([^/]+)$/.exec(actionUrl);
       if (instance) {
         expect(instanceSlugs).toContain(instance[1]);
       }
       if (release) {
         expect(releaseSlugs).toContain(release[1]);
       }
+      if (invoice) {
+        expect(invoiceIds).toContain(invoice[1]);
+      }
+      if (customer) {
+        expect(customerSlugs).toContain(customer[1]);
+      }
     }
+  });
+
+  it('turns billing on, with NoOp and a connected Stripe to collect invoices', () => {
+    const { capabilities, outage } = slot(config.billing);
+
+    expect(outage).toBeNull();
+    expect(capabilities.enabled).toBe(true);
+    expect(capabilities.providers.map(({ kind }) => kind)).toEqual([
+      'NOOP',
+      'STRIPE',
+    ]);
+    expect(
+      capabilities.providers.find(({ kind }) => kind === 'STRIPE'),
+    ).toMatchObject({ connected: true, livemode: false });
+    // As the API serves them: the release ships these three, whatever Stripe can
+    // do here, and the public surface is on wherever billing is.
+    expect(capabilities.features).toMatchObject({
+      chargeAutomatically: true,
+      publicSurface: true,
+      stripe: true,
+    });
+    expect(capabilities.publicSurface.enabled).toBe(true);
+  });
+
+  it('prices the versions of the licenses, and only what they grant', () => {
+    const { grants, prices } = slot(config.licenses).pricing;
+    const licenseSlugs = new Set(
+      slot(config.licenses).licenses.map(({ slug }) => slug),
+    );
+
+    expect(Object.keys(prices).length).toBeGreaterThan(0);
+    for (const [slug, versionPrices] of Object.entries(prices)) {
+      expect(licenseSlugs).toContain(slug);
+      // One currency per version, and no deprecated price that is a default.
+      expect(new Set(versionPrices.map(({ currency }) => currency)).size).toBe(1);
+      for (const price of versionPrices) {
+        expect(price.status === 'DEPRECATED' && price.isDefault).toBe(false);
+        if (price.metered) {
+          expect(
+            grants.some(
+              (grant) =>
+                grant.licenseSlug === slug &&
+                grant.entitlementSlug === price.metered?.entitlementSlug,
+            ),
+            `${slug} meters ${price.metered.entitlementSlug} without granting it`,
+          ).toBe(true);
+        }
+      }
+      // At most one default per billing period.
+      const defaults = versionPrices
+        .filter((price) => price.isDefault)
+        .map(({ billingPeriod }) => billingPeriod);
+      expect(new Set(defaults).size).toBe(defaults.length);
+    }
+    for (const slug of slot(config.licenses).pricing.billedVersions) {
+      expect(licenseSlugs).toContain(slug);
+    }
+  });
+
+  it('holds the rules of the API on the commercial terms it seeds: a free version prices 0, a trial lasts 1 to 365 days', () => {
+    const { licenses, pricing } = slot(config.licenses);
+
+    for (const license of licenses) {
+      if (license.trialPeriodDays !== undefined && license.trialPeriodDays !== null) {
+        expect(license.trialPeriodDays).toBeGreaterThanOrEqual(1);
+        expect(license.trialPeriodDays).toBeLessThanOrEqual(365);
+      }
+      if (license.pricingType === 'FREE') {
+        // Deprecated prices count: they still bill the subscriptions pinned to them.
+        for (const price of pricing.prices[license.slug ?? license.id] ?? []) {
+          expect(Number(price.unitAmountDecimal), `${license.slug} is FREE`).toBe(0);
+        }
+      }
+    }
+  });
+
+  it('lists in the public catalog the family that is sold self-serve, and Business, which names no fallback', () => {
+    const { familySettings, licenses, publicFamilyIds } = slot(config.licenses);
+    const families = new Set(licenses.map(({ familyId }) => familyId));
+
+    expect(publicFamilyIds).toEqual(['family-starter', 'family-business']);
+    for (const familyId of publicFamilyIds ?? []) {
+      expect(families).toContain(familyId);
+      // It has a published default version, which is what the catalogue serves.
+      expect(
+        licenses.some(
+          (license) =>
+            license.familyId === familyId &&
+            license.isDefault &&
+            license.lifecycleState === 'PUBLISHED',
+        ),
+      ).toBe(true);
+    }
+    // Starter falls back to Trial. Business is public and paid with no fallback, so that the
+    // console shows what it says of a family that cannot be sold through an anonymous checkout.
+    expect(familySettings?.['family-starter']?.fallbackLicenseFamilySlug).toBe('trial');
+    expect(familySettings?.['family-business']).toBeUndefined();
+    expect(
+      licenses.some(
+        (license) => license.familyId === 'family-business' && license.pricingType === 'PAID',
+      ),
+    ).toBe(true);
+  });
+
+  it('subscribes only instances of the world, to a flat fee of the version they run', () => {
+    const { catalogue, subscriptions } = slot(slot(config.billing).subscriptions);
+    const licenseOfInstance = new Map(
+      catalogue.instances.map(({ instanceSlug, licenseSlug }) => [
+        instanceSlug,
+        licenseSlug,
+      ]),
+    );
+
+    expect(subscriptions.length).toBeGreaterThan(0);
+    for (const subscription of subscriptions) {
+      expect(instanceSlugs).toContain(subscription.instanceSlug);
+      expect(customerSlugs).toContain(subscription.customerSlug);
+      const licenseSlug = licenseOfInstance.get(subscription.instanceSlug) ?? '';
+      const price = catalogue.prices[licenseSlug]?.find(
+        ({ id }) => id === subscription.basePrice.id,
+      );
+      expect(
+        price,
+        `${subscription.instanceSlug} is pinned to a price its version does not have`,
+      ).toBeDefined();
+      expect(price?.billingModel).toBe('FLAT_FEE');
+    }
+  });
+
+  it('sells add-ons in every state, that grant entitlements of the catalogue and fit license families of the world', () => {
+    const { addonCatalogue, capabilities } = slot(config.billing);
+    const catalogue = slot(addonCatalogue);
+    const versionSlugs = new Set(catalogue.versions.map(({ slug }) => slug));
+    const families = new Set(
+      slot(config.licenses).licenses.map(({ familyId }) =>
+        familyId?.replace(/^family-/, ''),
+      ),
+    );
+
+    expect(capabilities.features.addons).toBe(true);
+    expect(new Set(catalogue.versions.map((version) => version.lifecycleState))).toEqual(
+      new Set(['ARCHIVED', 'DRAFT', 'PUBLISHED']),
+    );
+    expect(new Set(catalogue.versions.map((version) => version.pricingType))).toEqual(
+      new Set(['CUSTOM', 'FREE', 'PAID']),
+    );
+    // A family lists in the public catalog, and another does not.
+    expect(catalogue.publicFamilies.length).toBeGreaterThan(0);
+    expect(
+      catalogue.versions.some(
+        ({ familySlug }) => !catalogue.publicFamilies.includes(familySlug),
+      ),
+    ).toBe(true);
+    for (const family of catalogue.licenseFamilies) {
+      expect(families).toContain(family);
+    }
+    for (const [slug, grants] of Object.entries(catalogue.grants)) {
+      expect(versionSlugs).toContain(slug);
+      for (const grant of grants) {
+        expect(entitlementSlugs).toContain(grant.entitlementSlug);
+      }
+    }
+    for (const [slug, compatible] of Object.entries(catalogue.compatibility)) {
+      expect(versionSlugs).toContain(slug);
+      for (const family of compatible) {
+        expect(catalogue.licenseFamilies).toContain(family);
+      }
+    }
+    for (const [slug, prices] of Object.entries(catalogue.prices)) {
+      expect(versionSlugs).toContain(slug);
+      // A price is only on a version that is sold, with one currency, and at most one default per period.
+      expect(
+        catalogue.versions.find((version) => version.slug === slug)?.pricingType,
+      ).toBe('PAID');
+      expect(new Set(prices.map(({ currency }) => currency)).size).toBe(1);
+      for (const price of prices) {
+        expect(price.status === 'DEPRECATED' && price.isDefault).toBe(false);
+        // A metered price measures an entitlement the version grants, in arrears, and
+        // is never a default.
+        if (price.billingModel === 'FLAT_FEE') {
+          continue;
+        }
+        expect(price.billingTiming).toBe('ARREARS');
+        expect(price.isDefault).toBe(false);
+        expect(
+          catalogue.grants[slug]?.map(({ entitlementSlug }) => entitlementSlug),
+        ).toContain(price.metered?.entitlementSlug);
+      }
+      const defaults = prices
+        .filter((price) => price.isDefault)
+        .map(({ billingPeriod }) => billingPeriod);
+      expect(new Set(defaults).size).toBe(defaults.length);
+    }
+  });
+
+  it('attaches add-ons only to instances whose license family they fit, at the price of the period their subscription bills', () => {
+    const billing = slot(config.billing);
+    const catalogue = slot(billing.addonCatalogue);
+    const { catalogue: billed, instanceAddons, subscriptions } = slot(
+      billing.subscriptions,
+    );
+    const attachments = slot(instanceAddons).attachments;
+
+    expect(Object.keys(attachments).length).toBeGreaterThan(0);
+    for (const [instanceSlug, held] of Object.entries(attachments)) {
+      expect(instanceSlugs).toContain(instanceSlug);
+      const family = billed.instances.find(
+        (instance) => instance.instanceSlug === instanceSlug,
+      )?.licenseFamilySlug;
+      const subscription = subscriptions.find(
+        (candidate) => candidate.instanceSlug === instanceSlug,
+      );
+      // An instance holds add-ons through a subscription, ended or not.
+      expect(subscription, `${instanceSlug} holds add-ons and is not billed`).toBeDefined();
+      for (const attached of held) {
+        const version = catalogue.versions.find(
+          ({ slug }) => slug === attached.addonSlug,
+        );
+        expect(version, `${attached.addonSlug} is not in the catalogue`).toBeDefined();
+        expect(catalogue.compatibility[attached.addonSlug]).toContain(family);
+        expect(attached.quantity).toBeLessThanOrEqual(
+          version?.maxQuantity ?? Number.POSITIVE_INFINITY,
+        );
+        for (const price of attached.prices) {
+          expect(catalogue.prices[attached.addonSlug]).toContainEqual(price);
+          // A flat fee is of the period the subscription bills; a metered price has none.
+          expect(price.billingPeriod).toBe(
+            price.billingModel === 'FLAT_FEE'
+              ? subscription?.billingPeriod
+              : null,
+          );
+        }
+      }
+    }
+  });
+
+  it('includes the add-ons an instance holds in the limits it shows', () => {
+    const limitOf = (instanceSlug: string, entitlementSlug: string) =>
+      instanceSlot.entitlementUsagesByInstance[instanceSlug]?.find(
+        (usage) => usage.entitlementSlug === entitlementSlug,
+      )?.limit;
+
+    // Starter grants ten seats, two units of five were attached, and a voucher doubles it.
+    expect(limitOf('globex-staging', 'seats')).toEqual({ type: 'number', value: 40 });
+    // An instance that holds nothing keeps what its license grants.
+    expect(limitOf('gamma-production', 'seats')).toEqual({ type: 'number', value: 10 });
+  });
+
+  it('says why a limit is what it is: the license, the add-ons and a voucher of one instance, and the license alone elsewhere', () => {
+    const usageOf = (instanceSlug: string, entitlementSlug: string) =>
+      instanceSlot.entitlementUsagesByInstance[instanceSlug]?.find(
+        (usage) => usage.entitlementSlug === entitlementSlug,
+      );
+
+    // Globex Staging: ten seats from the license, two add-ons of five, doubled.
+    const composed = usageOf('globex-staging', 'seats');
+    expect(composed?.source).toBe('license');
+    expect(composed?.provenance?.addons).toMatchObject([
+      { overrideBehavior: 'ADD', quantity: 2, value: { type: 'number', value: 5 } },
+    ]);
+    expect(composed?.provenance?.boosts).toMatchObject([
+      { modifierType: 'MULTIPLY', modifierValue: 2 },
+    ]);
+    expect(composed?.provenance?.number).toMatchObject({
+      afterAddons: 20,
+      boostMultiply: 2,
+      effective: 40,
+      license: 10,
+      unlimited: false,
+    });
+    // An instance that holds nothing: the license's grant, and no composition.
+    const identity = usageOf('gamma-production', 'seats');
+    expect(identity?.source).toBe('license');
+    expect(identity?.provenance?.license).toMatchObject({
+      value: { type: 'number', value: 10 },
+    });
+    expect(identity?.provenance?.addons).toEqual([]);
+    expect(identity?.provenance?.boosts).toEqual([]);
+    expect(identity?.provenance?.number).toBeNull();
+    // A voucher never shows its code.
+    expect(JSON.stringify(composed?.provenance)).not.toMatch(/DOUBLE-SEATS/);
+  });
+
+  it('issues publishable keys that are live or revoked, and holds only the last four characters of each', () => {
+    const { keys } = slot(slot(config.billing).publishableKeys);
+
+    expect(keys.filter(({ revokedAt }) => !revokedAt)).not.toHaveLength(0);
+    expect(keys.filter(({ revokedAt }) => revokedAt)).not.toHaveLength(0);
+    // A live key that no browser origin may send is a real case (server-side rendering).
+    expect(keys.some(({ allowedOrigins }) => allowedOrigins.length === 0)).toBe(
+      true,
+    );
+    for (const key of keys) {
+      expect(key.keyHint).toHaveLength(4);
+      expect(JSON.stringify(key)).not.toContain('pk_');
+      for (const origin of key.allowedOrigins) {
+        expect(origin).toMatch(/^https:\/\/|^http:\/\/localhost(:\d+)?$/);
+      }
+    }
+  });
+
+  it('issues vouchers of both types in every state, that name customers, licenses and prices of the world', () => {
+    const billing = slot(config.billing);
+    const { redemptions, vouchers } = slot(billing.voucherCatalogue);
+    const addonCatalogue = slot(billing.addonCatalogue);
+    const { catalogue } = slot(billing.subscriptions);
+    const priceIds = new Set(
+      Object.values(catalogue.prices).flatMap((prices) =>
+        prices.map(({ id }) => id),
+      ),
+    );
+    const addonPriceIds = new Set(
+      Object.values(addonCatalogue.prices).flatMap((prices) =>
+        prices.map(({ id }) => id),
+      ),
+    );
+    const addonIds = new Set(addonCatalogue.versions.map(({ id }) => id));
+
+    expect(billing.capabilities.features.vouchers).toBe(true);
+    expect(new Set(vouchers.map(({ voucherType }) => voucherType))).toEqual(
+      new Set(['ENTITLEMENT_BOOST', 'PRICE']),
+    );
+    expect(new Set(vouchers.map(({ status }) => status))).toEqual(
+      new Set(['ACTIVE', 'ARCHIVED', 'DRAFT', 'EXHAUSTED', 'EXPIRED']),
+    );
+    // One whose window closed, which the API marked EXPIRED.
+    expect(
+      vouchers.some(
+        ({ expiresAt, status }) =>
+          status === 'EXPIRED' && expiresAt && Date.parse(expiresAt) < Date.now(),
+      ),
+    ).toBe(true);
+    for (const voucher of vouchers) {
+      if (voucher.restrictedCustomerSlug) {
+        expect(customerSlugs).toContain(voucher.restrictedCustomerSlug);
+      }
+      for (const id of voucher.applicableLicenseIds) {
+        expect(licenseIds).toContain(id);
+      }
+      for (const id of voucher.applicableLicensePriceIds) {
+        expect(priceIds).toContain(id);
+      }
+      for (const id of voucher.applicableAddonIds) {
+        expect(addonIds).toContain(id);
+      }
+      for (const id of voucher.applicableAddonPriceIds) {
+        expect(addonPriceIds).toContain(id);
+      }
+      for (const grant of voucher.grants) {
+        expect(entitlementSlugs).toContain(grant.entitlementSlug);
+      }
+    }
+    // A redemption is of a voucher of the world, by an instance of the world, and the
+    // vouchers count them.
+    for (const redemption of redemptions) {
+      expect(instanceSlugs).toContain(redemption.instanceSlug);
+      expect(
+        vouchers.find(({ id }) => id === redemption.voucherId)?.voucherType,
+      ).toBe(redemption.voucherType);
+    }
+    for (const voucher of vouchers) {
+      expect(
+        redemptions.filter(({ voucherId }) => voucherId === voucher.id).length,
+        `${voucher.name} counts the redemptions it lists`,
+      ).toBe(voucher.redemptionsCount);
+    }
+    // Redemptions in every status.
+    expect(new Set(redemptions.map(({ status }) => status))).toEqual(
+      new Set(['ACTIVE', 'EXPIRED', 'REVOKED']),
+    );
+  });
+
+  it('discounts the invoice of an agreement with the line its redemption names, and includes a boost in the limits it shows', () => {
+    const { invoices } = slot(slot(config.billing).invoices);
+    const { redemptions } = slot(slot(config.billing).voucherCatalogue);
+    const discounts = invoices.flatMap(({ lines }) =>
+      lines.filter(({ type }) => type === 'DISCOUNT'),
+    );
+
+    expect(discounts.length).toBeGreaterThan(0);
+    for (const line of discounts) {
+      expect(
+        redemptions.find(({ id }) => id === line.instanceVoucherId),
+        'a discount line names a redemption of the world',
+      ).toBeDefined();
+    }
+    const discounted = invoices.find(({ lines }) =>
+      lines.some(({ type }) => type === 'DISCOUNT'),
+    );
+    expect(discounted?.discountTotal).toBeGreaterThan(0);
+    expect(discounted?.total).toBe(
+      (discounted?.subtotal ?? 0) - (discounted?.discountTotal ?? 0),
+    );
+    // Business grants a hundred thousand calls and the boost of Globex Production adds fifty thousand.
+    expect(
+      instanceSlot.entitlementUsagesByInstance['globex-production']?.find(
+        ({ entitlementSlug }) => entitlementSlug === 'api-calls',
+      )?.limit,
+    ).toEqual({ type: 'number', value: 150_000 });
+  });
+
+  it('bills the add-ons of an instance on the invoices as the API does: over the window they were held, and the one removed before the boundary too', () => {
+    const billing = slot(config.billing);
+    const { invoices, lineReports } = slot(billing.invoices);
+    const { instanceAddons, upcoming } = slot(billing.subscriptions);
+    const { prices } = slot(billing.addonCatalogue);
+    const addonPriceIds = new Set(
+      Object.values(prices).flatMap((list) => list.map(({ id }) => id)),
+    );
+    const held = (instanceSlug: string) =>
+      slot(instanceAddons).attachments[instanceSlug] ?? [];
+    const addonLines = invoices.flatMap((invoice) =>
+      invoice.lines
+        .filter((line) => line.instanceAddonId !== null)
+        .map((line) => ({ invoice, line })),
+    );
+
+    expect(addonLines.length).toBeGreaterThan(0);
+    for (const { invoice, line } of addonLines) {
+      // The price is an add-on's, and a line of an add-on has no license price.
+      expect(addonPriceIds).toContain(line.addonPriceId);
+      expect(line.licensePriceId).toBeNull();
+      // The attachment is one the instance has held, whether it still holds it or not,
+      // and the line bills the window it was held, inside the period of the invoice.
+      const attachment = held(invoice.instanceSlug).find(
+        ({ id }) => id === line.instanceAddonId,
+      );
+      expect(attachment, `${line.label} names no attachment`).toBeDefined();
+      expect(Date.parse(line.serviceFrom)).toBeGreaterThanOrEqual(
+        Date.parse(attachment?.attachedAt ?? ''),
+      );
+      if (attachment?.removedAt) {
+        expect(Date.parse(line.serviceTo)).toBeLessThanOrEqual(
+          Date.parse(attachment.removedAt),
+        );
+      }
+    }
+    // The usage an add-on rated has reports behind it, as a license's has.
+    const usage = addonLines.find(({ line }) => line.type === 'USAGE');
+    expect(usage?.line.metering?.ledger?.rows).toBeGreaterThan(0);
+    expect(lineReports?.[usage?.line.id ?? '']?.length).toBe(
+      usage?.line.metering?.ledger?.rows,
+    );
+    // An attachment that was taken off before the boundary is on the invoice of that boundary.
+    expect(
+      addonLines.some(({ invoice, line }) => {
+        const removedAt = held(invoice.instanceSlug).find(
+          ({ id }) => id === line.instanceAddonId,
+        )?.removedAt;
+
+        return (
+          removedAt != null &&
+          Date.parse(removedAt) < Date.parse(invoice.boundaryAt)
+        );
+      }),
+    ).toBe(true);
+    // And the upcoming invoice of an instance carries the usage so far of an add-on too.
+    expect(
+      Object.values(upcoming).some(({ lines }) =>
+        lines.some(
+          ({ addonPriceId, licensePriceId, type }) =>
+            type === 'USAGE' && addonPriceId !== null && licensePriceId === null,
+        ),
+      ),
+    ).toBe(true);
+  });
+
+  it('keeps a subscription that ended and an instance to subscribe, so that every state of the tab can be tried', () => {
+    const { catalogue, subscriptions, upcoming } = slot(
+      slot(config.billing).subscriptions,
+    );
+    const subscribed = new Set(subscriptions.map(({ instanceSlug }) => instanceSlug));
+
+    expect(subscriptions.map(({ status }) => status)).toEqual(
+      expect.arrayContaining(['ACTIVE', 'CANCELED', 'PAST_DUE', 'TRIAL']),
+    );
+    // A cancellation waiting for the boundary, and a plan change waiting for it.
+    expect(subscriptions.some(({ cancelAtPeriodEnd }) => cancelAtPeriodEnd)).toBe(
+      true,
+    );
+    expect(subscriptions.some(({ scheduledChange }) => scheduledChange)).toBe(
+      true,
+    );
+    // One that nobody bills yet, on a version that is on sale and has a price.
+    expect(
+      catalogue.instances.some(
+        ({ instanceSlug, licenseSlug, licenseState }) =>
+          !subscribed.has(instanceSlug) &&
+          licenseState === 'PUBLISHED' &&
+          (catalogue.prices[licenseSlug] ?? []).some(
+            ({ billingModel, status }) =>
+              billingModel === 'FLAT_FEE' && status === 'ACTIVE',
+          ),
+      ),
+    ).toBe(true);
+    // What the next boundary issues is told only of a subscription that lives.
+    for (const slug of Object.keys(upcoming)) {
+      expect(
+        ['ACTIVE', 'PAST_DUE', 'TRIAL'],
+        `${slug} has an upcoming invoice and does not live`,
+      ).toContain(
+        subscriptions.find(({ instanceSlug }) => instanceSlug === slug)?.status,
+      );
+    }
+  });
+
+  it('keeps from deletion what bills, and tells which invoices are not settled', () => {
+    const { billingBlocks } = instanceSlot;
+    const { subscriptions } = slot(slot(config.billing).subscriptions);
+    const subscribed = new Set(subscriptions.map(({ instanceSlug }) => instanceSlug));
+
+    for (const [slug, block] of Object.entries(billingBlocks ?? {})) {
+      expect(subscribed).toContain(slug);
+      expect(['ACTIVE', 'CANCELED', 'TRIAL', 'PAST_DUE']).toContain(block.status);
+    }
+    for (const [slug, block] of Object.entries(
+      slot(config.customers).billingBlocks ?? {},
+    )) {
+      expect(customerSlugs).toContain(slug);
+      expect(block.unpaidInvoiceIds.length > 0 || block.live).toBe(true);
+    }
+  });
+
+  it('keeps a journal of usage only for counters the instances report, more than a page of it for one, inside what is kept', () => {
+    const { retentionStart, usageReports } = slot(instanceSlot.usageHistory);
+    const sizes: number[] = [];
+
+    expect(retentionStart).toBeDefined();
+    for (const [instance, byEntitlement] of Object.entries(usageReports)) {
+      expect(instanceSlugs).toContain(instance);
+      for (const [entitlement, reports] of Object.entries(byEntitlement)) {
+        expect(entitlementSlugs).toContain(entitlement);
+        sizes.push(reports.length);
+        const seqs = reports.map(({ reportSeq }) => reportSeq);
+        expect(seqs).toEqual([...seqs].sort((left, right) => left - right));
+        expect(new Set(seqs).size).toBe(seqs.length);
+      }
+    }
+    expect(Math.max(...sizes)).toBeGreaterThan(100);
+  });
+
+  it('gives a customer a billing e-mail, and leaves another without one', () => {
+    const emails = slot(config.customers).customers?.map(
+      ({ billingEmail }) => billingEmail,
+    );
+
+    expect(emails?.some(Boolean)).toBe(true);
+    expect(emails?.some((email) => !email)).toBe(true);
   });
 
   it('counts on the dashboard what the lists show', () => {
@@ -114,5 +679,43 @@ describe('dev world', () => {
     expect(data.customers).toHaveLength(customerIds.size);
     expect(data.instances).toHaveLength(instanceSlugs.size);
     expect(data.licenses).toHaveLength(licenseIds.size);
+  });
+});
+
+// The API works out where the kept usage begins on every request, from its clock, to
+// the millisecond: the start a refusal names is behind the next request, and a `from`
+// set to it is refused again. A start that stayed put hid it from dev:mock.
+describe('dev world, where the kept usage begins', () => {
+  const exportFrom = async (from: string) => {
+    const response = await fetch(
+      `http://api.test/api/usage/reports/export?format=csv&from=${from}&to=${new Date().toISOString()}`,
+    );
+
+    return {
+      body: (await response.json().catch(() => ({}))) as {
+        code?: string;
+        errors?: Array<{ value?: string }>;
+      },
+      status: response.status,
+    };
+  };
+
+  it('refuses a from set to the start it named, as the start has moved on', async () => {
+    server.use(
+      ...createMockHandlers(createDevMockConfig(), 'off', undefined, true),
+      undeclaredApiRequest,
+    );
+
+    const first = await exportFrom('2000-01-01T00:00:00.000Z');
+    const named = first.body.errors?.[0]?.value ?? '';
+    const second = await exportFrom(named);
+
+    expect(first.status).toBe(422);
+    expect(first.body.code).toBe('ExportUsageReports.OutsideRetention');
+    expect(second.status).toBe(422);
+    expect(second.body.code).toBe('ExportUsageReports.OutsideRetention');
+    expect(Date.parse(second.body.errors?.[0]?.value ?? '')).toBeGreaterThan(
+      Date.parse(named),
+    );
   });
 });

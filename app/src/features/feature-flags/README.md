@@ -13,16 +13,16 @@ The variants editor, the targeting editor and the rollout controls are folders o
 
 ## Routes
 
-| Path | Route file |
-| --- | --- |
-| `/feature-flags` (search `view`: `list` or `table`, default `table`) | `app/src/routes/feature-flags/index.tsx` |
-| `/feature-flags/new` | `app/src/routes/feature-flags/new/index.tsx` |
-| `/feature-flags/$featureFlagSlug` (Overview tab) | `app/src/routes/feature-flags/$featureFlagSlug/route.tsx` (layout) and `index.tsx` |
-| `/feature-flags/$featureFlagSlug?mode=configure` | the same layout, which renders the edit form instead of the detail page |
-| `/feature-flags/$featureFlagSlug/variants` | `app/src/routes/feature-flags/$featureFlagSlug/variants.tsx` |
-| `/feature-flags/$featureFlagSlug/targeting` | `app/src/routes/feature-flags/$featureFlagSlug/targeting.tsx` |
-| `/feature-flags/$featureFlagSlug/evaluation` | `app/src/routes/feature-flags/$featureFlagSlug/evaluation.tsx` |
-| `/feature-flags/$featureFlagSlug/audit-trail` | `app/src/routes/feature-flags/$featureFlagSlug/audit-trail.tsx`, which redirects to the Overview |
+| Path                                                                 | Route file                                                                                       |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/feature-flags` (search `view`: `list` or `table`, default `table`) | `app/src/routes/feature-flags/index.tsx`                                                         |
+| `/feature-flags/new`                                                 | `app/src/routes/feature-flags/new/index.tsx`                                                     |
+| `/feature-flags/$featureFlagSlug` (Overview tab)                     | `app/src/routes/feature-flags/$featureFlagSlug/route.tsx` (layout) and `index.tsx`               |
+| `/feature-flags/$featureFlagSlug?mode=configure`                     | the same layout, which renders the edit form instead of the detail page                          |
+| `/feature-flags/$featureFlagSlug/variants`                           | `app/src/routes/feature-flags/$featureFlagSlug/variants.tsx`                                     |
+| `/feature-flags/$featureFlagSlug/targeting`                          | `app/src/routes/feature-flags/$featureFlagSlug/targeting.tsx`                                    |
+| `/feature-flags/$featureFlagSlug/evaluation`                         | `app/src/routes/feature-flags/$featureFlagSlug/evaluation.tsx`                                   |
+| `/feature-flags/$featureFlagSlug/audit-trail`                        | `app/src/routes/feature-flags/$featureFlagSlug/audit-trail.tsx`, which redirects to the Overview |
 
 The detail layout loads the flag in `beforeLoad` and in `loader`, and sets the breadcrumb title to the flag name. `mode` accepts only `configure`. The API cannot filter audit events by flag, so a flag has no audit tab. The URL still resolves.
 
@@ -71,7 +71,7 @@ Text uses the `Pages.FeatureFlags.*` keys, plus `Features.Targeting.*` and `Feat
 
 - **List.** `featureFlagsQueryOptions` is `allFeatureFlagsOptions()` from `app/src/lib/api/all-pages-query-options.ts`: the query key of the generated `getFeatureFlagsOptions()`, with a `queryFn` that walks every page. The route loader calls `ensureQueryData` on it.
 - **Detail.** `featureFlagQueryOptions(featureFlagSlug)` is the generated `getFeatureFlagOptions`. The detail layout reads it in `beforeLoad` and `loader` and with `useSuspenseQuery`.
-- **Mutations.** `createFeatureFlagMutation` and `updateFeatureFlagMutation` come from `@/api-client/@tanstack/react-query.gen`. The update endpoint is a full `PUT`: the switch on a card, the rename in the detail header and the form each send the whole flag. `evaluateFlagMutation` (`POST /ofrep/v1/evaluate/flags/{key}`, where the key is the flag slug) backs the Try it dialog.
+- **Mutations.** `createFeatureFlagMutation` comes from `@/api-client/@tanstack/react-query.gen`. The update endpoint is a full `PUT`: the switch on a card, the rename in the detail header and the form each go through `saveFeatureFlagOnFresh` (`queries/feature-flag-save.ts`), which reads the flag again and puts only what the form changed on top of it, so a switch flipped from the list does not take back the rules another tab saved (see [forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole)). `evaluateFlagMutation` (`POST /ofrep/v1/evaluate/flags/{key}`, where the key is the flag slug) backs the Try it dialog.
 - **Targeting support.** `getTargetingContextOptions` (`GET /feature-flags/targeting/context`), `lintTargetingRule` (`POST /feature-flags/targeting/lint`) and `testTargetingRule` (`POST /feature-flags/targeting/test`) serve the CEL editor. The Test dialog also reads `allInstancesOptions()` once it opens.
 - **Cache.** After an update, `mergeFeatureFlagIntoCache` writes the saved flag into the cached list (it replaces the flag, or puts it first when it is absent) and into the flag's detail entry. When the slug changed, it removes the detail entry of the old slug. `revalidateFeatureFlagsListQuery` then invalidates the list and swallows the error. A creation only revalidates the list.
 - **Not used.** The feature has no GraphQL document. The API also exposes `DELETE /feature-flags/{featureFlagSlug}`, which no screen calls.
@@ -151,7 +151,7 @@ import { VariantList } from '../../variants';
       }}
     />
   )}
-</form.AppField>
+</form.AppField>;
 ```
 
 - Each variant is an accordion item with a name, a description and a value. The value field follows the flag type: a disabled true or false select for `boolean`, a text field for `string`, a number field for `number` and a JSON editor for `object`. An `object` value that is not valid JSON fails validation (`objectVariantSchema` in `variants/schemas/variant.schema.ts`).

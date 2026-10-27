@@ -122,11 +122,16 @@ jobs:
   e2e_app:
     name: E2E App (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # A shard's tests take 13 to 22 minutes. Its setup takes about one, except
+    # when the Ubuntu mirror is slow: `playwright install --with-deps` then spends
+    # 6 to 14 minutes fetching fonts (23 MB at 39 kB/s), and two or three shards a
+    # run hit it. At 30 the slowest was cancelled in every run with a test left.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        # About 150 tests a shard: a shard ran past 30 minutes at 190 when the runner was slow to install its packages.
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     defaults:
       run:
         working-directory: app
@@ -165,7 +170,10 @@ jobs:
   browser_smoke:
     name: App Firefox and WebKit smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # The smoke takes a minute or two. Firefox and WebKit need more system
+    # packages than Chromium, so a slow Ubuntu mirror (see e2e_app) keeps this
+    # job's setup alone past 15 minutes: it never reached the tests twice in a row.
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: ./.github/actions/setup-app-e2e

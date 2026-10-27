@@ -35,6 +35,13 @@ type Command struct {
 	FamilySlug     *string               `json:"familySlug,omitempty"`
 	FamilyID       *uuid.UUID            `json:"familyId,omitempty"`
 	LifecycleState schema.LifecycleState `json:"lifecycleState,omitempty"`
+
+	// The commercial fields; zero values take the defaults (CUSTOM, no trial,
+	// no payment method required, no link).
+	PricingType           schema.PricingType `json:"pricingType,omitempty"`
+	TrialPeriodDays       *int32             `json:"trialPeriodDays,omitempty"`
+	RequiresPaymentMethod bool               `json:"requiresPaymentMethod,omitempty"`
+	SelfServeCtaURL       *string            `json:"selfServeCtaUrl,omitempty"`
 }
 
 // opensFamily reports whether the command creates a new product, rather than

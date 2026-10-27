@@ -1,11 +1,20 @@
 import { Button } from '@/components/ui/button';
 import { useMutation, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import type { License } from '@/api-client';
-import { updateLicenseMutation } from '@/api-client/@tanstack/react-query.gen';
+import {
+  type FormRecovery,
+  FormRecoveryAlert,
+  FormRecoveryAnnouncer,
+  FormRecoveryNotes,
+  FormRecoverySubmitWarning,
+  useFormRecovery,
+  useFormRecoveryForm,
+} from '@/functionals/form-recovery';
 import { Page } from '@/functionals/page';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import { useLicenseEntitlementsDraft } from '../../hooks/use-license-entitlements-draft';
@@ -13,17 +22,22 @@ import { useLicenseSave } from '../../hooks/use-license-save';
 import {
   entitlementsQueryOptions,
   invalidateLicenseQueries,
+  saveLicenseOnFresh,
 } from '../../queries';
 import { type LicenseFormValues, licenseFormSchema } from '../../schemas';
+import type { EditableLicenseEntitlement } from '../../utils';
 import type { AddEntitlementPayload } from '../entitlements/license-entitlements-card.types';
 import {
   licenseFormValuesToLicenseInput,
   licenseFormValuesToLicenseUpdateInput,
+  licenseToFormValues,
 } from './license-form.utils';
 import {
   DraftEntitlementsSection,
   LicenseMainSection,
 } from './license-form-sections';
+import { LicenseListLink } from './license-list-link';
+import { keepGrantableRows, licenseRecovery } from './license-recovery';
 
 export { licenseFormValuesToLicenseInput } from './license-form.utils';
 
@@ -42,26 +56,71 @@ type LicenseFormProps = {
   onSubmitted?: () => void;
 };
 
-export const LicenseForm = ({
+type LicenseRecovery = FormRecovery<
+  LicenseFormValues,
+  EditableLicenseEntitlement[]
+>;
+
+/**
+ * The page of a new license, and the edit of one. What a creation typed and did not
+ * send, its grants included, is kept on the device and offered back on the next visit
+ * (`licenseRecovery`); the door is opened here, outside the form, so that a resume
+ * mounts the form again on the restored values. The edit keeps nothing.
+ */
+export const LicenseForm = (props: LicenseFormProps) => {
+  const recovery = useFormRecovery(licenseRecovery, {
+    enabled: !props.license,
+    pristine: initialLicenseFormValues,
+  });
+
+  return (
+    <>
+      <FormRecoveryAnnouncer recovery={recovery} />
+      <LicenseFormContent
+        key={recovery.sessionKey}
+        {...props}
+        recovery={recovery}
+      />
+    </>
+  );
+};
+
+const LicenseFormContent = ({
   license,
   navigateOnSuccess = !license,
   onSubmitted,
-}: LicenseFormProps) => {
+  recovery,
+}: LicenseFormProps & { recovery: LicenseRecovery }) => {
   const { t } = useTranslation();
   const router = useRouter();
+  const { queryClient } = useRouteContext({ from: '__root__' });
+  const { data: entitlementsData } = useSuspenseQuery(entitlementsQueryOptions);
+  const entitlements = useMemo(
+    () => entitlementsData?.items ?? [],
+    [entitlementsData],
+  );
+  const [initialRows] = useState(() =>
+    keepGrantableRows(
+      recovery.restored?.extra,
+      new Set(entitlements.map((entitlement) => entitlement.id)),
+    ),
+  );
   const {
     addDraftEntitlement,
     draftEntitlements,
     removeDraftEntitlement,
     updateDraftEntitlementGrant,
-  } = useLicenseEntitlementsDraft();
-  const { queryClient } = useRouteContext({ from: '__root__' });
-  const { data: entitlementsData } = useSuspenseQuery(entitlementsQueryOptions);
-  const entitlements = entitlementsData?.items ?? [];
+  } = useLicenseEntitlementsDraft(initialRows);
   const { createLicenseWithGrants } = useLicenseSave(entitlements);
 
+  // The version as the form opened with it: what an update is compared with, to
+  // send only what was changed on top of the version as the API holds it now.
+  const [openedLicense] = useState(license);
+  const [openedValues] = useState(() =>
+    license ? licenseToFormValues(license) : recovery.pristine,
+  );
   const updateMutation = useMutation({
-    ...updateLicenseMutation(),
+    mutationFn: saveLicenseOnFresh,
     onSuccess: async () => {
       await invalidateLicenseQueries(queryClient, license?.slug);
       toast.success(t('Pages.Licenses.Mutation.Form.updateSuccess'));
@@ -72,22 +131,12 @@ export const LicenseForm = ({
     onSubmitted?.();
 
     if (navigateOnSuccess) {
-      router.navigate({ to: '/licenses' });
+      router.navigate({ to: '/catalog/licenses' });
     }
   };
 
   const form = useAppForm({
-    defaultValues: license
-      ? {
-          name: license.name,
-          description: license.description,
-          type: license.type,
-          versionName: license.versionName,
-          slug: license.slug ?? '',
-          // Unused on update: the form does not offer it there.
-          createAsDraft: false,
-        }
-      : initialLicenseFormValues,
+    defaultValues: openedValues,
     validators: {
       onChange: licenseFormSchema,
     },
@@ -98,21 +147,30 @@ export const LicenseForm = ({
             throw new Error('Missing license slug');
           }
 
+          // The same version builds both bodies, so they differ by the form only.
+          const base = openedLicense ?? license;
           await updateMutation.mutateAsync({
-            body: {
-              ...licenseFormValuesToLicenseUpdateInput(value, license),
-            },
-            path: { licenseSlug: license.slug },
+            edited: licenseFormValuesToLicenseUpdateInput(value, base),
+            licenseSlug: license.slug,
+            opened: licenseFormValuesToLicenseUpdateInput(openedValues, base),
           });
           handleNavigateSuccess();
           return;
         }
 
-        const { error, license: createdLicense } =
-          await createLicenseWithGrants({
-            body: licenseFormValuesToLicenseInput(value),
-            draftEntitlements,
-          });
+        // The body is built before the request, outside `send`. A license created and
+        // left a draft by a failed grant or publish is an accepted send: its own page
+        // is where the vendor finishes it, so the input is not offered again.
+        const body = licenseFormValuesToLicenseInput(value);
+        const { error, license: createdLicense } = await recovery.send(
+          () => createLicenseWithGrants({ body, draftEntitlements }),
+          {
+            created: (created) => ({
+              id: created.license.slug ?? created.license.id ?? '',
+              label: created.license.name,
+            }),
+          },
+        );
         await invalidateLicenseQueries(queryClient);
 
         // The license exists but stayed a draft: a grant or the publish
@@ -126,7 +184,7 @@ export const LicenseForm = ({
           onSubmitted?.();
           if (createdLicense.slug) {
             router.navigate({
-              to: '/licenses/$licenseSlug',
+              to: '/catalog/licenses/$licenseSlug',
               params: { licenseSlug: createdLicense.slug },
             });
           }
@@ -141,8 +199,19 @@ export const LicenseForm = ({
     },
   });
 
+  const { focusRef } = useFormRecoveryForm(recovery, form, {
+    extra: () => draftEntitlements,
+  });
+
+  // Cancelling a creation is a deliberate abandon, unlike leaving by a link: the
+  // input is discarded, and a toast offers to bring it back.
   const handleCancel = () => {
-    router.navigate({ to: '/licenses' });
+    if (!license) {
+      recovery.discard({
+        undo: () => void router.navigate({ to: '/catalog/licenses/new' }),
+      });
+    }
+    router.navigate({ to: '/catalog/licenses' });
   };
 
   function handleAddDraftEntitlement(payload: AddEntitlementPayload) {
@@ -158,7 +227,7 @@ export const LicenseForm = ({
     : t('Pages.Licenses.Mutation.Form.createButton');
 
   return (
-    <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+    <form ref={focusRef} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
       <form.AppForm>
         <Page>
           <Page.Header className="sticky top-0 z-20 border-b bg-app-background pb-4">
@@ -179,6 +248,17 @@ export const LicenseForm = ({
           </Page.Header>
 
           <div className="mt-6 space-y-6 pb-6">
+            {!license ? (
+              <>
+                <FormRecoveryAlert recovery={recovery}>
+                  <LicenseListLink />
+                </FormRecoveryAlert>
+                <FormRecoveryNotes recovery={recovery} />
+                <FormRecoverySubmitWarning recovery={recovery}>
+                  <LicenseListLink />
+                </FormRecoverySubmitWarning>
+              </>
+            ) : null}
             <LicenseMainSection
               disabled={disabled}
               form={form}

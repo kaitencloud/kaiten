@@ -21,6 +21,26 @@ const NO_INSTANCE = {
   instanceSlug: null,
 };
 
+// Who the API records an event under: a member of the organization, a member who is
+// called Kaiten (a person, not the platform: the console reads the kind), and Kaiten
+// itself, which records the jobs and the anonymous checkouts. Entries without one stand
+// for what was recorded before the API kept actors.
+const ADA = {
+  id: 'dev-user-ada',
+  kind: 'USER',
+  name: 'Ada Lovelace',
+} as const;
+const KAITEN_THE_PERSON = {
+  id: 'dev-user-kaiten',
+  kind: 'USER',
+  name: 'Kaiten',
+} as const;
+const KAITEN_THE_SYSTEM = {
+  id: '00000000-0000-0000-0000-000000000001',
+  kind: 'SYSTEM',
+  name: 'Kaiten (system)',
+} as const;
+
 /**
  * What the organization's audit trail recorded about the world: the usage
  * that the instances' entitlements tabs show, the flag changed minutes ago, the
@@ -80,6 +100,7 @@ export const createAuditTrail = ({
     },
     {
       ...NO_INSTANCE,
+      actor: ADA,
       eventName: 'FEATURE_FLAG_UPDATED',
       eventType: 'com.kaiten.feature_flag.v1.updated',
       id: 'dev-audit-08',
@@ -137,17 +158,28 @@ export const createAuditTrail = ({
         licenseId: 'license-trial-v1',
         licenseSlug: 'trial',
         limit: { type: 'number', value: 1_000 },
+        source: 'license',
         value: { event_count: 214, type: 'number', value: 1_000 },
       },
       timestamp: minutesAgo(200),
     },
     {
       ...NO_INSTANCE,
+      actor: KAITEN_THE_SYSTEM,
       customerName: gamma.name,
       eventName: 'CUSTOMER_CREATED',
       eventType: 'com.kaiten.customer.v1.created',
       id: 'dev-audit-04',
-      payload: { name: gamma.name, slug: gamma.slug },
+      payload: {
+        createdAt: gamma.createdAt,
+        createdBy: gamma.createdBy,
+        externalCustomerId: gamma.externalCustomerId ?? null,
+        id: gamma.id,
+        name: gamma.name,
+        slug: gamma.slug,
+        updatedAt: gamma.updatedAt,
+        updatedBy: gamma.updatedBy,
+      },
       timestamp: gamma.createdAt,
     },
     ...(lastDeployment
@@ -168,6 +200,7 @@ export const createAuditTrail = ({
       : []),
     {
       ...NO_INSTANCE,
+      actor: KAITEN_THE_PERSON,
       eventName: 'LICENSE_PUBLISHED',
       eventType: 'com.kaiten.license.v1.published',
       id: 'dev-audit-02',
@@ -209,6 +242,20 @@ const NEWS: Array<[number, NotificationContent]> = [
       title: 'Acme Production is close to its Seats limit',
     },
   ],
+  // Billing's news, with the titles and the links the API renders: the invoices are
+  // those Stripe holds for Acme US (stripe.ts), the card the one of Globex that is
+  // about to expire.
+  [
+    22,
+    {
+      actionUrl: '/invoices/inv-acme-us-renewal-4',
+      eventName: 'INSTANCE_INVOICE_PUSH_FAILED',
+      eventType: 'com.kaiten.instance.invoice.v1.push_failed',
+      objectType: 'instance',
+      title:
+        'An invoice of acme-us could not be pushed to its payment provider',
+    },
+  ],
   [
     48,
     {
@@ -221,6 +268,16 @@ const NEWS: Array<[number, NotificationContent]> = [
     },
   ],
   [
+    95,
+    {
+      actionUrl: '/invoices/inv-acme-us-renewal-2',
+      eventName: 'INSTANCE_INVOICE_RECONCILIATION_MISMATCH',
+      eventType: 'com.kaiten.instance.invoice.v1.reconciliation_mismatch',
+      objectType: 'instance',
+      title: 'An invoice of acme-us differs in its payment provider',
+    },
+  ],
+  [
     140,
     {
       actionUrl: instanceUrl('beta-staging'),
@@ -229,6 +286,16 @@ const NEWS: Array<[number, NotificationContent]> = [
       eventType: 'com.kaiten.instance.v1.status_changed',
       objectType: 'instance',
       title: 'Beta Staging is degraded',
+    },
+  ],
+  [
+    210,
+    {
+      actionUrl: '/customers/globex',
+      eventName: 'CUSTOMER_PAYMENT_METHOD_EXPIRING',
+      eventType: 'com.kaiten.customer.payment_method.v1.expiring',
+      objectType: 'customer',
+      title: "Globex's payment method expires soon",
     },
   ],
 ];

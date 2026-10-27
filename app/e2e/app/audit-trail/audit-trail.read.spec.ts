@@ -1,7 +1,10 @@
 import { expect, test } from '../_support/app-test';
 import { AuditTrailDriver } from '../_support/drivers/audit-trail.driver';
 import { installAuditTrailAppMocks } from '../_support/mocks/install-audit-trail-app-mocks';
-import { createUsageEventsAuditTrailModel } from './audit-trail.scenarios';
+import {
+  createFallbackMoveAuditTrailModel,
+  createUsageEventsAuditTrailModel,
+} from './audit-trail.scenarios';
 
 // The three events that say an entitlement's usage is approaching, at or past
 // its limit, while the API still accepts the usage.
@@ -29,6 +32,24 @@ test.describe('audit trail read', () => {
     await auditTrail.expectEventStatus('Usage reported', 'Accepted');
   });
 
+  test('names who each event is recorded under', async ({ page }) => {
+    const auditTrail = new AuditTrailDriver(page);
+
+    await installAuditTrailAppMocks(page, createUsageEventsAuditTrailModel());
+    await auditTrail.goto();
+
+    await auditTrail.expectEventActor('Feature flag updated', 'Ada Lovelace');
+    await auditTrail.expectEventActor('Usage reported', 'ci-robot');
+    await auditTrail.expectEventActor(
+      'License version published',
+      'Kaiten (system)',
+    );
+    // An entry recorded before the API kept actors names no one.
+    await expect(auditTrail.eventRow('Usage rejected')).not.toContainText(
+      'Kaiten (system)',
+    );
+  });
+
   test('the Warning status keeps the warnings and nothing else', async ({
     page,
   }) => {
@@ -49,5 +70,37 @@ test.describe('audit trail read', () => {
     ]) {
       await expect(auditTrail.eventRow(label)).toHaveCount(0);
     }
+  });
+
+  test('draws each event once on a phone, as a row made for it, with no column header', async ({
+    page,
+  }) => {
+    const auditTrail = new AuditTrailDriver(page);
+
+    await page.setViewportSize({ width: 390, height: 800 });
+    await installAuditTrailAppMocks(page, createUsageEventsAuditTrailModel());
+    await auditTrail.goto();
+
+    // The desktop header and rows are hidden below the sm breakpoint; only the
+    // rows of the phone are drawn.
+    await expect(page.getByText('Actor', { exact: true })).toBeHidden();
+    await expect(auditTrail.eventRow('Usage rejected')).toHaveCount(1);
+    await expect(auditTrail.eventRow('Usage rejected')).toBeVisible();
+  });
+
+  test('says why billing moved an instance to its fallback license, and only there', async ({
+    page,
+  }) => {
+    const auditTrail = new AuditTrailDriver(page);
+    const reason =
+      'Moved to the fallback license: its subscription ended, by a cancellation or a trial that ended without a payment method.';
+
+    await installAuditTrailAppMocks(page, createFallbackMoveAuditTrailModel());
+    await auditTrail.goto();
+
+    await auditTrail.eventRow('Usage reported').click();
+    await expect(page.getByText(reason)).toHaveCount(0);
+    await auditTrail.eventRow('Instance updated').click();
+    await expect(page.getByText(reason)).toBeVisible();
   });
 });

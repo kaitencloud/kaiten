@@ -1,75 +1,49 @@
-import { type QueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
-import type { Entitlement, License, LicenseFamilyView } from '@/api-client';
+import type { Entitlement, License } from '@/api-client';
+import {
+  type FormRecovery,
+  useFormRecoveryForm,
+} from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
+import { useCreateLicenseVersion } from '../../hooks/use-create-license-version';
 import { useLicenseEntitlementsDraft } from '../../hooks/use-license-entitlements-draft';
-import { useLicenseSave } from '../../hooks/use-license-save';
 import { useLicenseVersionFormStore } from '../../hooks/use-license-version-form-store';
+import { entitlementsQueryOptions } from '../../queries';
+import { getCopyFailure } from '../../utils/license-price-copy.utils';
+import type { EditableLicenseEntitlement } from '../../utils';
+import { getCreatedVersionDestination } from '../../utils/license-version-destination.utils';
 import {
-  entitlementsQueryOptions,
-  invalidateLicenseQueries,
-  licenseEntitlementsQueryOptions,
-} from '../../queries';
-import { resolveLicenseEntitlements } from '../../utils';
-import {
+  type LicenseVersionFormValues,
   licenseVersionFormSchema,
   licenseVersionFormValuesToLicenseInput,
 } from './license-version-form.schema';
-import { useLicenseVersionFormOptions } from './use-license-version-form-options';
+import {
+  getReadBaseEntitlements,
+  useInitializeBaseEntitlements,
+  useSyncDraftEntitlementsFromBase,
+} from './use-base-entitlements';
+import { keepGrantableRows } from './license-recovery';
+import type { useLicenseVersionFormOptions } from './use-license-version-form-options';
+
+export type LicenseVersionRecovery = FormRecovery<
+  LicenseVersionFormValues,
+  EditableLicenseEntitlement[]
+>;
 
 type UseLicenseVersionFormOptions = {
-  availableFamilies: LicenseFamilyView[];
   availableLicenses: License[];
-  baseLicense?: License;
   onCancel?: () => void;
   onSuccess?: () => void;
   selectedLicenseSlug?: string;
+  /** What the form offers, computed once by the component that opens the recovery. */
+  formOptions: ReturnType<typeof useLicenseVersionFormOptions>;
+  recovery: LicenseVersionRecovery;
 };
-
-type SyncDraftEntitlementsFromBaseOptions = {
-  entitlements: Entitlement[];
-  queryClient: QueryClient;
-  resetDraftEntitlements: () => void;
-  setDraftEntitlements: ReturnType<
-    typeof useLicenseEntitlementsDraft
-  >['setDraftEntitlements'];
-};
-
-function useSyncDraftEntitlementsFromBase({
-  entitlements,
-  queryClient,
-  resetDraftEntitlements,
-  setDraftEntitlements,
-}: SyncDraftEntitlementsFromBaseOptions) {
-  return useCallback(
-    async (baseLicenseSlug: string) => {
-      if (!baseLicenseSlug) {
-        resetDraftEntitlements();
-        return;
-      }
-
-      try {
-        const baseEntitlements = await queryClient.fetchQuery(
-          licenseEntitlementsQueryOptions(baseLicenseSlug),
-        );
-        setDraftEntitlements(
-          resolveLicenseEntitlements(
-            baseEntitlements?.items ?? [],
-            entitlements,
-          ),
-        );
-      } catch (error) {
-        toast.error(getApiErrorMessage(error));
-        resetDraftEntitlements();
-      }
-    },
-    [entitlements, queryClient, resetDraftEntitlements, setDraftEntitlements],
-  );
-}
 
 function getSelectedLicenseVersionsWithSlug(
   selectedLicenseVersions: License[],
@@ -90,57 +64,151 @@ function getInheritedType(
   )?.type;
 }
 
+// Cancelling is a deliberate abandon, unlike leaving by a link: the input is
+// discarded, and a toast offers to bring it back on the page it was typed on.
 function handleLicenseVersionFormCancel({
   onCancel,
+  recovery,
   router,
 }: {
   onCancel?: () => void;
+  recovery: LicenseVersionRecovery;
   router: ReturnType<typeof useRouter>;
 }) {
+  const { href } = router.state.location;
+  recovery.discard({ undo: () => void router.navigate({ href }) });
   if (onCancel) {
     onCancel();
     return;
   }
 
-  router.navigate({ to: '/licenses' });
+  router.navigate({ to: '/catalog/licenses' });
 }
 
-function useInitializeBaseEntitlements({
-  hasInitializedBaseEntitlements,
-  initialBaseLicenseSlug,
-  initializeBaseEntitlements,
-  syncDraftEntitlementsFromBase,
-}: {
-  hasInitializedBaseEntitlements: boolean;
-  initialBaseLicenseSlug: string;
-  initializeBaseEntitlements: (baseLicenseSlug: string) => void;
-  syncDraftEntitlementsFromBase: (baseLicenseSlug: string) => Promise<void>;
-}) {
-  useEffect(() => {
-    if (hasInitializedBaseEntitlements || !initialBaseLicenseSlug) {
-      return;
-    }
+type SubmitLicenseVersionOptions = Pick<
+  UseLicenseVersionFormOptions,
+  'availableLicenses' | 'onSuccess'
+> & {
+  recovery: LicenseVersionRecovery;
+  draftEntitlements: ReturnType<
+    typeof useLicenseEntitlementsDraft
+  >['draftEntitlements'];
+  entitlements: Entitlement[];
+};
 
-    initializeBaseEntitlements(initialBaseLicenseSlug);
-    void syncDraftEntitlementsFromBase(initialBaseLicenseSlug);
-  }, [
-    hasInitializedBaseEntitlements,
-    initialBaseLicenseSlug,
-    initializeBaseEntitlements,
-    syncDraftEntitlementsFromBase,
-  ]);
+// What the form does once it is valid: creates the version, tells the person
+// when it stayed a draft, and goes where the version opens.
+function useSubmitLicenseVersion({
+  availableLicenses,
+  draftEntitlements,
+  entitlements,
+  onSuccess,
+  recovery,
+}: SubmitLicenseVersionOptions) {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const createVersion = useCreateLicenseVersion(entitlements);
+
+  return async (value: LicenseVersionFormValues) => {
+    try {
+      const baseLicense = availableLicenses.find(
+        (license) => license.slug === value.baseLicenseSlug,
+      );
+
+      if (!baseLicense) {
+        throw new Error(
+          t('Pages.Licenses.Version.Form.Errors.baseLicenseNotFound'),
+        );
+      }
+
+      // The body is built before the request, outside `send`. A version created and
+      // left a draft by a failed grant, price or publish is an accepted send: its own
+      // page is where the vendor finishes it, so the input is not offered again.
+      const body = licenseVersionFormValuesToLicenseInput(value, baseLicense);
+      const { error, hasPrices, license } = await recovery.send(
+        () =>
+          createVersion({
+            baseLicense,
+            body,
+            copyPrices: value.copyPrices,
+            draftEntitlements,
+          }),
+        {
+          created: (created) => ({
+            id: created.license.slug ?? created.license.id ?? '',
+            label: created.license.name,
+          }),
+        },
+      );
+
+      // The version exists but stayed a draft: a grant, a price or the
+      // publish failed. A copy of prices that stopped says why with the
+      // refusal of the API that stopped it.
+      if (error) {
+        toast.error(
+          t('Pages.Licenses.Mutation.Form.Errors.savedAsDraft', {
+            reason: getApiErrorMessage(getCopyFailure(error)),
+          }),
+        );
+      }
+
+      const destination = getCreatedVersionDestination({
+        baseSlug: baseLicense.slug,
+        error,
+        hasPrices,
+        license,
+      });
+      if (destination) {
+        router.navigate(destination);
+        return;
+      }
+
+      if (onSuccess) {
+        onSuccess();
+        return;
+      }
+
+      router.navigate({ to: '/catalog/licenses' });
+    } catch (error) {
+      toast.error(getApiErrorMessage(error));
+    }
+  };
 }
 
 export function useLicenseVersionForm({
-  availableFamilies,
   availableLicenses,
-  baseLicense,
+  formOptions,
   onCancel,
   onSuccess,
+  recovery,
   selectedLicenseSlug,
 }: UseLicenseVersionFormOptions) {
   const { t } = useTranslation();
   const router = useRouter();
+  const { queryClient } = useRouteContext({ from: '__root__' });
+  const { data: entitlementsData } = useSuspenseQuery(entitlementsQueryOptions);
+  const entitlements = entitlementsData?.items ?? [];
+  const { familyOptions, initialValues, licensesByFamily } = formOptions;
+  // A resume starts from the base the input was typed on.
+  const startingBaseSlug =
+    recovery.restored?.values.baseLicenseSlug ?? initialValues.baseLicenseSlug;
+  // Decided once, when the form opens: the draft is a buffer the person edits, not a
+  // view of the cache. Resumed rows are taken as they were kept, but for a grant whose
+  // entitlement was deleted since, which would leave the version a draft.
+  const [startingRows] = useState(() =>
+    recovery.restored?.extra === undefined
+      ? getReadBaseEntitlements(queryClient, startingBaseSlug, entitlements)
+      : keepGrantableRows(
+          recovery.restored.extra,
+          new Set(entitlements.map((entitlement) => entitlement.id)),
+        ),
+  );
+  // The rows of the base are on the draft: what the form set up itself from then on
+  // is not taken for an input.
+  const [baseRowsLoaded, setBaseRowsLoaded] = useState(
+    startingRows !== undefined || !startingBaseSlug,
+  );
+  const markBaseRowsLoaded = useCallback(() => setBaseRowsLoaded(true), []);
   const {
     addDraftEntitlement,
     draftEntitlements,
@@ -148,25 +216,14 @@ export function useLicenseVersionForm({
     resetDraftEntitlements,
     setDraftEntitlements,
     updateDraftEntitlementGrant,
-  } = useLicenseEntitlementsDraft();
-  const { queryClient } = useRouteContext({ from: '__root__' });
-  const { data: entitlementsData } = useSuspenseQuery(entitlementsQueryOptions);
-  const entitlements = entitlementsData?.items ?? [];
-  const { createLicenseWithGrants } = useLicenseSave(entitlements);
-  const { familyOptions, initialValues, licensesByFamily } =
-    useLicenseVersionFormOptions({
-      availableFamilies,
-      availableLicenses,
-      baseLicense,
-      selectedLicenseSlug,
-    });
+  } = useLicenseEntitlementsDraft(startingRows);
 
   const {
     hasInitializedBaseEntitlements,
     selectedBaseLicenseSlug,
     initializeBaseEntitlements,
     setSelectedBaseLicenseSlug,
-  } = useLicenseVersionFormStore(initialValues.baseLicenseSlug);
+  } = useLicenseVersionFormStore(startingBaseSlug);
 
   const syncDraftEntitlementsFromBase = useSyncDraftEntitlementsFromBase({
     entitlements,
@@ -176,64 +233,44 @@ export function useLicenseVersionForm({
   });
   useInitializeBaseEntitlements({
     hasInitializedBaseEntitlements,
-    initialBaseLicenseSlug: initialValues.baseLicenseSlug,
+    initialBaseLicenseSlug: startingBaseSlug,
     initializeBaseEntitlements,
+    onBaseLoaded: markBaseRowsLoaded,
+    startedWithBase: startingRows !== undefined,
     syncDraftEntitlementsFromBase,
   });
 
+  const submit = useSubmitLicenseVersion({
+    availableLicenses,
+    draftEntitlements,
+    entitlements,
+    onSuccess,
+    recovery,
+  });
   const form = useAppForm({
-    defaultValues: initialValues,
+    defaultValues: recovery.pristine,
     validators: {
       onChange: licenseVersionFormSchema,
     },
-    onSubmit: async ({ value }) => {
-      try {
-        const selectedBaseLicense = availableLicenses.find(
-          (license) => license.slug === value.baseLicenseSlug,
-        );
+    onSubmit: ({ value }) => submit(value),
+  });
 
-        if (!selectedBaseLicense) {
-          throw new Error(
-            t('Pages.Licenses.Version.Form.Errors.baseLicenseNotFound'),
-          );
-        }
-
-        const { error, license } = await createLicenseWithGrants({
-          body: licenseVersionFormValuesToLicenseInput(
-            value,
-            selectedBaseLicense,
-          ),
-          draftEntitlements,
-        });
-        await invalidateLicenseQueries(queryClient);
-
-        // The version exists but stayed a draft: a grant or the publish
-        // failed. Its own page is where the vendor finishes it.
-        if (error) {
-          toast.error(
-            t('Pages.Licenses.Mutation.Form.Errors.savedAsDraft', {
-              reason: getApiErrorMessage(error),
-            }),
-          );
-          if (license.slug) {
-            router.navigate({
-              to: '/licenses/$licenseSlug',
-              params: { licenseSlug: license.slug },
-            });
-            return;
-          }
-        }
-
-        if (onSuccess) {
-          onSuccess();
-          return;
-        }
-
-        router.navigate({ to: '/licenses' });
-      } catch (error) {
-        toast.error(getApiErrorMessage(error));
-      }
-    },
+  const baseLicense = useMemo(
+    () =>
+      availableLicenses.find(
+        (license) => license.slug === selectedBaseLicenseSlug,
+      ) ?? null,
+    [availableLicenses, selectedBaseLicenseSlug],
+  );
+  // A resume restores the rows it kept and skips the setup from the base, so it
+  // is ready at once. Rows kept from a base that changed since are dropped by the
+  // adapter: the base's own are loaded again.
+  const { focusRef } = useFormRecoveryForm(recovery, form, {
+    extra: () => draftEntitlements,
+    onExtraDiscarded: () =>
+      void syncDraftEntitlementsFromBase(selectedBaseLicenseSlug),
+    ready: recovery.restored !== null || baseRowsLoaded,
+    references: { baseLicense },
   });
 
   const selectedFamilyId =
@@ -260,10 +297,13 @@ export function useLicenseVersionForm({
     draftEntitlements,
     entitlements,
     familyOptions,
+    focusRef,
     form,
-    handleCancel: () => handleLicenseVersionFormCancel({ onCancel, router }),
+    handleCancel: () =>
+      handleLicenseVersionFormCancel({ onCancel, recovery, router }),
     inheritedType,
     licensesByFamily,
+    recovery,
     removeDraftEntitlement,
     resetDraftEntitlements,
     selectedLicenseSlug,

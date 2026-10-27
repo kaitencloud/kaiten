@@ -1,11 +1,11 @@
 // Package dogfooding holds the entitlement and entitlement-group slugs of
 // kaiten's own metering catalogue -- the vocabulary, and nothing else.
 //
-// The catalogue has eighteen entitlements in four groups. Kaiten reports against
+// The catalogue has twenty-one entitlements in four groups. Kaiten reports against
 // some of them, the installation that holds the licences gates on others, and
-// some are declarative terms nobody reports against at all. Every slug lives
-// here, so that whoever creates the catalogue and whoever reports against it
-// name the same strings.
+// some are declarative terms or capabilities nobody reports against at all.
+// Every slug lives here, so that whoever creates the catalogue and whoever
+// reports against it name the same strings.
 //
 // What the catalogue no longer has is a counter per read and per update of
 // every resource. Those were granted unlimited on every licence and gated
@@ -54,12 +54,41 @@ const (
 	DeploymentZoneEntitlementSlug     = "deployment-zones"
 )
 
-// Contract: the declarative terms of a licence, each a CONFIG value. Nothing
-// reports against them and nothing gates on them -- they are read, not metered.
+// Contract: the declarative terms of a licence -- CONFIG values and BOOLEAN
+// capabilities. Nothing reports against them and nothing gates a create on
+// them -- they are read, not metered.
 const (
 	AuditRetentionEntitlementSlug = "audit-retention"
 	SupportTierEntitlementSlug    = "support-tier"
 	SLAUptimeEntitlementSlug      = "sla-uptime"
+
+	// UsageHistoryRetentionEntitlementSlug is how many months of usage history
+	// the organization keeps, as {"months": N} with N at least 1 (CONFIG). A
+	// deployment with no licensing authority reads the window from its own
+	// configuration instead.
+	UsageHistoryRetentionEntitlementSlug = "usage-history-retention"
+
+	// BillingEntitlementSlug gates the commercial surface (licence prices,
+	// invoice previews, subscriptions) for an organization licensed by a
+	// licensing authority. BOOLEAN, read rather than reported.
+	BillingEntitlementSlug = "billing"
+
+	// ConnectorStripeEntitlementSlug is what a licence has to grant before an
+	// organization may activate the Stripe connector. BOOLEAN rather than
+	// NUMBER because the question is "is this sold to this organization", not
+	// "how many have they used": a BOOLEAN entitlement carries the licence grant
+	// in its value, which is what makes it readable without reporting usage --
+	// an activation page renders what is available and must not spend quota to
+	// find out. Which slug gates which connector is declared BY the connector
+	// when it registers (see connector.entitlement_slug), not mapped in kaiten;
+	// the constant exists so the connector kaiten ships names the same string
+	// the bootstrap creates. A connector included in every licence names none.
+	ConnectorStripeEntitlementSlug = "connector-stripe"
+
+	// RemovePoweredByEntitlementSlug lets an organization's storefront and
+	// portal hide "Powered by Kaiten" (V31-E3, §18.5). BOOLEAN, read rather
+	// than reported; the public surface says it as branding.poweredByRemovable.
+	RemovePoweredByEntitlementSlug = "remove-powered-by"
 )
 
 // Platform usage: whether an organization actually uses Kaiten. Unlimited on
@@ -100,6 +129,10 @@ var EntitlementSlugs = []string{
 	AuditRetentionEntitlementSlug,
 	SupportTierEntitlementSlug,
 	SLAUptimeEntitlementSlug,
+	UsageHistoryRetentionEntitlementSlug,
+	BillingEntitlementSlug,
+	ConnectorStripeEntitlementSlug,
+	RemovePoweredByEntitlementSlug,
 
 	FeatureFlagEvaluatedEntitlementSlug,
 	EntitlementValuesCheckedEntitlementSlug,
@@ -129,12 +162,35 @@ var GatedEntitlementSlugs = []string{
 	DeploymentZoneEntitlementSlug,
 }
 
+// BooleanEntitlementSlugs are the catalogue entries created as BOOLEAN
+// entitlements: the capabilities a licence either carries or does not.
+//
+// The type is not decoration: a NUMBER entitlement carries a threshold and reports
+// usage against it, a BOOLEAN one carries the grant itself. Whoever creates the
+// catalogue reads this list to decide, so a slug added to EntitlementSlugs and
+// forgotten here is created as a quota nobody reports against -- and the feature it
+// gates reads as unentitled for every organization, because the read would find a
+// number where it expects a yes.
+//
+// A subset of EntitlementSlugs, and disjoint from GatedEntitlementSlugs and
+// ConfigEntitlementSlugs.
+var BooleanEntitlementSlugs = []string{
+	BillingEntitlementSlug,
+	ConnectorStripeEntitlementSlug,
+	RemovePoweredByEntitlementSlug,
+}
+
 // ConfigEntitlementSlugs are the catalogue entries created as CONFIG
-// entitlements; every other entry is a NUMBER. A subset of EntitlementSlugs,
-// and disjoint from GatedEntitlementSlugs -- a term of the contract has no
-// count to refuse a create on.
+// entitlements, whose value is an object; every entry that is neither CONFIG nor
+// BOOLEAN is a NUMBER. Read with a NUMBER or BOOLEAN shape, a setting reads as
+// unknown for every organization, which is silent -- hence the list.
+//
+// A subset of EntitlementSlugs, and disjoint from GatedEntitlementSlugs -- a
+// term of the contract has no count to refuse a create on -- and from
+// BooleanEntitlementSlugs.
 var ConfigEntitlementSlugs = []string{
 	AuditRetentionEntitlementSlug,
 	SupportTierEntitlementSlug,
 	SLAUptimeEntitlementSlug,
+	UsageHistoryRetentionEntitlementSlug,
 }

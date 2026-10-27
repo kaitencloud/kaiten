@@ -203,6 +203,7 @@ func TestResetAnchor_Valid(t *testing.T) {
 	}{
 		{Calendar, true},
 		{LicenseStart, true},
+		{BillingPeriod, true},
 		{ResetAnchor(""), false},
 		{ResetAnchor("SOLSTICE"), false},
 		{ResetAnchor("calendar"), false},
@@ -216,6 +217,24 @@ func TestResetAnchor_Valid(t *testing.T) {
 	}
 }
 
+// TestCurrent_BillingPeriodWithoutSubscription: BILLING_PERIOD's windows are
+// LICENSE_START's while no live subscription's anchor is read (INV-39).
+func TestCurrent_BillingPeriodWithoutSubscription(t *testing.T) {
+	now := mustParse(t, "2026-03-20T10:00:00Z")
+	licenseStart := mustParse(t, "2026-01-15T09:00:00Z")
+	want, err := Current(now, Month, LicenseStart, licenseStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := Current(now, Month, BillingPeriod, licenseStart)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got != want {
+		t.Errorf("Current(BILLING_PERIOD) = %v, want LICENSE_START's %v", got, want)
+	}
+}
+
 func TestCurrent_Errors(t *testing.T) {
 	now := mustParse(t, "2026-01-01T00:00:00Z")
 
@@ -226,4 +245,144 @@ func TestCurrent_Errors(t *testing.T) {
 	if _, err := Current(now, Month, ResetAnchor("SOLSTICE"), time.Time{}); err == nil {
 		t.Error("Current() with unsupported reset anchor: want error, got nil")
 	}
+}
+
+func TestResolveCurrent(t *testing.T) {
+	now := mustParse(t, "2026-10-05T10:30:00Z")
+	licenseStart := mustParse(t, "2026-01-01T00:20:00Z")
+	ptr := func(s string) *time.Time {
+		tm := mustParse(t, s)
+		return &tm
+	}
+
+	cases := []struct {
+		name            string
+		stored          *time.Time
+		resetAnchor     ResetAnchor
+		wantStart       string
+		wantEnd         string
+		wantStoredAhead bool
+	}{
+		{"no stored row", nil, Calendar, "2026-10-05T10:00:00Z", "2026-10-05T11:00:00Z", false},
+		{"stored window is the current one", ptr("2026-10-05T10:00:00Z"), Calendar, "2026-10-05T10:00:00Z", "2026-10-05T11:00:00Z", false},
+		{"stored window is behind", ptr("2026-10-05T07:00:00Z"), Calendar, "2026-10-05T10:00:00Z", "2026-10-05T11:00:00Z", false},
+		{"stored window is one ahead", ptr("2026-10-05T11:00:00Z"), Calendar, "2026-10-05T11:00:00Z", "2026-10-05T12:00:00Z", true},
+		{"stored window is far ahead", ptr("2026-10-06T03:00:00Z"), Calendar, "2026-10-06T03:00:00Z", "2026-10-06T04:00:00Z", true},
+		{"stored window ahead under LICENSE_START", ptr("2026-10-05T11:20:00Z"), LicenseStart, "2026-10-05T11:20:00Z", "2026-10-05T12:20:00Z", true},
+		// 11:00 is a boundary of the calendar phase, not of the license
+		// phase (:20): the anchor moved since the row was written, which
+		// the report path closes as a phase shift.
+		{"stored start ahead but off this phase", ptr("2026-10-05T11:00:00Z"), LicenseStart, "2026-10-05T10:20:00Z", "2026-10-05T11:20:00Z", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, storedAhead, err := ResolveCurrent(now, tc.stored, Hour, tc.resetAnchor, licenseStart)
+			if err != nil {
+				t.Fatalf("ResolveCurrent() error = %v", err)
+			}
+			if !got.Start.Equal(mustParse(t, tc.wantStart)) || !got.End.Equal(mustParse(t, tc.wantEnd)) {
+				t.Errorf("ResolveCurrent() = [%v, %v), want [%v, %v)", got.Start, got.End, tc.wantStart, tc.wantEnd)
+			}
+			if storedAhead != tc.wantStoredAhead {
+				t.Errorf("storedAhead = %v, want %v", storedAhead, tc.wantStoredAhead)
+			}
+		})
+	}
+}
+
+func TestAddMonths(t *testing.T) {
+	cases := []struct {
+		from string
+		n    int
+		want string
+	}{
+		{"2026-05-31T10:00:00Z", -3, "2026-02-28T10:00:00Z"},
+		{"2028-05-31T00:00:00Z", -3, "2028-02-29T00:00:00Z"},
+		{"2026-01-15T00:00:00Z", -18, "2024-07-15T00:00:00Z"},
+		{"2026-10-05T12:30:00Z", 12, "2027-10-05T12:30:00Z"},
+	}
+	for _, tc := range cases {
+		if got := AddMonths(mustParse(t, tc.from), tc.n); !got.Equal(mustParse(t, tc.want)) {
+			t.Errorf("AddMonths(%s, %d) = %v, want %s", tc.from, tc.n, got, tc.want)
+		}
+	}
+}
+
+// BILLING_PERIOD follows the live subscription's anchor_at, else the licence
+// start, split at live_ended_at (§6.7 rules 2 and 3; the spec's examples).
+func TestBillingPeriodWindows(t *testing.T) {
+	at := func(s string) time.Time {
+		t.Helper()
+		v, err := time.Parse(time.RFC3339, s)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return v
+	}
+	ptrTo := func(v time.Time) *time.Time { return &v }
+	check := func(t *testing.T, got Window, start, end string) {
+		t.Helper()
+		if !got.Start.Equal(at(start)) || !got.End.Equal(at(end)) {
+			t.Fatalf("window [%s, %s), want [%s, %s)", got.Start, got.End, start, end)
+		}
+	}
+	licenseStart := at("2027-01-03T00:00:00Z")
+
+	t.Run("ALiveSubscriptionsAnchor_ClampedAtTheMonthsEnd", func(t *testing.T) {
+		basis := NewBasis(licenseStart, "ACTIVE", ptrTo(at("2027-01-31T10:00:00Z")), nil)
+		first, err := CurrentOn(at("2027-02-10T00:00:00Z"), Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, first, "2027-01-31T10:00:00Z", "2027-02-28T10:00:00Z")
+		second, err := NextOn(first, Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, second, "2027-02-28T10:00:00Z", "2027-03-31T10:00:00Z")
+	})
+
+	t.Run("NotLive_TheLicenceStartsWindows", func(t *testing.T) {
+		for _, s := range []string{"", "INCOMPLETE", "CANCELED"} {
+			basis := NewBasis(licenseStart, s, ptrTo(at("2027-01-08T10:00:00Z")), nil)
+			w, err := CurrentOn(at("2027-01-09T12:00:00Z"), Month, BillingPeriod, basis)
+			if err != nil {
+				t.Fatal(err)
+			}
+			check(t, w, "2027-01-03T00:00:00Z", "2027-02-03T00:00:00Z")
+		}
+	})
+
+	t.Run("ACancellationSplitsItsWindow", func(t *testing.T) {
+		basis := NewBasis(licenseStart, "CANCELED", nil, ptrTo(at("2027-03-20T16:00:00Z")))
+		after, err := CurrentOn(at("2027-03-25T00:00:00Z"), Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, after, "2027-03-20T16:00:00Z", "2027-04-03T00:00:00Z")
+		next, err := NextOn(after, Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, next, "2027-04-03T00:00:00Z", "2027-05-03T00:00:00Z")
+		before, err := CurrentOn(at("2027-03-10T00:00:00Z"), Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, before, "2027-03-03T00:00:00Z", "2027-03-20T16:00:00Z")
+		contiguous, err := NextOn(before, Month, BillingPeriod, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, contiguous, "2027-03-20T16:00:00Z", "2027-04-03T00:00:00Z")
+	})
+
+	t.Run("LicenseStartIgnoresTheSubscription", func(t *testing.T) {
+		basis := NewBasis(licenseStart, "ACTIVE", ptrTo(at("2027-01-31T10:00:00Z")), nil)
+		w, err := CurrentOn(at("2027-02-10T00:00:00Z"), Month, LicenseStart, basis)
+		if err != nil {
+			t.Fatal(err)
+		}
+		check(t, w, "2027-02-03T00:00:00Z", "2027-03-03T00:00:00Z")
+	})
 }

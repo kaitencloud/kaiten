@@ -1,4 +1,5 @@
 import type { Instance, InstanceWritable } from '@/api-client';
+import { instanceToUpdateBody } from './instance-update-body';
 
 /**
  * An instance can be created without a deployment zone. Attaching one for the
@@ -27,12 +28,6 @@ export const instanceToDeploymentUpdateInput = (
   instance: Instance,
   deploymentZoneId: string,
 ): InstanceWritable => ({
-  customerId: instance.customerId,
+  ...instanceToUpdateBody(instance),
   deploymentZoneId,
-  description: instance.description,
-  endLicenseDate: instance.endLicenseDate,
-  licenseId: instance.licenseId,
-  metadata: instance.metadata ?? {},
-  name: instance.name,
-  startLicenseDate: instance.startLicenseDate,
 });

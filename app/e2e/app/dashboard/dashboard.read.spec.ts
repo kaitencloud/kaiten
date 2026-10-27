@@ -14,7 +14,9 @@ test.describe('dashboard read', () => {
       page.getByRole('heading', { name: 'Dashboard' }),
     ).toBeVisible();
 
-    const main = page.locator('main');
+    // One main landmark: the shell's, around the page (C-95).
+    await expect(page.getByRole('main')).toHaveCount(1);
+    const main = page.getByRole('main');
     await expect(
       main.getByText('Customers', { exact: true }).first(),
     ).toBeVisible();

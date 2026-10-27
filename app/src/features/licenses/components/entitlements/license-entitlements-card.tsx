@@ -21,6 +21,7 @@ export function LicenseEntitlementsCard({
   onClickEntitlement,
   onDeleteEntitlement,
   onUpdateEntitlementGrant,
+  readOnly = false,
   resetAction,
   rows,
 }: LicenseEntitlementsCardProps) {
@@ -93,6 +94,7 @@ export function LicenseEntitlementsCard({
     onSaveEditedCell: handleSaveEditedCell,
     onStartEditThreshold: handleStartEditThreshold,
     onStartEditOveragePercent: handleStartEditOveragePercent,
+    readOnly,
     savingEntitlementIds,
     setEditingValue,
     store,
@@ -106,6 +108,7 @@ export function LicenseEntitlementsCard({
         cardDescriptionSummary={cardDescriptionSummary}
         hasAvailableEntitlements={availableEntitlements.length > 0}
         onOpenAddDialog={openAddDialog}
+        readOnly={readOnly}
         resetAction={resetAction}
       />
 

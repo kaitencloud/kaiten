@@ -2,7 +2,6 @@ export type { EditableLicenseEntitlement } from './license-entitlements.utils';
 export {
   formatEntitlementOveragePercent,
   formatEntitlementThreshold,
-  getEntitlementSlug,
   isNumericEntitlementType,
   parseOveragePercentInput,
   parseThresholdInput,
@@ -40,3 +39,8 @@ export {
   normalizeLicenseFamilyName,
   sortLicensesByVersionDesc,
 } from './license-list.utils';
+export type { FallbackOption } from './license-family-settings.utils';
+export {
+  getFallbackOptions,
+  getFamilyName,
+} from './license-family-settings.utils';

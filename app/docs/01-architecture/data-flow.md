@@ -78,6 +78,13 @@ const createMutation = useMutation({
 });
 ```
 
+A `PUT` that replaces an object as a whole does not send the object the form read
+when it opened: it reads the object again and sends only what the form changed
+(`writeOnFresh` in `@/lib/api/fresh-write`), so that a change made meanwhile in
+another tab is not overwritten. It narrows the race and does not remove it: until
+the API checks a version, the last writer wins. See
+[forms](../03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole).
+
 Deleting from a list can be optimistic: `optimisticDeleteCallbacks`
 (`@/lib/optimistic-mutations`) removes the row from the cache, restores it if the
 request fails, and invalidates the list when the mutation settles.
@@ -113,7 +120,7 @@ How the console obtains a credential depends on three build-time variables that
 | Mode | Selected by | Behaviour |
 | --- | --- | --- |
 | Local accounts | `VITE_LOCAL_AUTH=true` | `LocalAuthGate` shows a picker of dev accounts (organization, then user) before the app. The chosen token is stored in `localStorage` (`kaiten_dev_token`) |
-| Clerk | neither of the other two | `ClerkProvider` wraps the app; a signed-out visitor is redirected to sign-in. Needs `VITE_CLERK_PUBLISHABLE_KEY` |
+| Clerk | neither of the other two | `ClerkProvider` wraps the app; a signed-out visitor is redirected to sign-in, after an explicit sign-out has gone through `/signed-out`, where the unsent input of creation forms is purged. Needs `VITE_CLERK_PUBLISHABLE_KEY` |
 | No sign-in | `VITE_E2E_BYPASS_AUTH=true` | The app renders without signing in. Playwright's app suite uses it, with mocked API responses (`VITE_E2E_MSW`) |
 
 `VITE_LOCAL_AUTH` wins if several are set. `app/.env.example` lists the variables.

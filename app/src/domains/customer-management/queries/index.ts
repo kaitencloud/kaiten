@@ -7,6 +7,10 @@ export {
   invalidateInstanceQueries,
   invalidateInstancesListQueries,
 } from './instance-query-invalidation';
+export {
+  saveCustomerOnFresh,
+  type SaveCustomerVariables,
+} from './customer-save';
 export { GET_CUSTOMERS_WITH_INSTANCES } from './customers.queries';
 export {
   customersWithInstancesBaseQueryKey,

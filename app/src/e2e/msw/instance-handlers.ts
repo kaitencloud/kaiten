@@ -1,7 +1,12 @@
 import { HttpResponse } from 'msw/http';
 import {
+  handleCreateEntitlementException,
+  handleListEntitlementExceptions,
+  handleRevokeEntitlementException,
   handleCreateInstance,
   handleDeleteInstance,
+  handleExportOrganizationUsageReports,
+  handleExportUsageReports,
   handleGetCustomer,
   handleGetEntitlementsUsageMetrics,
   handleGetInstance,
@@ -13,6 +18,7 @@ import {
   handleListDeploymentZones,
   handleListLicenseFamilies,
   handleListReleases,
+  handleListUsageReports,
   handlePatchInstance,
   handleUpdateInstance,
 } from '@/api-client/msw.gen';
@@ -24,10 +30,50 @@ import {
 } from './handler-factory';
 import { noop, type PersistMswState } from './persistence';
 
+const optional = (value: string | null) => value ?? undefined;
+
+const optionalNumber = (value: string | null) =>
+  value === null || value === '' ? undefined : Number(value);
+
+/** A file an export streams: its body and the media type it answers with. */
+const file = ({ body, contentType }: { body: string; contentType: string }) =>
+  new HttpResponse(body, { headers: { 'Content-Type': contentType } });
+
 export const instanceHandlers = (
   model: InstanceAppModel,
   persist: PersistMswState = noop,
 ) => [
+  handleListEntitlementExceptions(
+    withErrorHandling('Exception list failed', ({ params, request }) => {
+      const filter = new URL(request.url).searchParams.get('filter');
+      return HttpResponse.json(
+        model.listEntitlementExceptions(
+          params.instanceSlug,
+          filter === 'all' ? 'all' : 'active',
+        ),
+      );
+    }),
+  ),
+  handleCreateEntitlementException(
+    withErrorHandling(
+      'Exception creation failed',
+      async ({ params, request }) => {
+        const created = model.createEntitlementException(
+          params.instanceSlug,
+          await request.json(),
+        );
+        persist();
+        return HttpResponse.json(created, { status: 201 });
+      },
+    ),
+  ),
+  handleRevokeEntitlementException(
+    withErrorHandling('Exception revocation failed', ({ params }) => {
+      model.revokeEntitlementException(params.instanceSlug, params.exceptionId);
+      persist();
+      return new HttpResponse(null, { status: 204 });
+    }),
+  ),
   graphqlOperationHandler({
     GetInstancesWithRelations: () => model.getInstancesWithRelations(),
     // The fields the model declares are instance fields: another resource type
@@ -141,6 +187,62 @@ export const instanceHandlers = (
       model.deleteInstance(params.instanceSlug);
       persist();
       return new HttpResponse(null, { status: 204 });
+    }),
+  ),
+  // The usage history of an entitlement of an instance, and its exports. They
+  // are never gated by billing: they read the journal of the instance.
+  handleListUsageReports(
+    withErrorHandling(
+      'Unexpected usage history mock error',
+      ({ params, request }) => {
+        const query = new URL(request.url).searchParams;
+
+        return HttpResponse.json(
+          model.listUsageReports(params.instanceSlug, params.entitlementSlug, {
+            afterSeq: optionalNumber(query.get('afterSeq')),
+            from: optional(query.get('from')),
+            limit: optionalNumber(query.get('limit')),
+            to: optional(query.get('to')),
+            transactionId: optional(query.get('transactionId')),
+          }),
+        );
+      },
+    ),
+  ),
+  // Registered before the export of the organization: `usage/reports/export`.
+  handleExportUsageReports(
+    withErrorHandling(
+      'Unexpected usage history mock error',
+      ({ params, request }) => {
+        const query = new URL(request.url).searchParams;
+
+        return file(
+          model.exportUsageReports(
+            params.instanceSlug,
+            params.entitlementSlug,
+            {
+              format: optional(query.get('format')),
+              from: optional(query.get('from')),
+              to: optional(query.get('to')),
+            },
+          ),
+        );
+      },
+    ),
+  ),
+  handleExportOrganizationUsageReports(
+    withErrorHandling('Unexpected usage history mock error', ({ request }) => {
+      const query = new URL(request.url).searchParams;
+
+      return file(
+        model.exportOrganizationUsageReports({
+          entitlementSlug: optional(query.get('entitlementSlug')),
+          format: optional(query.get('format')),
+          from: optional(query.get('from')),
+          instanceSlug: optional(query.get('instanceSlug')),
+          to: optional(query.get('to')),
+        }),
+      );
     }),
   ),
 ];

@@ -79,6 +79,50 @@ describe('getApiErrorMessage', () => {
     expect(message).toBe('missing required scope: read:customers');
   });
 
+  it('does not print what a gateway answered when it is not a problem', () => {
+    // The 401 of the gateway, a text; the 502 of a proxy, an HTML page; a JSON
+    // that is not a problem.
+    expect(getApiErrorMessage(apiError(401, 'Jwt is missing'))).toBe(
+      'You are not signed in. Please sign in and try again.',
+    );
+    expect(
+      getApiErrorMessage(apiError(502, '<html>Bad gateway</html>')),
+    ).toBe('The server encountered an error. Please try again later.');
+    expect(getApiErrorMessage(apiError(500, { message: 'upstream down' }))).toBe(
+      'The server encountered an error. Please try again later.',
+    );
+  });
+
+  it('does not print a JSON body of a gateway that has the names of a problem and no sentence', () => {
+    const generic = 'The server encountered an error. Please try again later.';
+
+    expect(getApiErrorMessage(apiError(502, { status: 502 }))).toBe(generic);
+    expect(getApiErrorMessage(apiError(500, { status: 'error' }))).toBe(generic);
+    expect(getApiErrorMessage(apiError(500, { detail: 42, title: null }))).toBe(
+      generic,
+    );
+    expect(getApiErrorMessage(apiError(500, { detail: '  ', title: '' }))).toBe(
+      generic,
+    );
+  });
+
+  it('prints the title of a problem that has no detail', () => {
+    expect(
+      getApiErrorMessage(apiError(500, { status: 500, title: 'Boom' })),
+    ).toBe('Boom');
+  });
+
+  it('says it in the language of the interface', async () => {
+    await i18n.changeLanguage('fr');
+    try {
+      expect(getApiErrorMessage(apiError(401, 'Jwt is missing'))).toBe(
+        'Vous n’êtes pas connecté. Connectez-vous et réessayez.',
+      );
+    } finally {
+      await i18n.changeLanguage('en');
+    }
+  });
+
   describe('localization', () => {
     afterAll(async () => {
       await i18n.changeLanguage('en');

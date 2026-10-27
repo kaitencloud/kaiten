@@ -23,4 +23,25 @@ const (
 	// Deliberately says nothing about privilege: a leaked prefix should not
 	// advertise what the credential can do.
 	PrefixPlatform = "ksm_"
+
+	// PrefixPublishableKey marks a publishable key: the credential a vendor's web
+	// page sends, in X-Kaiten-Publishable-Key and never as a bearer token, to read
+	// its public catalogue. It is not a secret. It diverges from the k-family at
+	// character 0, and it is the documented exception to their equal length,
+	// because the public @kaitencloud/client already fixes "pk_".
+	PrefixPublishableKey = "pk_"
+
+	// PrefixCustomerSession marks a customer session: minted by a vendor's
+	// backend for one of its customers, presented by the browser as a bearer
+	// token on /api/public/session/* and nowhere else. A k-family sibling of
+	// equal length, diverging from ksh_ and ksm_ at character 2.
+	PrefixCustomerSession = "kst_"
+
+	// PrefixCheckoutSession marks an anonymous checkout session (V32-01):
+	// minted by POST /api/public/checkout-sessions for the session it opens,
+	// presented as a bearer token on that session's two routes and nowhere
+	// else. A k-family sibling of equal length, diverging from kst_ at
+	// character 2 -- kst_anon_ was rejected because it nests under kst_, and
+	// ksa_ already prefixes service-account external ids.
+	PrefixCheckoutSession = "ksc_"
 )

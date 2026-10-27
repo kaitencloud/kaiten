@@ -96,6 +96,11 @@ and replaces only the `queryFn` with one that walks every page
 `listReleasesQueryKey()` still invalidates it. The cache then holds
 `{ hasMore: false, items }` with every row.
 
+A helper that takes what narrows the list (`allInvoicesOptions({ customerSlug })`,
+`allHandoffOptions({ status })`) puts it in the generated key it spreads, so that two
+scopes are two entries of the cache and one invalidation by the prefix
+(`listInvoicesQueryKey()`, `listHandoffQueryKey()`) reaches them all.
+
 The page walker validates the envelope (`items` array and boolean `hasMore`),
 requires a non-empty cursor when more pages remain, and refuses any visited
 cursor. A malformed response is a protocol error, never an empty list or a
@@ -103,6 +108,13 @@ silently truncated list. Pass the query's `signal` to both the walker and the
 transport. GraphQL's `request(query, variables, signal)` forwards it to fetch;
 cancellation stops the walk and TanStack Query handles it as cancellation,
 rather than a normal business error.
+
+One GraphQL document can carry the page of several lists, each with a cursor of its own.
+`GetCatalogPrices` does (`catalogPricesQueryOptions`, in the billing domain): the license
+versions and the add-on versions with their prices. `fetchAllPages` walks one list, so that
+query drives one walk for each list (`startPageWalk`, and `takePage` for each page, which
+checks the envelope as `fetchAllPages` does) and asks again only for the lists that have
+more, through the `@include` variables of the document, until every one is read to its end.
 
 ## Queries without a generated key
 
@@ -178,12 +190,14 @@ slug:
 | `invalidateInstancesListQueries(queryClient)`, `invalidateInstanceQueries(queryClient, instanceSlug)` | The instances, in REST and GraphQL, the customers that derive from them, and the instance's detail |
 | `invalidateReleaseQueries(queryClient, releaseSlug?)` | The releases, components and deployment zones, the release overview, and the release's detail |
 | `invalidateLicenseQueries(queryClient, licenseSlug?)` | The license lists and families, the license's detail and entitlements, then refetches them |
+| `invalidatePublishableKeyQueries(queryClient)` | The list of publishable keys, with the revoked ones and without |
 | `invalidateWebhookQueries(queryClient)`, `invalidateNotificationFeedQueries(queryClient)`, `invalidateAttioQueries(queryClient)` | The webhooks, the notification feed and the Attio connector |
+| `invalidateInstanceBillingQueries(queryClient, instanceSlug)`, `invalidateInvoiceQueries(queryClient, invoiceId?)`, `invalidateLicensePriceQueries(queryClient, licenseSlug)`, `invalidateBillingSettingsQueries(queryClient)` | An instance's subscription, upcoming invoice and invoices (and the instance itself, and the Billing column of the lists of instances), the invoices and the handoff queue (and the Billing column of the lists of instances, since settling an invoice can end PAST_DUE), the prices of a license version (and the license versions read with their prices, `licensesWithPricesBaseQueryKey`), the billing settings and capabilities |
 
 They live in `app/src/domains/customer-management/queries/`,
 `app/src/features/releases/queries/`, `app/src/features/licenses/queries/`,
-`app/src/features/webhooks/queries/`, `app/src/features/notifications/queries/` and
-`app/src/features/connectors/attio/queries/`.
+`app/src/features/webhooks/queries/`, `app/src/features/publishable-keys/queries/`, `app/src/features/notifications/queries/`,
+`app/src/features/connectors/attio/queries/` and `app/src/domains/billing/queries/`.
 
 Some release-area mutations invalidate keys directly instead of calling
 `invalidateReleaseQueries`. The deployment-zone hooks in

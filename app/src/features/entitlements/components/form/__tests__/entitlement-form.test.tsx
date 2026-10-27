@@ -34,6 +34,8 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
+    // The number fields group their digits in the console's language.
+    i18n: { resolvedLanguage: 'fr' },
     t: (key: string, options?: Record<string, string>) => {
       const translations: Record<string, string> = {
         'Pages.Entitlements.Mutation.Form.Labels.name': 'Nom',
@@ -78,6 +80,12 @@ vi.mock('react-i18next', () => ({
           "Remise à zéro de l'usage",
         'Pages.Entitlements.Mutation.Form.Labels.resetAnchor':
           'Fenêtre alignée sur',
+        'Pages.Entitlements.EntitlementTypes.BOOLEAN': 'Booléen',
+        'Pages.Entitlements.EntitlementTypes.NUMBER': 'Nombre',
+        'Pages.Entitlements.EntitlementTypes.CONFIG': 'Config',
+        'Pages.Entitlements.AggregationMethods.COUNT': 'Comptage',
+        'Pages.Entitlements.AggregationMethods.SUM': 'Somme',
+        'Pages.Entitlements.AggregationMethods.LATEST': 'Dernier',
         'Pages.Entitlements.Mutation.Form.Descriptions.resetPeriodLatest':
           '« Dernier » ne peut pas être combiné à une remise à zéro périodique.',
       };
@@ -129,7 +137,10 @@ vi.mock('@/components/form/fields/form-field', () => ({
 }));
 
 // Mock Zod schema
-vi.mock('@/api-client/zod.gen', () => {
+// The entitlement schema is stubbed; every other schema stays real, since the form
+// reads the problem documents of the API through the billing domain, which builds on them.
+vi.mock('@/api-client/zod.gen', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/api-client/zod.gen')>();
   const schema: {
     safeParse: () => unknown;
     extend?: () => unknown;
@@ -141,6 +152,7 @@ vi.mock('@/api-client/zod.gen', () => {
   schema.superRefine = () => schema;
 
   return {
+    ...actual,
     zEntitlementWritable: {
       pick: () => schema,
       shape: {
@@ -278,6 +290,22 @@ describe('EntitlementForm', () => {
       expect(
         screen.getByRole('option', { name: 'Config' }),
       ).toBeInTheDocument();
+    });
+
+    it('names the Type and Aggregation options in the language of the console', () => {
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(
+        screen.getByRole('option', { name: 'Booléen' }),
+      ).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Nombre' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'Somme' })).toBeInTheDocument();
+      expect(
+        screen.getByRole('option', { name: 'Comptage' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('option', { name: 'Sum' }),
+      ).not.toBeInTheDocument();
     });
   });
 
@@ -477,6 +505,14 @@ describe('EntitlementForm', () => {
         createdAt: '2026-03-01T09:00:00.000Z',
         updatedAt: '2026-03-01T09:00:00.000Z',
       };
+      // The section follows the values of the form, which the mocked form does not
+      // derive from the entitlement: the real form is covered by the unit fields test.
+      formState.values = {
+        ...defaultFormValues,
+        saleUnitFactor: 3,
+        saleUnitPlural: 'packs',
+        saleUnitSingular: 'pack',
+      };
 
       render(<EntitlementForm entitlement={entitlementWithUnits} />, {
         wrapper: createWrapper(),
@@ -555,6 +591,89 @@ describe('EntitlementForm', () => {
       });
 
       expect(cadenceSelect()).not.toBeDisabled();
+    });
+
+    describe('the billing date', () => {
+      const anchorOptionLabels = () =>
+        within(screen.getByTestId('field-resetAnchor'))
+          .getAllByRole('option')
+          .map((option) => option.textContent);
+
+      it('is offered beside the other alignments on a month', () => {
+        formState.values = { ...defaultFormValues, resetPeriod: 'MONTH' };
+        render(<EntitlementForm />, { wrapper: createWrapper() });
+
+        expect(anchorOptionLabels()).toEqual([
+          'Pages.Entitlements.ResetAnchors.CALENDAR',
+          'Pages.Entitlements.ResetAnchors.LICENSE_START',
+          'Pages.Entitlements.ResetAnchors.BILLING_PERIOD',
+        ]);
+      });
+
+      it('is listed on a short cadence with the reason it cannot be chosen', () => {
+        formState.values = { ...defaultFormValues, resetPeriod: 'DAY' };
+        render(<EntitlementForm />, { wrapper: createWrapper() });
+
+        expect(anchorOptionLabels()).toContain(
+          'Pages.Entitlements.ResetAnchors.billingPeriodUnavailable',
+        );
+        expect(anchorOptionLabels()).not.toContain(
+          'Pages.Entitlements.ResetAnchors.BILLING_PERIOD',
+        );
+      });
+
+      it('says what it does to the windows once it is the alignment', () => {
+        formState.values = {
+          ...defaultFormValues,
+          resetAnchor: 'BILLING_PERIOD',
+          resetPeriod: 'MONTH',
+        };
+        render(<EntitlementForm />, { wrapper: createWrapper() });
+
+        expect(
+          screen.getByTestId('reset-anchor-billing-period-hint'),
+        ).toHaveTextContent(
+          'Pages.Entitlements.Mutation.Form.Hints.resetAnchorBillingPeriod',
+        );
+      });
+
+      it('says nothing of the sort for the other alignments', () => {
+        formState.values = {
+          ...defaultFormValues,
+          resetAnchor: 'LICENSE_START',
+          resetPeriod: 'MONTH',
+        };
+        render(<EntitlementForm />, { wrapper: createWrapper() });
+
+        expect(
+          screen.queryByTestId('reset-anchor-billing-period-hint'),
+        ).not.toBeInTheDocument();
+      });
+
+      it('stays on a stored entitlement, whose alignment is read-only', () => {
+        formState.values = {
+          ...defaultFormValues,
+          resetAnchor: 'BILLING_PERIOD',
+          resetPeriod: 'YEAR',
+        };
+        render(
+          <EntitlementForm
+            entitlement={{
+              ...periodicEntitlement,
+              resetAnchor: 'BILLING_PERIOD',
+              resetPeriod: 'YEAR',
+            }}
+          />,
+          { wrapper: createWrapper() },
+        );
+
+        expect(
+          within(screen.getByTestId('field-resetAnchor')).getByRole('combobox'),
+        ).toBeDisabled();
+        expect(
+          screen.getByTestId('reset-anchor-billing-period-hint'),
+        ).toBeInTheDocument();
+      });
     });
 
     it('replaces the fields with an explanation for the LATEST aggregation', () => {

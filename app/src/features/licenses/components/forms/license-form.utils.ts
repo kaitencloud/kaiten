@@ -6,6 +6,17 @@ const toOptionalSlug = (slug: string): string | undefined => {
   return trimmed === '' ? undefined : trimmed;
 };
 
+/** The form of a version as it stands: what an edit opens with. */
+export const licenseToFormValues = (license: License): LicenseFormValues => ({
+  name: license.name,
+  description: license.description,
+  type: license.type,
+  versionName: license.versionName,
+  slug: license.slug ?? '',
+  // Unused on update: the form does not offer it there.
+  createAsDraft: false,
+});
+
 // lifecycleState is the state the license ends in: useLicenseSave creates it
 // as a draft and publishes it once its grants are attached.
 export const licenseFormValuesToLicenseInput = (

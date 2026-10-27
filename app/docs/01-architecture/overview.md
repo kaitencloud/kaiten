@@ -154,12 +154,13 @@ pnpm run generate
 | Server state | TanStack Query | API data, cache, invalidation | `useSuspenseQuery(customersWithInstancesQueryOptions)` |
 | Feature UI state | TanStack Store | UI state of one feature | `useLicenseVersionFormStore()` |
 | App settings | TanStack DB, in `localStorage` | Theme, language, side navigation | `useAppSettings()` |
+| Unsent creation input | TanStack DB, in `localStorage` | What was typed in a creation form and not sent | `useFormRecovery()` |
 
 Details and the decision tree are in [state-management.md](../03-patterns/state-management.md). After a mutation, invalidate with the generated query key functions: see [query-key-invalidation.md](../02-conventions/query-key-invalidation.md).
 
 ## Forms
 
-Forms use TanStack Form with Zod validation and lazy-loaded field components, through `useAppForm` from `src/hooks/form.ts`. The rendered `<form>` uses `createFormSubmitHandler` from the same module, so `preventDefault()` and `stopPropagation()` always run.
+Forms use TanStack Form with Zod validation and the field components of `components/form/`, through `useAppForm` from `src/hooks/form.ts`. The rendered `<form>` uses `createFormSubmitHandler` from the same module, so `preventDefault()` and `stopPropagation()` always run.
 
 ```tsx
 // app/src/features/customers/components/customer-form.tsx (abridged)

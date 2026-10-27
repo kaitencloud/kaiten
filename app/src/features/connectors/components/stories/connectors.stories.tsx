@@ -9,6 +9,7 @@ import { ConnectorsPageContent } from '../connectors-page-content';
 import { ConnectorsPageShell } from '../connectors-page-shell';
 
 const connectedSettings: ConnectorSettings = {
+  configured: true,
   connector_name: ATTIO_CONNECTOR_NAME,
   settings: {
     attioApiKey: '***',
@@ -90,6 +91,7 @@ export const Catalog: Story = {
       <ConnectorsPageContent
         attioSettings={null}
         onOpenDetail={() => {}}
+        onOpenStripe={() => {}}
       />,
     ),
   play: async ({ canvasElement }) => {
@@ -105,6 +107,7 @@ export const SetupWizard: Story = {
       <ConnectorsPageContent
         attioSettings={null}
         onOpenDetail={() => {}}
+        onOpenStripe={() => {}}
       />,
     ),
   play: async ({ canvasElement }) => {

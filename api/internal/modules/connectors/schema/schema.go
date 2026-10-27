@@ -48,6 +48,7 @@ type ConnectorState struct {
 type ConnectorSettings struct {
 	ConnectorName string         `json:"connector_name" readOnly:"true" doc:"Stable connector identifier" example:"kaiten.integration.crm.attio"`
 	Settings      map[string]any `json:"settings" doc:"Connector settings payload"`
+	Configured    bool           `json:"configured" readOnly:"true" doc:"Whether settings were ever stored for this connector. A connector never configured reads false, with empty settings, rather than 404."`
 }
 
 type ConnectorSettingsSchema struct {

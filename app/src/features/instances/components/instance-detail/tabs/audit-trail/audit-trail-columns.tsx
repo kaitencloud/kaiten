@@ -2,10 +2,14 @@ import { Badge } from '@/components/ui/badge';
 import type { TFunction } from 'i18next';
 import { AlertTriangle, CheckCircle, Eye, XCircle } from 'lucide-react';
 import type { AuditTrail } from '@/api-client/types.gen';
-import { getEventCategory, resolveEventLabel } from '@/domains/audit-trail';
+import {
+  getEventCategory,
+  resolveEventLabel,
+  resolveEventReason,
+} from '@/domains/audit-trail';
 import type { ColumnDef } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import { formatDateTime } from '@/lib/detail';
+import { formatDateTime, getAuditDisplayName } from '@/lib/detail';
 import type { InstanceEntitlementRow } from '../../../../utils/instance-detail-entitlements.utils';
 import { AuditDetailDialog } from './audit-trail-detail-dialog';
 import {
@@ -59,6 +63,7 @@ function AuditTrailEventCell({
 }) {
   const category = getEventCategory(entry.eventName);
   const { Icon, iconClassName } = getEventIcon(category);
+  const reason = resolveEventReason(entry.eventName, entry.payload, t);
 
   return (
     <div className="flex items-center gap-2">
@@ -70,6 +75,9 @@ function AuditTrailEventCell({
         <span className="font-mono text-xs text-muted-foreground">
           {entry.eventName}
         </span>
+        {reason ? (
+          <span className="text-xs text-muted-foreground">{reason}</span>
+        ) : null}
       </div>
     </div>
   );
@@ -103,6 +111,18 @@ function AuditTrailEntitlementCell({
         </Badge>
       ) : null}
     </div>
+  );
+}
+
+// Who the event is recorded under: a member by name, Kaiten itself as
+// "Kaiten (system)". An entry recorded before the API kept actors has none.
+function AuditTrailActorCell({ entry }: { entry: AuditTrail }) {
+  const name = getAuditDisplayName({ actor: entry.actor });
+
+  return name ? (
+    <span className="text-sm">{name}</span>
+  ) : (
+    <span className="text-sm text-muted-foreground">—</span>
   );
 }
 
@@ -205,6 +225,13 @@ export const buildAuditTrailColumns = (
         entitlementsRows={entitlementsRows}
       />
     ),
+  },
+  {
+    id: 'actor',
+    header: t(
+      'Pages.Customers.Instances.Detail.auditTrail.table.headers.actor',
+    ),
+    cell: ({ row }) => <AuditTrailActorCell entry={row.original} />,
   },
   {
     id: 'status',

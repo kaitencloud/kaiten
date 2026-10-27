@@ -49,8 +49,7 @@ depends on the response:
 | --- | --- |
 | `ApiError` without `status` (no response) | `Errors.api.NETWORK` |
 | `ApiError` with a `Problem` body | the `detail`, else the `title`, else `Errors.api.<code>` |
-| `ApiError` with a string body | the string |
-| any other `ApiError` | `Errors.api.<code>` |
+| any other `ApiError`, a string or an HTML page included | `Errors.api.<code>` |
 | GraphQL errors | their messages, joined with `; ` |
 | `Error` | its `message` |
 | anything else | `Errors.api.UNKNOWN` |
@@ -59,8 +58,10 @@ depends on the response:
 404 `NOT_FOUND`, 409 `CONFLICT`, 429 `RATE_LIMITED`, 500, 502, 503 and 504
 `SERVER_ERROR`, any other status `UNKNOWN`. The codes are listed in
 `app/src/lib/errors/types.ts`, and `pnpm run check:api-error-i18n` fails when one has
-no `Errors.api.<code>` translation. Text written by the server is shown as is: only
-the generic `Errors.api.*` messages follow the active language.
+no `Errors.api.<code>` translation. The text of a problem is the API speaking and is
+shown as is; only the generic `Errors.api.*` messages follow the active language. A body that is not a problem is a gateway speaking, the
+`Jwt is missing` of a 401 or the HTML page of a 502, and is never printed: a 401 says
+that the session is not signed in, a 502 that the server failed.
 
 Every call to `handleApiError` is logged with `logger.error`
 (`app/src/lib/logger.ts`), which prints to the browser console in development. No
@@ -75,7 +76,9 @@ error-reporting service is wired.
 | An input cannot be sent or is refused before the request | A message next to the field |
 
 **Route errors.** `main.tsx` sets `RouteError` (`app/src/components/route/route-error.tsx`)
-as the router's `defaultErrorComponent`, and no route overrides it. What it renders
+as the router's `defaultErrorComponent`, and only one route overrides it: the billing
+route of one invoice, which shows the billing API's refusal in its own words with
+`BillingRouteError` (see [Billing refusals](#billing-refusals)). What `RouteError` renders
 depends on what was thrown:
 
 | Thrown value | Rendered |
@@ -86,11 +89,9 @@ depends on what was thrown:
 
 On the card, an `ApiError` shows the `detail` of its problem, else the `title`, else
 `Errors.api.<code>`, and `Errors.api.NETWORK` when it has no `status`. That is what
-`getApiErrorMessage` returns for it, with one difference: a body that is not a problem
-is never printed. It is the text or the HTML page of a gateway, so the card shows
-`Errors.api.<code>` where `getApiErrorMessage` returns the string. `RouteError` reads
-the message with `mapApiError` and `getErrorMessage`, because `getApiErrorMessage` and
-`handleApiError` log on every call and a component renders more than once. Any other
+`getApiErrorMessage` returns for it. `RouteError` reads the message with `mapApiError`
+and `getErrorMessage`, because `getApiErrorMessage` and `handleApiError` log on every
+call and a component renders more than once. Any other
 `Error` shows its `message`, and a thrown string is shown as is.
 
 Only an `ApiError` has a status to branch on. The GraphQL client throws one when the
@@ -268,13 +269,18 @@ Use an optimistic update for deletes and simple toggles
 a preference the same way). For a create or an edit, invalidate in `onSuccess`
 instead. See [query key invalidation](./query-key-invalidation.md).
 
+## Billing refusals
+
+The billing calls answer a problem document with a stable `code` and a `detail`. The console shows the `detail` as written and keeps no `Errors.api.<code>` translation per code: `check:api-error-i18n` covers only the generic categories above. `ProblemAlert` (`app/src/domains/billing/components/`) is what a billing dialog renders: the `detail`, or a generic message with the `code` in a monospace hint when there is none. `handleBillingProblem` (`app/src/domains/billing/logic/billing-problem.ts`) recognises the few codes that change what a screen does, such as a missing scope (a banner naming it), billing being off, a 503 (nothing was changed, with a retry) and a boundary being closed (409 `*.BoundaryPending`: the screen says "Closing the period…" with `BoundaryClosingNotice`, sends the same request once more after the `Retry-After` it names, a minute when the answer has none, and shows the refusal with a Retry only if that second try fails: `useBoundaryRetry`), a limit on the requests (a 429 or a `*.RateLimited` code, `rate-limited`: the `detail` as the API wrote it, then that this is temporary and to try again after the `Retry-After` it names, a minute when the answer has none, with a Retry: the voucher codes checked in a dialog are limited to sixty a minute) and, for a 503 that names a `Retry-After`, the wait before trying again (the gateway exposes the header to the browser for the console routes), and `applyProblemFieldErrors` puts the field errors of a 422 on a form. A deletion that billing or a reference refuses (409 `DeleteInstance.BillingActive`, `DeleteCustomer.BillingActive`, `DeleteEntitlement.InUseConflict`) is explained in a dialog and not a toast, because a bare error would leave the person guessing what to settle first: `useDeletionRefusal` answers whether a failure was one, and renders `DeletionRefusalDialog` with the status of the subscription, the invoices not settled and what still uses the record, each with a link; any other failure keeps its toast. The optimistic delete of the entitlements list puts the row back through the `handleError` option of `optimisticDeleteCallbacks`, which is given the failure and the variables of the delete, and its dialog is held by the table and not by the row: the row leaves the list while the API answers, and a row is keyed by its position, so the last one unmounts with whatever it holds and another shows a different record by the time the answer comes. Billing mutations never use the optimistic helpers: a refusal must not show as a success. A route that reads one record uses `BillingRouteError` as its `errorComponent` (the refusal in the API's words, a 404 as a page that does not exist, a Retry that invalidates the router), a read inside a page `RetryableProblem`, and a refusal shown in a dialog takes the focus with `ProblemAlert autoFocus`, since the confirmation was disabled while the API answered and dropped the focus with it. See [billing](../../src/domains/billing/README.md).
+
 ## Errors that are not failures
 
 Some errors are an expected answer, not a failure to report:
 
 - **A status the caller expects.** `getAttioSettings`
-  (`app/src/domains/crm-sync/queries/attio-settings-query-options.ts`) reads a 404 as
-  "not configured yet" and returns `null`. `getWebhooksServed`
+  (`app/src/domains/crm-sync/queries/attio-settings-query-options.ts`) returns `null`
+  for `configured: false` (never configured) and for a 404 (the deployment has not
+  registered the connector). `getWebhooksServed`
   (`app/src/domains/webhooks/webhooks-served.ts`) reads a 404 and a 403 as "webhooks
   are not served here" and returns `false`.
 - **A missing entity.** `RouteError` and the breadcrumbs test `isNotFoundError`.

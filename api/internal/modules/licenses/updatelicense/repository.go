@@ -136,6 +136,18 @@ func (r *CommandRepository) update(ctx context.Context, command *Command, slug s
 		}
 		return nil, familyevents.Before{}, err
 	}
+	// A family another one falls back to stays FREE (V31-66), checked under
+	// the family lock the fallback's setting share-locks.
+	if command.PricingType != "" && command.PricingType != schema.PricingTypeFree {
+		fallback, err := queries.IsFallbackOfAnotherFamily(ctx, db.IsFallbackOfAnotherFamilyParams{OrganizationID: organizationID, FamilyID: familyID})
+		if err != nil {
+			return nil, familyevents.Before{}, err
+		}
+		if fallback {
+			return nil, familyevents.Before{}, kaitenerrors.UnprocessableEntity("UpdateLicense.FallbackMustBeFree",
+				fmt.Sprintf("License %q is a version of another family's fallback, so it stays FREE: remove the fallback first", slug))
+		}
+	}
 	before, err := familyevents.Read(ctx, queries, organizationID, familyID)
 	if err != nil {
 		return nil, familyevents.Before{}, err
@@ -160,6 +172,31 @@ func (r *CommandRepository) update(ctx context.Context, command *Command, slug s
 		Slug:           slug,
 		IsDefault:      command.IsDefault,
 		Features:       nil,
+
+		PricingType:           nil,
+		TrialPeriodDays:       nil,
+		TrialPeriodDaysClear:  false,
+		RequiresPaymentMethod: command.RequiresPaymentMethod,
+		SelfServeCtaUrl:       nil,
+		SelfServeCtaUrlClear:  false,
+	}
+	if command.PricingType != "" {
+		pricingType := db.PricingType(command.PricingType)
+		params.PricingType = &pricingType
+	}
+	if command.TrialPeriodDays != nil {
+		if *command.TrialPeriodDays == 0 {
+			params.TrialPeriodDaysClear = true
+		} else {
+			params.TrialPeriodDays = command.TrialPeriodDays
+		}
+	}
+	if command.SelfServeCtaURL != nil {
+		if *command.SelfServeCtaURL == "" {
+			params.SelfServeCtaUrlClear = true
+		} else {
+			params.SelfServeCtaUrl = command.SelfServeCtaURL
+		}
 	}
 
 	res, err := queries.EditLicense(ctx, params)
@@ -178,6 +215,22 @@ func (r *CommandRepository) update(ctx context.Context, command *Command, slug s
 				fmt.Sprintf("License %q is not PUBLISHED, and only a published version can be its family's default; publish or unarchive it first", slug))
 		}
 		return nil, familyevents.Before{}, err
+	}
+
+	// A FREE version bills nothing (V31-71). Checked after the write, which
+	// holds the row lock every price write takes first, so no price above 0 can
+	// land between the count and the commit.
+	if command.PricingType == schema.PricingTypeFree {
+		billing, err := queries.CountLicensePricesAboveZero(ctx, db.CountLicensePricesAboveZeroParams{
+			OrganizationID: organizationID, LicenseID: res.ID,
+		})
+		if err != nil {
+			return nil, familyevents.Before{}, err
+		}
+		if billing > 0 {
+			return nil, familyevents.Before{}, kaitenerrors.UnprocessableEntity("UpdateLicense.FreePriceNotZero",
+				fmt.Sprintf("License %q holds %d price(s) above 0, so it cannot be FREE: deprecate them on a new version, or keep it PAID", slug, billing))
+		}
 	}
 
 	license, err := dbmap.ToLicense(&res)

@@ -8,6 +8,7 @@ import type {
 } from '@/api-client';
 import type { MetadataFieldsQuery } from '@/api-client/graphql/graphql';
 import { TEST_USER } from '../../../../e2e/app/_support/fixtures';
+import { identityProvenance } from '../../../../e2e/app/_support/model/effective-entitlement';
 import { bySlug } from './by-slug';
 import { attioLink } from './catalog';
 import { currentMonth, daysAgo, daysFromNow, minutesAgo } from './dates';
@@ -79,8 +80,9 @@ const buildInstance = ({
 });
 
 /**
- * Six instances. Acme Legacy waits for a zone after a migration, and its
- * license ends within the month; Beta's trial ends sooner still.
+ * Seven instances. Acme Legacy waits for a zone after a migration, and its
+ * license ends within the month; Beta's trial ends sooner still; Gamma
+ * Production was created this week and is not billed yet.
  */
 export const createInstances = (
   customers: Customer[],
@@ -89,6 +91,7 @@ export const createInstances = (
   const acme = bySlug(customers, 'acme-corp');
   const beta = bySlug(customers, 'beta-industries');
   const globex = bySlug(customers, 'globex');
+  const gamma = bySlug(customers, 'gamma-labs');
   const production = (region: string) => ({
     environment: 'production',
     managed: true,
@@ -175,6 +178,17 @@ export const createInstances = (
       status: 'HEALTHY',
       zone: 'staging',
     }),
+    buildInstance({
+      ageInDays: 3,
+      customer: gamma,
+      description: 'Production environment, not billed yet',
+      license: bySlug(licenses, 'starter-v2'),
+      licenseDays: [3, 362],
+      metadata: production('eu-west-3'),
+      name: 'Gamma Production',
+      slug: 'gamma-production',
+      status: 'HEALTHY',
+    }),
   ];
 };
 
@@ -188,6 +202,7 @@ const USAGE: Record<string, Record<string, number>> = {
   'beta-staging': { 'api-calls': 1_000, seats: 3 },
   'globex-production': { 'api-calls': 104_200, seats: 50, 'storage-gb': 120 },
   'globex-staging': { 'api-calls': 2_300, seats: 4, 'storage-gb': 12 },
+  'gamma-production': { 'api-calls': 1_200, seats: 6, 'storage-gb': 4 },
 };
 
 /** Each instance's usage, measured against the grants of its license. */
@@ -214,7 +229,17 @@ export const createEntitlementUsages = (
               entitlementSlug: grant.entitlementSlug ?? '',
               licenseId: grant.licenseId,
               licenseSlug: grant.licenseSlug,
+              source: 'license',
               limit: grant.value,
+              // What the API serves for each row: the percent that applies, and the
+              // provenance of a limit that only the license grants. The instances that
+              // hold add-ons or boosts have theirs composed (`applyAddonContributions`).
+              limitCapExceededOveragePercent:
+                grant.limitCapExceededOveragePercent ??
+                (grant.value.type === 'number' && grant.value.value === -1
+                  ? -1
+                  : 0),
+              provenance: identityProvenance(grant),
               value: { type: 'number', value: used },
             },
           ];

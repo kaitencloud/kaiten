@@ -3,6 +3,9 @@ package huma
 import (
 	"errors"
 	"log/slog"
+	"net/http"
+	"slices"
+	"strings"
 	"sync"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -106,10 +109,14 @@ func newError(ctx huma.Context, status int, msg string, errs ...error) huma.Stat
 		var detailer huma.ErrorDetailer
 		if errors.As(err, &detailer) {
 			detail := detailer.ErrorDetail()
+			value := detail.Value
+			if secretLocation(ctx, detail.Location) {
+				value = nil // a secret refused for its shape is never sent back
+			}
 			model.Errors = append(model.Errors, &kaitenerrors.ErrorDetail{
 				Message:  detail.Message,
 				Location: detail.Location,
-				Value:    detail.Value,
+				Value:    value,
 			})
 			continue
 		}
@@ -120,8 +127,14 @@ func newError(ctx huma.Context, status int, msg string, errs ...error) huma.Stat
 	if len(withheld) > 0 {
 		model.ErrorID = uuid.NewString()
 		logWithheld(ctx, model, withheld)
+		return model
 	}
 
+	// A bound the schema publishes, for which the operation names its
+	// Appendix A code (SchemaCodes).
+	if status == http.StatusUnprocessableEntity && len(model.Errors) > 0 {
+		return withSchemaCode(ctx, model, instance)
+	}
 	return model
 }
 
@@ -138,4 +151,29 @@ func logWithheld(ctx huma.Context, model *kaitenerrors.Problem, withheld []error
 		return
 	}
 	slog.ErrorContext(ctx.Context(), "untyped error withheld from response", attrs...)
+}
+
+// secretMembersKey is the operation metadata SecretMembers fills.
+const secretMembersKey = "kaiten.secretMembers"
+
+// SecretMembers is operation metadata naming request members that hold a
+// secret: a validation failure on one of them never carries the value it
+// refused (§20.1 rule 5). A member whose name contains "secret" or
+// "password" is one without being named.
+func SecretMembers(locations ...string) map[string]any {
+	return map[string]any{secretMembersKey: locations}
+}
+
+// secretLocation reports whether a validation detail's location is a secret
+// request member.
+func secretLocation(ctx huma.Context, location string) bool {
+	leaf := strings.ToLower(location[strings.LastIndex(location, ".")+1:])
+	if strings.Contains(leaf, "secret") || strings.Contains(leaf, "password") {
+		return true
+	}
+	if ctx == nil || ctx.Operation() == nil {
+		return false
+	}
+	named, _ := ctx.Operation().Metadata[secretMembersKey].([]string)
+	return slices.Contains(named, location)
 }

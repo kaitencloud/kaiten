@@ -1,7 +1,9 @@
 export {
-  StackedFormDialog,
   StackedFormDialogCard,
   type StackedFormDialogCardProps,
+} from './stacked-form-dialog-card';
+export {
+  StackedFormDialog,
   StackedFormDialogFooter,
   StackedFormDialogPanel,
   type StackedFormDialogPanelProps,

@@ -1,8 +1,8 @@
 import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
-import { listUsers, setUserAssignments, updateUser, type UpdateUserData, type SetUserAssignmentsData } from '@/api-client';
+import { listUsers, setUserAssignments, type SetUserAssignmentsData } from '@/api-client';
 import { getMeQueryKey, listUsersOptions, listUsersQueryKey } from '@/api-client/@tanstack/react-query.gen';
 import { fetchAllPages, MAX_PAGE_SIZE } from '@/lib/api/pagination';
-import { deleteRole, listRoles, saveRole, setUserEnabled, type RoleInput } from './user-management.api';
+import { deleteRole, listRoles, saveProfileOnFresh, saveRole, setUserEnabled, type RoleInput } from './user-management.api';
 
 export const allUsersOptions = () => ({
   ...listUsersOptions(),
@@ -34,7 +34,7 @@ export function useAccessMutations() {
   const client = useQueryClient();
   const onSettled = () => refreshAccessQueries(client);
   return {
-    profile: useMutation({ mutationKey: ['access-management', 'profile'], mutationFn: (options: Pick<UpdateUserData, 'body' | 'path'>) => updateUser({ ...options, throwOnError: true }), onSettled }),
+    profile: useMutation({ mutationKey: ['access-management', 'profile'], mutationFn: saveProfileOnFresh, onSettled }),
     authorization: useMutation({ mutationKey: ['access-management', 'assignments'], mutationFn: (options: Pick<SetUserAssignmentsData, 'body' | 'path'>) => setUserAssignments({ ...options, throwOnError: true }), onSettled }),
     enabled: useMutation({ mutationKey: ['access-management', 'enabled'], mutationFn: setUserEnabled, onSettled }),
     role: useMutation({ mutationKey: ['access-management', 'role'],

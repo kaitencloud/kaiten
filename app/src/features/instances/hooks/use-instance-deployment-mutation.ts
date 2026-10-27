@@ -3,17 +3,16 @@ import { useRouteContext } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import type { Instance } from '@/api-client';
-import {
-  listDeploymentZonesQueryKey,
-  updateInstanceMutation,
-} from '@/api-client/@tanstack/react-query.gen';
+import { listDeploymentZonesQueryKey } from '@/api-client/@tanstack/react-query.gen';
 import { releaseManagementOverviewBaseQueryKey } from '@/domains/release-management';
 import { getApiErrorMessage } from '@/lib/errors';
 import { logger } from '@/lib/logger';
+import { saveInstanceOnFresh } from '../queries';
 import {
   getInstanceDeploymentMode,
   instanceToDeploymentUpdateInput,
 } from '../utils/instance-deployment.utils';
+import { instanceToUpdateBody } from '../utils/instance-update-body';
 import { invalidateInstanceQueries } from './instance-query-invalidation';
 
 type UseInstanceDeploymentMutationOptions = {
@@ -25,6 +24,9 @@ type UseInstanceDeploymentMutationOptions = {
  * migrating (zone already set) are the same PUT — the API decides which domain
  * event to emit — so a single mutation covers both and only the toast differs.
  *
+ * The instance is read again before it is written and only the zone is put on top
+ * of it: what another tab saved on the instance since the page loaded stays.
+ *
  * Zones own the release currently rolled out, which is what the overview and
  * the zone list read: both caches are invalidated alongside the instance.
  */
@@ -35,9 +37,9 @@ export const useInstanceDeploymentMutation = ({
   const { queryClient } = useRouteContext({ from: '__root__' });
 
   const mutation = useMutation({
-    ...updateInstanceMutation(),
+    mutationFn: saveInstanceOnFresh,
     onSuccess: async (_updatedInstance, variables) => {
-      const instanceSlug = variables.path.instanceSlug;
+      const instanceSlug = variables.instanceSlug;
       await Promise.all([
         invalidateInstanceQueries(queryClient, instanceSlug),
         queryClient.invalidateQueries({
@@ -59,8 +61,9 @@ export const useInstanceDeploymentMutation = ({
       const mode = getInstanceDeploymentMode(instance.deploymentZoneId);
 
       await mutation.mutateAsync({
-        path: { instanceSlug: instance.slug! },
-        body: instanceToDeploymentUpdateInput(instance, deploymentZoneId),
+        edited: instanceToDeploymentUpdateInput(instance, deploymentZoneId),
+        instanceSlug: instance.slug!,
+        opened: instanceToUpdateBody(instance),
       });
 
       logger.track(

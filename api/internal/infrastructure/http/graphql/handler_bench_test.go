@@ -13,7 +13,7 @@ import (
 // limit. Nested inline fragments maximize depth without increasing complexity;
 // validation is quadratic, so remeasure before raising parserTokenLimit.
 func BenchmarkParserTokenLimit(b *testing.B) {
-	schema := newExecutableSchema(nil).Schema()
+	schema := newExecutableSchema(nil, Config{}).Schema()
 	require.Equal(b, parserTokenLimit, queryTokenCount(b, queryAtParserTokenLimit))
 	b.ReportAllocs()
 	for b.Loop() {

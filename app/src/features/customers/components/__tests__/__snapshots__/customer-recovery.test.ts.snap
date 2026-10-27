@@ -1,0 +1,46 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of the customer creation > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "billingEmail": {
+      "type": "string",
+    },
+    "domain": {
+      "type": "string",
+    },
+    "externalCustomerId": {
+      "type": [
+        "string",
+        "null",
+      ],
+    },
+    "name": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "slug": {
+      "anyOf": [
+        {
+          "maxLength": 100,
+          "minLength": 2,
+          "pattern": "^[a-z0-9][a-z0-9-]*[a-z0-9]$",
+          "type": "string",
+        },
+        {
+          "const": "",
+          "type": "string",
+        },
+      ],
+    },
+  },
+  "required": [
+    "name",
+    "domain",
+    "billingEmail",
+    "slug",
+  ],
+  "type": "object",
+}
+`;

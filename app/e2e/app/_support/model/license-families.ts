@@ -3,6 +3,25 @@ import type { License, LicenseFamilyView } from '@/api-client';
 import { zLicenseFamilyView } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 
+/**
+ * The settings of a family that act on its subscriptions, as the API stores them:
+ * the family it falls back to (by slug, none without one), what a trial without a
+ * payment method becomes at its end, and the lead of the trial reminder. A family
+ * that has none stored has the API's defaults.
+ */
+export type FamilySettings = Pick<
+  LicenseFamilyView,
+  | 'fallbackLicenseFamilySlug'
+  | 'trialEndWithoutPaymentMethod'
+  | 'trialReminderDays'
+>;
+
+export const DEFAULT_FAMILY_SETTINGS: FamilySettings = {
+  fallbackLicenseFamilySlug: null,
+  trialEndWithoutPaymentMethod: 'CANCEL',
+  trialReminderDays: 3,
+};
+
 const isPublished = (license: License) =>
   (license.lifecycleState ?? 'PUBLISHED') === 'PUBLISHED';
 
@@ -12,9 +31,13 @@ const isPublished = (license: License) =>
  * highest-numbered published one, else to none. A family carries the slug of
  * the version that opened it. The console takes this answer as given and never
  * applies the rule itself, so the mocks standing in for the API restate it.
+ * Families are private until listed: `publicFamilyIds` names the ones that are.
+ * `settingsByFamilyId` holds the settings that were changed from the defaults.
  */
 export function listLicenseFamilyViews(
   licenses: License[],
+  publicFamilyIds: ReadonlySet<string> = new Set(),
+  settingsByFamilyId: ReadonlyMap<string, FamilySettings> = new Map(),
 ): LicenseFamilyView[] {
   const versionsByFamily = new Map<string, License[]>();
   for (const license of licenses) {
@@ -39,6 +62,8 @@ export function listLicenseFamilyViews(
         newestFirst.find((license) => license.isDefault) ??
         newestFirst.find(isPublished),
       id,
+      isPublic: publicFamilyIds.has(id),
+      ...(settingsByFamilyId.get(id) ?? DEFAULT_FAMILY_SETTINGS),
       slug: opener.slug ?? id,
       updatedAt: newest.createdAt,
       versionCount: versions.length,

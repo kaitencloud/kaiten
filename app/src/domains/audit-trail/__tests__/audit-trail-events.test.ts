@@ -8,6 +8,7 @@ import {
   AUDIT_EVENT_LABEL_KEYS,
   humanizeEventName,
   resolveEventLabel,
+  resolveEventReason,
 } from '../audit-trail-events';
 
 const LOCALES = { en, fr } as const;
@@ -65,5 +66,41 @@ describe('audit event labels', () => {
       'License entitlement assigned',
     );
     expect(humanizeEventName('')).toBe('');
+  });
+});
+
+describe('resolveEventReason', () => {
+  it('says why billing moved an instance to its fallback license, in both languages', () => {
+    const payload = { licenseChangeReason: 'BILLING_FALLBACK', slug: 'acme' };
+    expect(
+      resolveEventReason('INSTANCE_UPDATED', payload, translatorFor(en)),
+    ).toBe(
+      'Moved to the fallback license: its subscription ended, by a cancellation or a trial that ended without a payment method.',
+    );
+    expect(
+      resolveEventReason('INSTANCE_UPDATED', payload, translatorFor(fr)),
+    ).toMatch(/^Passée sur la licence de repli/);
+  });
+
+  it('gives none for any other change, another event, or a reason this build does not know', () => {
+    const t = translatorFor(en);
+    expect(
+      resolveEventReason('INSTANCE_UPDATED', { licenseChangeReason: null }, t),
+    ).toBeNull();
+    expect(resolveEventReason('INSTANCE_UPDATED', null, t)).toBeNull();
+    expect(
+      resolveEventReason(
+        'INSTANCE_UPDATED',
+        { licenseChangeReason: 'SOMETHING_NEW' },
+        t,
+      ),
+    ).toBeNull();
+    expect(
+      resolveEventReason(
+        'LICENSE_UPDATED',
+        { licenseChangeReason: 'BILLING_FALLBACK' },
+        t,
+      ),
+    ).toBeNull();
   });
 });

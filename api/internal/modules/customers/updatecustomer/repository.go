@@ -38,6 +38,15 @@ func (r *CommandRepository) UpdateCustomer(ctx context.Context, command *Command
 		Domain:             command.Domain,
 		Name:               command.Name,
 		UserID:             userID,
+		BillingEmail:       nil,
+		BillingEmailClear:  false,
+	}
+	if command.BillingEmail != nil {
+		if *command.BillingEmail == "" {
+			sqlcParams.BillingEmailClear = true
+		} else {
+			sqlcParams.BillingEmail = command.BillingEmail
+		}
 	}
 
 	c, err := r.q(ctx).UpdateCustomer(ctx, sqlcParams)
@@ -54,6 +63,7 @@ func (r *CommandRepository) UpdateCustomer(ctx context.Context, command *Command
 		Slug:               c.Slug,
 		ExternalCustomerID: c.ExternalCustomerID,
 		Domain:             c.Domain,
+		BillingEmail:       c.BillingEmail,
 		CreatedBy:          shared.User{ID: c.CreatedByID, Name: c.CreatedByName},
 		UpdatedBy:          shared.User{ID: c.UpdatedByID, Name: c.UpdatedByName},
 		CreatedAt:          c.CreatedAt.Time,

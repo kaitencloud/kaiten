@@ -23,6 +23,10 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
 	loaders.Register(EntitlementBySlugLoaderName, dataloaderLib.NewBatchedLoader(
 		newEntitlementBySlugBatchFn(queries),
 	))
+	// GET /instances/{instanceSlug}/entitlement-exceptions?filter=all.
+	loaders.Register(EntitlementExceptionsLoaderName, dataloaderLib.NewBatchedLoader(
+		newEntitlementExceptionsBatchFn(queries),
+	))
 }
 
 // newEntitlementBySlugBatchFn resolves full entitlement definitions (groups

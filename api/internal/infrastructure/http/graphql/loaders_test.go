@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
+	addonsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
 	componentschema "github.com/kaitencloud/kaiten/api/internal/modules/components/schema"
 	customersGraphql "github.com/kaitencloud/kaiten/api/internal/modules/customers/graphql"
 	deploymentzonesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/graphql"
@@ -17,6 +18,7 @@ import (
 	instancesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/instances/graphql"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	licensesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/licenses/graphql"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	releasesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/releases/graphql"
 )
 
@@ -144,6 +146,34 @@ func loaderCases() []loaderCase {
 			},
 			lookup: func(ctx context.Context) error {
 				_, err := licensesGraphql.GetLicenseEntitlementsLoader(ctx)
+				return err
+			},
+		},
+		{
+			name: licensesGraphql.LicensePricesLoaderName,
+			load: func(ctx context.Context) error {
+				_, err := licensesGraphql.LoadLicensePrices(ctx, id, nil)
+				return err
+			},
+			lookup: func(ctx context.Context) error {
+				_, err := dataloader.GetLoader[uuid.UUID, []prices.Price](
+					dataloader.LoadersFromContext(ctx),
+					licensesGraphql.LicensePricesLoaderName,
+				)
+				return err
+			},
+		},
+		{
+			name: addonsGraphql.AddonPricesLoaderName,
+			load: func(ctx context.Context) error {
+				_, err := addonsGraphql.LoadAddonPrices(ctx, id, nil)
+				return err
+			},
+			lookup: func(ctx context.Context) error {
+				_, err := dataloader.GetLoader[uuid.UUID, []prices.Price](
+					dataloader.LoadersFromContext(ctx),
+					addonsGraphql.AddonPricesLoaderName,
+				)
 				return err
 			},
 		},

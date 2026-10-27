@@ -4,48 +4,25 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
-import {
-  createFeatureFlagMutation,
-  updateFeatureFlagMutation,
-} from '@/api-client/@tanstack/react-query.gen';
-import { mapToFormVariants } from '../variants';
+import { createFeatureFlagMutation } from '@/api-client/@tanstack/react-query.gen';
 import { useAppForm } from '@/hooks/form';
 import {
   mergeFeatureFlagIntoCache,
   revalidateFeatureFlagsListQuery,
+  saveFeatureFlagOnFresh,
 } from '../queries';
 import type {
   FeatureFlagFormProps,
   FeatureFlagFormValues,
   FeatureFlagValueType,
 } from '../types';
+import { getFeatureFlagFormInitialValues } from '../utils/feature-flag-form-values';
 import { featureFlagFormOpts } from '../utils/shared-form';
 
 function removeFallbackMetadata(metadata: Record<string, unknown>) {
   const { fallback_value: _fallbackValue, ...rest } = metadata;
 
   return rest;
-}
-
-export function getFeatureFlagFormInitialValues(
-  featureFlag?: FeatureFlagFormProps['featureFlag'],
-) {
-  if (!featureFlag) {
-    return featureFlagFormOpts.defaultValues;
-  }
-
-  return {
-    name: featureFlag.name,
-    description: featureFlag.description,
-    slug: featureFlag.slug ?? '',
-    enabled: featureFlag.enabled,
-    type: featureFlag.type,
-    event_name: featureFlag.event_name,
-    metadata: featureFlag.metadata,
-    variants: mapToFormVariants(featureFlag.variants) ?? null,
-    default_variant: featureFlag.default_variant,
-    targetings: featureFlag.targetings,
-  };
 }
 
 function hasTypeChangeData(
@@ -87,17 +64,19 @@ function useUpdateFeatureFlagFormMutation(
   queryClient: QueryClient,
 ) {
   return useMutation({
-    ...updateFeatureFlagMutation(),
-    onSuccess: (_data, variables) => {
+    mutationFn: saveFeatureFlagOnFresh,
+    // What the update sent, merged with the flag as the API held it: the caches
+    // are given that, and not the form.
+    onSuccess: (sent, variables) => {
       if (currentFeatureFlag) {
         mergeFeatureFlagIntoCache(
           queryClient,
           {
             ...currentFeatureFlag,
-            ...variables.body,
-            slug: variables.body.slug || currentFeatureFlag.slug,
+            ...sent,
+            slug: sent.slug || currentFeatureFlag.slug,
           },
-          variables.path.featureFlagSlug,
+          variables.featureFlagSlug,
         );
       }
 
@@ -113,6 +92,11 @@ export const useFeatureFlagForm = ({ featureFlag }: FeatureFlagFormProps) => {
   const initialType: FeatureFlagValueType =
     featureFlag?.type || featureFlagFormOpts.defaultValues.type;
 
+  // What the form opened with, kept as it was: an update sends the fields that
+  // differ from it, and takes the others from the flag as the API holds it.
+  const [openedValues] = useState(() =>
+    getFeatureFlagFormInitialValues(featureFlag),
+  );
   const [pendingTypeChange, setPendingTypeChange] =
     useState<FeatureFlagValueType | null>(null);
   const [previousType, setPreviousType] =
@@ -126,7 +110,7 @@ export const useFeatureFlagForm = ({ featureFlag }: FeatureFlagFormProps) => {
 
   const form = useAppForm({
     ...featureFlagFormOpts,
-    defaultValues: getFeatureFlagFormInitialValues(featureFlag),
+    defaultValues: openedValues,
     listeners: {
       onChange: ({ formApi }) => {
         const currentType = formApi.state.values.type;
@@ -153,8 +137,9 @@ export const useFeatureFlagForm = ({ featureFlag }: FeatureFlagFormProps) => {
           const nextFeatureFlagSlug = value.slug || featureFlag.slug;
 
           await updateMutation.mutateAsync({
-            body: value as any,
-            path: { featureFlagSlug: featureFlag.slug },
+            edited: value,
+            featureFlagSlug: featureFlag.slug,
+            opened: openedValues,
           });
           navigateToFeatureFlagDetail(router, nextFeatureFlagSlug);
           toast.success(

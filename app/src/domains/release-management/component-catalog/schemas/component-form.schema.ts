@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import type { Component } from '@/api-client';
 import { zComponentWritable } from '@/api-client/zod.gen';
 
 const optionalField = <TSchema extends z.ZodTypeAny>(schema: TSchema) =>
@@ -46,4 +47,21 @@ export function normalizeComponentFormValues(
     slug: toOptionalValue(value.slug),
     version: value.version.trim(),
   };
+}
+
+/**
+ * The update that restates a component as it stands: its name, its version and
+ * its description. The slug is left out, which keeps it. Another body for the same
+ * component is compared with this one to tell what the form changed: see
+ * `saveComponentOnFresh`.
+ */
+export function componentToUpdateBody(
+  component: Pick<Component, 'description' | 'name' | 'version'>,
+): z.infer<typeof zComponentWritable> {
+  return normalizeComponentFormValues({
+    description: component.description ?? '',
+    name: component.name,
+    slug: '',
+    version: component.version,
+  });
 }

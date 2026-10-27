@@ -1,7 +1,10 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import type { Instance } from '@/api-client';
-import { customerQueryOptions } from '@/features/customers';
+import {
+  customerQueryOptions,
+  getCustomerDetailTarget,
+} from '@/features/customers';
 import { InstanceFormDialog } from '@/features/instances';
 
 export const Route = createFileRoute('/customers/$customerSlug/instances/new/')(
@@ -27,7 +30,7 @@ export function CustomerScopedInstanceDialog({
     customerQueryOptions(customerSlug),
   );
   const backToCustomer = () => {
-    navigate({ to: '/customers/$customerSlug', params: { customerSlug } });
+    navigate(getCustomerDetailTarget(customerSlug));
   };
   // Land on the instance just created rather than back on its customer.
   const openCreatedInstance = (instance: Instance) => {

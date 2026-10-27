@@ -61,7 +61,7 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
 
 ## Behaviour
 
-**Availability.** The paths above are not served by the API in `api/`, and the stack in `compose.yml` does not route `/api/webhooks` to a service either (see the header of `docker/envoy/kaiten.yaml.tmpl`, and the [README](../../../../README.md) for what a deployment adds). Kaiten Cloud's saas-api serves them, and only to an organization whose Kaiten licence grants it webhook events: `webhooks` is a NUMBER entitlement, the events it may publish each calendar month, and a grant of 0 (or none) is answered 403 `Webhooks.NotEntitled` on every route, and 503 when the licence cannot be read. Any other grant serves them, and creating endpoints is never limited: the licence counts the events delivered, not the endpoints, so the console shows no quota on the create. The console reads the answer off `GET /webhooks` through the [`webhooks` domain](../../domains/webhooks/README.md): where webhooks are not served, the side navigation leaves out the Webhooks entry (`needsWebhooks` in `integrationsSubRoutes`), `route.tsx` answers not-found for the list and the history, and the token scope picker leaves out the `webhooks` scope. Where the answer could not be read, the route renders `RouteError` (`app/src/components/route/route-error.tsx`), an error card with a retry button.
+**Availability.** The paths above are not served by the API in `api/`, and the stack in `compose.yml` does not route `/api/webhooks` to a service either (see the header of `docker/envoy/kaiten.yaml.tmpl`, and the [README](../../../../README.md) for what a deployment adds). Kaiten Cloud's saas-api serves them, and only to an organization whose Kaiten licence grants it webhook events: `webhooks` is a NUMBER entitlement, the events it may publish each calendar month, and a grant of 0 (or none) is answered 403 `Webhooks.NotEntitled` on every route, and 503 when the licence cannot be read. Any other grant serves them, and creating endpoints is never limited: the licence counts the events delivered, not the endpoints, so the console shows no quota on the create. The console reads the answer off `GET /webhooks` (asked only where webhooks can exist: Cloud's builds, which name their platform, or a dev or e2e build started with `VITE_KAITEN_WEBHOOKS=true`) through the [`webhooks` domain](../../domains/webhooks/README.md): where webhooks are not served, the side navigation leaves out the Webhooks entry (`needsWebhooks` in `integrationsSubRoutes`), `route.tsx` answers not-found for the list and the history, and the token scope picker leaves out the `webhooks` scope. Where the answer could not be read, the route renders `RouteError` (`app/src/components/route/route-error.tsx`), an error card with a retry button.
 
 **Events tab.** `WebhookTable` lists each webhook's events (by name, such as `CUSTOMER_CREATED`), URL, masked signing secret and creation date, newest first. The creation date is the only sortable column. When the event summary is truncated, a tooltip lists the events by group. A search box filters on the URL and on each event's type, name, label and group title. The delete action asks for confirmation and names the webhook's URL.
 
@@ -87,7 +87,10 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
   },
   ```
 
+  The billing events (subscriptions, invoices, add-ons, vouchers) are listed in `utils/webhook-billing-events.ts`, which the catalogue spreads into its own map, so that neither file outgrows the size limit. Their entries are checked the same way, and the catalogue fails the type check while an event is in neither file.
+
 - An event's label is the audit trail's (`resolveEventLabel` from `@/domains/audit-trail`). Group titles are the `Pages.Integrations.Webhooks.EventGroups` keys of `en.ts` and `fr.ts`.
+- The three events of an anonymous checkout (`CHECKOUT_SESSION_STARTED`, `_COMPLETED` and `_ABANDONED`) are the group `checkout`, titled "Checkouts", listed after the payments. A vendor provisions its customers from `_COMPLETED`: the events carry the e-mail the visitor typed, the only payloads besides the trial reminder that do.
 - `group: null` keeps an event out of the create dialog. Two events have it, `FEATURE_FLAG_EVALUATED` and `ENTITLEMENT_VALUE_GET`. The API triggers them on every flag evaluation and on every read of an entitlement's usage value, so a subscription would receive one request each time.
 - A type this build does not know, an event newer than the console, shows as the type itself, under the group "Other events".
 
@@ -100,7 +103,7 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
   - `components/webhook-list/__tests__/create-webhook-dialog.test.tsx`, `webhook-list.test.tsx` and `webhook-table.test.tsx`
   - `components/webhook-history/__tests__/webhook-history-section.test.tsx`
   - `hooks/use-webhook-mutations.test.tsx`
-  - `utils/__tests__/webhook-events.test.ts`, which checks the catalogue (a type per event, a title per group in both locales, the two events kept out of the dialog)
+  - `utils/__tests__/webhook-events.test.ts`, which checks the catalogue (a type per event, a title per group in both locales, the two events kept out of the dialog, the group of the anonymous checkout)
 
   `pnpm run test` from `app/` runs them.
 - Stories: `components/stories/webhooks.stories.tsx` (`Features/Webhooks/P0WebhooksStories`: `PageWithList`, `Table`, `EmptyList`, `NoSearchResults`, `CreateDialog`, `History`, `FailureDialog`), with `webhooks.fixtures.ts`. The file is listed in `storybookTestExclude` in `app/vite.config.ts`, so `pnpm run test:stories` skips it. The stories stay available in Storybook.

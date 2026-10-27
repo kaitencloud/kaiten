@@ -19,7 +19,7 @@ are present. Docker is available; Cargo and wasm-pack are absent from PATH.
 The local checkout enables `VITE_LOCAL_AUTH` in `.env.local`. The baseline
 commands therefore override it. Other behaviour switches are `VITE_API_URL`,
 `VITE_CLERK_PUBLISHABLE_KEY`, `VITE_KAITEN_PLATFORM_API_URL`,
-`VITE_KAITEN_PLATFORM_FLAGS_TOKEN`, `VITE_E2E_BYPASS_AUTH`, `VITE_E2E_MSW`,
+`VITE_KAITEN_PLATFORM_FLAGS_TOKEN`, `VITE_KAITEN_WEBHOOKS`, `VITE_E2E_BYPASS_AUTH`, `VITE_E2E_MSW`,
 `VITE_MOCK_API`, `VITE_MOCK_NOTIFICATIONS` and `E2E_MOCKS`. No credentials are
 included in this report.
 

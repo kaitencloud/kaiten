@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
@@ -53,9 +54,14 @@ const useGroupMutationForm = (
   onSuccess?: (group: EntitlementGroup) => void,
 ) => {
   const { createMutation, updateMutation } = useEntitlementGroupFormMutations();
+  // What the form opened with, kept as it was: an update sends the fields that
+  // differ from it, and takes the others from the group as the API holds it.
+  const [openedValues] = useState(() =>
+    getDefaults(group, initialName, initialDescription),
+  );
 
   return useAppForm({
-    defaultValues: getDefaults(group, initialName, initialDescription),
+    defaultValues: openedValues,
     validators: {
       onChange: entitlementGroupFormSchema,
     },
@@ -63,13 +69,14 @@ const useGroupMutationForm = (
       try {
         let savedGroup: EntitlementGroup;
         if (group) {
-          await updateMutation.mutateAsync({
-            path: { entitlementGroupSlug: group.slug! },
-            body: value,
+          const sent = await updateMutation.mutateAsync({
+            edited: value,
+            entitlementGroupSlug: group.slug!,
+            opened: openedValues,
           });
           savedGroup = {
             ...group,
-            ...value,
+            ...sent,
           };
         } else {
           savedGroup = await createMutation.mutateAsync({

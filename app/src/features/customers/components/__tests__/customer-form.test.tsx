@@ -15,6 +15,25 @@ vi.mock('@tanstack/react-router', () => ({
   useRouteContext: () => ({ queryClient: mockQueryClient }),
 }));
 
+// The recovery of the creation is tested on its own and by the e2e: here, an off door.
+vi.mock('@/functionals/form-recovery', () => ({
+  FormRecoveryAlert: () => null,
+  FormRecoveryAnnouncer: () => null,
+  FormRecoveryNotes: () => null,
+  FormRecoverySubmitWarning: () => null,
+  defineFormRecovery: <T,>(descriptor: T) => descriptor,
+  useFormRecovery: (_descriptor: unknown, options: { pristine: unknown }) => ({
+    discard: () => {},
+    focusOffer: () => true,
+    offer: null,
+    pristine: options.pristine,
+    send: <T,>(request: () => Promise<T>) => request(),
+    sessionKey: 'session',
+    writer: { status: 'disabled' },
+  }),
+  useFormRecoveryForm: () => ({ focusRef: () => {} }),
+}));
+
 vi.mock('react-i18next', () => ({
   useTranslation: () => ({
     t: (key: string) => {

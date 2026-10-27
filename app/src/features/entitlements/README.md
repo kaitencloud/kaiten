@@ -4,15 +4,17 @@ An entitlement is something a license can grant: a capability, a numeric allowan
 
 ## Routes
 
-| URL | Route file | Renders |
-| --- | --- | --- |
-| `/entitlements` | `app/src/routes/entitlements/index.tsx` | `EntitlementsPageContent`: the table |
-| `/entitlements/new` | `app/src/routes/entitlements/new/index.tsx` | `EntitlementCreatePage` |
-| `/entitlements/$entitlementSlug` | `app/src/routes/entitlements/$entitlementSlug/index.tsx` | `EntitlementDetailOverviewTab` |
-| `/entitlements/$entitlementSlug/usage` | `app/src/routes/entitlements/$entitlementSlug/usage.tsx` | `EntitlementDetailUsageTab` |
-| `/entitlements/$entitlementSlug/customers` and `/licenses` | `customers.tsx`, `licenses.tsx` in the same folder | Redirect to `.../usage` |
+| URL                                                                   | Route file                                                       | Renders                              |
+| --------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------ |
+| `/catalog/entitlements`                                               | `app/src/routes/catalog/entitlements/index.tsx`                  | `EntitlementsPageContent`: the table |
+| `/catalog/entitlements/new`                                           | `app/src/routes/catalog/entitlements/new/index.tsx`              | `EntitlementCreatePage`              |
+| `/catalog/entitlements/$entitlementSlug`                              | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx` | `EntitlementDetailOverviewTab`       |
+| `/catalog/entitlements/$entitlementSlug/usage`                        | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx` | `EntitlementDetailUsageTab`          |
+| `/catalog/entitlements/$entitlementSlug/customers` and `.../licenses` | `customers.tsx`, `licenses.tsx` in the same folder               | Redirect to `.../usage`              |
 
-`app/src/routes/entitlements/route.tsx` is the layout of the whole section. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and the two tabs (Overview and Usage) around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
+The entitlements are the second entry of the Catalog section of the side navigation (`catalogSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`), listed on every deployment.
+
+`app/src/routes/catalog/entitlements/route.tsx` is the layout of every entitlement route. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and the two tabs (Overview and Usage) around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
 
 ## Structure
 
@@ -42,14 +44,16 @@ business labels/URLs while the functional owns fixed/scrolling regions.
 
 The lists of entitlements and groups come from helpers of `app/src/lib/api/all-pages-query-options.ts` that fetch every page of a generated `list*` operation. The generated operations and query keys are used as they are.
 
-| What | Operation | Where |
-| --- | --- | --- |
-| Entitlements | `listEntitlements` (all pages), `getEntitlement` | `queries/entitlements-query-options.ts`: `entitlementsQueryOptions`, `entitlementQueryOptions(slug)` |
-| Groups | `listEntitlementGroups` (all pages) | `queries/entitlement-groups-query-options.ts`: `entitlementGroupsQueryOptions` |
-| Create, update | `createEntitlement`, `updateEntitlement` (a PUT that replaces the whole entitlement) | `useEntitlementFormMutations` |
-| Delete | `deleteEntitlement` | `EntitlementTableActions`, with `optimisticDeleteCallbacks` on `listEntitlementsQueryKey()` |
-| Create a group | `createEntitlementGroup` | `useEntitlementGroupFormMutations`, called by the group selector |
-| Usage of the detail page | `getEntitlementsUsageMetrics` (`GET /instances/{instanceSlug}/entitlements/usage`), one call per instance whose license grants the entitlement | `components/entitlement-detail/use-entitlement-detail-data.ts` |
+| What                     | Operation                                                                                                                                      | Where                                                                                                |
+| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Entitlements             | `listEntitlements` (all pages), `getEntitlement`                                                                                               | `queries/entitlements-query-options.ts`: `entitlementsQueryOptions`, `entitlementQueryOptions(slug)` |
+| Groups                   | `listEntitlementGroups` (all pages)                                                                                                            | `queries/entitlement-groups-query-options.ts`: `entitlementGroupsQueryOptions`                       |
+| Create, update           | `createEntitlement`, `updateEntitlement` (a PUT that replaces the whole entitlement)                                                           | `useEntitlementFormMutations`                                                                        |
+| Delete                   | `deleteEntitlement`                                                                                                                            | `EntitlementTableActions`, with `optimisticDeleteCallbacks` on `listEntitlementsQueryKey()`          |
+| Create a group           | `createEntitlementGroup`                                                                                                                       | `useEntitlementGroupFormMutations`, called by the group selector                                     |
+| Usage of the detail page | `getEntitlementsUsageMetrics` (`GET /instances/{instanceSlug}/entitlements/usage`), one call per instance whose license grants the entitlement | `components/entitlement-detail/use-entitlement-detail-data.ts`                                       |
+
+The updates of an entitlement (the form, the rename, the icon and the inline group editor) and of a group go through `saveEntitlementOnFresh` and `saveEntitlementGroupOnFresh` (`queries/`): the PUT replaces the object as a whole, so the object is read again and only what the caller changed is put on top of it, which keeps an icon, a group or a description saved from another tab (see [forms](../../../docs/03-patterns/forms.md#updating-an-object-the-api-replaces-as-a-whole)).
 
 The detail page also reads all the licenses, instances and customers, and the entitlements of each license (`allLicensesOptions`, `allInstancesOptions`, `allCustomersOptions`, `allLicenseEntitlementsOptions`). It derives everything it shows from them in the browser: the linked licenses, the impacted instances and customers, the usage rows, the saturation buckets and the rankings. The logic is in `components/entitlement-detail/entitlement-detail-context-*.ts`, which the unit tests cover.
 
@@ -59,7 +63,7 @@ Invalidation:
 - Updating one invalidates the list, that entitlement, and the license entitlement queries (`getLicenseEntitlements`).
 - Creating a group inserts it in the cached groups list, then invalidates it.
 
-`utils/entitlement-writable.ts` owns `conditionUnitFields` and `entitlementToUpdateBody`. The latter rebuilds a complete `EntitlementWritable` from a stored entitlement. Every partial edit uses it (rename in the detail header, icon dialog, inline groups), because the PUT replaces the whole entitlement and would otherwise wipe the other fields. Form schemas, inferred types, defaults and options stay in `components/form/entitlement-form.shared.ts`.
+`utils/entitlement-writable.ts` owns `conditionUnitFields` and `entitlementToUpdateBody`. The latter rebuilds a complete `EntitlementWritable` from a stored entitlement. Every partial edit uses it (rename in the detail header, icon dialog, inline groups), because the PUT replaces the whole entitlement and would otherwise wipe the other fields. That includes the early-warning threshold, which no screen edits: the API stores 0 (the warning off) for a numeric entitlement sent without one, so the stored value is echoed back by every update, the form's included. Form schemas, inferred types, defaults and options stay in `components/form/entitlement-form.shared.ts`.
 
 Scopes: listing and reading entitlements and groups needs `read:entitlements`; creating, updating or deleting an entitlement, and creating a group, needs `write:entitlements`. The other reads have their own scopes. The delete check reads licenses and their entitlements (`read:licenses`). The detail page reads licenses and their entitlements (`read:licenses`), instances (`read:instances`), customers (`read:customers`) and the usage metrics (`read:instances`). The screens do not check scopes themselves.
 
@@ -71,7 +75,9 @@ Scopes: listing and reading entitlements and groups needs `read:entitlements`; c
 
 **Delete.** The delete dialog asks which licenses grant the entitlement, by reading all the licenses and their entitlements, and only when it opens. While it checks, and when at least one license grants the entitlement, the confirm button is disabled and the dialog says to remove the entitlement from those licenses first. The removal is optimistic: the row disappears, and comes back if the API refuses.
 
-**Create.** `/entitlements/new` is a page with a stepper of two steps. Step 1 holds the name (required), the slug (optional), the icon, the description, the groups, the "User facing" switch and the display order. Next stays disabled until step 1 validates. Step 2 holds the type and the options that depend on it. After a successful creation, the route opens the new entitlement's detail page.
+**Create.** `/catalog/entitlements/new` is a page with a stepper of two steps. Step 1 holds the name (required), the slug (optional), the icon, the description, the groups, the "User facing" switch and the display order. Next stays disabled until step 1 validates. Step 2 holds the type and the options that depend on it. After a successful creation, the route opens the new entitlement's detail page.
+
+**Unsent creation.** What is typed on the creation page and not sent is kept in the browser and offered back on the next visit ([`functionals/form-recovery`](../../functionals/form-recovery/README.md)): an alert under the title proposes Resume, which restores every field and the step it was left on, or Start over, which begins blank. The module is declared in `components/form/entitlement-recovery.ts` (`formId` `entitlements.create`, nothing omitted: no field holds a secret), opened by `EntitlementCreatePage` outside the wizard, and the wizard is mounted again, by `key`, when the entries are restored. `useEntitlementMutationForm` receives the recovery on this page only and sends a creation through `recovery.send`, so an accepted creation is never offered again, from any tab. Leaving by a link or the back button keeps the entries; Cancel discards them and a toast offers to bring them back. The `onSuccess` of the create mutation does not await the refresh of the list, since `mutateAsync` would then resolve after the page has gone. The edit dialog never uses the recovery: it starts from the entitlement as the API holds it.
 
 **Edit.** `EntitlementFormDialog` holds the same fields in a dialog. It has two steps for a NUMBER entitlement and one for any other type, which has nothing to configure on the second step. The slug field shows the stored slug and is disabled: an entitlement is never renamed.
 
@@ -83,9 +89,11 @@ Scopes: listing and reading entitlements and groups needs `read:entitlements`; c
   - An existing entitlement keeps its slug: the API answers 422 to an update that carries a different one. The edit dialog shows the stored slug in a disabled field and keeps it out of the form values, so it reaches neither the validation nor the PUT.
 - The type is Boolean, Number or Config. It is required and cannot change after creation. The API also defines an AI credit type, which the list and the detail page display but the form does not offer.
 - Only a NUMBER entitlement has an aggregation method (Count, Sum, Average, Min, Max or Latest; Sum by default), which cannot change after creation, a usage reset and units. For a Boolean or Config entitlement, the form drops these fields from the payload.
-- Usage reset: a lifetime counter (the default) or a cadence of hour, day, week, month or year, with a window anchored on the calendar or on the license start date. Once an entitlement stores a cadence, it can never change or be removed: the fields become read-only, and the payload repeats the stored pair, because the PUT replaces the whole entitlement. The Latest aggregation cannot have a cadence, so the fields give way to an explanation.
-- Units: a pair of labels (singular and plural) for the base unit. A "sold in different units" switch adds a sale unit: singular and plural labels, and the number of base units in one sale unit (greater than zero). The base pair is all-or-none, and the sale unit (both labels and the factor) is all-or-none and needs the base pair. The schema flags a partial configuration as invalid, and the payload builders run `conditionUnitFields`, which drops a partial configuration instead of sending it to the API.
+- Usage reset: a lifetime counter (the default) or a cadence of hour, day, week, month or year, with a window anchored on the calendar, on the license start date or on the billing date. The billing date phases the windows off the billing anchor of the instance's subscription (the license start date for an instance without one), so it takes a monthly or yearly cadence only: the select lists it on a shorter one with the reason, as disabled, the form takes the calendar back when the cadence moves to one it cannot follow, and the schema refuses the pair for a client that got there anyway (`entitlement-reset-period.shared.ts`). Choosing it shows a hint that the windows follow the subscription and that a change of billing date closes the current window early. Once an entitlement stores a cadence, it can never change or be removed, and neither can its anchor: the fields become read-only with the reason, and the payload repeats the stored pair, because the PUT replaces the whole entitlement and the API refuses one that leaves the anchor out (400 `UpdateEntitlement.ImmutableResetAnchor`). The one moment the anchor is chosen after creation is when a lifetime counter adopts a cadence in an edit. The API's refusals about the pair are said in a sentence of the locales and not in the API's English (`REFUSALS` of `use-entitlement-mutation-form.ts`): 422 `CreateEntitlement.InvalidResetAnchor` and `UpdateEntitlement.InvalidResetAnchor` are shown on the anchor, which the person can change. 400 `UpdateEntitlement.ImmutableResetAnchor` and `.ImmutableResetPeriod` are about a field that is read-only, so they are shown above the buttons (`EntitlementRefusalAlert`) and not pinned to a control that cannot be edited: the form is not left stuck, and sends again. When the cadence moves off a month or a year while the billing date is chosen, the alignment goes back to the calendar and a notice says so, until the person chooses an alignment. The Latest aggregation cannot have a cadence, so the fields give way to an explanation.
+- Units: a pair of labels (singular and plural) for the base unit. A "sold in different units" switch adds a sale unit: singular and plural labels, and the number of base units in one sale unit (greater than zero). The base pair is all-or-none, and the sale unit (both labels and the factor) is all-or-none and needs the base pair. The schema flags a partial configuration as invalid, and the payload builders run `conditionUnitFields`, which drops a partial configuration instead of sending it to the API. The units belong to the whole number family (`NUMBER` and `NUMBER_AI_CREDIT`, told apart by the exported `isNumberFamily`): the full-replace PUT erases what it leaves out, so an edit of an AI credit entitlement sends its units back. A boolean or a config entitlement carries none.
 - The display order is a non-negative integer, 0 by default. A cleared field counts as 0.
+
+**A delete that billing refuses.** A license is not the only thing that keeps an entitlement: an add-on that grants it, a price that meters it or a voucher boost does too, and the API refuses (409 `DeleteEntitlement.InUseConflict`) with how many of each. The console then explains it in a dialog and not a toast (`useDeletionRefusal`, `DeletionRefusalDialog` from `@/domains/billing`): what still grants or prices the entitlement, and a link to its page. The table holds that dialog, and not the row that asked: the row leaves the list while the API answers, and takes with it whatever it holds. A price and a voucher boost are never deleted through the API, so when one of them holds the entitlement the dialog does not ask for it to be freed: it offers to hide the entitlement instead, by turning off "User facing" on its page. The row comes back, since nothing was deleted, and any other failure keeps the error toast.
 
 **Detail page.**
 
@@ -100,21 +108,22 @@ The table shows the shared `DataTable` empty row ("No results") and keeps the cr
 
 ## Tests
 
+- A delete that billing refuses has an end-to-end spec of its own, `delete-refusal`, in the pack described below.
 - Unit tests live in `__tests__/` inside `components/form/`, `components/groups/` and `components/entitlement-detail/`. They cover form/schema/reset rules, complete PUT builders, group editing, detail cards and detail aggregates. Stories are colocated in each component group's `stories/` folder.
 - Stories open in Storybook (`pnpm run storybook` from `app/`): `Features/Entitlements/EntitlementTable` (`Default`, `Empty`), `Features/Entitlements/EntitlementFormDialog` (`CreateNumberEntitlement`, `EditBooleanEntitlement`, `EditNumberEntitlementWithUnits`) and `Features/Entitlements/EntitlementDetailPageContent` (`Overview`). None has a `play` function. `pnpm run test:stories` renders the table stories only: `app/vite.config.ts` excludes the form dialog and detail stories, because the end-to-end pack covers them.
-- End to end, run with `pnpm run test:e2e:app` from `app/`: the pack `app/e2e/app/entitlements/` has one spec per intention (`create`, `delete`, `display-order`, `errors`, `icon`, `read`, `reset-period`, `slug`, `units`, `user-facing`) and its test data in `entitlements.scenarios.ts`. It runs on `app/e2e/app/_support/model/entitlement-app-model.ts` and the mocks in `app/e2e/app/_support/mocks/install-entitlement-app-mocks.ts`. The accessibility spec also visits the list.
+- End to end, run with `pnpm run test:e2e:app` from `app/`: the pack `app/e2e/app/entitlements/` has one spec per intention (`create`, `delete`, `delete-refusal`, `display-order`, `errors`, `icon`, `read`, `recovery`, `reset-period`, `slug`, `units`, `user-facing`, `warning-threshold`) and its test data in `entitlements.scenarios.ts`. It runs on `app/e2e/app/_support/model/entitlement-app-model.ts` and the mocks in `app/e2e/app/_support/mocks/install-entitlement-app-mocks.ts`. The accessibility spec also visits the list.
 
 ## Public API
 
 Routes import the following from `@/features/entitlements` (the root `index.ts`):
 
-| Export | Imported by |
-| --- | --- |
-| `EntitlementsPageContent`, `entitlementsQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/entitlements/index.tsx`, `app/src/routes/entitlements/route.tsx` |
-| `EntitlementCreatePage` | `app/src/routes/entitlements/new/index.tsx` |
-| `EntitlementDetailPageContent`, `EntitlementFormDialog`, `entitlementQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/entitlements/$entitlementSlug/route.tsx` |
-| `EntitlementDetailOverviewTab` | `app/src/routes/entitlements/$entitlementSlug/index.tsx` |
-| `EntitlementDetailUsageTab` | `app/src/routes/entitlements/$entitlementSlug/usage.tsx` |
+| Export                                                                                                              | Imported by                                                                                      |
+| ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `EntitlementsPageContent`, `entitlementsQueryOptions`, `entitlementGroupsQueryOptions`                              | `app/src/routes/catalog/entitlements/index.tsx`, `app/src/routes/catalog/entitlements/route.tsx` |
+| `EntitlementCreatePage`                                                                                             | `app/src/routes/catalog/entitlements/new/index.tsx`                                              |
+| `EntitlementDetailPageContent`, `EntitlementFormDialog`, `entitlementQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx`                                 |
+| `EntitlementDetailOverviewTab`                                                                                      | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx`                                 |
+| `EntitlementDetailUsageTab`                                                                                         | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx`                                 |
 
 The licenses feature does not import this one; it declares its own `entitlementsQueryOptions` over the same generated operation.
 

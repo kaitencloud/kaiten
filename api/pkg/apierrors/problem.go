@@ -132,6 +132,9 @@ func ProblemFrom(err error, instance string) *Problem {
 	if appErr.Kind == KindValidation {
 		model.Errors = detailsToErrors(appErr.Details)
 	}
+	if len(appErr.Errors) > 0 {
+		model.Errors = appErr.Errors
+	}
 	return model
 }
 
@@ -214,6 +217,8 @@ func KindFromStatus(status int) Kind {
 		return KindInternal
 	case http.StatusServiceUnavailable:
 		return KindUnavailable
+	case http.StatusTooManyRequests:
+		return KindTooManyRequests
 	default:
 		return KindUnknown
 	}

@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react';
+import type { ReactElement, Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Customer, DeploymentZone, Instance, License } from '@/api-client';
 import type { MetadataFieldDescriptor } from '@/functionals/metadata-fields';
@@ -9,16 +9,21 @@ import {
   StepStackStep,
 } from '@/functionals/step-stack';
 import {
+  InstanceFormStepsBridge,
+  type InstanceFormStepsHandle,
+} from './instance-form-frozen-notice';
+import {
   InstanceDeploymentStepFooter,
   InstanceDetailsStepFooter,
   InstanceLicenseStepFooter,
   InstanceMetadataStepFooter,
 } from './instance-form-footers';
+import { InstanceDeploymentFields } from './instance-form-deployment-fields';
+import { InstanceRecoveryNotices } from './instance-form-recovery';
+import { InstanceMetadataFields } from './instance-form-metadata-fields';
 import {
-  InstanceDeploymentFields,
   InstanceInformationFields,
   InstanceLicenseFields,
-  InstanceMetadataFields,
 } from './instance-form-sections';
 
 type InstanceFormStepsProps = {
@@ -30,6 +35,8 @@ type InstanceFormStepsProps = {
   licenses: License[];
   lockedCustomer?: unknown;
   metadataFields: MetadataFieldDescriptor[];
+  /** Lets the form outside the stack take the person to a step. */
+  stepsRef?: Ref<InstanceFormStepsHandle>;
 };
 
 const StepHeading = ({ children }: { children: string }) => (
@@ -51,8 +58,10 @@ export const InstanceFormSteps = ({
   licenses,
   lockedCustomer,
   metadataFields,
+  stepsRef,
 }: InstanceFormStepsProps) => {
   const { t } = useTranslation();
+  const instanceSlug = instance?.slug;
   // An organization that declares no instance MetadataField gets one step
   // fewer, and the deployment step carries the submit button instead.
   const hasMetadataStep = metadataFields.length > 0;
@@ -61,9 +70,10 @@ export const InstanceFormSteps = ({
     <StepStackStep key="details">
       <StackedFormDialogCard
         loadingFields={3}
-        footer={<InstanceDetailsStepFooter form={form} />}
+        footer={<InstanceDetailsStepFooter form={form} withSlug={!instance} />}
       >
         <div className="space-y-6">
+          <InstanceRecoveryNotices />
           <StepHeading>
             {t(
               'Pages.Customers.Instances.Mutation.Form.Steps.instanceInformations',
@@ -75,6 +85,7 @@ export const InstanceFormSteps = ({
             customerFieldDisabled={!!lockedCustomer}
             form={form}
             customers={customers}
+            instanceSlug={instanceSlug}
             showSlug={!instance}
           />
         </div>
@@ -87,6 +98,7 @@ export const InstanceFormSteps = ({
         footer={<InstanceLicenseStepFooter form={form} />}
       >
         <div className="space-y-6">
+          <InstanceRecoveryNotices />
           <StepHeading>
             {t('Pages.Customers.Instances.Mutation.Form.Steps.chooseLicense')}
           </StepHeading>
@@ -94,6 +106,7 @@ export const InstanceFormSteps = ({
           <InstanceLicenseFields
             currentLicenseSlug={instance?.licenseSlug}
             form={form}
+            instanceSlug={instanceSlug}
             licenses={licenses}
           />
         </div>
@@ -113,6 +126,7 @@ export const InstanceFormSteps = ({
         }
       >
         <div className="space-y-6">
+          <InstanceRecoveryNotices />
           <StepHeading>
             {t('Pages.Customers.Instances.Mutation.Form.Steps.deployment')}
           </StepHeading>
@@ -141,6 +155,7 @@ export const InstanceFormSteps = ({
           }
         >
           <div className="space-y-6">
+            <InstanceRecoveryNotices />
             <StepHeading>
               {t('Pages.Customers.Instances.Mutation.Form.Steps.metadata')}
             </StepHeading>
@@ -156,6 +171,9 @@ export const InstanceFormSteps = ({
   }
 
   return (
-    <StepStackContainer className="justify-start">{steps}</StepStackContainer>
+    <>
+      {stepsRef ? <InstanceFormStepsBridge handleRef={stepsRef} /> : null}
+      <StepStackContainer className="justify-start">{steps}</StepStackContainer>
+    </>
   );
 };

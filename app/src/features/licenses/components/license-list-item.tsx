@@ -1,7 +1,7 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Link } from '@tanstack/react-router';
-import { CirclePlus, Star } from 'lucide-react';
+import { CirclePlus, Globe, Star } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import {
   ActionAccordionActions,
@@ -10,30 +10,84 @@ import {
   ActionAccordionItem,
   ActionAccordionTrigger,
 } from '@/components/ui/action-accordion';
+import {
+  LicensePriceSummaryText,
+  useBillingCapabilities,
+  useCanPerform,
+  useLicensesWithPrices,
+} from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { LicenseGroup } from '../types';
+import {
+  LicenseFamilyFallbackGapNote,
+  LicenseFamilySettingsLink,
+} from './family-settings';
+import { LicenseFamilyPublicToggle } from './license-family-public-toggle';
 import { LicenseVersionsTable } from './license-versions-table';
 
 type LicenseListItemProps = {
   group: LicenseGroup;
 };
 
+// The link to a new version of the family, or the same button disabled when there is no version
+// to start from.
+function NewVersionAction({ licenseSlug }: { licenseSlug?: string }) {
+  const { t } = useTranslation();
+
+  if (!licenseSlug) {
+    return (
+      <Button variant="outline" size="sm" disabled>
+        <CirclePlus className="size-4" />
+        {t('Pages.Licenses.Version.newVersionButton')}
+      </Button>
+    );
+  }
+
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      nativeButton={false}
+      role="link"
+      render={
+        <Link
+          to="/catalog/licenses/versions/$licenseSlug"
+          params={{ licenseSlug }}
+        >
+          <CirclePlus className="size-4" />
+          {t('Pages.Licenses.Version.newVersionButton')}
+        </Link>
+      }
+    />
+  );
+}
+
 export const LicenseListItem = ({ group }: LicenseListItemProps) => {
   const { t } = useTranslation();
+  const { isEnabled: hasBilling } = useBillingCapabilities();
+  const mayCreateVersion = useCanPerform('license.createVersion');
+  // How the version the family is shown under is sold: read apart from the licenses,
+  // for all of them at once, and only where billing is on.
+  const { data: catalogue } = useLicensesWithPrices();
   const LicenseIcon = dataModelIcons.license;
 
   // A new version starts from the one the family is shown under -- the version
   // it resolves to -- rather than from the highest version whatever its state,
   // which may be a withdrawn one.
   const newVersionLicenseSlug = group.headLicense?.slug;
+  const headVersion = catalogue?.find(
+    (license) => license.id === group.headLicense?.id,
+  );
 
   return (
     <ActionAccordionItem
       value={group.familyId}
       className="rounded-xl border border-border border-b-0 bg-card px-6"
     >
-      <ActionAccordionHeader className="py-2">
-        <ActionAccordionTrigger className="py-4 hover:no-underline">
+      {/* On a phone the actions do not fit beside the title: the chevron stays on the
+          title's line and the actions take a line of their own below it. */}
+      <ActionAccordionHeader className="flex-wrap py-2 max-sm:[&>[data-slot=accordion-chevron]]:order-2">
+        <ActionAccordionTrigger className="min-w-0 py-4 hover:no-underline">
           <div className="flex flex-wrap items-center gap-3 text-left">
             <LicenseIcon className="size-5 text-primary-subtle-foreground" />
             <span className="text-lg font-semibold">{group.licenseName}</span>
@@ -52,34 +106,28 @@ export const LicenseListItem = ({ group }: LicenseListItemProps) => {
                 })}
               </Badge>
             )}
+            {hasBilling && group.isPublic ? (
+              <Badge variant="outline" className="gap-1">
+                <Globe className="size-3" />
+                {t('Pages.Licenses.Public.badge')}
+              </Badge>
+            ) : null}
+            <LicensePriceSummaryText license={headVersion} />
           </div>
         </ActionAccordionTrigger>
-        <ActionAccordionActions>
-          {newVersionLicenseSlug ? (
-            <Button
-              variant="outline"
-              size="sm"
-              nativeButton={false}
-              role="link"
-              render={
-                <Link
-                  to="/licenses/versions/$licenseSlug"
-                  params={{ licenseSlug: newVersionLicenseSlug }}
-                >
-                  <CirclePlus className="size-4" />
-                  {t('Pages.Licenses.Version.newVersionButton')}
-                </Link>
-              }
-            />
-          ) : (
-            <Button variant="outline" size="sm" disabled>
-              <CirclePlus className="size-4" />
-              {t('Pages.Licenses.Version.newVersionButton')}
-            </Button>
-          )}
+        <ActionAccordionActions className="max-sm:order-3 max-sm:basis-full max-sm:flex-wrap max-sm:pb-2">
+          <LicenseFamilyPublicToggle group={group} />
+          <LicenseFamilySettingsLink group={group} />
+          {mayCreateVersion ? (
+            <NewVersionAction licenseSlug={newVersionLicenseSlug} />
+          ) : null}
         </ActionAccordionActions>
       </ActionAccordionHeader>
       <ActionAccordionContent className="pb-6">
+        <LicenseFamilyFallbackGapNote
+          className="mb-4"
+          familyId={group.familyId}
+        />
         <LicenseVersionsTable licenses={group.licenses} />
       </ActionAccordionContent>
     </ActionAccordionItem>

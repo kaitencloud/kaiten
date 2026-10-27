@@ -6,6 +6,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useCanPerform } from '@/domains/billing';
 import { useLicenseDefault } from '../hooks/use-license-default';
 import type { LicenseWithInstances } from '../types';
 import { canBecomeDefault } from '../utils/license-lifecycle.utils';
@@ -21,6 +22,13 @@ type LicenseVersionsTableActionsProps = {
 function DefaultRowAction({ license }: LicenseVersionsTableActionsProps) {
   const { t } = useTranslation();
   const { isPending, setDefault, unsetDefault } = useLicenseDefault(license);
+  const mayUpdate = useCanPerform('license.update');
+
+  // A session that may not write licenses reads which version is the default from the
+  // badge of the family, and is offered no way to move it.
+  if (!mayUpdate) {
+    return null;
+  }
 
   if (license.isDefault) {
     return (

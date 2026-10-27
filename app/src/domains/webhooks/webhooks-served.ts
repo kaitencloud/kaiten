@@ -1,6 +1,30 @@
 import { queryOptions, useQuery } from '@tanstack/react-query';
 import { client } from '@/api-client/client.gen';
+import env from '@/env';
 import { isForbiddenError, isNotFoundError } from '@/lib/errors';
+
+/**
+ * Whether this build can be served webhooks at all, before anything is asked.
+ *
+ * - Kaiten Cloud's builds name their platform (`VITE_KAITEN_PLATFORM_API_URL`),
+ *   and Cloud is where saas-api, the only service that answers `/webhooks`,
+ *   runs. The answer then comes from the route, per organization.
+ * - A self-hosted build names none and has no saas-api: nothing to ask.
+ * - A dev server or an e2e build cannot tell Cloud from self-hosted by itself, so
+ *   `VITE_KAITEN_WEBHOOKS=true` says that a saas-api answers behind it (the
+ *   Playwright app suite sets it; `dev:mock` and a dev server over the
+ *   open-source stack do not).
+ *
+ * `VITE_KAITEN_WEBHOOKS` is read from `import.meta.env` here rather than through
+ * `@/env`: it is a build switch for dev and e2e builds, not a deployment setting
+ * that a container fills in at start-up.
+ */
+export function webhooksCanBeServed(): boolean {
+  return (
+    Boolean(env.PLATFORM_API_URL) ||
+    import.meta.env.VITE_KAITEN_WEBHOOKS === 'true'
+  );
+}
 
 /**
  * Whether outbound webhooks are served to this organization, read off the one
@@ -21,8 +45,15 @@ import { isForbiddenError, isNotFoundError } from '@/lib/errors';
  * is not an answer, and the query fails instead of caching "not served": a
  * route guard shows the retryable error page, and the nav entry comes back with
  * the next successful read.
+ *
+ * The path is not even asked where `webhooksCanBeServed` says no: a request that
+ * can only end in a 404 is a red line in the network tab of every page.
  */
 export async function getWebhooksServed(): Promise<boolean> {
+  if (!webhooksCanBeServed()) {
+    return false;
+  }
+
   try {
     await client.get<{ 200: unknown }, unknown, true>({
       url: '/webhooks',

@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { STRIPE_CONNECTOR_ROUTE_ID } from '@/domains/billing';
 import {
   attioSettingsQueryOptions,
   ConnectorsPageContent,
@@ -24,6 +25,12 @@ function IntegrationsConnectorsIndexRoute() {
           navigate({
             to: '/integrations/connectors/$connectorId',
             params: { connectorId: 'attio' },
+          });
+        }}
+        onOpenStripe={() => {
+          navigate({
+            to: '/integrations/connectors/$connectorId',
+            params: { connectorId: STRIPE_CONNECTOR_ROUTE_ID },
           });
         }}
       />

@@ -47,12 +47,23 @@ function genericMessage(
   return t(`Errors.api.${code}`);
 }
 
+const textOf = (value: unknown) =>
+  typeof value === 'string' && value.trim() !== '' ? value : undefined;
+
+// What a problem says of itself: a sentence it wrote, not a number or an empty string that a
+// JSON body of a gateway (`{ "status": 502 }`) happens to carry under the same names.
+const problemText = (problem: { detail?: unknown; title?: unknown }) =>
+  textOf(problem.detail) ?? textOf(problem.title);
+
 /**
  * Map an `ApiError`, from either client, to AppError.
  *
- * Server-provided messages (`detail`, `title`, a string body) are preserved as
- * the most specific signal; only the generic client-side fallbacks are
- * localized via `t` (default: the active i18next locale).
+ * What a problem document says (`detail`, `title`) is preserved as the most
+ * specific signal; the generic client-side fallbacks are localized via `t`
+ * (default: the active i18next locale). A body that is not a problem is the text
+ * or the HTML page of a gateway (`Jwt is missing`, `<html>Bad gateway</html>`),
+ * never the API speaking, so it is not shown: the message is the generic one of
+ * the status.
  */
 export function mapApiError(
   error: ApiError,
@@ -75,17 +86,18 @@ export function mapApiError(
     return {
       code,
       status,
-      message: data.detail ?? data.title ?? genericMessage(code, t),
+      message: problemText(data) ?? genericMessage(code, t),
       details: data.errors ?? undefined,
       originalError: error,
     };
   }
 
-  // Fallback for non-standard error responses
+  // Fallback for non-standard error responses: what a gateway answered is never
+  // printed.
   return {
     code,
     status,
-    message: typeof data === 'string' ? data : genericMessage(code, t),
+    message: genericMessage(code, t),
     originalError: error,
   };
 }

@@ -1,0 +1,408 @@
+-- name: LockInstanceForAddons :one
+-- The instance an attachment write names, with its licence family, locked so
+-- the writes of one instance serialize (and with a licence change).
+--
+-- The lock is taken alone, in a MATERIALIZED CTE, and the licence is joined
+-- afterwards. Locking in the joined query would break when it waits for a
+-- close that moves the instance to another licence: READ COMMITTED re-checks
+-- the join against the new instance row but the old licence row, finds no
+-- match and returns no row, which the caller reads as "instance not found".
+-- Here the wait ends inside the CTE, and the join runs on the row it returns.
+WITH locked AS MATERIALIZED (
+    SELECT i.id, i.organization_id, i.license_id
+    FROM instance i
+    WHERE i.organization_id = sqlc.arg(organization_id)
+      AND i.slug = sqlc.arg(slug)
+    FOR NO KEY UPDATE OF i
+)
+SELECT locked.id, locked.license_id, l.family_id AS license_family_id
+FROM locked
+JOIN license l ON l.id = locked.license_id AND l.organization_id = locked.organization_id;
+
+
+-- name: GetInstanceIDBySlug :one
+SELECT i.id
+FROM instance i
+WHERE i.organization_id = sqlc.arg(organization_id)
+  AND i.slug = sqlc.arg(slug);
+
+
+-- name: GetLiveSubscription :one
+-- The instance's live subscription, if any, with the family of the version a
+-- scheduled plan change moves it to, and whether its period has ended without
+-- being closed yet. Locked FOR SHARE, so a close in progress finishes first.
+SELECT ib.id, ib.status, ib.billing_period, ib.currency::text AS currency, ib.current_period_end,
+       sl.family_id AS scheduled_family_id,
+       (ib.current_period_end <= date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'))::boolean AS boundary_pending
+FROM instance_billing ib
+LEFT JOIN license_price sp
+  ON sp.id = ib.scheduled_license_price_id AND sp.organization_id = ib.organization_id
+LEFT JOIN license sl ON sl.id = sp.license_id AND sl.organization_id = sp.organization_id
+WHERE ib.organization_id = sqlc.arg(organization_id)
+  AND ib.instance_id = sqlc.arg(instance_id)
+  AND ib.status IN ('TRIAL', 'ACTIVE', 'PAST_DUE')
+FOR SHARE OF ib;
+
+
+-- name: AddonIsCompatible :one
+SELECT EXISTS (SELECT 1
+               FROM addon_compatible_license c
+               WHERE c.addon_id = sqlc.arg(addon_id)
+                 AND c.license_family_id = sqlc.arg(license_family_id))::boolean AS compatible;
+
+
+-- name: AddonCurrencies :many
+SELECT DISTINCT p.currency::text AS currency
+FROM addon_price p
+WHERE p.addon_id = sqlc.arg(addon_id);
+
+
+-- name: AddonHasDefaultPriceFor :one
+-- Whether a billed subscription of that period can bill the add-on's flat
+-- fee (§10.2): it has a default ACTIVE FLAT_FEE price for the period, or no
+-- FLAT_FEE price at all (a metered-only add-on bills its usage).
+SELECT (EXISTS (SELECT 1
+                FROM addon_price p
+                WHERE p.addon_id = sqlc.arg(addon_id)
+                  AND p.billing_period = sqlc.arg(billing_period)::billing_period
+                  AND p.is_default
+                  AND p.status = 'ACTIVE')
+        OR NOT EXISTS (SELECT 1
+                       FROM addon_price p
+                       WHERE p.addon_id = sqlc.arg(addon_id)
+                         AND p.billing_model = 'FLAT_FEE'
+                         AND p.status = 'ACTIVE'))::boolean AS priced;
+
+
+-- name: MeteredEntitlementConflicts :many
+-- The entitlements an ACTIVE price of this add-on meters that a price of the
+-- instance's licence version, or of another add-on it holds, meters already:
+-- one entitlement is billed by one price.
+SELECT DISTINCT e.slug
+FROM addon_price ap
+JOIN entitlement e ON e.id = ap.meters_entitlement_id AND e.organization_id = ap.organization_id
+WHERE ap.addon_id = sqlc.arg(addon_id)
+  AND ap.status = 'ACTIVE'
+  AND (EXISTS (SELECT 1
+               FROM license_price lp
+               WHERE lp.license_id = sqlc.arg(license_id)
+                 AND lp.meters_entitlement_id = ap.meters_entitlement_id
+                 AND lp.status = 'ACTIVE')
+  OR EXISTS (SELECT 1
+             FROM instance_addon ia
+             JOIN addon_price op ON op.addon_id = ia.addon_id AND op.organization_id = ia.organization_id
+             WHERE ia.instance_id = sqlc.arg(instance_id)
+               AND ia.removed_at IS NULL
+               AND ia.addon_id <> ap.addon_id
+               AND op.meters_entitlement_id = ap.meters_entitlement_id
+               AND op.status = 'ACTIVE'))
+ORDER BY e.slug;
+
+
+-- name: InsertInstanceAddon :one
+-- period_max_quantity starts at the quantity attached: the highest held so far
+-- (V31-70, instance_addon_period_max_quantity_check).
+INSERT INTO instance_addon (organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity,
+                            created_by_id, updated_by_id)
+VALUES (sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(addon_id), sqlc.arg(addon_family_id),
+        sqlc.arg(quantity), sqlc.arg(quantity), sqlc.arg(user_id), sqlc.arg(user_id))
+RETURNING id;
+
+
+-- name: ListInstanceAddons :many
+SELECT ia.id, ia.addon_id, ia.quantity, ia.created_at, ia.removed_at, ia.updated_at,
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug, ia.pending_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND (sqlc.arg(include_removed)::boolean OR ia.removed_at IS NULL)
+  AND (sqlc.narg(id)::uuid IS NULL OR ia.id = sqlc.narg(id))
+ORDER BY ia.created_at, ia.id;
+
+
+-- name: LockActiveInstanceAddon :one
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND a.slug = sqlc.arg(addon_slug)
+  AND ia.removed_at IS NULL
+FOR UPDATE OF ia;
+
+
+-- name: SetInstanceAddonQuantity :exec
+-- An increase raises period_max_quantity in the same statement, as the CHECK
+-- requires; a decrease leaves it, so the true-up still sees the high point
+-- (V31-70). It clears a scheduled public decrease (V31-67).
+UPDATE instance_addon
+SET quantity            = sqlc.arg(quantity),
+    period_max_quantity = GREATEST(period_max_quantity, sqlc.arg(quantity)),
+    pending_quantity    = NULL,
+    updated_at    = CURRENT_TIMESTAMP,
+    updated_by_id = sqlc.arg(user_id)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
+
+
+-- name: SchedulePendingQuantity :exec
+-- A public decrease or removal (0) scheduled for the next boundary, or NULL
+-- to cancel it (V31-67): the quantity stays until the close applies it.
+UPDATE instance_addon
+SET pending_quantity = sqlc.narg(pending_quantity)::integer,
+    updated_at       = CURRENT_TIMESTAMP,
+    updated_by_id    = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
+
+
+-- name: LockInstanceForAddonsByID :one
+-- LockInstanceForAddons, by id: the instance a boundary of billing names. The
+-- lock is taken alone for the same reason (see there).
+WITH locked AS MATERIALIZED (
+    SELECT i.id, i.organization_id, i.slug, i.license_id
+    FROM instance i
+    WHERE i.organization_id = sqlc.arg(organization_id)
+      AND i.id = sqlc.arg(id)
+    FOR NO KEY UPDATE OF i
+)
+SELECT locked.id, locked.slug, locked.license_id, l.family_id AS license_family_id
+FROM locked
+JOIN license l ON l.id = locked.license_id AND l.organization_id = locked.organization_id;
+
+
+-- name: LockScheduledInstanceAddons :many
+-- The attachments with a public decrease scheduled, which a boundary applies.
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND ia.pending_quantity IS NOT NULL
+ORDER BY ia.created_at, ia.id
+FOR UPDATE OF ia;
+
+
+-- name: ApplyPendingQuantity :exec
+-- The boundary at applies a scheduled decrease: the quantity becomes the
+-- scheduled one, or the attachment is removed at the boundary for 0.
+UPDATE instance_addon
+SET quantity         = CASE WHEN pending_quantity > 0 THEN pending_quantity ELSE quantity END,
+    removed_at       = CASE WHEN pending_quantity = 0 THEN GREATEST(created_at, sqlc.arg(at)::timestamp) END,
+    removed_by_id    = CASE WHEN pending_quantity = 0 THEN sqlc.arg(user_id)::uuid END,
+    pending_quantity = NULL,
+    updated_at       = CURRENT_TIMESTAMP,
+    updated_by_id    = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND pending_quantity IS NOT NULL;
+
+
+-- name: RemoveInstanceAddon :exec
+UPDATE instance_addon
+SET removed_at       = CURRENT_TIMESTAMP,
+    removed_by_id    = sqlc.arg(user_id)::uuid,
+    pending_quantity = NULL,
+    updated_at    = CURRENT_TIMESTAMP,
+    updated_by_id = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id);
+
+
+-- name: LockAttachmentsIncompatibleWith :many
+-- The active attachments a fallback move strands (§9.11 rule 3): their add-on
+-- version is not compatible with the family of the licence version.
+SELECT ia.id, ia.addon_id, ia.quantity, a.max_quantity, ia.pending_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND NOT EXISTS (SELECT 1
+                  FROM addon_compatible_license c
+                  JOIN license l ON l.family_id = c.license_family_id AND l.organization_id = c.organization_id
+                  WHERE c.addon_id = ia.addon_id
+                    AND l.id = sqlc.arg(license_id))
+ORDER BY ia.created_at, ia.id
+FOR UPDATE OF ia;
+
+
+-- name: RemoveInstanceAddonAt :exec
+-- A removal billing makes at an instant of its own: the cancellation that
+-- moves the instance to its fallback, never before the attachment began.
+UPDATE instance_addon
+SET removed_at       = GREATEST(created_at, sqlc.arg(at)::timestamp),
+    removed_by_id    = sqlc.arg(user_id)::uuid,
+    pending_quantity = NULL,
+    updated_at    = CURRENT_TIMESTAMP,
+    updated_by_id = sqlc.arg(user_id)::uuid
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND removed_at IS NULL;
+
+
+-- name: ListBillableAddons :many
+-- What billing reads at a boundary: the add-ons an instance holds there, each
+-- with its default FLAT_FEE price for the subscription's period. A held add-on
+-- without one bills nothing. The quantity at the boundary is the scheduled
+-- public decrease when there is one, and one scheduled for removal is not
+-- held there (V31-67, §10.4).
+SELECT ia.id AS instance_addon_id, ia.addon_id, COALESCE(ia.pending_quantity, ia.quantity)::integer AS quantity,
+       a.slug AS addon_slug, a.name AS addon_name,
+       p.id AS price_id, p.billing_timing, p.unit_amount_decimal::text AS unit_amount_decimal,
+       p.currency::text AS currency, p.display_label
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_price p
+  ON p.addon_id = ia.addon_id
+ AND p.organization_id = ia.organization_id
+ AND p.billing_period = sqlc.arg(billing_period)::billing_period
+ AND p.is_default
+ AND p.status = 'ACTIVE'
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND COALESCE(ia.pending_quantity, 1) > 0
+ORDER BY ia.created_at, ia.id;
+
+
+-- name: ListHeldAddonsInvalidForSubscription :many
+-- The add-ons an instance already holds that a subscription in currency on
+-- billing_period could not bill (V31-13): one still DRAFT, or a PAID one with
+-- no default ACTIVE price for the period or with one in another currency. An
+-- ARCHIVED add-on still held keeps being billed, so it is never refused here.
+SELECT a.slug,
+       CASE
+         WHEN a.lifecycle_state = 'DRAFT' THEN 'DRAFT'
+         WHEN p.id IS NULL THEN 'NO_PRICE_FOR_PERIOD'
+         ELSE 'CURRENCY_MISMATCH'
+       END::text AS reason
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+LEFT JOIN addon_price p
+  ON p.addon_id = ia.addon_id
+ AND p.organization_id = ia.organization_id
+ AND p.billing_period = sqlc.arg(billing_period)::billing_period
+ AND p.is_default
+ AND p.status = 'ACTIVE'
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND a.lifecycle_state <> 'ARCHIVED'
+  AND (a.lifecycle_state = 'DRAFT'
+    OR (a.pricing_type = 'PAID' AND (p.id IS NULL OR p.currency::text <> sqlc.arg(currency)::text)))
+ORDER BY ia.created_at, ia.id;
+
+
+-- name: AddonsIncompatibleWith :many
+-- The add-ons an instance holds that a move to the licence version would
+-- strand: not compatible with its family, or (for a PAID add-on) without a
+-- default ACTIVE price for the period.
+SELECT a.slug
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+  AND (NOT EXISTS (SELECT 1
+                   FROM addon_compatible_license c
+                   JOIN license l ON l.family_id = c.license_family_id AND l.organization_id = c.organization_id
+                   WHERE c.addon_id = ia.addon_id
+                     AND l.id = sqlc.arg(license_id))
+  OR (a.pricing_type = 'PAID' AND NOT EXISTS (SELECT 1
+                                             FROM addon_price p
+                                             WHERE p.addon_id = ia.addon_id
+                                               AND p.billing_period = sqlc.arg(billing_period)::billing_period
+                                               AND p.is_default
+                                               AND p.status = 'ACTIVE')
+                               AND EXISTS (SELECT 1
+                                           FROM addon_price p
+                                           WHERE p.addon_id = ia.addon_id
+                                             AND p.billing_model = 'FLAT_FEE'
+                                             AND p.status = 'ACTIVE')))
+ORDER BY a.slug;
+
+
+-- name: MeteredConflictsWithLicense :many
+-- The entitlements an ACTIVE metered price of the licence version meters that
+-- an ACTIVE price of an add-on the instance holds meters already: a move to
+-- that version would bill one entitlement by two prices (§8.2 rule 3, V31-21).
+SELECT DISTINCT e.slug AS entitlement_slug, a.slug AS addon_slug
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_price ap ON ap.addon_id = ia.addon_id AND ap.organization_id = ia.organization_id AND ap.status = 'ACTIVE'
+JOIN license_price lp ON lp.license_id = sqlc.arg(license_id) AND lp.organization_id = ia.organization_id
+                     AND lp.meters_entitlement_id = ap.meters_entitlement_id AND lp.status = 'ACTIVE'
+JOIN entitlement e ON e.id = ap.meters_entitlement_id AND e.organization_id = ap.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.removed_at IS NULL
+ORDER BY e.slug, a.slug;
+
+
+-- name: ListActiveInstanceAddonsByInstances :many
+-- The add-ons instances hold now, oldest attachment first, for GraphQL's
+-- Instance.addons.
+SELECT ia.id, ia.instance_id, ia.addon_id, ia.quantity, ia.created_at,
+       a.slug AS addon_slug, a.name AS addon_name, a.max_quantity, f.slug AS family_slug, ia.pending_quantity
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_family f ON f.id = ia.addon_family_id AND f.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = ANY (sqlc.arg(instance_ids)::uuid[])
+  AND ia.removed_at IS NULL
+ORDER BY ia.created_at, ia.id;
+
+
+-- name: ListBillableAttachments :many
+-- The attachments an elapsed period bills (§10.4): every one active at any
+-- time in [from, to) -- attached before to, not removed by from -- removed
+-- ones included, in attachment order, with the highest quantity each held
+-- since the last boundary and how its family bills an increase (V31-70).
+SELECT ia.id AS instance_addon_id, ia.addon_id, ia.addon_family_id, ia.quantity, ia.created_at AS attached_at,
+       ia.removed_at, a.name AS addon_name, ia.period_max_quantity, af.increase_billing
+FROM instance_addon ia
+JOIN addon a ON a.id = ia.addon_id AND a.organization_id = ia.organization_id
+JOIN addon_family af ON af.id = ia.addon_family_id AND af.organization_id = ia.organization_id
+WHERE ia.organization_id = sqlc.arg(organization_id)
+  AND ia.instance_id = sqlc.arg(instance_id)
+  AND ia.created_at < sqlc.arg(to_at)
+  AND (ia.removed_at IS NULL OR ia.removed_at > sqlc.arg(from_at))
+ORDER BY ia.created_at, ia.id;
+
+
+-- name: ResetPeriodMaxQuantity :exec
+-- A boundary composed: the highest quantity of the period that starts is the
+-- quantity held at it (V31-70). Removed attachments keep theirs.
+UPDATE instance_addon
+SET period_max_quantity = quantity
+WHERE organization_id = sqlc.arg(organization_id)
+  AND instance_id = sqlc.arg(instance_id)
+  AND removed_at IS NULL
+  AND period_max_quantity <> quantity;
+
+
+-- name: InsertPaidInstanceAddon :one
+-- An attachment an INCOMPLETE checkout's payment creates (§9.10 rule 3),
+-- under the id its ACTIVATION line already names. Never refused: a version of
+-- the family attached meanwhile leaves no row, and the payment goes on.
+INSERT INTO instance_addon (id, organization_id, instance_id, addon_id, addon_family_id, quantity, period_max_quantity,
+                            created_by_id, updated_by_id)
+VALUES (sqlc.arg(id), sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(addon_id), sqlc.arg(addon_family_id),
+        sqlc.arg(quantity), sqlc.arg(quantity), sqlc.arg(user_id), sqlc.arg(user_id))
+ON CONFLICT DO NOTHING
+RETURNING id;
+
+
+-- name: InstanceCheckoutPending :one
+-- Whether the instance's subscription waits on its checkout's payment:
+-- INCOMPLETE, or a free one carrying a checkout's pending columns (§9.10
+-- rules 5 and 6).
+SELECT EXISTS (SELECT 1
+               FROM instance_billing ib
+               WHERE ib.organization_id = sqlc.arg(organization_id)
+                 AND ib.instance_id = sqlc.arg(instance_id)
+                 AND (ib.status = 'INCOMPLETE' OR ib.pending_license_id IS NOT NULL))::boolean AS pending;

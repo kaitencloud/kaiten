@@ -29,6 +29,11 @@ export class InstanceFormDriver {
     return this.page.getByLabel('Description', { exact: true });
   }
 
+  // Creation form only: the name fills it in as it is typed.
+  slugField(): Locator {
+    return this.page.getByLabel('Slug', { exact: true });
+  }
+
   customerField(): Locator {
     return this.fieldTrigger('customerId');
   }

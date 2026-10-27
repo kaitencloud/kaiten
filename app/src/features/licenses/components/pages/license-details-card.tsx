@@ -15,6 +15,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
+import { useCanPerform } from '@/domains/billing';
 import { capitalizeFromUpperCase } from '@/lib/utils';
 import { useLicenseDefault } from '../../hooks/use-license-default';
 import { canBecomeDefault } from '../../utils/license-lifecycle.utils';
@@ -42,6 +43,7 @@ type Translate = ReturnType<typeof useTranslation>['t'];
 // rest with UpdateLicense.DefaultMustBePublished.
 function SetDefaultControl({ license, t }: { license: License; t: Translate }) {
   const { isPending, setDefault, unsetDefault } = useLicenseDefault(license);
+  const mayUpdate = useCanPerform('license.update');
 
   if (license.isDefault) {
     return (
@@ -50,19 +52,26 @@ function SetDefaultControl({ license, t }: { license: License; t: Translate }) {
           <Star className="size-3" />
           {t('Pages.Licenses.Detail.defaultBadge')}
         </Badge>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="gap-1"
-          onClick={unsetDefault}
-          disabled={isPending}
-        >
-          <StarOff className="size-3" />
-          {t('Pages.Licenses.DefaultActions.unset')}
-        </Button>
+        {mayUpdate ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="gap-1"
+            onClick={unsetDefault}
+            disabled={isPending}
+          >
+            <StarOff className="size-3" />
+            {t('Pages.Licenses.DefaultActions.unset')}
+          </Button>
+        ) : null}
       </>
     );
+  }
+
+  // A session that may not write licenses is offered no way to move the default.
+  if (!mayUpdate) {
+    return null;
   }
 
   if (!canBecomeDefault(license)) {

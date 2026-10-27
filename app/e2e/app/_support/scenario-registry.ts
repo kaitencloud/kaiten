@@ -2,15 +2,66 @@
  * Canonical browser-free inventory of scenario factories and explicit variants.
  * Consumers execute factories; model constructors validate their API seeds.
  */
-import { createUsageEventsAuditTrailModel } from '../audit-trail/audit-trail.scenarios';
-import { createDisconnectedAttioModel } from '../connectors/connectors.scenarios';
+import {
+  createAddonsBillingModel,
+  createAddonsInstancesModel,
+  createAddonsLicensesModel,
+  createEmptyAddonsBillingModel,
+} from '../addons/addons.scenarios';
+import {
+  createFallbackMoveAuditTrailModel,
+  createUsageEventsAuditTrailModel,
+} from '../audit-trail/audit-trail.scenarios';
+import {
+  createBillingDisabledModel,
+  createAddonLinesModel,
+  createBillingFeatureGatedModel,
+  createBillingFullModel,
+  createBillingOutageModel,
+  createBillingStackModel,
+  createDeletedInstanceModel,
+  createEmptyInvoicesModel,
+  createInvoicesModel,
+  createLongHandoffQueueModel,
+  createManyAcmeInvoicesModel,
+  createManyInvoicesModel,
+  createManyReportsModel,
+  createMismatchedTotalsModel,
+  createStripeBillingModel,
+  createSubscriptionsModel,
+} from '../billing/billing.scenarios';
+import {
+  createLifecycleBillingModel,
+  createLifecycleInstancesModel,
+  createLifecycleLicensesModel,
+  createLifecycleStripeModels,
+} from '../billing/lifecycle-world';
+import {
+  createDisconnectedAttioModel,
+  createStripeConnectorModels,
+} from '../connectors/connectors.scenarios';
 import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
 import {
   createNotificationsFeedModel,
   createMixedObjectsFeedModel,
 } from '../notifications/notifications.scenarios';
 import {
+  createEmptyVouchersBillingModel,
+  createVouchersBillingModel,
+  createVouchersInstancesModel,
+  createVouchersLicensesModel,
+  createVouchersNotShippedBillingModel,
+} from '../vouchers/vouchers.scenarios';
+import {
+  createCheckoutSessionsBillingModel,
+  createCheckoutSessionsCustomersModel,
+  createEmptyCheckoutSessionsBillingModel,
+} from '../customers/checkout-sessions.scenarios';
+import {
+  createAnonymousCheckoutCustomerModel,
+  createBillingCustomersModel,
   createCustomersListModel,
+  createStripeCustomersModels,
   createDeletableCustomerModel,
   createEditableCustomerModel,
   createEmptyCustomersModel,
@@ -21,8 +72,11 @@ import {
   createEmptyEntitlementsModel,
   createEntitlementsListModel,
   createPeriodicEntitlementModel,
+  createReferencedEntitlementModel,
+  createReferencedLastEntitlementModel,
   createUnitEntitlementModel,
   createIconedEntitlementModel,
+  createThresholdEntitlementModel,
 } from '../entitlements/entitlements.scenarios';
 import {
   createEditableFeatureFlagModel,
@@ -33,18 +87,34 @@ import {
   createObjectFeatureFlagModel,
 } from '../feature-flags/feature-flags.scenarios';
 import {
+  createBilledInstancesModel,
   createCustomerScopedInstanceModel,
   createDeletableInstanceModel,
   createDeployableInstanceModel,
   createEditableInstanceModel,
   createEmptyInstancesModel,
   createInstancesListModel,
+  createPagedBilledInstancesModels,
+  createProvenanceInstancesModel,
   createTypedMetadataInstanceModel,
 } from '../instances/instances.scenarios';
-import { createSdkServiceAccount } from '../integrations/integrations.scenarios';
 import {
+  createAnonymousCheckoutBillingModel,
+  createEmptyPublishableKeysBillingModel,
+  createPublishableKeysBillingModel,
+  createSdkServiceAccount,
+} from '../integrations/integrations.scenarios';
+import {
+  createBilledCatalogModel,
+  createDraftPricesModel,
+  createFamilySettingsCatalogModel,
+  createFreeDraftModel,
   createLicenseCatalogModel,
   createNumberedLicenseFamilyModel,
+  createPricedCatalogModel,
+  createPricedFamiliesModel,
+  createPublicPaidCatalogModel,
+  createTwoFlatFeesModel,
 } from '../licenses/licenses.scenarios';
 import {
   createComponentsCatalogModel,
@@ -58,21 +128,166 @@ import {
 export type ScenarioCheck = readonly [name: string, factory: () => unknown];
 
 export const e2eScenarioChecks: readonly ScenarioCheck[] = [
+  ['addons/createAddonsBillingModel', createAddonsBillingModel],
+  ['addons/createAddonsInstancesModel', createAddonsInstancesModel],
+  ['addons/createAddonsLicensesModel', createAddonsLicensesModel],
+  ['addons/createEmptyAddonsBillingModel', createEmptyAddonsBillingModel],
+  ['vouchers/createVouchersBillingModel', createVouchersBillingModel],
+  ['vouchers/createVouchersInstancesModel', createVouchersInstancesModel],
+  ['vouchers/createVouchersLicensesModel', createVouchersLicensesModel],
+  ['vouchers/createEmptyVouchersBillingModel', createEmptyVouchersBillingModel],
+  [
+    'vouchers/createVouchersNotShippedBillingModel',
+    createVouchersNotShippedBillingModel,
+  ],
   ['connectors/createDisconnectedAttioModel', createDisconnectedAttioModel],
+  ['connectors/createStripeConnectorModels', createStripeConnectorModels],
+  [
+    "connectors/createStripeConnectorModels({ standing: 'connected' })",
+    () => createStripeConnectorModels({ standing: 'connected' }),
+  ],
+  [
+    "connectors/createStripeConnectorModels({ standing: 'vaultMissing' })",
+    () => createStripeConnectorModels({ standing: 'vaultMissing' }),
+  ],
+  [
+    "connectors/createStripeConnectorModels({ standing: 'notEntitled' })",
+    () => createStripeConnectorModels({ standing: 'notEntitled' }),
+  ],
+  ['billing/createSubscriptionsModel', createSubscriptionsModel],
+  ['billing/createAddonLinesModel', createAddonLinesModel],
+  ['billing/createLifecycleBillingModel', createLifecycleBillingModel],
+  ['billing/createLifecycleInstancesModel', createLifecycleInstancesModel],
+  ['billing/createLifecycleLicensesModel', createLifecycleLicensesModel],
+  ['billing/createLifecycleStripeModels', createLifecycleStripeModels],
+  [
+    'billing/createLifecycleStripeModels({ billingEmail: null })',
+    () => createLifecycleStripeModels({ billingEmail: null }),
+  ],
+  [
+    "billing/createLifecycleStripeModels({ standing: 'available' })",
+    () => createLifecycleStripeModels({ standing: 'available' }),
+  ],
+  ['customers/createBillingCustomersModel', createBillingCustomersModel],
+  ['customers/createStripeCustomersModels', createStripeCustomersModels],
+  [
+    "customers/createStripeCustomersModels({ standing: 'available' })",
+    () => createStripeCustomersModels({ standing: 'available' }),
+  ],
+  [
+    'entitlements/createReferencedEntitlementModel',
+    createReferencedEntitlementModel,
+  ],
+  [
+    'entitlements/createReferencedLastEntitlementModel',
+    createReferencedLastEntitlementModel,
+  ],
+  ['instances/createBilledInstancesModel', createBilledInstancesModel],
+  ['instances/createProvenanceInstancesModel', createProvenanceInstancesModel],
+  [
+    'instances/createPagedBilledInstancesModels',
+    createPagedBilledInstancesModels,
+  ],
   ['dashboard/createDashboardReadModel', createDashboardReadModel],
   ['notifications/createNotificationsFeedModel', createNotificationsFeedModel],
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],
   ['entitlements/createUnitEntitlementModel', createUnitEntitlementModel],
   ['entitlements/createIconedEntitlementModel', createIconedEntitlementModel],
   [
+    'entitlements/createThresholdEntitlementModel',
+    createThresholdEntitlementModel,
+  ],
+  [
     'licenses/createNumberedLicenseFamilyModel',
     createNumberedLicenseFamilyModel,
   ],
+  ['licenses/createPricedCatalogModel', createPricedCatalogModel],
+  ['licenses/createBilledCatalogModel', createBilledCatalogModel],
+  ['licenses/createDraftPricesModel', createDraftPricesModel],
+  ['licenses/createFreeDraftModel', createFreeDraftModel],
+  ['licenses/createPricedFamiliesModel', createPricedFamiliesModel],
+  [
+    'licenses/createFamilySettingsCatalogModel',
+    createFamilySettingsCatalogModel,
+  ],
+  ['licenses/createTwoFlatFeesModel', createTwoFlatFeesModel],
   [
     'audit-trail/createUsageEventsAuditTrailModel',
     createUsageEventsAuditTrailModel,
   ],
+  [
+    'audit-trail/createFallbackMoveAuditTrailModel',
+    createFallbackMoveAuditTrailModel,
+  ],
+  ['billing/createBillingStackModel', createBillingStackModel],
+  ['billing/createBillingFullModel', createBillingFullModel],
+  ['billing/createBillingFeatureGatedModel', createBillingFeatureGatedModel],
+  [
+    "billing/createBillingDisabledModel('DEPLOYMENT_DISABLED')",
+    () => createBillingDisabledModel('DEPLOYMENT_DISABLED'),
+  ],
+  [
+    "billing/createBillingDisabledModel('NOT_ENTITLED')",
+    () => createBillingDisabledModel('NOT_ENTITLED'),
+  ],
+  [
+    "billing/createBillingOutageModel('missingScope')",
+    () => createBillingOutageModel('missingScope'),
+  ],
+  [
+    "billing/createBillingOutageModel('unavailable')",
+    () => createBillingOutageModel('unavailable'),
+  ],
+  [
+    "billing/createBillingOutageModel('notImplemented')",
+    () => createBillingOutageModel('notImplemented'),
+  ],
+  [
+    "billing/createBillingOutageModel('hang')",
+    () => createBillingOutageModel('hang'),
+  ],
+  ['billing/createInvoicesModel', createInvoicesModel],
+  ['billing/createStripeBillingModel', createStripeBillingModel],
+  [
+    "billing/createStripeBillingModel({ sync: 'failing' })",
+    () => createStripeBillingModel({ sync: 'failing' }),
+  ],
+  [
+    'billing/createInvoicesModel({ stripe: true })',
+    () => createInvoicesModel({ stripe: true }),
+  ],
+  [
+    "billing/createInvoicesModel({ retentionStart: '2026-04-01T00:00:00.000Z' })",
+    () => createInvoicesModel({ retentionStart: '2026-04-01T00:00:00.000Z' }),
+  ],
+  ['billing/createEmptyInvoicesModel', createEmptyInvoicesModel],
+  [
+    'billing/createInvoicesModel({ retentionMonths: 1 })',
+    () => createInvoicesModel({ retentionMonths: 1 }),
+  ],
+  ['billing/createManyInvoicesModel', createManyInvoicesModel],
+  ['billing/createManyAcmeInvoicesModel', createManyAcmeInvoicesModel],
+  ['billing/createManyReportsModel', createManyReportsModel],
+  ['billing/createLongHandoffQueueModel', createLongHandoffQueueModel],
+  ['billing/createDeletedInstanceModel', createDeletedInstanceModel],
+  ['billing/createMismatchedTotalsModel', createMismatchedTotalsModel],
   ['customers/createCustomersListModel', createCustomersListModel],
+  [
+    'customers/createCheckoutSessionsBillingModel',
+    createCheckoutSessionsBillingModel,
+  ],
+  [
+    'customers/createEmptyCheckoutSessionsBillingModel',
+    createEmptyCheckoutSessionsBillingModel,
+  ],
+  [
+    'customers/createCheckoutSessionsCustomersModel',
+    createCheckoutSessionsCustomersModel,
+  ],
+  [
+    'customers/createAnonymousCheckoutCustomerModel',
+    createAnonymousCheckoutCustomerModel,
+  ],
   ['customers/createEditableCustomerModel', createEditableCustomerModel],
   ['customers/createDeletableCustomerModel', createDeletableCustomerModel],
   ['customers/createEmptyCustomersModel', createEmptyCustomersModel],
@@ -124,7 +339,20 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createCustomerScopedInstanceModel,
   ],
   ['integrations/createSdkServiceAccount', createSdkServiceAccount],
+  [
+    'integrations/createAnonymousCheckoutBillingModel',
+    createAnonymousCheckoutBillingModel,
+  ],
+  [
+    'integrations/createPublishableKeysBillingModel',
+    createPublishableKeysBillingModel,
+  ],
+  [
+    'integrations/createEmptyPublishableKeysBillingModel',
+    createEmptyPublishableKeysBillingModel,
+  ],
   ['licenses/createLicenseCatalogModel', createLicenseCatalogModel],
+  ['licenses/createPublicPaidCatalogModel', createPublicPaidCatalogModel],
   [
     'release-management/createReleaseManagementReadModel',
     createReleaseManagementReadModel,

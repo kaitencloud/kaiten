@@ -16,6 +16,8 @@ export type LicenseEntitlementsCardProps = {
   onDeleteEntitlement: (entitlementId: string) => Promise<void> | void;
   // Threshold and overage percent always travel together: the API derives
   // enforcement from the pair and resets an omitted percent to its default.
+  /** The grants are shown and cannot be changed: no add, no reset, no inline edit, no removal. */
+  readOnly?: boolean;
   onUpdateEntitlementGrant: (
     entitlementId: string,
     threshold: number,

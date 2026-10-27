@@ -9,7 +9,9 @@ INSERT INTO organization_connector (organization_id, connector_name)
 VALUES (sqlc.arg(organization_id), sqlc.arg(connector_name))
 ON CONFLICT (organization_id, connector_name)
 DO UPDATE SET updated_at = now()
-RETURNING organization_id, connector_name, activated_at, created_at, updated_at;
+-- inserted tells a first activation from a repeat: xmax is 0 on the row an
+-- INSERT wrote, and the updating transaction's id on one ON CONFLICT updated.
+RETURNING organization_id, connector_name, activated_at, created_at, updated_at, (xmax = 0)::bool AS inserted;
 
 
 -- name: DeactivateConnectorForOrganization :execrows

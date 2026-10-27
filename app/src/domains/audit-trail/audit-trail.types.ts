@@ -1,3 +1,5 @@
+import type { GetGlobalAuditTrailQuery } from '@/api-client/graphql/graphql';
+
 // Event "category" drives the status badge, the row icon, the stat cards, the
 // status filter and the CSV export, all through `getEventCategory`. The global
 // feed and an instance's audit tab both read it from there, so an event has one
@@ -8,10 +10,19 @@ export type AuditEventCategory = 'read' | 'accepted' | 'rejected' | 'warning';
 // Quick time-range filter applied to the feed.
 export type AuditTimeRange = '24h' | '7d' | '30d' | 'all';
 
+// Who an entry is recorded under: a person, a service account, or Kaiten
+// itself (`SYSTEM`), which records the jobs and the anonymous checkouts. It is
+// the generated type of the query that reads it, so it cannot drift from the
+// contract: the GraphQL schema types `kind` as a string.
+export type AuditEntryActor = NonNullable<
+  GetGlobalAuditTrailQuery['organizationAuditTrails']['items'][number]['actor']
+>;
+
 // A single global audit entry, straight from `organizationAuditTrails`. The
 // instance/customer fields are only present for instance-scoped events —
-// organization-level events (e.g. customer created) carry none. The API never
-// returns an actor, so there is intentionally no actor field here.
+// organization-level events (e.g. customer created) carry none. `actor` is
+// absent for an entry recorded before the API kept actors, or whose user is
+// gone.
 export interface GlobalAuditEntry {
   id: string;
   eventName: string;
@@ -22,6 +33,7 @@ export interface GlobalAuditEntry {
   customerName?: string;
   payload?: unknown;
   timestamp: string;
+  actor?: AuditEntryActor;
 }
 
 export interface AuditTrailOption {

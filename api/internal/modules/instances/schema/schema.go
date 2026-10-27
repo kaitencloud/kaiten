@@ -9,6 +9,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 )
 
@@ -157,23 +158,45 @@ type EntitlementUsage struct {
 	// license entitlement. Null when the license grants no value; for a NUMBER
 	// entitlement a value of -1 means unlimited. BOOLEAN and CONFIG
 	// entitlements have no usage of their own, so Value repeats it.
-	Limit *EntitlementValue `json:"limit,omitempty" doc:"License grant this usage is measured against, discriminated by the 'type' field. Null when the license grants no value; -1 means unlimited for a NUMBER entitlement."`
+	Limit *EntitlementValue `json:"limit,omitempty" doc:"The effective value this usage is measured against (the licence's grant, with the instance's add-ons and boosts applied; source and provenance say which), discriminated by the 'type' field. Absent when nothing grants the entitlement a value; -1 means unlimited for a NUMBER entitlement."`
 	// CurrentPeriodStart/End are null for a lifetime entitlement (no configured
-	// reset period). For a periodic entitlement, these are always the bounds of
-	// the window containing "now" at read time, computed lazily -- they do not
-	// depend on whether the stored row still belongs to that window.
+	// reset period). For a periodic entitlement, these are the bounds of the
+	// window containing "now" at read time, computed lazily -- whether or not
+	// the stored row still belongs to it. The one exception is a stored window
+	// that is ahead of "now" (see period.ResolveCurrent): that window is the
+	// current one, for reads as for reports.
 	CurrentPeriodStart *time.Time `json:"currentPeriodStart,omitempty" doc:"Start of the current usage window (inclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-03-01T00:00:00Z"`
 	CurrentPeriodEnd   *time.Time `json:"currentPeriodEnd,omitempty" doc:"End of the current usage window (exclusive). Null for a lifetime entitlement (no configured reset period)." example:"2026-04-01T00:00:00Z"`
+	// LimitCapExceededOveragePercent, Source and Provenance are the effective
+	// entitlement's (§7.4, §7.5): add-ons and boosts change limit, and this is
+	// how a reader tells why.
+	LimitCapExceededOveragePercent *int16      `json:"limitCapExceededOveragePercent,omitempty" doc:"How far above limit usage is still accepted, in percent: -1 unlimited, 0 a hard limit. Absent for BOOLEAN and CONFIG."`
+	Source                         string      `json:"source" enum:"license,addon,exception" doc:"license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"`
+	Provenance                     *Provenance `json:"provenance,omitempty" doc:"What the licence, the add-ons and the boosts each contribute"`
 }
 
 type AuditTrail struct {
-	ID           uuid.UUID  `json:"id" doc:"Unique audit trail entry ID"`
-	InstanceID   *uuid.UUID `json:"instanceId,omitempty" doc:"Instance UUID (present for instance-scoped events)"`
-	InstanceSlug string     `json:"instanceSlug" doc:"Instance slug"`
-	EventName    string     `json:"eventName" doc:"Event name (e.g. ENTITLEMENT_VALUE_GET)"`
-	EventType    string     `json:"eventType" doc:"Event type identifier (e.g. com.kaiten.instance.entitlement.v1.value_get)"`
-	Timestamp    time.Time  `json:"timestamp" doc:"When the event occurred"`
-	Payload      any        `json:"payload,omitempty" doc:"Event payload (JSON)"`
+	ID           uuid.UUID   `json:"id" doc:"Unique audit trail entry ID"`
+	InstanceID   *uuid.UUID  `json:"instanceId,omitempty" doc:"Instance UUID (present for instance-scoped events)"`
+	InstanceSlug string      `json:"instanceSlug" doc:"Instance slug"`
+	EventName    string      `json:"eventName" doc:"Event name (e.g. ENTITLEMENT_VALUE_GET)"`
+	EventType    string      `json:"eventType" doc:"Event type identifier (e.g. com.kaiten.instance.entitlement.v1.value_get)"`
+	Timestamp    time.Time   `json:"timestamp" doc:"When the event occurred"`
+	Payload      any         `json:"payload,omitempty" doc:"Event payload (JSON)"`
+	Actor        *AuditActor `json:"actor" doc:"Who the event is recorded under; null for an entry recorded before actors were (E-27), or whose user is gone"`
+}
+
+// TransformSchema publishes AuditTrail's actor as null when the entry names
+// none (§13.15).
+func (AuditTrail) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
+	return nullable.Pointers(s, AuditTrail{})
+}
+
+// AuditActor is the user an audit entry is recorded under (§5 Conventions).
+type AuditActor struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name" doc:"The user's name; \"Kaiten (system)\" for the work Kaiten does itself"`
+	Kind string    `json:"kind" enum:"USER,SERVICE,SYSTEM" doc:"USER: a person. SERVICE: a service account. SYSTEM: Kaiten itself -- jobs, and the anonymous checkouts no one of the organization makes"`
 }
 
 // AuditTrailPage is a cursor-paginated page of instance-scoped audit trail
@@ -211,6 +234,7 @@ type OrganizationAuditTrail struct {
 	EventType    string
 	Timestamp    time.Time
 	Payload      map[string]any
+	Actor        *AuditActor
 }
 
 type InstanceStatus string
@@ -275,6 +299,16 @@ type Instance struct {
 	// touching how a present value -- {} included -- serializes on read.
 	Metadata     map[string]any                 `json:"metadata" required:"false" doc:"Metadata for the instance" example:"{\"key\": \"value\"}"`
 	Integrations map[string]InstanceIntegration `json:"integrations,omitempty" doc:"Integrations grouped by adapter name"`
+}
+
+// Licence change reasons an INSTANCE_UPDATED carries (§15.1).
+const LicenseChangeBillingFallback = "BILLING_FALLBACK"
+
+// InstanceUpdate is the payload of INSTANCE_UPDATED: the instance as it now
+// is, and why billing changed its licence when it did.
+type InstanceUpdate struct {
+	Instance
+	LicenseChangeReason *string `json:"licenseChangeReason" nullable:"true" enum:"BILLING_FALLBACK" doc:"BILLING_FALLBACK: the subscription ended and the instance moved to its family's fallback (V31-66). Null for any other change, the move a paid checkout applies included"`
 }
 
 // InstancePage is a cursor-paginated page of instances, returned by the

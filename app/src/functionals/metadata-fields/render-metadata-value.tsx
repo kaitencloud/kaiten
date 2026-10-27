@@ -1,5 +1,9 @@
 import type { ReactNode } from 'react';
-import { formatDate, formatNumber } from '@/lib/format-date';
+import {
+  DEFAULT_DATE_OPTIONS,
+  formatDate,
+  formatNumber,
+} from '@/lib/format-date';
 import { extractEnumOptions, inferUiType } from './json-schema';
 import type { MetadataFieldDescriptor } from './types';
 
@@ -30,10 +34,14 @@ export function renderMetadataValue(
       return typeof value === 'number' ? formatNumber(value) : String(value);
 
     case 'date':
-      // Keep the formatting trivial — pages/locales decide later. We only
-      // guarantee a parseable round-trip.
+      // A `date` is a calendar day (`2026-10-20`), not a moment: it is read as
+      // midnight UTC, so it has to be worded in UTC too. On the clock of a
+      // browser west of Greenwich the same instant is the evening before.
       try {
-        return formatDate(String(value));
+        return formatDate(String(value), {
+          ...DEFAULT_DATE_OPTIONS,
+          timeZone: 'UTC',
+        });
       } catch {
         return String(value);
       }

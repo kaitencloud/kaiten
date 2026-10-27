@@ -1,9 +1,16 @@
 import { NumberField } from '@base-ui/react/number-field';
 import { Minus, Plus } from 'lucide-react';
 import * as React from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 
 type NumberInputProps = {
+  /**
+   * Keep a value typed outside `min` and `max` instead of clamping it on commit,
+   * so that the form around it can say it is out of range. The steppers still stop
+   * at the bounds.
+   */
+  allowOutOfRange?: boolean;
   className?: string;
   value?: number | null;
   defaultValue?: number;
@@ -24,6 +31,7 @@ type NumberInputProps = {
 };
 
 export function NumberInput({
+  allowOutOfRange,
   className,
   value,
   defaultValue,
@@ -42,9 +50,14 @@ export function NumberInput({
   'aria-invalid': ariaInvalid,
   'aria-label': ariaLabel,
 }: NumberInputProps) {
+  const { i18n, t } = useTranslation();
   const inputId = React.useId();
   return (
     <NumberField.Root
+      allowOutOfRange={allowOutOfRange}
+      // The digits are grouped as the console's language groups them, as the hints
+      // beside the field are, and not as the browser's would.
+      locale={i18n.resolvedLanguage}
       className="w-full"
       id={id ?? inputId}
       value={value}
@@ -82,7 +95,7 @@ export function NumberInput({
           <NumberField.Decrement
             type="button"
             className="hover:bg-muted/60 focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded-sm transition-colors outline-none focus-visible:ring-2 disabled:opacity-50"
-            aria-label="Decrease value"
+            aria-label={t('Common.decreaseValue', 'Decrease value')}
           >
             <Minus className="size-4" />
           </NumberField.Decrement>
@@ -90,7 +103,7 @@ export function NumberInput({
           <NumberField.Increment
             type="button"
             className="hover:bg-muted/60 focus-visible:ring-ring inline-flex size-7 items-center justify-center rounded-sm transition-colors outline-none focus-visible:ring-2 disabled:opacity-50"
-            aria-label="Increase value"
+            aria-label={t('Common.increaseValue', 'Increase value')}
           >
             <Plus className="size-4" />
           </NumberField.Increment>

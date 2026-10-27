@@ -6,7 +6,8 @@ import { CustomerScopedInstanceDialog } from './index';
 const mockNavigate = vi.fn();
 const mockInstanceFormDialog = vi.fn();
 
-vi.mock('@tanstack/react-query', () => ({
+vi.mock('@tanstack/react-query', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@tanstack/react-query')>()),
   useSuspenseQuery: () => ({
     data: {
       id: 'customer-1',
@@ -25,9 +26,15 @@ vi.mock('@tanstack/react-router', async (importOriginal) => {
   };
 });
 
-vi.mock('@/features/customers', () => ({
-  customerQueryOptions: vi.fn(() => ({})),
-}));
+vi.mock('@/features/customers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/customers')>();
+
+  // The real address builder, so the test reads where the dialog leads to.
+  return {
+    customerQueryOptions: vi.fn(() => ({})),
+    getCustomerDetailTarget: actual.getCustomerDetailTarget,
+  };
+});
 
 vi.mock('@/features/instances', () => ({
   InstanceFormDialog: (props: {
@@ -79,6 +86,19 @@ describe('CustomerScopedInstanceDialog', () => {
     expect(mockNavigate).toHaveBeenLastCalledWith({
       params: { customerSlug: 'acme' },
       to: '/customers/$customerSlug',
+    });
+  });
+
+  it('closes onto the page of a customer whose slug a static route of /customers takes, not onto that route', async () => {
+    const user = userEvent.setup();
+    mockNavigate.mockClear();
+
+    render(<CustomerScopedInstanceDialog customerSlug="checkout-sessions" />);
+
+    await user.click(screen.getByRole('button', { name: 'close' }));
+    expect(mockNavigate).toHaveBeenLastCalledWith({
+      params: { customerSlug: 'checkout-sessions' },
+      to: '/customers/$customerSlug/overview',
     });
   });
 });

@@ -43,3 +43,4 @@ export {
   instanceToLicenseFormValues,
   instanceToMetadataFormValues,
 } from './instance-form.shared';
+export { instanceToUpdateBody } from './instance-update-body';

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { EntitlementWritable, Entitlement } from '@/api-client';
+import { isNumberFamily } from '../../utils/entitlement-writable';
 
 // The select cannot hold an empty value, so "no period at all" travels through
 // the form as an explicit sentinel and is mapped back to an absent field on
@@ -15,7 +16,21 @@ export const RESET_PERIOD_VALUES = [
   'YEAR',
 ] as const;
 
-export const RESET_ANCHOR_VALUES = ['CALENDAR', 'LICENSE_START'] as const;
+export const RESET_ANCHOR_VALUES = [
+  'CALENDAR',
+  'LICENSE_START',
+  'BILLING_PERIOD',
+] as const;
+
+/**
+ * The cadences a window aligned on the billing date can have: it is phased off
+ * the subscription's billing anchor, which a shorter window would cut in the
+ * middle. The API answers 422 `.InvalidResetAnchor` to any other.
+ */
+export const BILLING_PERIOD_CADENCES = ['MONTH', 'YEAR'] as const;
+
+export const isBillingPeriodCadence = (period: string | undefined): boolean =>
+  BILLING_PERIOD_CADENCES.some((cadence) => cadence === period);
 
 export const resetPeriodSchema = z.enum(RESET_PERIOD_VALUES);
 export const resetAnchorSchema = z.enum(RESET_ANCHOR_VALUES);
@@ -36,13 +51,6 @@ type ResetFields = {
   resetPeriod: EntitlementWritable['resetPeriod'];
   resetAnchor: EntitlementWritable['resetAnchor'];
 };
-
-/**
- * Mirrors the API's number-family check: a periodic window is only meaningful
- * for a type that reports a numeric meter.
- */
-const isNumberFamily = (type: EntitlementWritable['type']): boolean =>
-  type === 'NUMBER' || type === 'NUMBER_AI_CREDIT';
 
 /**
  * Resolves the periodic-window pair of a writable payload.
@@ -90,3 +98,20 @@ export const resolveResetFields = (
  */
 export const hasImmutableResetPeriod = (entitlement?: Entitlement): boolean =>
   Boolean(entitlement?.resetPeriod);
+
+/**
+ * Whether the pair the form would send asks for the billing date on a cadence
+ * that cannot follow it. The form refuses it on the anchor, and the API refuses
+ * it the same way for a client that did not.
+ */
+export const hasBillingPeriodOnWrongCadence = (
+  values: ResetFieldsSource,
+): boolean => {
+  const { resetAnchor, resetPeriod } = resolveResetFields(values);
+
+  return (
+    resetAnchor === 'BILLING_PERIOD' &&
+    resetPeriod !== undefined &&
+    !isBillingPeriodCadence(resetPeriod)
+  );
+};

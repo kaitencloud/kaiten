@@ -1,5 +1,11 @@
 import { LoaderCircle, Pencil } from 'lucide-react';
-import { type KeyboardEvent, useCallback, useState } from 'react';
+import {
+  type KeyboardEvent,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
@@ -9,11 +15,14 @@ type EditableTitleProps = {
   value: string;
   /** Persists the new value. Should throw on failure. */
   onSave: (value: string) => Promise<void>;
-  /** Accessible label for the edit affordance (e.g. "Edit name"). */
+  /**
+   * What the button does (e.g. "Edit name"): its description, since the name of the button, and
+   * of the heading it stands in, is the title. It labels the input as well.
+   */
   label: string;
   /** Minimum trimmed length required to persist. Defaults to 1. */
   minLength?: number;
-  /** Disables editing entirely (kept read-only). */
+  /** The title is plain text, with no button: a session that may not rename. */
   disabled?: boolean;
   className?: string;
   /** Typography applied to both the read-only label and the input. */
@@ -40,6 +49,22 @@ export const EditableTitle = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [draft, setDraft] = useState('');
+  const button = useRef<HTMLButtonElement>(null);
+  // Set by Enter and Escape: the input goes away, and the person who was typing in it
+  // finds the focus where they left it, on the title.
+  const returnFocus = useRef(false);
+
+  useEffect(() => {
+    if (isEditing || !returnFocus.current) {
+      return;
+    }
+    returnFocus.current = false;
+    // Not when the person went elsewhere meanwhile (a save takes a moment).
+    const active = document.activeElement;
+    if (!active || active === document.body) {
+      button.current?.focus();
+    }
+  }, [isEditing]);
 
   // Focus and select the input the moment it mounts (i.e. when editing starts).
   // A stable ref callback runs during commit — before paint — so there is no
@@ -94,9 +119,11 @@ export const EditableTitle = ({
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter') {
       event.preventDefault();
+      returnFocus.current = true;
       void commit();
     } else if (event.key === 'Escape') {
       event.preventDefault();
+      returnFocus.current = true;
       cancel();
     }
   };
@@ -137,28 +164,33 @@ export const EditableTitle = ({
     );
   }
 
+  // A title that cannot be edited is a title: a button that says it is unavailable would
+  // read in a heading as the name of an action, and not as the name of the page.
+  if (disabled) {
+    return <span className={cn(textClassName, className)}>{value}</span>;
+  }
+
   return (
     <button
+      ref={button}
       type="button"
       onClick={startEdit}
-      disabled={disabled}
-      aria-label={label}
-      title={disabled ? undefined : label}
+      // The name of the button, and of the heading it stands in, is its content, the title;
+      // `title` is then its description: what the button does.
+      title={label}
       className={cn(
-        'group/editable-title -mx-2 inline-flex items-center gap-2 rounded-md px-2 py-0.5 text-left transition-colors hover:bg-foreground/10 disabled:pointer-events-none',
+        'group/editable-title -mx-2 inline-flex items-center gap-2 rounded-md px-2 py-0.5 text-left transition-colors hover:bg-foreground/10',
         textClassName,
         className,
       )}
     >
       <span>{value}</span>
-      {!disabled && (
-        <Pencil
-          // Faint at rest, so the title reads as editable before anyone hovers
-          // it; full on hover and keyboard focus.
-          className="size-4 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover/editable-title:opacity-100 group-focus-visible/editable-title:opacity-100"
-          aria-hidden
-        />
-      )}
+      <Pencil
+        // Faint at rest, so the title reads as editable before anyone hovers
+        // it; full on hover and keyboard focus.
+        className="size-4 shrink-0 text-muted-foreground opacity-40 transition-opacity group-hover/editable-title:opacity-100 group-focus-visible/editable-title:opacity-100"
+        aria-hidden
+      />
     </button>
   );
 };

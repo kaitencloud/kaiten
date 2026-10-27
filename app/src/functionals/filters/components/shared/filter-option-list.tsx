@@ -1,6 +1,5 @@
 import { Check } from 'lucide-react';
 import { Fragment, useState } from 'react';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   ComboboxCollection,
   ComboboxEmpty,
@@ -44,6 +43,26 @@ function containsEveryWord(value: string, search: string): boolean {
   const words = search.toLowerCase().split(/\s+/).filter(Boolean);
 
   return words.every((word) => option.includes(word));
+}
+
+/**
+ * The check beside an option of a list of several choices. It only draws what the
+ * option's own `aria-checked` says: a checkbox inside an option would nest one
+ * control in another, which a screen reader cannot announce.
+ */
+function CheckMark({ checked }: { checked: boolean }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        'border-input dark:bg-input/30 flex size-4 shrink-0 items-center justify-center rounded-[4px] border shadow-xs',
+        checked &&
+          'bg-primary text-primary-foreground dark:bg-primary border-primary',
+      )}
+    >
+      {checked ? <Check className="size-3.5" /> : null}
+    </span>
+  );
 }
 
 /** A row of the list: an option, "All", or the "Clear filter" entry of the foot. */
@@ -107,14 +126,7 @@ export function FilterOptionList<T>({
 
   function renderIndicator(checked: boolean) {
     if (multiple) {
-      return (
-        <Checkbox
-          checked={checked}
-          tabIndex={-1}
-          aria-hidden
-          className="pointer-events-none"
-        />
-      );
+      return <CheckMark checked={checked} />;
     }
 
     return (
@@ -222,8 +234,10 @@ export function FilterOptionList<T>({
       ) : null}
       <ComboboxEmpty>{labels.noResult}</ComboboxEmpty>
       {/* Without a search box nothing in the list takes focus, so the list
-          itself does: that is what keeps arrow keys and Enter working. */}
+          itself does: that is what keeps arrow keys and Enter working. It is
+          named after the field, since nothing else says what it lists. */}
       <ComboboxList
+        aria-label={field.label}
         tabIndex={field.searchable ? undefined : 0}
         className="outline-none"
       >

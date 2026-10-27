@@ -106,7 +106,7 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) (*
 			user.OrganizationID,
 			events.InstanceUpdated.Name,
 			events.InstanceUpdated.Type,
-			updatedInstance,
+			schema.InstanceUpdate{Instance: *updatedInstance, LicenseChangeReason: nil},
 			outbox.AuditHeaders{InstanceID: &updatedInstance.ID},
 		)
 

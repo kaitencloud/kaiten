@@ -1,0 +1,293 @@
+-- name: AuthenticateCheckoutSession :one
+-- A ksc_ by its digest (INV-36): it authenticates while the key that started
+-- its session is active, and until 24 h after the session closed -- an OPEN
+-- session past expires_at reads as closed then, before step (f) marks it
+-- (§14.8, the ksc_ token, item 3). The origins are the starting key's.
+SELECT cs.id, cs.organization_id, cs.publishable_key_id, pk.allowed_origins
+FROM checkout_session cs
+JOIN publishable_key pk
+  ON pk.id = cs.publishable_key_id
+ AND pk.organization_id = cs.organization_id
+WHERE cs.lookup_hash = sqlc.arg(lookup_hash)
+  AND pk.revoked_at IS NULL
+  AND COALESCE(cs.closed_at,
+               CASE WHEN cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC') THEN cs.expires_at END,
+               'infinity'::timestamp)
+      > (clock_timestamp() AT TIME ZONE 'UTC') - interval '24 hours';
+
+
+-- name: TrialConsumedByEmail :one
+-- One trial per e-mail and family (INV-35): whether a customer of the
+-- organization whose lower-cased billing e-mail is the visitor's has consumed
+-- a trial of the family of this licence version.
+SELECT EXISTS (SELECT 1
+               FROM customer_trial ct
+               JOIN customer c
+                 ON c.id = ct.customer_id
+                AND c.organization_id = ct.organization_id
+               JOIN license l
+                 ON l.family_id = ct.license_family_id
+                AND l.organization_id = ct.organization_id
+               WHERE ct.organization_id = sqlc.arg(organization_id)
+                 AND l.id = sqlc.arg(license_id)
+                 AND lower(c.billing_email) = lower(sqlc.arg(email)::text))::boolean AS consumed;
+
+
+-- name: HasCheckoutFallback :one
+-- Whether the family of this licence version names a fallback family with a
+-- default PUBLISHED version: what an anonymous checkout with an amount due
+-- creates its instance on until the payment (§9.12, §14.8 rule 5).
+SELECT EXISTS (SELECT 1
+               FROM license l
+               JOIN license_family f
+                 ON f.id = l.family_id
+                AND f.organization_id = l.organization_id
+               JOIN license fallback
+                 ON fallback.family_id = f.fallback_license_family_id
+                AND fallback.organization_id = f.organization_id
+               WHERE l.organization_id = sqlc.arg(organization_id)
+                 AND l.id = sqlc.arg(license_id)
+                 AND fallback.is_default
+                 AND fallback.lifecycle_state = 'PUBLISHED')::boolean AS has_fallback;
+
+
+-- name: GetCheckoutFallbackLicense :one
+-- The default PUBLISHED version of the fallback family the family of this
+-- licence version names: the free plan a completion with an amount due
+-- creates the instance on, until the payment (§9.12 rule 4 step 3).
+SELECT fallback.id
+FROM license l
+JOIN license_family f
+  ON f.id = l.family_id
+ AND f.organization_id = l.organization_id
+JOIN license fallback
+  ON fallback.family_id = f.fallback_license_family_id
+ AND fallback.organization_id = f.organization_id
+WHERE l.organization_id = sqlc.arg(organization_id)
+  AND l.id = sqlc.arg(license_id)
+  AND fallback.is_default
+  AND fallback.lifecycle_state = 'PUBLISHED';
+
+
+-- name: InsertCheckoutSession :one
+-- The one row an anonymous checkout's start writes (INV-34): OPEN for 24 h.
+INSERT INTO checkout_session (organization_id, publishable_key_id, lookup_hash, email, client_reference_id,
+                              license_price_id, selection, due_today_minor, currency, trial_refused_reason,
+                              return_url, created_at, expires_at, updated_at)
+VALUES (sqlc.arg(organization_id), sqlc.arg(publishable_key_id), sqlc.arg(lookup_hash), sqlc.arg(email),
+        sqlc.narg(client_reference_id), sqlc.arg(license_price_id), sqlc.arg(selection), sqlc.arg(due_today_minor),
+        sqlc.arg(currency), sqlc.narg(trial_refused_reason), sqlc.arg(return_url),
+        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') + interval '24 hours',
+        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'))
+RETURNING *;
+
+
+-- name: GetCheckoutSession :one
+-- One session, with what its price says of it.
+SELECT cs.*, lp.billing_period AS price_billing_period, l.slug AS license_slug, l.id AS license_id,
+       l.pricing_type AS license_pricing_type, l.requires_payment_method AS license_requires_payment_method,
+       c.slug AS customer_slug, i.slug AS instance_slug,
+       (cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC'))::boolean AS lapsed
+FROM checkout_session cs
+JOIN license_price lp
+  ON lp.id = cs.license_price_id
+ AND lp.organization_id = cs.organization_id
+JOIN license l
+  ON l.id = lp.license_id
+ AND l.organization_id = lp.organization_id
+LEFT JOIN customer c
+  ON c.id = cs.customer_id
+ AND c.organization_id = cs.organization_id
+LEFT JOIN instance i
+  ON i.id = cs.instance_id
+ AND i.organization_id = cs.organization_id
+WHERE cs.organization_id = sqlc.arg(organization_id)
+  AND cs.id = sqlc.arg(id);
+
+
+-- name: LockCheckoutSession :one
+-- The completion's first statement (§9.12 rule 4, step 1): the session row,
+-- locked, before every row the completion creates.
+SELECT *
+FROM checkout_session
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+FOR UPDATE;
+
+
+-- name: CompleteCheckoutSession :one
+-- A completion with nothing due: COMPLETED, closed, with what it created.
+UPDATE checkout_session
+SET status       = 'COMPLETED',
+    customer_id  = sqlc.arg(customer_id),
+    instance_id  = sqlc.arg(instance_id),
+    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+RETURNING *;
+
+
+-- name: RepriceCheckoutSession :exec
+-- The confirm found the trial consumed meanwhile, before any setup: the
+-- session goes on without it, at the amount recomposed (§14.8 confirm rule 1).
+UPDATE checkout_session
+SET trial_refused_reason = sqlc.narg(trial_refused_reason),
+    selection            = sqlc.arg(selection),
+    due_today_minor      = sqlc.arg(due_today_minor),
+    updated_at           = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+  AND setup_completed_at IS NULL;
+
+
+-- name: LockTrialEmail :exec
+-- One trial per e-mail and family, under concurrency (INV-35, §24 #79): the
+-- completion that may start a trial serializes on (organization, e-mail).
+-- The prefix keeps the key apart from the other data-keyed locks (§5.12).
+SELECT pg_advisory_xact_lock(hashtextextended('checkout-trial:' || sqlc.arg(organization_id)::text || ':' || lower(sqlc.arg(email)::text), 0));
+
+
+-- name: SetCheckoutSetupSession :exec
+-- The provider's setup session a confirm opened, stored before its URL is
+-- answered (§12.9 step 1, INV-03); a replacement takes the expired one's place.
+UPDATE checkout_session
+SET external_setup_session_id = sqlc.arg(external_setup_session_id),
+    updated_at                = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN';
+
+
+-- name: MarkCheckoutSetupCompleted :exec
+-- The provider reported the setup complete (§12.9 step 3.1): from then on the
+-- completion is retried until it succeeds or step (f) gives up.
+UPDATE checkout_session
+SET setup_completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at         = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+  AND setup_completed_at IS NULL;
+
+
+-- name: AwaitCheckoutPayment :one
+-- A completion with an amount due (§9.12 rule 4 step 6): AWAITING_PAYMENT,
+-- with what it created, until the ACTIVATION is paid or the subscription ends.
+UPDATE checkout_session
+SET status      = 'AWAITING_PAYMENT',
+    customer_id = sqlc.arg(customer_id),
+    instance_id = sqlc.arg(instance_id),
+    updated_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+RETURNING *;
+
+
+-- name: LockAwaitingCheckoutSession :one
+-- The session an INCOMPLETE subscription's instance came from, still waiting
+-- on its payment, locked after the subscription's rows (§9.12 rule 5).
+SELECT cs.id
+FROM checkout_session cs
+WHERE cs.organization_id = sqlc.arg(organization_id)
+  AND cs.instance_id = sqlc.arg(instance_id)
+  AND cs.status = 'AWAITING_PAYMENT'
+FOR UPDATE;
+
+
+-- name: PayCheckoutSession :exec
+-- Its ACTIVATION paid: COMPLETED, closed.
+UPDATE checkout_session
+SET status       = 'COMPLETED',
+    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'AWAITING_PAYMENT';
+
+
+-- name: ExpireCheckoutSession :exec
+-- Its INCOMPLETE subscription expired or was canceled unpaid: EXPIRED,
+-- closed; the customer and the instance remain.
+UPDATE checkout_session
+SET status     = 'EXPIRED',
+    expired_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'AWAITING_PAYMENT';
+
+
+-- name: ListCheckoutSessionIDs :many
+-- The vendor's list (§13.18), newest first, keyset-paged on (created_at, id).
+-- A status filter reads a session OPEN past expires_at as ABANDONED, as every
+-- read does; the e-mail is matched in its normalized form (INV-35).
+SELECT cs.id, cs.created_at
+FROM checkout_session cs
+WHERE cs.organization_id = sqlc.arg(organization_id)
+  AND (cardinality(sqlc.arg(statuses)::text[]) = 0
+    OR (CASE WHEN cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
+             THEN 'ABANDONED' ELSE cs.status::text END) = ANY (sqlc.arg(statuses)::text[]))
+  AND (sqlc.narg(email)::text IS NULL OR lower(cs.email) = lower(sqlc.narg(email)::text))
+  AND (sqlc.narg(client_reference_id)::text IS NULL OR cs.client_reference_id = sqlc.narg(client_reference_id)::text)
+  AND (sqlc.narg(cursor_at)::timestamp IS NULL
+    OR (cs.created_at, cs.id) < (sqlc.narg(cursor_at)::timestamp, sqlc.narg(cursor_id)::uuid))
+ORDER BY cs.created_at DESC, cs.id DESC
+LIMIT sqlc.narg(row_limit)::integer;
+
+
+-- name: ListSetupCompletedCheckoutSessions :many
+-- The sync backstop's retries (§12.6 rule 4): an organization's OPEN sessions
+-- whose setup the provider reported complete and whose completion has not
+-- run, oldest first (idx_checkout_session_setup_completed).
+SELECT cs.id
+FROM checkout_session cs
+WHERE cs.organization_id = sqlc.arg(organization_id)
+  AND cs.status = 'OPEN'
+  AND cs.setup_completed_at IS NOT NULL
+ORDER BY cs.setup_completed_at, cs.id
+LIMIT sqlc.arg(row_limit)::integer;
+
+
+-- name: ListLapsedCheckoutSessions :many
+-- billing-lifecycle step (f): the sessions still OPEN at expires_at, in every
+-- organization, oldest first (idx_checkout_session_open_expires_at).
+SELECT cs.id, cs.organization_id, cs.external_setup_session_id
+FROM checkout_session cs
+WHERE cs.status = 'OPEN'
+  AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
+ORDER BY cs.expires_at, cs.id
+LIMIT sqlc.arg(row_limit)::integer;
+
+
+-- name: AbandonCheckoutSession :one
+-- Reaped by step (f): ABANDONED, closed, still OPEN when locked.
+UPDATE checkout_session
+SET status       = 'ABANDONED',
+    abandoned_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
+    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+WHERE organization_id = sqlc.arg(organization_id)
+  AND id = sqlc.arg(id)
+  AND status = 'OPEN'
+RETURNING id;
+
+
+-- name: PurgeClosedCheckoutSessions :execrows
+-- billing-lifecycle step (h): the sessions closed longer ago than the
+-- retention, deleted in batches with no event (idx_checkout_session_closed_at).
+-- The customer and the instance a session created are untouched.
+DELETE FROM checkout_session
+WHERE id IN (SELECT cs.id
+             FROM checkout_session cs
+             WHERE cs.closed_at IS NOT NULL
+               AND cs.closed_at < sqlc.arg(closed_before)::timestamp
+             ORDER BY cs.closed_at
+             LIMIT sqlc.arg(row_limit)::integer);

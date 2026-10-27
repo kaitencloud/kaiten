@@ -16,13 +16,13 @@ test('adds a draft version to a license family', async ({ page }) => {
   await list.startNewVersion('Starter');
 
   // A new version starts from the family's default.
-  await expect(page).toHaveURL('/licenses/versions/starter-v2');
+  await expect(page).toHaveURL('/catalog/licenses/versions/starter-v2');
   await form.expectLoaded('Starter');
   await form.fillVersionName('Summer');
   await form.saveAsDraft();
   await form.submit();
 
-  await expect(page).toHaveURL('/licenses');
+  await expect(page).toHaveURL('/catalog/licenses');
   await list.expandFamily('Starter');
   await list.expectVersionState('Starter', 'Summer', 'Draft');
   await expect(
@@ -41,7 +41,7 @@ test('adds a published version unless asked for a draft', async ({ page }) => {
   await form.fillVersionName('Autumn');
   await form.submit();
 
-  await expect(page).toHaveURL('/licenses');
+  await expect(page).toHaveURL('/catalog/licenses');
   await list.expandFamily('Starter');
   await list.expectVersionState('Starter', 'Autumn', 'Published');
 });
@@ -62,7 +62,7 @@ test('adds a version from the suggested values without editing any', async ({
   expect(await form.versionName()).toBe('Starter v3');
   await form.submit();
 
-  await expect(page).toHaveURL('/licenses');
+  await expect(page).toHaveURL('/catalog/licenses');
   await list.expandFamily('Starter');
   await list.expectVersionState('Starter', 'Starter v3', 'Published');
 });

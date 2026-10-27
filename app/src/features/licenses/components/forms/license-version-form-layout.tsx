@@ -1,10 +1,17 @@
 import { Button } from '@/components/ui/button';
 import type { License } from '@/api-client';
+import {
+  FormRecoveryAlert,
+  FormRecoveryNotes,
+  FormRecoverySubmitWarning,
+} from '@/functionals/form-recovery';
 import { Page } from '@/functionals/page';
 import { createFormSubmitHandler } from '@/hooks/form';
 import { LicenseEntitlementsCard } from '../entitlements/license-entitlements-card';
+import { LicenseListLink } from './license-list-link';
 import { LicenseVersionFieldsCard } from './license-version-form-fields';
 import { licenseVersionFormSchema } from './license-version-form.schema';
+import type { LicenseVersionRecovery } from './use-license-version-form';
 import type { LicenseFamilyOption } from './use-license-version-form-options';
 
 type LicenseVersionFormLayoutProps = {
@@ -13,10 +20,12 @@ type LicenseVersionFormLayoutProps = {
   draftEntitlements: any[];
   entitlements: any[];
   familyOptions: LicenseFamilyOption[];
+  focusRef: (element: HTMLElement | null) => void;
   form: any;
   handleCancel: () => void;
   inheritedType?: string;
   licensesByFamily: Map<string, License[]>;
+  recovery: LicenseVersionRecovery;
   removeDraftEntitlement: (entitlementId: string) => Promise<void> | void;
   resetDraftEntitlements: () => void;
   selectedLicenseSlug?: string;
@@ -37,10 +46,12 @@ export function LicenseVersionFormLayout({
   draftEntitlements,
   entitlements,
   familyOptions,
+  focusRef,
   form,
   handleCancel,
   inheritedType,
   licensesByFamily,
+  recovery,
   removeDraftEntitlement,
   resetDraftEntitlements,
   selectedLicenseSlug,
@@ -51,7 +62,7 @@ export function LicenseVersionFormLayout({
   updateDraftEntitlementGrant,
 }: LicenseVersionFormLayoutProps) {
   return (
-    <form onSubmit={createFormSubmitHandler(form.handleSubmit)}>
+    <form ref={focusRef} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
       <form.AppForm>
         <Page>
           <Page.Header className="sticky top-0 z-20 border-b bg-app-background pb-4">
@@ -107,6 +118,13 @@ export function LicenseVersionFormLayout({
           </Page.Header>
 
           <div className="mt-6 space-y-6 pb-6">
+            <FormRecoveryAlert recovery={recovery}>
+              <LicenseListLink />
+            </FormRecoveryAlert>
+            <FormRecoveryNotes recovery={recovery} />
+            <FormRecoverySubmitWarning recovery={recovery}>
+              <LicenseListLink />
+            </FormRecoverySubmitWarning>
             <LicenseVersionFieldsCard
               availableLicenses={availableLicenses}
               familyOptions={familyOptions}

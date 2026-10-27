@@ -62,8 +62,8 @@ type Story = StoryObj<typeof EntitlementDetailPageContent>;
 export const Overview: Story = {
   render: () => (
     <StorybookRouter
-      initialEntries={[`/entitlements/${entitlement.slug}`]}
-      routePath="/entitlements/$entitlementSlug"
+      initialEntries={[`/catalog/entitlements/${entitlement.slug}`]}
+      routePath="/catalog/entitlements/$entitlementSlug"
     >
       <EntitlementDetailPageContent
         entitlement={entitlement}

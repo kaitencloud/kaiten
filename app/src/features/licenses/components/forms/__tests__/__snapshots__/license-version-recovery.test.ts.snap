@@ -1,0 +1,40 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`the recovery descriptor of a new license version > stores values of the shape its schema describes 1`] = `
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "properties": {
+    "baseLicenseSlug": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "baseVersion": {
+      "type": "string",
+    },
+    "copyPrices": {
+      "type": "boolean",
+    },
+    "createAsDraft": {
+      "type": "boolean",
+    },
+    "description": {
+      "type": "string",
+    },
+    "selectedFamilyId": {
+      "minLength": 1,
+      "type": "string",
+    },
+    "versionName": {
+      "type": "string",
+    },
+  },
+  "required": [
+    "baseLicenseSlug",
+    "copyPrices",
+    "createAsDraft",
+    "description",
+    "selectedFamilyId",
+  ],
+  "type": "object",
+}
+`;

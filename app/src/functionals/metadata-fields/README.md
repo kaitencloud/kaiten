@@ -19,7 +19,7 @@ functional are in [functionals.md](../../../docs/01-architecture/functionals.md)
 | `DynamicForm` | Controlled component that renders those descriptors |
 | `validateDynamicForm(fields, values, mode?)` | Validates values with ajv and returns errors keyed by field key |
 | `useDynamicMetadataForm(fields, initial?, mode?)` | Holds the values and derives the errors, for small forms |
-| `renderMetadataValue(field, value)` | Renders one value the way its schema says (boolean as a check, number formatted, enum label, date) |
+| `renderMetadataValue(field, value)` | Renders one value the way its schema says (boolean as a check, number formatted, enum label, date; a `date` is a calendar day, worded in UTC so it reads the same on every clock) |
 | `partitionFields`, `partitionMetadata` | Split fields into active and archived, and a resource's metadata into known, archived and unknown keys |
 | `inferUiType`, `extractEnumOptions`, `compileSchema`, `composeMetadataSchema`, `ajv` | JSON Schema helpers |
 
@@ -71,7 +71,7 @@ object through `onChange`, so it works with any form state.
 | `string` | text `Input` |
 | `number` | number `Input` |
 | `boolean` | three-way `Select` (not set, yes, no), so an untouched optional field is not sent as `false` |
-| `date` | `DatePicker` |
+| `date` | `DateInputPicker` (a UTC day, stored as `YYYY-MM-DD`) |
 | `enum` | `Select` |
 | `enum_list` | `FilterMultiSelect`, reused from `filters` |
 | `unsupported` | read-only JSON |

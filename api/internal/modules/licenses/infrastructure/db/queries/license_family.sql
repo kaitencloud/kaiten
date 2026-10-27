@@ -172,3 +172,58 @@ FROM license_family f
 WHERE f.organization_id = sqlc.arg(organization_id)
   AND f.id = sqlc.arg(family_id)
   AND NOT EXISTS (SELECT 1 FROM license l WHERE l.family_id = f.id);
+
+
+-- name: UpdateLicenseFamilySettings :one
+-- The family's own settings (§13.3): a NULL argument keeps the stored value;
+-- set_fallback with a NULL fallback_id clears the fallback. updated_at is left
+-- alone: it says when a version was last added.
+UPDATE license_family
+SET is_public                        = COALESCE(sqlc.narg(is_public), is_public),
+    fallback_license_family_id       = CASE
+                                         WHEN sqlc.arg(set_fallback)::boolean THEN sqlc.narg(fallback_id)::uuid
+                                         ELSE fallback_license_family_id
+                                       END,
+    trial_end_without_payment_method = COALESCE(sqlc.narg(trial_end_without_payment_method)::trial_end_without_payment_method,
+                                                trial_end_without_payment_method),
+    trial_reminder_days              = COALESCE(sqlc.narg(trial_reminder_days)::integer, trial_reminder_days)
+WHERE organization_id = sqlc.arg(organization_id)
+  AND slug = sqlc.arg(slug)
+RETURNING id;
+
+
+-- name: GetFreeFallbackFamily :one
+-- The family a fallbackLicenseFamilySlug names, when it may be one (V31-66):
+-- another family of the organization, every version of it priced FREE. No row
+-- otherwise -- an unknown family, another organization's and a paid one alike.
+-- The share lock holds it there: a version write locks its family's row
+-- before checking FallbackMustBeFree, so the two serialize.
+SELECT f.id
+FROM license_family f
+WHERE f.organization_id = sqlc.arg(organization_id)
+  AND f.slug = sqlc.arg(slug)
+  AND f.id <> sqlc.arg(family_id)
+  AND NOT EXISTS (SELECT 1
+                  FROM license l
+                  WHERE l.organization_id = f.organization_id
+                    AND l.family_id = f.id
+                    AND l.pricing_type <> 'FREE')
+FOR SHARE OF f;
+
+
+-- name: GetLicenseFamilySlugsByIDs :many
+-- The slugs of the families the given ids name: the fallbacks of a page of
+-- families, in one query.
+SELECT f.id, f.slug
+FROM license_family f
+WHERE f.organization_id = sqlc.arg(organization_id)
+  AND f.id = ANY(sqlc.arg(family_ids)::uuid[]);
+
+
+-- name: IsFallbackOfAnotherFamily :one
+-- Whether another family names this one as its fallback: its versions must
+-- then stay FREE (V31-66, CreateLicense / UpdateLicense.FallbackMustBeFree).
+SELECT EXISTS (SELECT 1
+               FROM license_family f
+               WHERE f.organization_id = sqlc.arg(organization_id)
+                 AND f.fallback_license_family_id = sqlc.arg(family_id)::uuid)::boolean AS is_fallback;

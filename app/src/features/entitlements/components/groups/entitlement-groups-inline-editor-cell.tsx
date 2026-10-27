@@ -69,15 +69,15 @@ export function EntitlementGroupsInlineEditorCell({
     }
 
     try {
-      // PUT is full-replace: build the body from the complete entitlement so
-      // the group edit cannot wipe the other writable fields.
+      // PUT is full-replace: the entitlement is read again and only the groups
+      // are put on top of it, so the group edit can neither wipe the other
+      // writable fields nor take back what another tab saved.
       await updateMutation.mutateAsync({
-        path: {
-          entitlementSlug: entitlement.slug,
-        },
-        body: entitlementToUpdateBody(entitlement, {
+        edited: entitlementToUpdateBody(entitlement, {
           groupSlugs: nextGroupSlugs,
         }),
+        entitlementSlug: entitlement.slug,
+        opened: entitlementToUpdateBody(entitlement),
       });
     } catch (error) {
       setDraftDisplayGroups(previousDisplayGroups);

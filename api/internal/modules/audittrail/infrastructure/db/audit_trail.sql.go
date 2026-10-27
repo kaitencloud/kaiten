@@ -13,14 +13,15 @@ import (
 )
 
 const createAuditTrail = `-- name: CreateAuditTrail :one
-INSERT INTO audit_trail (organization_id, instance_id, event_name, event_type, occurred_at, payload)
+INSERT INTO audit_trail (organization_id, instance_id, actor_id, event_name, event_type, occurred_at, payload)
 VALUES (
   $1,
   $2,
   $3,
   $4,
   $5,
-  $6
+  $6,
+  $7
 )
 RETURNING id
 `
@@ -28,6 +29,7 @@ RETURNING id
 type CreateAuditTrailParams struct {
 	OrganizationID uuid.UUID          `json:"organization_id"`
 	InstanceID     *uuid.UUID         `json:"instance_id"`
+	ActorID        *uuid.UUID         `json:"actor_id"`
 	EventName      string             `json:"event_name"`
 	EventType      string             `json:"event_type"`
 	OccurredAt     pgtype.Timestamptz `json:"occurred_at"`
@@ -40,6 +42,7 @@ func (q *Queries) CreateAuditTrail(ctx context.Context, arg CreateAuditTrailPara
 	row := q.db.QueryRow(ctx, createAuditTrail,
 		arg.OrganizationID,
 		arg.InstanceID,
+		arg.ActorID,
 		arg.EventName,
 		arg.EventType,
 		arg.OccurredAt,
@@ -55,12 +58,17 @@ SELECT
   at.id,
   at.instance_id,
   i.slug AS instance_slug,
+  at.actor_id,
+  u.name AS actor_name,
+  COALESCE(u.type::text, '')::text AS actor_type,
+  u.external_id AS actor_external_id,
   at.event_name,
   at.event_type,
   at.occurred_at,
   at.payload
 FROM audit_trail at
 INNER JOIN instance i ON at.instance_id = i.id
+LEFT JOIN "user" u ON u.id = at.actor_id
 WHERE at.organization_id = $1
   AND i.slug = $2
   AND ($3::text IS NULL OR at.event_name = $3)
@@ -86,13 +94,17 @@ type ListAuditTrailsParams struct {
 }
 
 type ListAuditTrailsRow struct {
-	ID           uuid.UUID          `json:"id"`
-	InstanceID   *uuid.UUID         `json:"instance_id"`
-	InstanceSlug string             `json:"instance_slug"`
-	EventName    string             `json:"event_name"`
-	EventType    string             `json:"event_type"`
-	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
-	Payload      []byte             `json:"payload"`
+	ID              uuid.UUID          `json:"id"`
+	InstanceID      *uuid.UUID         `json:"instance_id"`
+	InstanceSlug    string             `json:"instance_slug"`
+	ActorID         *uuid.UUID         `json:"actor_id"`
+	ActorName       *string            `json:"actor_name"`
+	ActorType       string             `json:"actor_type"`
+	ActorExternalID *string            `json:"actor_external_id"`
+	EventName       string             `json:"event_name"`
+	EventType       string             `json:"event_type"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	Payload         []byte             `json:"payload"`
 }
 
 // Cursor (keyset) pagination -- see ListOrganizationAuditTrails's comment
@@ -119,6 +131,10 @@ func (q *Queries) ListAuditTrails(ctx context.Context, arg ListAuditTrailsParams
 			&i.ID,
 			&i.InstanceID,
 			&i.InstanceSlug,
+			&i.ActorID,
+			&i.ActorName,
+			&i.ActorType,
+			&i.ActorExternalID,
 			&i.EventName,
 			&i.EventType,
 			&i.OccurredAt,
@@ -143,6 +159,10 @@ SELECT
   c.id AS customer_id,
   c.slug AS customer_slug,
   c.name AS customer_name,
+  at.actor_id,
+  u.name AS actor_name,
+  COALESCE(u.type::text, '')::text AS actor_type,
+  u.external_id AS actor_external_id,
   at.event_name,
   at.event_type,
   at.occurred_at,
@@ -150,6 +170,7 @@ SELECT
 FROM audit_trail at
 LEFT JOIN instance i ON at.instance_id = i.id
 LEFT JOIN customer c ON i.customer_id = c.id
+LEFT JOIN "user" u ON u.id = at.actor_id
 WHERE at.organization_id = $1
   AND ($2::text IS NULL OR at.event_name = $2)
   AND ($3::timestamptz IS NULL OR at.occurred_at >= $3)
@@ -173,17 +194,21 @@ type ListOrganizationAuditTrailsParams struct {
 }
 
 type ListOrganizationAuditTrailsRow struct {
-	ID           uuid.UUID          `json:"id"`
-	InstanceID   *uuid.UUID         `json:"instance_id"`
-	InstanceSlug *string            `json:"instance_slug"`
-	InstanceName *string            `json:"instance_name"`
-	CustomerID   *uuid.UUID         `json:"customer_id"`
-	CustomerSlug *string            `json:"customer_slug"`
-	CustomerName *string            `json:"customer_name"`
-	EventName    string             `json:"event_name"`
-	EventType    string             `json:"event_type"`
-	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
-	Payload      []byte             `json:"payload"`
+	ID              uuid.UUID          `json:"id"`
+	InstanceID      *uuid.UUID         `json:"instance_id"`
+	InstanceSlug    *string            `json:"instance_slug"`
+	InstanceName    *string            `json:"instance_name"`
+	CustomerID      *uuid.UUID         `json:"customer_id"`
+	CustomerSlug    *string            `json:"customer_slug"`
+	CustomerName    *string            `json:"customer_name"`
+	ActorID         *uuid.UUID         `json:"actor_id"`
+	ActorName       *string            `json:"actor_name"`
+	ActorType       string             `json:"actor_type"`
+	ActorExternalID *string            `json:"actor_external_id"`
+	EventName       string             `json:"event_name"`
+	EventType       string             `json:"event_type"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	Payload         []byte             `json:"payload"`
 }
 
 // Cursor (keyset) pagination: ordered by occurred_at DESC, id DESC (id
@@ -216,6 +241,10 @@ func (q *Queries) ListOrganizationAuditTrails(ctx context.Context, arg ListOrgan
 			&i.CustomerID,
 			&i.CustomerSlug,
 			&i.CustomerName,
+			&i.ActorID,
+			&i.ActorName,
+			&i.ActorType,
+			&i.ActorExternalID,
 			&i.EventName,
 			&i.EventType,
 			&i.OccurredAt,

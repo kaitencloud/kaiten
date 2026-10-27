@@ -1,3 +1,4 @@
+import { grantedScopesQueryKey } from '@/lib/granted-scopes';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -6,14 +7,21 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import {
   handleDeleteLicense,
+  handleGetLicense,
   handleGetLicenseEntitlements,
   handleUpdateLicense,
 } from '@/api-client/msw.gen';
 import { TooltipProvider } from '@/components/ui/tooltip';
+// For its side effect: the REST client then throws an `ApiError`, which carries the
+// words of the API's refusal.
+import '@/lib/api/bootstrap';
 import type { LicenseWithInstances } from '../../types';
 import { LicenseVersionsTableActions } from '../license-versions-table-actions';
 
 let queryClient: QueryClient;
+const toast = vi.hoisted(() => ({ error: vi.fn(), success: vi.fn() }));
+
+vi.mock('sonner', () => ({ toast }));
 
 vi.mock('@tanstack/react-router', () => ({
   useRouteContext: () => ({ queryClient }),
@@ -51,6 +59,9 @@ const makeLicense = (
     ...overrides,
   }) as LicenseWithInstances;
 
+// The version as the API holds it: an update reads it again before it writes.
+let stored: LicenseWithInstances;
+
 type ApiCall =
   | { op: 'delete'; licenseSlug: string }
   | { op: 'update'; licenseSlug: string; body: unknown };
@@ -64,6 +75,7 @@ function serveLicenseWrites() {
   const calls: ApiCall[] = [];
 
   server.use(
+    handleGetLicense(() => HttpResponse.json(stored)),
     handleUpdateLicense(async ({ params, request }) => {
       calls.push({
         op: 'update',
@@ -82,14 +94,17 @@ function serveLicenseWrites() {
   return calls;
 }
 
-const renderActions = (license: LicenseWithInstances) =>
-  render(
+const renderActions = (license: LicenseWithInstances) => {
+  stored = license;
+
+  return render(
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <LicenseVersionsTableActions license={license} />
       </TooltipProvider>
     </QueryClientProvider>,
   );
+};
 
 describe('LicenseVersionsTableActions', () => {
   let calls: ApiCall[];
@@ -98,6 +113,9 @@ describe('LicenseVersionsTableActions', () => {
     queryClient = new QueryClient({
       defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
     });
+    // The token says nothing of scopes: every action is offered.
+    queryClient.setQueryData(grantedScopesQueryKey, null);
+    toast.error.mockReset();
     calls = serveLicenseWrites();
   });
 
@@ -240,4 +258,92 @@ describe('LicenseVersionsTableActions', () => {
       expect(calls).toEqual([]);
     },
   );
+
+  // The page was loaded before another tab edited the version: moving the default
+  // must not take that edit back.
+  it('moves the default without taking back what changed on the version meanwhile', async () => {
+    const user = userEvent.setup();
+    renderActions(makeLicense({}));
+    stored = makeLicense({
+      description: 'Edited in another tab',
+      name: 'Community (renamed)',
+      pricingType: 'PAID',
+      trialPeriodDays: 14,
+      versionName: 'GA 2',
+    });
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Pages.Licenses.VersionsTable.setAsDefault',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(calls).toEqual([
+        {
+          op: 'update',
+          licenseSlug: 'community-v2',
+          body: {
+            description: 'Edited in another tab',
+            isDefault: true,
+            name: 'Community (renamed)',
+            pricingType: 'PAID',
+            requiresPaymentMethod: false,
+            trialPeriodDays: 14,
+            type: 'DEVELOPMENT',
+            versionName: 'GA 2',
+          },
+        },
+      ]);
+    });
+  });
+
+  // The default was moved to another version meanwhile: unsetting it here is
+  // sent as asked, since it is what the person chose, and nothing else changes.
+  it('does not set the default again on a version whose default moved away', async () => {
+    const user = userEvent.setup();
+    renderActions(makeLicense({ isDefault: true }));
+    stored = makeLicense({ isDefault: false, name: 'Community (renamed)' });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Pages.Licenses.DefaultActions.unset' }),
+    );
+
+    await waitFor(() => {
+      expect(calls).toEqual([
+        {
+          op: 'update',
+          licenseSlug: 'community-v2',
+          body: expect.objectContaining({
+            isDefault: false,
+            name: 'Community (renamed)',
+          }),
+        },
+      ]);
+    });
+  });
+
+  it('writes nothing when the version was deleted meanwhile', async () => {
+    const user = userEvent.setup();
+    renderActions(makeLicense({}));
+    server.use(
+      handleGetLicense(() =>
+        HttpResponse.json(
+          { code: 'GetLicense.NotFound', detail: 'The license does not exist', status: 404 },
+          { status: 404 },
+        ),
+      ),
+    );
+
+    await user.click(
+      screen.getByRole('button', {
+        name: 'Pages.Licenses.VersionsTable.setAsDefault',
+      }),
+    );
+
+    await waitFor(() =>
+      expect(toast.error).toHaveBeenCalledWith('The license does not exist'),
+    );
+    expect(calls).toEqual([]);
+  });
 });

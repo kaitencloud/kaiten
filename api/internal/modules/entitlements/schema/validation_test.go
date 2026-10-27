@@ -1,6 +1,7 @@
 package schema_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
@@ -230,6 +231,8 @@ func TestValidateResetConfiguration(t *testing.T) {
 		{"Number with LATEST rejected", schema.Number, ptr.To(schema.Latest), ptr.To(period.Month), ptr.To(period.Calendar), true},
 		{"NumberAICredit with LATEST rejected", schema.NumberAICredit, ptr.To(schema.Latest), ptr.To(period.Day), ptr.To(period.Calendar), true},
 		{"LATEST without reset period is fine", schema.Number, ptr.To(schema.Latest), nil, nil, false},
+		{"Number monthly billing period", schema.Number, ptr.To(schema.Sum), ptr.To(period.Month), ptr.To(period.BillingPeriod), false},
+		{"Number yearly billing period", schema.Number, ptr.To(schema.Sum), ptr.To(period.Year), ptr.To(period.BillingPeriod), false},
 	}
 
 	for _, tt := range tests {
@@ -237,6 +240,19 @@ func TestValidateResetConfiguration(t *testing.T) {
 			err := schema.ValidateResetConfiguration(tt.entitlementType, tt.aggregationMethod, tt.resetPeriod, tt.resetAnchor)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateResetConfiguration(%s) error = %v, wantErr %v", tt.name, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// TestValidateResetConfiguration_BillingPeriodCadence: BILLING_PERIOD takes
+// MONTH or YEAR only, and says so with its own error, the 422 of V32-04.
+func TestValidateResetConfiguration_BillingPeriodCadence(t *testing.T) {
+	for _, cadence := range []period.ResetPeriod{period.Hour, period.Day, period.Week} {
+		t.Run(string(cadence), func(t *testing.T) {
+			err := schema.ValidateResetConfiguration(schema.Number, ptr.To(schema.Sum), ptr.To(cadence), ptr.To(period.BillingPeriod))
+			if !errors.Is(err, schema.ErrBillingPeriodCadence) {
+				t.Errorf("ValidateResetConfiguration(%s, BILLING_PERIOD) error = %v, want ErrBillingPeriodCadence", cadence, err)
 			}
 		})
 	}

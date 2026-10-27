@@ -4,8 +4,8 @@ import {
   createEntitlementGroupMutation,
   deleteEntitlementGroupMutation,
   listEntitlementGroupsQueryKey,
-  updateEntitlementGroupMutation,
 } from '@/api-client/@tanstack/react-query.gen';
+import { saveEntitlementGroupOnFresh } from '../queries/entitlement-group-save';
 
 export function useEntitlementGroupFormMutations() {
   const queryClient = useQueryClient();
@@ -34,9 +34,10 @@ export function useEntitlementGroupFormMutations() {
   });
 
   const updateMutation = useMutation({
-    ...updateEntitlementGroupMutation(),
-    onSuccess: async (_response, variables) => {
-      const { path, body } = variables;
+    mutationFn: saveEntitlementGroupOnFresh,
+    // What the update sent, merged with the group as the API held it.
+    onSuccess: async (sent, variables) => {
+      const { entitlementGroupSlug } = variables;
       queryClient.setQueryData<PageEntitlementGroup | undefined>(
         groupsQueryKey,
         (current) => {
@@ -46,8 +47,8 @@ export function useEntitlementGroupFormMutations() {
           return {
             ...current,
             items: current.items.map((group) =>
-              group.slug === path.entitlementGroupSlug
-                ? { ...group, ...body }
+              group.slug === entitlementGroupSlug
+                ? { ...group, ...sent }
                 : group,
             ),
           };

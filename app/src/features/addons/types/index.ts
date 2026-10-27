@@ -1,0 +1,28 @@
+import type { Addon, AddonFamily } from '@/api-client';
+
+/**
+ * A family as the list draws it: the product, with the versions of it that the
+ * filters of the page keep. The versions are the API's, newest first.
+ */
+export type AddonGroup = {
+  /** The version the family resolves to, when it has a default. */
+  defaultVersion: Addon | undefined;
+  family: AddonFamily;
+  /**
+   * The version the family is shown under and a new version starts from: the one
+   * the API resolves the family to, else its newest version.
+   */
+  head: Addon | undefined;
+  /** What the product is called: its head version's name. */
+  name: string;
+  versions: Addon[];
+};
+
+/** The state of a version, as the API spells it. */
+export type AddonLifecycleState = Addon['lifecycleState'];
+
+/** How a mid-period increase of a family's add-ons is billed, as the API spells it. */
+export type AddonIncreaseBilling = AddonFamily['increaseBilling'];
+
+/** What a version is sold as, as the API spells it. */
+export type AddonPricingType = Addon['pricingType'];

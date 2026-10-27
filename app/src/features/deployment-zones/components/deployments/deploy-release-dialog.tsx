@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select';
 import { useDeployReleaseDialogStore } from '../../hooks';
 import { useDeployReleaseMutation } from '../../hooks/use-deploy-release-mutation';
+import { deploymentZoneToUpdateBody } from '../../utils/deployment-zone-update-body';
 import type { DeployReleaseDialogProps } from '../../types';
 
 export function DeployReleaseDialog({
@@ -51,15 +52,12 @@ export function DeployReleaseDialog({
   });
 
   const handleDeploy = async () => {
+    // The zone is read again and only the release is put on top of it.
+    const opened = deploymentZoneToUpdateBody(deploymentZone);
     await updateMutation.mutateAsync({
-      path: { deploymentZoneSlug: deploymentZone.slug! },
-      body: {
-        name: deploymentZone.name,
-        type: deploymentZone.type,
-        description: deploymentZone.description,
-        metadata: deploymentZone.metadata,
-        releaseId: selectedReleaseId,
-      },
+      deploymentZoneSlug: deploymentZone.slug!,
+      edited: { ...opened, releaseId: selectedReleaseId },
+      opened,
     });
   };
 

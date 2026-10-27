@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
+import { useFormFieldContext } from '@/components/form/form-context';
 import { NumberInput } from '@/components/ui/number-input';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
@@ -16,19 +17,20 @@ type EntitlementSelectOption = {
   value: string;
 };
 
+// The labels are i18n keys, written out in full so that the check of the keys sees them.
 const entitlementTypeOptions: EntitlementSelectOption[] = [
-  { label: 'Boolean', value: 'BOOLEAN' },
-  { label: 'Number', value: 'NUMBER' },
-  { label: 'Config', value: 'CONFIG' },
+  { label: 'Pages.Entitlements.EntitlementTypes.BOOLEAN', value: 'BOOLEAN' },
+  { label: 'Pages.Entitlements.EntitlementTypes.NUMBER', value: 'NUMBER' },
+  { label: 'Pages.Entitlements.EntitlementTypes.CONFIG', value: 'CONFIG' },
 ];
 
 const aggregationMethodOptions: EntitlementSelectOption[] = [
-  { label: 'Count', value: 'COUNT' },
-  { label: 'Sum', value: 'SUM' },
-  { label: 'Average', value: 'AVERAGE' },
-  { label: 'Min', value: 'MIN' },
-  { label: 'Max', value: 'MAX' },
-  { label: 'Latest', value: 'LATEST' },
+  { label: 'Pages.Entitlements.AggregationMethods.COUNT', value: 'COUNT' },
+  { label: 'Pages.Entitlements.AggregationMethods.SUM', value: 'SUM' },
+  { label: 'Pages.Entitlements.AggregationMethods.AVERAGE', value: 'AVERAGE' },
+  { label: 'Pages.Entitlements.AggregationMethods.MIN', value: 'MIN' },
+  { label: 'Pages.Entitlements.AggregationMethods.MAX', value: 'MAX' },
+  { label: 'Pages.Entitlements.AggregationMethods.LATEST', value: 'LATEST' },
 ];
 
 const getSelectOptionLabel = (option: unknown) => {
@@ -127,7 +129,7 @@ export function EntitlementIdentityFields({
             )}
           >
             {(field) => (
-              <EntitlementGroupSelector
+              <GroupsControl
                 value={field.value ?? []}
                 onChange={(groupSlugs) => {
                   field.handleChange(groupSlugs);
@@ -141,6 +143,33 @@ export function EntitlementIdentityFields({
       <UserFacingField form={form} />
       <DisplayOrderField form={form} />
     </div>
+  );
+}
+
+// The groups selector of the form, named by the label of its field and described by its help
+// and its error, as the controls of the other fields are.
+function GroupsControl({
+  onChange,
+  value,
+}: {
+  onChange: (groupSlugs: string[]) => void;
+  value: string[];
+}) {
+  const { errors, formDescriptionId, formItemId, formLabelId, formMessageId } =
+    useFormFieldContext();
+  const hasError = Boolean(errors?.length);
+
+  return (
+    <EntitlementGroupSelector
+      aria-describedby={
+        hasError ? `${formDescriptionId} ${formMessageId}` : formDescriptionId
+      }
+      aria-invalid={hasError}
+      aria-labelledby={formLabelId}
+      id={formItemId}
+      onChange={onChange}
+      value={value}
+    />
   );
 }
 
@@ -241,7 +270,7 @@ export function EntitlementTypeFields({
             )}
             options={entitlementTypeOptions}
             getOptionValue={getSelectOptionValue}
-            getOptionLabel={getSelectOptionLabel}
+            getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
             disabled={Boolean(entitlement)}
           />
         )}
@@ -264,7 +293,7 @@ export function EntitlementTypeFields({
                     )}
                     options={aggregationMethodOptions}
                     getOptionValue={getSelectOptionValue}
-                    getOptionLabel={getSelectOptionLabel}
+                    getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
                     disabled={Boolean(entitlement)}
                   />
                 )}
@@ -273,7 +302,7 @@ export function EntitlementTypeFields({
                 entitlement={entitlement}
                 form={form}
               />
-              <EntitlementUnitFields entitlement={entitlement} form={form} />
+              <EntitlementUnitFields form={form} />
             </>
           ) : null
         }

@@ -42,6 +42,14 @@ func (c *ContextUserProvider) GetUser(ctx context.Context) (*User, error) {
 			return nil, kaitenerrors.Forbidden("CurrentUser.SystemPrincipalIsIncomplete",
 				"system principal names no actor or no organization execution context")
 		}
+	case i.Kind == principal.KindCustomerSession:
+		// The session's minting principal acts, inside the session's
+		// organization: what a session may reach is bounded before this, by
+		// caller.CustomerSession and the use cases it is handed to.
+		if i.UserID == uuid.Nil || i.OrganizationID == uuid.Nil || i.CustomerSession == nil {
+			return nil, kaitenerrors.Forbidden("CurrentUser.CustomerSessionIsIncomplete",
+				"customer session names no actor, organization or customer")
+		}
 	case i.Kind != principal.KindOrganization:
 		return nil, kaitenerrors.Forbidden("CurrentUser.NoOrganizationContext",
 			"credential establishes no organization execution context")

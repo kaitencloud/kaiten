@@ -243,12 +243,17 @@ var cleanupSpecialCaseTables = map[string]struct{}{
 
 func orgScopedTablesInDeletionOrder(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 	// Discover all public tables that have an organization_id column, excluding
-	// tables that need special handling (user, user_on_organization).
+	// tables that need special handling (user, user_on_organization). Tables
+	// only: a view such as instance_effective_entitlement has the column too,
+	// and nothing to delete.
 	rows, err := pool.Query(ctx, `
-		SELECT table_name
-		FROM information_schema.columns
-		WHERE table_schema = 'public' AND column_name = 'organization_id'
-		ORDER BY table_name
+		SELECT c.table_name
+		FROM information_schema.columns c
+		JOIN information_schema.tables t
+		  ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+		WHERE c.table_schema = 'public' AND c.column_name = 'organization_id'
+		  AND t.table_type = 'BASE TABLE'
+		ORDER BY c.table_name
 	`)
 	if err != nil {
 		return nil, err

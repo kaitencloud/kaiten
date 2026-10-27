@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
+import { getEntitlementSlug } from '@/domains/billing';
 import { useLicenseEntitlementsCardStore } from '../../hooks/use-license-entitlements-card-store';
-import { getEntitlementSlug } from '../../utils/license-entitlements.utils';
 import type { LicenseEntitlementsCardProps } from './license-entitlements-card.types';
 import { getCardDescriptionParts } from './license-entitlements-card-utils';
 import { useAddEntitlementAction } from './use-add-entitlement-action';

@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { Webhooks } from '@/api-client';
+import type { InstanceUpdateDelivered, Webhooks } from '@/api-client';
 
 /** An event the API emits, named as the audit trail records it (`LICENSE_CREATED`). */
 export type AuditEventName = Webhooks['body']['name'];
@@ -7,6 +7,32 @@ export type AuditEventName = Webhooks['body']['name'];
 // One label per event the API emits. The OpenAPI declares every event as a
 // webhook, so a new one fails typecheck here until it has a label.
 export const AUDIT_EVENT_LABEL_KEYS = {
+  ADDON_ARCHIVED: 'Features.AuditTrail.events.ADDON_ARCHIVED',
+  ADDON_CREATED: 'Features.AuditTrail.events.ADDON_CREATED',
+  ADDON_DELETED: 'Features.AuditTrail.events.ADDON_DELETED',
+  ADDON_ENTITLEMENT_ASSIGNED:
+    'Features.AuditTrail.events.ADDON_ENTITLEMENT_ASSIGNED',
+  ADDON_ENTITLEMENT_UNASSIGNED:
+    'Features.AuditTrail.events.ADDON_ENTITLEMENT_UNASSIGNED',
+  ADDON_ENTITLEMENT_UPDATED:
+    'Features.AuditTrail.events.ADDON_ENTITLEMENT_UPDATED',
+  ADDON_PRICE_CREATED: 'Features.AuditTrail.events.ADDON_PRICE_CREATED',
+  ADDON_PRICE_DEPRECATED: 'Features.AuditTrail.events.ADDON_PRICE_DEPRECATED',
+  ADDON_PUBLISHED: 'Features.AuditTrail.events.ADDON_PUBLISHED',
+  ADDON_UNARCHIVED: 'Features.AuditTrail.events.ADDON_UNARCHIVED',
+  ADDON_UPDATED: 'Features.AuditTrail.events.ADDON_UPDATED',
+  BILLING_PROVIDER_CONNECTED:
+    'Features.AuditTrail.events.BILLING_PROVIDER_CONNECTED',
+  BILLING_PROVIDER_DISCONNECTED:
+    'Features.AuditTrail.events.BILLING_PROVIDER_DISCONNECTED',
+  BILLING_PROVIDER_SYNC_FAILED:
+    'Features.AuditTrail.events.BILLING_PROVIDER_SYNC_FAILED',
+  CHECKOUT_SESSION_ABANDONED:
+    'Features.AuditTrail.events.CHECKOUT_SESSION_ABANDONED',
+  CHECKOUT_SESSION_COMPLETED:
+    'Features.AuditTrail.events.CHECKOUT_SESSION_COMPLETED',
+  CHECKOUT_SESSION_STARTED:
+    'Features.AuditTrail.events.CHECKOUT_SESSION_STARTED',
   COMPONENT_CREATED: 'Features.AuditTrail.events.COMPONENT_CREATED',
   COMPONENT_DELETED: 'Features.AuditTrail.events.COMPONENT_DELETED',
   COMPONENT_UPDATED: 'Features.AuditTrail.events.COMPONENT_UPDATED',
@@ -14,6 +40,12 @@ export const AUDIT_EVENT_LABEL_KEYS = {
   CUSTOMER_CREATION_REJECTED:
     'Features.AuditTrail.events.CUSTOMER_CREATION_REJECTED',
   CUSTOMER_DELETED: 'Features.AuditTrail.events.CUSTOMER_DELETED',
+  CUSTOMER_PAYMENT_METHOD_ATTACHED:
+    'Features.AuditTrail.events.CUSTOMER_PAYMENT_METHOD_ATTACHED',
+  CUSTOMER_PAYMENT_METHOD_DETACHED:
+    'Features.AuditTrail.events.CUSTOMER_PAYMENT_METHOD_DETACHED',
+  CUSTOMER_PAYMENT_METHOD_EXPIRING:
+    'Features.AuditTrail.events.CUSTOMER_PAYMENT_METHOD_EXPIRING',
   CUSTOMER_UPDATED: 'Features.AuditTrail.events.CUSTOMER_UPDATED',
   DEPLOYMENT_ZONE_CREATED: 'Features.AuditTrail.events.DEPLOYMENT_ZONE_CREATED',
   DEPLOYMENT_ZONE_DELETED: 'Features.AuditTrail.events.DEPLOYMENT_ZONE_DELETED',
@@ -36,22 +68,75 @@ export const AUDIT_EVENT_LABEL_KEYS = {
   FEATURE_FLAG_DELETED: 'Features.AuditTrail.events.FEATURE_FLAG_DELETED',
   FEATURE_FLAG_EVALUATED: 'Features.AuditTrail.events.FEATURE_FLAG_EVALUATED',
   FEATURE_FLAG_UPDATED: 'Features.AuditTrail.events.FEATURE_FLAG_UPDATED',
+  INSTANCE_ADDON_ADDED: 'Features.AuditTrail.events.INSTANCE_ADDON_ADDED',
+  INSTANCE_ADDON_QUANTITY_CHANGED:
+    'Features.AuditTrail.events.INSTANCE_ADDON_QUANTITY_CHANGED',
+  INSTANCE_ADDON_REMOVED: 'Features.AuditTrail.events.INSTANCE_ADDON_REMOVED',
+  INSTANCE_BILLING_CANCELED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_CANCELED',
+  INSTANCE_BILLING_CANCELLATION_REVERTED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_CANCELLATION_REVERTED',
+  INSTANCE_BILLING_CANCELLATION_SCHEDULED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_CANCELLATION_SCHEDULED',
+  INSTANCE_BILLING_PLAN_CHANGED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_PLAN_CHANGED',
+  INSTANCE_BILLING_PLAN_CHANGE_CANCELED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_PLAN_CHANGE_CANCELED',
+  INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_PLAN_CHANGE_SCHEDULED',
+  INSTANCE_BILLING_PROVIDER_CHANGED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_PROVIDER_CHANGED',
+  INSTANCE_BILLING_STARTED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_STARTED',
+  INSTANCE_BILLING_TRIAL_WILL_END:
+    'Features.AuditTrail.events.INSTANCE_BILLING_TRIAL_WILL_END',
+  INSTANCE_BILLING_STATUS_CHANGED:
+    'Features.AuditTrail.events.INSTANCE_BILLING_STATUS_CHANGED',
   INSTANCE_CREATED: 'Features.AuditTrail.events.INSTANCE_CREATED',
   INSTANCE_DELETED: 'Features.AuditTrail.events.INSTANCE_DELETED',
   INSTANCE_DEPLOYED: 'Features.AuditTrail.events.INSTANCE_DEPLOYED',
   INSTANCE_ENTITLEMENT_CAP_EXCEEDED:
     'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_CAP_EXCEEDED',
+  INSTANCE_ENTITLEMENT_EXCEPTION_CREATED:
+    'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_EXCEPTION_CREATED',
+  INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED:
+    'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED',
+  INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED:
+    'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED',
   INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER:
     'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER',
   INSTANCE_ENTITLEMENT_USAGE_REACHED:
     'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_USAGE_REACHED',
   INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED:
     'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED',
+  INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED:
+    'Features.AuditTrail.events.INSTANCE_INVOICE_HANDOFF_ACKNOWLEDGED',
+  INSTANCE_INVOICE_HELD: 'Features.AuditTrail.events.INSTANCE_INVOICE_HELD',
+  INSTANCE_INVOICE_ISSUED: 'Features.AuditTrail.events.INSTANCE_INVOICE_ISSUED',
+  INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE:
+    'Features.AuditTrail.events.INSTANCE_INVOICE_MARKED_UNCOLLECTIBLE',
+  INSTANCE_INVOICE_PAID: 'Features.AuditTrail.events.INSTANCE_INVOICE_PAID',
+  INSTANCE_INVOICE_PAYMENT_FAILED:
+    'Features.AuditTrail.events.INSTANCE_INVOICE_PAYMENT_FAILED',
+  INSTANCE_INVOICE_PUSHED: 'Features.AuditTrail.events.INSTANCE_INVOICE_PUSHED',
+  INSTANCE_INVOICE_PUSH_FAILED:
+    'Features.AuditTrail.events.INSTANCE_INVOICE_PUSH_FAILED',
+  INSTANCE_INVOICE_RECONCILIATION_MISMATCH:
+    'Features.AuditTrail.events.INSTANCE_INVOICE_RECONCILIATION_MISMATCH',
+  INSTANCE_INVOICE_RELEASED:
+    'Features.AuditTrail.events.INSTANCE_INVOICE_RELEASED',
+  INSTANCE_INVOICE_VOIDED: 'Features.AuditTrail.events.INSTANCE_INVOICE_VOIDED',
   INSTANCE_LIFECYCLE_STAGE_CHANGED:
     'Features.AuditTrail.events.INSTANCE_LIFECYCLE_STAGE_CHANGED',
   INSTANCE_MIGRATED: 'Features.AuditTrail.events.INSTANCE_MIGRATED',
   INSTANCE_STATUS_CHANGED: 'Features.AuditTrail.events.INSTANCE_STATUS_CHANGED',
   INSTANCE_UPDATED: 'Features.AuditTrail.events.INSTANCE_UPDATED',
+  INSTANCE_VOUCHER_EXPIRED:
+    'Features.AuditTrail.events.INSTANCE_VOUCHER_EXPIRED',
+  INSTANCE_VOUCHER_REDEEMED:
+    'Features.AuditTrail.events.INSTANCE_VOUCHER_REDEEMED',
+  INSTANCE_VOUCHER_REVOKED:
+    'Features.AuditTrail.events.INSTANCE_VOUCHER_REVOKED',
   LICENSE_ARCHIVED: 'Features.AuditTrail.events.LICENSE_ARCHIVED',
   LICENSE_CREATED: 'Features.AuditTrail.events.LICENSE_CREATED',
   LICENSE_DELETED: 'Features.AuditTrail.events.LICENSE_DELETED',
@@ -64,6 +149,10 @@ export const AUDIT_EVENT_LABEL_KEYS = {
   LICENSE_FAMILY_CREATED: 'Features.AuditTrail.events.LICENSE_FAMILY_CREATED',
   LICENSE_FAMILY_DELETED: 'Features.AuditTrail.events.LICENSE_FAMILY_DELETED',
   LICENSE_FAMILY_UPDATED: 'Features.AuditTrail.events.LICENSE_FAMILY_UPDATED',
+  LICENSE_PRICE_CREATED: 'Features.AuditTrail.events.LICENSE_PRICE_CREATED',
+  LICENSE_PRICE_DEPRECATED:
+    'Features.AuditTrail.events.LICENSE_PRICE_DEPRECATED',
+  LICENSE_PRICE_UPDATED: 'Features.AuditTrail.events.LICENSE_PRICE_UPDATED',
   LICENSE_PUBLISHED: 'Features.AuditTrail.events.LICENSE_PUBLISHED',
   LICENSE_UNARCHIVED: 'Features.AuditTrail.events.LICENSE_UNARCHIVED',
   LICENSE_UPDATED: 'Features.AuditTrail.events.LICENSE_UPDATED',
@@ -74,11 +163,19 @@ export const AUDIT_EVENT_LABEL_KEYS = {
   METADATA_FIELD_UNARCHIVED:
     'Features.AuditTrail.events.METADATA_FIELD_UNARCHIVED',
   METADATA_FIELD_UPDATED: 'Features.AuditTrail.events.METADATA_FIELD_UPDATED',
+  PUBLISHABLE_KEY_CREATED: 'Features.AuditTrail.events.PUBLISHABLE_KEY_CREATED',
+  PUBLISHABLE_KEY_REVOKED: 'Features.AuditTrail.events.PUBLISHABLE_KEY_REVOKED',
   RELEASE_CREATED: 'Features.AuditTrail.events.RELEASE_CREATED',
   RELEASE_DELETED: 'Features.AuditTrail.events.RELEASE_DELETED',
   RELEASE_DEPLOYED: 'Features.AuditTrail.events.RELEASE_DEPLOYED',
   SYSTEM_ORGANIZATION_TOKEN_ISSUED:
     'Features.AuditTrail.events.SYSTEM_ORGANIZATION_TOKEN_ISSUED',
+  VOUCHER_ARCHIVED: 'Features.AuditTrail.events.VOUCHER_ARCHIVED',
+  VOUCHER_CREATED: 'Features.AuditTrail.events.VOUCHER_CREATED',
+  VOUCHER_EXHAUSTED: 'Features.AuditTrail.events.VOUCHER_EXHAUSTED',
+  VOUCHER_EXPIRED: 'Features.AuditTrail.events.VOUCHER_EXPIRED',
+  VOUCHER_PUBLISHED: 'Features.AuditTrail.events.VOUCHER_PUBLISHED',
+  VOUCHER_UPDATED: 'Features.AuditTrail.events.VOUCHER_UPDATED',
 } as const satisfies Record<AuditEventName, string>;
 
 const isAuditEventName = (eventName: string): eventName is AuditEventName =>
@@ -100,3 +197,35 @@ export const resolveEventLabel = (eventName: string, t: TFunction): string =>
   isAuditEventName(eventName)
     ? t(AUDIT_EVENT_LABEL_KEYS[eventName])
     : humanizeEventName(eventName);
+
+type LicenseChangeReason = NonNullable<
+  InstanceUpdateDelivered['licenseChangeReason']
+>;
+
+// Why billing moved an instance to another license, as INSTANCE_UPDATED carries it.
+const LICENSE_CHANGE_REASON_KEYS = {
+  BILLING_FALLBACK: 'Features.AuditTrail.licenseChangeReasons.BILLING_FALLBACK',
+} as const satisfies Record<LicenseChangeReason, string>;
+
+/**
+ * The reason an entry gives for what it records, beside its label: today, the move of
+ * an instance to its family's fallback license when its subscription ended
+ * (`licenseChangeReason` of INSTANCE_UPDATED). Null for any other entry, and for a
+ * reason newer than this build.
+ */
+export const resolveEventReason = (
+  eventName: string,
+  payload: unknown,
+  t: TFunction,
+): string | null => {
+  if (eventName !== 'INSTANCE_UPDATED' || !payload || typeof payload !== 'object') {
+    return null;
+  }
+  const reason = (payload as { licenseChangeReason?: unknown })
+    .licenseChangeReason;
+
+  return typeof reason === 'string' &&
+    Object.hasOwn(LICENSE_CHANGE_REASON_KEYS, reason)
+    ? t(LICENSE_CHANGE_REASON_KEYS[reason as LicenseChangeReason])
+    : null;
+};

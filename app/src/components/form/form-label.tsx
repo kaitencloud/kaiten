@@ -6,7 +6,7 @@ import { useFormFieldContext } from './form-context';
 type FormLabelProps = ComponentProps<typeof Label>;
 
 function FormLabel({ className, ...props }: FormLabelProps) {
-  const { formItemId, errors } = useFormFieldContext();
+  const { formItemId, formLabelId, errors } = useFormFieldContext();
   const hasError = Boolean(errors?.length);
 
   return (
@@ -17,6 +17,7 @@ function FormLabel({ className, ...props }: FormLabelProps) {
         'group-data-[invalid=true]/form-item:text-destructive-subtle-foreground data-[invalid=true]:text-destructive-subtle-foreground',
         className,
       )}
+      id={formLabelId}
       htmlFor={formItemId}
       {...props}
     />
