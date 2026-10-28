@@ -23,7 +23,7 @@ func TestScheduledPlanChangeChecksOnlyNewAIAdmission(t *testing.T) {
 	addonMonthly := flatFee("900", "MONTHLY")
 	addonMonthly["isDefault"] = true
 	addonPrice(t, addon.Slug, addonMonthly)
-	attach(t, sold.instance.Slug, addon.Slug, 1)
+	attachment := attach(t, sold.instance.Slug, addon.Slug, 1)
 	started := subscribe(t, sold.instance.Slug, map[string]any{"basePriceId": sold.monthly.ID})
 
 	// Existing persisted AI basis, prepared without an off-state API mutation.
@@ -47,10 +47,17 @@ func TestScheduledPlanChangeChecksOnlyNewAIAdmission(t *testing.T) {
 	require.NotNil(t, scheduled.ScheduledChange)
 	require.Equal(t, ordinaryPrice.ID, scheduled.ScheduledChange.Price.ID)
 	require.True(t, scheduled.ScheduledChange.EffectiveAt.Equal(started.CurrentPeriodEnd))
-	backdate(t, started.ID, 1)
+	// Move the sold history together. Backdating only the subscription leaves
+	// its activation outside the elapsed period and can add a valid true-up.
+	backdateWithInvoices(t, started.ID, 1)
+	exec(t, `UPDATE instance_addon SET created_at = created_at - interval '1 month' WHERE id=$1`, attachment.ID)
 	closed := closePeriods(t, map[string]any{})
 	require.Equal(t, 1, closed.Closed)
 	invoice := getInvoice(t, closed.Invoices[0].ID)
 	require.EqualValues(t, 2800, invoice.Total, "ordinary new base plus the retained add-on; existing AI basis is not scrubbed")
+	require.Len(t, invoice.Lines, 2, "the previous activation already billed the retained quantity")
+	for _, line := range invoice.Lines {
+		require.Nil(t, line.TrueUp)
+	}
 	require.Equal(t, ordinaryPrice.ID, readBilling(t, sold.instance.Slug).BasePrice.ID)
 }
