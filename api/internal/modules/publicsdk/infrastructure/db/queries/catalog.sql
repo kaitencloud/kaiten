@@ -44,7 +44,8 @@ SELECT p.license_id,
        p.is_default
 FROM license_price p
 LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
-WHERE p.organization_id = sqlc.arg(organization_id)
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND p.organization_id = sqlc.arg(organization_id)
   AND p.license_id = ANY (sqlc.arg(license_ids)::uuid[])
   AND p.status = 'ACTIVE'
 ORDER BY p.license_id, p.display_order, p.id;
@@ -69,7 +70,8 @@ SELECT le.license_id,
        e.display_order
 FROM license_entitlement le
 JOIN entitlement e ON e.id = le.entitlement_id AND e.organization_id = le.organization_id
-WHERE le.organization_id = sqlc.arg(organization_id)
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND le.organization_id = sqlc.arg(organization_id)
   AND le.license_id = ANY (sqlc.arg(license_ids)::uuid[])
   AND e.user_facing
 ORDER BY le.license_id, e.display_order, e.slug;
@@ -110,7 +112,8 @@ SELECT p.addon_id,
        p.is_default
 FROM addon_price p
 LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
-WHERE p.organization_id = sqlc.arg(organization_id)
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND p.organization_id = sqlc.arg(organization_id)
   AND p.addon_id = ANY (sqlc.arg(addon_ids)::uuid[])
   AND p.status = 'ACTIVE'
 ORDER BY p.addon_id, p.display_order, p.id;
@@ -126,7 +129,8 @@ SELECT ae.addon_id,
        ae.limit_cap_exceeded_overage_percent
 FROM addon_entitlement ae
 JOIN entitlement e ON e.id = ae.entitlement_id AND e.organization_id = ae.organization_id
-WHERE ae.organization_id = sqlc.arg(organization_id)
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND ae.organization_id = sqlc.arg(organization_id)
   AND ae.addon_id = ANY (sqlc.arg(addon_ids)::uuid[])
   AND e.user_facing
 ORDER BY ae.addon_id, e.display_order, e.slug;

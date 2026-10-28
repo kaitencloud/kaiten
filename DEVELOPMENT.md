@@ -325,10 +325,11 @@ Kubernetes Secret.
 | Profile       | Purpose                                                                                             |
 | ------------- | --------------------------------------------------------------------------------------------------- |
 | `dev`         | The 5 shared TMNT identities (Splinter, Leonardo, Donatello, Raphael, April) on the Kaiten Sushi Shop org shell, no product data (run by `task up`, `task quickstart` and `task dev`) |
-| `demo`        | The same org and identities as `dev`, plus the full B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, feature flags, usage and audit trail, all created by an `Ops Team` service account the profile adds first. Explicit local/demo product data: `task quickstart` and `task seed` run it. |
+| `demo`        | The same org and identities as `dev`, plus the full B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, ordinary feature flags, usage and audit trail, all created by an `Ops Team` service account the profile adds first. Explicit local/demo product data: `task quickstart` and `task seed` run it. AI data is optional and requires a successful trusted platform flag read for the target; this profile never creates or enables that flag. |
+| `local-ai`    | Explicit local-only preparation: ensures canonical Dogfooding (`org_dogfooding`) and Sushi identities, then converges Dogfooding's boolean `ai-credits` flag with default `off`/false and one `on` rule for the actual Sushi UUID. No demo data or credentials. `task seed:ai:flag` runs it alone; `task seed:ai` runs it before `demo`. Never called by `dev`, `up`, `setup` or identity-only profiles. |
 | `stress-test` | High-volume seed: multiple organizations, users, entitlements, licenses, customers, instances, etc. No task runs it. Against a running stack, run `docker compose --project-name kaiten-oss run --rm seed-data --profile stress-test` when you need load-testing volume (`kaiten-oss` is the project name `task` uses by default). |
 
-You do not run the wired ones by hand. Two of the three are a one-shot service in
+You do not run the wired ones by hand. `dev` and `demo` are a one-shot service in
 `compose.yml`, behind a compose profile that the tasks switch on:
 
 - `dev` is the `seed-accounts` service, behind the `accounts` profile, together
@@ -347,6 +348,77 @@ List all profiles and their descriptions with:
 ```bash
 cd api && go run ./cmd/seeder list
 ```
+
+### Explicit local AI workshop
+
+AI rollout uses the **real trusted platform-owned Kaiten `ai-credits` feature
+flag**, not a configuration enable switch, customer flag or billing entitlement.
+The prepared local `docker/config/api.yaml` names `org_dogfooding` as the trusted
+source and keeps usage reporting (`metered.enabled`) **false**. The server denies
+AI for a missing, disabled, malformed or failed flag read; default/fallback is
+false. The console also requires the current server capability and a successful
+read from that trusted source. Startup never creates or enables the flag.
+
+> **Safety:** the following are explicit data/credential mutations, for a selected
+> disposable local stack only. They are not setup, startup or read-only checks.
+> Obtain separate authorization before running them as an agent. Do not use
+> `--clean`, reseed an existing customer/platform database, change hosted flags,
+> print credential contents, or enable a real inference/provider call as a test.
+
+After preparing the current local images and starting the selected stack, choose:
+
+```sh
+task seed:ai:flag           # converge only the local platform flag and identities
+# OR:
+task seed:ai                # the local profile, then demo if not already seeded
+
+# Separate explicit credential action, never run automatically above:
+task credentials:flags     # writes dev/platform-flags-token at 0600 if absent
+# Then task app / task dev uses the existing selected local credentials directory.
+```
+
+`local-ai` always converges through `SeedFeatureFlags(..., true)`, including when
+`dev`, `demo` or `local-ai` already has a tracker record. It uses the actual
+organization/user IDs returned by identity bootstrap: the flag belongs to
+Dogfooding, and `organizationId == '<actual Sushi UUID>'` selects the boolean
+`on` variant. Every other organization uses `off`/false. The flag's own Enabled
+field allows evaluation of that rule; it is not a deployment-wide opt-in.
+Re-running intentionally restores this definition, including its default and rule.
+It never seeds a flag into an arbitrary customer organization.
+
+Demo seeds ordinary flags before considering synthetic AI model/pool/grant/report
+data. It only reads eligibility; no true policy or flag mutation is used to bypass
+refusal. An already-recorded `demo` profile remains skipped: `seed:ai` does not
+silently wipe/reseed it or retrofit AI data. The flag-only command is the bounded
+option for an existing workshop, where AI data can later be created through the API.
+
+A legacy DB may have non-derived IDs. The profile logs only the actual platform
+and target UUIDs, never secrets. If Dogfooding's UUID differs from the one derived
+from `org_dogfooding`, configure **that same actual UUID** as
+`metered.organization_id` in the local API config and
+`KAITEN_METERED_ORGANIZATION_ID` for the seed command. Do not substitute a customer's
+organization as the source. The source resolves independently of whether metering
+is enabled. A configured remote `metered.api_url` or `metered.token_file` always
+selects that source; partial/error configuration denies, never falls back to local
+flags. The local-AI profile/tasks refuse a remote source or reporting configuration.
+
+`credentials:flags` uses the existing admin-tools `service-token mint` operation,
+inside the canonical Dogfooding organization, with **exactly `read:feature_flags`**.
+This is an organization `ksh_` token, not the administrative `ksm_` platform token
+or the metering token. It is browser-visible, so no write, token issuance or
+organization-admin scopes may be added. Existing files are preserved without
+validation or issuance; an empty/invalid path refuses, and a stale token needs
+explicit `task credentials:flags:rotate` recovery. That action replaces only this
+named organization token, not the platform credential or its descendants.
+
+The real local frontend reads only `platform-flags-token` in the selected
+`KAITEN_DEV_DIR`, and uses the validated local Core API URL (`/api`, through Envoy,
+not port 6001). An absent file keeps AI hidden; mock mode and prerequisite checks
+never read it. Do not copy its plaintext into `.env`, console output or a commit.
+Hosted builds retain their existing `VITE_KAITEN_PLATFORM_API_URL` and
+`VITE_KAITEN_PLATFORM_FLAGS_TOKEN` wiring. Real local AI never falls back to the
+signed-in customer's flag catalogue. No local seed/credential command installs,
+pulls/builds images or replays bootstrap dependencies.
 
 ---
 

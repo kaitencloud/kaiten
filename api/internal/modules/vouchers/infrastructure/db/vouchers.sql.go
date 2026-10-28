@@ -413,7 +413,7 @@ func (q *Queries) ListVoucherFlagGrants(ctx context.Context, arg ListVoucherFlag
 
 const listVoucherGrants = `-- name: ListVoucherGrants :many
 SELECT g.voucher_id, g.modifier_type, coalesce(g.modifier_value::text, '')::text AS modifier_value, e.slug AS entitlement_slug,
-       g.entitlement_id, g.value
+       g.entitlement_id, g.value, e.type AS entitlement_type
 FROM voucher_entitlement_grant g
 JOIN entitlement e ON e.id = g.entitlement_id AND e.organization_id = g.organization_id
 WHERE g.organization_id = $1
@@ -433,6 +433,7 @@ type ListVoucherGrantsRow struct {
 	EntitlementSlug string            `json:"entitlement_slug"`
 	EntitlementID   uuid.UUID         `json:"entitlement_id"`
 	Value           []byte            `json:"value"`
+	EntitlementType EntitlementType   `json:"entitlement_type"`
 }
 
 func (q *Queries) ListVoucherGrants(ctx context.Context, arg ListVoucherGrantsParams) ([]ListVoucherGrantsRow, error) {
@@ -451,6 +452,7 @@ func (q *Queries) ListVoucherGrants(ctx context.Context, arg ListVoucherGrantsPa
 			&i.EntitlementSlug,
 			&i.EntitlementID,
 			&i.Value,
+			&i.EntitlementType,
 		); err != nil {
 			return nil, err
 		}

@@ -40,6 +40,7 @@ export const licenseVersionRecovery = defineFormRecovery<
   fieldLabels: {
     baseLicenseSlug: { key: `${VERSION}.Labels.baseVersion` },
     baseVersion: { key: `${VERSION}.Labels.baseVersion` },
+    copyAiRules: { key: 'AI.copyRules' },
     copyPrices: { key: `${VERSION}.Labels.copyPrices` },
     createAsDraft: { key: `${MUTATION}.createAsDraft` },
     description: { key: `${MUTATION}.description` },

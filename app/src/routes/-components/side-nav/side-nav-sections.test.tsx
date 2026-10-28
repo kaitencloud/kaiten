@@ -1,3 +1,4 @@
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
@@ -296,5 +297,30 @@ describe('useResolvedCatalogItems', () => {
 
   it('keeps them while the capabilities load, and when they cannot be read', () => {
     expect(catalogPathsWith(undefined)).toEqual(core);
+  });
+});
+
+describe('Models catalogue entry', () => {
+  function paths(flag: boolean | undefined, scopes: GrantedScopes | 'unread', capability = flag) {
+    const client = new QueryClient({ defaultOptions: { queries: { enabled: false } } });
+    if (flag !== undefined) setAiAccessInputsForTest(client, { capability: capability === true, flag });
+    if (scopes !== 'unread') client.setQueryData(grantedScopesQueryKey, scopes);
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    return renderHook(() => useResolvedCatalogItems(), { wrapper }).result.current.map((item) => item.path);
+  }
+  it('places Models in Catalog when available with read permission', () => {
+    expect(paths(true, ['read:models'])).toEqual(['/catalog/licenses', '/catalog/entitlements', '/catalog/models']);
+    expect(paths(true, null)).toContain('/catalog/models');
+  });
+  it.each([[false, false], [false, true], [true, false], [true, true]])(
+    'requires capability=%s AND platform flag=%s for Models discovery', (capability, flag) => {
+      expect(paths(flag, ['read:models'], capability).includes('/catalog/models')).toBe(capability && flag);
+    },
+  );
+  it('hides Models until availability and permissions allow the read', () => {
+    expect(paths(false, null)).not.toContain('/catalog/models');
+    expect(paths(undefined, null)).not.toContain('/catalog/models');
+    expect(paths(true, ['read:entitlements'])).not.toContain('/catalog/models');
+    expect(paths(true, 'unread')).not.toContain('/catalog/models');
   });
 });

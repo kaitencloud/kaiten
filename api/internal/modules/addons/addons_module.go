@@ -32,6 +32,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/updateaddon"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/updateaddonentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/updateaddonfamily"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 type UseCases struct {
@@ -65,6 +66,7 @@ type UseCases struct {
 
 func NewUseCases(svc services.Container) *UseCases {
 	deps := catalogue.Deps{
+		AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 		UserProvider: svc.UserProvider,
 		Uof:          svc.Uof,
 		Gate:         gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),

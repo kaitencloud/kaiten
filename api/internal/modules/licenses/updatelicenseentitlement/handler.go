@@ -5,13 +5,16 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 }
@@ -35,8 +38,15 @@ func (h *UseCase) Execute(ctx context.Context, licenseSlug, entitlementSlug stri
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := licenseview.RequireOperational(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, entitlementSlug); err != nil {
+		return err
+	}
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if err := licenseview.RequireOperationalLocked(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, entitlementSlug); err != nil {
+			return err
+		}
 		updateLicenseEntitlement, err := h.repo.UpdateLicenseEntitlement(ctx, licenseSlug, entitlementSlug, command, user.ID, user.OrganizationID)
 		if err != nil {
 			return err

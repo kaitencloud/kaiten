@@ -1,3 +1,5 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
+import { entitlementsQueryOptions } from '../queries';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import type { Price } from '@/api-client';
@@ -27,22 +29,45 @@ type CopyPricesOptions = {
  */
 export function useLicensePriceCopy() {
   const queryClient = useQueryClient();
+  const access = useAiAccess();
   const { mutateAsync: createPrice } = useMutation(
     createLicensePriceMutation(),
   );
 
+  function checkPrices(prices: readonly Price[]) {
+    if (access.available) return;
+    const catalogue =
+      queryClient.getQueryData(entitlementsQueryOptions.queryKey)?.items ?? [];
+    if (
+      prices.some(
+        (price) =>
+          price.metered?.entitlementSlug &&
+          !catalogue.some(
+            (item) =>
+              item.slug === price.metered?.entitlementSlug &&
+              !isAiEntitlement(item.type),
+          ),
+      )
+    )
+      throw new Error('AIUsage.Disabled');
+  }
+
   /** The prices of a version a new version starts with. */
   const fetchCopiablePrices = useCallback(
-    async (sourceSlug: string) =>
-      getCopiablePrices(
+    async (sourceSlug: string) => {
+      const prices = getCopiablePrices(
         (await queryClient.fetchQuery(licensePricesQueryOptions(sourceSlug))) ??
           [],
-      ),
-    [queryClient],
+      );
+      checkPrices(prices);
+      return prices;
+    },
+    [access.available, queryClient],
   );
 
   const copyPrices = useCallback(
     async ({ existing, pending, targetSlug }: CopyPricesOptions) => {
+      checkPrices(pending);
       const created: Price[] = [];
       try {
         for (const price of pending) {
@@ -62,7 +87,7 @@ export function useLicensePriceCopy() {
 
       return created;
     },
-    [createPrice, queryClient],
+    [access.available, createPrice, queryClient],
   );
 
   return { copyPrices, fetchCopiablePrices };

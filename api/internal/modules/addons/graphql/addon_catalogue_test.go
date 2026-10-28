@@ -21,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -113,7 +114,7 @@ func contextWithLoaders(t *testing.T, organizationID uuid.UUID, fake *fakeDBTX, 
 
 	loaders := dataloader.NewLoaders()
 	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(
-		newAddonPricesBatchFn(db.New(fake)),
+		newAddonPricesBatchFn(db.New(fake), aiusage.Policy{}),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](batch),
 		dataloaderLib.WithWait[uuid.UUID, []prices.Price](time.Second),
 	))
@@ -167,10 +168,11 @@ func TestAddonPricesOfAPageAreOneStatement(t *testing.T) {
 	// Asked for the organization's versions, whatever their status. The versions come in
 	// the order the goroutines reached the loader, which is no order at all.
 	query := fake.queries()[0]
-	require.Len(t, query, 3)
+	require.Len(t, query, 4)
 	assert.Equal(t, organizationID, query[0])
 	assert.ElementsMatch(t, []uuid.UUID{seats, storage, support}, query[1])
 	assert.Equal(t, (*db.PriceStatus)(nil), query[2])
+	assert.Equal(t, true, query[3], "off-state external reader filters at the SQL seam")
 	// Each version has its own prices, in the order the statement returned them, and the
 	// one with no price has an empty list, never a missing one.
 	assert.Equal(t, [][]string{
@@ -207,7 +209,7 @@ func TestAddonPricesNeedAnIdentity(t *testing.T) {
 	fake := pricesFake()
 	loaders := dataloader.NewLoaders()
 	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(
-		newAddonPricesBatchFn(db.New(fake)),
+		newAddonPricesBatchFn(db.New(fake), aiusage.Policy{}),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](1),
 	))
 

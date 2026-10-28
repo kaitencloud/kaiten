@@ -6,6 +6,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getauthorization"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models/getaiusagecapabilities"
 	"github.com/kaitencloud/kaiten/api/pkg/subscribers"
 )
 
@@ -58,12 +59,14 @@ func Register(deps Deps) {
 	registerUsers(deps.Platform, platform)
 	registerCoreUsers(deps.Core, deps.App.Users())
 	getauthorization.RegisterEndpoint(deps.Core)
+	getaiusagecapabilities.RegisterEndpoint(deps.Core, deps.App.Models())
 
 	registerComponents(deps.Core, deps.App.Components())
 	registerConnectors(deps.Core, deps.Platform, deps.App.Connectors(), platform)
 	registerCustomers(deps.Core, deps.App.Customers())
 	registerDeploymentZones(deps.Core, deps.App.DeploymentZones())
 	registerMetadataFields(deps.Core, deps.App.MetadataFields())
+	registerModels(deps.Core, deps.App.Models())
 	registerReleases(deps.Core, deps.App.Releases())
 	registerEntitlements(deps.Core, deps.App.Entitlements())
 	registerLicenses(deps.Core, deps.App.Licenses())
@@ -81,7 +84,8 @@ func Register(deps Deps) {
 	// for the ext_authz check that authenticates rather than acts.
 	registerIdentity(
 		deps.Core, deps.Platform, deps.Router,
-		m.Identity.ValidateToken, deps.App.ServiceAccounts(), platform)
+		m.Identity.ValidateToken, deps.App.ServiceAccounts(), platform,
+	)
 
 	// Subscriber routes are registered first and their metadata collected, so
 	// GET /dapr/subscribe answers with the complete subscription list.

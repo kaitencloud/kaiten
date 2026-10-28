@@ -103,7 +103,7 @@ FOR UPDATE;
 
 -- name: ListVoucherGrants :many
 SELECT g.voucher_id, g.modifier_type, coalesce(g.modifier_value::text, '')::text AS modifier_value, e.slug AS entitlement_slug,
-       g.entitlement_id, g.value
+       g.entitlement_id, g.value, e.type AS entitlement_type
 FROM voucher_entitlement_grant g
 JOIN entitlement e ON e.id = g.entitlement_id AND e.organization_id = g.organization_id
 WHERE g.organization_id = sqlc.arg(organization_id)

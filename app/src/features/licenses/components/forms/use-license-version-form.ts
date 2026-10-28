@@ -1,4 +1,10 @@
-import { useSuspenseQuery } from '@tanstack/react-query';
+import {
+  aiMatrixQueryKey,
+  aiWildcardImpactQueryKey,
+} from '@/domains/ai-credits';
+import { readCurrentAiAccess, useAiAccess } from '@/domains/ai-credits';
+import { copyConversionRules } from '../../hooks/copy-conversion-rules';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useRouteContext, useRouter } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -64,8 +70,7 @@ function getInheritedType(
   )?.type;
 }
 
-// Cancelling is a deliberate abandon, unlike leaving by a link: the input is
-// discarded, and a toast offers to bring it back on the page it was typed on.
+// Cancel discards input; its toast offers to restore it on the page it was typed on.
 function handleLicenseVersionFormCancel({
   onCancel,
   recovery,
@@ -96,8 +101,7 @@ type SubmitLicenseVersionOptions = Pick<
   entitlements: Entitlement[];
 };
 
-// What the form does once it is valid: creates the version, tells the person
-// when it stayed a draft, and goes where the version opens.
+// Creates the version, reports an incomplete draft, then opens its destination.
 function useSubmitLicenseVersion({
   availableLicenses,
   draftEntitlements,
@@ -108,19 +112,23 @@ function useSubmitLicenseVersion({
   const { t } = useTranslation();
   const router = useRouter();
   const createVersion = useCreateLicenseVersion(entitlements);
-
+  const access = useAiAccess();
+  const queryClient = useQueryClient();
   return async (value: LicenseVersionFormValues) => {
     try {
       const baseLicense = availableLicenses.find(
         (license) => license.slug === value.baseLicenseSlug,
       );
-
       if (!baseLicense) {
         throw new Error(
           t('Pages.Licenses.Version.Form.Errors.baseLicenseNotFound'),
         );
       }
-
+      const aiEnabled =
+        value.copyAiRules &&
+        access.allows('listConversionRules') &&
+        access.allows('createConversionRule') &&
+        (await readCurrentAiAccess(queryClient));
       // The body is built before the request, outside `send`. A version created and
       // left a draft by a failed grant, price or publish is an accepted send: its own
       // page is where the vendor finishes it, so the input is not offered again.
@@ -131,6 +139,38 @@ function useSubmitLicenseVersion({
             baseLicense,
             body,
             copyPrices: value.copyPrices,
+            afterGrants: aiEnabled
+              ? async (created) => {
+                  try {
+                    const results = await copyConversionRules(
+                      baseLicense.slug!,
+                      created.slug,
+                    );
+                    for (const result of results) {
+                      const name = `${result.rule.entitlementSlug} / ${result.rule.modelSlug ?? t('AI.anyModel')} / ${result.rule.requestType ?? t('AI.any')}`;
+                      if (result.error)
+                        toast.error(
+                          t('AI.copyFailed', {
+                            name,
+                            reason: getApiErrorMessage(result.error),
+                          }),
+                        );
+                      else toast.success(t('AI.copySuccess', { name }));
+                    }
+                    if (results.some((result) => result.error))
+                      throw new Error(t('AI.copyPartial'));
+                  } finally {
+                    await Promise.all([
+                      queryClient.invalidateQueries({
+                        queryKey: aiMatrixQueryKey,
+                      }),
+                      queryClient.invalidateQueries({
+                        queryKey: aiWildcardImpactQueryKey,
+                      }),
+                    ]);
+                  }
+                }
+              : undefined,
             draftEntitlements,
           }),
         {
@@ -140,7 +180,6 @@ function useSubmitLicenseVersion({
           }),
         },
       );
-
       // The version exists but stayed a draft: a grant, a price or the
       // publish failed. A copy of prices that stopped says why with the
       // refusal of the API that stopped it.
@@ -151,7 +190,6 @@ function useSubmitLicenseVersion({
           }),
         );
       }
-
       const destination = getCreatedVersionDestination({
         baseSlug: baseLicense.slug,
         error,
@@ -162,12 +200,10 @@ function useSubmitLicenseVersion({
         router.navigate(destination);
         return;
       }
-
       if (onSuccess) {
         onSuccess();
         return;
       }
-
       router.navigate({ to: '/catalog/licenses' });
     } catch (error) {
       toast.error(getApiErrorMessage(error));
@@ -217,14 +253,12 @@ export function useLicenseVersionForm({
     setDraftEntitlements,
     updateDraftEntitlementGrant,
   } = useLicenseEntitlementsDraft(startingRows);
-
   const {
     hasInitializedBaseEntitlements,
     selectedBaseLicenseSlug,
     initializeBaseEntitlements,
     setSelectedBaseLicenseSlug,
   } = useLicenseVersionFormStore(startingBaseSlug);
-
   const syncDraftEntitlementsFromBase = useSyncDraftEntitlementsFromBase({
     entitlements,
     queryClient,
@@ -239,7 +273,6 @@ export function useLicenseVersionForm({
     startedWithBase: startingRows !== undefined,
     syncDraftEntitlementsFromBase,
   });
-
   const submit = useSubmitLicenseVersion({
     availableLicenses,
     draftEntitlements,

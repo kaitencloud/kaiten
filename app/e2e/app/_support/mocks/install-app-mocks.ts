@@ -34,6 +34,14 @@ export function installFlagEvaluations(
   return installSlot(page, 'flagEvaluations', flags);
 }
 
+/** Deployment readiness is independent of platform rollout targeting. Default: false. */
+export function installAiCapability(
+  page: Page,
+  enabled: boolean,
+): Promise<void> {
+  return installSlot(page, 'aiCapability', { enabled });
+}
+
 async function installSlot<K extends MswSlotKey>(
   page: Page,
   slot: K,

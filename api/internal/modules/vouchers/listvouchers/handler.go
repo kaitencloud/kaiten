@@ -21,6 +21,7 @@ func (u *UseCase) Execute(ctx context.Context, status, voucherType, restrictedCu
 	if err != nil {
 		return pagination.Page[catalogue.Voucher]{}, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	page, err := pagination.ParseKeyset(cursor, limit, "Vouchers")
 	if err != nil {
 		return pagination.Page[catalogue.Voucher]{}, err
@@ -43,6 +44,13 @@ func (u *UseCase) Execute(ctx context.Context, status, voucherType, restrictedCu
 	vouchers, err := catalogue.List(ctx, u.deps.Queries(ctx), params, true)
 	if err != nil {
 		return pagination.Page[catalogue.Voucher]{}, err
+	}
+	for i, voucher := range vouchers {
+		visible, err := catalogue.VisibleVoucher(ctx, u.deps.Queries(ctx), user.OrganizationID, u.deps.AIPolicy, voucher)
+		if err != nil {
+			return pagination.Page[catalogue.Voucher]{}, err
+		}
+		vouchers[i] = visible
 	}
 	return pagination.KeysetPage(vouchers, page, func(v catalogue.Voucher) (time.Time, uuid.UUID) { return v.CreatedAt, v.ID })
 }

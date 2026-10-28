@@ -55,7 +55,8 @@ FROM license_entitlement le
        JOIN entitlement e ON le.entitlement_id = e.id
        INNER JOIN "user" creator ON le.created_by_id = creator.id
        INNER JOIN "user" updater ON le.updated_by_id = updater.id
-WHERE le.organization_id = sqlc.arg(organization_id)
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type <> 'NUMBER_AI_CREDIT')
+ AND le.organization_id = sqlc.arg(organization_id)
   AND le.license_id = sqlc.arg(license_id)
   AND (
     sqlc.narg(cursor_created_at)::timestamp IS NULL

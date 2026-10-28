@@ -1,6 +1,7 @@
+import { LicenseEntitlementIdentityCell } from './license-entitlement-identity-cell';
+import type { Entitlement } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { EntityIcon } from '@/components/ui/icon';
 import { Trash2 } from 'lucide-react';
 import type { MouseEvent } from 'react';
 import { useCallback, useMemo } from 'react';
@@ -28,6 +29,9 @@ const stopPropagation = (event: MouseEvent) => {
 };
 
 type UseEntitlementColumnsOptions = {
+  entitlements: Entitlement[];
+  licenseSlug?: string;
+  mayConfigureAi?: boolean;
   closeEdit: () => void;
   editingEntitlementId: string | null;
   editingField: LicenseEntitlementEditingField | null;
@@ -47,6 +51,9 @@ type UseEntitlementColumnsOptions = {
 };
 
 export function useEntitlementColumns({
+  entitlements,
+  licenseSlug,
+  mayConfigureAi = false,
   closeEdit,
   editingEntitlementId,
   editingField,
@@ -61,6 +68,10 @@ export function useEntitlementColumns({
   store,
 }: UseEntitlementColumnsOptions) {
   const { t } = useTranslation();
+  const catalogueById = useMemo(
+    () => new Map(entitlements.map((item) => [item.id, item])),
+    [entitlements],
+  );
   // The edited text has to stay out of the memo below: as a dependency it would
   // rebuild every cell on each keystroke, remounting the very input the user is
   // typing into. So read it straight off the store at call time instead of
@@ -106,26 +117,20 @@ export function useEntitlementColumns({
         header: t('Pages.Licenses.Entitlements.Columns.entitlement'),
         cell: ({ row }) => {
           const entitlement = row.original;
+          const definition = catalogueById.get(entitlement.entitlementId ?? '');
           const entitlementSlug = entitlement.entitlementId
             ? (entitlementSlugById.get(entitlement.entitlementId) ??
               entitlement.entitlementName)
             : entitlement.entitlementName;
 
           return (
-            <div className="flex items-center gap-2">
-              <EntityIcon
-                token={entitlement.entitlementIcon}
-                className="size-4 shrink-0 text-muted-foreground"
-              />
-              <div className="flex flex-col gap-0.5">
-                <span className="font-medium">
-                  {entitlement.entitlementName}
-                </span>
-                <span className="font-mono text-xs text-muted-foreground">
-                  {entitlementSlug}
-                </span>
-              </div>
-            </div>
+            <LicenseEntitlementIdentityCell
+              entitlement={entitlement}
+              entitlementSlug={entitlementSlug}
+              definition={definition}
+              licenseSlug={licenseSlug}
+              mayConfigureAi={mayConfigureAi}
+            />
           );
         },
       },
@@ -141,7 +146,7 @@ export function useEntitlementColumns({
             }
           >
             {t(
-              `Pages.Entitlements.EntitlementTypes.${row.original.entitlementType}`,
+              `Pages.Entitlements.EntitlementTypes.${catalogueById.get(row.original.entitlementId ?? '')?.type ?? row.original.entitlementType}`,
             )}
           </Badge>
         ),
@@ -315,6 +320,9 @@ export function useEntitlementColumns({
       ? columns.filter((column) => column.id !== 'actions')
       : columns;
   }, [
+    catalogueById,
+    licenseSlug,
+    mayConfigureAi,
     closeEdit,
     editingEntitlementId,
     editingField,

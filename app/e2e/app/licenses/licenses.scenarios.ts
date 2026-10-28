@@ -115,7 +115,8 @@ const credits = buildEntitlement({
   resetPeriod: 'MONTH',
   saleUnit: { factor: 1_000_000, label: '1M credits' },
   slug: 'credits',
-  type: 'NUMBER_AI_CREDIT',
+  // Generic pricing/copy scenarios stay ordinary while the AI rollout is off.
+  type: 'NUMBER',
   unit: { plural: 'credits', singular: 'credit' },
 });
 const sso = buildEntitlement({
@@ -280,6 +281,37 @@ const pricedCatalog = (options: { billed?: boolean } = {}) =>
  * flows, stocks and flags they grant.
  */
 export const createPricedCatalogModel = () => pricedCatalog();
+
+/** Dedicated AI meter coverage; never enables or contaminates the ordinary scenarios. */
+export function createAiMeterCatalogModel() {
+  const aiCredits = buildEntitlement({
+    aggregationMethod: 'SUM',
+    name: 'AI credits',
+    resetPeriod: 'MONTH',
+    saleUnit: { factor: 1_000_000, label: '1M AI credits' },
+    slug: 'ai-credits',
+    type: 'NUMBER_AI_CREDIT',
+    unit: { plural: 'AI credits', singular: 'AI credit' },
+  });
+  return new LicenseAppModel({
+    entitlements: [...PRICING_CATALOGUE, aiCredits],
+    grants: [
+      ...PRO_V2_GRANTS,
+      ...PRO_V4_GRANTS,
+      {
+        ...buildGrant({
+          entitlement: aiCredits,
+          license: PRO_V4,
+          value: 1_000_000,
+        }),
+        // The current grant read contract preserves the original catalogue type.
+        entitlementType: 'NUMBER_AI_CREDIT',
+      },
+    ],
+    licenses: [PRO_V2, PRO_V4],
+    prices: { 'pro-v2': PRO_V2_PRICES },
+  });
+}
 
 /**
  * The same family, with v2 billed by a live subscription: what it sells is

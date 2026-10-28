@@ -130,6 +130,8 @@ type TestServerOptions struct {
 	Scopes         []string
 	ConfigOverride func(*config.Config)
 	UsageReporter  services.UsageReporter
+	// PlatformFlags is an explicit per-suite rollout reader; nil stays closed.
+	PlatformFlags services.PlatformFlags
 
 	// ConnectorEntitlements stands in for the licensing deployment. Nil means
 	// services.AlwaysEntitled -- the self-hosted shape, where every registered
@@ -252,6 +254,12 @@ func NewTestServer(tdb *TestDatabase, opts ...TestServerOptions) *TestServer {
 		UsageReporter: func() services.UsageReporter {
 			if len(opts) > 0 {
 				return opts[0].UsageReporter
+			}
+			return nil
+		}(),
+		PlatformFlags: func() services.PlatformFlags {
+			if len(opts) > 0 {
+				return opts[0].PlatformFlags
 			}
 			return nil
 		}(),

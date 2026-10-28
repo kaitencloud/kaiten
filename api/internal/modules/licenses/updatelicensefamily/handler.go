@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -20,6 +21,7 @@ const operation = "UpdateLicenseFamily"
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 	// Gate: listing a family in the public catalogue is a billing route (G,
@@ -53,6 +55,7 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if err := u.deps.Gate.Require(ctx, user.OrganizationID); err != nil {
 		return nil, err
 	}
@@ -71,6 +74,15 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (
 		}
 		if err != nil {
 			return err
+		}
+		if !u.deps.AIPolicy.Enabled(ctx) && (cmd.IsPublic != nil || cmd.FallbackLicenseFamilySlug != nil || cmd.TrialEndWithoutPaymentMethod != nil || cmd.TrialReminderDays != nil) {
+			hasAI, err := q.LicenseFamilyHasAI(ctx, db.LicenseFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: &family.ID, FamilySlug: nil})
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return u.deps.AIPolicy.RequireEnabled(ctx)
+			}
 		}
 		params := db.UpdateLicenseFamilySettingsParams{
 			IsPublic: cmd.IsPublic, SetFallback: cmd.FallbackLicenseFamilySlug != nil, FallbackID: nil,
@@ -93,6 +105,15 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (
 			}
 			if err != nil {
 				return err
+			}
+			if !u.deps.AIPolicy.Enabled(ctx) {
+				hasAI, err := q.LicenseFamilyHasAI(ctx, db.LicenseFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: &fallback, FamilySlug: nil})
+				if err != nil {
+					return err
+				}
+				if hasAI {
+					return u.deps.AIPolicy.RequireEnabled(ctx)
+				}
 			}
 			params.FallbackID = &fallback
 		}

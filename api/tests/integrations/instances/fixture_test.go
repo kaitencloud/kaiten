@@ -28,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	"github.com/kaitencloud/kaiten/api/tests"
@@ -185,7 +186,7 @@ func newEntitlementWithType(t *testing.T, entitlementType entitlementschema.Type
 
 	description := "Test entitlement description"
 	var aggregationMethod *entitlementschema.AggregationMethod
-	if entitlementType == entitlementschema.Number {
+	if entitlementType == entitlementschema.Number || entitlementType == entitlementschema.NumberAICredit {
 		aggregationMethod = ptr.To(entitlementschema.Sum)
 	}
 
@@ -297,8 +298,13 @@ func assignEntitlementToLicense(t *testing.T, licenseSlug, entitlementSlug strin
 // with an explicit threshold and limit_cap_exceeded_overage_percent, for
 // enforcement-policy tests that need to control hard (0), soft (>0), or
 // unlimited (threshold=-1, overagePercent=-1) behavior directly.
-func assignEntitlementToLicenseWithOverage(t *testing.T, licenseSlug, entitlementSlug string, threshold, overagePercent int32) {
-	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
+func assignEntitlementToLicenseWithOverage(t *testing.T, licenseSlug, entitlementSlug string, threshold, overagePercent int32, policies ...aiusage.Policy) {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
+	ctx := policy.Resolve(t.Context(), testDb.DefaultData.OrganizationID)
+	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB), policy)
 	command := associateentitlementwithlicense.Command{
 		EntitlementSlug: entitlementSlug,
 		Value: map[string]any{
@@ -307,7 +313,7 @@ func assignEntitlementToLicenseWithOverage(t *testing.T, licenseSlug, entitlemen
 		},
 		LimitCapExceededOveragePercent: &overagePercent,
 	}
-	_, err := repo.AssociateEntitlementToLicense(t.Context(), licenseSlug, &command, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
+	_, err := repo.AssociateEntitlementToLicense(ctx, licenseSlug, &command, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
 	require.NoError(t, err)
 }
 

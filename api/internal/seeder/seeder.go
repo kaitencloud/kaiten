@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components"
@@ -23,6 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Profile defines the interface that all seed profiles must implement.
@@ -38,6 +40,9 @@ type Profile interface {
 // SeederContext provides access to all modules' use cases and direct database queries.
 // It encapsulates the dependencies needed by seed profiles.
 type SeederContext struct {
+	AIPolicy aiusage.Policy
+	// PlatformFlags is the selected trusted source, shared with every org graph.
+	PlatformFlags services.PlatformFlags
 	// Module use cases
 	Components      *components.UseCases
 	Customers       *customers.UseCases
@@ -90,10 +95,10 @@ func NewSeederContext(pool *pgxpool.Pool, usageReporter services.UsageReporter) 
 // container it says it to is the same one the server builds.
 func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContext {
 	app, err := kaiten.New(kaiten.Options{
-		DB: sc.pool,
-		// Zero CoreConfig: seeding is driven by profiles and a pool, and takes no
-		// settings. Note this is now merely the absence of configuration -- it used
-		// to be what accidentally kept an unstoppable worker from starting.
+		DB:            sc.pool,
+		Config:        config.CoreConfig{},
+		PlatformFlags: sc.PlatformFlags,
+		// Preserve the seeder's unrelated zero configuration; no workers start here.
 		UserProvider: &currentuser.StaticUserProvider{
 			UserID:         userID,
 			OrganizationID: orgID,
@@ -125,6 +130,8 @@ func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContex
 	m := app.Modules()
 
 	return &SeederContext{
+		AIPolicy:        aiusage.Policy{Flags: sc.PlatformFlags},
+		PlatformFlags:   sc.PlatformFlags,
 		Components:      m.Components,
 		Customers:       m.Customers,
 		DeploymentZones: m.DeploymentZones,

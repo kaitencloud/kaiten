@@ -33,6 +33,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
+	"github.com/kaitencloud/kaiten/api/internal/modules/models"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk"
@@ -49,6 +50,7 @@ import (
 // through, and it is unexported so that reading through it is the facade's
 // privilege rather than anyone's option.
 type modules struct {
+	Models          *models.UseCases
 	Addons          *addons.UseCases
 	AuditTrail      *audittrail.UseCases
 	Billing         *billing.UseCases
@@ -151,6 +153,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// meter usage says so by leaving the option nil and every handler still
 		// reports unconditionally. See services.UsageReporterOrNoop.
 		UsageReporter: services.UsageReporterOrNoop(opts.UsageReporter),
+		PlatformFlags: opts.PlatformFlags,
 		// Same funnel, same reason: a deployment that licenses nothing says so by
 		// leaving the option nil, and every use case still asks unconditionally.
 		ConnectorEntitlements: services.ConnectorEntitlementsOrAlways(opts.ConnectorEntitlements),
@@ -214,6 +217,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	customerModule := customers.NewUseCases(svc)
 
 	built := modules{
+		Models:     models.NewUseCases(svc),
 		Addons:     addonModule,
 		AuditTrail: audittrail.NewUseCases(svc, notificationModule.Announcer),
 		// Billing reads the licence catalogue, the usage journal, the add-ons

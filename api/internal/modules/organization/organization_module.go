@@ -15,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization/getorganization"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/organization/listorganizations"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // UseCases contains all the use case handlers for the organization module.
@@ -121,7 +122,8 @@ func (r systemActorResolver) SystemActorInOrganization(
 		ctx, db.ResolveSystemActorInOrganizationParams{
 			OrganizationID: organizationID,
 			ExternalID:     externalID,
-		})
+		},
+	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return uuid.Nil, ErrNoSystemActor
 	}
@@ -137,7 +139,7 @@ func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
 	return &UseCases{
 		GetOrganization:    getorganization.NewUseCase(queries),
-		DeleteOrganization: deleteorganization.NewUseCase(svc.Uof),
+		DeleteOrganization: deleteorganization.NewUseCase(svc.Uof, aiusage.Policy{Flags: svc.PlatformFlags}),
 		DeleteMembership:   deletemembership.NewUseCase(queries),
 		AddMembership:      addmembership.NewUseCase(svc.Uof),
 		EnsureOrganization: ensureorganization.NewUseCase(queries),

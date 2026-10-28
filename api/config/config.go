@@ -60,6 +60,7 @@ type Config struct {
 // worker moving between layers does not drag fields across the boundary. Ports,
 // OTel, log and GraphQL settings describe a server and stay on Config.
 type CoreConfig struct {
+	AIUsage    AIUsage `mapstructure:"ai_usage"`
 	Retention  Retention
 	Metered    Metered
 	Connectors Connectors
@@ -175,6 +176,12 @@ type BillingPeriodClose struct {
 	BatchSize int `mapstructure:"batch_size" validate:"gte=1"`
 }
 
+type AIUsage struct {
+	IdempotencyWindow time.Duration `mapstructure:"idempotency_window" validate:"gte=86400000000000"`
+	ReservationTTL    time.Duration `mapstructure:"reservation_ttl" validate:"gt=0,ltefield=ReservationMaxTTL"`
+	ReservationMaxTTL time.Duration `mapstructure:"reservation_max_ttl" validate:"gt=0"`
+}
+
 type Server struct {
 	// Port is the PUBLIC listener: the Core API, and nothing else. Everything in
 	// front of this service (Envoy, the Gateway API HTTPRoutes) routes /api here.
@@ -278,7 +285,9 @@ type Retention struct {
 	RetiredTokens time.Duration `mapstructure:"retired_tokens"`
 }
 
-// Metered is whether this deployment's usage is counted, and by whom.
+// Metered is whether this deployment's usage is counted, and by whom. The
+// platform organization and URL/token-file wiring also select the trusted feature
+// flag source independently of Enabled; no field here enables an AI rollout.
 //
 // The two organization fields answer a different question from Enabled, which is
 // why both can be set at once and neither implies the other:
@@ -294,8 +303,8 @@ type Retention struct {
 // contradictory. Empty OrganizationExternalID resolves to uuid.Nil, read as
 // "exempt nobody"; see ResolvePlatformOrgID.
 type Metered struct {
-	// Enabled turns the usage reporter on. Off is the ordinary case and a no-op:
-	// nothing is reported and no credential is read.
+	// Enabled turns usage reporting on. Off reports nothing, but an explicitly
+	// configured remote platform flag source can still read its credential.
 	Enabled bool
 	// OrganizationExternalID identifies the platform organization — the one that
 	// sells Kaiten and against which every other organization is a customer.
@@ -303,14 +312,15 @@ type Metered struct {
 	// OrganizationID overrides the derived UUID. Empty means "derive it", which
 	// is what every deployment should do.
 	OrganizationID string `mapstructure:"organization_id"`
-	// APIURL names the Kaiten this deployment reports its usage to. Required
-	// whenever reporting is on, and it must not be this deployment's own address
+	// APIURL names the remote Kaiten for reporting and platform flag evaluation.
+	// A configured URL/token pair selects that source even when metering is off.
+	// Required whenever reporting is on; metering must not use this deployment's own address
 	// -- a Kaiten that meters itself meters its own tenants against its own
 	// entitlements.
 	APIURL string `mapstructure:"api_url" validate:"required_if=Enabled true"`
 	// TokenFile is the path to a file containing the service token. The API
 	// watches this file and hot-reloads the dogfooding reporter when the token
-	// changes. Whatever provisions the reporting credential writes it here.
+	// changes. Whatever provisions the reporting/flag credential writes it here.
 	//
 	// A path, not the token, which is why it is not a secret: it discloses
 	// nothing, so it is an ordinary setting and belongs in the config file with
@@ -408,6 +418,9 @@ var settings = []struct {
 	{"otel.authorization", "OTEL_EXPORTER_OTLP_AUTHORIZATION", nil, true},
 	{"graphql.playground_enabled", "KAITEN_GRAPHQL_PLAYGROUND_ENABLED", false, false},
 	{"graphql.introspection_enabled", "KAITEN_GRAPHQL_INTROSPECTION_ENABLED", false, false},
+	{"ai_usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},
+	{"ai_usage.reservation_ttl", "KAITEN_AI_RESERVATION_DEFAULT_TTL", "10m", false},
+	{"ai_usage.reservation_max_ttl", "KAITEN_AI_RESERVATION_MAX_TTL", "1h", false},
 	{"retention.enabled", "KAITEN_RETENTION_ENABLED", true, false},
 	{"retention.initial_delay", "KAITEN_RETENTION_INITIAL_DELAY", "5m", false},
 	{"retention.interval", "KAITEN_RETENTION_INTERVAL", "12h", false},

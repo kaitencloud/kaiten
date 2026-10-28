@@ -40,6 +40,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -119,7 +120,7 @@ type Payment struct {
 // The other modules' operations a checkout runs, through ports it owns.
 type (
 	Subscriber interface {
-		Execute(ctx context.Context, instanceSlug string, cmd subscribeinstance.Command) (*subscribeinstance.StartedSubscription, error)
+		ExecuteWithinOperation(ctx context.Context, instanceSlug string, cmd subscribeinstance.Command) (*subscribeinstance.StartedSubscription, error)
 	}
 	CustomerBillingReader interface {
 		Execute(ctx context.Context, customerSlug string) (*getcustomerbilling.CustomerBilling, error)
@@ -140,6 +141,7 @@ type (
 
 // Deps is what a checkout needs.
 type Deps struct {
+	AIPolicy        aiusage.Policy
 	UserProvider    currentuser.Provider
 	Catalog         *getpubliccatalog.UseCase
 	Subscriber      Subscriber
@@ -160,6 +162,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if session.InstanceSlug == nil {
 		return nil, kaitenerrors.UnprocessableEntity(operation+".InstanceRequired",
 			"a checkout subscribes one instance: mint the session with an instanceSlug")
@@ -170,7 +173,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 	}
 
 	// Rule 1: only what the public catalogue offers.
-	catalog, err := u.deps.Catalog.Execute(ctx, user.OrganizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true})
+	catalog, err := u.deps.Catalog.ExecuteWithinOperation(ctx, user.OrganizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true})
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +234,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 	// preview reaches nothing outside the database.
 	dry := base
 	dry.ProviderKind, dry.CollectionMethod, dry.DryRun = "NOOP", ptr(sendInvoice), true
-	preview, err := u.deps.Subscriber.Execute(ctx, instanceSlug, dry)
+	preview, err := u.deps.Subscriber.ExecuteWithinOperation(ctx, instanceSlug, dry)
 	if err != nil {
 		return nil, translate(err)
 	}
@@ -300,7 +303,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 	} else {
 		subscribe.ProviderKind, subscribe.CollectionMethod = "NOOP", ptr(sendInvoice)
 	}
-	started, err := u.deps.Subscriber.Execute(ctx, instanceSlug, subscribe)
+	started, err := u.deps.Subscriber.ExecuteWithinOperation(ctx, instanceSlug, subscribe)
 	if err != nil {
 		return nil, translate(err)
 	}

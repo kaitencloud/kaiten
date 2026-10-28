@@ -17,10 +17,11 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug, status, billingModel
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	queries := u.deps.Queries(ctx)
 	licenseID, err := prices.VersionID(ctx, queries, "ListLicensePrices.LicenseNotFound", user.OrganizationID, licenseSlug)
 	if err != nil {
 		return nil, err
 	}
-	return prices.List(ctx, queries, user.OrganizationID, licenseID, status, billingModel)
+	return prices.ListOperational(ctx, queries, user.OrganizationID, licenseID, status, billingModel, !u.deps.AIPolicy.Enabled(ctx))
 }

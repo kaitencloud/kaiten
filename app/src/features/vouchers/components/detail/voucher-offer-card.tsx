@@ -1,3 +1,5 @@
+import { useAiAccess } from '@/domains/ai-credits';
+import { visibleVoucherGrants } from '../../utils/visible-voucher-grants';
 import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import { DetailCard } from '@/functionals/detail-card';
@@ -17,7 +19,14 @@ type VoucherOfferCardProps = {
  */
 export function VoucherOfferCard({ names, voucher }: VoucherOfferCardProps) {
   const { i18n, t } = useTranslation();
-  const sentences = describeVoucherReview(voucher, {
+  const access = useAiAccess();
+  const projection = {
+    ...voucher,
+    grants: visibleVoucherGrants(voucher.grants, names, access.available).map(
+      ({ grant }) => grant,
+    ),
+  };
+  const sentences = describeVoucherReview(projection, {
     language: i18n.language,
     names,
     t,

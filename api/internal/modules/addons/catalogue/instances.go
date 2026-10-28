@@ -44,6 +44,14 @@ func RefuseBoundaryPending(operation string, sub *Subscription) error {
 // InstanceAddons reads an instance's attachments, each with the prices its
 // subscription bills (none when sub is nil). id narrows to one attachment.
 func InstanceAddons(ctx context.Context, q *db.Queries, organizationID, instanceID uuid.UUID, sub *Subscription, includeRemoved bool, id *uuid.UUID) ([]InstanceAddon, error) {
+	return instanceAddons(ctx, q, organizationID, instanceID, sub, includeRemoved, id, false)
+}
+
+func InstanceAddonsOperational(ctx context.Context, q *db.Queries, organizationID, instanceID uuid.UUID, sub *Subscription, includeRemoved bool, id *uuid.UUID, hideAI bool) ([]InstanceAddon, error) {
+	return instanceAddons(ctx, q, organizationID, instanceID, sub, includeRemoved, id, hideAI)
+}
+
+func instanceAddons(ctx context.Context, q *db.Queries, organizationID, instanceID uuid.UUID, sub *Subscription, includeRemoved bool, id *uuid.UUID, hideAI bool) ([]InstanceAddon, error) {
 	rows, err := q.ListInstanceAddons(ctx, db.ListInstanceAddonsParams{
 		OrganizationID: organizationID, InstanceID: instanceID, IncludeRemoved: includeRemoved, ID: id,
 	})
@@ -57,7 +65,7 @@ func InstanceAddons(ctx context.Context, q *db.Queries, organizationID, instance
 			ids[i] = row.AddonID
 		}
 		active := db.PriceStatusACTIVE
-		all, err := Prices(ctx, q, organizationID, ids, &active)
+		all, err := PricesOperational(ctx, q, organizationID, ids, &active, hideAI)
 		if err != nil {
 			return nil, err
 		}

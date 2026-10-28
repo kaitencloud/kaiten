@@ -141,6 +141,11 @@ export function createMockHandlers(
   // Preserve first-match ownership and the original slot registration order.
   // Explicit sibling fallbacks are sorted last, after all installed owners.
   const handlers = [
+    http.get('*/ai/capabilities', () =>
+      HttpResponse.json(effectiveConfig.aiCapability ?? { enabled: false }, {
+        headers: { 'Cache-Control': 'no-store' },
+      }),
+    ),
     ...(auditTrail ? auditTrailHandlers(auditTrail) : []),
     ...(billing
       ? billingHandlers(

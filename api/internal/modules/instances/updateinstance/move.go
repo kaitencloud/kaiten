@@ -31,7 +31,7 @@ func (h *UseCase) MoveToVersion(ctx context.Context, instanceSlug string, licens
 	if current.LicenseID == licenseID {
 		return nil
 	}
-	_, err = h.Execute(ctx, &Command{
+	_, err = h.ExecuteWithinOperation(ctx, &Command{
 		Name:             current.Name,
 		Description:      current.Description,
 		CustomerID:       current.CustomerID,
@@ -72,7 +72,7 @@ func (h *UseCase) OverQuota(ctx context.Context, instanceSlug string) ([]string,
 		return nil, err
 	}
 	rows, err := db.New(h.deps.Uof.DBTX(ctx)).GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
-		OrganizationID: user.OrganizationID, InstanceID: instance.ID,
+		OrganizationID: user.OrganizationID, InstanceID: instance.ID, HideAi: false,
 	})
 	if err != nil {
 		return nil, err

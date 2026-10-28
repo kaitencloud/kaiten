@@ -1,3 +1,6 @@
+import { hasScope } from '@/lib/granted-scopes';
+import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
+import { useAiAccess } from '@/domains/ai-credits';
 import { useTranslation } from 'react-i18next';
 import {
   canPerformAction,
@@ -119,7 +122,17 @@ export function useResolvedIntegrationsItems() {
  * session that may read them.
  */
 export function useResolvedCatalogItems() {
-  return useResolvedSubRoutes(catalogSubRoutes);
+  const routes = useResolvedSubRoutes(catalogSubRoutes);
+  const access = useAiAccess();
+  const aiEnabled = access.available;
+  const { scopes, isPending } = useGrantedScopes();
+  const mayReadModels =
+    !isPending &&
+    OPERATION_SCOPES.listModels.every((scope) => hasScope(scopes, scope));
+  const { t } = useTranslation();
+  return aiEnabled && mayReadModels
+    ? [...routes, { label: t('AI.Models.title'), path: '/catalog/models' }]
+    : routes;
 }
 
 export function SideNavFooterRoutes({ pathname }: SideNavRoutesProps) {

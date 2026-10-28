@@ -35,6 +35,17 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 // Execute attaches the add-on. The entitlements apply at once; a live
 // subscription bills it from its next invoice.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewInstanceAddon) (*catalogue.InstanceAddon, error) {
+	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	return u.ExecuteWithinOperation(ctx, instanceSlug, command)
+}
+
+// ExecuteWithinOperation composes a parent operation using its already-resolved
+// platform decision. It performs no provider evaluation while a transaction is held.
+func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug string, command NewInstanceAddon) (*catalogue.InstanceAddon, error) {
 	if command.Quantity == 0 {
 		command.Quantity = 1
 	}
@@ -42,6 +53,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewI
 	if err != nil {
 		return nil, err
 	}
+
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 	var attached catalogue.InstanceAddon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -57,6 +70,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewI
 			return kaitenerrors.NotFoundf(operation+".AddonNotFound", "add-on %q not found", command.AddonSlug)
 		}
 		if err != nil {
+			return err
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, addon.ID, u.deps.AIPolicy); err != nil {
 			return err
 		}
 		if addon.LifecycleState == db.LicenseLifecycleStateARCHIVED {

@@ -37,6 +37,19 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*cata
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	return u.ExecuteWithinOperation(ctx, instanceSlug, code)
+}
+
+// ExecuteWithinOperation composes a parent operation using its already-resolved
+// platform decision. It performs no provider evaluation while a transaction is held.
+func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug, code string) (*catalogue.Redemption, error) {
+	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 	var redemption catalogue.Redemption
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -53,6 +66,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*cata
 		}
 		if candidate == nil {
 			return catalogue.Refusal{Reason: catalogue.ReasonNotFound, Rule: ""}.Error(operation)
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, candidate.Row.ID, u.deps.AIPolicy); err != nil {
+			return err
 		}
 		now, err := catalogue.Now(ctx, q)
 		if err != nil {

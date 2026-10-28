@@ -1,9 +1,21 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render as renderComponent, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { HttpResponse } from 'msw';
+import { server } from '@/__tests__/msw-server';
+import { handleListUsageReports } from '@/api-client/msw.gen';
+
+function render(element: ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: 0 } } });
+  return renderComponent(element, {
+    wrapper: ({ children }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+  });
+}
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstanceDetailEntitlementsTab } from '../instance-detail-entitlements-tab';
 vi.mock('../../../../../entitlement-exceptions/exceptions-card', () => ({ ExceptionsCard: () => null }));
-const { drawer, navigate, navigateTo } = vi.hoisted(() => ({
+const { drawer, navigate, navigateTo, historyPermission } = vi.hoisted(() => ({
+  historyPermission: { allowed: true },
   drawer: vi.fn(),
   navigate: vi.fn(),
   navigateTo: vi.fn(),
@@ -24,7 +36,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 // The scopes of the session are read from its token, which these tests have none of.
 vi.mock('@/domains/billing', () => ({
-  useCanPerform: () => true,
+  useCanPerform: () => historyPermission.allowed,
 }));
 
 vi.mock('../usage-history', () => ({
@@ -144,6 +156,12 @@ vi.mock('@/functionals/table', () => {
       Table,
     }),
   };
+});
+
+beforeEach(() => {
+  drawer.mockClear();
+  navigateTo.mockClear();
+  historyPermission.allowed = true;
 });
 
 describe('InstanceDetailEntitlementsTab', () => {
@@ -402,7 +420,7 @@ describe('InstanceDetailEntitlementsTab', () => {
       expect(navigateTo).not.toHaveBeenCalled();
     });
 
-    it.each(['sso', 'seats', ''])(
+    it.each(['sso', ''])(
       'drops the link %j, which names no counter of this instance, and opens the page as it is',
       (historyParam) => {
         useInstanceDetailMock.mockReturnValue({
@@ -448,4 +466,130 @@ describe('InstanceDetailEntitlementsTab', () => {
       },
     );
   });
+});
+
+it('keeps an invoice-linked hidden/deleted journal usable without exposing an operational row', async () => {
+  const read = vi.fn(({ request }: { request: Request }) => {
+    const url = new URL(request.url);
+    expect(url.pathname).toBe('/api/instances/instance/entitlements/deleted-ai-pool/usage/reports');
+    expect(url.searchParams.get('limit')).toBe('1');
+    expect(url.searchParams.get('from')).toBeNull();
+    expect(url.searchParams.get('to')).toBeNull();
+    return HttpResponse.json({ items: [{ reportSeq: 1, delta: '800' }] });
+  });
+  server.use(handleListUsageReports(read));
+  useInstanceDetailMock.mockReturnValue({ instance: { id: 'ins', slug: 'instance', name: 'Instance' }, entitlementsRows: [], canonicalEntitlementsRows: [], entitlementsMetrics: { total: 0, enabled: 0, nearThreshold: 0, numberEntitlements: [] } });
+  render(<InstanceDetailEntitlementsTab historyParam="deleted-ai-pool" historyRange={{ from: '2026-10-01T00:00:00Z', to: '2026-10-27T00:00:00Z' }} />);
+  await waitFor(() => expect(drawer).toHaveBeenCalledWith(expect.objectContaining({ entitlementSlug: 'deleted-ai-pool', entitlementName: 'deleted-ai-pool', range: { from: '2026-10-01T00:00:00Z', to: '2026-10-27T00:00:00Z' } })));
+  expect(read).toHaveBeenCalledOnce();
+  expect(screen.queryByText('deleted-ai-pool')).toBeNull();
+  expect(navigateTo).not.toHaveBeenCalled();
+});
+
+it('opens a valid hidden journal even when the selected period and default probe have no reports', async () => {
+  missingTarget();
+  const read = vi.fn(({ request }: { request: Request }) => {
+    const url = new URL(request.url);
+    expect(url.searchParams.get('limit')).toBe('1');
+    expect(url.searchParams.has('from')).toBe(false);
+    expect(url.searchParams.has('to')).toBe(false);
+    // ListUsageReports resolves the pair before its range. 200 is a valid pair;
+    // the missing slug case below returns the actual API's typed 404 instead.
+    return HttpResponse.json({ items: [] });
+  });
+  server.use(handleListUsageReports(read));
+  const range = { from: '2025-01-01T00:00:00Z', to: '2025-02-01T00:00:00Z' };
+  render(<InstanceDetailEntitlementsTab historyParam="deleted-ai-pool" historyRange={range} />);
+  await waitFor(() => expect(drawer).toHaveBeenCalledWith(expect.objectContaining({ entitlementSlug: 'deleted-ai-pool', range })));
+  expect(navigateTo).not.toHaveBeenCalled();
+  expect(read).toHaveBeenCalledOnce();
+});
+
+function missingTarget() {
+  useInstanceDetailMock.mockReturnValue({
+    instance: { id: 'ins', slug: 'instance', name: 'Instance' },
+    entitlementsRows: [], canonicalEntitlementsRows: [],
+    entitlementsMetrics: { total: 0, enabled: 0, nearThreshold: 0, numberEntitlements: [] },
+  });
+}
+
+it('keeps the ordinary page and its URL while an unknown journal is being checked, then drops a missing link', async () => {
+  missingTarget();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  const read = vi.fn(async () => { await pending; return HttpResponse.json({ code: 'ListUsageReports.EntitlementNotFound' }, { status: 404 }); });
+  server.use(handleListUsageReports(read));
+  render(<InstanceDetailEntitlementsTab historyParam="no-such-counter" />);
+  await waitFor(() => expect(read).toHaveBeenCalledOnce());
+  expect(drawer).not.toHaveBeenCalled();
+  expect(navigateTo).not.toHaveBeenCalled();
+  expect(screen.getByText('All entitlements')).toBeInTheDocument();
+  release();
+  await waitFor(() => expect(navigateTo).toHaveBeenCalled());
+  expect(drawer).not.toHaveBeenCalled();
+  const { replace, search } = navigateTo.mock.calls[0][0];
+  expect(replace).toBe(true);
+  expect(search({ history: 'no-such-counter', other: 1 })).toEqual({ history: undefined, other: 1 });
+});
+
+it('does not open an unknown journal after a failed financial read', async () => {
+  missingTarget();
+  const read = vi.fn(() => HttpResponse.json({ code: 'Unauthorized' }, { status: 403 }));
+  server.use(handleListUsageReports(read));
+  render(<InstanceDetailEntitlementsTab historyParam="deleted-ai-pool" />);
+  await waitFor(() => expect(navigateTo).toHaveBeenCalled());
+  expect(drawer).not.toHaveBeenCalled();
+  expect(read).toHaveBeenCalledOnce();
+});
+
+it('does not probe or open a missing journal without the existing financial read permission', () => {
+  missingTarget();
+  historyPermission.allowed = false;
+  const read = vi.fn(() => HttpResponse.json({ items: [{ reportSeq: 1 }] }));
+  server.use(handleListUsageReports(read));
+  render(<InstanceDetailEntitlementsTab historyParam="deleted-ai-pool" />);
+  expect(navigateTo).toHaveBeenCalled();
+  expect(drawer).not.toHaveBeenCalled();
+  expect(read).not.toHaveBeenCalled();
+});
+
+it('keeps a hidden canonical AI journal link without an extra missing-target probe', () => {
+  missingTarget();
+  const state = useInstanceDetailMock();
+  useInstanceDetailMock.mockReturnValue({ ...state, canonicalEntitlementsRows: [{
+    enabled: true, entitlementId: 'credits', entitlementSlug: 'credits', entitlementName: 'AI credits',
+    entitlementType: 'NUMBER', catalogueEntitlementType: 'NUMBER_AI_CREDIT',
+    currentPeriodStart: '2026-10-01T00:00:00Z', currentPeriodEnd: '2026-11-01T00:00:00Z',
+    entitlementGroups: [], threshold: 1000, value: 800,
+  }] });
+  const read = vi.fn(() => HttpResponse.json({ items: [] }));
+  server.use(handleListUsageReports(read));
+  render(<InstanceDetailEntitlementsTab historyParam="credits" />);
+  expect(drawer).toHaveBeenCalledWith(expect.objectContaining({ entitlementSlug: 'credits', entitlementName: 'AI credits' }));
+  expect(read).not.toHaveBeenCalled();
+  expect(screen.queryByText('AI credits')).not.toBeInTheDocument();
+});
+
+it('keeps a proven deleted journal open across empty periods without treating another slug as proven', async () => {
+  missingTarget();
+  const read = vi.fn(({ params }: { params: { entitlementSlug: string } }) =>
+    params.entitlementSlug === 'deleted-ai-pool'
+      ? HttpResponse.json({ items: [{ reportSeq: 1 }] })
+      : HttpResponse.json({ code: 'ListUsageReports.EntitlementNotFound' }, { status: 404 }),
+  );
+  server.use(handleListUsageReports(read));
+  const { rerender } = render(<InstanceDetailEntitlementsTab historyParam="deleted-ai-pool" />);
+  await waitFor(() => expect(drawer).toHaveBeenCalled());
+  drawer.mockClear();
+  rerender(<InstanceDetailEntitlementsTab historyParam="deleted-ai-pool" historyRange={{ from: '2027-01-01T00:00:00Z' }} />);
+  expect(drawer).toHaveBeenCalledWith(expect.objectContaining({
+    entitlementSlug: 'deleted-ai-pool', range: { from: '2027-01-01T00:00:00Z' },
+  }));
+  expect(read).toHaveBeenCalledOnce();
+  expect(navigateTo).not.toHaveBeenCalled();
+  drawer.mockClear();
+  rerender(<InstanceDetailEntitlementsTab historyParam="no-such-counter" />);
+  await waitFor(() => expect(navigateTo).toHaveBeenCalled());
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(drawer).not.toHaveBeenCalled();
 });

@@ -18,6 +18,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Customer is the subset of customer fields a targeting rule can reference.
@@ -56,14 +57,19 @@ type Port interface {
 }
 
 type port struct {
+	policy  aiusage.Policy
 	queries *db.Queries
 }
 
 // New builds a Port bound to the given pool. Reads never need to join a
 // caller's transaction, so this binds to the pool directly rather than
 // taking a uow.DBTX.
-func New(pool *pgxpool.Pool) Port {
-	return &port{queries: db.New(pool)}
+func New(pool *pgxpool.Pool, policies ...aiusage.Policy) Port {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
+	return &port{policy: policy, queries: db.New(pool)}
 }
 
 func (p *port) GetOneCustomerBySlug(ctx context.Context, organizationID uuid.UUID, slug string) (*Customer, error) {
@@ -81,9 +87,11 @@ func (p *port) GetOneCustomerBySlug(ctx context.Context, organizationID uuid.UUI
 }
 
 func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organizationID uuid.UUID, customerSlug string) ([]TargetingFact, error) {
+	ctx = p.policy.ForOrganization(ctx, organizationID)
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderOFREP)
 	defer done()
 	rows, err := p.queries.GetTargetingFactsByCustomerSlug(ctx, db.GetTargetingFactsByCustomerSlugParams{
+		HideAi:         !p.policy.Enabled(ctx),
 		OrganizationID: organizationID,
 		CustomerSlug:   customerSlug,
 	})
@@ -94,9 +102,11 @@ func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organization
 }
 
 func (p *port) GetTargetingFactsByInstance(ctx context.Context, organizationID, instanceID uuid.UUID) ([]TargetingFact, error) {
+	ctx = p.policy.ForOrganization(ctx, organizationID)
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderOFREP)
 	defer done()
 	rows, err := p.queries.GetTargetingFactsByInstance(ctx, db.GetTargetingFactsByInstanceParams{
+		HideAi:         !p.policy.Enabled(ctx),
 		OrganizationID: organizationID,
 		InstanceID:     instanceID,
 	})

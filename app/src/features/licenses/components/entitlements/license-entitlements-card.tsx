@@ -1,4 +1,5 @@
-import { useCallback } from 'react';
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
+import { useCallback, useMemo } from 'react';
 import { type Row, TableCard } from '@/functionals/table';
 import type { EditableLicenseEntitlement } from '../../utils';
 import { AddEntitlementDialog } from './add-entitlement-dialog';
@@ -13,6 +14,7 @@ export type {
 } from './license-entitlements-card.types';
 
 export function LicenseEntitlementsCard({
+  licenseSlug,
   addButtonLabel,
   description,
   emptyMessage,
@@ -23,8 +25,29 @@ export function LicenseEntitlementsCard({
   onUpdateEntitlementGrant,
   readOnly = false,
   resetAction,
-  rows,
+  rows: canonicalRows,
 }: LicenseEntitlementsCardProps) {
+  const access = useAiAccess();
+  // A projection only. The owning draft/save hooks retain every canonical grant.
+  const rows = useMemo(
+    () =>
+      canonicalRows.filter(
+        (row) =>
+          access.available ||
+          !isAiEntitlement(
+            row.catalogueEntitlementType ??
+              entitlements.find((item) => item.id === row.entitlementId)?.type,
+          ),
+      ),
+    [canonicalRows, entitlements, access.available],
+  );
+  const visibleEntitlements = useMemo(
+    () =>
+      entitlements.filter(
+        (item) => access.available || !isAiEntitlement(item.type),
+      ),
+    [entitlements, access.available],
+  );
   const {
     addDialogOpen,
     availableEntitlements,
@@ -59,7 +82,7 @@ export function LicenseEntitlementsCard({
     t,
   } = useLicenseEntitlementsCard({
     description,
-    entitlements,
+    entitlements: visibleEntitlements,
     onAddEntitlement,
     onUpdateEntitlementGrant,
     rows,
@@ -86,6 +109,10 @@ export function LicenseEntitlementsCard({
   );
 
   const columns = useEntitlementColumns({
+    licenseSlug,
+    mayConfigureAi:
+      access.allows('getLicenses') && access.allows('listConversionRules'),
+    entitlements,
     closeEdit,
     editingEntitlementId,
     editingField,

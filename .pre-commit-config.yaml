@@ -24,7 +24,7 @@ repos:
     hooks:
       - id: forbid-generated-secrets
         name: forbid tracked generated secret files
-        entry: bash -c 'test -z "$(git ls-files -- dev/tokens.json dev/platform-token)"'
+        entry: bash -c 'test -z "$(git ls-files -- dev/tokens.json dev/platform-token dev/platform-flags-token)"'
         language: system
         pass_filenames: false
       # Every operation under internal/modules is checked, not just the packages

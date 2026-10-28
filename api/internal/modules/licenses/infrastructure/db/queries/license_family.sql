@@ -227,3 +227,18 @@ SELECT EXISTS (SELECT 1
                FROM license_family f
                WHERE f.organization_id = sqlc.arg(organization_id)
                  AND f.fallback_license_family_id = sqlc.arg(family_id)::uuid)::boolean AS is_fallback;
+
+-- name: LicenseFamilyHasAI :one
+-- New-version creation supplies a family, not a copy-source version. Refuse an
+-- AI-bearing family while off rather than silently copying a visible subset.
+SELECT EXISTS (
+ SELECT 1 FROM license l JOIN license_family f ON f.id = l.family_id AND f.organization_id = l.organization_id
+ WHERE l.organization_id = sqlc.arg(organization_id)
+   AND (sqlc.narg(family_id)::uuid IS NULL OR f.id = sqlc.narg(family_id)::uuid)
+   AND (sqlc.narg(family_slug)::text IS NULL OR f.slug = sqlc.narg(family_slug)::text)
+   AND (
+    EXISTS (SELECT 1 FROM license_entitlement g JOIN entitlement e ON e.id = g.entitlement_id AND e.organization_id = g.organization_id WHERE g.license_id = l.id AND g.organization_id = l.organization_id AND e.type = 'NUMBER_AI_CREDIT')
+    OR EXISTS (SELECT 1 FROM license_price p JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id WHERE p.license_id = l.id AND p.organization_id = l.organization_id AND e.type = 'NUMBER_AI_CREDIT')
+    OR EXISTS (SELECT 1 FROM credit_conversion_rule r WHERE r.license_id = l.id AND r.organization_id = l.organization_id)
+   )
+)::boolean;

@@ -25,6 +25,13 @@ otel:
   endpoint: jaeger:4318
   insecure: true
 
+metered:
+  # Trusted LOCAL platform source, independent of usage reporting. No AI switch:
+  # missing/default-off ai-credits denies until explicit `task seed:ai` prepares
+  # Dogfooding's rule for the actual Sushi organization. Startup never seeds it.
+  enabled: false
+  organization_external_id: org_dogfooding
+
 billing:
   # Off by default in the API itself: the licence price routes and the invoice
   # preview answer 403 Billing.Disabled. On here so the console can be built

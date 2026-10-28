@@ -1,3 +1,5 @@
+import { assertAiRequestAllowed, isAiEntitlement } from '@/domains/ai-credits';
+import type { Entitlement } from '@/api-client';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
 import { createEntitlementExceptionMutation } from '@/api-client/@tanstack/react-query.gen';
@@ -15,7 +17,11 @@ import {
 } from './exception.schema';
 import { invalidateEntitlementExceptions } from './exception-query-options';
 
-export function useExceptionForm(instanceSlug: string, onSaved: () => void) {
+export function useExceptionForm(
+  instanceSlug: string,
+  onSaved: () => void,
+  entitlements: readonly Entitlement[],
+) {
   const queryClient = useQueryClient();
   const [failure, setFailure] = useState<unknown>(null);
   const [conflictId, setConflictId] = useState<string | null>(null);
@@ -39,6 +45,11 @@ export function useExceptionForm(instanceSlug: string, onSaved: () => void) {
       setFailure(null);
       setConflictId(null);
       try {
+        const target = entitlements.find(
+          (item) => item.slug === value.entitlementSlug,
+        );
+        if (isAiEntitlement(target?.type ?? value.entitlementType))
+          assertAiRequestAllowed(queryClient);
         await mutation.mutateAsync({
           path: { instanceSlug },
           body: exceptionToBody(value),

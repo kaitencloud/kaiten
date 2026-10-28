@@ -445,6 +445,7 @@ WHERE p.organization_id = $1
   AND p.license_id = $2
   AND ($3::price_status IS NULL OR p.status = $3::price_status)
   AND ($4::billing_model IS NULL OR p.billing_model = $4::billing_model)
+AND (NOT $5::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
 ORDER BY p.display_order, p.id
 `
 
@@ -453,6 +454,7 @@ type ListLicensePricesParams struct {
 	LicenseID      uuid.UUID     `json:"license_id"`
 	Status         *PriceStatus  `json:"status"`
 	BillingModel   *BillingModel `json:"billing_model"`
+	HideAi         bool          `json:"hide_ai"`
 }
 
 type ListLicensePricesRow struct {
@@ -484,6 +486,7 @@ func (q *Queries) ListLicensePrices(ctx context.Context, arg ListLicensePricesPa
 		arg.LicenseID,
 		arg.Status,
 		arg.BillingModel,
+		arg.HideAi,
 	)
 	if err != nil {
 		return nil, err
@@ -546,12 +549,14 @@ FROM license_price p
 LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
 WHERE p.organization_id = $1
   AND p.license_id = ANY ($2::uuid[])
+AND (NOT $3::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
 ORDER BY p.display_order, p.id
 `
 
 type ListLicensePricesByLicensesParams struct {
 	OrganizationID uuid.UUID   `json:"organization_id"`
 	LicenseIds     []uuid.UUID `json:"license_ids"`
+	HideAi         bool        `json:"hide_ai"`
 }
 
 type ListLicensePricesByLicensesRow struct {
@@ -581,7 +586,7 @@ type ListLicensePricesByLicensesRow struct {
 // statement, with the version each row belongs to. GraphQL's License.prices
 // loads a whole page of versions through it.
 func (q *Queries) ListLicensePricesByLicenses(ctx context.Context, arg ListLicensePricesByLicensesParams) ([]ListLicensePricesByLicensesRow, error) {
-	rows, err := q.db.Query(ctx, listLicensePricesByLicenses, arg.OrganizationID, arg.LicenseIds)
+	rows, err := q.db.Query(ctx, listLicensePricesByLicenses, arg.OrganizationID, arg.LicenseIds, arg.HideAi)
 	if err != nil {
 		return nil, err
 	}

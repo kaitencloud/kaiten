@@ -38,6 +38,27 @@ uses `--no-deps`, never replaying bootstrap. `task up:bare` keeps accounts absen
 preserves the existing explicitly configured provider flow, without credential lookup
 or installation; it is not the default local mode.
 
+### AI workshop is a separate explicit action
+
+The real trusted platform `ai-credits` flag defaults/falls back to false; there
+is no deployment enable switch. Identity-only `dev`/`up`/`setup` never seed it.
+Only after separate authorization on a disposable local stack, use
+`task seed:ai:flag` (convergent flag/identity preparation only), or `task seed:ai`
+(the local profile before optional demo data). Existing `dev` tracker records do
+not skip that profile; an existing demo is not silently wiped/reseeded.
+`task credentials:flags` separately prepares Dogfooding's exact
+`read:feature_flags` organization token in the selected dev directory's
+`platform-flags-token` file, preserving an existing file. `credentials:flags:rotate`
+is explicit stale-token recovery. Never issue credentials or change flags as a
+read-only verification step. These commands do not install/build/start a stack.
+
+The real local frontend reads that standard token file and the local API URL;
+missing file means AI stays hidden, and mock/check mode never reads it. The API
+reads the configured trusted source, not the customer catalogue, independently
+of metering (local `metered.enabled` stays false). Remote source errors never
+fall back to local flags. Details and the legacy actual-UUID pin requirement are
+in [DEVELOPMENT.md](../../../DEVELOPMENT.md#explicit-local-ai-workshop).
+
 One selected project needs one consistent port set, frontend/gateway origin and
 `KAITEN_DEV_DIR`. `PROJECT` changes container/network/volume identity only: for a
 parallel instance change all ports and its credential directory together in explicit

@@ -17,6 +17,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 )
 
 // The readers of an instance's entitlement value moved from joining
@@ -65,7 +67,8 @@ SELECT
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   ''::text AS billing_status,
   NULL::timestamp AS billing_anchor_at,
-  NULL::timestamp AS live_ended_at
+  NULL::timestamp AS live_ended_at,
+  0::numeric AS reserved
 FROM instance i
 JOIN license_entitlement le
   ON le.license_id = i.license_id
@@ -110,7 +113,8 @@ SELECT
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   ''::text AS billing_status,
   NULL::timestamp AS billing_anchor_at,
-  NULL::timestamp AS live_ended_at
+  NULL::timestamp AS live_ended_at,
+  0::numeric AS reserved
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -272,7 +276,7 @@ func newEffectiveCatalogue(t *testing.T) effectiveCatalogue {
 	unlimited := newEntitlement(t)
 	assignEntitlementToLicense(t, license, unlimited.Slug, -1)
 	credits := newEntitlementWithType(t, entitlementschema.NumberAICredit)
-	assignEntitlementToLicenseWithOverage(t, license, credits.Slug, 250, 0)
+	assignEntitlementToLicenseWithOverage(t, license, credits.Slug, 250, 0, aiusage.Policy{Flags: aitest.Flags(true)})
 	on := newEntitlementWithType(t, entitlementschema.Boolean)
 	assignBooleanEntitlementToLicense(t, license, on.Slug, true)
 	off := newEntitlementWithType(t, entitlementschema.Boolean)
@@ -315,6 +319,7 @@ func newEffectiveCatalogue(t *testing.T) effectiveCatalogue {
 }
 
 func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
+	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	catalogue := newEffectiveCatalogue(t)
 	ctx := t.Context()
@@ -325,7 +330,7 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 		for _, instanceID := range catalogue.instances {
 			want := legacyRows[db.GetEntitlementsUsageForInstanceWithFallbackRow](t, legacyEntitlementsUsageForInstance, org, instanceID)
 			got, err := instancesDB.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
-				OrganizationID: org, InstanceID: instanceID,
+				OrganizationID: org, InstanceID: instanceID, HideAi: false,
 			})
 			require.NoError(t, err)
 			normalize := func(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) {
@@ -404,7 +409,7 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 		for _, instanceSlug := range catalogue.instanceSlugs {
 			want := legacyRows[entitlementsdb.GetEntitlementGroupUsageRow](t, legacyEntitlementGroupUsage, instanceSlug, catalogue.groupSlug, org)
 			got, err := groups.GetEntitlementGroupUsage(ctx, entitlementsdb.GetEntitlementGroupUsageParams{
-				OrganizationID: org, InstanceSlug: instanceSlug, GroupSlug: catalogue.groupSlug,
+				OrganizationID: org, InstanceSlug: instanceSlug, GroupSlug: catalogue.groupSlug, HideAi: false,
 			})
 			require.NoError(t, err)
 			normalize := func(rows []entitlementsdb.GetEntitlementGroupUsageRow) {
@@ -434,7 +439,7 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 		for _, customerSlug := range catalogue.customers {
 			want := legacyRows[fact](t, legacyTargetingFacts, org, customerSlug)
 			rows, err := customers.GetTargetingFactsByCustomerSlug(ctx, customersdb.GetTargetingFactsByCustomerSlugParams{
-				OrganizationID: org, CustomerSlug: customerSlug,
+				OrganizationID: org, CustomerSlug: customerSlug, HideAi: false,
 			})
 			require.NoError(t, err)
 			if len(want) == 0 {

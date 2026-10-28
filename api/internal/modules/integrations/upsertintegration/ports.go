@@ -35,6 +35,8 @@ type InstanceCreator interface {
 	Execute(ctx context.Context, command *createinstance.Command) (*instanceschema.Instance, error)
 }
 
+// InstanceUpdater consumes the parent's flag snapshot without provider reads
+// inside the ambient transaction.
 type InstanceUpdater interface {
-	Execute(ctx context.Context, command *updateinstance.Command, slug string) (*instanceschema.Instance, error)
+	ExecuteWithinOperation(ctx context.Context, command *updateinstance.Command, slug string) (*instanceschema.Instance, error)
 }

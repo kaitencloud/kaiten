@@ -22,3 +22,18 @@ func TestAuthOnlyRegistrarIsReservedForIntrospection(t *testing.T) {
 		})
 	}
 }
+
+func TestAIReadinessRegistrarCannotPublishAnyOtherOperation(t *testing.T) {
+	t.Parallel()
+	for _, op := range []humalib.Operation{
+		{Method: "POST", Path: "/ai/capabilities", OperationID: "getAiUsageCapabilities"},
+		{Method: "GET", Path: "/authorization", OperationID: "getAiUsageCapabilities"},
+		{Method: "GET", Path: "/models", OperationID: "getAiUsageCapabilities"},
+		{Method: "GET", Path: "/ai/capabilities", OperationID: "GetModels"},
+	} {
+		_, api := humatest.New(t)
+		assert.Panics(t, func() {
+			RegisterAIUsageCapabilities(api, op, func(context.Context, *struct{}) (*struct{}, error) { return nil, nil })
+		})
+	}
+}

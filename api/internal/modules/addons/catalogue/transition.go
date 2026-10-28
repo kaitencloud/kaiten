@@ -29,11 +29,15 @@ func (t Transition) Move(ctx context.Context, deps Deps, box *outbox.ScopedRepos
 	if err != nil {
 		return nil, err
 	}
+	ctx = deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var moved Addon
 	err = deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := deps.Queries(ctx)
 		locked, err := Lock(ctx, q, user.OrganizationID, slug, t.Operation+".NotFound")
 		if err != nil {
+			return err
+		}
+		if err := RequireOperational(ctx, q, user.OrganizationID, locked.Row.ID, deps.AIPolicy); err != nil {
 			return err
 		}
 		if string(locked.Row.LifecycleState) != t.From {

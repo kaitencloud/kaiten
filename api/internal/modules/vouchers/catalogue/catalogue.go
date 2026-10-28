@@ -29,12 +29,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // Deps is what every voucher use case needs.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 	// Gate keeps vouchers behind the billing switch.
@@ -131,6 +133,8 @@ func (Voucher) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
 // carries modifierValue; a BOOLEAN or CONFIG one is a SET carrying value
 // (V32-03 b).
 type Grant struct {
+	// Catalogue classification is retained privately; values remain canonical.
+	EntitlementType string     `json:"-"`
 	EntitlementSlug string     `json:"entitlementSlug" example:"tokens"`
 	ModifierType    string     `json:"modifierType" enum:"SET,ADD,MULTIPLY,UNLIMITED" doc:"SET replaces the value, ADD adds to it, MULTIPLY multiplies it, UNLIMITED lifts the limit. A BOOLEAN or CONFIG entitlement takes SET only"`
 	ModifierValue   *string    `json:"modifierValue" required:"false" doc:"A NUMBER grant's decimal: >= 0 for SET, > 0 for ADD and MULTIPLY, null for UNLIMITED; null on a BOOLEAN or CONFIG grant. Optional on write." example:"2"`
@@ -178,7 +182,7 @@ func (GrantValue) Schema(huma.Registry) *huma.Schema {
 
 // grantOf is a stored grant as the API returns it.
 func grantOf(g db.ListVoucherGrantsRow) Grant {
-	grant := Grant{EntitlementSlug: g.EntitlementSlug, ModifierType: string(g.ModifierType), ModifierValue: nil, Value: GrantValue(g.Value)}
+	grant := Grant{EntitlementType: string(g.EntitlementType), EntitlementSlug: g.EntitlementSlug, ModifierType: string(g.ModifierType), ModifierValue: nil, Value: GrantValue(g.Value)}
 	if g.ModifierValue != "" {
 		value := formatDecimal(g.ModifierValue)
 		grant.ModifierValue = &value

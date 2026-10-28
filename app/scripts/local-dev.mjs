@@ -29,6 +29,18 @@ export function configuration(args, inherited = process.env) {
     VITE_KAITEN_PLATFORM_API_URL: '', VITE_KAITEN_PLATFORM_FLAGS_TOKEN: '',
   });
   if (values.credentials) env.KAITEN_DEV_DIR = resolve(values.credentials);
+  // Only the selected real stack's explicitly provisioned flags-read token may
+  // reach the browser. Never inherit hosted/provider credentials or use a tenant
+  // session as platform flag authority. --check still reads no credential contents.
+  if (values.mode === 'real' && !values.check) {
+    const flagsFile = resolve(env.KAITEN_DEV_DIR, 'platform-flags-token');
+    if (existsSync(flagsFile)) {
+      const token = readFileSync(flagsFile, 'utf8').trim();
+      if (!token || /\s/.test(token)) throw new Error('Selected stack platform flags token is empty or malformed');
+      env.VITE_KAITEN_PLATFORM_API_URL = api.href.replace(/\/$/, '');
+      env.VITE_KAITEN_PLATFORM_FLAGS_TOKEN = token;
+    }
+  }
   return { values, port, env };
 }
 

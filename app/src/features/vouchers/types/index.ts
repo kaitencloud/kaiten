@@ -20,6 +20,7 @@ export type VoucherNames = {
   customers: Readonly<Record<string, string>>;
   /** Entitlements, by slug. */
   entitlements: Readonly<Record<string, string>>;
+  entitlementTypes?: Readonly<Record<string, string>>;
   /** License versions, by id. */
   licenses: Readonly<Record<string, string>>;
   /** Prices, by id. */

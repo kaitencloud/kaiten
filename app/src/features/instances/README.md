@@ -46,6 +46,28 @@ an author nor a revoker, so those columns from screen 17 (V-99) remain unavailab
 - **Detail loader.** `beforeLoad` ensures the instance and sets the breadcrumb title to its name. The loader then calls `ensureInstanceDetailData` (the instance, then its customer, license, usage and license entitlements), and preloads the deployment zones, the release overview and the releases.
 - **Dialogs.** They follow [dialog via route](../../../docs/03-patterns/dialog-via-route.md). `?mode=configure` is validated by the route's search schema, and closing the dialog or saving returns to the detail page without it.
 
+## AI rollout
+
+AI operational rows, exception controls and known AI-bearing voucher admission use
+current successful server readiness **and** platform `ai-credits` evaluation.
+Off, pending, stale or failed checks hide AI; ordinary NUMBER/BOOLEAN/CONFIG
+exception controls and coupon behavior remain available. Retained AI form drafts
+are not cleared, but their operational controls and submission are disabled.
+
+Voucher classification uses original catalogue types or an original discriminator
+returned on a grant, never its numeric value or arbitrary CONFIG keys. The grant
+contract does not currently declare that discriminator: opaque codes/price IDs and
+unclassified targets remain server-authoritative, without extra catalogue scopes
+or blanket ordinary-price denial. Known AI codes are rechecked before confirmation
+and each boundary retry. Live AI grant/delta projections disappear on gate loss;
+completed redemption identities and invoice amounts remain financial evidence.
+The journal `?history=` drawer/export likewise remains readable for hidden or
+deleted live resources without opening operational AI links. An unlisted target
+is checked through the permission-scoped financial reports endpoint with `limit=1`,
+independently of the selected dates. The API resolves the pair before filtering:
+a successful empty page is still a valid journal; a missing pair returns 404 and
+opens no drawer. The selected period and outside-retention guidance are preserved.
+
 ## Structure
 
 ```text
@@ -238,3 +260,11 @@ An instance that bills is kept: the API refuses (409 `DeleteInstance.BillingActi
 `app/src/features/instances/index.ts` exports `InstanceDetailAuditTrailTab`, `InstanceDetailBillingTab`, `InstanceDetailEntitlementsTab`, `InstanceDetailLayout`, `InstanceDetailOverviewTab`, `InstanceDetailProvider`, `InstanceFormDialog`, `InstancesPageContent`, `SubscribeInstanceDialog`, `AttachAddonDialog`, `RedeemVoucherDialog`, `CancelSubscriptionDialog`, `SchedulePlanChangeDialog`, `PaymentTermsDialog`, `ensureInstanceDetailData`, `instanceQueryOptions`, `instanceBillingQueryOptions` and `instanceInvoicesQueryOptions`. The routes under `app/src/routes/customers/` import all of them, and no other code does (see [import rules](../../../docs/AI_CONTEXT.md#import-rules)): the customers section opens the create dialog from its own routes.
 
 The feature imports no other feature. It shares code through `@/domains/billing` (the gate, the refusals, the invoices card, the usage report columns, the period filter), `@/domains/customer-management` (the instance list, status, lifecycle and invalidation, and the billing e-mail of a customer), `@/domains/release-management`, `@/domains/audit-trail`, `@/domains/entitlement-usage`, `@/domains/crm-sync` and `@/domains/metadata-fields`. It does not import the customers feature: `hooks/instance-detail/instance-detail-query-options.ts` defines its own `customerQueryOptions` over the generated `getCustomerOptions`.
+
+## AI usage
+
+The platform `ai-credits` flag gates the AI usage tab and its route. The read-only
+screen selects granted AI pools, shows consumed/reserved credits and the license
+maximum, reads open reservations, and paginates inference records with the API's
+status, date and transaction filters. Stored precision is kept in record details;
+summary figures use two decimals. It never calls a provider or writes usage.

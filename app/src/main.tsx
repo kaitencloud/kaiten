@@ -6,6 +6,7 @@ import type { E2EMswConfig } from '../e2e/app/_support/contracts/msw-slots';
 
 import '@/lib/i18n/config';
 import '@/lib/api/bootstrap';
+import { subscribeAiAccess } from '@/domains/ai-credits';
 
 // Import the generated route tree after API setup so route-level query
 // options capture the configured REST base URL.
@@ -77,6 +78,7 @@ function RoutedApp() {
   // feature-flags page, must show up here: nothing else re-reads the
   // OpenFeature provider's initialization-time cache.
   useEffect(() => subscribeFeatureFlagRefresh(queryClient), [queryClient]);
+  useEffect(() => subscribeAiAccess(queryClient), [queryClient]);
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -88,12 +90,14 @@ function RoutedApp() {
 }
 
 function AuthenticatedApp() {
-  const { orgId } = useAuth();
+  const { orgId, userId } = useAuth();
 
   // Once the person is known: drop what expired and what another user left.
   usePruneFormRecoveryAtStartup();
 
-  return <RoutedApp key={orgId ?? 'no-organization'} />;
+  return (
+    <RoutedApp key={`${userId ?? 'no-user'}/${orgId ?? 'no-organization'}`} />
+  );
 }
 
 async function prepareE2EMockServiceWorker() {

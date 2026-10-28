@@ -35,18 +35,19 @@ contract is dead weight to delete, and an entry that gained an SDK mapping
 after all is a contradiction to resolve.
 */
 var consoleAuthoringOperations = map[string]string{
-	"SetUserAssignments":   "human administrator role/direct-scope editor preserving enablement",
-	"ListRoles":            "human administrator role directory for console and operational CLI",
-	"CreateRole":           "human administrator scope-group authoring",
-	"UpdateRole":           "human administrator scope-group authoring",
-	"DeleteRole":           "human administrator scope-group lifecycle",
-	"SetUserEnabled":       "human administrator membership access lifecycle",
-	"GetAuthorization":     "request-time identity/grant introspection consumed by SaaS middleware, not product automation",
-	"GetMe":                "signed-in human profile and access; machine SDK clients have no human profile",
-	"ListUsers":            "administrator-only human directory managed by the console and operational CLI",
-	"GetUser":              "administrator-only human member profile",
-	"UpdateUser":           "administrator-managed human identity, not machine account automation",
-	"PutUserAuthorization": "administrator-only human role assignments, never service-token permissions",
+	"getAiUsageCapabilities": "console platform-flag availability; AI APIs are explicitly experimental, not stable SDK automation",
+	"SetUserAssignments":     "human administrator role/direct-scope editor preserving enablement",
+	"ListRoles":              "human administrator role directory for console and operational CLI",
+	"CreateRole":             "human administrator scope-group authoring",
+	"UpdateRole":             "human administrator scope-group authoring",
+	"DeleteRole":             "human administrator scope-group lifecycle",
+	"SetUserEnabled":         "human administrator membership access lifecycle",
+	"GetAuthorization":       "request-time identity/grant introspection consumed by SaaS middleware, not product automation",
+	"GetMe":                  "signed-in human profile and access; machine SDK clients have no human profile",
+	"ListUsers":              "administrator-only human directory managed by the console and operational CLI",
+	"GetUser":                "administrator-only human member profile",
+	"UpdateUser":             "administrator-managed human identity, not machine account automation",
+	"PutUserAuthorization":   "administrator-only human role assignments, never service-token permissions",
 
 	// The notification feed, its read state and its preference matrix. Every
 	// one of them addresses the signed-in person's own rows -- an unread count
@@ -81,6 +82,12 @@ const awaitsBilling = "billing: the SDK models it in its billing release"
 const awaitsExceptions = "entitlement exceptions: the SDK models them after the contract"
 
 var awaitingSDKOperations = map[string]string{
+	// The AI companion SDK pin predates the billing usage-history services.
+	// Keep these as explicit billing-release debt until that SDK maps them.
+	"listUsageReports":               awaitsBilling,
+	"exportUsageReports":             awaitsBilling,
+	"exportOrganizationUsageReports": awaitsBilling,
+
 	"listLicensePrices":        awaitsBilling,
 	"getLicensePrice":          awaitsBilling,
 	"createLicensePrice":       awaitsBilling,
@@ -185,6 +192,20 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 	}
 
 	implemented := map[string]sdkMethodRef{
+		// AI catalogue, pricing and history operations are public through the
+		// SDK's typed Raw client even without handwritten service wrappers.
+		"listModels":                         {receiver: client.Raw(), method: "ListModelsWithResponse"},
+		"createModel":                        {receiver: client.Raw(), method: "CreateModelWithResponse"},
+		"getModel":                           {receiver: client.Raw(), method: "GetModelWithResponse"},
+		"updateModel":                        {receiver: client.Raw(), method: "UpdateModelWithResponse"},
+		"deleteModel":                        {receiver: client.Raw(), method: "DeleteModelWithResponse"},
+		"listConversionRules":                {receiver: client.Raw(), method: "ListConversionRulesWithResponse"},
+		"createConversionRule":               {receiver: client.Raw(), method: "CreateConversionRuleWithResponse"},
+		"getConversionRule":                  {receiver: client.Raw(), method: "GetConversionRuleWithResponse"},
+		"updateConversionRule":               {receiver: client.Raw(), method: "UpdateConversionRuleWithResponse"},
+		"archiveConversionRule":              {receiver: client.Raw(), method: "ArchiveConversionRuleWithResponse"},
+		"listAiInferences":                   {receiver: client.Raw(), method: "ListAiInferencesWithResponse"},
+		"listAiReservations":                 {receiver: client.Raw(), method: "ListAiReservationsWithResponse"},
 		"list-components":                    {receiver: client.Components, method: "List"},
 		"create-component":                   {receiver: client.Components, method: "Create"},
 		"delete-component":                   {receiver: client.Components, method: "Delete"},
@@ -228,9 +249,6 @@ func TestSDKCoversEveryOpenAPIOperation(t *testing.T) {
 		"getEntitlementsUsageMetrics":        {receiver: client.Instances, method: "ListEntitlementUsageMetrics"},
 		"getEntitlementUsageMetrics":         {receiver: client.Instances, method: "GetEntitlementUsageMetric"},
 		"reportEntitlementUsageMetric":       {receiver: client.Instances, method: "ReportEntitlementUsageMetric"},
-		"listUsageReports":                   {receiver: client.Instances, method: "ListUsageReports"},
-		"exportUsageReports":                 {receiver: client.Instances, method: "ExportUsageReports"},
-		"exportOrganizationUsageReports":     {receiver: client.Instances, method: "ExportOrganizationUsageReports"},
 		"get-licenses":                       {receiver: client.Licenses, method: "List"},
 		"create-license":                     {receiver: client.Licenses, method: "Create"},
 		"delete-license":                     {receiver: client.Licenses, method: "Delete"},

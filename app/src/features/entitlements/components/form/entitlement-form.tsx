@@ -1,10 +1,15 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { StepNextButton } from '@/components/form/step-next-button';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
-import { StackedFormDialogCard } from '@/functionals/stacked-form-dialog';
+import {
+  StackedFormDialogCard,
+  StackedFormDialogDirtyState,
+  useStackedFormDialogClose,
+} from '@/functionals/stacked-form-dialog';
 import {
   StepStack,
   StepStackContainer,
@@ -33,18 +38,27 @@ export const EntitlementForm = ({
   onCancel,
 }: EntitlementFormProps) => {
   const { t } = useTranslation();
+  const access = useAiAccess();
   const navigate = useNavigate();
+  const requestClose = useStackedFormDialogClose();
   const formId = useId();
   const { form, refusal } = useEntitlementMutationForm(entitlement, onSuccess);
   // The type is immutable once set, so an existing non-NUMBER entitlement has
   // nothing left to configure on a second step — collapse the wizard to a
   // single step. NUMBER keeps its step for the meter/unit configuration.
-  const showTypeStep = !entitlement || entitlement.type === 'NUMBER';
+  const showTypeStep =
+    !entitlement ||
+    entitlement.type === 'NUMBER' ||
+    entitlement.type === 'NUMBER_AI_CREDIT';
   const refusalAlert = refusal ? (
     <EntitlementRefusalAlert messageKey={refusal} />
   ) : null;
 
   function handleCancel() {
+    if (requestClose && form.state.values.type === 'NUMBER_AI_CREDIT') {
+      requestClose();
+      return;
+    }
     if (onCancel) {
       onCancel();
       return;
@@ -99,9 +113,17 @@ export const EntitlementForm = ({
     );
   }
 
+  if (isAiEntitlement(entitlement?.type) && !access.available) return null;
   return (
     <form id={formId} onSubmit={createFormSubmitHandler(form.handleSubmit)}>
       <form.AppForm>
+        <form.Subscribe
+          selector={(state) =>
+            state.values.type === 'NUMBER_AI_CREDIT' && !state.isDefaultValue
+          }
+        >
+          {(dirty) => <StackedFormDialogDirtyState dirty={dirty} />}
+        </form.Subscribe>
         {layout === 'dialog' ? (
           <StepStack embedded orientation="bottom-right">
             <StepStackContainer className="justify-start">

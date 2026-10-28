@@ -17,8 +17,8 @@ type RedeemVoucherDialogProps = {
  */
 export function RedeemVoucherDialog({ onClose }: RedeemVoucherDialogProps) {
   const { t } = useTranslation();
-  const { instance } = useInstanceDetail();
-  const redeem = useRedeemVoucher(instance.slug ?? instance.id);
+  const { instance, entitlements } = useInstanceDetail();
+  const redeem = useRedeemVoucher(instance.slug ?? instance.id, entitlements);
   const base = 'Pages.Customers.Instances.Detail.Billing.Vouchers.Redeem';
 
   return (

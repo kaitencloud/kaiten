@@ -208,6 +208,17 @@ func RegisterAuthorizationIntrospection[I, O any](api huma.API, op huma.Operatio
 	huma.Register(api, op, handler)
 }
 
+// RegisterAIUsageCapabilities publishes current platform flag availability, not product grants.
+// This auth-only exception is fixed to one operation; authorization introspection
+// remains separately reserved for /authorization.
+func RegisterAIUsageCapabilities[I, O any](api huma.API, op huma.Operation, handler func(context.Context, *I) (*O, error)) {
+	if op.Method != "GET" || op.Path != "/ai/capabilities" || op.OperationID != "getAiUsageCapabilities" {
+		panic("AI capabilities registration is reserved for GET /ai/capabilities")
+	}
+	op.Security = []map[string][]string{{BearerAuth: {}}}
+	huma.Register(api, op, handler)
+}
+
 // RegisterPlatform is RegisterScoped for the Platform API: same declaration of a
 // credential class and a published scope, but the class is platform and the scheme
 // is platformAuth instead of bearerAuth. The class is enforced by the

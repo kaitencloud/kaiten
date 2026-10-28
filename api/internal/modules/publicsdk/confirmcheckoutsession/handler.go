@@ -46,6 +46,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/telemetry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -64,7 +65,7 @@ type (
 		Persist(ctx context.Context, orgID, userID uuid.UUID, command *createinstance.Command) (*instanceschema.Instance, error)
 	}
 	Subscriber interface {
-		Execute(ctx context.Context, instanceSlug string, cmd subscribeinstance.Command) (*subscribeinstance.StartedSubscription, error)
+		ExecuteWithinOperation(ctx context.Context, instanceSlug string, cmd subscribeinstance.Command) (*subscribeinstance.StartedSubscription, error)
 		EnsureProviderCustomer(ctx context.Context, organizationID uuid.UUID, instanceSlug, providerKind string) error
 		PushInline(ctx context.Context, started *subscribeinstance.StartedSubscription)
 	}
@@ -81,6 +82,7 @@ type (
 
 // Deps is what the confirm needs.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	Uof           *uow.UnitOfWork
 	Catalog       *getpubliccatalog.UseCase
@@ -125,6 +127,7 @@ type Visitor struct {
 // Execute confirms the session. The principal ctx carries is system:kaiten
 // in the session's organization: the completion's rows are its.
 func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UUID, visitor Visitor) (*checkout.CheckoutConfirmation, error) {
+	ctx = u.deps.AIPolicy.Resolve(ctx, organizationID)
 	if err := u.deps.Limits.Take(ctx, operation, visitor.PublishableKeyID, visitor.RemoteIP); err != nil {
 		return nil, err
 	}
@@ -147,6 +150,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UU
 // queue. Whether it completed the session; a refusal is returned as the
 // confirm would answer it, the session left OPEN.
 func (u *UseCase) Complete(ctx context.Context, organizationID, sessionID uuid.UUID) (bool, error) {
+	ctx = u.deps.AIPolicy.Resolve(ctx, organizationID)
 	_, err := u.confirm(ctx, organizationID, sessionID, true)
 	if errors.Is(err, errTrialTaken) {
 		_, err = u.confirm(ctx, organizationID, sessionID, true)
@@ -205,7 +209,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	}
 
 	// Re-validation (§9.12 rule 3): up to 24 h passed since the start.
-	catalog, err := u.deps.Catalog.Execute(ctx, organizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true, PublishableKeyID: nil})
+	catalog, err := u.deps.Catalog.ExecuteWithinOperation(ctx, organizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true, PublishableKeyID: nil})
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +263,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		none := int32(0)
 		trialDays = &none
 	}
-	preview, err := u.deps.Activation.PreviewActivation(ctx, organizationID, subscribeinstance.PreviewCommand{
+	preview, err := u.deps.Activation.PreviewActivationWithinOperation(ctx, organizationID, subscribeinstance.PreviewCommand{
 		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: trialDays, VoucherCode: pricedCode,
 	})
 	if err != nil {
@@ -385,7 +389,7 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			// A job leaves the ACTIVATION to the push queue (§12.9 step 3.5).
 			cmd.Incomplete, cmd.MoveToLicenseID, cmd.CallerPushes = true, &licenseID, !job
 		}
-		if started, err = u.deps.Subscriber.Execute(ctx, instance.Slug, cmd); err != nil {
+		if started, err = u.deps.Subscriber.ExecuteWithinOperation(ctx, instance.Slug, cmd); err != nil {
 			return err
 		}
 		if due > 0 {
@@ -547,7 +551,7 @@ func (u *UseCase) dropTrial(ctx context.Context, q *db.Queries, row db.GetChecko
 	addOns []subscribeinstance.SubscriptionAddon, pricedCode *string,
 ) error {
 	none := int32(0)
-	preview, err := u.deps.Activation.PreviewActivation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{
+	preview, err := u.deps.Activation.PreviewActivationWithinOperation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{
 		BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none, VoucherCode: pricedCode,
 	})
 	if err != nil {

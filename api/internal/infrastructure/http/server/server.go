@@ -38,6 +38,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/jit"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/fiberapi"
 )
 
@@ -70,6 +71,8 @@ type Dependencies struct {
 	DB                 *pgxpool.Pool
 	Logger             *slog.Logger
 	UsageReporter      services.UsageReporter
+	// PlatformFlags is an explicit trusted source hook, also used by pure tests.
+	PlatformFlags services.PlatformFlags
 }
 
 // Server runs two HTTP stacks in one process.
@@ -101,8 +104,10 @@ type Server struct {
 	platformAPI    huma.API
 	platformConfig huma.Config
 
-	deps Dependencies
-	cfg  config.Config
+	flagReporter  *dogfooding.Reporter
+	usageReporter *dogfooding.Reporter
+	deps          Dependencies
+	cfg           config.Config
 
 	// app is the constructed application: every module, every background worker
 	// this process runs, and one shutdown to drain them. This server builds it
@@ -156,6 +161,9 @@ func (s *Server) setupApp(ctx context.Context) error {
 	}))
 
 	if err := s.setupUsageReporter(ctx); err != nil {
+		return err
+	}
+	if err := s.setupPlatformFlags(ctx); err != nil {
 		return err
 	}
 
@@ -278,6 +286,7 @@ func (s *Server) setupApplication() error {
 		Config:                s.cfg.CoreConfig,
 		UserProvider:          s.deps.UserProvider,
 		UsageReporter:         s.deps.UsageReporter,
+		PlatformFlags:         s.deps.PlatformFlags,
 		ConnectorEntitlements: s.deps.ConnectorEntitlements,
 		EntitlementConfig:     s.deps.EntitlementConfig,
 		BillingProviders:      s.deps.BillingProviders,
@@ -469,6 +478,7 @@ func (s *Server) setupUsageReporter(ctx context.Context) error {
 		return err
 	}
 	s.deps.UsageReporter = reporter
+	s.usageReporter = reporter
 	// The same client answers both questions, because both are questions for the
 	// deployment that holds the licences -- but they stay two interfaces, so a use
 	// case that reads an entitlement cannot accidentally meter one.
@@ -829,6 +839,7 @@ func IsPublicPlatformAPIPath(path string) bool {
 
 func (s *Server) registerGraphQL(router fiber.Router) {
 	gqlHandler := graphqlHandler.NewHandler(s.deps.DB, graphqlHandler.Config{
+		AIPolicy:            aiusage.Policy{Flags: s.deps.PlatformFlags},
 		EnablePlayground:    s.cfg.GraphQL.PlaygroundEnabled,
 		EnableIntrospection: s.cfg.GraphQL.IntrospectionEnabled,
 		// The same switch the modules that serve the add-ons over REST build.
@@ -898,6 +909,9 @@ func (s *Server) Stop(ctx context.Context) error {
 	}
 	if reporter, ok := s.deps.UsageReporter.(interface{ Close() }); ok {
 		reporter.Close()
+	}
+	if s.flagReporter != nil {
+		s.flagReporter.Close()
 	}
 	return err
 }

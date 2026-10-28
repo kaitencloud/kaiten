@@ -33,6 +33,12 @@ import (
 // add-ons and the voucher are applied under the ids the ACTIVATION's lines
 // name, never refused. It answers false for an invoice that is not such an
 // ACTIVATION.
+//
+// This trusted, already-paid fulfilment is the narrow financial exception to
+// AI rollout denial: recording a real payment and applying its existing billed
+// selection stay atomic. New external AI admission is checked before subscribe/
+// preview/provider work; this is not an AI API/reservation/usage backdoor. Do not
+// skip fulfilment or roll payment booking back to implement a rollout switch.
 func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository, q *db.Queries, invoice db.InstanceInvoice, now time.Time) (bool, error) {
 	if invoice.Kind != db.InvoiceKindACTIVATION || invoice.Status != db.InvoiceStatusPAID {
 		return false, nil
@@ -97,7 +103,8 @@ func Settle(ctx context.Context, deps access.Deps, box *outbox.ScopedRepository,
 		subscriptions.StatusChange{
 			InstanceBillingID: settled.ID, InstanceSlug: settled.InstanceSlug,
 			From: string(sub.Status), To: string(settled.Status), Reason: "SETTLED",
-		}, nil)); err != nil {
+		}, nil,
+	)); err != nil {
 		return false, err
 	}
 	// The anonymous checkout it came from, last: its lock follows the
@@ -194,5 +201,6 @@ func replaceFree(ctx context.Context, deps access.Deps, box *outbox.ScopedReposi
 	}
 	return box.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 		sub.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
-		subscriptions.BillingStarted{InstanceBilling: *billing, Resubscribed: true}, nil))
+		subscriptions.BillingStarted{InstanceBilling: *billing, Resubscribed: true}, nil,
+	))
 }

@@ -33,6 +33,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, id uuid.UUID
 	if err != nil {
 		return err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	return u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
 		instance, err := exceptions.FindInstance(ctx, q, user.OrganizationID, instanceSlug, true, operation)
@@ -41,6 +42,17 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, id uuid.UUID
 		}
 		now, err := exceptions.Now(ctx, q)
 		if err != nil {
+			return err
+		}
+		// Classify the persisted target even for no-op revocation, before UPDATE.
+		before, err := exceptions.List(ctx, q, user.OrganizationID, instance, &id, false, now)
+		if err != nil {
+			return err
+		}
+		if len(before) == 0 {
+			return kaitenerrors.NotFoundf(operation+".NotFound", "exception %s not found on instance %q", id, instanceSlug)
+		}
+		if err := u.deps.AIPolicy.RequireType(ctx, before[0].EntitlementType); err != nil {
 			return err
 		}
 		revoked, err := q.RevokeEntitlementException(ctx, db.RevokeEntitlementExceptionParams{

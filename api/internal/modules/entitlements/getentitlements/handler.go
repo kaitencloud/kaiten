@@ -6,6 +6,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -13,6 +14,7 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Queries      *db.Queries
 }
@@ -25,7 +27,7 @@ type UseCase struct {
 func NewUseCase(deps Deps) *UseCase {
 	return &UseCase{
 		deps:       deps,
-		repository: NewQueryRepository(deps.Queries),
+		repository: NewQueryRepository(deps.Queries, deps.AIPolicy),
 	}
 }
 
@@ -34,6 +36,7 @@ func (h *UseCase) Execute(ctx context.Context, limit int32, cursor *string) (pag
 	if err != nil {
 		return pagination.Page[*schema.Entitlement]{}, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	var cursorKey *pagination.CreatedAtCursor
 	if cursor != nil {

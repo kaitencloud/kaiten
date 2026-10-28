@@ -8,13 +8,16 @@ package licenseview
 
 import (
 	"context"
+	"errors"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Entitlement is the subset of entitlement fields licenses needs to
@@ -86,4 +89,40 @@ func (p *port) GetGroupRefsForLicense(ctx context.Context, organizationID, licen
 		refs[i] = GroupRef{ID: row.ID, Name: row.Name, Slug: row.Slug, EntitlementSlug: row.EntitlementSlug}
 	}
 	return refs, nil
+}
+
+// RequireOperational resolves an immutable catalogue type before an external
+// operation can mutate it or a grant. Enabled callers keep their existing flow.
+// It never filters the raw Port used for billing and mutation validation.
+func RequireOperational(ctx context.Context, dbtx uow.DBTX, policy aiusage.Policy, organizationID uuid.UUID, slug string) error {
+	ctx = policy.ForOrganization(ctx, organizationID)
+	if policy.Enabled(ctx) {
+		return nil
+	}
+	entitlement, err := New(dbtx).GetBySlug(ctx, organizationID, slug)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return policy.RequireType(ctx, string(entitlement.Type))
+}
+
+// RequireOperationalLocked repeats preflight inside the caller's transaction,
+// locking the catalogue identity before a slug-based write. Enabled semantics
+// are unchanged and raw billing reads continue using Port without filtering.
+func RequireOperationalLocked(ctx context.Context, dbtx uow.DBTX, policy aiusage.Policy, organizationID uuid.UUID, slug string) error {
+	ctx = policy.ForOrganization(ctx, organizationID)
+	if policy.Enabled(ctx) {
+		return nil
+	}
+	row, err := db.New(dbtx).LockOperationalEntitlement(ctx, db.LockOperationalEntitlementParams{OrganizationID: organizationID, Slug: slug})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return policy.RequireType(ctx, string(row.Type))
 }

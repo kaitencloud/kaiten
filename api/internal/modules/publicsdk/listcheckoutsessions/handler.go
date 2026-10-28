@@ -42,6 +42,7 @@ func (u *UseCase) Execute(ctx context.Context, query Query) (pagination.Page[che
 	if err != nil {
 		return empty, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	page, err := pagination.ParseKeyset(query.Cursor, query.Limit, "CheckoutSessions")
 	if err != nil {
 		return empty, err

@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,7 @@ export function EntitlementsPageContent({
 }: {
   children?: ReactNode;
 }) {
+  const access = useAiAccess();
   const { data: entitlements } = useSuspenseQuery(entitlementsQueryOptions);
   const { t } = useTranslation();
   const EntitlementIcon = dataModelIcons.entitlement;
@@ -30,7 +32,11 @@ export function EntitlementsPageContent({
           </Page.Leading>
         </Page.Header>
         <div className="flex-1 min-h-0">
-          <EntitlementsTable entitlements={entitlements?.items ?? []} />
+          <EntitlementsTable
+            entitlements={(entitlements?.items ?? []).filter(
+              (item) => access.available || !isAiEntitlement(item.type),
+            )}
+          />
         </div>
       </Page>
 

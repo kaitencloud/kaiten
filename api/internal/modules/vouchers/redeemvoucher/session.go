@@ -35,6 +35,7 @@ func (u *UseCase) ForSession(ctx context.Context, instanceSlug, code string, dry
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var redemption catalogue.Redemption
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -76,6 +77,12 @@ func (u *UseCase) ForSession(ctx context.Context, instanceSlug, code string, dry
 		}
 		if !found || window != nil || refusal != nil {
 			return voucherInvalid()
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, candidate.Row.ID, u.deps.AIPolicy); err != nil {
+			if kaitenerrors.GetCode(err) == "AIUsage.Disabled" {
+				return voucherInvalid()
+			}
+			return err
 		}
 		claimed, err := q.ClaimRedemption(ctx, db.ClaimRedemptionParams{
 			Now: timestamp(now), UserID: user.ID, ID: candidate.Row.ID, OrganizationID: user.OrganizationID,

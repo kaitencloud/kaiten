@@ -27,6 +27,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -144,6 +145,22 @@ const inlineWait = 20 * time.Second
 func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
+		return nil, err
+	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	return u.ExecuteWithinOperation(ctx, instanceSlug, cmd)
+}
+
+// ExecuteWithinOperation composes a parent operation using its already-resolved
+// platform decision. It performs no provider evaluation while a transaction is held.
+func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
+	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
+	if err := u.requireOperationalSelection(ctx, user.OrganizationID, instanceSlug, cmd.BasePriceID, cmd.MoveToLicenseID, cmd.AddOns, cmd.VoucherCode); err != nil {
 		return nil, err
 	}
 	// Whether the commit is this call's own, asked before the transaction
@@ -469,7 +486,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 			}
 			if err := u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 				user.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
-				BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil)); err != nil {
+				BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil,
+			)); err != nil {
 				return err
 			}
 			// A trial no longer than the lead announces its end at once
@@ -574,7 +592,8 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		}
 		return u.outbox.CreateOutboxEvent(ctx, outbox.NewOutboxMessage(
 			user.OrganizationID, events.InstanceBillingStarted.Name, events.InstanceBillingStarted.Type,
-			BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil))
+			BillingStarted{InstanceBilling: *billing, Resubscribed: resubscribe}, nil,
+		))
 	})
 	if errors.Is(err, errDryRun) {
 		return started, nil
@@ -792,6 +811,29 @@ func ensureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connectio
 	if _, err := providers.EnsureCustomer(ctx, q, conn, organizationID,
 		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, timeout, clock.Time.UTC()); err != nil {
 		return providers.APIError(operation, err)
+	}
+	return nil
+}
+
+func (u *UseCase) requireOperationalSelection(ctx context.Context, organizationID uuid.UUID, instanceSlug string, priceID uuid.UUID, licenseID *uuid.UUID, addons []SubscriptionAddon, voucherCode *string) error {
+	if u.deps.AIPolicy.Enabled(ctx) {
+		return nil
+	}
+	slugs := make([]string, 0, len(addons))
+	for _, addon := range addons {
+		slugs = append(slugs, addon.AddonSlug)
+	}
+	var code *string
+	if voucherCode != nil {
+		normalized := vouchercatalogue.NormalizeCode(*voucherCode)
+		code = &normalized
+	}
+	hasAI, err := u.deps.Queries(ctx).SubscriptionSelectionHasAI(ctx, db.SubscriptionSelectionHasAIParams{OrganizationID: organizationID, InstanceSlug: instanceSlug, BasePriceID: priceID, MoveToLicenseID: licenseID, AddonSlugs: slugs, VoucherCode: code})
+	if err != nil {
+		return err
+	}
+	if hasAI {
+		return u.deps.AIPolicy.RequireEnabled(ctx)
 	}
 	return nil
 }

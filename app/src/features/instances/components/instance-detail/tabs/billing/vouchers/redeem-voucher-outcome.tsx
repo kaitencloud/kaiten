@@ -6,12 +6,14 @@ import {
   RedemptionStatusBadge,
   useAlertFocus,
 } from '@/domains/billing';
+import { isAiEntitlement, useAiAccess } from '@/domains/ai-credits';
 import { DetailCard } from '@/functionals/detail-card';
 import { describeEffectiveChange } from '../../../../../utils/instance-addon-effects.utils';
 import type { RedeemOutcome } from '../../../../../hooks/use-redeem-voucher';
 
 type RedeemVoucherOutcomeProps = {
-  entitlements: readonly Pick<Entitlement, 'name' | 'slug'>[];
+  entitlements: readonly (Pick<Entitlement, 'name' | 'slug'> &
+    Partial<Pick<Entitlement, 'type'>>)[];
   outcome: RedeemOutcome;
 };
 
@@ -28,7 +30,17 @@ export function RedeemVoucherOutcome({
   outcome,
 }: RedeemVoucherOutcomeProps) {
   const { i18n, t } = useTranslation();
-  const { changes, flagGrants = [], invoice, redemption } = outcome;
+  const aiAccess = useAiAccess();
+  const { flagGrants = [], invoice, redemption } = outcome;
+  const changes = outcome.changes.filter(
+    (change) =>
+      aiAccess.available ||
+      (!outcome.aiEntitlementSlugs?.includes(change.entitlementSlug) &&
+        !entitlements.some(
+          (item) =>
+            item.slug === change.entitlementSlug && isAiEntitlement(item.type),
+        )),
+  );
   const hasPrice =
     outcome.hasPrice ??
     (redemption.voucherType === 'PRICE' || redemption.applicationsMax !== null);
