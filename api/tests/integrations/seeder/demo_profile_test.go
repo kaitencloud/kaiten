@@ -19,12 +19,14 @@ import (
 	instanceevents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	licenseevents "github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications/feed"
 	notificationsdb "github.com/kaitencloud/kaiten/api/internal/modules/notifications/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
 	demoprofile "github.com/kaitencloud/kaiten/api/internal/seeder/profiles/demo"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/debezium"
 	"github.com/kaitencloud/kaiten/api/tests"
 )
@@ -64,9 +66,64 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	require.Equal(t, 5, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM deployment d JOIN deployment_zone z ON z.id = d.deployment_zone_id WHERE z.organization_id = $1`, orgID))
 	// The seed writes no audit entries of its own: the trail is what the use
 	// cases publish, recorded by the event pipeline, which this test does not
-	// run. Ninety-seven events is the trail a running stack ends up with.
+	// run. A hundred and thirty-one events is the trail a running stack ends
+	// up with: ninety-seven for the catalogue, fleet and flags, thirty-four for
+	// the billing catalogue (twelve license prices; two add-ons with four
+	// prices, two grants, three compatibilities and one listing; five
+	// vouchers, each created and published).
 	require.Zero(t, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM audit_trail WHERE organization_id = $1`, orgID))
-	require.Equal(t, 97, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
+	require.Equal(t, 131, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
+
+	// The billing catalogue brain's console captures show: how each version is
+	// sold and its number of prices, every family listed with Standard and
+	// Premium falling back to Starter, the two add-ons, and the vouchers,
+	// published.
+	require.Equal(t, []string{
+		"premium CUSTOM 2", "premium-v2 CUSTOM 3", "premium-v3 CUSTOM 0",
+		"standard PAID 3", "standard-v2 PAID 3", "starter FREE 1",
+	}, stringColumn(t, ctx, testDB, `
+		SELECT l.slug || ' ' || l.pricing_type::text || ' ' || (SELECT COUNT(*) FROM license_price p WHERE p.license_id = l.id)
+		FROM "license" l
+		WHERE l.organization_id = $1
+		ORDER BY l.slug
+	`, orgID))
+	require.Equal(t, []string{"premium public starter", "standard public starter", "starter public -"}, stringColumn(t, ctx, testDB, `
+		SELECT f.slug || CASE WHEN f.is_public THEN ' public ' ELSE ' private ' END || COALESCE(fallback.slug, '-')
+		FROM license_family f
+		       LEFT JOIN license_family fallback ON fallback.id = f.fallback_license_family_id
+		WHERE f.organization_id = $1
+		ORDER BY f.slug
+	`, orgID))
+	// Monthly orders are sold per order, so each overage price bills per order,
+	// read back the way the price endpoints answer it.
+	for _, slug := range []string{"premium", "premium-v2", "standard", "standard-v2"} {
+		var licenseID uuid.UUID
+		require.NoError(t, testDB.DbPool.QueryRow(ctx, `
+			SELECT id FROM "license" WHERE organization_id = $1 AND slug = $2
+		`, orgID, slug).Scan(&licenseID))
+		overage, err := prices.List(ctx, licensesdb.New(testDB.DbPool), uuid.MustParse(orgID), licenseID, "", prices.ModelOverage)
+		require.NoError(t, err)
+		require.Len(t, overage, 1, slug)
+		require.Equal(t, &prices.PriceMeter{
+			EntitlementSlug: "monthly-orders", SaleUnitFactor: "1", SaleUnitSingular: ptr.To("order"), SaleUnitPlural: ptr.To("orders"),
+		}, overage[0].Metered, slug)
+	}
+	require.Equal(t, []string{"extra-delivery-drivers public", "priority-support private"}, stringColumn(t, ctx, testDB, `
+		SELECT a.slug || CASE WHEN f.is_public THEN ' public' ELSE ' private' END
+		FROM addon a
+		       JOIN addon_family f ON f.id = a.family_id
+		WHERE a.organization_id = $1
+		ORDER BY a.slug
+	`, orgID))
+	require.Equal(t, []string{
+		"NEW-LOCATION COMPOSITE 100 ACTIVE", "PEAK-SEASON ENTITLEMENT_BOOST 25 ACTIVE", "SUMMER-FESTIVAL PRICE - ACTIVE",
+		"TRACKING-PILOT FLAG_GRANT - ACTIVE", "WELCOME20 PRICE 200 ACTIVE",
+	}, stringColumn(t, ctx, testDB, `
+		SELECT code || ' ' || voucher_type::text || ' ' || COALESCE(max_redemptions::text, '-') || ' ' || status::text
+		FROM voucher
+		WHERE organization_id = $1
+		ORDER BY code
+	`, orgID))
 
 	// Members are the shared TMNT identities, not a bespoke set -- this is
 	// what makes the org reachable through the local dev token switcher.
@@ -372,8 +429,8 @@ func TestDemoProfileReseedsAnOrganizationAsOpsTeam(t *testing.T) {
 
 // requireSeededByOpsTeam checks that the demo seed ran as its Ops Team service
 // account in orgID: ownerID created Ops Team and its token, holding the
-// console's control-plane preset plus entitlements, feature flags and metadata
-// fields, and Ops Team authored every other row.
+// console's control-plane preset plus entitlements, feature flags, metadata
+// fields, add-ons and vouchers, and Ops Team authored every other row.
 //
 // The author columns are discovered rather than listed, so a table that starts
 // recording an author is covered without editing this. "user" and "token" are
@@ -389,6 +446,7 @@ func requireSeededByOpsTeam(t *testing.T, ctx context.Context, testDB *tests.Tes
 	require.Equal(t, ownerID, opsTeamCreatedBy, "the owner creates Ops Team")
 
 	require.ElementsMatch(t, []string{
+		"write:addons",
 		"write:components",
 		"write:customers",
 		"write:deployment_zones",
@@ -400,6 +458,7 @@ func requireSeededByOpsTeam(t *testing.T, ctx context.Context, testDB *tests.Tes
 		"write:organizations",
 		"write:releases",
 		"write:tokens",
+		"write:vouchers",
 	}, stringColumn(t, ctx, testDB, `
 		SELECT unnest(scopes) FROM token WHERE service_account_id = $1 AND created_by = $2
 	`, opsTeamID, ownerID))

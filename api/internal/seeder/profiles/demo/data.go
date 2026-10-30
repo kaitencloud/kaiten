@@ -8,13 +8,18 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/assignaddonentitlement"
+	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/createaddon"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
+	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/seeder/seedkit"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 )
@@ -120,6 +125,9 @@ const (
 // pricing table or a usage meter shows the user-facing entitlements, in
 // DisplayOrder, with their icon and unit labels, and hides the rest. Unit
 // labels go on NUMBER entitlements only, both or neither.
+//
+// The sale unit is what a metered price bills per: its labels, and the factor
+// of units in one sale unit. All three or none, on top of the unit labels.
 type entitlementDef struct {
 	Name              string
 	Slug              string
@@ -132,6 +140,9 @@ type entitlementDef struct {
 	Icon              string
 	UnitSingular      *string
 	UnitPlural        *string
+	SaleUnitSingular  *string
+	SaleUnitPlural    *string
+	SaleUnitFactor    *float64
 	UserFacing        bool
 	DisplayOrder      int32
 }
@@ -170,8 +181,12 @@ var entitlements = []entitlementDef{
 		Icon:         "lucide:shopping-cart",
 		UnitSingular: ptr.To("order"),
 		UnitPlural:   ptr.To("orders"),
-		UserFacing:   true,
-		DisplayOrder: 2,
+		// Sold per order: what its overage prices bill per.
+		SaleUnitSingular: ptr.To("order"),
+		SaleUnitPlural:   ptr.To("orders"),
+		SaleUnitFactor:   ptr.To(1.0),
+		UserFacing:       true,
+		DisplayOrder:     2,
 	},
 	{
 		Name:              "Delivery Drivers",
@@ -254,38 +269,60 @@ func entitlementBySlug(slug string) (entitlementDef, bool) {
 // version only. A revision is a change in what a product grants, not only in
 // how it is described, so every family with several versions has at least one
 // that differs (data_test.go). Keys must be entitlements the family grants.
+//
+// Prices are what the version sells for, created in this order. An archived
+// version takes no new price, so a priced version that ends archived must be
+// one an instance holds back until seedLicensePricing has run (withdrawnLater).
 type licenseVersionDef struct {
 	Description    string
 	LifecycleState licenseschema.LifecycleState
 	IsDefault      bool
 	Grants         map[string]entitlementGrant
+	Prices         []prices.Draft
 }
 
 // licenseDef is one product. Slug is its family's slug, which is also its
 // first version's: later versions get {Slug}-v{n}. It is fixed rather than
 // generated so the catalogue has the same addresses on every seed -- the family
 // slug is the stable handle a pricing page or a doc points at.
+//
+// The rest is how billing sells the family. PricingType goes on every version,
+// with SelfServeCtaURL, where a CUSTOM family's call to action leads. Public
+// lists the family in the public catalogue, and Fallback names the FREE family
+// its instances move to when their subscription ends.
 type licenseDef struct {
-	Name     string
-	Slug     string
-	Type     licenseschema.Type
-	Versions []licenseVersionDef // oldest first
+	Name            string
+	Slug            string
+	Type            licenseschema.Type
+	PricingType     licenseschema.PricingType
+	SelfServeCtaURL *string
+	Public          bool
+	Fallback        *string
+	Versions        []licenseVersionDef // oldest first
 }
 
 // The three families exist to show the three shapes a catalogue actually has,
 // because a demo where every product has exactly one published version shows
 // none of what license families are for.
+//
+// They are sold the way brain's console captures sell them
+// (screenshots/specs/screenshots.billing.ts): Starter is the free plan and the
+// fallback of the two others, Standard is sold online, Premium on request.
+// Amounts are in euro cents.
 var licenses = []licenseDef{
 	{
 		// The simple case: one version, which is its family's default.
-		Name: "Starter",
-		Slug: "starter",
-		Type: licenseschema.Community,
+		Name:        "Starter",
+		Slug:        "starter",
+		Type:        licenseschema.Community,
+		PricingType: licenseschema.PricingTypeFree,
+		Public:      true,
 		Versions: []licenseVersionDef{
 			{
 				Description:    "Entry tier for single-location restaurants getting started.",
 				LifecycleState: licenseschema.Published,
 				IsDefault:      true,
+				Prices:         []prices.Draft{flatFee("Starter", 1, "MONTHLY", "0")},
 			},
 		},
 	},
@@ -294,9 +331,12 @@ var licenses = []licenseDef{
 		// forward. v2 adds courier tracking and is on sale, but the family
 		// resolves to v1 until its default moves: a default outranks a newer
 		// published version, which is the rule this family is here to show.
-		Name: "Standard",
-		Slug: "standard",
-		Type: licenseschema.Development,
+		Name:        "Standard",
+		Slug:        "standard",
+		Type:        licenseschema.Development,
+		PricingType: licenseschema.PricingTypePaid,
+		Public:      true,
+		Fallback:    ptr.To("starter"),
 		Versions: []licenseVersionDef{
 			{
 				Description:    "Growing restaurants with delivery operations.",
@@ -305,10 +345,12 @@ var licenses = []licenseDef{
 				Grants: map[string]entitlementGrant{
 					"delivery-tracking": {Value: map[string]any{"type": "boolean", "value": false}},
 				},
+				Prices: standardPrices(),
 			},
 			{
 				Description:    "Growing restaurants with delivery operations, now including courier tracking.",
 				LifecycleState: licenseschema.Published,
+				Prices:         standardPrices(),
 			},
 		},
 	},
@@ -318,9 +360,13 @@ var licenses = []licenseDef{
 		// buy, and a newer one still being prepared. Resolving this family has
 		// to answer v2 -- not v3, which is the newest but a draft, and not v1,
 		// which stays addressable by its own slug but is no longer on sale.
-		Name: "Premium",
-		Slug: "premium",
-		Type: licenseschema.Paid,
+		Name:            "Premium",
+		Slug:            "premium",
+		Type:            licenseschema.Paid,
+		PricingType:     licenseschema.PricingTypeCustom,
+		SelfServeCtaURL: ptr.To("https://kaiten-sushi.example/contact-sales"),
+		Public:          true,
+		Fallback:        ptr.To("starter"),
 		Versions: []licenseVersionDef{
 			{
 				Description:    "Multi-location restaurant groups with delivery fleets of up to five drivers.",
@@ -328,13 +374,23 @@ var licenses = []licenseDef{
 				Grants: map[string]entitlementGrant{
 					"delivery-drivers": {Value: map[string]any{"type": "number", "value": int32(5)}, LimitCapExceededOveragePercent: ptr.To(int32(20))},
 				},
+				Prices: []prices.Draft{
+					flatFee("Premium, monthly", 1, "MONTHLY", "24000"),
+					ordersAboveAllowance(2, "15"),
+				},
 			},
 			{
 				Description:    "Multi-location restaurant groups with larger delivery fleets and fleet analytics.",
 				LifecycleState: licenseschema.Published,
 				IsDefault:      true,
+				Prices: []prices.Draft{
+					flatFee("Premium, yearly", 1, "ANNUAL", "290000"),
+					flatFee("Premium, monthly", 2, "MONTHLY", "29000"),
+					ordersAboveAllowance(3, "15"),
+				},
 			},
 			{
+				// Being prepared, so not priced yet.
 				Description:    "Multi-location groups with fleet analytics, and AI menu forecasting for menus twice the size.",
 				LifecycleState: licenseschema.Draft,
 				Grants: map[string]entitlementGrant{
@@ -343,6 +399,45 @@ var licenses = []licenseDef{
 			},
 		},
 	},
+}
+
+// flatFee is the default price of a billing period, in euro cents.
+func flatFee(label string, displayOrder int32, period, cents string) prices.Draft {
+	return prices.Draft{
+		BillingModel:      prices.ModelFlatFee,
+		BillingTiming:     prices.TimingAdvance,
+		BillingPeriod:     ptr.To(period),
+		Currency:          "EUR",
+		UnitAmountDecimal: cents,
+		DisplayLabel:      ptr.To(label),
+		DisplayOrder:      displayOrder,
+		IsDefault:         true,
+	}
+}
+
+// ordersAboveAllowance bills each monthly order above what the version grants,
+// in euro cents. It can only bill within the grant's overage allowance (10 % of
+// Standard's 100 orders, 20 % of Premium's 1,000), the reason an OVERAGE price
+// needs a grant with a positive one.
+func ordersAboveAllowance(displayOrder int32, cents string) prices.Draft {
+	return prices.Draft{
+		BillingModel:           prices.ModelOverage,
+		BillingTiming:          prices.TimingArrears,
+		Currency:               "EUR",
+		UnitAmountDecimal:      cents,
+		MeteredEntitlementSlug: "monthly-orders",
+		DisplayLabel:           ptr.To("Orders above the allowance"),
+		DisplayOrder:           displayOrder,
+	}
+}
+
+// standardPrices are what both versions of Standard sell for.
+func standardPrices() []prices.Draft {
+	return []prices.Draft{
+		flatFee("Standard, monthly", 1, "MONTHLY", "4900"),
+		flatFee("Standard, yearly", 2, "ANNUAL", "49000"),
+		ordersAboveAllowance(3, "50"),
+	}
 }
 
 // entitlementGrant is one license's value for one entitlement, plus the
@@ -415,6 +510,73 @@ func versionGrants(lic licenseDef, vi int) map[string]entitlementGrant {
 	}
 	maps.Copy(grants, lic.Versions[vi].Grants)
 	return grants
+}
+
+// ── Add-ons ────────────────────────────────────────────────────────────────
+
+// addonDef is one add-on family of one version, the way the captures sell it:
+// the version CreateAddon creates, which opens its family under its own slug,
+// then its prices, what one unit grants, the license families it fits, and
+// whether the public catalogue lists the family. Prices are shaped like a
+// license's (createaddonprice.NewAddonPrice has a prices.Draft's fields).
+type addonDef struct {
+	Addon      createaddon.NewAddon
+	Prices     []prices.Draft
+	Grants     []assignaddonentitlement.NewAddonGrant
+	Compatible []string
+	Public     bool
+}
+
+var addons = []addonDef{
+	{
+		Addon: createaddon.NewAddon{
+			Name:        "Extra delivery drivers",
+			Slug:        ptr.To("extra-delivery-drivers"),
+			Description: "Five more delivery driver accounts per pack.",
+			VersionName: ptr.To("Packs of five"),
+			IsDefault:   true,
+			PricingType: addoncatalogue.PricingPaid,
+			MaxQuantity: ptr.To(int32(10)),
+		},
+		Prices: []prices.Draft{
+			flatFee("Extra delivery drivers, monthly", 1, "MONTHLY", "1900"),
+			flatFee("Extra delivery drivers, yearly", 2, "ANNUAL", "19000"),
+		},
+		Grants: []assignaddonentitlement.NewAddonGrant{{
+			EntitlementSlug: "delivery-drivers",
+			AddonGrant: addoncatalogue.AddonGrant{
+				Value:            map[string]any{"type": "number", "value": int32(5)},
+				OverrideBehavior: "ADD",
+			},
+		}},
+		Compatible: []string{"standard", "premium"},
+		Public:     true,
+	},
+	{
+		Addon: createaddon.NewAddon{
+			Name:        "Priority support",
+			Slug:        ptr.To("priority-support"),
+			Description: "Phone and Slack support with a two-hour response commitment.",
+			VersionName: ptr.To("Two-hour response"),
+			IsDefault:   true,
+			PricingType: addoncatalogue.PricingPaid,
+			MaxQuantity: ptr.To(int32(1)),
+		},
+		Prices: []prices.Draft{
+			flatFee("Priority support, monthly", 1, "MONTHLY", "9900"),
+			flatFee("Priority support, yearly", 2, "ANNUAL", "99000"),
+		},
+		Grants: []assignaddonentitlement.NewAddonGrant{{
+			EntitlementSlug: "support-tier",
+			AddonGrant: addoncatalogue.AddonGrant{
+				Value: map[string]any{"type": "object", "value": map[string]any{
+					"tier": "priority", "channels": []string{"email", "slack", "phone"}, "response_sla_hours": 2,
+				}},
+				OverrideBehavior: "OVERRIDE",
+			},
+		}},
+		Compatible: []string{"premium"},
+	},
 }
 
 // ── Customers & Instances ──────────────────────────────────────────────────
@@ -960,6 +1122,97 @@ var featureFlags = []schema.FeatureFlag{
 		DefaultVariant: &schema.DefaultVariant{
 			Type:  schema.BasicType,
 			Value: schema.BasicVariant("none"),
+		},
+	},
+}
+
+// ── Vouchers ───────────────────────────────────────────────────────────────
+
+// voucherDef is a voucher as CreateVoucher takes it, published once created.
+// The license versions it applies to are named by slug, their ids existing only
+// once the seed has created them, and ExpiresAt is in the dataset's time (see
+// relativeToNow).
+type voucherDef struct {
+	Draft              vouchercatalogue.VoucherDraft
+	ApplicableLicenses []string
+}
+
+// vouchers are the captures' five. A code under twelve characters, separators
+// left out, can be guessed, so each such code is bounded by maxRedemptions or
+// expiresAt, which create-voucher requires (CreateVoucher.WeakCodeUnbounded).
+var vouchers = []voucherDef{
+	{
+		Draft: vouchercatalogue.VoucherDraft{
+			Code:               ptr.To("WELCOME20"),
+			Name:               "Welcome offer",
+			Description:        ptr.To("20 % off the first three months of Standard."),
+			VoucherType:        vouchercatalogue.TypePrice,
+			Duration:           vouchercatalogue.DurationRepeating,
+			DurationInPeriods:  ptr.To(int32(3)),
+			MaxRedemptions:     ptr.To(int32(200)),
+			PriceDiscountType:  ptr.To(vouchercatalogue.DiscountPercentage),
+			PriceDiscountValue: ptr.To("20"),
+			PriceAppliesTo:     ptr.To("LICENSE_BASE"),
+		},
+		ApplicableLicenses: []string{"standard", "standard-v2"},
+	},
+	{
+		Draft: vouchercatalogue.VoucherDraft{
+			Code:              ptr.To("PEAK-SEASON"),
+			Name:              "Peak season",
+			Description:       ptr.To("200 more orders for the summer festival month."),
+			VoucherType:       vouchercatalogue.TypeBoost,
+			Duration:          vouchercatalogue.DurationRepeating,
+			DurationInPeriods: ptr.To(int32(1)),
+			MaxRedemptions:    ptr.To(int32(25)),
+			Grants:            []vouchercatalogue.Grant{{EntitlementSlug: "monthly-orders", ModifierType: "ADD", ModifierValue: ptr.To("200")}},
+		},
+		ApplicableLicenses: []string{"premium", "premium-v2"},
+	},
+	{
+		Draft: vouchercatalogue.VoucherDraft{
+			Code:              ptr.To("TRACKING-PILOT"),
+			Name:              "Delivery tracking pilot",
+			Description:       ptr.To("Delivery tracking turned on for two months of a Starter."),
+			VoucherType:       vouchercatalogue.TypeFlagGrant,
+			Duration:          vouchercatalogue.DurationRepeating,
+			DurationInPeriods: ptr.To(int32(2)),
+			FlagGrants:        []vouchercatalogue.FlagGrant{{FlagSlug: "delivery-tracking-enabled", Variant: "on"}},
+		},
+		ApplicableLicenses: []string{"starter"},
+	},
+	{
+		Draft: vouchercatalogue.VoucherDraft{
+			Code:               ptr.To("NEW-LOCATION"),
+			Name:               "New location bundle",
+			Description:        ptr.To("10 % off three invoices and two more delivery drivers, for a second location."),
+			VoucherType:        vouchercatalogue.TypeComposite,
+			Duration:           vouchercatalogue.DurationRepeating,
+			DurationInPeriods:  ptr.To(int32(3)),
+			MaxRedemptions:     ptr.To(int32(100)),
+			PriceDiscountType:  ptr.To(vouchercatalogue.DiscountPercentage),
+			PriceDiscountValue: ptr.To("10"),
+			PriceAppliesTo:     ptr.To("LICENSE_BASE"),
+			Grants:             []vouchercatalogue.Grant{{EntitlementSlug: "delivery-drivers", ModifierType: "ADD", ModifierValue: ptr.To("2")}},
+		},
+		ApplicableLicenses: []string{"standard", "standard-v2"},
+	},
+	{
+		// Expired a week before the dataset's today. It is published like the
+		// others, and its expiresAt alone makes it unredeemable: the status
+		// reads EXPIRED once the billing lifecycle job of a stack with billing
+		// on records it, as it does for any voucher.
+		Draft: vouchercatalogue.VoucherDraft{
+			Code:               ptr.To("SUMMER-FESTIVAL"),
+			Name:               "Summer festival",
+			Description:        ptr.To("10.00 EUR off one invoice, during the summer festival."),
+			VoucherType:        vouchercatalogue.TypePrice,
+			Duration:           vouchercatalogue.DurationOnce,
+			ExpiresAt:          ptr.To(time.Date(2026, 8, 31, 23, 59, 59, 0, time.UTC)),
+			PriceDiscountType:  ptr.To(vouchercatalogue.DiscountFixed),
+			PriceDiscountValue: ptr.To("1000"),
+			Currency:           ptr.To("EUR"),
+			PriceAppliesTo:     ptr.To("LICENSE_BASE"),
 		},
 	},
 }

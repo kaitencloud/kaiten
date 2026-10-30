@@ -14,6 +14,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/createaddonprice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/updateaddonfamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/createcomponent"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/createdeploymentzone"
@@ -26,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
 	organizationdb "github.com/kaitencloud/kaiten/api/internal/modules/organization/infrastructure/db"
 	organizationschema "github.com/kaitencloud/kaiten/api/internal/modules/organization/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/createrelease"
@@ -47,7 +50,7 @@ func NewProfile() *Profile { return &Profile{} }
 func (p *Profile) Name() string { return "demo" }
 
 func (p *Profile) Description() string {
-	return "[DEMO] Seeds one org with a realistic B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses, customers, instances, deployment zones/releases, usage metrics, and feature flags. The default local development and demo dataset."
+	return "[DEMO] Seeds one org with a realistic B2B SaaS dataset (Kaiten Sushi Shop): entitlements, licenses and their prices, add-ons, vouchers, customers, instances, deployment zones/releases, usage metrics, and feature flags. The default local development and demo dataset."
 }
 
 // ── Seed entry point ───────────────────────────────────────────────────────
@@ -133,6 +136,17 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 		return err
 	}
 
+	// Step 4b: the billing catalogue -- each version's prices and each
+	// family's settings, then the add-ons. Prices come after the grants an
+	// OVERAGE price meters, and before Premium v1 is withdrawn (step 7b): an
+	// archived version takes no new price.
+	if err := p.seedLicensePricing(ctx, orgCtx, catalogue.slugs); err != nil {
+		return err
+	}
+	if err := p.seedAddons(ctx, orgCtx); err != nil {
+		return err
+	}
+
 	// Step 5: releases + components
 	releaseIDsByVersion, err := p.seedReleases(ctx, orgCtx)
 	if err != nil {
@@ -171,6 +185,11 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 
 	// Step 9: feature flags
 	if err := p.seedFeatureFlags(ctx, orgCtx); err != nil {
+		return err
+	}
+
+	// Step 9b: vouchers, which name license versions, entitlements and a flag
+	if err := p.seedVouchers(ctx, orgCtx, catalogue, now); err != nil {
 		return err
 	}
 
@@ -257,6 +276,9 @@ func (p *Profile) seedEntitlements(ctx context.Context, sc *seeder.SeederContext
 			Icon:              ptr.To(ent.Icon),
 			UnitSingular:      ent.UnitSingular,
 			UnitPlural:        ent.UnitPlural,
+			SaleUnitSingular:  ent.SaleUnitSingular,
+			SaleUnitPlural:    ent.SaleUnitPlural,
+			SaleUnitFactor:    ent.SaleUnitFactor,
 			UserFacing:        ptr.To(ent.UserFacing),
 			DisplayOrder:      ptr.To(ent.DisplayOrder),
 		}
@@ -344,12 +366,14 @@ func (p *Profile) seedLicenses(ctx context.Context, sc *seeder.SeederContext) (s
 
 		for vi, version := range lic.Versions {
 			command := &createlicense.Command{
-				Name:           lic.Name,
-				Description:    version.Description,
-				Type:           lic.Type,
-				VersionName:    ptr.To(fmt.Sprintf("%s v%d", lic.Name, vi+1)),
-				IsDefault:      version.IsDefault,
-				LifecycleState: seedkit.LicenseCreationState(version.LifecycleState),
+				Name:            lic.Name,
+				Description:     version.Description,
+				Type:            lic.Type,
+				VersionName:     ptr.To(fmt.Sprintf("%s v%d", lic.Name, vi+1)),
+				IsDefault:       version.IsDefault,
+				LifecycleState:  seedkit.LicenseCreationState(version.LifecycleState),
+				PricingType:     lic.PricingType,
+				SelfServeCtaURL: lic.SelfServeCtaURL,
 			}
 			// The first version opens the family under lic.Slug, and so takes
 			// that slug itself. Later versions name the family by it -- a shared
@@ -451,6 +475,107 @@ func (p *Profile) seedLicenseEntitlements(
 			}
 			slog.Info("   ✓ Associated entitlements", "license", lic.Name, "slug", licSlug)
 		}
+	}
+	return nil
+}
+
+// ── Billing Catalogue ──────────────────────────────────────────────────────
+
+// seedLicensePricing prices every version of each license and settles its
+// family's catalogue settings: listed publicly, and the family it falls back
+// to. The pricing type was set when each version was created.
+func (p *Profile) seedLicensePricing(ctx context.Context, sc *seeder.SeederContext, allLicenseSlugs map[string][]string) error {
+	slog.Info("💶 Pricing license versions...")
+
+	for _, lic := range licenses {
+		for vi, licSlug := range allLicenseSlugs[lic.Name] {
+			for _, price := range lic.Versions[vi].Prices {
+				if _, err := sc.Licenses.CreateLicensePrice.Execute(ctx, licSlug, price); err != nil {
+					return fmt.Errorf("price %q of %q: %w", *price.DisplayLabel, licSlug, err)
+				}
+			}
+		}
+		if _, err := sc.Licenses.UpdateLicenseFamily.Execute(ctx, lic.Slug, updatelicensefamily.Command{
+			IsPublic:                  ptr.To(lic.Public),
+			FallbackLicenseFamilySlug: lic.Fallback,
+		}); err != nil {
+			return fmt.Errorf("license family %q settings: %w", lic.Slug, err)
+		}
+		slog.Info("   ✓ Priced license", "name", lic.Name)
+	}
+	return nil
+}
+
+// seedAddons creates each add-on with its prices, its grants and the license
+// families it fits, then lists the public ones. Each opens its family under its
+// own slug, which is how the family is addressed.
+func (p *Profile) seedAddons(ctx context.Context, sc *seeder.SeederContext) error {
+	slog.Info("🧩 Creating add-ons...")
+
+	for _, addon := range addons {
+		slug := *addon.Addon.Slug
+		if _, err := sc.Addons.CreateAddon(ctx, sc.Caller, addon.Addon); err != nil {
+			return fmt.Errorf("add-on %q: %w", slug, err)
+		}
+		for _, price := range addon.Prices {
+			if _, err := sc.Addons.CreatePrice(ctx, sc.Caller, slug, createaddonprice.NewAddonPrice(price)); err != nil {
+				return fmt.Errorf("price %q of add-on %q: %w", *price.DisplayLabel, slug, err)
+			}
+		}
+		for _, grant := range addon.Grants {
+			if _, err := sc.Addons.AssignEntitlement(ctx, sc.Caller, slug, grant); err != nil {
+				return fmt.Errorf("add-on %q grants %q: %w", slug, grant.EntitlementSlug, err)
+			}
+		}
+		for _, family := range addon.Compatible {
+			if err := sc.Addons.SetCompatibility(ctx, sc.Caller, slug, family); err != nil {
+				return fmt.Errorf("add-on %q fits %q: %w", slug, family, err)
+			}
+		}
+		if addon.Public {
+			if _, err := sc.Addons.UpdateFamily(ctx, sc.Caller, slug, updateaddonfamily.Command{IsPublic: ptr.To(true)}); err != nil {
+				return fmt.Errorf("add-on family %q: %w", slug, err)
+			}
+		}
+		slog.Info("   ✓ Created add-on", "name", addon.Addon.Name)
+	}
+	return nil
+}
+
+// seedVouchers creates each voucher and publishes it.
+func (p *Profile) seedVouchers(ctx context.Context, sc *seeder.SeederContext, catalogue seededCatalogue, now time.Time) error {
+	slog.Info("🎟️ Creating vouchers...")
+
+	licenseIDs := make(map[string]uuid.UUID)
+	for name, slugs := range catalogue.slugs {
+		for vi, slug := range slugs {
+			licenseIDs[slug] = catalogue.versions[name][vi]
+		}
+	}
+
+	for _, voucher := range vouchers {
+		draft := voucher.Draft
+		code := *draft.Code
+		draft.ApplicableLicenseIDs = make([]uuid.UUID, 0, len(voucher.ApplicableLicenses))
+		for _, slug := range voucher.ApplicableLicenses {
+			id, ok := licenseIDs[slug]
+			if !ok {
+				return fmt.Errorf("voucher %q applies to unknown license %q", code, slug)
+			}
+			draft.ApplicableLicenseIDs = append(draft.ApplicableLicenseIDs, id)
+		}
+		if draft.ExpiresAt != nil {
+			draft.ExpiresAt = ptr.To(relativeToNow(*draft.ExpiresAt, now))
+		}
+
+		created, err := sc.Vouchers.CreateVoucher(ctx, sc.Caller, draft)
+		if err != nil {
+			return fmt.Errorf("voucher %q: %w", code, err)
+		}
+		if _, err := sc.Vouchers.PublishVoucher(ctx, sc.Caller, created.ID); err != nil {
+			return fmt.Errorf("publish voucher %q: %w", code, err)
+		}
+		slog.Info("   ✓ Created voucher", "code", code)
 	}
 	return nil
 }
@@ -815,11 +940,11 @@ func (p *Profile) seedFeatureFlags(ctx context.Context, sc *seeder.SeederContext
 // seedOpsTeam creates the Ops Team service account the rest of the seed acts
 // as, and returns its user ID. Its token carries the console's "Control plane"
 // preset (TOKEN_PRESETS.controlPlane in app/src/features/service-accounts)
-// plus the three modules the dataset also writes -- entitlements, feature flags
-// and metadata fields -- which is what an account making each of these calls
-// through the API needs. This seed calls the use cases directly,
-// which check no scope, so here the token describes the account rather than
-// bounding what the seed may do as it.
+// plus the five modules the dataset also writes -- entitlements, feature flags,
+// metadata fields, add-ons and vouchers -- which is what an account making each
+// of these calls through the API needs. This seed calls the use cases directly,
+// or through the facade with a caller holding every scope, so here the token
+// describes the account rather than bounding what the seed may do as it.
 func (p *Profile) seedOpsTeam(ctx context.Context, sc *seeder.SeederContext) (uuid.UUID, error) {
 	slog.Info("🛠️ Creating the Ops Team service account...")
 
@@ -841,6 +966,8 @@ func (p *Profile) seedOpsTeam(ctx context.Context, sc *seeder.SeederContext) (uu
 					scope.Write(scope.Entitlements),
 					scope.Write(scope.FeatureFlags),
 					scope.Write(scope.MetadataFields),
+					scope.Write(scope.Addons),
+					scope.Write(scope.Vouchers),
 				},
 			},
 		},
