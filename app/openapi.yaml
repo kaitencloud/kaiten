@@ -8280,6 +8280,50 @@ components:
         - updatedAt
       type: object
       x-kaiten-payload: "#/components/schemas/LicensePriceUpdatedEvent"
+    LicenseValidation:
+      additionalProperties: false
+      properties:
+        endLicenseDate:
+          description: UTC exclusive end of the assigned license term
+          format: date-time
+          type: string
+        evaluatedAt:
+          description: UTC database time at which the term was evaluated
+          format: date-time
+          type: string
+        instanceSlug:
+          description: Instance whose assigned license was evaluated
+          type: string
+        licenseId:
+          description: Identifier of the assigned license version
+          type: string
+        licenseSlug:
+          description: Slug of the assigned license version
+          type: string
+        startLicenseDate:
+          description: UTC inclusive start of the assigned license term
+          format: date-time
+          type: string
+        status:
+          description: Assigned license term status
+          enum:
+            - ACTIVE
+            - NOT_STARTED
+            - EXPIRED
+          type: string
+        valid:
+          description: Whether the assigned license term contains evaluatedAt
+          type: boolean
+      required:
+        - valid
+        - status
+        - evaluatedAt
+        - instanceSlug
+        - licenseId
+        - licenseSlug
+        - startLicenseDate
+        - endLicenseDate
+      type: object
     LineDifference:
       additionalProperties: false
       properties:
@@ -25607,6 +25651,63 @@ paths:
       summary: List an instance's invoices
       tags:
         - billing
+  /instances/{instanceSlug}/license-validation:
+    get:
+      description: Evaluate the assigned license term using UTC database time. The start is inclusive and the end exclusive. Catalog DRAFT/ARCHIVED state, operational status and commercial lifecycle stage do not invalidate an existing assignment. This point-in-time decision does not change feature evaluation or usage reporting; consumers enforce it before protected actions.
+      operationId: getInstanceLicenseValidation
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - restaurant-prod
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LicenseValidation"
+          description: OK
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: Validate an instance's assigned license term
+      tags:
+        - instances
   /instances/{instanceSlug}/vouchers:
     get:
       description: The vouchers an instance redeemed, newest first. Requires billing to be enabled for the organization.

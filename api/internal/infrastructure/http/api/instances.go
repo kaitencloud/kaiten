@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getlicensevalidation"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
@@ -23,7 +24,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateintegrations"
 )
 
-// registerInstances publishes the instances module's seventeen operations and the
+// registerInstances publishes the instances module's eighteen operations and the
 // fourteen webhook declarations they carry -- the largest webhook surface in the
 // tree, because an instance's entitlement usage is what customers integrate
 // against.
@@ -32,7 +33,7 @@ import (
 // read-audit signal, which is a state change from the subscriber's point of view
 // even though it is not one here.
 //
-// Every one of the seventeen is handed the same value -- the facade's instances
+// Every one of the eighteen is handed the same value -- the facade's instances
 // surface -- and each takes it as its own one-method interface, so what an operation
 // can reach is what it named.
 func registerInstances(core huma.API, app kaiten.Instances) {
@@ -44,6 +45,7 @@ func registerInstances(core huma.API, app kaiten.Instances) {
 	deleteinstance.RegisterWebhook(core)
 	getintegrations.RegisterEndpoint(core, app)
 	getinstance.RegisterEndpoint(core, app)
+	getlicensevalidation.RegisterEndpoint(core, app)
 	getinstances.RegisterEndpoint(core, app)
 	patchinstance.RegisterEndpoint(core, app)
 	patchinstance.RegisterWebhook(core)
