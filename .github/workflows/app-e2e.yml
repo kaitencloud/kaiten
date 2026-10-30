@@ -56,7 +56,11 @@ permissions:
 jobs:
   e2e_storybook:
     name: Visual Storybook (Linux Chromium)
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     defaults:
       run:
@@ -121,7 +125,11 @@ jobs:
 
   e2e_app:
     name: E2E App (Chromium, shard ${{ matrix.shard }}/${{ strategy.job-total }})
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     # A shard's tests take 13 to 22 minutes. Its setup takes about one, except
     # when the Ubuntu mirror is slow: `playwright install --with-deps` then spends
     # 6 to 14 minutes fetching fonts (23 MB at 39 kB/s), and two or three shards a
@@ -169,7 +177,11 @@ jobs:
 
   browser_smoke:
     name: App Firefox and WebKit smoke
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     # The smoke takes a minute or two. Firefox and WebKit need more system
     # packages than Chromium, so a slow Ubuntu mirror (see e2e_app) keeps this
     # job's setup alone past 15 minutes: it never reached the tests twice in a row.
@@ -192,7 +204,11 @@ jobs:
 
   dev_mock_smoke:
     name: Dev mock bootstrap
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7.0.1
@@ -208,7 +224,11 @@ jobs:
 
   publish_trace_preview:
     name: Publish E2E trace preview
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     needs: [e2e_storybook, e2e_app]
     if: |
       always() &&

@@ -50,16 +50,23 @@ runs:
       id: playwright-version
       shell: bash
       working-directory: app
-      run: echo "version=$(./node_modules/.bin/playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      # ImageOS is the runner's image (ubuntu24, ubuntu26, ...), a variable of the
+      # runner's environment that the env context of an expression cannot see.
+      run: |
+        echo "version=$(./node_modules/.bin/playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+        echo "image=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
 
     - name: Cache Playwright browsers
       id: playwright-cache
       uses: actions/cache@v5
       with:
         path: ~/.cache/ms-playwright
-        key: ${{ runner.os }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ inputs.install-browsers }}
+        # The runner's image is in the key: a browser is built for
+        # one distribution, and one restored onto another may not start -- the
+        # 24.04 WebKit on 26.04 looked for ICU 74 and found ICU 78.
+        key: ${{ runner.os }}-${{ steps.playwright-version.outputs.image }}-playwright-${{ steps.playwright-version.outputs.version }}-${{ inputs.install-browsers }}
         restore-keys: |
-          ${{ runner.os }}-playwright-
+          ${{ runner.os }}-${{ steps.playwright-version.outputs.image }}-playwright-
 
     - name: Install Playwright browsers (cache miss)
       if: steps.playwright-cache.outputs.cache-hit != 'true'

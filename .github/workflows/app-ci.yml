@@ -161,7 +161,11 @@ jobs:
 
   stories:
     name: Storybook Tests
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     defaults:
       run:
         working-directory: app
@@ -313,7 +317,11 @@ jobs:
 
   cel_wasm:
     name: CEL / Wasm runtime
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
