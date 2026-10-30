@@ -34,7 +34,11 @@ concurrency:
   cancel-in-progress: true
 jobs:
   smoke:
-    runs-on: ubuntu-latest
+    # Not ubuntu-latest: Playwright's browsers are built for Ubuntu 24.04, and
+    # when ubuntu-latest became 26.04 (ICU 78) WebKit stopped starting
+    # (libicudata.so.74 missing). Move with the Playwright release that
+    # supports the next image.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7.0.1
