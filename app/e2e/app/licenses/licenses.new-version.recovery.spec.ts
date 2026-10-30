@@ -13,6 +13,12 @@ import { createPricedCatalogModel } from './licenses.scenarios';
 test('offers back a half-filled new version after a reload, with its grants, and forgets it once sent', async ({
   page,
 }) => {
+  // Seven full-page loads -- two to start, the one opened from no version, the
+  // resumed one, the redirect once sent, and two to prove it is forgotten -- at
+  // ~7s each on a CI runner (playwright.app.config.ts) leave the 60s budget
+  // nothing for the form itself: it ran out at the last reload on 10-27, 10-28
+  // and 10-29. slow() triples it; the steps' own timeouts still catch a hang.
+  test.slow();
   const recovery = new FormRecoveryDriver(page);
   const form = new LicenseVersionFormDriver(page);
   // The grants card of the new version is the one of a version's page.
