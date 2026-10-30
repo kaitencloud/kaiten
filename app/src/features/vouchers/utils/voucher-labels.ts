@@ -1,5 +1,8 @@
 import type { Voucher } from '@/api-client';
-import type { VersionLifecycleKeys } from '@/domains/billing';
+import type {
+  VersionDeleteKeys,
+  VersionLifecycleKeys,
+} from '@/domains/billing';
 
 // The keys of the labels the screens of the vouchers write out, in full, so that a key
 // that does not exist fails the check of the keys.
@@ -101,3 +104,11 @@ export const VOUCHER_TRANSITION_KEYS = {
     title: 'Pages.Vouchers.Actions.publish.title',
   },
 } as const satisfies VersionLifecycleKeys<'archive' | 'publish'>;
+
+/** What the deletion of a voucher no instance redeemed says: its button and its confirmation. */
+export const VOUCHER_DELETE_KEYS = {
+  confirm: 'Pages.Vouchers.Actions.delete.confirm',
+  description: 'Pages.Vouchers.Actions.delete.description',
+  label: 'Pages.Vouchers.Actions.delete.label',
+  title: 'Pages.Vouchers.Actions.delete.title',
+} as const satisfies VersionDeleteKeys;

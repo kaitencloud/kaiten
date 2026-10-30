@@ -234,6 +234,8 @@
 409 DeleteLicense.InUseConflict
 409 DeleteLicenseEntitlement.BillingActive
 409 DeleteLicenseEntitlement.MeteredByPrice
+404 DeleteVoucher.NotFound
+409 DeleteVoucher.Redeemed
 404 DeprecateAddonPrice.AddonNotFound
 409 DeprecateAddonPrice.AlreadyDeprecated
 409 DeprecateAddonPrice.IsDefault

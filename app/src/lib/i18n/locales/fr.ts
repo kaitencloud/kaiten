@@ -5453,6 +5453,14 @@ export default {
           confirm: 'Archiver',
           success: 'Code promo archivé',
         },
+        delete: {
+          label: 'Supprimer',
+          title: 'Supprimer {{name}} ?',
+          description:
+            'Aucune instance n’a utilisé ce code promo. Il est supprimé avec son offre, et son code peut être donné à un autre code promo. Un code promo utilisé au moins une fois fait partie de l’historique et ne peut pas être supprimé : archivez-le plutôt.',
+          confirm: 'Supprimer',
+          success: 'Code promo supprimé',
+        },
       },
       Code: {
         label: 'Code promo',
@@ -7140,6 +7148,7 @@ export default {
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: "Token d'organisation émis",
         VOUCHER_ARCHIVED: 'Code promo archivé',
         VOUCHER_CREATED: 'Code promo créé',
+        VOUCHER_DELETED: 'Code promo supprimé',
         VOUCHER_EXHAUSTED: 'Code promo épuisé',
         VOUCHER_EXPIRED: 'Code promo expiré',
         VOUCHER_PUBLISHED: 'Code promo publié',

@@ -65,6 +65,7 @@ export const OPERATION_SCOPES = {
   deleteRelease: ['write:releases'],
   deleteRole: ['write:users'],
   deleteServiceAccountToken: ['write:tokens'],
+  deleteVoucher: ['write:vouchers'],
   deprecateAddonPrice: ['write:addons'],
   deprecateLicensePrice: ['write:licenses'],
   detachInstanceAddon: ['write:instances'],
