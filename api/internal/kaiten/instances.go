@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getlicensevalidation"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
@@ -27,7 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
-// Instances is the instances module's seventeen operations -- the largest namespace
+// Instances is the instances module's eighteen operations -- the largest namespace
 // here, because an instance is what everything else in the domain ends up attached
 // to: a customer's deployment, a license's grants, a deployment zone's release, and
 // the usage that meters all three.
@@ -80,6 +81,17 @@ func (i Instances) Get(
 	}
 
 	return i.uc.GetInstance.Execute(bindOrganization(ctx, cl), slug)
+}
+
+// GetLicenseValidation evaluates the assigned license term without changing
+// catalog lifecycle, instance operation or the existing evaluation/report paths.
+func (i Instances) GetLicenseValidation(
+	ctx context.Context, cl caller.OrganizationCaller, slug string,
+) (*instanceschema.LicenseValidation, error) {
+	if err := cl.Require(getlicensevalidation.RequiredScope); err != nil {
+		return nil, err
+	}
+	return i.uc.GetLicenseValidation.Execute(bindOrganization(ctx, cl), slug)
 }
 
 func (i Instances) Update(

@@ -21,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getlicensevalidation"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
@@ -37,6 +38,7 @@ type UseCases struct {
 	DeleteIntegration            *deleteintegrations.UseCase
 	DeleteInstance               *deleteinstance.UseCase
 	GetInstance                  *getinstance.UseCase
+	GetLicenseValidation         *getlicensevalidation.UseCase
 	GetIntegration               *getintegrations.UseCase
 	GetInstances                 *getinstances.UseCase
 	PatchInstance                *patchinstance.UseCase
@@ -90,6 +92,10 @@ func NewUseCases(svc services.Container) *UseCases {
 			UsageReporter: svc.UsageReporter,
 		}),
 		GetInstance: getinstance.NewUseCase(getinstance.Deps{
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
+		}),
+		GetLicenseValidation: getlicensevalidation.NewUseCase(getlicensevalidation.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
