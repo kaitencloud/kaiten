@@ -2,9 +2,9 @@
 
 `GET /api/instances/{instanceSlug}/license-validation` requires `read:instances`.
 The organization is derived from the authenticated caller; a missing or foreign
-instance returns `404` with code `GetLicenseValidation.NotFound`. Authentication
-failures return `401`, and callers without instance-read authority receive `403`
-before any instance lookup. Use the trusted Core gateway, never an unverified
+instance returns `404` with code `GetInstanceLicenseValidation.NotFound`.
+Authentication failures return `401`, and callers without instance-read authority
+receive `403` before any instance lookup. Use the trusted Core gateway, never an unverified
 internal listener.
 
 ```json
@@ -36,7 +36,10 @@ The term interval is **start-inclusive, end-exclusive**:
 `valid` is true only for `ACTIVE`. No evaluation instant can be supplied by the
 caller. This is a point-in-time read, not a durable authorization token: consumers
 must revalidate before protected actions and handle Core unavailability explicitly.
-No decision is returned when the lookup or database clock fails.
+Successful responses include `Cache-Control: no-store` so a point-in-time decision
+is not retained by HTTP caches. No decision is returned when the lookup or
+database clock fails, or the stored license term or assigned license slug is missing;
+internal invariant diagnostics are withheld from clients.
 
 This endpoint evaluates the term of an **already assigned** license. Catalog
 `ARCHIVED` versions remain valid for existing assignments within their term;

@@ -19,7 +19,10 @@ type Request struct {
 	InstanceSlug string `path:"instanceSlug" doc:"Instance slug" example:"restaurant-prod"`
 }
 
-type Response struct{ Body *schema.LicenseValidation }
+type Response struct {
+	CacheControl string `header:"Cache-Control"`
+	Body         *schema.LicenseValidation
+}
 
 func RegisterEndpoint(api huma.API, app Getter) {
 	kaitenhuma.RegisterScoped(api, huma.Operation{
@@ -39,6 +42,6 @@ func RegisterEndpoint(api huma.API, app Getter) {
 		if err != nil {
 			return nil, err
 		}
-		return &Response{Body: validation}, nil
+		return &Response{CacheControl: "no-store", Body: validation}, nil
 	})
 }

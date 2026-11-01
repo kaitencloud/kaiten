@@ -16,4 +16,5 @@ func TestLicenseValidationContract(t *testing.T) {
 	require.Equal(t, "getInstanceLicenseValidation", path.Get.OperationID)
 	require.Equal(t, []string{"read:instances"}, path.Get.Security[0][kaitenhuma.BearerAuth])
 	require.NotNil(t, path.Get.Responses["200"])
+	require.NotNil(t, path.Get.Responses["200"].Headers["Cache-Control"])
 }

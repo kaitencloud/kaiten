@@ -42,7 +42,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.LicenseVali
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, kaitenerrors.NotFound("GetLicenseValidation.NotFound", fmt.Sprintf("Instance with slug %q not found", slug))
+			return nil, kaitenerrors.NotFound("GetInstanceLicenseValidation.NotFound", fmt.Sprintf("Instance with slug %q not found", slug))
 		}
 		return nil, err
 	}
@@ -51,8 +51,14 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.LicenseVali
 	if err != nil {
 		return nil, err
 	}
-	if !now.Valid || !instance.StartLicenseDate.Valid || !instance.EndLicenseDate.Valid {
-		return nil, errors.New("license validation requires a database time and complete license term")
+	if !now.Valid {
+		return nil, fmt.Errorf("instance %q: database clock is invalid", slug)
+	}
+	if !instance.StartLicenseDate.Valid || !instance.EndLicenseDate.Valid {
+		return nil, fmt.Errorf("instance %q: stored license term is incomplete", slug)
+	}
+	if instance.LicenseSlug == nil {
+		return nil, fmt.Errorf("instance %q: assigned license slug is missing", slug)
 	}
 	evaluatedAt := now.Time.UTC()
 	start := instance.StartLicenseDate.Time.UTC()
@@ -65,17 +71,13 @@ func (h *UseCase) Execute(ctx context.Context, slug string) (*schema.LicenseVali
 		status = schema.LicenseTermNotStarted
 	}
 
-	licenseSlug := ""
-	if instance.LicenseSlug != nil {
-		licenseSlug = *instance.LicenseSlug
-	}
 	return &schema.LicenseValidation{
 		Valid:            status == schema.LicenseTermActive,
 		Status:           status,
 		EvaluatedAt:      evaluatedAt,
 		InstanceSlug:     instance.Slug,
 		LicenseID:        instance.LicenseID,
-		LicenseSlug:      licenseSlug,
+		LicenseSlug:      *instance.LicenseSlug,
 		StartLicenseDate: start,
 		EndLicenseDate:   end,
 	}, nil

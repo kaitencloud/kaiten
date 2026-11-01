@@ -80,7 +80,13 @@ const awaitsBilling = "billing: the SDK models it in its billing release"
 // contract (V32-03 a).
 const awaitsExceptions = "entitlement exceptions: the SDK models them after the contract"
 
+// The pinned sdk-go lacks Instances.GetLicenseValidation. Replace this debt
+// with its real method mapping when Core adopts the next SDK release.
+const awaitsLicenseValidation = "assigned license term validation: sdk-go adds Instances.GetLicenseValidation in its next release"
+
 var awaitingSDKOperations = map[string]string{
+	"getInstanceLicenseValidation": awaitsLicenseValidation,
+
 	"listLicensePrices":        awaitsBilling,
 	"getLicensePrice":          awaitsBilling,
 	"createLicensePrice":       awaitsBilling,

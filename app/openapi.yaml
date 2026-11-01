@@ -25672,6 +25672,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/LicenseValidation"
           description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
         "401":
           content:
             application/problem+json:

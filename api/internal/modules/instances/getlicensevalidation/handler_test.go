@@ -29,6 +29,7 @@ func (q *queryStub) GetOneInstance(_ context.Context, params db.GetOneInstancePa
 	q.params = params
 	return q.instance, q.lookupErr
 }
+
 func (q *queryStub) GetDatabaseNow(context.Context) (pgtype.Timestamp, error) {
 	return q.now, q.clockErr
 }
@@ -55,8 +56,10 @@ func TestAssignedLicenseTermBoundaries(t *testing.T) {
 			orgID, licenseID := uuid.New(), uuid.New()
 			slug := "starter"
 			q := &queryStub{
-				instance: db.GetOneInstanceRow{Slug: "ninja-prod", LicenseID: licenseID, LicenseSlug: &slug,
-					StartLicenseDate: timestamp(start), EndLicenseDate: timestamp(end)},
+				instance: db.GetOneInstanceRow{
+					Slug: "ninja-prod", LicenseID: licenseID, LicenseSlug: &slug,
+					StartLicenseDate: timestamp(start), EndLicenseDate: timestamp(end),
+				},
 				now: timestamp(tc.now),
 			}
 			uc := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{OrganizationID: orgID}})
@@ -77,9 +80,12 @@ func TestAssignedLicenseTermBoundaries(t *testing.T) {
 
 func TestValidationDoesNotTurnOperationalSignalsIntoSuspension(t *testing.T) {
 	now := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
-	churned := "CHURNED"
-	q := &queryStub{instance: db.GetOneInstanceRow{Status: db.InstanceStatusMAINTENANCE, LifecycleStage: &churned,
-		StartLicenseDate: timestamp(now.Add(-time.Hour)), EndLicenseDate: timestamp(now.Add(time.Hour))}, now: timestamp(now)}
+	churned, licenseSlug := "CHURNED", "starter"
+	q := &queryStub{instance: db.GetOneInstanceRow{
+		Slug: "ninja-prod", LicenseID: uuid.New(), LicenseSlug: &licenseSlug,
+		Status: db.InstanceStatusMAINTENANCE, LifecycleStage: &churned,
+		StartLicenseDate: timestamp(now.Add(-time.Hour)), EndLicenseDate: timestamp(now.Add(time.Hour)),
+	}, now: timestamp(now)}
 	actual, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "ninja-prod")
 	require.NoError(t, err)
 	require.True(t, actual.Valid)
@@ -92,7 +98,7 @@ func TestValidationFailurePaths(t *testing.T) {
 		require.Nil(t, result)
 		var problem *kaitenerrors.Error
 		require.ErrorAs(t, err, &problem)
-		require.Equal(t, "GetLicenseValidation.NotFound", problem.Code)
+		require.Equal(t, "GetInstanceLicenseValidation.NotFound", problem.Code)
 	})
 	t.Run("unauthenticated has no decision", func(t *testing.T) {
 		uc := NewUseCase(Deps{UserProvider: &currentuser.ContextUserProvider{}})
@@ -119,10 +125,35 @@ func TestValidationFailurePaths(t *testing.T) {
 			require.ErrorIs(t, err, expected)
 		})
 	}
-	t.Run("incomplete stored term fails closed", func(t *testing.T) {
-		q := &queryStub{now: timestamp(time.Now())}
-		result, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "ninja-prod")
-		require.Nil(t, result)
-		require.Error(t, err)
-	})
+	for _, tc := range []struct {
+		name, message                    string
+		clockValid, startValid, endValid bool
+		missingLicenseSlug               bool
+	}{
+		{"invalid database clock", "database clock is invalid", false, true, true, false},
+		{"missing stored start", "stored license term is incomplete", true, false, true, false},
+		{"missing stored end", "stored license term is incomplete", true, true, false, false},
+		{"missing assigned license slug", "assigned license slug is missing", true, true, true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			now := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
+			licenseSlug := "starter"
+			q := &queryStub{
+				instance: db.GetOneInstanceRow{
+					Slug: "ninja-prod", LicenseID: uuid.New(), LicenseSlug: &licenseSlug,
+					StartLicenseDate: pgtype.Timestamp{Time: now.Add(-time.Hour), Valid: tc.startValid},
+					EndLicenseDate:   pgtype.Timestamp{Time: now.Add(time.Hour), Valid: tc.endValid},
+				},
+				now: pgtype.Timestamp{Time: now, Valid: tc.clockValid},
+			}
+			if tc.missingLicenseSlug {
+				q.instance.LicenseSlug = nil
+			}
+			result, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "ninja-prod")
+			require.Nil(t, result)
+			require.EqualError(t, err, `instance "ninja-prod": `+tc.message)
+			var problem *kaitenerrors.Error
+			require.False(t, errors.As(err, &problem), "invariant diagnostics must remain internal")
+		})
+	}
 }

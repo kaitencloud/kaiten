@@ -31,8 +31,12 @@ func TestInstanceLicenseValidation(t *testing.T) {
 				`UPDATE instance SET start_license_date=$1, end_license_date=$2 WHERE id=$3`,
 				now.Add(tc.start), now.Add(tc.end), instance.ID)
 			require.NoError(t, err)
-			result := sendInstanceRequest[schema.LicenseValidation](t, http.MethodGet,
-				"/api/instances/"+instance.Slug+"/license-validation", nil, fiber.StatusOK)
+			req := commonfixture.NewJSONRequest(t, http.MethodGet, "/api/instances/"+instance.Slug+"/license-validation", nil)
+			resp, err := testServer.App.Test(req, fiber.TestConfig{})
+			require.NoError(t, err)
+			defer commonfixture.MustCloseBody(t, resp.Body)
+			require.Equal(t, "no-store", resp.Header.Get("Cache-Control"))
+			result := commonfixture.AssertJSONResponse[schema.LicenseValidation](t, resp, fiber.StatusOK)
 			require.Equal(t, schema.LicenseTermStatus(tc.status), result.Status)
 			require.Equal(t, tc.status == "ACTIVE", result.Valid)
 			require.Equal(t, instance.LicenseID, result.LicenseID)
@@ -72,7 +76,7 @@ func TestInstanceLicenseValidation(t *testing.T) {
 			require.NoError(t, err)
 			defer commonfixture.MustCloseBody(t, resp.Body)
 			problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, resp, fiber.StatusNotFound)
-			require.Equal(t, "GetLicenseValidation.NotFound", problem.Code)
+			require.Equal(t, "GetInstanceLicenseValidation.NotFound", problem.Code)
 		}
 	})
 	t.Run("insufficient scope is forbidden", func(t *testing.T) {
