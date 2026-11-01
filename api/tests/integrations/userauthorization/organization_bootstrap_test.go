@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
-
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database"
@@ -238,6 +238,13 @@ func TestOrganizationBootstrapIdentityAliases(t *testing.T) {
 }
 
 func TestOrganizationBootstrapMigrationWriterLocks(t *testing.T) {
+	rollback := func(tx pgx.Tx) {
+		t.Helper()
+		// Deferred cleanup also runs after an explicit commit or rollback.
+		if err := tx.Rollback(context.Background()); !errors.Is(err, pgx.ErrTxClosed) {
+			require.NoError(t, err)
+		}
+	}
 	testDB, err := tests.NewTestDatabase()
 	require.NoError(t, err)
 	t.Cleanup(testDB.TearDown)
@@ -264,7 +271,7 @@ func TestOrganizationBootstrapMigrationWriterLocks(t *testing.T) {
 	// An already-running identity/assignment writer must finish BEFORE snapshots.
 	writeTx, err := writer.Begin(ctx)
 	require.NoError(t, err)
-	defer writeTx.Rollback(context.Background())
+	defer rollback(writeTx)
 	_, err = writeTx.Exec(ctx, `UPDATE organization SET external_id=$1 WHERE id=$2`, before, org)
 	require.NoError(t, err)
 	migrationTx, err := migrator.Begin(ctx)
@@ -285,7 +292,7 @@ func TestOrganizationBootstrapMigrationWriterLocks(t *testing.T) {
 	// while waiting for the latch writer (which would deadlock the old transaction).
 	writeTx, err = writer.Begin(ctx)
 	require.NoError(t, err)
-	defer writeTx.Rollback(context.Background())
+	defer rollback(writeTx)
 	_, err = writeTx.Exec(ctx, `SELECT id FROM organization WHERE id=$1 FOR NO KEY UPDATE`, org)
 	require.NoError(t, err)
 	_, err = writeTx.Exec(ctx, `INSERT INTO user_administrator_bootstrap(singleton,user_id,organization_id) VALUES (TRUE,$1,$2)`, user, org)
@@ -304,7 +311,7 @@ func TestOrganizationBootstrapMigrationWriterLocks(t *testing.T) {
 
 	migrationTx, err = migrator.Begin(ctx)
 	require.NoError(t, err)
-	defer migrationTx.Rollback(context.Background())
+	defer rollback(migrationTx)
 	_, err = migrationTx.Exec(ctx, prefix)
 	require.NoError(t, err)
 	// No sleeps/goroutine timing: server lock_timeout proves both supported write
@@ -344,7 +351,7 @@ func TestOrganizationBootstrapMigrationWriterLocks(t *testing.T) {
 	require.NoError(t, err)
 	writeTx, err = writer.Begin(ctx)
 	require.NoError(t, err)
-	defer writeTx.Rollback(context.Background())
+	defer rollback(writeTx)
 	_, err = writeTx.Exec(ctx, `INSERT INTO user_organization_authorization(organization_id,user_id) VALUES ($1,$2)`, secondOrg, user)
 	require.NoError(t, err)
 	// The direct seeder grant must hold the org lock before assignment tuple locks,
@@ -451,7 +458,8 @@ func TestOrganizationBootstrapMixedVersionLegacyElection(t *testing.T) {
 				require.Zero(t, scalar(t, testDB, `SELECT count(*) FROM organization_administrator_bootstrap`))
 				require.Zero(t, scalar(t, testDB, `SELECT count(*) FROM organization_administrator_bootstrap_alias`))
 			}
-			if mode == "preexisting-demo-policy" {
+			switch mode {
+			case "preexisting-demo-policy":
 				require.NoError(t, database.DownTo(t.Context(), testDB.ConnectionString, 20261022000000))
 				_, err := testDB.DbPool.Exec(t.Context(), `INSERT INTO user_organization_authorization(organization_id,user_id,roles) VALUES ($1,$2,ARRAY['administrator'])`, org, testDB.DefaultData.UserID)
 				require.NoError(t, err)
@@ -459,11 +467,11 @@ func TestOrganizationBootstrapMixedVersionLegacyElection(t *testing.T) {
 				require.NoError(t, database.RunMigrations(testDB.ConnectionString))
 				// Historical explicit policy is sealed, not relabeled as a new winner.
 				require.Zero(t, scalar(t, testDB, `SELECT count(*) FROM organization_administrator_bootstrap WHERE user_id IS NOT NULL`))
-			} else if mode == "explicit-demo-policy" {
+			case "explicit-demo-policy":
 				// Same direct assignment insertion as the demo seeder, without JIT.
 				_, err := testDB.DbPool.Exec(t.Context(), `INSERT INTO user_organization_authorization(organization_id,user_id,roles) VALUES ($1,$2,ARRAY['administrator'])`, org, testDB.DefaultData.UserID)
 				require.NoError(t, err)
-			} else {
+			default:
 				id, err := provision.Execute(t.Context(), cmd)
 				require.NoError(t, err)
 				assignment, err := storage.New(unit).Resolve(t.Context(), org, id)
