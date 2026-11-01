@@ -106,7 +106,6 @@ export const OPERATION_SCOPES = {
   getInstanceBilling: ['read:billing'],
   getInstanceIntegration: ['read:instances'],
   getInstanceIntegrationByExternalId: ['read:instances'],
-  getInstanceLicenseValidation: ['read:instances'],
   getInstances: ['read:instances'],
   getInvoice: ['read:billing'],
   getLicense: ['read:licenses'],

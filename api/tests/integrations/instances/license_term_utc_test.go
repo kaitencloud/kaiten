@@ -40,10 +40,10 @@ func TestInstanceLicenseTermsPreserveOffsetInstants(t *testing.T) {
 			stored := storedInstance(t, created.Slug)
 			require.Equal(t, start, stored.StartLicenseDate, "PUT must preserve the instant, not the request's wall-clock hour")
 			require.Equal(t, end, stored.EndLicenseDate)
-			validation := sendInstanceRequest[schema.LicenseValidation](t, http.MethodGet,
-				"/api/instances/"+created.Slug+"/license-validation", nil, fiber.StatusOK)
-			require.True(t, validation.Valid)
-			require.Equal(t, schema.LicenseTermActive, validation.Status)
+			validation := sendInstanceRequest[schema.Instance](t, http.MethodGet,
+				"/api/instances/"+created.Slug, nil, fiber.StatusOK)
+			require.NotNil(t, validation.LicenseTerm)
+			require.Equal(t, schema.LicenseTermActive, validation.LicenseTerm.Status)
 		})
 	}
 }

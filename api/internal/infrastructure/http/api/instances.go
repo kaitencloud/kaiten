@@ -16,7 +16,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
-	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getlicensevalidation"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
@@ -45,7 +44,6 @@ func registerInstances(core huma.API, app kaiten.Instances) {
 	deleteinstance.RegisterWebhook(core)
 	getintegrations.RegisterEndpoint(core, app)
 	getinstance.RegisterEndpoint(core, app)
-	getlicensevalidation.RegisterEndpoint(core, app)
 	getinstances.RegisterEndpoint(core, app)
 	patchinstance.RegisterEndpoint(core, app)
 	patchinstance.RegisterWebhook(core)

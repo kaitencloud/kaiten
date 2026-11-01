@@ -1,4 +1,4 @@
-package getlicensevalidation
+package getinstance
 
 import (
 	"context"
@@ -18,20 +18,35 @@ import (
 )
 
 type queryStub struct {
-	instance  db.GetOneInstanceRow
-	now       pgtype.Timestamp
-	lookupErr error
-	clockErr  error
-	params    db.GetOneInstanceParams
+	instance        db.GetOneInstanceRow
+	now             pgtype.Timestamp
+	lookupErr       error
+	clockErr        error
+	integrationErr  error
+	integrations    []db.GetInstanceIntegrationsRow
+	lookups, clocks int
+	params          db.GetOneInstanceParams
 }
 
 func (q *queryStub) GetOneInstance(_ context.Context, params db.GetOneInstanceParams) (db.GetOneInstanceRow, error) {
+	q.lookups++
 	q.params = params
 	return q.instance, q.lookupErr
 }
 
 func (q *queryStub) GetDatabaseNow(context.Context) (pgtype.Timestamp, error) {
+	q.clocks++
 	return q.now, q.clockErr
+}
+
+func (q *queryStub) GetInstanceIntegrations(context.Context, db.GetInstanceIntegrationsParams) ([]db.GetInstanceIntegrationsRow, error) {
+	return q.integrations, q.integrationErr
+}
+
+func instanceRow(now time.Time) db.GetOneInstanceRow {
+	slug := "starter"
+	return db.GetOneInstanceRow{Slug: "ninja-prod", LicenseID: uuid.New(), LicenseSlug: &slug,
+		StartLicenseDate: timestamp(now.Add(-time.Hour)), EndLicenseDate: timestamp(now.Add(time.Hour))}
 }
 
 func timestamp(t time.Time) pgtype.Timestamp { return pgtype.Timestamp{Time: t, Valid: true} }
@@ -65,20 +80,22 @@ func TestAssignedLicenseTermBoundaries(t *testing.T) {
 			uc := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{OrganizationID: orgID}})
 			actual, err := uc.Execute(t.Context(), "ninja-prod")
 			require.NoError(t, err)
-			require.Equal(t, tc.status, actual.Status)
-			require.Equal(t, tc.status == schema.LicenseTermActive, actual.Valid)
+			require.NotNil(t, actual.LicenseTerm)
+			require.Equal(t, tc.status, actual.LicenseTerm.Status)
+			require.Equal(t, 1, q.lookups)
+			require.Equal(t, 1, q.clocks)
 			require.Equal(t, orgID, q.params.OrganizationID)
 			require.Equal(t, "ninja-prod", q.params.Slug)
 			require.Equal(t, licenseID, actual.LicenseID)
 			require.Equal(t, slug, actual.LicenseSlug)
-			require.Equal(t, time.UTC, actual.EvaluatedAt.Location())
+			require.Equal(t, time.UTC, actual.LicenseTerm.EvaluatedAt.Location())
 			require.Equal(t, start.UTC(), actual.StartLicenseDate)
 			require.Equal(t, end.UTC(), actual.EndLicenseDate)
 		})
 	}
 }
 
-func TestValidationDoesNotTurnOperationalSignalsIntoSuspension(t *testing.T) {
+func TestInstanceTermDoesNotTurnOperationalSignalsIntoSuspension(t *testing.T) {
 	now := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
 	churned, licenseSlug := "CHURNED", "starter"
 	q := &queryStub{instance: db.GetOneInstanceRow{
@@ -88,17 +105,19 @@ func TestValidationDoesNotTurnOperationalSignalsIntoSuspension(t *testing.T) {
 	}, now: timestamp(now)}
 	actual, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "ninja-prod")
 	require.NoError(t, err)
-	require.True(t, actual.Valid)
+	require.Equal(t, schema.LicenseTermActive, actual.LicenseTerm.Status)
+	require.Equal(t, schema.InstanceStatusMaintenance, actual.Status)
+	require.Equal(t, &churned, actual.LifecycleStage)
 }
 
-func TestValidationFailurePaths(t *testing.T) {
+func TestInstanceTermFailurePaths(t *testing.T) {
 	t.Run("missing or foreign lookup is not found", func(t *testing.T) {
 		q := &queryStub{lookupErr: pgx.ErrNoRows}
 		result, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "foreign-prod")
 		require.Nil(t, result)
 		var problem *kaitenerrors.Error
 		require.ErrorAs(t, err, &problem)
-		require.Equal(t, "GetInstanceLicenseValidation.NotFound", problem.Code)
+		require.Equal(t, "GetInstance.NotFound", problem.Code)
 	})
 	t.Run("unauthenticated has no decision", func(t *testing.T) {
 		uc := NewUseCase(Deps{UserProvider: &currentuser.ContextUserProvider{}})
@@ -115,7 +134,7 @@ func TestValidationFailurePaths(t *testing.T) {
 		{"cancellation", context.Canceled, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			q := &queryStub{lookupErr: tc.lookupErr, clockErr: tc.clockErr}
+			q := &queryStub{instance: instanceRow(time.Now()), lookupErr: tc.lookupErr, clockErr: tc.clockErr}
 			result, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "ninja-prod")
 			require.Nil(t, result)
 			expected := tc.lookupErr
@@ -156,4 +175,44 @@ func TestValidationFailurePaths(t *testing.T) {
 			require.False(t, errors.As(err, &problem), "invariant diagnostics must remain internal")
 		})
 	}
+}
+
+func TestInstanceHydrationFailureHasNoPartialResource(t *testing.T) {
+	now := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
+	for _, name := range []string{"metadata", "integration lookup", "integration metadata"} {
+		t.Run(name, func(t *testing.T) {
+			q := &queryStub{instance: instanceRow(now), now: timestamp(now)}
+			switch name {
+			case "metadata":
+				q.instance.Metadata = []byte("[]")
+			case "integration lookup":
+				q.integrationErr = errors.New("integration database unavailable")
+			case "integration metadata":
+				q.integrations = []db.GetInstanceIntegrationsRow{{Metadata: []byte("[]")}}
+			}
+			result, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "ninja-prod")
+			require.Nil(t, result)
+			require.Error(t, err)
+			require.Zero(t, q.clocks)
+		})
+	}
+}
+
+func TestInstanceRepositoryRemainsPersistedOnly(t *testing.T) {
+	now := time.Now().UTC()
+	q := &queryStub{instance: instanceRow(now)}
+	result, err := NewQueryRepository(q).GetInstance(t.Context(), "ninja-prod", uuid.New())
+	require.NoError(t, err)
+	require.Nil(t, result.LicenseTerm)
+	require.Zero(t, q.clocks)
+}
+
+func TestInstanceTermRetainsEndFirstPrecedence(t *testing.T) {
+	now := time.Date(2026, 10, 30, 0, 0, 0, 0, time.UTC)
+	q := &queryStub{instance: instanceRow(now), now: timestamp(now)}
+	q.instance.StartLicenseDate = timestamp(now.Add(time.Hour))
+	q.instance.EndLicenseDate = timestamp(now.Add(-time.Hour))
+	result, err := NewUseCase(Deps{Queries: q, UserProvider: &currentuser.StaticUserProvider{}}).Execute(t.Context(), "ninja-prod")
+	require.NoError(t, err)
+	require.Equal(t, schema.LicenseTermExpired, result.LicenseTerm.Status)
 }

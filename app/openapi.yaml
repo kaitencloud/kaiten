@@ -4953,7 +4953,7 @@ components:
             - This is a sample instance description
           type: string
         endLicenseDate:
-          description: End date of the license for this instance
+          description: UTC exclusive end of the assigned license term for this instance
           examples:
             - "2024-10-01T12:00:00Z"
           format: date-time
@@ -4980,6 +4980,10 @@ components:
             - my-license
           readOnly: true
           type: string
+        licenseTerm:
+          $ref: "#/components/schemas/LicenseTerm"
+          description: Assigned license term state at UTC database time. Always present on GET instance details; omitted from list, create and event representations.
+          readOnly: true
         lifecycleStage:
           description: "Commercial lifecycle stage of the instance (free-form; suggested: TRIAL, ACTIVE, AT_RISK, CHURNED)"
           examples:
@@ -5007,7 +5011,7 @@ components:
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
         startLicenseDate:
-          description: Start date of the license for this instance
+          description: UTC inclusive start of the assigned license term for this instance
           examples:
             - "2023-10-01T12:00:00Z"
           format: date-time
@@ -5480,7 +5484,7 @@ components:
             - This is a sample instance description
           type: string
         endLicenseDate:
-          description: End date of the license for this instance
+          description: UTC exclusive end of the assigned license term for this instance
           examples:
             - "2024-10-01T12:00:00Z"
           format: date-time
@@ -5507,6 +5511,10 @@ components:
             - my-license
           readOnly: true
           type: string
+        licenseTerm:
+          $ref: "#/components/schemas/LicenseTerm"
+          description: Assigned license term state at UTC database time. Always present on GET instance details; omitted from list, create and event representations.
+          readOnly: true
         lifecycleStage:
           description: "Commercial lifecycle stage of the instance (free-form; suggested: TRIAL, ACTIVE, AT_RISK, CHURNED)"
           examples:
@@ -5534,7 +5542,7 @@ components:
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
         startLicenseDate:
-          description: Start date of the license for this instance
+          description: UTC inclusive start of the assigned license term for this instance
           examples:
             - "2023-10-01T12:00:00Z"
           format: date-time
@@ -6062,7 +6070,7 @@ components:
             - This is a sample instance description
           type: string
         endLicenseDate:
-          description: End date of the license for this instance
+          description: UTC exclusive end of the assigned license term for this instance
           examples:
             - "2024-10-01T12:00:00Z"
           format: date-time
@@ -6096,6 +6104,10 @@ components:
             - my-license
           readOnly: true
           type: string
+        licenseTerm:
+          $ref: "#/components/schemas/LicenseTerm"
+          description: Assigned license term state at UTC database time. Always present on GET instance details; omitted from list, create and event representations.
+          readOnly: true
         lifecycleStage:
           description: "Commercial lifecycle stage of the instance (free-form; suggested: TRIAL, ACTIVE, AT_RISK, CHURNED)"
           examples:
@@ -6123,7 +6135,7 @@ components:
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
         startLicenseDate:
-          description: Start date of the license for this instance
+          description: UTC inclusive start of the assigned license term for this instance
           examples:
             - "2023-10-01T12:00:00Z"
           format: date-time
@@ -8280,49 +8292,23 @@ components:
         - updatedAt
       type: object
       x-kaiten-payload: "#/components/schemas/LicensePriceUpdatedEvent"
-    LicenseValidation:
+    LicenseTerm:
       additionalProperties: false
       properties:
-        endLicenseDate:
-          description: UTC exclusive end of the assigned license term
-          format: date-time
-          type: string
         evaluatedAt:
-          description: UTC database time at which the term was evaluated
-          format: date-time
-          type: string
-        instanceSlug:
-          description: Instance whose assigned license was evaluated
-          type: string
-        licenseId:
-          description: Identifier of the assigned license version
-          type: string
-        licenseSlug:
-          description: Slug of the assigned license version
-          type: string
-        startLicenseDate:
-          description: UTC inclusive start of the assigned license term
+          description: UTC database instant used to determine the current term state
           format: date-time
           type: string
         status:
-          description: Assigned license term status
+          description: State of the assigned license interval at evaluatedAt
           enum:
             - ACTIVE
             - NOT_STARTED
             - EXPIRED
           type: string
-        valid:
-          description: Whether the assigned license term contains evaluatedAt
-          type: boolean
       required:
-        - valid
         - status
         - evaluatedAt
-        - instanceSlug
-        - licenseId
-        - licenseSlug
-        - startLicenseDate
-        - endLicenseDate
       type: object
     LineDifference:
       additionalProperties: false
@@ -23083,7 +23069,7 @@ paths:
       tags:
         - instances
     get:
-      description: Retrieve an instance by their unique slug
+      description: Retrieve an existing instance by its unique slug, including its assigned license term state at UTC database time. licenseTerm is always present on this detail read, with a start-inclusive, end-exclusive interval. NOT_STARTED and EXPIRED describe the retrieved resource, not a failed GET. Catalog publication, operational status and commercial lifecycle do not change the term state.
       operationId: getInstance
       parameters:
         - description: Instance slug
@@ -23102,6 +23088,10 @@ paths:
               schema:
                 $ref: "#/components/schemas/Instance"
           description: OK
+          headers:
+            Cache-Control:
+              schema:
+                type: string
         "401":
           content:
             application/problem+json:
@@ -25651,67 +25641,6 @@ paths:
       summary: List an instance's invoices
       tags:
         - billing
-  /instances/{instanceSlug}/license-validation:
-    get:
-      description: Evaluate the assigned license term using UTC database time. The start is inclusive and the end exclusive. Catalog DRAFT/ARCHIVED state, operational status and commercial lifecycle stage do not invalidate an existing assignment. This point-in-time decision does not change feature evaluation or usage reporting; consumers enforce it before protected actions.
-      operationId: getInstanceLicenseValidation
-      parameters:
-        - description: Instance slug
-          in: path
-          name: instanceSlug
-          required: true
-          schema:
-            description: Instance slug
-            examples:
-              - restaurant-prod
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LicenseValidation"
-          description: OK
-          headers:
-            Cache-Control:
-              schema:
-                type: string
-        "401":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
-          description: Unauthorized
-        "403":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
-          description: Forbidden
-        "404":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
-          description: Not Found
-        "422":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
-          description: Unprocessable Entity
-        "500":
-          content:
-            application/problem+json:
-              schema:
-                $ref: "#/components/schemas/Problem"
-          description: Internal Server Error
-      security:
-        - bearerAuth:
-            - read:instances
-      summary: Validate an instance's assigned license term
-      tags:
-        - instances
   /instances/{instanceSlug}/vouchers:
     get:
       description: The vouchers an instance redeemed, newest first. Requires billing to be enabled for the organization.

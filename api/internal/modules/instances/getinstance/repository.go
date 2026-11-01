@@ -17,10 +17,10 @@ import (
 )
 
 type QueryRepository struct {
-	repository *db.Queries
+	repository Queries
 }
 
-func NewQueryRepository(repository *db.Queries) *QueryRepository {
+func NewQueryRepository(repository Queries) *QueryRepository {
 	return &QueryRepository{
 		repository: repository,
 	}
@@ -40,6 +40,13 @@ func (r *QueryRepository) GetInstance(ctx context.Context, slug string, organiza
 		return nil, err
 	}
 
+	if !i.StartLicenseDate.Valid || !i.EndLicenseDate.Valid {
+		return nil, fmt.Errorf("instance %q: stored license term is incomplete", slug)
+	}
+	if i.LicenseSlug == nil {
+		return nil, fmt.Errorf("instance %q: assigned license slug is missing", slug)
+	}
+
 	metadata, err := schema.UnmarshalJSONObject(i.Metadata)
 	if err != nil {
 		return nil, err
@@ -50,10 +57,7 @@ func (r *QueryRepository) GetInstance(ctx context.Context, slug string, organiza
 		return nil, err
 	}
 
-	licenseSlug := ""
-	if i.LicenseSlug != nil {
-		licenseSlug = *i.LicenseSlug
-	}
+	licenseSlug := *i.LicenseSlug
 
 	customerSlug := ""
 	if i.CustomerSlug != nil {
@@ -77,8 +81,8 @@ func (r *QueryRepository) GetInstance(ctx context.Context, slug string, organiza
 		LicenseSlug:        licenseSlug,
 		DeploymentZoneID:   i.DeploymentZoneID,
 		DeploymentZoneSlug: i.DeploymentZoneSlug,
-		StartLicenseDate:   i.StartLicenseDate.Time,
-		EndLicenseDate:     i.EndLicenseDate.Time,
+		StartLicenseDate:   i.StartLicenseDate.Time.UTC(),
+		EndLicenseDate:     i.EndLicenseDate.Time.UTC(),
 		Metadata:           metadata,
 		Integrations:       integrations,
 	}, nil
