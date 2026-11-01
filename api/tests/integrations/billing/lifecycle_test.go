@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/cancelsubscription"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/lifecycle"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/billablecatalogue"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
@@ -64,7 +65,7 @@ func TestTrials(t *testing.T) {
 		billing := readBilling(t, s.instance.Slug)
 		require.Equal(t, subscriptions.StatusActive, billing.Status)
 		require.True(t, billing.AnchorAt.Equal(trialEnd))
-		require.True(t, billing.CurrentPeriodEnd.Equal(trialEnd.AddDate(0, 1, 0)))
+		require.True(t, billing.CurrentPeriodEnd.Equal(rating.AddMonthsClamped(trialEnd, 1)))
 		changes := outboxPayloads(t, "INSTANCE_BILLING_STATUS_CHANGED")
 		require.Len(t, changes, 1)
 		require.Equal(t, "TRIAL_ENDED", changes[0]["reason"])
