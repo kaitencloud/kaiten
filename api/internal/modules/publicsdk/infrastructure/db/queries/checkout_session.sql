@@ -118,17 +118,22 @@ FOR UPDATE;
 
 -- name: CompleteCheckoutSession :one
 -- A completion with nothing due: COMPLETED, closed, with what it created.
+-- Read the wall clock once: closed_at must equal the terminal timestamp.
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'COMPLETED',
     customer_id  = sqlc.arg(customer_id),
     instance_id  = sqlc.arg(instance_id),
-    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    completed_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'OPEN'
-RETURNING *;
+RETURNING checkout_session.*;
 
 
 -- name: RepriceCheckoutSession :exec
@@ -202,11 +207,15 @@ FOR UPDATE;
 
 -- name: PayCheckoutSession :exec
 -- Its ACTIVATION paid: COMPLETED, closed.
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'COMPLETED',
-    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    completed_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'AWAITING_PAYMENT';
@@ -215,11 +224,15 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- name: ExpireCheckoutSession :exec
 -- Its INCOMPLETE subscription expired or was canceled unpaid: EXPIRED,
 -- closed; the customer and the instance remain.
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status     = 'EXPIRED',
-    expired_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    expired_at = closing.instant,
+    closed_at  = closing.instant,
+    updated_at = closing.instant
+FROM closing
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'AWAITING_PAYMENT';
@@ -269,11 +282,15 @@ LIMIT sqlc.arg(row_limit)::integer;
 
 -- name: AbandonCheckoutSession :one
 -- Reaped by step (f): ABANDONED, closed, still OPEN when locked.
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'ABANDONED',
-    abandoned_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    abandoned_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = sqlc.arg(organization_id)
   AND id = sqlc.arg(id)
   AND status = 'OPEN'
