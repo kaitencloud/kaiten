@@ -31,7 +31,7 @@ func TestStoredAuthorization(t *testing.T) {
 	q := db.New(testDB.DbPool)
 	org := testDB.DefaultData.OrganizationID
 
-	t.Run("different humans and organizations race one deployment bootstrap", func(t *testing.T) {
+	t.Run("different humans and organizations elect one administrator per organization", func(t *testing.T) {
 		org2 := uuid.New()
 		_, err := testDB.DbPool.Exec(t.Context(), `INSERT INTO organization(id,external_id,name) VALUES ($1,$2,'Second')`, org2, uuid.NewString())
 		require.NoError(t, err)
@@ -57,9 +57,10 @@ func TestStoredAuthorization(t *testing.T) {
 			require.NoError(t, err)
 		}
 		require.EqualValues(t, 1, scalar(t, testDB, `SELECT count(*) FROM user_administrator_bootstrap`))
-		require.EqualValues(t, 1, scalar(t, testDB, `SELECT count(*) FROM user_organization_authorization WHERE 'administrator'=ANY(roles)`))
+		require.EqualValues(t, 2, scalar(t, testDB, `SELECT count(*) FROM user_organization_authorization WHERE 'administrator'=ANY(roles)`))
+		require.EqualValues(t, 2, scalar(t, testDB, `SELECT count(*) FROM organization_administrator_bootstrap`))
 		var userID, winnerOrg uuid.UUID
-		require.NoError(t, testDB.DbPool.QueryRow(t.Context(), `SELECT user_id,organization_id FROM user_administrator_bootstrap`).Scan(&userID, &winnerOrg))
+		require.NoError(t, testDB.DbPool.QueryRow(t.Context(), `SELECT user_id,organization_id FROM organization_administrator_bootstrap WHERE organization_id=$1`, org).Scan(&userID, &winnerOrg))
 		actual, err := store.Resolve(t.Context(), winnerOrg, userID)
 		require.NoError(t, err)
 		require.True(t, actual.IsAdministrator())
@@ -72,7 +73,7 @@ func TestStoredAuthorization(t *testing.T) {
 		require.ErrorIs(t, err, pgx.ErrNoRows)
 	})
 
-	t.Run("failed transaction and ineligible sign-ins do not consume bootstrap", func(t *testing.T) {
+	t.Run("failed transaction and ineligible sign-ins cannot win bootstrap", func(t *testing.T) {
 		require.NoError(t, testDB.Reset())
 		cmd := command(org)
 		rollback := errors.New("caller rollback")
@@ -82,11 +83,19 @@ func TestStoredAuthorization(t *testing.T) {
 			return rollback
 		})
 		require.ErrorIs(t, err, rollback)
+		_, err = q.GetUserByExternalID(t.Context(), cmd.Subject)
+		require.ErrorIs(t, err, pgx.ErrNoRows)
+		require.Zero(t, scalar(t, testDB, `SELECT count(*) FROM organization_administrator_bootstrap`))
 		require.Zero(t, scalar(t, testDB, `SELECT count(*) FROM user_administrator_bootstrap`))
 		for _, kind := range []string{"deleted-user", "deleted-membership", "disabled", "machine", "system"} {
 			err = nil
 			cmd := command(org)
 			id := externalid.DeriveUserID(cmd.Subject)
+			if kind == "disabled" {
+				cmd.OrganizationID = uuid.New()
+				_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO organization(id,external_id,name) VALUES ($1,$2,'Disabled policy')`, cmd.OrganizationID, uuid.NewString())
+				require.NoError(t, err)
+			}
 			switch kind {
 			case "machine":
 				_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO "user"(id,external_id,name,type,slug,organization_id) VALUES ($1,$2,'Machine','machine',$2,$3)`, id, cmd.Subject, org)
@@ -100,20 +109,20 @@ func TestStoredAuthorization(t *testing.T) {
 			case "deleted-user":
 				_, err = q.DeleteUser(t.Context(), id)
 			case "deleted-membership", "disabled":
-				_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO user_on_organization(organization_id,user_id,deleted_at) VALUES ($1,$2, CASE WHEN $3 THEN now() ELSE NULL END)`, org, id, kind == "deleted-membership")
+				_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO user_on_organization(organization_id,user_id,deleted_at) VALUES ($1,$2, CASE WHEN $3 THEN now() ELSE NULL END)`, cmd.OrganizationID, id, kind == "deleted-membership")
 				if kind == "disabled" {
-					_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO user_organization_authorization(organization_id,user_id,enabled) VALUES ($1,$2,FALSE)`, org, id)
+					_, err = testDB.DbPool.Exec(t.Context(), `INSERT INTO user_organization_authorization(organization_id,user_id,enabled) VALUES ($1,$2,FALSE)`, cmd.OrganizationID, id)
 				}
 			}
 			require.NoError(t, err)
 			if kind == "disabled" {
-				won, err := q.BootstrapUserAdministrator(t.Context(), db.BootstrapUserAdministratorParams{OrganizationID: org, UserID: id})
+				won, err := q.BootstrapUserAdministrator(t.Context(), db.BootstrapUserAdministratorParams{OrganizationID: cmd.OrganizationID, UserID: id})
 				require.NoError(t, err)
 				require.False(t, won)
 			}
 			_, err = provision.Execute(t.Context(), cmd)
 			require.Error(t, err, kind)
-			require.Zero(t, scalar(t, testDB, `SELECT count(*) FROM user_administrator_bootstrap`), kind)
+			require.Zero(t, scalar(t, testDB, `SELECT count(*) FROM organization_administrator_bootstrap WHERE user_id IS NOT NULL`), kind)
 		}
 		_, err = provision.Execute(t.Context(), command(org))
 		require.NoError(t, err)
@@ -144,7 +153,7 @@ func TestStoredAuthorization(t *testing.T) {
 		require.False(t, actual.IsAdministrator())
 		_, err = testDB.DbPool.Exec(t.Context(), `DELETE FROM organization WHERE id=$1`, org)
 		require.NoError(t, err)
-		require.EqualValues(t, 1, scalar(t, testDB, `SELECT count(*) FROM user_administrator_bootstrap`))
+		require.EqualValues(t, 1, scalar(t, testDB, `SELECT count(*) FROM organization_administrator_bootstrap`))
 	})
 
 	t.Run("serialized management preserves last admin and rechecks actor", func(t *testing.T) {
