@@ -1,12 +1,16 @@
 package jit
 
 import (
+	"context"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/organization/ensureorganization"
+	organizationschema "github.com/kaitencloud/kaiten/api/internal/modules/organization/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/users/ensureuser"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 )
 
@@ -63,4 +67,41 @@ func TestProvisionCacheExpiresEntries(t *testing.T) {
 	_, ok = cache.Get(provisionCacheKey{"identity", "organization"})
 	require.False(t, ok)
 	require.Empty(t, cache.entries)
+}
+
+// EnsureUser owns the atomic election. Only its successful return may populate the
+// identity cache, so retries after a refused/rolled-back election cannot skip it.
+type cacheProvisioning struct {
+	organizationID uuid.UUID
+	userID         uuid.UUID
+	calls          int
+	fail           bool
+}
+
+func (s *cacheProvisioning) EnsureOrganization(context.Context, *ensureorganization.Command) (*organizationschema.Organization, error) {
+	return &organizationschema.Organization{ID: s.organizationID}, nil
+}
+
+func (s *cacheProvisioning) EnsureUser(context.Context, *ensureuser.Command) (uuid.UUID, error) {
+	s.calls++
+	if s.fail {
+		return uuid.Nil, context.Canceled
+	}
+	return s.userID, nil
+}
+
+func TestProvisionCacheOnlyAfterSuccessfulElection(t *testing.T) {
+	surface := &cacheProvisioning{organizationID: uuid.New(), userID: uuid.New(), fail: true}
+	p := NewProvisioner(surface)
+	identity := &principal.Principal{Provisioning: principal.Provisioning{Subject: "human", ExternalOrganizationID: "org"}}
+	require.Error(t, p.Check(t.Context(), identity))
+	surface.fail = false
+	require.NoError(t, p.Check(t.Context(), identity))
+	require.Equal(t, 2, surface.calls)
+	require.Equal(t, surface.userID, identity.UserID)
+	// A warm cache resolves identity only; it must not repeat the grant operation.
+	identity.UserID, identity.OrganizationID = uuid.Nil, uuid.Nil
+	require.NoError(t, p.Check(t.Context(), identity))
+	require.Equal(t, 2, surface.calls)
+	require.Equal(t, surface.organizationID, identity.OrganizationID)
 }
