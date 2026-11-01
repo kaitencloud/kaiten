@@ -13,11 +13,15 @@ import (
 )
 
 const abandonCheckoutSession = `-- name: AbandonCheckoutSession :one
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'ABANDONED',
-    abandoned_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    abandoned_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = $1
   AND id = $2
   AND status = 'OPEN'
@@ -133,17 +137,21 @@ func (q *Queries) AwaitCheckoutPayment(ctx context.Context, arg AwaitCheckoutPay
 }
 
 const completeCheckoutSession = `-- name: CompleteCheckoutSession :one
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'COMPLETED',
     customer_id  = $1,
     instance_id  = $2,
-    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    completed_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = $3
   AND id = $4
   AND status = 'OPEN'
-RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+RETURNING checkout_session.id, checkout_session.organization_id, checkout_session.publishable_key_id, checkout_session.lookup_hash, checkout_session.status, checkout_session.email, checkout_session.client_reference_id, checkout_session.license_price_id, checkout_session.selection, checkout_session.due_today_minor, checkout_session.currency, checkout_session.trial_refused_reason, checkout_session.return_url, checkout_session.external_setup_session_id, checkout_session.setup_completed_at, checkout_session.customer_id, checkout_session.instance_id, checkout_session.created_at, checkout_session.expires_at, checkout_session.completed_at, checkout_session.abandoned_at, checkout_session.expired_at, checkout_session.closed_at, checkout_session.updated_at
 `
 
 type CompleteCheckoutSessionParams struct {
@@ -154,6 +162,7 @@ type CompleteCheckoutSessionParams struct {
 }
 
 // A completion with nothing due: COMPLETED, closed, with what it created.
+// Read the wall clock once: closed_at must equal the terminal timestamp.
 func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error) {
 	row := q.db.QueryRow(ctx, completeCheckoutSession,
 		arg.CustomerID,
@@ -192,11 +201,15 @@ func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheck
 }
 
 const expireCheckoutSession = `-- name: ExpireCheckoutSession :exec
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status     = 'EXPIRED',
-    expired_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    expired_at = closing.instant,
+    closed_at  = closing.instant,
+    updated_at = closing.instant
+FROM closing
 WHERE organization_id = $1
   AND id = $2
   AND status = 'AWAITING_PAYMENT'
@@ -695,11 +708,15 @@ func (q *Queries) MarkCheckoutSetupCompleted(ctx context.Context, arg MarkChecko
 }
 
 const payCheckoutSession = `-- name: PayCheckoutSession :exec
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'COMPLETED',
-    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    completed_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = $1
   AND id = $2
   AND status = 'AWAITING_PAYMENT'

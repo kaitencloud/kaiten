@@ -45,8 +45,10 @@ func (q *queryStub) GetInstanceIntegrations(context.Context, db.GetInstanceInteg
 
 func instanceRow(now time.Time) db.GetOneInstanceRow {
 	slug := "starter"
-	return db.GetOneInstanceRow{Slug: "ninja-prod", LicenseID: uuid.New(), LicenseSlug: &slug,
-		StartLicenseDate: timestamp(now.Add(-time.Hour)), EndLicenseDate: timestamp(now.Add(time.Hour))}
+	return db.GetOneInstanceRow{
+		Slug: "ninja-prod", LicenseID: uuid.New(), LicenseSlug: &slug,
+		StartLicenseDate: timestamp(now.Add(-time.Hour)), EndLicenseDate: timestamp(now.Add(time.Hour)),
+	}
 }
 
 func timestamp(t time.Time) pgtype.Timestamp { return pgtype.Timestamp{Time: t, Valid: true} }
