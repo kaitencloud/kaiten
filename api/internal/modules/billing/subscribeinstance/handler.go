@@ -785,12 +785,8 @@ func ensureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connectio
 	if err != nil {
 		return err
 	}
-	email := ""
-	if customer.BillingEmail != nil {
-		email = *customer.BillingEmail
-	}
 	if _, err := providers.EnsureCustomer(ctx, q, conn, organizationID,
-		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, timeout, clock.Time.UTC()); err != nil {
+		providers.Customer{ID: customer.ID, Name: customer.Name, Email: customer.BillingEmail}, timeout, clock.Time.UTC()); err != nil {
 		return providers.APIError(operation, err)
 	}
 	return nil

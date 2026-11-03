@@ -66,12 +66,8 @@ func (u *UseCase) Execute(ctx context.Context, customerSlug string, cmd NewPayme
 	if err != nil {
 		return nil, err
 	}
-	email := ""
-	if customer.BillingEmail != nil {
-		email = *customer.BillingEmail
-	}
 	externalID, err := providers.EnsureCustomer(ctx, q, conn, user.OrganizationID,
-		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, u.deps.ProviderTimeout, now)
+		providers.Customer{ID: customer.ID, Name: customer.Name, Email: customer.BillingEmail}, u.deps.ProviderTimeout, now)
 	if err != nil {
 		return nil, providers.APIError(operation, err)
 	}
