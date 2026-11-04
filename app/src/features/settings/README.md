@@ -9,6 +9,7 @@ The settings page is the entry to what an administrator configures. It links to 
 | `/settings`               | `app/src/routes/settings/index.tsx`         | `SettingsPageContent`                                                                                                                                                              |
 | `/settings/metadata`      | `app/src/routes/settings/metadata.tsx`      | `MetadataFieldsPageContent`                                                                                                                                                        |
 | `/settings/billing`       | `app/src/routes/settings/billing.tsx`       | `BillingSettingsPageContent`. Guarded by `requireBillingCapability`: where billing is off the route explains itself (`BillingNotFound`) and the settings page does not link to it. |
+| `/settings/plan`          | `app/src/routes/settings/plan.tsx`          | `PlanPageContent`. Kaiten Cloud only, behind the platform flag `plan-billing`: elsewhere the route answers not found and the settings page does not link to it. Its `plan` search parameter names the plan being checked out. |
 | `/settings/notifications` | `app/src/routes/settings/notifications.tsx` | The preferences page of the `notifications` feature (`app/src/features/notifications/`), which this folder does not own                                                            |
 
 `/settings` is pinned to the bottom of the side navigation, below the audit trail (`footerRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`).
@@ -38,6 +39,12 @@ app/src/features/settings/
 ├── data-export/                         # the card of the /settings page that offers the data to keep
 │   ├── components/                      # ExportDataCard, UsageExport (the months)
 │   ├── hooks/, queries/, utils/         # the export of a month, its download, the chunks of months
+├── plan/                                # the /settings/plan page (Plan & usage)
+│   ├── components/                      # the page, the SDK portal, the change of plan, the refusal card
+│   ├── plan.api.ts                      # POST /plan/session, saas-api's, written by hand
+│   ├── plan-session.ts                  # the first session's query, the refusals, the SDK session client
+│   ├── types.ts, __tests__/
+│   └── index.ts
 ├── metadata-fields/                     # the /settings/metadata page
 │   ├── components/                      # rows, list, form fields, dialogs, states, JSON editor
 │   ├── schemas/                         # form schema, validation, JSON Schema mapping
@@ -105,3 +112,11 @@ The metadata fields page reads and writes as follows:
 ## Public API
 
 `app/src/features/settings/index.ts` exports `SettingsPageContent`, `ApplicationSettingsSection`, `BillingSettingsPageContent`, `MetadataFieldsPageContent` and the types `MetadataResourceType` and `MetadataSettingsField`. Only the routes under `app/src/routes/settings/` import it, and they use `SettingsPageContent`, `BillingSettingsPageContent`, `MetadataFieldsPageContent` and `MetadataResourceType`, as routes are the only importers of a feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)). `ApplicationSettingsSection` is used inside the feature only.
+
+## Plan & usage
+
+`/settings/plan` is the organization's own Kaiten Cloud plan (billing spec §17.2 #16): its plan and entitlements, its usage, its invoices and payment method, and the move to another plan. The organization is a customer of Kaiten Cloud here, and the page reads its portal with Kaiten's own React SDK, the way any vendor's product reads its customers' (V31-47).
+
+- **Where it exists.** On Kaiten Cloud only, for the organizations the platform flag `plan-billing` targets (instance metadata `planBilling: true`, which saas-api writes on every organization bought on kaiten.sh). The route guards itself on the flag (`planBillingFlagQueryOptions`) and `PlanSettingsLinkCard` is absent where it is off.
+- **The session.** The page mints a customer session (`kst_`) through saas-api's `POST /plan/session` (`plan.api.ts`; not in `app/openapi.yaml`). Administrators only. Its refusals are a state of the page (`PlanSessionProblemCard`): `CreatePlanSession.NotEnabled`, `CreatePlanSession.NotProvisioned` (offered again), another 403 (not an administrator), anything else (Kaiten Cloud unavailable, offered again). The first session is handed to the SDK's `KaitenSessionClient`, which asks saas-api for a fresh one before it expires (`planSessionSupplier`).
+- **The SDK.** `KaitenProvider mode="customer-session"` against `env.PLATFORM_API_URL`, with `env.PLATFORM_PUBLISHABLE_KEY` for the catalogue. `CustomerPortal` draws the plan, usage, invoices and payment method; `PricingTable` the other plans (`useUpgradeOptions`), and `CheckoutFlow` the one chosen. The chosen plan is the route's `plan` search parameter, so a return from Stripe lands on the same checkout. The SDK and its stylesheet load with the page only (`React.lazy` in `PlanPageContent`, and `vite.config.ts` keeps `@kaitencloud/*` out of the vendor chunk).

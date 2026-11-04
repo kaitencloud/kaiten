@@ -105,17 +105,18 @@ The app is then served at <http://localhost:8080>.
 ## Configuration at start-up
 
 `docker-entrypoint.sh` runs `envsubst` on the built `assets/runtime-config-*.js`
-chunk, then starts nginx. It substitutes exactly four variables:
+chunk, then starts nginx. It substitutes exactly five variables:
 
 - `VITE_API_URL`
 - `VITE_CLERK_PUBLISHABLE_KEY`
 - `VITE_KAITEN_PLATFORM_API_URL`
 - `VITE_KAITEN_PLATFORM_FLAGS_TOKEN`
+- `VITE_KAITEN_PLATFORM_PUBLISHABLE_KEY`
 
 `VITE_API_URL` is required: it must end in `/api` (for example
 `https://kaiten.example.com/api`). Left unset, the substituted value is empty
 and the app throws `VITE_API_URL is required in production` when the page
-loads. The other three are described in [environments](./environments.md),
+loads. The other four are described in [environments](./environments.md),
 together with how the placeholders work.
 
 - Every value is served to the browser. Never put a secret in one of these

@@ -6147,6 +6147,44 @@ export default {
         organization: 'Organisation',
         browser: 'Ce navigateur',
       },
+      Plan: {
+        title: 'Offre et consommation',
+        subtitle:
+          'L’offre Kaiten Cloud de votre organisation : ce qu’elle comprend, ce que vous consommez et comment vous payez.',
+        cardDescription:
+          'Consultez votre offre Kaiten Cloud et votre consommation, changez d’offre, gérez votre moyen de paiement et vos factures.',
+        openButton: 'Ouvrir l’offre et la consommation',
+        loading: 'Chargement de votre offre',
+        retry: 'Réessayer',
+        Change: {
+          title: 'Changer d’offre',
+          description:
+            'Passez à une autre offre Kaiten Cloud. Le montant dû s’affiche avant que vous confirmiez.',
+          back: 'Choisir une autre offre',
+        },
+        Problems: {
+          notEnabled: {
+            title: 'Indisponible pour cette organisation',
+            description:
+              'L’offre et la consommation ne sont pas disponibles pour votre organisation. Contactez-nous pour changer d’offre.',
+          },
+          notProvisioned: {
+            title: 'Votre organisation est en cours de création',
+            description:
+              'Kaiten Cloud n’a pas encore d’offre pour votre organisation. Réessayez dans quelques minutes.',
+          },
+          forbidden: {
+            title: 'Réservé aux administrateurs',
+            description:
+              'Seul un administrateur de l’organisation peut consulter et changer son offre.',
+          },
+          unavailable: {
+            title: 'Impossible de charger votre offre pour le moment',
+            description:
+              'Kaiten Cloud n’a pas répondu. Rien n’a changé sur votre offre. Réessayez.',
+          },
+        },
+      },
       Notifications: {
         title: 'Notifications',
         subtitle:
