@@ -1826,6 +1826,11 @@ components:
         createdAt:
           format: date-time
           type: string
+        customerName:
+          description: As the start gave it; null when it gave none, and the completion names the customer after the e-mail
+          type:
+            - string
+            - "null"
         customerSlug:
           description: Set by the completion
           type:
@@ -1880,6 +1885,7 @@ components:
         - sessionId
         - status
         - email
+        - customerName
         - clientReferenceId
         - licenseSlug
         - billingPeriod
@@ -1924,6 +1930,11 @@ components:
         createdAt:
           format: date-time
           type: string
+        customerName:
+          description: As the visitor gave it; null when they gave none. Personal data
+          type:
+            - string
+            - "null"
         customerSlug:
           description: Set by the completion
           type:
@@ -1974,6 +1985,7 @@ components:
         - publishableKeyId
         - status
         - email
+        - customerName
         - clientReferenceId
         - licenseSlug
         - billingPeriod
@@ -2006,6 +2018,10 @@ components:
           description: The vendor's opaque reference, echoed on the checkout_session events
           maxLength: 255
           minLength: 1
+          type: string
+        customerName:
+          description: "What the completion names the new customer and its instance: the buyer's company, typically. Leading and trailing spaces are dropped; absent or blank, both are named after the e-mail."
+          maxLength: 255
           type: string
         dryRun:
           description: Compute what would be due today, and write nothing

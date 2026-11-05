@@ -71,12 +71,12 @@ WHERE l.organization_id = sqlc.arg(organization_id)
 
 -- name: InsertCheckoutSession :one
 -- The one row an anonymous checkout's start writes (INV-34): OPEN for 24 h.
-INSERT INTO checkout_session (organization_id, publishable_key_id, lookup_hash, email, client_reference_id,
-                              license_price_id, selection, due_today_minor, currency, trial_refused_reason,
-                              return_url, created_at, expires_at, updated_at)
+INSERT INTO checkout_session (organization_id, publishable_key_id, lookup_hash, email, customer_name,
+                              client_reference_id, license_price_id, selection, due_today_minor, currency,
+                              trial_refused_reason, return_url, created_at, expires_at, updated_at)
 VALUES (sqlc.arg(organization_id), sqlc.arg(publishable_key_id), sqlc.arg(lookup_hash), sqlc.arg(email),
-        sqlc.narg(client_reference_id), sqlc.arg(license_price_id), sqlc.arg(selection), sqlc.arg(due_today_minor),
-        sqlc.arg(currency), sqlc.narg(trial_refused_reason), sqlc.arg(return_url),
+        sqlc.narg(customer_name), sqlc.narg(client_reference_id), sqlc.arg(license_price_id), sqlc.arg(selection),
+        sqlc.arg(due_today_minor), sqlc.arg(currency), sqlc.narg(trial_refused_reason), sqlc.arg(return_url),
         date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
         date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') + interval '24 hours',
         date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'))
