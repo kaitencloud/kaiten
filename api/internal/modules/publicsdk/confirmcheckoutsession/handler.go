@@ -355,14 +355,21 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			}
 		}
 		email := locked.Email
-		customer, err := u.deps.Customers.Persist(ctx, organizationID, user.ID, &createcustomer.Command{Name: email, BillingEmail: &email})
+		// The name the buyer gave at the start, else the e-mail: a customer and
+		// an instance both need a name, and the e-mail is the one thing every
+		// session holds.
+		name := email
+		if locked.CustomerName != nil {
+			name = *locked.CustomerName
+		}
+		customer, err := u.deps.Customers.Persist(ctx, organizationID, user.ID, &createcustomer.Command{Name: name, BillingEmail: &email})
 		if err != nil {
 			return err
 		}
 		customerID = customer.ID
 		now := time.Now().UTC()
 		instance, err := u.deps.Instances.Persist(ctx, organizationID, user.ID, &createinstance.Command{
-			Name: email, Description: "", CustomerID: customer.ID, LicenseID: instanceLicenseID,
+			Name: name, Description: "", CustomerID: customer.ID, LicenseID: instanceLicenseID,
 			StartLicenseDate: now, EndLicenseDate: now.Add(licenceHorizon), Metadata: map[string]interface{}{},
 		})
 		if err != nil {

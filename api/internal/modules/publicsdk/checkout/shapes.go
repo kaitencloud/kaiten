@@ -35,6 +35,7 @@ type CheckoutSessionDraft struct {
 	VoucherCode       *string                               `json:"voucherCode,omitempty" maxLength:"64" doc:"A code to apply, checked against the selection, with no customer yet: a voucher restricted to a customer never applies, and one without a PRICE part only when nothing is due today. Its discount counts in dueToday; the completion, or the payment, records its redemption. Any refusal answers 422 .VoucherInvalid"`
 	Trial             *bool                                 `json:"trial,omitempty" doc:"false declines the licence's trial"`
 	Email             *string                               `json:"email,omitempty" maxLength:"254" doc:"The buyer's e-mail. It becomes the new customer's billing e-mail at completion. Required unless dryRun."`
+	CustomerName      *string                               `json:"customerName,omitempty" maxLength:"255" doc:"What the completion names the new customer and its instance: the buyer's company, typically. Leading and trailing spaces are dropped; absent or blank, both are named after the e-mail."`
 	ReturnURL         *string                               `json:"returnUrl,omitempty" maxLength:"2048" doc:"Where the payment-method setup page sends the visitor back, with kaiten_checkout_session=<sessionId> appended: https, or http on localhost, on an origin the key allows. Required unless dryRun."`
 	ClientReferenceID *string                               `json:"clientReferenceId,omitempty" minLength:"1" maxLength:"255" doc:"The vendor's opaque reference, echoed on the checkout_session events"`
 	DryRun            bool                                  `json:"dryRun,omitempty" doc:"Compute what would be due today, and write nothing"`
@@ -70,6 +71,7 @@ type CheckoutSession struct {
 	SessionID             uuid.UUID                `json:"sessionId"`
 	Status                string                   `json:"status" enum:"OPEN,AWAITING_PAYMENT,COMPLETED,ABANDONED,EXPIRED" doc:"A session still OPEN after expiresAt reads ABANDONED"`
 	Email                 string                   `json:"email"`
+	CustomerName          *string                  `json:"customerName" doc:"As the start gave it; null when it gave none, and the completion names the customer after the e-mail"`
 	ClientReferenceID     *string                  `json:"clientReferenceId"`
 	LicenseSlug           string                   `json:"licenseSlug"`
 	BillingPeriod         string                   `json:"billingPeriod"`
@@ -96,6 +98,7 @@ type CheckoutSessionAdmin struct {
 	PublishableKeyID   uuid.UUID               `json:"publishableKeyId" doc:"The key whose page started it"`
 	Status             string                  `json:"status" enum:"OPEN,AWAITING_PAYMENT,COMPLETED,ABANDONED,EXPIRED" doc:"A session still OPEN after expiresAt reads ABANDONED"`
 	Email              string                  `json:"email" doc:"As the visitor gave it. Personal data"`
+	CustomerName       *string                 `json:"customerName" doc:"As the visitor gave it; null when they gave none. Personal data"`
 	ClientReferenceID  *string                 `json:"clientReferenceId"`
 	LicenseSlug        string                  `json:"licenseSlug"`
 	BillingPeriod      string                  `json:"billingPeriod"`
@@ -120,7 +123,7 @@ func (CheckoutSessionAdmin) TransformSchema(_ huma.Registry, s *huma.Schema) *hu
 func AdminFrom(session CheckoutSession, publishableKeyID uuid.UUID, closedAt *time.Time) CheckoutSessionAdmin {
 	return CheckoutSessionAdmin{
 		SessionID: session.SessionID, PublishableKeyID: publishableKeyID, Status: session.Status, Email: session.Email,
-		ClientReferenceID: session.ClientReferenceID, LicenseSlug: session.LicenseSlug, BillingPeriod: session.BillingPeriod,
+		CustomerName: session.CustomerName, ClientReferenceID: session.ClientReferenceID, LicenseSlug: session.LicenseSlug, BillingPeriod: session.BillingPeriod,
 		PriceID: session.PriceID, AddOns: session.AddOns, DueToday: session.DueToday, TrialEndsAt: session.TrialEndsAt,
 		TrialRefusedReason: session.TrialRefusedReason, CustomerSlug: session.CustomerSlug, InstanceSlug: session.InstanceSlug,
 		CreatedAt: session.CreatedAt, ExpiresAt: session.ExpiresAt, CompletedAt: session.CompletedAt, ClosedAt: closedAt,
