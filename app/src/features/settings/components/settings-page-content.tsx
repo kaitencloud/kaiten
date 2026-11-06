@@ -18,6 +18,7 @@ import { Page } from '@/functionals/page';
 import { ExportDataCard } from '../data-export';
 import { ApplicationSettingsSection } from './application-settings-section';
 import { BillingSettingsLinkCard } from './billing-settings-link-card';
+import { PlanSettingsLinkCard } from './plan-settings-link-card';
 import { SettingsLinkCard } from './settings-link-card';
 
 type SettingsPageContentProps = {
@@ -66,6 +67,7 @@ function OrganizationSettingsSection() {
       <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
         {t('Pages.Settings.groups.organization')}
       </h2>
+      <PlanSettingsLinkCard />
       <SettingsLinkCard
         icon={ShieldCheck}
         title={t('Pages.Access.title')}

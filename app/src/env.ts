@@ -7,6 +7,9 @@ const runtimeEnv = {
   VITE_KAITEN_PLATFORM_API_URL: '${VITE_KAITEN_PLATFORM_API_URL}',
   // oxlint-disable-next-line no-template-curly-in-string -- intentional envsubst placeholder replaced at container startup
   VITE_KAITEN_PLATFORM_FLAGS_TOKEN: '${VITE_KAITEN_PLATFORM_FLAGS_TOKEN}',
+  // oxlint-disable-next-line no-template-curly-in-string -- intentional envsubst placeholder replaced at container startup
+  VITE_KAITEN_PLATFORM_PUBLISHABLE_KEY:
+    '${VITE_KAITEN_PLATFORM_PUBLISHABLE_KEY}',
 };
 
 // Only reached by a bare `pnpm dev`: the repo's `task app` derives VITE_API_URL
@@ -77,5 +80,14 @@ export default {
   PLATFORM_FLAGS_TOKEN: resolveRuntimeValue(
     runtimeEnv.VITE_KAITEN_PLATFORM_FLAGS_TOKEN,
     import.meta.env.VITE_KAITEN_PLATFORM_FLAGS_TOKEN,
+  ),
+  // A publishable key (`pk_`) of that same deployment, whose allowed origins
+  // include this console's: the Plan & usage page reads the plans the
+  // organization can move to from its public catalogue. Public by design, like
+  // the token above. Unset, the page still shows the organization's plan, and
+  // offers no other.
+  PLATFORM_PUBLISHABLE_KEY: resolveRuntimeValue(
+    runtimeEnv.VITE_KAITEN_PLATFORM_PUBLISHABLE_KEY,
+    import.meta.env.VITE_KAITEN_PLATFORM_PUBLISHABLE_KEY,
   ),
 };

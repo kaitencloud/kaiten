@@ -112,14 +112,15 @@ func unavailable(operation string) error {
 
 // Customer is what billing tells a provider about a customer.
 type Customer struct {
-	ID    uuid.UUID
-	Name  string
-	Email string
+	ID   uuid.UUID
+	Name string
+	// Email is the customer's billing e-mail, nil when it has none.
+	Email *string
 }
 
 // EnsureCustomer makes sure the provider knows the customer, and records its
 // id in customer_billing. Idempotent: the provider's customer is created
-// once, and only its e-mail is updated afterwards.
+// once, and only its e-mail is updated afterwards, when there is one.
 func EnsureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connection, organizationID uuid.UUID, customer Customer, timeout time.Duration, now time.Time) (string, error) {
 	kind := db.BillingProviderKind(conn.Adapter.Kind())
 	existing, err := q.GetCustomerBilling(ctx, db.GetCustomerBillingParams{
@@ -128,11 +129,15 @@ func EnsureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connectio
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", err
 	}
+	email := ""
+	if customer.Email != nil {
+		email = *customer.Email
+	}
 	ensure := func(externalID, recreateOf string) (provider.CustomerRecord, error) {
 		callCtx, cancel := Bound(ctx, timeout)
 		defer cancel()
 		return conn.Adapter.EnsureCustomer(callCtx, conn.Ref, provider.Customer{
-			CustomerID: customer.ID, ExternalID: externalID, Name: customer.Name, Email: customer.Email,
+			CustomerID: customer.ID, ExternalID: externalID, Name: customer.Name, Email: email,
 			Metadata:   map[string]string{"kaiten_customer_id": customer.ID.String(), "kaiten_organization_id": organizationID.String()},
 			RecreateOf: recreateOf,
 		})

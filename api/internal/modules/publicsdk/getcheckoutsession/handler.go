@@ -97,7 +97,7 @@ func Read(ctx context.Context, activation createcheckoutsession.Activation, paym
 		status = checkout.StatusAbandoned
 	}
 	out := &checkout.CheckoutSession{
-		SessionID: row.ID, Status: status, Email: row.Email, ClientReferenceID: row.ClientReferenceID,
+		SessionID: row.ID, Status: status, Email: row.Email, CustomerName: row.CustomerName, ClientReferenceID: row.ClientReferenceID,
 		LicenseSlug: row.LicenseSlug, BillingPeriod: "", PriceID: row.LicensePriceID,
 		AddOns: make([]checkout.SessionAddonSelection, 0, len(selection.AddOns)),
 		DueToday: sessions.DueToday{

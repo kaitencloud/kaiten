@@ -222,7 +222,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		row, err := db.New(u.deps.Uof.DBTX(ctx)).InsertCheckoutSession(ctx, db.InsertCheckoutSessionParams{
 			OrganizationID: start.OrganizationID, PublishableKeyID: start.PublishableKeyID, LookupHash: token.LookupHash(plaintext),
-			Email: *draft.Email, ClientReferenceID: draft.ClientReferenceID, LicensePriceID: priceID, Selection: stored,
+			Email: *draft.Email, CustomerName: customerName(draft.CustomerName), ClientReferenceID: draft.ClientReferenceID, LicensePriceID: priceID, Selection: stored,
 			DueTodayMinor: due.Total, Currency: due.Currency, TrialRefusedReason: trialRefused, ReturnUrl: *draft.ReturnURL,
 		})
 		if err != nil {
@@ -390,6 +390,19 @@ func allowedReturn(raw string, origins []string) bool {
 		return false
 	}
 	return sessions.AllowedReturn(raw, origins)
+}
+
+// customerName is the name the start stores for the completion: trimmed, and
+// nil when blank, so that the completion falls back to the e-mail.
+func customerName(raw *string) *string {
+	if raw == nil {
+		return nil
+	}
+	name := strings.TrimSpace(*raw)
+	if name == "" {
+		return nil
+	}
+	return &name
 }
 
 // hostOf is an origin's host, for the hostname Turnstile answers.
