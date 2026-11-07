@@ -371,3 +371,65 @@ func (q *Queries) ListOrganizationChanges(ctx context.Context, arg ListOrganizat
 	}
 	return items, nil
 }
+
+const listOrganizationIDs = `-- name: ListOrganizationIDs :many
+SELECT id FROM organization ORDER BY id
+`
+
+// Every organization, for the retention pass (see ../../../auditretention): one
+// with no entry past its window costs a lookup and deletes nothing, which is
+// cheaper than finding the organizations that have entries in a table this
+// size.
+func (q *Queries) ListOrganizationIDs(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listOrganizationIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const purgeOrganizationAuditTrail = `-- name: PurgeOrganizationAuditTrail :execrows
+WITH expired AS (
+  SELECT at.id
+  FROM audit_trail at
+  WHERE at.organization_id = $1
+    AND at.occurred_at < $2
+  ORDER BY at.occurred_at, at.id
+  LIMIT $3
+  FOR UPDATE SKIP LOCKED
+)
+DELETE FROM audit_trail at
+USING expired
+WHERE at.id = expired.id
+`
+
+type PurgeOrganizationAuditTrailParams struct {
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	Cutoff         pgtype.Timestamptz `json:"cutoff"`
+	BatchSize      int32              `json:"batch_size"`
+}
+
+// One bounded batch of an organization's entries older than cutoff, oldest
+// first, so a backlog is drained over many short transactions instead of one
+// long one holding locks and bloating WAL. SKIP LOCKED avoids waiting behind a
+// transaction touching an expired row; notification_read rows go with the
+// entry (ON DELETE CASCADE).
+func (q *Queries) PurgeOrganizationAuditTrail(ctx context.Context, arg PurgeOrganizationAuditTrailParams) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeOrganizationAuditTrail, arg.OrganizationID, arg.Cutoff, arg.BatchSize)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
