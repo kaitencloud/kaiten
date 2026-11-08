@@ -14,7 +14,7 @@ import { cn } from '@/lib/utils';
 const VERSION_FILL: Record<string, string> = {
   default: 'bg-distribution-1 text-distribution-1-foreground',
   published: 'bg-distribution-3 text-distribution-3-foreground',
-  archived: 'bg-chart-5 text-white',
+  archived: 'bg-distribution-4 text-distribution-4-foreground',
   draft: 'bg-distribution-5 text-distribution-5-foreground',
 };
 
@@ -104,7 +104,7 @@ export function LicenseMixCard({ mix }: { mix: DashboardLicenseFamilyMix[] }) {
             label={t('Pages.Dashboard.licenseMix.default')}
           />
           <Legend
-            className="bg-chart-5"
+            className="bg-distribution-4"
             label={t('Pages.Dashboard.licenseMix.archived')}
           />
           <Legend

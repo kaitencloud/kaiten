@@ -70,7 +70,7 @@ JOIN customer c ON c.id = i.customer_id
 JOIN license l ON l.id = i.license_id
 JOIN license_family lf ON lf.id = l.family_id
 WHERE i.organization_id = $1
- 
+
   AND l.lifecycle_state = 'ARCHIVED'
 ORDER BY c.name, i.slug
 `
@@ -332,7 +332,7 @@ SELECT i.slug, i.name, c.name AS customer_name, c.slug AS customer_slug, i.statu
 FROM instance i
 JOIN customer c ON c.id = i.customer_id
 WHERE i.organization_id = $1
- 
+
   AND i.status <> 'HEALTHY'
 ORDER BY i.updated_at DESC
 LIMIT 5
@@ -500,7 +500,7 @@ FROM instance i
 JOIN customer c ON c.id = i.customer_id
 JOIN license l ON l.id = i.license_id
 WHERE i.organization_id = $1
- 
+
   AND i.end_license_date >= $2
   AND i.end_license_date < $3
 ORDER BY i.end_license_date
@@ -557,7 +557,7 @@ SELECT
   count(*)::bigint AS within_180_days
 FROM instance i
 WHERE i.organization_id = $2
- 
+
   AND i.end_license_date >= $3
   AND i.end_license_date < $4
 `
@@ -757,7 +757,7 @@ LEFT JOIN accepted a ON a.instance_id = i.id
 LEFT JOIN refused r ON r.instance_id = i.id
 LEFT JOIN reads rd ON rd.instance_id = i.id
 WHERE i.organization_id = $1
- 
+
 ORDER BY COALESCE(a.accepted, 0) DESC, i.slug
 `
 

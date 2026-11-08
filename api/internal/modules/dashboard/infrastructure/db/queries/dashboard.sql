@@ -27,7 +27,7 @@ SELECT i.slug, i.name, c.name AS customer_name, c.slug AS customer_slug, i.statu
 FROM instance i
 JOIN customer c ON c.id = i.customer_id
 WHERE i.organization_id = sqlc.arg(organization_id)
- 
+
   AND i.status <> 'HEALTHY'
 ORDER BY i.updated_at DESC
 LIMIT 5;
@@ -132,7 +132,7 @@ LEFT JOIN accepted a ON a.instance_id = i.id
 LEFT JOIN refused r ON r.instance_id = i.id
 LEFT JOIN reads rd ON rd.instance_id = i.id
 WHERE i.organization_id = sqlc.arg(organization_id)
- 
+
 ORDER BY COALESCE(a.accepted, 0) DESC, i.slug;
 
 -- name: DashboardFlagEvaluations :many
@@ -177,7 +177,7 @@ SELECT
   count(*)::bigint AS within_180_days
 FROM instance i
 WHERE i.organization_id = sqlc.arg(organization_id)
- 
+
   AND i.end_license_date >= sqlc.arg(now)
   AND i.end_license_date < sqlc.arg(in_180_days);
 
@@ -195,7 +195,7 @@ FROM instance i
 JOIN customer c ON c.id = i.customer_id
 JOIN license l ON l.id = i.license_id
 WHERE i.organization_id = sqlc.arg(organization_id)
- 
+
   AND i.end_license_date >= sqlc.arg(now)
   AND i.end_license_date < sqlc.arg(in_180_days)
 ORDER BY i.end_license_date
@@ -220,7 +220,7 @@ JOIN customer c ON c.id = i.customer_id
 JOIN license l ON l.id = i.license_id
 JOIN license_family lf ON lf.id = l.family_id
 WHERE i.organization_id = sqlc.arg(organization_id)
- 
+
   AND l.lifecycle_state = 'ARCHIVED'
 ORDER BY c.name, i.slug;
 
