@@ -34,6 +34,12 @@ test.describe('dashboard read', () => {
       'Sakura Tokyo',
     );
     await expect(main.getByTestId('dashboard-fleet')).toContainText('At limit');
+    // The footer names the checks that found nothing, never one that has
+    // its lines above.
+    const alsoChecked = attention.getByText(/Also checked, nothing to report/);
+    await expect(alsoChecked).toBeVisible();
+    await expect(alsoChecked).toContainText('instance status');
+    await expect(alsoChecked).not.toContainText('limits reached');
   });
 
   test('the Integration tab shows the integration checks and keeps the view in the address', async ({
