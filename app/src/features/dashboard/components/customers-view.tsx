@@ -7,7 +7,11 @@ import {
 } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import { formatMoney } from '@/lib/money';
-import { buildCustomersAttention, checkedLabels } from '../logic/attention';
+import {
+  buildCustomersAttention,
+  CUSTOMERS_CHECKS,
+  quietChecks,
+} from '../logic/attention';
 import { buildFleet, countStandings } from '../logic/standing';
 import { AttentionCard } from './attention-card';
 import { BillingCard } from './billing-card';
@@ -156,11 +160,10 @@ export function CustomersView({
       <AttentionCard
         description={t('Pages.Dashboard.attention.customersDescription')}
         lines={lines}
-        checked={checkedLabels(
-          summary.attention.checked,
-          t,
-          Boolean(health.data),
-        )}
+        checked={quietChecks(summary, CUSTOMERS_CHECKS, t, {
+          checked: Boolean(health.data),
+          quiet: !lines.some((line) => line.id.startsWith('billing-')),
+        })}
         checkedAt={checkedAt}
       />
       <FiguresRow figures={figures} />

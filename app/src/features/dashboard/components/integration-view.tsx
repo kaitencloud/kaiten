@@ -1,7 +1,11 @@
 import { useTranslation } from 'react-i18next';
 import type { DashboardSummary } from '@/api-client';
 import { dataModelIcons } from '@/lib/data-model-icons';
-import { buildIntegrationAttention, checkedLabels } from '../logic/attention';
+import {
+  buildIntegrationAttention,
+  INTEGRATION_CHECKS,
+  quietChecks,
+} from '../logic/attention';
 import { compactCount } from '../logic/format';
 import { AttentionCard } from './attention-card';
 import { type Figure, FiguresRow } from './figures-row';
@@ -128,7 +132,7 @@ export function IntegrationView({
       <AttentionCard
         description={t('Pages.Dashboard.attention.integrationDescription')}
         lines={lines}
-        checked={checkedLabels(summary.attention.checked, t, false)}
+        checked={quietChecks(summary, INTEGRATION_CHECKS, t)}
         checkedAt={checkedAt}
       />
       <FiguresRow figures={figures} />

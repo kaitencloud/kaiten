@@ -101,16 +101,52 @@ export function billingStatusKey(
   }
 }
 
-/** The labels of the checks that ran, for the "also checked" line. */
-export function checkedLabels(
-  checked: string[],
+/** The checks the Customers view runs, in the order the card reads them. */
+export const CUSTOMERS_CHECKS = [
+  'instancesNotHealthy',
+  'hardLimits',
+  'nearThreshold',
+  'silentInstances',
+  'licensesEnding30d',
+  'archivedVersions',
+] as const;
+
+/** The checks the Integration view runs, in the order the card reads them. */
+export const INTEGRATION_CHECKS = [
+  'rejectedReports24h',
+  'hardLimits',
+  'nearThreshold',
+  'silentInstances',
+  'zonesBehind',
+  'tokensExpiring30d',
+] as const;
+
+type AttentionCheck =
+  | (typeof CUSTOMERS_CHECKS)[number]
+  | (typeof INTEGRATION_CHECKS)[number];
+
+/**
+ * The labels of the checks that ran and found nothing, for the "also checked"
+ * line. A check the caller's scopes excluded is absent from `checked` and is
+ * not named; one that found something has its lines above and is not repeated.
+ * Billing health is a check of its own when the view read it.
+ */
+export function quietChecks(
+  summary: DashboardSummary,
+  checks: readonly AttentionCheck[],
   t: TFunction,
-  withBilling: boolean,
+  billing?: { checked: boolean; quiet: boolean },
 ): string[] {
-  const labels = checked.map((check) =>
-    t(`Pages.Dashboard.attention.checks.${check}`, { defaultValue: check }),
-  );
-  if (withBilling) {
+  const labels = checks
+    .filter(
+      (check) =>
+        summary.attention.checked.includes(check) &&
+        summary.attention[check].count === 0,
+    )
+    .map((check) =>
+      t(`Pages.Dashboard.attention.checks.${check}`, { defaultValue: check }),
+    );
+  if (billing?.checked && billing.quiet) {
     labels.push(t('Pages.Dashboard.attention.checks.billing'));
   }
   return labels;

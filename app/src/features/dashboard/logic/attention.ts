@@ -8,7 +8,9 @@ export {
   type AttentionLine,
   type AttentionTone,
   billingStatusKey,
-  checkedLabels,
+  CUSTOMERS_CHECKS,
+  INTEGRATION_CHECKS,
+  quietChecks,
   instanceEntitlementsPath,
   instancePath,
 } from './attention-shared';
