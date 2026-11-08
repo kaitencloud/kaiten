@@ -688,30 +688,6 @@ var legitimateQueries = map[string]string{
 			}
 		}
 	}`,
-	"console/GetCustomers": `query GetCustomers {
-		customers { items { id slug name createdAt } }
-	}`,
-	"console/GetInstances": `query GetInstances {
-		instances {
-			items {
-				id slug name customerId licenseId startLicenseDate endLicenseDate createdAt
-				license { id slug name type }
-			}
-		}
-	}`,
-	"console/GetLicenses": `query GetLicenses {
-		licenses { items { id slug name type } }
-	}`,
-	"console/GetDashboardData": `query GetDashboardData {
-		customers { items { id slug name createdAt } }
-		instances {
-			items {
-				id slug name customerId licenseId startLicenseDate endLicenseDate createdAt
-				license { id slug name type }
-			}
-		}
-		licenses { items { id slug name type } }
-	}`,
 	"console/GetGlobalAuditTrail": `query GetGlobalAuditTrail($limit: Int) {
 		organizationAuditTrails(limit: $limit) {
 			items {

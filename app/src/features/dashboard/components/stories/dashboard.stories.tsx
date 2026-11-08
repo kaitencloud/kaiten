@@ -1,173 +1,149 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { storyDashboardMetrics } from './dashboard.fixtures';
-import { DashboardInsightCards } from '../cards/dashboard-insight-cards';
-import { DashboardStatsCards } from '../cards/dashboard-stats-cards';
-import { EntitlementSaturationHeatmapChart } from '../charts/entitlement-saturation-heatmap-chart';
-import { FeatureFlagsGovernanceChart } from '../charts/feature-flags-governance-chart';
-import { FlagTargetingComplexityChart } from '../charts/flag-targeting-complexity-chart';
-import { InstanceLifecycleTimelineChart } from '../charts/instance-lifecycle-timeline-chart';
-import { LicenseExpirationForecastChart } from '../charts/license-expiration-forecast-chart';
-import { ReleaseCadenceChart } from '../charts/release-cadence-chart';
-import { ReleaseCoverageByZoneChart } from '../charts/release-coverage-by-zone-chart';
-import { TokenSecurityPostureChart } from '../charts/token-security-posture-chart';
-import { TopCustomersByInstancesChart } from '../charts/top-customers-by-instances-chart';
+import { useSearch } from '@tanstack/react-router';
+import { Suspense, useState } from 'react';
+import { expect, within } from 'storybook/test';
+import { handleGetDashboardSummary } from '@/api-client/msw.gen';
+import { graphqlOperationHandler } from '@/e2e/msw/handler-factory';
+import { StorybookRouter } from '@/test-fixtures/storybook-router';
+import { auditTrailOperations } from '../../../../../e2e/app/_support/model/graphql-operations';
+import {
+	buildCalmDashboardSummary,
+	buildDashboardSummary,
+	buildEmptyDashboardSummary,
+} from '../../../../../e2e/app/_support/model/dashboard-summary';
+import { createUsageEventsAuditTrailModel } from '../../../../../e2e/app/audit-trail/audit-trail.scenarios';
+import {
+	type DashboardRange,
+	DEFAULT_DASHBOARD_RANGE,
+	readDashboardSearch,
+} from '../../search';
+import { DashboardPage } from '../dashboard-page';
 
-const charts = storyDashboardMetrics.charts;
+// The page is the route's component with the address read for it: the tab
+// travels in the search, as it does in the app, so the tabs work in the story;
+// the period is held by the story. The summary comes from the dashboard
+// endpoint and the recent changes from the audit trail, both answered by MSW.
+function DashboardStory({ initialRange }: { initialRange: DashboardRange }) {
+	const search = useSearch({ strict: false });
+	const [range, setRange] = useState(initialRange);
+	const { view } = readDashboardSearch(search);
+
+	return (
+		<Suspense fallback={null}>
+			<DashboardPage view={view} range={range} onRangeChange={setRange} />
+		</Suspense>
+	);
+}
+
+function DashboardFrame({
+	initialEntry = '/dashboard',
+	initialRange = DEFAULT_DASHBOARD_RANGE,
+}: {
+	initialEntry?: string;
+	initialRange?: DashboardRange;
+}) {
+	return (
+		<StorybookRouter initialEntries={[initialEntry]} routePath="/dashboard">
+			<div className="h-screen">
+				<DashboardStory initialRange={initialRange} />
+			</div>
+		</StorybookRouter>
+	);
+}
+
+const summaryHandlers = (summary = buildDashboardSummary()) => [
+	handleGetDashboardSummary({ body: summary }),
+	graphqlOperationHandler(
+		auditTrailOperations(createUsageEventsAuditTrailModel()),
+	),
+];
 
 const meta = {
 	title: 'Features/Dashboard/P0DashboardStories',
-	component: DashboardStatsCards,
+	component: DashboardPage,
 	parameters: {
 		layout: 'fullscreen',
+		msw: { handlers: summaryHandlers() },
 	},
 	tags: ['autodocs'],
-} satisfies Meta<typeof DashboardStatsCards>;
+} satisfies Meta<typeof DashboardPage>;
 
 export default meta;
-type Story = StoryObj<typeof DashboardStatsCards>;
+type Story = StoryObj<typeof DashboardPage>;
 
-const DashboardFrame = ({ children }: { children: React.ReactNode }) => (
-	<div className="min-h-screen space-y-5 p-6">{children}</div>
-);
-
-export const SummaryCards: Story = {
-	render: () => (
-		<DashboardFrame>
-			<DashboardStatsCards summary={storyDashboardMetrics.summary} />
-			<DashboardInsightCards summary={storyDashboardMetrics.summary} />
-		</DashboardFrame>
-	),
+export const Customers: Story = {
+	render: () => <DashboardFrame />,
 	parameters: {
 		docs: {
 			description: {
 				story:
-					'Dashboard summary and insight cards for key customers, instances, licenses, feature flags and service-account risks.',
+					'The Customers tab of the Kaiten Sushi Shop on a busy day: two instances at a hard limit, three near their threshold, one silent demo, one license ending and one archived version.',
 			},
 		},
 	},
-};
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
 
-export const AllCharts: Story = {
-	render: () => (
-		<DashboardFrame>
-			<div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-				<InstanceLifecycleTimelineChart data={charts.instanceLifecycleTimeline} />
-				<ReleaseCadenceChart data={charts.releaseCadence} />
-				<ReleaseCoverageByZoneChart data={charts.releaseCoverageByZone} />
-				<TopCustomersByInstancesChart data={charts.topCustomersByInstances} />
-				<FeatureFlagsGovernanceChart data={charts.featureFlagsGovernance} />
-				<FlagTargetingComplexityChart data={charts.flagTargetingComplexity} />
-				<TokenSecurityPostureChart data={charts.tokenSecurityPosture} />
-				<LicenseExpirationForecastChart data={charts.licenseExpirationForecast} />
-				<div className="xl:col-span-2">
-					<EntitlementSaturationHeatmapChart
-						data={charts.entitlementSaturationHeatmap}
-					/>
-				</div>
-			</div>
-		</DashboardFrame>
-	),
-	parameters: {
-		docs: {
-			description: {
-				story:
-					'All dashboard charts rendered together as a visual reference for dense operational data.',
-			},
-		},
+		await expect(await canvas.findByText('Needs attention')).toBeVisible();
+		await expect(
+			await canvas.findByText(
+				'Ninja Osaka has reached its Menu Items limit on Starter',
+			),
+		).toBeVisible();
+		await expect(
+			await canvas.findByText('Sakura Tokyo Production'),
+		).toBeVisible();
 	},
 };
 
-export const InstanceLifecycleTimeline: Story = {
-	render: () => (
-		<DashboardFrame>
-			<InstanceLifecycleTimelineChart data={charts.instanceLifecycleTimeline} />
-		</DashboardFrame>
-	),
-};
-
-export const ReleaseCadence: Story = {
-	render: () => (
-		<DashboardFrame>
-			<ReleaseCadenceChart data={charts.releaseCadence} />
-		</DashboardFrame>
-	),
-};
-
-export const ReleaseCoverageByZone: Story = {
-	render: () => (
-		<DashboardFrame>
-			<ReleaseCoverageByZoneChart data={charts.releaseCoverageByZone} />
-		</DashboardFrame>
-	),
-};
-
-export const TopCustomersByInstances: Story = {
-	render: () => (
-		<DashboardFrame>
-			<TopCustomersByInstancesChart data={charts.topCustomersByInstances} />
-		</DashboardFrame>
-	),
-};
-
-export const FeatureFlagsGovernance: Story = {
-	render: () => (
-		<DashboardFrame>
-			<FeatureFlagsGovernanceChart data={charts.featureFlagsGovernance} />
-		</DashboardFrame>
-	),
-};
-
-export const FlagTargetingComplexity: Story = {
-	render: () => (
-		<DashboardFrame>
-			<FlagTargetingComplexityChart data={charts.flagTargetingComplexity} />
-		</DashboardFrame>
-	),
-};
-
-export const TokenSecurityPosture: Story = {
-	render: () => (
-		<DashboardFrame>
-			<TokenSecurityPostureChart data={charts.tokenSecurityPosture} />
-		</DashboardFrame>
-	),
-};
-
-export const LicenseExpirationForecast: Story = {
-	render: () => (
-		<DashboardFrame>
-			<LicenseExpirationForecastChart data={charts.licenseExpirationForecast} />
-		</DashboardFrame>
-	),
-};
-
-export const EntitlementSaturationHeatmap: Story = {
-	render: () => (
-		<DashboardFrame>
-			<EntitlementSaturationHeatmapChart
-				data={charts.entitlementSaturationHeatmap}
-			/>
-		</DashboardFrame>
-	),
-};
-
-export const EmptyCharts: Story = {
-	render: () => (
-		<DashboardFrame>
-			<div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-				<ReleaseCadenceChart data={[]} />
-				<FeatureFlagsGovernanceChart
-					data={{ enabledDisabled: [], typeDistribution: [] }}
-				/>
-				<EntitlementSaturationHeatmapChart data={[]} />
-			</div>
-		</DashboardFrame>
-	),
+export const Integration: Story = {
+	render: () => <DashboardFrame initialEntry="/dashboard?view=integration" />,
 	parameters: {
 		docs: {
 			description: {
 				story:
-					'Representative empty chart states for dashboard cards that can receive no data.',
+					'The Integration tab: refused usage reports, the reports per day, the instances that report and read, the flags evaluated, the zones behind the latest release and the tokens about to expire.',
+			},
+		},
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+
+		await expect(
+			await canvas.findByText('7 usage reports refused in the last 24 hours'),
+		).toBeVisible();
+		await expect(await canvas.findByText('Usage reports per day')).toBeVisible();
+	},
+};
+
+export const Calm: Story = {
+	render: () => <DashboardFrame />,
+	parameters: {
+		msw: { handlers: summaryHandlers(buildCalmDashboardSummary()) },
+		docs: {
+			description: {
+				story:
+					'The same organization on a quiet day: every check ran and found nothing, and the card says what was checked.',
+			},
+		},
+	},
+	play: async ({ canvasElement }) => {
+		const canvas = within(canvasElement);
+
+		await expect(
+			await canvas.findByText('Nothing needs your attention'),
+		).toBeVisible();
+	},
+};
+
+export const Empty: Story = {
+	render: () => <DashboardFrame />,
+	parameters: {
+		msw: { handlers: summaryHandlers(buildEmptyDashboardSummary()) },
+		docs: {
+			description: {
+				story:
+					'A brand-new organization: nothing recorded yet, and every block says what will fill it.',
 			},
 		},
 	},

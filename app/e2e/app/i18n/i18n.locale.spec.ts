@@ -16,7 +16,7 @@ test('renders key dashboard labels after switching the persisted locale to Frenc
 
   await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
   await expect(
-    page.locator('main').getByText('Active Instances', { exact: true }).first(),
+    page.locator('main').getByText('Needs attention', { exact: true }).first(),
   ).toBeVisible();
 
   await persistLanguage(page, 'fr');
@@ -30,10 +30,10 @@ test('renders key dashboard labels after switching the persisted locale to Frenc
     main.getByText('Clients', { exact: true }).first(),
   ).toBeVisible();
   await expect(
-    main.getByText('Instances actives', { exact: true }).first(),
+    main.getByText('À traiter', { exact: true }).first(),
   ).toBeVisible();
   await expect(
-    main.getByText('Licences', { exact: true }).first(),
+    main.getByText('Vos clients', { exact: true }).first(),
   ).toBeVisible();
 });
 

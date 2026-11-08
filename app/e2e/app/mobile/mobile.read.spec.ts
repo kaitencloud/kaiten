@@ -32,7 +32,7 @@ test.describe('mobile (Pixel 5) read smoke', () => {
       main.getByText('Customers', { exact: true }).first(),
     ).toBeVisible();
     await expect(
-      main.getByText('Active Instances', { exact: true }).first(),
+      main.getByText('Needs attention', { exact: true }).first(),
     ).toBeVisible();
   });
 

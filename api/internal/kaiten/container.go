@@ -24,6 +24,7 @@ import (
 	connectorcommon "github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
 	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers"
+	"github.com/kaitencloud/kaiten/api/internal/modules/dashboard"
 	"github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags"
@@ -55,6 +56,7 @@ type modules struct {
 	Components      *components.UseCases
 	Connectors      *connectors.UseCases
 	Customers       *customers.UseCases
+	Dashboard       *dashboard.UseCases
 	DeploymentZones *deploymentzones.UseCases
 	Entitlements    *entitlements.UseCases
 	FeatureFlags    *featureflags.UseCases
@@ -223,6 +225,7 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		Components:      components.NewUseCases(svc),
 		Connectors:      connectors.NewUseCases(svc),
 		Customers:       customerModule,
+		Dashboard:       dashboard.NewUseCases(svc),
 		DeploymentZones: deploymentzones.NewUseCases(svc),
 		Entitlements:    entitlementModule,
 		FeatureFlags:    featureflags.NewUseCases(svc),

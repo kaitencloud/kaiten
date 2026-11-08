@@ -1,0 +1,191 @@
+package dashboard_test
+
+import (
+	"os"
+	"strconv"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
+	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
+	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
+	instancedb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
+	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
+	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
+	"github.com/kaitencloud/kaiten/api/tests"
+)
+
+var (
+	testDb     *tests.TestDatabase
+	testServer *tests.TestServer
+)
+
+func TestMain(m *testing.M) {
+	var err error
+	testDb, err = tests.NewTestDatabase()
+	if err != nil {
+		panic("failed to setup test database: " + err.Error())
+	}
+	defer testDb.TearDown()
+
+	testServer = tests.NewTestServer(testDb)
+
+	code := m.Run()
+	os.Exit(code)
+}
+
+// newInstances creates count instances of one customer on one license, the
+// way the instances fixture does.
+func newInstances(t *testing.T, count int) []*instanceschema.Instance {
+	t.Helper()
+	repo := createinstance.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
+	instances := make([]*instanceschema.Instance, 0, count)
+
+	license := newLicense(t)
+	customer := newCustomer(t)
+
+	for i := range count {
+		slug, err := slugutil.GenerateUnique("dashboard-" + strconv.Itoa(i))
+		require.NoError(t, err)
+		request := createinstance.Command{
+			Name:             "Dashboard instance " + strconv.Itoa(i),
+			Slug:             &slug,
+			Description:      "Dashboard test instance " + strconv.Itoa(i),
+			StartLicenseDate: time.Now(),
+			EndLicenseDate:   time.Now().AddDate(1, 0, 0),
+			LicenseID:        license.ID,
+			CustomerID:       customer.ID,
+		}
+
+		instance, err := repo.CreateInstance(
+			t.Context(),
+			&request,
+			testDb.DefaultData.UserID,
+			testDb.DefaultData.OrganizationID,
+		)
+		require.NoError(t, err)
+		instances = append(instances, instance)
+	}
+
+	return instances
+}
+
+func newCustomer(t *testing.T) *customerschema.Customer {
+	t.Helper()
+	repo := createcustomer.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
+
+	slug, err := slugutil.GenerateUnique("dashboard-customer")
+	require.NoError(t, err)
+
+	customer, err := repo.CreateCustomer(
+		t.Context(),
+		"Dashboard customer",
+		slug,
+		nil,
+		nil,
+		testDb.DefaultData.OrganizationID,
+		testDb.DefaultData.UserID,
+	)
+	require.NoError(t, err)
+
+	return customer
+}
+
+func newLicense(t *testing.T) *licenseschema.License {
+	t.Helper()
+	repo := createlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
+
+	licenseSlug, err := slugutil.GenerateUnique("dashboard-license")
+	require.NoError(t, err)
+
+	versionName := "Initial"
+	request := createlicense.Command{
+		Name:        "Dashboard License",
+		Slug:        &licenseSlug,
+		Description: "Dashboard test license",
+		Type:        licenseschema.Development,
+		VersionName: &versionName,
+	}
+
+	license, err := repo.CreateLicense(t.Context(), &request, testDb.DefaultData.OrganizationID)
+	require.NoError(t, err)
+
+	return license
+}
+
+// newEntitlement creates a NUMBER entitlement that warns at warningThresholdPercent.
+func newEntitlement(t *testing.T, warningThresholdPercent int32) *entitlementschema.Entitlement {
+	t.Helper()
+	repo := createentitlement.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
+
+	description := "Dashboard test entitlement"
+	entitlementSlug, err := slugutil.GenerateUnique("dashboard-entitlement")
+	require.NoError(t, err)
+	entitlement, err := repo.CreateEntitlement(
+		t.Context(),
+		createentitlement.CreateEntitlementInput{
+			Name:                    "Dashboard Entitlement",
+			Slug:                    entitlementSlug,
+			Description:             &description,
+			Type:                    entitlementschema.Number,
+			AggregationMethod:       ptr.To(entitlementschema.Sum),
+			WarningThresholdPercent: warningThresholdPercent,
+		},
+		testDb.DefaultData.OrganizationID,
+	)
+	require.NoError(t, err)
+
+	return entitlement
+}
+
+// grant gives the license the entitlement with a numeric threshold and the
+// allowance over it: 0 is a hard limit, more a soft one, -1 no limit.
+func grant(t *testing.T, licenseSlug, entitlementSlug string, threshold, overagePercent int32) {
+	t.Helper()
+	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
+	command := associateentitlementwithlicense.Command{
+		EntitlementSlug: entitlementSlug,
+		Value: map[string]any{
+			"type":  "number",
+			"value": threshold,
+		},
+		LimitCapExceededOveragePercent: &overagePercent,
+	}
+	_, err := repo.AssociateEntitlementToLicense(t.Context(), licenseSlug, &command, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
+	require.NoError(t, err)
+}
+
+// newAuditTrailEntry records an event on an instance as of now, the way the
+// audit trail receives one; the dashboard reads the refused reports and the
+// value reads from there.
+func newAuditTrailEntry(t *testing.T, instanceSlug, eventName string) {
+	t.Helper()
+	instance, err := instancedb.New(testServer.Dependencies.DB).GetOneInstance(t.Context(), instancedb.GetOneInstanceParams{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Slug:           instanceSlug,
+	})
+	require.NoError(t, err)
+
+	now := time.Now()
+	_, err = auditdb.New(testDb.DbPool).CreateAuditTrail(t.Context(), auditdb.CreateAuditTrailParams{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		InstanceID:     &instance.ID,
+		ActorID:        &testDb.DefaultData.UserID,
+		EventName:      eventName,
+		EventType:      "com.kaiten.instance.entitlement.v1.usage_reported",
+		OccurredAt:     pgtime.TimePtrToPgTimestamptz(&now),
+		Payload:        []byte(`{}`),
+	})
+	require.NoError(t, err)
+}
