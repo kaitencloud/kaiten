@@ -123,19 +123,27 @@ ORDER BY at.occurred_at DESC, at.id DESC
 LIMIT sqlc.arg(limit_plus_one);
 
 
--- name: ListOrganizationIDs :many
--- Every organization, for the retention pass (see ../../../auditretention): one
--- with no entry past its window costs a lookup and deletes nothing, which is
--- cheaper than finding the organizations that have entries in a table this
--- size.
-SELECT id FROM organization ORDER BY id;
+-- name: ListOrganizationsWithAuditTrailBefore :many
+-- The organizations the retention pass (see ../../../auditretention) has any
+-- reason to look up: those holding an entry older than the shortest window
+-- there is. One index probe per organization, on
+-- idx_audit_trail_org_occurred_at.
+SELECT o.id
+FROM organization o
+WHERE EXISTS (
+  SELECT 1
+  FROM audit_trail at
+  WHERE at.organization_id = o.id
+    AND at.occurred_at < sqlc.arg(before)
+);
 
 -- name: PurgeOrganizationAuditTrail :execrows
 -- One bounded batch of an organization's entries older than cutoff, oldest
 -- first, so a backlog is drained over many short transactions instead of one
--- long one holding locks and bloating WAL. SKIP LOCKED avoids waiting behind a
--- transaction touching an expired row; notification_read rows go with the
--- entry (ON DELETE CASCADE).
+-- long one holding locks and bloating WAL. idx_audit_trail_org_occurred_at
+-- serves the predicate and the order, so a batch reads only the rows it
+-- deletes. SKIP LOCKED avoids waiting behind a transaction touching an expired
+-- row; notification_read rows go with the entry (ON DELETE CASCADE).
 WITH expired AS (
   SELECT at.id
   FROM audit_trail at

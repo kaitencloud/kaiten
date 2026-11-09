@@ -6,12 +6,22 @@
 // declared and read by nobody, so every installation kept the trail forever,
 // whatever the licence said.
 //
-// It reads that term per organization the way the usage-ledger maintenance
-// reads `usage-history-retention`, and deletes the entries older than the
+// It reads that term per organization and deletes the entries older than the
 // window in bounded batches. A deployment with no licensing authority -- every
 // self-hosted one -- reads its own KAITEN_RETENTION_AUDIT_TRAIL_DAYS instead,
 // and 0, the default, keeps every entry: an installation loses nothing by
-// upgrading. An organization whose retention cannot be read keeps its rows.
+// upgrading.
+//
+// A deleted entry cannot be brought back, so the window a delete acts on is
+// always read live from the licensing authority, immediately before the delete,
+// and never from the cache the other readers of a licence share: an organization
+// that has just bought a longer retention must not lose what it paid to keep. An
+// organization whose retention cannot be read keeps its entries.
+//
+// A pass goes round the organizations in turns until each is drained or the
+// pass's time budget is spent, so that a backlog larger than one turn is still
+// retired, and one organization's cannot starve the others'. Whatever a pass
+// leaves unfinished is counted in kaiten.audit_trail.purge_incomplete.
 //
 // It lives in the audittrail module because audit_trail is its table, and it
 // shares the scheduler and the cross-replica election of
@@ -25,10 +35,11 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"math/rand/v2"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
@@ -50,19 +61,25 @@ const (
 	// defaultBatchSize matches the transport sweeps'. One bounded DELETE per
 	// statement keeps lock hold time and WAL predictable.
 	defaultBatchSize = int32(1000)
-	// maxBatchesPerOrganization caps one organization's deletes in a pass, so
-	// a backlog that accumulated since before this job existed is retired over
-	// successive passes rather than in one run that monopolises the table the
-	// notification feed reads.
-	maxBatchesPerOrganization = 100
+	// batchesPerTurn is how much of one organization's backlog is deleted before
+	// the others get their turn, and before its own window is read again.
+	batchesPerTurn = 100
+	// batchPause separates two batches. At the default batch size it still
+	// retires tens of millions of rows an hour, far above what any organization
+	// writes, while leaving room for autovacuum and replication during a first
+	// drain.
+	batchPause = 25 * time.Millisecond
 	// purgeLockTimeout keeps a batch from queueing behind a transaction
-	// writing to the same rows -- the subscriber appending entries, a reader
-	// marking notifications read.
+	// writing to the same rows -- a reader marking notifications read.
 	purgeLockTimeout = "1s"
 	// retentionReadTimeout bounds one organization's retention lookup, which
-	// may wait for the licensing deployment's client: a pass must not hold the
-	// sweep lock on a deployment that never answers.
+	// may wait for a service token before the licensing client's own timeout
+	// even starts.
 	retentionReadTimeout = 15 * time.Second
+	// maxConsecutiveReadFailures stops a pass that keeps failing to read
+	// retention. The licensing authority is down, so every remaining
+	// organization would wait out its own timeout only to keep its entries.
+	maxConsecutiveReadFailures = 5
 
 	meterName = "kaiten.audit_trail"
 )
@@ -80,7 +97,9 @@ type Config struct {
 	Interval     time.Duration
 	// BatchSize is the rows per DELETE; 0 means 1000.
 	BatchSize int32
-	Settings  Settings
+	// MaxPassDuration is the time budget of one pass; 0 means half the interval.
+	MaxPassDuration time.Duration
+	Settings        Settings
 }
 
 // Job deletes expired audit trail entries on a schedule and participates in
@@ -91,8 +110,10 @@ type Job struct {
 	cfg    Config
 	sweep  *sweep.Job
 
-	rowsDeleted      metric.Int64Counter
-	retentionUnknown metric.Int64Counter
+	rowsDeleted         metric.Int64Counter
+	retentionUnknown    metric.Int64Counter
+	retentionNotGranted metric.Int64Counter
+	purgeIncomplete     metric.Int64Counter
 }
 
 // New builds the job without starting it. reader resolves each organization's
@@ -102,13 +123,20 @@ func New(pool *pgxpool.Pool, reader services.EntitlementConfig, cfg Config) *Job
 	if cfg.BatchSize <= 0 {
 		cfg.BatchSize = defaultBatchSize
 	}
+	if cfg.MaxPassDuration <= 0 {
+		interval := cfg.Interval
+		if interval <= 0 {
+			interval = sweep.DefaultInterval
+		}
+		cfg.MaxPassDuration = interval / 2
+	}
 
 	j := &Job{
 		pool:   pool,
 		reader: services.EntitlementConfigOrNone(reader),
 		cfg:    cfg,
 	}
-	j.sweep = sweep.New(sweepName, pool, sweepLockKey, sweep.Config{
+	j.sweep = sweep.NewPoolPass(sweepName, pool, sweepLockKey, sweep.Config{
 		InitialDelay: cfg.InitialDelay,
 		Interval:     cfg.Interval,
 	}, j.pass)
@@ -125,9 +153,19 @@ func (j *Job) initMetrics() {
 		slog.Warn("failed to register audit trail metric", "metric", "rows_deleted", "error", err)
 	}
 	if j.retentionUnknown, err = meter.Int64Counter("kaiten.audit_trail.retention_unknown",
-		metric.WithDescription("Organizations whose audit retention could not be read in a pass, and whose entries were therefore kept"),
+		metric.WithDescription("Organizations whose audit retention could not be read in a pass, or read malformed, and whose entries were therefore kept"),
 		metric.WithUnit("{organization}")); err != nil {
 		slog.Warn("failed to register audit trail metric", "metric", "retention_unknown", "error", err)
+	}
+	if j.retentionNotGranted, err = meter.Int64Counter("kaiten.audit_trail.retention_not_granted",
+		metric.WithDescription("Organizations whose licence does not grant audit-retention, and whose entries are therefore kept without bound"),
+		metric.WithUnit("{organization}")); err != nil {
+		slog.Warn("failed to register audit trail metric", "metric", "retention_not_granted", "error", err)
+	}
+	if j.purgeIncomplete, err = meter.Int64Counter("kaiten.audit_trail.purge_incomplete",
+		metric.WithDescription("Organizations a pass left with expired entries, by reason (budget or lock_timeout); alert when it does not return to zero"),
+		metric.WithUnit("{organization}")); err != nil {
+		slog.Warn("failed to register audit trail metric", "metric", "purge_incomplete", "error", err)
 	}
 }
 
@@ -158,96 +196,139 @@ func (j *Job) Sweep(ctx context.Context) error {
 	return j.sweep.Sweep(ctx)
 }
 
-// pass applies retention organization by organization, on the connection that
-// holds the sweep lock. An organization whose retention is unknown keeps its
-// entries; one that keeps them forever costs one lookup.
-func (j *Job) pass(ctx context.Context, conn *pgxpool.Conn) error {
-	now := time.Now().UTC()
-	organizations, err := db.New(conn).ListOrganizationIDs(ctx)
+// turn is what one organization's turn of a pass came to.
+type turn int
+
+const (
+	// turnFinished: nothing more to do for the organization in this pass.
+	turnFinished turn = iota
+	// turnAgain: its turn ran full, so it may have more to delete.
+	turnAgain
+	// turnUnreadable: its retention could not be read, and it kept its entries.
+	turnUnreadable
+)
+
+// pass applies retention in turns until every organization is drained or the
+// time budget is spent. It works through the pool, a connection per batch, so a
+// slow licensing deployment holds nothing an API request could be waiting for.
+//
+// The organizations come in a random order, so that a budget spent early does
+// not favour the same ones pass after pass.
+func (j *Job) pass(ctx context.Context) error {
+	deadline := time.Now().Add(j.cfg.MaxPassDuration)
+	oldestExpirable := cutoff(time.Now().UTC(), minRetentionDays)
+	pending, err := db.New(j.pool).ListOrganizationsWithAuditTrailBefore(ctx, pgtype.Timestamptz{Time: oldestExpirable, Valid: true})
 	if err != nil {
 		return fmt.Errorf("list organizations: %w", err)
 	}
+	rand.Shuffle(len(pending), func(a, b int) { pending[a], pending[b] = pending[b], pending[a] })
 
 	var errs []error
-	for _, organizationID := range organizations {
-		if ctx.Err() != nil {
-			break
-		}
+	readFailures := 0
+	for len(pending) > 0 {
+		var again []uuid.UUID
+		for i, organizationID := range pending {
+			if ctx.Err() != nil {
+				return errors.Join(errs...)
+			}
+			if !time.Now().Before(deadline) {
+				j.reportBudgetSpent(ctx, len(pending)-i+len(again))
+				return errors.Join(errs...)
+			}
 
-		readCtx, cancel := context.WithTimeout(ctx, retentionReadTimeout)
-		days, source := windowDays(readCtx, j.reader, j.cfg.Settings, organizationID)
-		cancel()
-		switch {
-		case source == sourceUnknown:
-			j.retentionUnknown.Add(ctx, 1)
-			slog.WarnContext(ctx, "audit_trail: retention unknown, keeping the organization's entries", "organization_id", organizationID)
-			continue
-		case days == 0:
-			continue // kept forever
+			result, err := j.purgeTurn(ctx, organizationID)
+			if err != nil {
+				errs = append(errs, fmt.Errorf("purge organization %s: %w", organizationID, err))
+			}
+			switch result {
+			case turnAgain:
+				again = append(again, organizationID)
+				readFailures = 0
+			case turnUnreadable:
+				readFailures++
+				if readFailures >= maxConsecutiveReadFailures {
+					j.reportAuthorityDown(ctx, len(pending)-i-1+len(again))
+					return errors.Join(errs...)
+				}
+			case turnFinished:
+				readFailures = 0
+			}
 		}
-
-		cutoff := now.AddDate(0, 0, -days)
-		deleted, err := j.purgeOrganization(ctx, conn, organizationID, cutoff)
-		if deleted > 0 {
-			j.rowsDeleted.Add(ctx, deleted, metric.WithAttributes(attribute.String("source", string(source))))
-			slog.InfoContext(ctx, "audit_trail: deleted entries past the organization's retention",
-				"organization_id", organizationID, "rows", deleted, "retention_days", days, "cutoff", cutoff)
-		}
-		if err != nil {
-			errs = append(errs, fmt.Errorf("purge organization %s: %w", organizationID, err))
-		}
+		pending = again
 	}
 	return errors.Join(errs...)
 }
 
-// purgeOrganization deletes the organization's entries older than cutoff in
-// short batches, each its own transaction, stopping at the first short batch,
-// at a lock timeout (retried next pass) or after maxBatchesPerOrganization.
-func (j *Job) purgeOrganization(ctx context.Context, conn *pgxpool.Conn, organizationID uuid.UUID, cutoff time.Time) (int64, error) {
-	var total int64
-	for range maxBatchesPerOrganization {
-		if ctx.Err() != nil {
-			return total, nil
-		}
-		deleted, err := j.purgeBatch(ctx, conn, organizationID, cutoff)
-		total += deleted
-		if err != nil {
-			if isLockTimeout(err) {
-				return total, nil
-			}
-			return total, err
-		}
-		if deleted < int64(j.cfg.BatchSize) {
-			break
-		}
+// purgeTurn reads the organization's window, live, and deletes up to
+// batchesPerTurn batches past it. A window is never reused across turns, so a
+// licence changed during a long pass applies from the organization's next turn.
+func (j *Job) purgeTurn(ctx context.Context, organizationID uuid.UUID) (turn, error) {
+	readCtx, cancel := context.WithTimeout(ctx, retentionReadTimeout)
+	days, source := windowDays(readCtx, j.reader.LiveConfigValue, j.cfg.Settings, organizationID)
+	cancel()
+	switch source {
+	case sourceUnknown:
+		j.retentionUnknown.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", "unreadable")))
+		slog.WarnContext(ctx, "audit_trail: retention could not be read, keeping the organization's entries", "organization_id", organizationID)
+		return turnUnreadable, nil
+	case sourceMalformed:
+		j.retentionUnknown.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", "malformed")))
+		slog.WarnContext(ctx, "audit_trail: retention is malformed, keeping the organization's entries", "organization_id", organizationID)
+		return turnFinished, nil
+	case sourceNotGranted:
+		j.retentionNotGranted.Add(ctx, 1)
+		return turnFinished, nil
 	}
-	return total, nil
+	if days == 0 {
+		return turnFinished, nil // kept forever
+	}
+
+	expiry := cutoff(time.Now().UTC(), days)
+	result, err := j.purge(organizationID, expiry).Run(ctx, j.pool)
+	if result.Deleted > 0 {
+		j.rowsDeleted.Add(ctx, result.Deleted, metric.WithAttributes(attribute.String("source", string(source))))
+		slog.InfoContext(ctx, "audit_trail: deleted entries past the organization's retention",
+			"organization_id", organizationID, "rows", result.Deleted, "retention_days", days, "cutoff", expiry)
+	}
+	if err != nil {
+		return turnFinished, err
+	}
+
+	switch result.Stop {
+	case sweep.BatchStopCapped:
+		return turnAgain, nil
+	case sweep.BatchStopLockTimeout:
+		j.purgeIncomplete.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", "lock_timeout")))
+		slog.WarnContext(ctx, "audit_trail: purge gave up on a lock, retrying the organization next pass",
+			"organization_id", organizationID, "rows", result.Deleted, "cutoff", expiry)
+	}
+	return turnFinished, nil
 }
 
-func (j *Job) purgeBatch(ctx context.Context, conn *pgxpool.Conn, organizationID uuid.UUID, cutoff time.Time) (int64, error) {
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return 0, err
+func (j *Job) purge(organizationID uuid.UUID, expiry time.Time) sweep.BatchedDelete {
+	return sweep.BatchedDelete{
+		BatchSize:   j.cfg.BatchSize,
+		MaxBatches:  batchesPerTurn,
+		LockTimeout: purgeLockTimeout,
+		Pause:       batchPause,
+		Delete: func(ctx context.Context, tx pgx.Tx) (int64, error) {
+			return db.New(tx).PurgeOrganizationAuditTrail(ctx, db.PurgeOrganizationAuditTrailParams{
+				OrganizationID: organizationID,
+				Cutoff:         pgtype.Timestamptz{Time: expiry, Valid: true},
+				BatchSize:      j.cfg.BatchSize,
+			})
+		},
 	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-
-	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+purgeLockTimeout+`'`); err != nil {
-		return 0, err
-	}
-	deleted, err := db.New(tx).PurgeOrganizationAuditTrail(ctx, db.PurgeOrganizationAuditTrailParams{
-		OrganizationID: organizationID,
-		Cutoff:         pgtype.Timestamptz{Time: cutoff, Valid: true},
-		BatchSize:      j.cfg.BatchSize,
-	})
-	if err != nil {
-		return 0, err
-	}
-	return deleted, tx.Commit(ctx)
 }
 
-// isLockTimeout recognises PostgreSQL's lock_not_available (55P03), the error
-// SET LOCAL lock_timeout turns a wait into.
-func isLockTimeout(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "55P03"
+func (j *Job) reportBudgetSpent(ctx context.Context, organizations int) {
+	j.purgeIncomplete.Add(ctx, int64(organizations), metric.WithAttributes(attribute.String("reason", "budget")))
+	slog.WarnContext(ctx, "audit_trail: pass ran out of time, continuing next pass",
+		"organizations", organizations, "budget", j.cfg.MaxPassDuration)
+}
+
+func (j *Job) reportAuthorityDown(ctx context.Context, organizations int) {
+	j.retentionUnknown.Add(ctx, int64(organizations), metric.WithAttributes(attribute.String("reason", "unreadable")))
+	slog.WarnContext(ctx, "audit_trail: licensing authority keeps failing, keeping every remaining organization's entries this pass",
+		"organizations", organizations)
 }

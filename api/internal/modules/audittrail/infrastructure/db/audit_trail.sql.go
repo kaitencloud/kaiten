@@ -372,16 +372,23 @@ func (q *Queries) ListOrganizationChanges(ctx context.Context, arg ListOrganizat
 	return items, nil
 }
 
-const listOrganizationIDs = `-- name: ListOrganizationIDs :many
-SELECT id FROM organization ORDER BY id
+const listOrganizationsWithAuditTrailBefore = `-- name: ListOrganizationsWithAuditTrailBefore :many
+SELECT o.id
+FROM organization o
+WHERE EXISTS (
+  SELECT 1
+  FROM audit_trail at
+  WHERE at.organization_id = o.id
+    AND at.occurred_at < $1
+)
 `
 
-// Every organization, for the retention pass (see ../../../auditretention): one
-// with no entry past its window costs a lookup and deletes nothing, which is
-// cheaper than finding the organizations that have entries in a table this
-// size.
-func (q *Queries) ListOrganizationIDs(ctx context.Context) ([]uuid.UUID, error) {
-	rows, err := q.db.Query(ctx, listOrganizationIDs)
+// The organizations the retention pass (see ../../../auditretention) has any
+// reason to look up: those holding an entry older than the shortest window
+// there is. One index probe per organization, on
+// idx_audit_trail_org_occurred_at.
+func (q *Queries) ListOrganizationsWithAuditTrailBefore(ctx context.Context, before pgtype.Timestamptz) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listOrganizationsWithAuditTrailBefore, before)
 	if err != nil {
 		return nil, err
 	}
@@ -423,9 +430,10 @@ type PurgeOrganizationAuditTrailParams struct {
 
 // One bounded batch of an organization's entries older than cutoff, oldest
 // first, so a backlog is drained over many short transactions instead of one
-// long one holding locks and bloating WAL. SKIP LOCKED avoids waiting behind a
-// transaction touching an expired row; notification_read rows go with the
-// entry (ON DELETE CASCADE).
+// long one holding locks and bloating WAL. idx_audit_trail_org_occurred_at
+// serves the predicate and the order, so a batch reads only the rows it
+// deletes. SKIP LOCKED avoids waiting behind a transaction touching an expired
+// row; notification_read rows go with the entry (ON DELETE CASCADE).
 func (q *Queries) PurgeOrganizationAuditTrail(ctx context.Context, arg PurgeOrganizationAuditTrailParams) (int64, error) {
 	result, err := q.db.Exec(ctx, purgeOrganizationAuditTrail, arg.OrganizationID, arg.Cutoff, arg.BatchSize)
 	if err != nil {

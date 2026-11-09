@@ -58,6 +58,10 @@ type fakeRetention struct {
 	asked  []uuid.UUID
 }
 
+func (f *fakeRetention) LiveConfigValue(ctx context.Context, organizationID uuid.UUID, slug string) (json.RawMessage, error) {
+	return f.ConfigValue(ctx, organizationID, slug)
+}
+
 func (f *fakeRetention) ConfigValue(_ context.Context, organizationID uuid.UUID, slug string) (json.RawMessage, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()

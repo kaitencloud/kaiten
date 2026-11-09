@@ -6,6 +6,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	outboxdb "github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox/db"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
@@ -61,7 +62,8 @@ type UseCases struct {
 
 func NewUseCases(svc services.Container) *UseCases {
 	queries := db.New(svc.Pool)
-	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool))
+	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool), auditretention.NewRetention(
+		svc.EntitlementConfig, svc.Config.Retention.Enabled, svc.Config.Retention.AuditTrailDays))
 	ledgerSettings := usageledger.Settings{
 		RetentionMonths:    svc.Config.UsageLedger.RetentionMonths,
 		MaxRetentionMonths: svc.Config.UsageLedger.MaxRetentionMonths,

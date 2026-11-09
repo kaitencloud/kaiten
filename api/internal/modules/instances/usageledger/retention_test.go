@@ -21,6 +21,10 @@ func (f fakeReader) ConfigValue(context.Context, uuid.UUID, string) (json.RawMes
 	return f.value, f.err
 }
 
+func (f fakeReader) LiveConfigValue(context.Context, uuid.UUID, string) (json.RawMessage, error) {
+	return f.value, f.err
+}
+
 func TestWindowMonths(t *testing.T) {
 	settings := Settings{RetentionMonths: 18}
 	cases := []struct {

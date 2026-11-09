@@ -1,7 +1,6 @@
 package usageledger
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -11,6 +10,7 @@ import (
 
 	infradogfooding "github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/sweep"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
@@ -81,25 +81,9 @@ func windowMonths(ctx context.Context, reader services.EntitlementConfig, settin
 	return months, sourceLicence
 }
 
-// parseRetention reads {"months": N} with N a whole number of at least 1.
-// Anything else is not a retention anybody configured.
+// parseRetention reads {"months": N} with N a whole number from 1 to 1200.
 func parseRetention(raw json.RawMessage) (int, bool) {
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	var value map[string]any
-	if err := decoder.Decode(&value); err != nil {
-		return 0, false
-	}
-	// A json.Number only for a JSON number: a quoted "6" decodes as a string.
-	number, ok := value["months"].(json.Number)
-	if !ok {
-		return 0, false
-	}
-	months, err := number.Int64()
-	if err != nil || months < 1 || months > 1200 {
-		return 0, false
-	}
-	return int(months), true
+	return sweep.ParseRetentionTerm(raw, "months", 1200)
 }
 
 // Retention answers how far back an organization's usage history can be read:
