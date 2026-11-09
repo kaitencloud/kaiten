@@ -94,7 +94,7 @@ export const OPERATION_SCOPES = {
   getCustomerBilling: ['read:billing'],
   getCustomerIntegration: ['read:customers'],
   getCustomerIntegrationByExternalId: ['read:customers'],
-  getDashboardSummary: ['read:customers'],
+  getDashboardSummary: ['read:customers', 'read:instances', 'read:licenses'],
   getDeploymentZoneBySlug: ['read:deployment_zones'],
   getEntitlement: ['read:entitlements'],
   getEntitlementGroup: ['read:entitlements'],

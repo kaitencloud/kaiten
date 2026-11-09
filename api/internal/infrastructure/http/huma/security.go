@@ -185,13 +185,24 @@ func ConfigurePlatformSecurity(config huma.Config) huma.Config {
 //
 // Published and enforced cannot drift: both name the same per-package
 // RequiredScope const, and facade_boundary_test.go asserts each direction.
+//
+// An operation that needs further scopes names them on op.Security, in one
+// ScopeRequirement, and requiredScope joins that entry: the entries of a
+// `security` list are alternatives, so a second one would publish "any of
+// these" for an operation that needs them all.
 func RegisterScoped[I, O any](
 	api huma.API,
 	op huma.Operation,
 	requiredScope string,
 	handler func(context.Context, *I) (*O, error),
 ) {
-	op.Security = append(op.Security, ScopeRequirement(requiredScope))
+	if len(op.Security) == 1 && op.Security[0][BearerAuth] != nil {
+		op.Security = []map[string][]string{
+			ScopeRequirement(append([]string{requiredScope}, op.Security[0][BearerAuth]...)...),
+		}
+	} else {
+		op.Security = append(op.Security, ScopeRequirement(requiredScope))
+	}
 	huma.Register(api, op, handler)
 }
 

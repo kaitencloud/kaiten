@@ -30,10 +30,10 @@ func (d Dashboard) GetSummary(
 	if err := cl.Require(getsummary.RequiredScope); err != nil {
 		return nil, err
 	}
-	if err := cl.Require(scope.Read(scope.Instances)); err != nil {
+	if err := cl.Require(getsummary.InstancesRequiredScope); err != nil {
 		return nil, err
 	}
-	if err := cl.Require(scope.Read(scope.Licenses)); err != nil {
+	if err := cl.Require(getsummary.LicensesRequiredScope); err != nil {
 		return nil, err
 	}
 

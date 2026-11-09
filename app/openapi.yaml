@@ -22298,6 +22298,8 @@ paths:
       security:
         - bearerAuth:
             - read:customers
+            - read:instances
+            - read:licenses
       summary: Get the dashboard summary
       tags:
         - dashboard
