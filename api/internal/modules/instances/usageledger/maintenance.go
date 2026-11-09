@@ -282,7 +282,9 @@ func (m *Maintenance) purgeOrganizations(ctx context.Context, conn *pgxpool.Conn
 		}
 
 		readCtx, cancel := context.WithTimeout(ctx, retentionReadTimeout)
-		months, source := windowMonths(readCtx, m.reader, m.cfg.Settings, organizationID)
+		// Live, never remembered: a purge cannot be undone, so it must not act on
+		// the window of a licence that has since changed.
+		months, source := windowMonths(readCtx, m.reader.LiveConfigValue, m.cfg.Settings, organizationID)
 		cancel()
 		switch {
 		case source == sourceUnknown:

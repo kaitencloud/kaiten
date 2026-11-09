@@ -51,18 +51,27 @@ func newMaintenance(reader services.EntitlementConfig, settings usageledger.Sett
 
 // fakeRetention answers each organization's usage-history-retention from a map:
 // a JSON value, an error, or nil (the licence does not grant it) when absent.
+// cached, when set, is what the tolerant ConfigValue answers instead: a value
+// the live licence no longer states.
 type fakeRetention struct {
 	mu     sync.Mutex
 	values map[uuid.UUID]json.RawMessage
 	errs   map[uuid.UUID]error
+	cached map[uuid.UUID]json.RawMessage
 	asked  []uuid.UUID
 }
 
-func (f *fakeRetention) LiveConfigValue(ctx context.Context, organizationID uuid.UUID, slug string) (json.RawMessage, error) {
-	return f.ConfigValue(ctx, organizationID, slug)
+func (f *fakeRetention) ConfigValue(ctx context.Context, organizationID uuid.UUID, slug string) (json.RawMessage, error) {
+	f.mu.Lock()
+	cached, ok := f.cached[organizationID]
+	f.mu.Unlock()
+	if ok {
+		return cached, nil
+	}
+	return f.LiveConfigValue(ctx, organizationID, slug)
 }
 
-func (f *fakeRetention) ConfigValue(_ context.Context, organizationID uuid.UUID, slug string) (json.RawMessage, error) {
+func (f *fakeRetention) LiveConfigValue(_ context.Context, organizationID uuid.UUID, slug string) (json.RawMessage, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	if slug != "usage-history-retention" {
@@ -300,6 +309,33 @@ func TestSweepPurgesEachOrganizationToItsLicensedRetention(t *testing.T) {
 	for name, org := range map[string]uuid.UUID{"long": long, "unreadable": unreadable, "ungranted": ungranted, "malformed": malformed} {
 		require.Len(t, rowsOf(t, org), 6, "%s keeps every row", name)
 	}
+}
+
+// The licence changed, or the authority went down after an older read: the
+// tolerant read still answers the 3 months it remembers, and acting on it would
+// delete history the customer has paid to keep.
+func TestSweepNeverPurgesOnARememberedRetention(t *testing.T) {
+	require.NoError(t, testDb.Reset())
+	now := dbNow(t)
+	for _, k := range []int{-6, -5, -4} {
+		createPartition(t, monthOffset(now, k))
+	}
+	upgraded, outage := newOrganization(t), newOrganization(t)
+	old := monthOffset(now, -5).Add(time.Hour)
+	for _, org := range []uuid.UUID{upgraded, outage} {
+		insertRow(t, org, old)
+	}
+	remembered := json.RawMessage(`{"months":3}`)
+	reader := &fakeRetention{
+		values: map[uuid.UUID]json.RawMessage{upgraded: json.RawMessage(`{"months":9}`)},
+		errs:   map[uuid.UUID]error{outage: errors.New("licensing deployment unreachable")},
+		cached: map[uuid.UUID]json.RawMessage{upgraded: remembered, outage: remembered},
+	}
+
+	require.NoError(t, newMaintenance(reader, defaultSettings(), 2).Sweep(t.Context()))
+
+	require.Len(t, rowsOf(t, upgraded), 1, "the live licence keeps 9 months")
+	require.Len(t, rowsOf(t, outage), 1, "an outage keeps the rows, whatever was read before it")
 }
 
 func TestSweepWithoutLicensingAuthorityAppliesTheConfiguredRetention(t *testing.T) {

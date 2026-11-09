@@ -56,17 +56,20 @@ type retentionSource string
 const (
 	sourceLicence retentionSource = "licence"
 	sourceConfig  retentionSource = "config"
-	// sourceUnknown: the licensing authority could not be read and nothing was
-	// read before, or answered something malformed. Nothing is purged for the
-	// organization on its account.
+	// sourceUnknown: the licensing authority could not be read, or answered
+	// something malformed. Nothing is purged for the organization on its account.
 	sourceUnknown retentionSource = "unknown"
 )
+
+// configRead is one of the two reads of services.EntitlementConfig: the live
+// one for a purge, which cannot be undone, and the tolerant one for a read.
+type configRead func(ctx context.Context, organizationID uuid.UUID, entitlementSlug string) (json.RawMessage, error)
 
 // windowMonths is how many months of history organizationID keeps: its
 // licence's usage-history-retention entitlement, or the configured default
 // when no licensing authority governs it. 0 means forever.
-func windowMonths(ctx context.Context, reader services.EntitlementConfig, settings Settings, organizationID uuid.UUID) (int, retentionSource) {
-	raw, err := reader.ConfigValue(ctx, organizationID, dogfooding.UsageHistoryRetentionEntitlementSlug)
+func windowMonths(ctx context.Context, read configRead, settings Settings, organizationID uuid.UUID) (int, retentionSource) {
+	raw, err := read(ctx, organizationID, dogfooding.UsageHistoryRetentionEntitlementSlug)
 	if errors.Is(err, services.ErrNoLicensingAuthority) {
 		return settings.RetentionMonths, sourceConfig
 	}
@@ -104,7 +107,7 @@ type Retention struct {
 // (its licence or an add-on), ENV (the deployment's setting, with no
 // licensing authority) or UNKNOWN, with 0 months (§18.4 rule 5, V31-11).
 func (r Retention) Window(ctx context.Context, organizationID uuid.UUID) (int, string) {
-	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader), r.Settings, organizationID)
+	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader).ConfigValue, r.Settings, organizationID)
 	switch source {
 	case sourceLicence:
 		return months, "KBK"
@@ -116,7 +119,7 @@ func (r Retention) Window(ctx context.Context, organizationID uuid.UUID) (int, s
 }
 
 func (r Retention) Start(ctx context.Context, organizationID uuid.UUID, now time.Time) *time.Time {
-	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader), r.Settings, organizationID)
+	months, source := windowMonths(ctx, services.EntitlementConfigOrNone(r.Reader).ConfigValue, r.Settings, organizationID)
 	if source == sourceUnknown || months == 0 {
 		return nil
 	}
