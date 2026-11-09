@@ -36,8 +36,8 @@ func (r *queryResolver) AuditTrails(ctx context.Context, instanceSlug string, ev
 }
 
 // OrganizationAuditTrails is the resolver for the organizationAuditTrails field.
-func (r *queryResolver) OrganizationAuditTrails(ctx context.Context, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*instanceschema.OrganizationAuditTrailPage, error) {
-	return instancesGraphql.GetOrganizationAuditTrails(ctx, r.AuditTrailForOrgPort, eventName, after, before, limit, cursor)
+func (r *queryResolver) OrganizationAuditTrails(ctx context.Context, eventName *string, changesOnly *bool, after *time.Time, before *time.Time, limit *int, cursor *string) (*instanceschema.OrganizationAuditTrailPage, error) {
+	return instancesGraphql.GetOrganizationAuditTrails(ctx, r.AuditTrailForOrgPort, eventName, changesOnly, after, before, limit, cursor)
 }
 
 // AuditTrail returns generated.AuditTrailResolver implementation.

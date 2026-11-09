@@ -8,7 +8,6 @@ import type { AuditTrailAppModel } from './audit-trail-app-model';
 import type { BillingAppModel } from './billing-app-model';
 import type { ConnectorAppModel } from './connector-app-model';
 import type { CustomerAppModel } from './customer-app-model';
-import type { DashboardAppModel } from './dashboard-app-model';
 import type { GraphQLVariables } from '../contracts/mock-http';
 
 // Operation descriptions used by MSW handlers over the stateful models.
@@ -22,9 +21,6 @@ export const connectorOperations = (model: ConnectorAppModel) => ({
 export const customerOperations = (model: CustomerAppModel) => ({
   GetCustomersWithInstances: () => model.getCustomersWithInstances(),
   GetInstancesWithRelations: () => model.getInstancesWithRelations(),
-});
-export const dashboardOperations = (model: DashboardAppModel) => ({
-  GetDashboardData: () => model.getDashboardData(),
 });
 
 /** The page the API serves when a list names none, and the most it serves (`pagination`). */

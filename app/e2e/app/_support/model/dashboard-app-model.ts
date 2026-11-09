@@ -1,71 +1,46 @@
-type DashboardCustomer = {
-  createdAt: string;
-  id: string;
-  name: string;
-  slug: string;
-};
-
-type DashboardLicense = {
-  id: string;
-  name: string;
-  slug: string;
-  type: string;
-};
-
-type DashboardInstance = {
-  createdAt: string;
-  customerId: string;
-  endLicenseDate: string;
-  id: string;
-  license: DashboardLicense;
-  licenseId: string;
-  name: string;
-  slug: string;
-  startLicenseDate: string;
-};
-
-type DashboardData = {
-  customers: DashboardCustomer[];
-  instances: DashboardInstance[];
-  licenses: DashboardLicense[];
-};
+import type { DashboardSummary } from '@/api-client';
 
 export type SerializedDashboardAppModel = {
-  data: DashboardData;
+  summary: DashboardSummary;
   readError?: number;
 };
 
+/**
+ * What `GET /dashboard/summary` answers: one summary, whatever the period asked,
+ * or a refusal. The period is the API's concern; the mocks keep one answer so a
+ * spec reads the same figures on every tab.
+ */
 export class DashboardAppModel {
-  private readonly data: DashboardData;
+  private readonly summary: DashboardSummary;
   private readError?: number;
+
+  constructor(summary: DashboardSummary) {
+    this.summary = summary;
+  }
 
   setReadError(status: number) {
     this.readError = status;
   }
 
-  constructor(data: DashboardData) {
-    this.data = data;
-  }
-
   static fromSerialized(state: SerializedDashboardAppModel) {
-    const model = new DashboardAppModel(state.data);
+    const model = new DashboardAppModel(state.summary);
     model.readError = state.readError;
     return model;
   }
 
   serializeForMsw(): SerializedDashboardAppModel {
-    return { data: this.data, readError: this.readError };
+    return { summary: this.summary, readError: this.readError };
   }
 
-  getDashboardData() {
-    if (this.readError)
+  getSummary(range?: string): DashboardSummary {
+    if (this.readError) {
       throw Object.assign(new Error('Dashboard unavailable'), {
         httpStatus: this.readError,
       });
-    return {
-      customers: { items: this.data.customers },
-      instances: { items: this.data.instances },
-      licenses: { items: this.data.licenses },
-    };
+    }
+    if (range === '7d' || range === '30d' || range === '90d') {
+      return { ...this.summary, range: { ...this.summary.range, range } };
+    }
+    return this.summary;
   }
 }
