@@ -221,7 +221,7 @@ func (j *Job) pass(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("list organizations: %w", err)
 	}
-	rand.Shuffle(len(pending), func(a, b int) { pending[a], pending[b] = pending[b], pending[a] })
+	rand.Shuffle(len(pending), func(a, b int) { pending[a], pending[b] = pending[b], pending[a] }) //nolint:gosec // an order of work, not a secret
 
 	var errs []error
 	readFailures := 0
