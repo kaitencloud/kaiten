@@ -38,7 +38,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewI
 	if command.Quantity == 0 {
 		command.Quantity = 1
 	}
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

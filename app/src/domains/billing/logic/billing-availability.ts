@@ -68,8 +68,8 @@ export function resolveBillingAvailability(
 }
 
 /**
- * Whether `feature` can be offered: billing on, and the release shipping the
- * part. Without a feature, whether billing is on.
+ * Whether `feature` can be offered: billing on, and the plan/deployment making
+ * the capability available. Without a feature, whether billing is on.
  */
 export function hasBillingFeature(
   availability: BillingAvailability,

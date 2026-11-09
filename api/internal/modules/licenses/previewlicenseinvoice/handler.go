@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "PreviewLicenseInvoice"
@@ -73,6 +74,16 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scen
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if scenario.VoucherCode != nil {
+		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
+			return nil, err
+		}
+	}
+	if len(scenario.AddOns) > 0 {
+		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
+			return nil, err
+		}
 	}
 	samples, err := parseSamples(scenario.SampleUsage)
 	if err != nil {

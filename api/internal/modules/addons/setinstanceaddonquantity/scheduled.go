@@ -40,6 +40,9 @@ func (u *UseCase) SetForCustomer(ctx context.Context, instanceSlug, addonSlug st
 		if err != nil {
 			return err
 		}
+		if err := u.deps.RequireIncrease(ctx, user.OrganizationID, write.Attachment.Quantity, quantity); err != nil {
+			return err
+		}
 		if err := catalogue.RefuseIncomplete(ctx, q, user.OrganizationID, write.Instance.ID, operation); err != nil {
 			return err
 		}

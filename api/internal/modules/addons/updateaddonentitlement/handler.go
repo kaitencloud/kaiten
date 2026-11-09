@@ -25,7 +25,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 
 // Execute replaces the grant.
 func (u *UseCase) Execute(ctx context.Context, addonSlug, entitlementSlug string, command AddonGrantChanges) (*catalogue.AddonEntitlement, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -31,7 +31,7 @@ var errDryRun = errors.New("redeem: dry run")
 // whatever its reason, is 422 .VoucherInvalid with the same body, after the
 // same queries. dryRun runs everything and writes nothing.
 func (u *UseCase) ForSession(ctx context.Context, instanceSlug, code string, dryRun bool) (*catalogue.Redemption, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

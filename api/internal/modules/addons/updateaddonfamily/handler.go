@@ -31,7 +31,7 @@ type Command struct {
 // how a mid-period increase of its ADVANCE add-ons is billed (V31-70). A
 // change is recorded as ADDON_UPDATED on each of the family's versions.
 func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (*catalogue.AddonFamily, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

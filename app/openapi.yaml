@@ -811,7 +811,7 @@ components:
           type: boolean
         features:
           $ref: "#/components/schemas/BillingFeatures"
-          description: Which parts of billing this release ships
+          description: Which shipped billing capabilities this organization may use
         providers:
           description: Who can collect invoices
           items:

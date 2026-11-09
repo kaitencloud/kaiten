@@ -56,7 +56,7 @@ func New(enabled bool, entitlements services.ConnectorEntitlements) Gate {
 func NewCached(enabled bool, entitlements services.ConnectorEntitlements, ttl time.Duration) Gate {
 	g := Gate{enabled: enabled, entitlements: services.ConnectorEntitlementsOrAlways(entitlements), answers: nil}
 	if ttl > 0 {
-		g.answers = &answers{ttl: ttl, now: time.Now, byOrganization: map[uuid.UUID]answer{}}
+		g.answers = &answers{ttl: ttl, now: time.Now, byEntitlement: map[entitlementKey]answer{}}
 	}
 	return g
 }
@@ -68,7 +68,7 @@ func (g Gate) Require(ctx context.Context, organizationID uuid.UUID) error {
 	if !g.enabled {
 		return apierrors.Forbidden(CodeDisabled, "billing is disabled on this deployment (KAITEN_BILLING_ENABLED)")
 	}
-	entitled, err := g.entitled(ctx, organizationID)
+	entitled, err := g.entitled(ctx, organizationID, dogfooding.BillingEntitlementSlug)
 	if err != nil {
 		return apierrors.Unavailable(CodeEntitlementCheckUnavailable,
 			"whether this organization's plan includes billing could not be checked; nothing was changed, retry")
@@ -79,22 +79,47 @@ func (g Gate) Require(ctx context.Context, organizationID uuid.UUID) error {
 	return nil
 }
 
-// entitled asks the licensing authority, or answers what it said last.
-func (g Gate) entitled(ctx context.Context, organizationID uuid.UUID) (bool, error) {
-	if g.answers == nil {
-		return g.entitlements.Entitled(ctx, organizationID, dogfooding.BillingEntitlementSlug)
+// RequireEntitlement checks a billing capability after the billing gate. The
+// caller supplies the stable error namespace (for example Vouchers or Addons).
+// Each slug has its own cached answer; an unknown answer is a retryable 503.
+func (g Gate) RequireEntitlement(ctx context.Context, organizationID uuid.UUID, slug, namespace string) error {
+	if err := g.Require(ctx, organizationID); err != nil {
+		return err
 	}
-	if entitled, fresh, ok := g.answers.get(organizationID); ok && fresh {
+	granted, err := g.entitled(ctx, organizationID, slug)
+	if err != nil {
+		return apierrors.Unavailable(namespace+".EntitlementCheckUnavailable",
+			"whether this organization's plan includes "+slug+" could not be checked; nothing was changed, retry")
+	}
+	if !granted {
+		return apierrors.Forbidden(namespace+".NotEntitled", "this organization's plan does not include "+slug)
+	}
+	return nil
+}
+
+// GrantedEntitlement is the display-only answer: unknown reads false, while a
+// previously known answer follows the same TTL and staleness rules as a gate.
+func (g Gate) GrantedEntitlement(ctx context.Context, organizationID uuid.UUID, slug string) bool {
+	granted, err := g.entitled(ctx, organizationID, slug)
+	return err == nil && granted
+}
+
+// entitled asks the licensing authority, or answers what it said last.
+func (g Gate) entitled(ctx context.Context, organizationID uuid.UUID, slug string) (bool, error) {
+	if g.answers == nil {
+		return g.entitlements.Entitled(ctx, organizationID, slug)
+	}
+	if entitled, fresh, ok := g.answers.get(organizationID, slug); ok && fresh {
 		return entitled, nil
 	}
-	entitled, err := g.entitlements.Entitled(ctx, organizationID, dogfooding.BillingEntitlementSlug)
+	entitled, err := g.entitlements.Entitled(ctx, organizationID, slug)
 	if err != nil {
-		if last, _, ok := g.answers.get(organizationID); ok {
+		if last, _, ok := g.answers.get(organizationID, slug); ok {
 			return last, nil
 		}
 		return false, err
 	}
-	g.answers.set(organizationID, entitled)
+	g.answers.set(organizationID, slug, entitled)
 	return entitled, nil
 }
 
@@ -113,7 +138,7 @@ type Feature struct {
 func NewFeature(entitlements services.ConnectorEntitlements, slug string, ttl time.Duration) *Feature {
 	f := &Feature{entitlements: services.ConnectorEntitlementsOrAlways(entitlements), slug: slug, answers: nil}
 	if ttl > 0 {
-		f.answers = &answers{ttl: ttl, now: time.Now, byOrganization: map[uuid.UUID]answer{}}
+		f.answers = &answers{ttl: ttl, now: time.Now, byEntitlement: map[entitlementKey]answer{}}
 	}
 	return f
 }
@@ -124,21 +149,21 @@ func (f *Feature) Granted(ctx context.Context, organizationID uuid.UUID) bool {
 		return false
 	}
 	if f.answers != nil {
-		if granted, fresh, ok := f.answers.get(organizationID); ok && fresh {
+		if granted, fresh, ok := f.answers.get(organizationID, f.slug); ok && fresh {
 			return granted
 		}
 	}
 	granted, err := f.entitlements.Entitled(ctx, organizationID, f.slug)
 	if err != nil {
 		if f.answers != nil {
-			if last, _, ok := f.answers.get(organizationID); ok {
+			if last, _, ok := f.answers.get(organizationID, f.slug); ok {
 				return last
 			}
 		}
 		return false
 	}
 	if f.answers != nil {
-		f.answers.set(organizationID, granted)
+		f.answers.set(organizationID, f.slug, granted)
 	}
 	return granted
 }
@@ -148,34 +173,40 @@ type answer struct {
 	at       time.Time
 }
 
-// answers are the licensing authority's last answers, per organization.
+type entitlementKey struct {
+	organizationID uuid.UUID
+	slug           string
+}
+
+// answers are the licensing authority's last answers, per organization and slug.
 type answers struct {
 	ttl time.Duration
 	now func() time.Time
 
-	mu             sync.Mutex
-	byOrganization map[uuid.UUID]answer
+	mu            sync.Mutex
+	byEntitlement map[entitlementKey]answer
 }
 
 // get is the last answer for organizationID: fresh while younger than ttl,
 // and kept as a fallback until staleFor times ttl.
-func (a *answers) get(organizationID uuid.UUID) (entitled, fresh, ok bool) {
+func (a *answers) get(organizationID uuid.UUID, slug string) (entitled, fresh, ok bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	last, ok := a.byOrganization[organizationID]
+	key := entitlementKey{organizationID: organizationID, slug: slug}
+	last, ok := a.byEntitlement[key]
 	if !ok {
 		return false, false, false
 	}
 	age := a.now().Sub(last.at)
 	if age > staleFor*a.ttl {
-		delete(a.byOrganization, organizationID)
+		delete(a.byEntitlement, key)
 		return false, false, false
 	}
 	return last.entitled, age < a.ttl, true
 }
 
-func (a *answers) set(organizationID uuid.UUID, entitled bool) {
+func (a *answers) set(organizationID uuid.UUID, slug string, entitled bool) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
-	a.byOrganization[organizationID] = answer{entitled: entitled, at: a.now()}
+	a.byEntitlement[entitlementKey{organizationID: organizationID, slug: slug}] = answer{entitled: entitled, at: a.now()}
 }

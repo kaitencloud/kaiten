@@ -286,8 +286,9 @@ page holds, or an export the API streams.
   `enabled: true`. A 403, a 404 (an API older than billing), a 503, a timeout or a
   network failure all hide billing, with no error page and no toast; what differs
   is the explanation a link to a billing screen shows (`BillingUnavailable`).
-  `features.*` hides what the running release does not ship (add-ons, vouchers), and
-  the console has the screens of the add-ons, behind `features.addons`.
+  `features.*` hides capabilities the deployment or organization's plan does not
+  offer. `features.addons` and `features.vouchers` follow their independent plan
+  grants; denied or unknown grants hide those screens without hiding billing.
 - **A member with no value is absent or null, and the console reads both the same.**
   The API leaves an optional member out of an answer or, on the members it lists in its
   contract as required and nullable, says `null`. Whether a member is there is therefore

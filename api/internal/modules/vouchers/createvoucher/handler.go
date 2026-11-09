@@ -22,7 +22,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 
 // Execute creates a DRAFT voucher.
 func (u *UseCase) Execute(ctx context.Context, draft catalogue.VoucherDraft) (*catalogue.Voucher, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

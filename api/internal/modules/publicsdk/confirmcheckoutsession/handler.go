@@ -25,6 +25,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
@@ -47,9 +48,28 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	entitlementslugs "github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "ConfirmCheckoutSession"
+
+// requireSelection protects an OPEN checkout before provider setup or customer
+// creation. An already accepted AWAITING_PAYMENT selection does not pass here:
+// settling what its ACTIVATION payment bought remains grandfathered.
+func (u *UseCase) requireSelection(ctx context.Context, organizationID uuid.UUID, selection checkout.Selection) error {
+	if err := u.deps.Gate.Require(ctx, organizationID); err != nil {
+		return err
+	}
+	if selection.Voucher != nil {
+		if err := u.deps.Gate.RequireEntitlement(ctx, organizationID, entitlementslugs.VouchersEntitlementSlug, "Vouchers"); err != nil {
+			return err
+		}
+	}
+	if len(selection.AddOns) > 0 {
+		return u.deps.Gate.RequireEntitlement(ctx, organizationID, entitlementslugs.AddonsEntitlementSlug, "Addons")
+	}
+	return nil
+}
 
 // licenceHorizon is the end date a Tier 2 instance is created with: the spec
 // gives it none (§9.12 rule 4 step 3), the column requires one.
@@ -81,6 +101,7 @@ type (
 
 // Deps is what the confirm needs.
 type Deps struct {
+	Gate          gate.Gate
 	UserProvider  currentuser.Provider
 	Uof           *uow.UnitOfWork
 	Catalog       *getpubliccatalog.UseCase
@@ -197,6 +218,9 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	}
 	var selection checkout.Selection
 	if err := json.Unmarshal(row.Selection, &selection); err != nil {
+		return nil, err
+	}
+	if err := u.requireSelection(ctx, organizationID, selection); err != nil {
 		return nil, err
 	}
 	addOns := make([]subscribeinstance.SubscriptionAddon, 0, len(selection.AddOns))

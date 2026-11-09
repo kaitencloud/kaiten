@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/turnstile"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
@@ -39,6 +40,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/random"
 	"github.com/kaitencloud/kaiten/api/internal/shared/token"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "CreateCheckoutSession"
@@ -53,6 +55,7 @@ type Activation interface {
 
 // Deps is what the start reads and writes.
 type Deps struct {
+	Gate       gate.Gate
 	Uof        *uow.UnitOfWork
 	Catalog    *getpubliccatalog.UseCase
 	Activation Activation
@@ -84,6 +87,19 @@ type Start struct {
 
 // Execute starts a checkout, or previews one with dryRun.
 func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.CheckoutSessionDraft) (*checkout.CheckoutSessionStart, error) {
+	if err := u.deps.Gate.Require(ctx, start.OrganizationID); err != nil {
+		return nil, err
+	}
+	if draft.VoucherCode != nil {
+		if err := u.deps.Gate.RequireEntitlement(ctx, start.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
+			return nil, err
+		}
+	}
+	if len(draft.AddOns) > 0 {
+		if err := u.deps.Gate.RequireEntitlement(ctx, start.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
+			return nil, err
+		}
+	}
 	q := db.New(u.deps.Uof.DBTX(ctx))
 	key, err := q.GetPublishableKeyCheckout(ctx, db.GetPublishableKeyCheckoutParams{OrganizationID: start.OrganizationID, ID: start.PublishableKeyID})
 	if errors.Is(err, pgx.ErrNoRows) {

@@ -113,7 +113,7 @@ async function readAvailability(
 /**
  * The gate of a billing route: loads the capabilities (from the cache when they
  * are there) and tells whether the route's screens can render. A `feature` asks
- * for a part of billing this release may not ship (add-ons, vouchers). It never
+ * for a part of billing the plan or deployment may not offer. It never
  * throws: `requireBillingCapability` decides what a closed gate does.
  */
 export async function readBillingGate(
@@ -125,7 +125,7 @@ export async function readBillingGate(
 
 /**
  * The guard of a billing route, for its `beforeLoad`: lets the route load when
- * billing is there (and, with a `feature`, when this release ships that part),
+ * billing is there (and, with a `feature`, when that capability is available),
  * and otherwise throws `notFound({ data })` with the closed gate, which says why.
  *
  * It throws rather than returns on purpose. A `beforeLoad` that returns lets the

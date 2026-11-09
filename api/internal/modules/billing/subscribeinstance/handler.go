@@ -28,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "SubscribeInstance"
@@ -145,6 +146,16 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if cmd.VoucherCode != nil {
+		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
+			return nil, err
+		}
+	}
+	if len(cmd.AddOns) > 0 {
+		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
+			return nil, err
+		}
 	}
 	// Whether the commit is this call's own, asked before the transaction
 	// begins -- inside it, the context always carries one.

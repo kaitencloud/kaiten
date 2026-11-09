@@ -6725,9 +6725,9 @@ export default {
             'Billing cannot be opened with the access of this session.',
         },
         FEATURE_UNAVAILABLE: {
-          title: 'Not available in this version',
+          title: 'Billing feature unavailable',
           description:
-            'This part of billing is not shipped by the version of Kaiten you are running.',
+            'This billing feature is not available to this organization on the current deployment.',
         },
         UNREACHABLE: {
           title: 'Billing could not be reached',

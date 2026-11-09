@@ -6830,9 +6830,9 @@ export default {
             'La facturation ne peut pas être ouverte avec les accès de cette session.',
         },
         FEATURE_UNAVAILABLE: {
-          title: 'Indisponible dans cette version',
+          title: 'Fonction de facturation indisponible',
           description:
-            'Cette partie de la facturation n’est pas fournie par la version de Kaiten que vous utilisez.',
+            'Cette fonctionnalité de facturation n’est pas disponible pour cette organisation sur le déploiement actuel.',
         },
         UNREACHABLE: {
           title: 'La facturation est injoignable',

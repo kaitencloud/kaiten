@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/provider"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/access"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // BillingCapabilities is what billing can do for the organization on this
@@ -23,7 +24,7 @@ type BillingCapabilities struct {
 	UsageHistoryRetentionMonths *int              `json:"usageHistoryRetentionMonths" doc:"How long usage reports are kept, in months; null when they are kept forever or it cannot be told"`
 	UsageHistoryRetentionSource string            `json:"usageHistoryRetentionSource" enum:"KBK,ENV,UNKNOWN" doc:"Where the retention comes from: KBK, the organization's licence or an add-on; ENV, the deployment's KAITEN_USAGE_LEDGER_RETENTION_MONTHS; UNKNOWN, the licensing authority could not tell. A null usageHistoryRetentionMonths reads as kept forever with KBK or ENV, and as unknown with UNKNOWN (V31-11)."`
 	UsageIdempotencyWindowDays  int               `json:"usageIdempotencyWindowDays" doc:"How long a usage report's transactionId is remembered, in days"`
-	Features                    BillingFeatures   `json:"features" doc:"Which parts of billing this release ships"`
+	Features                    BillingFeatures   `json:"features" doc:"Which shipped billing capabilities this organization may use"`
 }
 
 // BillingProvider is one way of collecting invoices.
@@ -51,7 +52,7 @@ type PublicSurface struct {
 	Enabled bool `json:"enabled" doc:"Whether publishable keys and customer sessions work for the organization: billing is on for it"`
 }
 
-// BillingFeatures are the parts of billing a release ships.
+// BillingFeatures are the shipped capabilities the organization's plan grants.
 type BillingFeatures struct {
 	Stripe              bool `json:"stripe"`
 	Lifecycle           bool `json:"lifecycle" doc:"Cancellation, reactivation, plan changes and overdue tracking"`
@@ -146,6 +147,8 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		}
 		out.Enabled, out.DisabledReason, out.PublicSurface.Enabled = false, &reason, false
 	}
+	out.Features.Vouchers = out.Enabled && u.deps.Gate.GrantedEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug)
+	out.Features.Addons = out.Enabled && u.deps.Gate.GrantedEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug)
 	months, source := u.deps.Usage.RetentionWindow(ctx, user.OrganizationID)
 	out.UsageHistoryRetentionSource = source
 	if months > 0 {
