@@ -111,7 +111,7 @@ test.describe('where the release ships no add-ons', () => {
 
       await nav.expectUnavailable('FEATURE_UNAVAILABLE');
       await expect(
-        page.getByText('Not available in this version'),
+        page.getByText('Billing feature unavailable'),
       ).toBeVisible();
       // An explanation, not an error and not a missing page.
       await expect(page.getByText('Page not found')).toHaveCount(0);
