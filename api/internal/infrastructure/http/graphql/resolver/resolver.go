@@ -7,6 +7,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	addonsdb "github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listfororganization"
@@ -42,13 +43,13 @@ type Resolver struct {
 }
 
 // NewResolver creates a new Resolver with the given dependencies.
-func NewResolver(pool *pgxpool.Pool, billingGate gate.Gate) *Resolver {
+func NewResolver(pool *pgxpool.Pool, billingGate gate.Gate, auditRetention auditretention.Retention) *Resolver {
 	return &Resolver{
 		BillingGate:               billingGate,
 		AddonsQueries:             addonsdb.New(pool),
 		InstancesQueries:          instancesdb.New(pool),
-		AuditTrailForInstancePort: listforinstance.NewUseCase(auditdb.New(pool)),
-		AuditTrailForOrgPort:      listfororganization.NewUseCase(auditdb.New(pool)),
+		AuditTrailForInstancePort: listforinstance.NewUseCase(auditdb.New(pool), auditRetention),
+		AuditTrailForOrgPort:      listfororganization.NewUseCase(auditdb.New(pool), auditRetention),
 		MetadataFieldsQueries:     metadatafieldsdb.New(pool),
 		EntitlementsQueries:       entitlementsdb.New(pool),
 		LicensesQueries:           licensesdb.New(pool),

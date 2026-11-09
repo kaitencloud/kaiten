@@ -5,6 +5,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listfororganization"
 )
@@ -20,7 +21,7 @@ func TestOrganizationAuditTrailChangesOnly(t *testing.T) {
 		for range sdkEvents {
 			newAuditTrailEntry(t, instances[0].Slug, "ENTITLEMENT_VALUE_GET")
 		}
-		return listfororganization.NewUseCase(auditdb.New(testDb.DbPool))
+		return listfororganization.NewUseCase(auditdb.New(testDb.DbPool), auditretention.Retention{})
 	}
 
 	t.Run("WhenSDKEventsFillThePage_TheChangeBehindThemIsStillRead", func(t *testing.T) {

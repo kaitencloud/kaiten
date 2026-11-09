@@ -111,6 +111,10 @@ func (f fixedRetention) ConfigValue(context.Context, uuid.UUID, string) (json.Ra
 	return f.value, f.err
 }
 
+func (f fixedRetention) LiveConfigValue(context.Context, uuid.UUID, string) (json.RawMessage, error) {
+	return f.value, f.err
+}
+
 func newRetentionServer(t *testing.T, reader fixedRetention) *tests.TestServer {
 	t.Helper()
 	srv := tests.NewTestServer(testDb, tests.TestServerOptions{EntitlementConfig: reader})

@@ -59,10 +59,21 @@ func (r *Reporter) ConfigValue(ctx context.Context, orgID uuid.UUID, entitlement
 		return value, nil
 	}
 
+	value, err := r.LiveConfigValue(ctx, orgID, entitlementSlug)
+	if err != nil && !errors.Is(err, services.ErrNoLicensingAuthority) {
+		return r.configs.lastKnown(key, err)
+	}
+	return value, err
+}
+
+// LiveConfigValue asks the licensing deployment now, whatever the cache holds,
+// and answers its failure as a failure: never a value read earlier. An answer
+// refreshes the cache for the readers that can use one.
+func (r *Reporter) LiveConfigValue(ctx context.Context, orgID uuid.UUID, entitlementSlug string) (json.RawMessage, error) {
 	client, err := r.awaitClient(ctx)
 	if err != nil {
 		configValueFailed(ctx, entitlementSlug)
-		return r.configs.lastKnown(key, err)
+		return nil, err
 	}
 
 	value, err := client.ConfigValue(ctx, orgID, entitlementSlug)
@@ -71,10 +82,10 @@ func (r *Reporter) ConfigValue(ctx context.Context, orgID uuid.UUID, entitlement
 	}
 	if err != nil {
 		configValueFailed(ctx, entitlementSlug)
-		return r.configs.lastKnown(key, err)
+		return nil, err
 	}
 
-	r.configs.put(key, value)
+	r.configs.put(configKey{orgID: orgID, slug: entitlementSlug}, value)
 	return value, nil
 }
 

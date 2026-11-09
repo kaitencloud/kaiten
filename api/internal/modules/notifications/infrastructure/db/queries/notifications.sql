@@ -87,11 +87,18 @@ WHERE at.id = sqlc.arg(id)
 -- The join against audit_trail is the authorization: an id from another
 -- organization matches nothing and marks nothing, rather than erroring, which is
 -- also what makes the call idempotent for a client retrying a partial page.
+--
+-- FOR KEY SHARE SKIP LOCKED keeps that true of an entry the retention pass is
+-- deleting: it matches nothing either. Without the lock the row is read, then
+-- the foreign key check waits on the delete and fails with 23503 once it
+-- commits, taking the whole page of ids with it. Only a delete conflicts with
+-- this lock, so no other writer can make an entry skip.
 INSERT INTO notification_read (user_id, audit_trail_id)
 SELECT sqlc.arg(user_id), at.id
 FROM audit_trail at
 WHERE at.id = ANY(sqlc.arg(ids)::uuid[])
   AND at.organization_id = sqlc.arg(organization_id)
+FOR KEY SHARE OF at SKIP LOCKED
 ON CONFLICT DO NOTHING;
 
 -- name: MarkAllNotificationsRead :exec

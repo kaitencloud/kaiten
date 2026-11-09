@@ -23,6 +23,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/resolver"
 	addonsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
 	addonsdb "github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	billingGraphql "github.com/kaitencloud/kaiten/api/internal/modules/billing/graphql"
 	billingdb "github.com/kaitencloud/kaiten/api/internal/modules/billing/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/components/releaselink"
@@ -112,6 +113,9 @@ type Config struct {
 	// BillingGate is the switch the add-on catalogue sits behind, the one the
 	// REST operations that list it sit behind. The zero Gate is a closed one.
 	BillingGate gate.Gate
+	// AuditRetention bounds the audit trail lists to each organization's
+	// window. The zero value restricts nothing.
+	AuditRetention auditretention.Retention
 }
 
 // Handler creates a new GraphQL handler for Fiber.
@@ -188,7 +192,7 @@ func newServer(pool *pgxpool.Pool, config Config) *handler.Server {
 // ever be charged.
 func newExecutableSchema(pool *pgxpool.Pool, config Config) graphql.ExecutableSchema {
 	return generated.NewExecutableSchema(generated.Config{
-		Resolvers:  resolver.NewResolver(pool, config.BillingGate),
+		Resolvers:  resolver.NewResolver(pool, config.BillingGate, config.AuditRetention),
 		Complexity: newComplexityRoot(),
 	})
 }
