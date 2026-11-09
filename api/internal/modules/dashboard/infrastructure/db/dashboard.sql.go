@@ -154,51 +154,6 @@ func (q *Queries) DashboardConnectors(ctx context.Context, organizationID uuid.U
 	return items, nil
 }
 
-const dashboardCredentials = `-- name: DashboardCredentials :one
-SELECT
-  (SELECT count(*) FROM "user" u
-     WHERE u.organization_id = $1::uuid AND u.type = 'machine' AND u.deleted_at IS NULL)::bigint AS service_accounts,
-  count(*) FILTER (WHERE t.revoked_date IS NULL AND (t.expires_at IS NULL OR t.expires_at > $2))::bigint AS active_tokens,
-  count(*) FILTER (WHERE t.revoked_date IS NULL AND t.expires_at IS NOT NULL
-                     AND t.expires_at > $2 AND t.expires_at <= $3)::bigint AS tokens_expiring_30_days,
-  count(*) FILTER (WHERE t.revoked_date IS NULL AND t.expires_at IS NULL)::bigint AS tokens_without_expiry,
-  (SELECT count(*) FROM publishable_key k
-     WHERE k.organization_id = $1::uuid AND k.revoked_at IS NULL)::bigint AS publishable_keys,
-  (SELECT max(k.last_used_at) FROM publishable_key k
-     WHERE k.organization_id = $1::uuid AND k.revoked_at IS NULL)::timestamp AS publishable_key_last_used_at
-FROM token t
-WHERE t.organization_id = $1::uuid
-`
-
-type DashboardCredentialsParams struct {
-	OrganizationID uuid.UUID        `json:"organization_id"`
-	Now            pgtype.Timestamp `json:"now"`
-	In30Days       pgtype.Timestamp `json:"in_30_days"`
-}
-
-type DashboardCredentialsRow struct {
-	ServiceAccounts          int64            `json:"service_accounts"`
-	ActiveTokens             int64            `json:"active_tokens"`
-	TokensExpiring30Days     int64            `json:"tokens_expiring_30_days"`
-	TokensWithoutExpiry      int64            `json:"tokens_without_expiry"`
-	PublishableKeys          int64            `json:"publishable_keys"`
-	PublishableKeyLastUsedAt pgtype.Timestamp `json:"publishable_key_last_used_at"`
-}
-
-func (q *Queries) DashboardCredentials(ctx context.Context, arg DashboardCredentialsParams) (DashboardCredentialsRow, error) {
-	row := q.db.QueryRow(ctx, dashboardCredentials, arg.OrganizationID, arg.Now, arg.In30Days)
-	var i DashboardCredentialsRow
-	err := row.Scan(
-		&i.ServiceAccounts,
-		&i.ActiveTokens,
-		&i.TokensExpiring30Days,
-		&i.TokensWithoutExpiry,
-		&i.PublishableKeys,
-		&i.PublishableKeyLastUsedAt,
-	)
-	return i, err
-}
-
 const dashboardCustomerCounts = `-- name: DashboardCustomerCounts :one
 
 SELECT
@@ -495,12 +450,13 @@ SELECT
   l.name AS license_name,
   i.end_license_date,
   COALESCE((SELECT ib.status::text FROM instance_billing ib
-     WHERE ib.instance_id = i.id ORDER BY ib.created_at DESC LIMIT 1), '')::text AS billing_status
+     WHERE ib.instance_id = i.id ORDER BY ib.created_at DESC LIMIT 1), '')::text AS billing_status,
+  COALESCE((SELECT ib.cancel_at_period_end FROM instance_billing ib
+     WHERE ib.instance_id = i.id ORDER BY ib.created_at DESC LIMIT 1), false)::boolean AS cancel_at_period_end
 FROM instance i
 JOIN customer c ON c.id = i.customer_id
 JOIN license l ON l.id = i.license_id
 WHERE i.organization_id = $1
-
   AND i.end_license_date >= $2
   AND i.end_license_date < $3
 ORDER BY i.end_license_date
@@ -514,13 +470,14 @@ type DashboardLicensesEndingParams struct {
 }
 
 type DashboardLicensesEndingRow struct {
-	Slug           string           `json:"slug"`
-	Name           string           `json:"name"`
-	CustomerName   string           `json:"customer_name"`
-	CustomerSlug   string           `json:"customer_slug"`
-	LicenseName    string           `json:"license_name"`
-	EndLicenseDate pgtype.Timestamp `json:"end_license_date"`
-	BillingStatus  string           `json:"billing_status"`
+	Slug              string           `json:"slug"`
+	Name              string           `json:"name"`
+	CustomerName      string           `json:"customer_name"`
+	CustomerSlug      string           `json:"customer_slug"`
+	LicenseName       string           `json:"license_name"`
+	EndLicenseDate    pgtype.Timestamp `json:"end_license_date"`
+	BillingStatus     string           `json:"billing_status"`
+	CancelAtPeriodEnd bool             `json:"cancel_at_period_end"`
 }
 
 func (q *Queries) DashboardLicensesEnding(ctx context.Context, arg DashboardLicensesEndingParams) ([]DashboardLicensesEndingRow, error) {
@@ -540,6 +497,7 @@ func (q *Queries) DashboardLicensesEnding(ctx context.Context, arg DashboardLice
 			&i.LicenseName,
 			&i.EndLicenseDate,
 			&i.BillingStatus,
+			&i.CancelAtPeriodEnd,
 		); err != nil {
 			return nil, err
 		}
@@ -601,7 +559,13 @@ SELECT
   (eu.value->>'value')::double precision AS used,
   (iee.value->>'value')::double precision AS granted,
   COALESCE(iee.limit_cap_exceeded_overage_percent, 0)::int AS overage_percent,
-  eu.period_start
+  eu.period_start,
+  e.reset_period,
+  e.reset_anchor,
+  i.start_license_date,
+  COALESCE(ib.status::text, '')::text AS billing_status,
+  ib.anchor_at AS billing_anchor_at,
+  ib.live_ended_at
 FROM entitlement_usage eu
 JOIN instance i ON i.id = eu.instance_id
 JOIN customer c ON c.id = i.customer_id
@@ -609,6 +573,8 @@ JOIN license l ON l.id = i.license_id
 JOIN entitlement e ON e.id = eu.entitlement_id
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = eu.instance_id AND iee.entitlement_id = eu.entitlement_id
+LEFT JOIN instance_billing ib
+  ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
 WHERE eu.organization_id = $1
   AND e.type IN ('NUMBER', 'NUMBER_AI_CREDIT')
   AND jsonb_typeof(iee.value->'value') = 'number'
@@ -616,27 +582,36 @@ WHERE eu.organization_id = $1
 `
 
 type DashboardMetersRow struct {
-	InstanceSlug            string           `json:"instance_slug"`
-	InstanceName            string           `json:"instance_name"`
-	CustomerName            string           `json:"customer_name"`
-	CustomerSlug            string           `json:"customer_slug"`
-	EntitlementSlug         string           `json:"entitlement_slug"`
-	EntitlementName         string           `json:"entitlement_name"`
-	UnitPlural              *string          `json:"unit_plural"`
-	WarningThresholdPercent int32            `json:"warning_threshold_percent"`
-	LicenseName             string           `json:"license_name"`
-	LicenseState            string           `json:"license_state"`
-	Used                    float64          `json:"used"`
-	Granted                 float64          `json:"granted"`
-	OveragePercent          int32            `json:"overage_percent"`
-	PeriodStart             pgtype.Timestamp `json:"period_start"`
+	InstanceSlug            string                  `json:"instance_slug"`
+	InstanceName            string                  `json:"instance_name"`
+	CustomerName            string                  `json:"customer_name"`
+	CustomerSlug            string                  `json:"customer_slug"`
+	EntitlementSlug         string                  `json:"entitlement_slug"`
+	EntitlementName         string                  `json:"entitlement_name"`
+	UnitPlural              *string                 `json:"unit_plural"`
+	WarningThresholdPercent int32                   `json:"warning_threshold_percent"`
+	LicenseName             string                  `json:"license_name"`
+	LicenseState            string                  `json:"license_state"`
+	Used                    float64                 `json:"used"`
+	Granted                 float64                 `json:"granted"`
+	OveragePercent          int32                   `json:"overage_percent"`
+	PeriodStart             pgtype.Timestamp        `json:"period_start"`
+	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
+	StartLicenseDate        pgtype.Timestamp        `json:"start_license_date"`
+	BillingStatus           string                  `json:"billing_status"`
+	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
+	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
 }
 
 // Every metered grant with observed usage, with the grant the instance is
 // entitled to once its License, add-ons, boosts and exceptions are combined
 // (the instance_effective_entitlement view). How close it is to the most the
 // grant allows is computed by the caller: the allowance and the unlimited
-// sentinel (-1) need a few branches SQL would only obscure.
+// sentinel (-1) need a few branches SQL would only obscure. The reset
+// configuration, the License start and the subscription facts let the caller
+// resolve the current window the way the usage endpoints do, so a window that
+// closed without a report reads 0 rather than its last value.
 func (q *Queries) DashboardMeters(ctx context.Context, organizationID uuid.UUID) ([]DashboardMetersRow, error) {
 	rows, err := q.db.Query(ctx, dashboardMeters, organizationID)
 	if err != nil {
@@ -661,6 +636,12 @@ func (q *Queries) DashboardMeters(ctx context.Context, organizationID uuid.UUID)
 			&i.Granted,
 			&i.OveragePercent,
 			&i.PeriodStart,
+			&i.ResetPeriod,
+			&i.ResetAnchor,
+			&i.StartLicenseDate,
+			&i.BillingStatus,
+			&i.BillingAnchorAt,
+			&i.LiveEndedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -670,6 +651,27 @@ func (q *Queries) DashboardMeters(ctx context.Context, organizationID uuid.UUID)
 		return nil, err
 	}
 	return items, nil
+}
+
+const dashboardPublishableKeyCounts = `-- name: DashboardPublishableKeyCounts :one
+SELECT
+  count(*)::bigint AS count,
+  max(k.last_used_at)::timestamp AS last_used_at
+FROM publishable_key k
+WHERE k.organization_id = $1::uuid AND k.revoked_at IS NULL
+`
+
+type DashboardPublishableKeyCountsRow struct {
+	Count      int64            `json:"count"`
+	LastUsedAt pgtype.Timestamp `json:"last_used_at"`
+}
+
+// The keys the vendor's own pages hold (read:publishable_keys).
+func (q *Queries) DashboardPublishableKeyCounts(ctx context.Context, organizationID uuid.UUID) (DashboardPublishableKeyCountsRow, error) {
+	row := q.db.QueryRow(ctx, dashboardPublishableKeyCounts, organizationID)
+	var i DashboardPublishableKeyCountsRow
+	err := row.Scan(&i.Count, &i.LastUsedAt)
+	return i, err
 }
 
 const dashboardRejectedReportsPerDay = `-- name: DashboardRejectedReportsPerDay :many
@@ -851,6 +853,44 @@ func (q *Queries) DashboardSubscriptions(ctx context.Context, organizationID uui
 	return i, err
 }
 
+const dashboardTokenCounts = `-- name: DashboardTokenCounts :one
+SELECT
+  (SELECT count(*) FROM "user" u
+     WHERE u.organization_id = $1::uuid AND u.type = 'machine' AND u.deleted_at IS NULL)::bigint AS service_accounts,
+  count(*) FILTER (WHERE t.revoked_date IS NULL AND (t.expires_at IS NULL OR t.expires_at > $2))::bigint AS active_tokens,
+  count(*) FILTER (WHERE t.revoked_date IS NULL AND t.expires_at IS NOT NULL
+                     AND t.expires_at > $2 AND t.expires_at <= $3)::bigint AS tokens_expiring_30_days,
+  count(*) FILTER (WHERE t.revoked_date IS NULL AND t.expires_at IS NULL)::bigint AS tokens_without_expiry
+FROM token t
+WHERE t.organization_id = $1::uuid
+`
+
+type DashboardTokenCountsParams struct {
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	Now            pgtype.Timestamp `json:"now"`
+	In30Days       pgtype.Timestamp `json:"in_30_days"`
+}
+
+type DashboardTokenCountsRow struct {
+	ServiceAccounts      int64 `json:"service_accounts"`
+	ActiveTokens         int64 `json:"active_tokens"`
+	TokensExpiring30Days int64 `json:"tokens_expiring_30_days"`
+	TokensWithoutExpiry  int64 `json:"tokens_without_expiry"`
+}
+
+// Service accounts and their tokens (read:tokens).
+func (q *Queries) DashboardTokenCounts(ctx context.Context, arg DashboardTokenCountsParams) (DashboardTokenCountsRow, error) {
+	row := q.db.QueryRow(ctx, dashboardTokenCounts, arg.OrganizationID, arg.Now, arg.In30Days)
+	var i DashboardTokenCountsRow
+	err := row.Scan(
+		&i.ServiceAccounts,
+		&i.ActiveTokens,
+		&i.TokensExpiring30Days,
+		&i.TokensWithoutExpiry,
+	)
+	return i, err
+}
+
 const dashboardTokensExpiring = `-- name: DashboardTokensExpiring :many
 SELECT t.name, t.slug, t.expires_at, u.slug AS service_account_slug, u.name AS service_account_name
 FROM token t
@@ -921,7 +961,7 @@ LEFT JOIN LATERAL (
   SELECT d0.release_id, d0.created_at, d0.created_by_id
   FROM deployment d0
   WHERE d0.deployment_zone_id = z.id
-  ORDER BY d0.created_at DESC
+  ORDER BY d0.created_at DESC, d0.seq DESC
   LIMIT 1
 ) d ON true
 LEFT JOIN release r ON r.id = d.release_id

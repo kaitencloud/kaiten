@@ -39,6 +39,8 @@ export function IntegrationView({
   const ZoneIcon = dataModelIcons.deploymentZone;
   const flags = summary.featureFlags;
   const integrations = summary.integrations;
+  const tokens = integrations?.tokens;
+  const keys = integrations?.publishableKeys;
   const behind = summary.attention.zonesBehind.count;
 
   const figures: Figure[] = [
@@ -92,24 +94,19 @@ export function IntegrationView({
     {
       id: 'credentials',
       label: t('Pages.Dashboard.figures.credentials'),
-      value: integrations ? integrations.activeTokens : '—',
-      unit: integrations
-        ? t('Pages.Dashboard.figures.keys', {
-            count: integrations.publishableKeys,
-          })
+      value: tokens ? tokens.activeTokens : '—',
+      unit: keys
+        ? t('Pages.Dashboard.figures.keys', { count: keys.count })
         : undefined,
       icon: <TokenIcon />,
-      tone:
-        integrations && integrations.tokensExpiring30Days > 0
-          ? 'warning'
-          : undefined,
-      helpers: integrations
+      tone: tokens && tokens.tokensExpiring30Days > 0 ? 'warning' : undefined,
+      helpers: tokens
         ? [
             t('Pages.Dashboard.figures.tokensExpiring', {
-              count: integrations.tokensExpiring30Days,
+              count: tokens.tokensExpiring30Days,
             }),
             t('Pages.Dashboard.figures.noExpiry', {
-              count: integrations.tokensWithoutExpiry,
+              count: tokens.tokensWithoutExpiry,
             }),
           ]
         : [],

@@ -2,7 +2,7 @@ import type { TFunction } from 'i18next';
 import type { BillingHealth, DashboardSummary } from '@/api-client';
 import {
   type AttentionLine,
-  billingStatusKey,
+  billingStatusLabel,
   instanceEntitlementsPath,
   instancePath,
   meterMax,
@@ -27,32 +27,39 @@ export function buildCustomersAttention(
   const lines: AttentionLine[] = [];
   const a = summary.attention;
 
-  a.hardLimits.items.slice(0, TOP).forEach((meter) => {
+  a.limitsReached.items.slice(0, TOP).forEach((meter) => {
     lines.push({
-      id: `hard-${meter.instanceSlug}-${meter.entitlementSlug}`,
+      id: `limit-${meter.instanceSlug}-${meter.entitlementSlug}`,
       tone: 'destructive',
       count: 1,
-      title: t('Pages.Dashboard.attention.lines.hardLimit.title', {
+      title: t('Pages.Dashboard.attention.lines.limitReached.title', {
         customer: meter.customerName,
         entitlement: meter.entitlementName,
         license: meter.licenseName,
       }),
-      detail: t('Pages.Dashboard.attention.lines.hardLimit.detail', {
-        used: formatQuantity(meter.used),
-        max: meterMax(meter),
-        instance: meter.instanceName,
-      }),
+      detail: meter.hardLimit
+        ? t('Pages.Dashboard.attention.lines.limitReached.detailHard', {
+            used: formatQuantity(meter.used),
+            max: meterMax(meter),
+            instance: meter.instanceName,
+          })
+        : t('Pages.Dashboard.attention.lines.limitReached.detailSoft', {
+            used: formatQuantity(meter.used),
+            max: meterMax(meter),
+            allowance: meter.allowancePercent,
+            instance: meter.instanceName,
+          }),
       action: {
-        label: t('Pages.Dashboard.attention.lines.hardLimit.action'),
+        label: t('Pages.Dashboard.attention.lines.limitReached.action'),
         to: instanceEntitlementsPath(meter.instanceSlug),
       },
     });
   });
   pushMore(
     lines,
-    'hard-more',
+    'limit-more',
     'destructive',
-    a.hardLimits.count - TOP,
+    a.limitsReached.count - TOP,
     t,
     '/customers/instances',
   );
@@ -126,11 +133,11 @@ export function buildCustomersAttention(
       detail: t('Pages.Dashboard.attention.lines.licenseEnding.detail', {
         license: item.licenseName,
         instance: item.instanceName,
-        billing: item.billingStatus
-          ? t(
-              `Pages.Dashboard.comingUp.${billingStatusKey(item.billingStatus)}`,
-            )
-          : t('Pages.Dashboard.comingUp.noSubscription'),
+        billing: billingStatusLabel(
+          t,
+          item.billingStatus,
+          item.cancelAtPeriodEnd,
+        ),
       }),
       action: {
         label: t('Pages.Dashboard.attention.lines.licenseEnding.action'),

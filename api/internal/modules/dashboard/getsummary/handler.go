@@ -9,8 +9,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/modules/dashboard/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
+	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 )
 
 const (
@@ -19,9 +23,6 @@ const (
 	// topItems is how many items each attention check names; its count is
 	// over the whole organization.
 	topItems = 5
-	// defaultWarningPercent stands in for an entitlement that sets no
-	// warning threshold.
-	defaultWarningPercent = 80
 	// soonDays is the horizon of "ending soon" and "expiring soon".
 	soonDays = 30
 	// endingHorizonDays is how far the Licenses-ending list looks.
@@ -98,11 +99,15 @@ type computation struct {
 	from    time.Time
 	query   Query
 	summary *DashboardSummary
+	// headline is the meter that decides each instance's standing, by slug,
+	// over every meter of the organization: a meter at its limit before one
+	// above its threshold, the higher ratio first.
+	headline map[string]DashboardMeter
 }
 
 func emptyAttention() DashboardAttention {
 	return DashboardAttention{
-		HardLimits:          DashboardAttentionMeters{Items: []DashboardMeter{}},
+		LimitsReached:       DashboardAttentionMeters{Items: []DashboardMeter{}},
 		NearThreshold:       DashboardAttentionMeters{Items: []DashboardMeter{}},
 		RejectedReports24h:  DashboardAttentionReports{Items: []DashboardInstanceReports{}},
 		SilentInstances:     DashboardAttentionInstances{Items: []DashboardInstance{}},
@@ -171,8 +176,16 @@ func (c *computation) meters(ctx context.Context) error {
 		return err
 	}
 	meters := make([]DashboardMeter, 0, len(rows))
+	c.headline = map[string]DashboardMeter{}
 	for _, row := range rows {
-		meters = append(meters, meterOf(row))
+		m, err := meterOf(row, c.now)
+		if err != nil {
+			return err
+		}
+		meters = append(meters, m)
+		if current, ok := c.headline[m.InstanceSlug]; !ok || meterWorse(m, current) {
+			c.headline[m.InstanceSlug] = m
+		}
 	}
 	// Highest ratio first; meters nothing refuses come last, by what they use.
 	sort.SliceStable(meters, func(i, j int) bool {
@@ -188,14 +201,14 @@ func (c *computation) meters(ctx context.Context) error {
 		return meters[i].Used > meters[j].Used
 	})
 
-	hard := DashboardAttentionMeters{Items: []DashboardMeter{}}
+	reached := DashboardAttentionMeters{Items: []DashboardMeter{}}
 	near := DashboardAttentionMeters{Items: []DashboardMeter{}}
 	for _, m := range meters {
 		switch {
-		case m.LimitReached && m.HardLimit:
-			hard.Count++
-			if len(hard.Items) < topItems {
-				hard.Items = append(hard.Items, m)
+		case m.LimitReached:
+			reached.Count++
+			if len(reached.Items) < topItems {
+				reached.Items = append(reached.Items, m)
 			}
 		case m.AboveWarning:
 			near.Count++
@@ -205,16 +218,51 @@ func (c *computation) meters(ctx context.Context) error {
 		}
 	}
 	c.summary.Saturation = meters[:min(len(meters), topMeters)]
-	c.summary.Attention.HardLimits = hard
+	c.summary.Attention.LimitsReached = reached
 	c.summary.Attention.NearThreshold = near
-	c.checked("hardLimits")
+	c.checked("limitsReached")
 	c.checked("nearThreshold")
 	return nil
 }
 
+// meterState ranks what a meter says about its instance: refusing first, then
+// warning, then nothing.
+func meterState(m DashboardMeter) int {
+	switch {
+	case m.LimitReached:
+		return 2
+	case m.AboveWarning:
+		return 1
+	}
+	return 0
+}
+
+// meterWorse is whether a should decide the standing rather than b: the worse
+// state first, then the higher ratio, so a meter that refuses reports is never
+// hidden by one further along an allowance nothing refuses.
+func meterWorse(a, b DashboardMeter) bool {
+	if sa, sb := meterState(a), meterState(b); sa != sb {
+		return sa > sb
+	}
+	ra, rb := -1.0, -1.0
+	if a.Ratio != nil {
+		ra = *a.Ratio
+	}
+	if b.Ratio != nil {
+		rb = *b.Ratio
+	}
+	return ra > rb
+}
+
 // meterOf reads one grant against its usage: the grant plus its allowance is
 // the most a report is accepted up to; -1 on either is the unlimited sentinel.
-func meterOf(row db.DashboardMetersRow) DashboardMeter {
+// A periodic entitlement is read in its current window, the way the usage
+// endpoints read it (period.ResolveCurrentOn, then the lazy-read rule of
+// entitlementvalue.ResolveCurrentWindowUsage): a stored window that closed
+// without a report counts as 0, and windowStart is the current window's. The
+// warning is the report path's: a percentage of the grant, none when the
+// entitlement sets no threshold.
+func meterOf(row db.DashboardMetersRow, now time.Time) (DashboardMeter, error) {
 	m := DashboardMeter{
 		InstanceSlug: row.InstanceSlug, InstanceName: row.InstanceName,
 		CustomerSlug: row.CustomerSlug, CustomerName: row.CustomerName,
@@ -227,11 +275,26 @@ func meterOf(row db.DashboardMetersRow) DashboardMeter {
 		WarningThresholdPercent: int(row.WarningThresholdPercent),
 		WindowStart:             timePtr(row.PeriodStart),
 	}
-	if m.WarningThresholdPercent <= 0 {
-		m.WarningThresholdPercent = defaultWarningPercent
+	if row.ResetPeriod != nil && row.ResetAnchor != nil {
+		var storedStart *time.Time
+		if row.PeriodStart.Valid {
+			storedStart = ptr.To(row.PeriodStart.Time.UTC())
+		}
+		basis := period.NewBasis(row.StartLicenseDate.Time.UTC(), row.BillingStatus,
+			pgtime.PgTimeStampToTimePtr(row.BillingAnchorAt), pgtime.PgTimeStampToTimePtr(row.LiveEndedAt))
+		window, _, err := period.ResolveCurrentOn(now, storedStart,
+			period.ResetPeriod(*row.ResetPeriod), period.ResetAnchor(*row.ResetAnchor), basis)
+		if err != nil {
+			return m, fmt.Errorf("meter %s/%s: %w", row.InstanceSlug, row.EntitlementSlug, err)
+		}
+		if storedStart == nil || !storedStart.Equal(window.Start) {
+			m.Used = 0
+		}
+		start := window.Start
+		m.WindowStart = &start
 	}
 	if row.Granted < 0 {
-		return m // unlimited: nothing to measure against
+		return m, nil // unlimited: nothing to measure against
 	}
 	granted := row.Granted
 	m.Granted = &granted
@@ -250,16 +313,32 @@ func meterOf(row db.DashboardMetersRow) DashboardMeter {
 		m.MaxAllowed = &reference
 	}
 	if reference <= 0 {
-		return m
+		return m, nil
 	}
-	ratio := row.Used / reference
+	ratio := m.Used / reference
 	m.Ratio = &ratio
-	if m.MaxAllowed != nil && row.Used >= reference {
+	switch {
+	case m.MaxAllowed != nil && m.Used >= reference:
 		m.LimitReached = true
-	} else if ratio*100 >= float64(m.WarningThresholdPercent) {
+	case row.WarningThresholdPercent > 0 &&
+		m.Used >= entitlementvalue.WarningBoundary(granted, row.WarningThresholdPercent):
 		m.AboveWarning = true
 	}
-	return m
+	return m, nil
+}
+
+// standingOf is the one word for an instance, from its worst meter first and
+// its activity second.
+func standingOf(item DashboardInstanceReports) string {
+	switch {
+	case item.Headline != nil && item.Headline.LimitReached:
+		return "atLimit"
+	case item.Headline != nil && item.Headline.AboveWarning:
+		return "watch"
+	case item.Silent:
+		return "silent"
+	}
+	return "healthy"
 }
 
 func (c *computation) usageReports(ctx context.Context) error {
@@ -312,6 +391,7 @@ func (c *computation) usageReports(ctx context.Context) error {
 		return err
 	}
 	byInstance := make([]DashboardInstanceReports, 0, len(rows))
+	standings := map[string]int64{}
 	refused := DashboardAttentionReports{Items: []DashboardInstanceReports{}}
 	silent := DashboardAttentionInstances{Items: []DashboardInstance{}}
 	var active int64
@@ -324,7 +404,15 @@ func (c *computation) usageReports(ctx context.Context) error {
 			LastReportAt: timePtr(row.LastReportAt),
 			LastReadAt:   timePtrTz(row.LastReadAt),
 		}
-		item.Silent = item.Accepted == 0 && item.LastReadAt == nil
+		// An instance whose every report is refused is talking, and blocked: it
+		// shows under the refusals, not as silent.
+		item.Silent = item.Accepted == 0 && item.Rejected == 0 && item.LastReadAt == nil
+		if head, ok := c.headline[item.InstanceSlug]; ok {
+			h := head
+			item.Headline = &h
+		}
+		item.Standing = standingOf(item)
+		standings[item.Standing]++
 		byInstance = append(byInstance, item)
 		if item.Silent {
 			silent.Count++
@@ -355,6 +443,10 @@ func (c *computation) usageReports(ctx context.Context) error {
 	}
 	c.summary.Figures.Instances.ActiveInRange = active
 	c.summary.Figures.Instances.SilentInRange = silent.Count
+	c.summary.Figures.Instances.ByStanding = DashboardStandingCounts{
+		AtLimit: standings["atLimit"], Watch: standings["watch"],
+		Silent: standings["silent"], Healthy: standings["healthy"],
+	}
 	c.summary.Attention.RejectedReports24h = refused
 	c.summary.Attention.SilentInstances = silent
 	c.checked("rejectedReports24h")
@@ -391,9 +483,6 @@ func (c *computation) featureFlags(ctx context.Context) error {
 }
 
 func (c *computation) licenses(ctx context.Context) error {
-	if !c.query.Visibility.Licenses {
-		return nil
-	}
 	mixRows, err := c.q.DashboardLicenseMix(ctx, c.org)
 	if err != nil {
 		return err
@@ -435,7 +524,10 @@ func (c *computation) licenses(ctx context.Context) error {
 			InstanceSlug: row.Slug, InstanceName: row.Name,
 			CustomerSlug: row.CustomerSlug, CustomerName: row.CustomerName,
 			LicenseName: row.LicenseName, EndsAt: row.EndLicenseDate.Time.UTC(),
-			BillingStatus: optional(row.BillingStatus),
+		}
+		if c.query.Visibility.Billing {
+			item.BillingStatus = optional(row.BillingStatus)
+			item.CancelAtPeriodEnd = row.CancelAtPeriodEnd
 		}
 		ending.Items = append(ending.Items, item)
 		if item.EndsAt.Before(in30) && len(soon.Items) < topItems {
@@ -463,7 +555,7 @@ func (c *computation) licenses(ctx context.Context) error {
 		}
 	}
 
-	c.summary.Licenses = block
+	c.summary.Licenses = *block
 	c.summary.Attention.LicensesEnding30d = soon
 	c.summary.Attention.ArchivedVersions = archived
 	c.checked("licensesEnding30d")
@@ -502,57 +594,69 @@ func (c *computation) zones(ctx context.Context) error {
 }
 
 func (c *computation) integrations(ctx context.Context) error {
-	if !c.query.Visibility.Tokens {
+	v := c.query.Visibility
+	if !v.Tokens && !v.PublishableKeys && !v.Connectors {
 		return nil
 	}
-	in30 := ts(c.now.AddDate(0, 0, soonDays))
-	creds, err := c.q.DashboardCredentials(ctx, db.DashboardCredentialsParams{
-		OrganizationID: c.org, Now: ts(c.now), In30Days: in30,
-	})
-	if err != nil {
-		return err
-	}
-	expiringRows, err := c.q.DashboardTokensExpiring(ctx, db.DashboardTokensExpiringParams{
-		OrganizationID: c.org, Now: ts(c.now), In30Days: in30,
-	})
-	if err != nil {
-		return err
-	}
-	connectorRows, err := c.q.DashboardConnectors(ctx, c.org)
-	if err != nil {
-		return err
-	}
-
-	block := &DashboardIntegrations{
-		ServiceAccounts:          creds.ServiceAccounts,
-		ActiveTokens:             creds.ActiveTokens,
-		TokensExpiring30Days:     creds.TokensExpiring30Days,
-		TokensWithoutExpiry:      creds.TokensWithoutExpiry,
-		TokensExpiring:           make([]DashboardTokenExpiring, 0, len(expiringRows)),
-		PublishableKeys:          creds.PublishableKeys,
-		PublishableKeyLastUsedAt: timePtr(creds.PublishableKeyLastUsedAt),
-		Connectors:               make([]DashboardConnector, 0, len(connectorRows)),
-	}
-	for _, row := range expiringRows {
-		var accountSlug string
-		if row.ServiceAccountSlug != nil {
-			accountSlug = *row.ServiceAccountSlug
+	block := &DashboardIntegrations{}
+	if v.Tokens {
+		in30 := ts(c.now.AddDate(0, 0, soonDays))
+		counts, err := c.q.DashboardTokenCounts(ctx, db.DashboardTokenCountsParams{
+			OrganizationID: c.org, Now: ts(c.now), In30Days: in30,
+		})
+		if err != nil {
+			return err
 		}
-		block.TokensExpiring = append(block.TokensExpiring, DashboardTokenExpiring{
-			Name: row.Name, Slug: row.Slug, ExpiresAt: row.ExpiresAt.Time.UTC(),
-			ServiceAccountSlug: accountSlug, ServiceAccountName: row.ServiceAccountName,
+		expiringRows, err := c.q.DashboardTokensExpiring(ctx, db.DashboardTokensExpiringParams{
+			OrganizationID: c.org, Now: ts(c.now), In30Days: in30,
 		})
+		if err != nil {
+			return err
+		}
+		tokens := &DashboardTokens{
+			ServiceAccounts:      counts.ServiceAccounts,
+			ActiveTokens:         counts.ActiveTokens,
+			TokensExpiring30Days: counts.TokensExpiring30Days,
+			TokensWithoutExpiry:  counts.TokensWithoutExpiry,
+			TokensExpiring:       make([]DashboardTokenExpiring, 0, len(expiringRows)),
+		}
+		for _, row := range expiringRows {
+			var accountSlug string
+			if row.ServiceAccountSlug != nil {
+				accountSlug = *row.ServiceAccountSlug
+			}
+			tokens.TokensExpiring = append(tokens.TokensExpiring, DashboardTokenExpiring{
+				Name: row.Name, Slug: row.Slug, ExpiresAt: row.ExpiresAt.Time.UTC(),
+				ServiceAccountSlug: accountSlug, ServiceAccountName: row.ServiceAccountName,
+			})
+		}
+		block.Tokens = tokens
+		c.summary.Attention.TokensExpiring30d = DashboardAttentionTokens{
+			Count: counts.TokensExpiring30Days, Items: tokens.TokensExpiring,
+		}
+		c.checked("tokensExpiring30d")
 	}
-	for _, row := range connectorRows {
-		block.Connectors = append(block.Connectors, DashboardConnector{
-			Name: row.Name, Activated: row.Activated, ActivatedAt: timePtrTz(row.ActivatedAt),
-		})
+	if v.PublishableKeys {
+		keys, err := c.q.DashboardPublishableKeyCounts(ctx, c.org)
+		if err != nil {
+			return err
+		}
+		block.PublishableKeys = &DashboardPublishableKeys{Count: keys.Count, LastUsedAt: timePtr(keys.LastUsedAt)}
+	}
+	if v.Connectors {
+		rows, err := c.q.DashboardConnectors(ctx, c.org)
+		if err != nil {
+			return err
+		}
+		connectors := &DashboardConnectors{Items: make([]DashboardConnector, 0, len(rows))}
+		for _, row := range rows {
+			connectors.Items = append(connectors.Items, DashboardConnector{
+				Name: row.Name, Activated: row.Activated, ActivatedAt: timePtrTz(row.ActivatedAt),
+			})
+		}
+		block.Connectors = connectors
 	}
 	c.summary.Integrations = block
-	c.summary.Attention.TokensExpiring30d = DashboardAttentionTokens{
-		Count: creds.TokensExpiring30Days, Items: block.TokensExpiring,
-	}
-	c.checked("tokensExpiring30d")
 	return nil
 }
 

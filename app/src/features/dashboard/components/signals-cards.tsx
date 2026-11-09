@@ -23,6 +23,7 @@ type Signal = {
 };
 
 const TOP = 4;
+const AT_RISK_STATUSES = ['CANCELED', 'INCOMPLETE', 'PAST_DUE'];
 
 /**
  * The growth and risk signals of the deck's "from signal to revenue": what the
@@ -34,8 +35,8 @@ export function SignalsCards({ summary }: { summary: DashboardSummary }) {
   const a = summary.attention;
 
   const growth: Signal[] = [
-    ...a.hardLimits.items.map((meter) => ({
-      id: `hard-${meter.instanceSlug}-${meter.entitlementSlug}`,
+    ...a.limitsReached.items.map((meter) => ({
+      id: `limit-${meter.instanceSlug}-${meter.entitlementSlug}`,
       title: t('Pages.Dashboard.signals.upgrade', {
         customer: meter.customerName,
         entitlement: meter.entitlementName,
@@ -64,7 +65,7 @@ export function SignalsCards({ summary }: { summary: DashboardSummary }) {
       rule: t('Pages.Dashboard.signals.rules.nearLimit'),
       to: instanceEntitlementsPath(meter.instanceSlug),
     })),
-    ...(summary.licenses?.archived ?? []).map((item) => ({
+    ...summary.licenses.archived.map((item) => ({
       id: `archived-${item.instanceSlug}`,
       title: t('Pages.Dashboard.signals.archived', {
         customer: item.customerName,
@@ -85,9 +86,14 @@ export function SignalsCards({ summary }: { summary: DashboardSummary }) {
   ];
 
   const risk: Signal[] = [
-    ...(summary.licenses?.ending.items ?? [])
+    // At risk: no subscription, one that ends with its period, or one that is
+    // canceled, never completed, or past due.
+    ...summary.licenses.ending.items
       .filter(
-        (item) => !item.billingStatus || item.billingStatus === 'CANCELED',
+        (item) =>
+          !item.billingStatus ||
+          item.cancelAtPeriodEnd ||
+          AT_RISK_STATUSES.includes(item.billingStatus),
       )
       .map((item) => ({
         id: `ending-${item.instanceSlug}`,

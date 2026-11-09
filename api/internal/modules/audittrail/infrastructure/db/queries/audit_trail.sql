@@ -42,6 +42,7 @@ LEFT JOIN customer c ON i.customer_id = c.id
 LEFT JOIN "user" u ON u.id = at.actor_id
 WHERE at.organization_id = sqlc.arg(organization_id)
   AND (sqlc.narg(event_name)::text IS NULL OR at.event_name = sqlc.narg(event_name))
+  AND (sqlc.narg(exclude_event_names)::text[] IS NULL OR at.event_name <> ALL(sqlc.narg(exclude_event_names)::text[]))
   AND (sqlc.narg(after_ts)::timestamptz IS NULL OR at.occurred_at >= sqlc.narg(after_ts))
   AND (sqlc.narg(before_ts)::timestamptz IS NULL OR at.occurred_at <= sqlc.narg(before_ts))
   AND (

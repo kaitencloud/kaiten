@@ -173,24 +173,26 @@ LEFT JOIN customer c ON i.customer_id = c.id
 LEFT JOIN "user" u ON u.id = at.actor_id
 WHERE at.organization_id = $1
   AND ($2::text IS NULL OR at.event_name = $2)
-  AND ($3::timestamptz IS NULL OR at.occurred_at >= $3)
-  AND ($4::timestamptz IS NULL OR at.occurred_at <= $4)
+  AND ($3::text[] IS NULL OR at.event_name <> ALL($3::text[]))
+  AND ($4::timestamptz IS NULL OR at.occurred_at >= $4)
+  AND ($5::timestamptz IS NULL OR at.occurred_at <= $5)
   AND (
-    $5::timestamptz IS NULL
-    OR (at.occurred_at, at.id) < ($5::timestamptz, $6::uuid)
+    $6::timestamptz IS NULL
+    OR (at.occurred_at, at.id) < ($6::timestamptz, $7::uuid)
   )
 ORDER BY at.occurred_at DESC, at.id DESC
-LIMIT $7
+LIMIT $8
 `
 
 type ListOrganizationAuditTrailsParams struct {
-	OrganizationID   uuid.UUID          `json:"organization_id"`
-	EventName        *string            `json:"event_name"`
-	AfterTs          pgtype.Timestamptz `json:"after_ts"`
-	BeforeTs         pgtype.Timestamptz `json:"before_ts"`
-	CursorOccurredAt pgtype.Timestamptz `json:"cursor_occurred_at"`
-	CursorID         *uuid.UUID         `json:"cursor_id"`
-	LimitPlusOne     int32              `json:"limit_plus_one"`
+	OrganizationID    uuid.UUID          `json:"organization_id"`
+	EventName         *string            `json:"event_name"`
+	ExcludeEventNames []string           `json:"exclude_event_names"`
+	AfterTs           pgtype.Timestamptz `json:"after_ts"`
+	BeforeTs          pgtype.Timestamptz `json:"before_ts"`
+	CursorOccurredAt  pgtype.Timestamptz `json:"cursor_occurred_at"`
+	CursorID          *uuid.UUID         `json:"cursor_id"`
+	LimitPlusOne      int32              `json:"limit_plus_one"`
 }
 
 type ListOrganizationAuditTrailsRow struct {
@@ -220,6 +222,7 @@ func (q *Queries) ListOrganizationAuditTrails(ctx context.Context, arg ListOrgan
 	rows, err := q.db.Query(ctx, listOrganizationAuditTrails,
 		arg.OrganizationID,
 		arg.EventName,
+		arg.ExcludeEventNames,
 		arg.AfterTs,
 		arg.BeforeTs,
 		arg.CursorOccurredAt,

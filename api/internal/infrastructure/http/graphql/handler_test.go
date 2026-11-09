@@ -688,8 +688,8 @@ var legitimateQueries = map[string]string{
 			}
 		}
 	}`,
-	"console/GetGlobalAuditTrail": `query GetGlobalAuditTrail($limit: Int) {
-		organizationAuditTrails(limit: $limit) {
+	"console/GetGlobalAuditTrail": `query GetGlobalAuditTrail($limit: Int, $excludeEventNames: [String!]) {
+		organizationAuditTrails(limit: $limit, excludeEventNames: $excludeEventNames) {
 			items {
 				id eventName eventType instanceId instanceSlug instanceName customerName
 				payload timestamp

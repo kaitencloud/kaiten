@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	instancedb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -124,8 +125,21 @@ func newLicense(t *testing.T) *licenseschema.License {
 	return license
 }
 
-// newEntitlement creates a NUMBER entitlement that warns at warningThresholdPercent.
+// newEntitlement creates a lifetime NUMBER entitlement that warns at
+// warningThresholdPercent; 0 configures no warning.
 func newEntitlement(t *testing.T, warningThresholdPercent int32) *entitlementschema.Entitlement {
+	t.Helper()
+	return newEntitlementWith(t, warningThresholdPercent, nil, nil)
+}
+
+// newPeriodicEntitlement creates a NUMBER entitlement whose usage resets every
+// calendar month.
+func newPeriodicEntitlement(t *testing.T, warningThresholdPercent int32) *entitlementschema.Entitlement {
+	t.Helper()
+	return newEntitlementWith(t, warningThresholdPercent, ptr.To(period.Month), ptr.To(period.Calendar))
+}
+
+func newEntitlementWith(t *testing.T, warningThresholdPercent int32, resetPeriod *period.ResetPeriod, resetAnchor *period.ResetAnchor) *entitlementschema.Entitlement {
 	t.Helper()
 	repo := createentitlement.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
 
@@ -141,6 +155,8 @@ func newEntitlement(t *testing.T, warningThresholdPercent int32) *entitlementsch
 			Type:                    entitlementschema.Number,
 			AggregationMethod:       ptr.To(entitlementschema.Sum),
 			WarningThresholdPercent: warningThresholdPercent,
+			ResetPeriod:             resetPeriod,
+			ResetAnchor:             resetAnchor,
 		},
 		testDb.DefaultData.OrganizationID,
 	)
@@ -188,4 +204,29 @@ func newAuditTrailEntry(t *testing.T, instanceSlug, eventName string) {
 		Payload:        []byte(`{}`),
 	})
 	require.NoError(t, err)
+}
+
+// scopedServer serves the same database to a caller holding only scopes.
+func scopedServer(t *testing.T, scopes ...string) *tests.TestServer {
+	t.Helper()
+	require.NotEmpty(t, scopes, "scopedServer needs at least one scope")
+	server := tests.NewTestServer(testDb, tests.TestServerOptions{Scopes: scopes})
+	t.Cleanup(func() { require.NoError(t, server.Close()) })
+	return server
+}
+
+// closeUsageWindow moves the stored usage window of an instance's entitlement
+// back one month, the way a window looks once the calendar moved on and no
+// report came to roll it over.
+func closeUsageWindow(t *testing.T, instanceSlug, entitlementSlug string) {
+	t.Helper()
+	tag, err := testServer.Dependencies.DB.Exec(t.Context(), `
+		UPDATE entitlement_usage eu
+		SET period_start = eu.period_start - interval '1 month'
+		FROM instance i, entitlement e
+		WHERE eu.instance_id = i.id AND eu.entitlement_id = e.id
+		  AND i.slug = $1 AND e.slug = $2 AND eu.organization_id = $3`,
+		instanceSlug, entitlementSlug, testDb.DefaultData.OrganizationID)
+	require.NoError(t, err)
+	require.EqualValues(t, 1, tag.RowsAffected())
 }

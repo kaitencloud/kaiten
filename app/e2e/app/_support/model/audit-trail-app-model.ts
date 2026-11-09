@@ -74,10 +74,18 @@ export class AuditTrailAppModel {
   ): GetGlobalAuditTrailQuery {
     const limit =
       typeof variables?.limit === 'number' ? variables.limit : DEFAULT_LIMIT;
+    const excluded = new Set(
+      Array.isArray(variables?.excludeEventNames)
+        ? (variables.excludeEventNames as string[])
+        : [],
+    );
 
     return {
       organizationAuditTrails: {
-        items: this.newestFirst().slice(0, limit).map(toRow),
+        items: this.newestFirst()
+          .filter((entry) => !excluded.has(entry.eventName))
+          .slice(0, limit)
+          .map(toRow),
       },
     };
   }

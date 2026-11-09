@@ -171,9 +171,36 @@ export function createDashboardSummary(
         rejected: refused ? 9 : 0,
         rejected24h: refused ? 3 : 0,
         silent,
+        standing: 'healthy' as const,
       };
     },
   );
+  // The standing of each instance, as the API decides it over every meter of
+  // the instance: a meter at its limit before one above its threshold, the
+  // higher ratio first; silent when nothing reported or read.
+  const meterState = (m: DashboardMeter) =>
+    m.limitReached ? 2 : m.aboveWarning ? 1 : 0;
+  for (const row of byInstance) {
+    const headline = meters
+      .filter((m) => m.instanceSlug === row.instanceSlug)
+      .sort(
+        (a, b) =>
+          meterState(b) - meterState(a) || (b.ratio ?? -1) - (a.ratio ?? -1),
+      )[0];
+    row.headline = headline;
+    row.standing = headline?.limitReached
+      ? 'atLimit'
+      : headline?.aboveWarning
+        ? 'watch'
+        : row.silent
+          ? 'silent'
+          : 'healthy';
+  }
+  const byStanding = { atLimit: 0, watch: 0, silent: 0, healthy: 0 };
+  for (const row of byInstance) {
+    byStanding[row.standing] += 1;
+  }
+
   const accepted = byInstance.reduce((sum, row) => sum + row.accepted, 0);
   const rejected = byInstance.reduce((sum, row) => sum + row.rejected, 0);
   const rejected24h = byInstance.reduce((sum, row) => sum + row.rejected24h, 0);
@@ -255,6 +282,9 @@ export function createDashboardSummary(
     .map((instance) => ({
       billingStatus:
         subscriptionBySlug.get(instance.slug ?? instance.id)?.status ?? null,
+      cancelAtPeriodEnd:
+        subscriptionBySlug.get(instance.slug ?? instance.id)
+          ?.cancelAtPeriodEnd ?? false,
       customerName:
         customerById.get(instance.customerId)?.name ?? instance.customerSlug,
       customerSlug: instance.customerSlug,
@@ -384,7 +414,7 @@ export function createDashboardSummary(
       archivedVersions: { count: archived.length, items: archived },
       checked: [
         'instancesNotHealthy',
-        'hardLimits',
+        'limitsReached',
         'nearThreshold',
         'rejectedReports24h',
         'silentInstances',
@@ -393,7 +423,7 @@ export function createDashboardSummary(
         'zonesBehind',
         'tokensExpiring30d',
       ],
-      hardLimits: { count: limitReached.length, items: limitReached },
+      limitsReached: { count: limitReached.length, items: limitReached },
       instancesNotHealthy: { count: notHealthy.length, items: notHealthy },
       licensesEnding30d: { count: within30.length, items: within30 },
       nearThreshold: { count: nearThreshold.length, items: nearThreshold },
@@ -451,27 +481,34 @@ export function createDashboardSummary(
         createdInRange: world.instances.filter((i) =>
           within(i.createdAt, DAYS, now),
         ).length,
+        byStanding,
         silentInRange: silentRows.length,
         total: world.instances.length,
       },
       usageReports: { accepted, rejected, rejected24h },
     },
     integrations: {
-      activeTokens: 0,
-      connectors: [
-        {
-          activated: extras.stripeConnected,
-          activatedAt: extras.stripeConnected ? daysAgo(20) : null,
-          name: 'stripe',
-        },
-        { activated: true, activatedAt: daysAgo(60), name: 'attio' },
-      ],
-      publishableKeyLastUsedAt: lastUsed ?? null,
-      publishableKeys: activeKeys.length,
-      serviceAccounts: 0,
-      tokensExpiring: [],
-      tokensExpiring30Days: 0,
-      tokensWithoutExpiry: 0,
+      connectors: {
+        items: [
+          {
+            activated: extras.stripeConnected,
+            activatedAt: extras.stripeConnected ? daysAgo(20) : null,
+            name: 'stripe',
+          },
+          { activated: true, activatedAt: daysAgo(60), name: 'attio' },
+        ],
+      },
+      publishableKeys: {
+        count: activeKeys.length,
+        lastUsedAt: lastUsed ?? null,
+      },
+      tokens: {
+        activeTokens: 0,
+        serviceAccounts: 0,
+        tokensExpiring: [],
+        tokensExpiring30Days: 0,
+        tokensWithoutExpiry: 0,
+      },
     },
     licenses: {
       archived,

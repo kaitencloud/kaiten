@@ -27,8 +27,11 @@ func NewUseCase(queries *db.Queries) *UseCase {
 // Execute returns at most limitPlusOne rows (see listforinstance.Execute's
 // doc comment for the pagination contract, which this shares), ordered by
 // occurred_at DESC, id DESC.
+// excludeEventNames leaves events out by name, server-side, so a page of
+// recent changes is not emptied by the reads and evaluations that make up the
+// bulk of a busy trail; nil excludes nothing.
 func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
-	eventName *string, after, before *time.Time, limitPlusOne int32, cursor *pagination.CreatedAtCursor,
+	eventName *string, excludeEventNames []string, after, before *time.Time, limitPlusOne int32, cursor *pagination.CreatedAtCursor,
 ) ([]*schema.OrganizationEntry, error) {
 	var cursorOccurredAt *time.Time
 	var cursorID *uuid.UUID
@@ -38,13 +41,14 @@ func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
 	}
 
 	rows, err := uc.queries.ListOrganizationAuditTrails(ctx, db.ListOrganizationAuditTrailsParams{
-		OrganizationID:   orgID,
-		EventName:        eventName,
-		AfterTs:          pgtime.TimePtrToPgTimestamptz(after),
-		BeforeTs:         pgtime.TimePtrToPgTimestamptz(before),
-		CursorOccurredAt: pgtime.TimePtrToPgTimestamptz(cursorOccurredAt),
-		CursorID:         cursorID,
-		LimitPlusOne:     limitPlusOne,
+		OrganizationID:    orgID,
+		EventName:         eventName,
+		ExcludeEventNames: excludeEventNames,
+		AfterTs:           pgtime.TimePtrToPgTimestamptz(after),
+		BeforeTs:          pgtime.TimePtrToPgTimestamptz(before),
+		CursorOccurredAt:  pgtime.TimePtrToPgTimestamptz(cursorOccurredAt),
+		CursorID:          cursorID,
+		LimitPlusOne:      limitPlusOne,
 	})
 	if err != nil {
 		return nil, err

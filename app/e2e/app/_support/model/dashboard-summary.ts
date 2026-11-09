@@ -121,7 +121,43 @@ const instanceReports = (
   silent:
     (seed.lastReportDaysAgo ?? null) === null &&
     (seed.lastReadDaysAgo ?? null) === null,
+  standing: 'healthy',
 });
+
+// The standing of an instance, the way the API decides it over every meter of
+// the instance: a meter at its limit before one above its threshold, the higher
+// ratio first; silent when nothing reported or read; healthy otherwise.
+const meterState = (m: DashboardMeter) =>
+  m.limitReached ? 2 : m.aboveWarning ? 1 : 0;
+const worse = (a: DashboardMeter, b: DashboardMeter) =>
+  meterState(a) - meterState(b) || (a.ratio ?? -1) - (b.ratio ?? -1);
+
+export function withStandings(
+  rows: DashboardInstanceReports[],
+  meters: DashboardMeter[],
+): DashboardInstanceReports[] {
+  return rows.map((row) => {
+    const headline = meters
+      .filter((m) => m.instanceSlug === row.instanceSlug)
+      .sort((a, b) => worse(b, a))[0];
+    const standing = headline?.limitReached
+      ? 'atLimit'
+      : headline?.aboveWarning
+        ? 'watch'
+        : row.silent
+          ? 'silent'
+          : 'healthy';
+    return { ...row, standing, headline };
+  });
+}
+
+export function countStandings(rows: DashboardInstanceReports[]) {
+  const counts = { atLimit: 0, watch: 0, silent: 0, healthy: 0 };
+  for (const row of rows) {
+    counts[row.standing] += 1;
+  }
+  return counts;
+}
 
 export type DashboardSummaryOptions = {
   now?: Date;
@@ -243,71 +279,74 @@ export function buildDashboardSummary(
     sakuraDrivers,
   ];
 
-  const byInstance = [
-    instanceReports(now, {
-      instanceSlug: 'ninja-osaka-prod',
-      instanceName: 'Ninja Osaka Production',
-      customerSlug: 'ninja-osaka',
-      customerName: 'Ninja Osaka',
-      licenseName: 'Starter',
-      accepted: 474,
-      rejected: 7,
-      rejected24h: 7,
-      lastReportDaysAgo: 0,
-      lastReadDaysAgo: 0,
-    }),
-    instanceReports(now, {
-      instanceSlug: 'sakura-tokyo-prod',
-      instanceName: 'Sakura Tokyo Production',
-      customerSlug: 'sakura-tokyo',
-      customerName: 'Sakura Tokyo',
-      licenseName: 'Premium v2',
-      accepted: 381,
-      lastReportDaysAgo: 0,
-      lastReadDaysAgo: 0,
-    }),
-    instanceReports(now, {
-      instanceSlug: 'demo-restaurant-prod',
-      instanceName: 'Demo Restaurant Production',
-      customerSlug: 'demo-restaurant',
-      customerName: 'Demo Restaurant',
-      licenseName: 'Standard v1',
-      accepted: 203,
-      lastReportDaysAgo: 0,
-      lastReadDaysAgo: 1,
-    }),
-    instanceReports(now, {
-      instanceSlug: 'kappa-kyoto-prod',
-      instanceName: 'Kappa Kyoto Production',
-      customerSlug: 'kappa-kyoto',
-      customerName: 'Kappa Kyoto',
-      licenseName: 'Premium v1',
-      licenseState: 'ARCHIVED',
-      accepted: 92,
-      lastReportDaysAgo: 1,
-      lastReadDaysAgo: 1,
-    }),
-    instanceReports(now, {
-      instanceSlug: 'ninja-osaka-pilot',
-      instanceName: 'Ninja Osaka Delivery Pilot',
-      customerSlug: 'ninja-osaka',
-      customerName: 'Ninja Osaka',
-      licenseName: 'Standard v2',
-      accepted: 7,
-      lastReportDaysAgo: 1,
-      lastReadDaysAgo: 2,
-    }),
-    instanceReports(now, {
-      instanceSlug: 'sakura-tokyo-demo',
-      instanceName: 'Sakura Tokyo Sales Demo',
-      customerSlug: 'sakura-tokyo',
-      customerName: 'Sakura Tokyo',
-      licenseName: 'Starter',
-      accepted: 0,
-      lastReportDaysAgo: null,
-      lastReadDaysAgo: null,
-    }),
-  ];
+  const byInstance = withStandings(
+    [
+      instanceReports(now, {
+        instanceSlug: 'ninja-osaka-prod',
+        instanceName: 'Ninja Osaka Production',
+        customerSlug: 'ninja-osaka',
+        customerName: 'Ninja Osaka',
+        licenseName: 'Starter',
+        accepted: 474,
+        rejected: 7,
+        rejected24h: 7,
+        lastReportDaysAgo: 0,
+        lastReadDaysAgo: 0,
+      }),
+      instanceReports(now, {
+        instanceSlug: 'sakura-tokyo-prod',
+        instanceName: 'Sakura Tokyo Production',
+        customerSlug: 'sakura-tokyo',
+        customerName: 'Sakura Tokyo',
+        licenseName: 'Premium v2',
+        accepted: 381,
+        lastReportDaysAgo: 0,
+        lastReadDaysAgo: 0,
+      }),
+      instanceReports(now, {
+        instanceSlug: 'demo-restaurant-prod',
+        instanceName: 'Demo Restaurant Production',
+        customerSlug: 'demo-restaurant',
+        customerName: 'Demo Restaurant',
+        licenseName: 'Standard v1',
+        accepted: 203,
+        lastReportDaysAgo: 0,
+        lastReadDaysAgo: 1,
+      }),
+      instanceReports(now, {
+        instanceSlug: 'kappa-kyoto-prod',
+        instanceName: 'Kappa Kyoto Production',
+        customerSlug: 'kappa-kyoto',
+        customerName: 'Kappa Kyoto',
+        licenseName: 'Premium v1',
+        licenseState: 'ARCHIVED',
+        accepted: 92,
+        lastReportDaysAgo: 1,
+        lastReadDaysAgo: 1,
+      }),
+      instanceReports(now, {
+        instanceSlug: 'ninja-osaka-pilot',
+        instanceName: 'Ninja Osaka Delivery Pilot',
+        customerSlug: 'ninja-osaka',
+        customerName: 'Ninja Osaka',
+        licenseName: 'Standard v2',
+        accepted: 7,
+        lastReportDaysAgo: 1,
+        lastReadDaysAgo: 2,
+      }),
+      instanceReports(now, {
+        instanceSlug: 'sakura-tokyo-demo',
+        instanceName: 'Sakura Tokyo Sales Demo',
+        customerSlug: 'sakura-tokyo',
+        customerName: 'Sakura Tokyo',
+        licenseName: 'Starter',
+        accepted: 0,
+        lastReportDaysAgo: null,
+        lastReadDaysAgo: null,
+      }),
+    ],
+    saturation,
+  );
   const accepted = [
     38, 41, 35, 44, 52, 19, 12, 40, 43, 39, 47, 55, 21, 14, 42, 45, 40, 49, 58,
     22, 15, 44, 47, 43, 51, 60, 24, 16, 46, 48,
@@ -326,7 +365,7 @@ export function buildDashboardSummary(
       days,
     },
     attention: {
-      hardLimits: { count: 2, items: [ninjaMenu, ninjaLocations] },
+      limitsReached: { count: 2, items: [ninjaMenu, ninjaLocations] },
       nearThreshold: { count: 3, items: [ninjaOrders, sakuraMenu, demoOrders] },
       rejectedReports24h: { count: 7, items: [byInstance[0]] },
       silentInstances: {
@@ -351,6 +390,7 @@ export function buildDashboardSummary(
             licenseName: 'Starter',
             endsAt: inDays(now, 21),
             billingStatus: null,
+            cancelAtPeriodEnd: false,
           },
         ],
       },
@@ -398,7 +438,7 @@ export function buildDashboardSummary(
       },
       checked: [
         'instancesNotHealthy',
-        'hardLimits',
+        'limitsReached',
         'nearThreshold',
         'rejectedReports24h',
         'silentInstances',
@@ -416,6 +456,7 @@ export function buildDashboardSummary(
         activeInRange: 5,
         silentInRange: 1,
         byStatus: { HEALTHY: 6, DEGRADED: 0, INCIDENT: 0, MAINTENANCE: 0 },
+        byStanding: countStandings(byInstance),
       },
       usageReports: { accepted: 1157, rejected: 7, rejected24h: 7 },
     },
@@ -552,6 +593,7 @@ export function buildDashboardSummary(
             licenseName: 'Starter',
             endsAt: inDays(now, 21),
             billingStatus: null,
+            cancelAtPeriodEnd: false,
           },
           {
             instanceSlug: 'demo-restaurant-prod',
@@ -561,6 +603,7 @@ export function buildDashboardSummary(
             licenseName: 'Standard v1',
             endsAt: inDays(now, 74),
             billingStatus: 'ACTIVE',
+            cancelAtPeriodEnd: false,
           },
           {
             instanceSlug: 'ninja-osaka-pilot',
@@ -570,6 +613,7 @@ export function buildDashboardSummary(
             licenseName: 'Standard v2',
             endsAt: inDays(now, 92),
             billingStatus: 'TRIAL',
+            cancelAtPeriodEnd: false,
           },
           {
             instanceSlug: 'kappa-kyoto-prod',
@@ -579,6 +623,7 @@ export function buildDashboardSummary(
             licenseName: 'Premium v1',
             endsAt: inDays(now, 118),
             billingStatus: 'ACTIVE',
+            cancelAtPeriodEnd: false,
           },
         ],
       },
@@ -628,25 +673,28 @@ export function buildDashboardSummary(
       },
     ],
     integrations: {
-      serviceAccounts: 2,
-      activeTokens: 2,
-      tokensExpiring30Days: 1,
-      tokensWithoutExpiry: 1,
-      tokensExpiring: [
-        {
-          name: 'storefront',
-          slug: 'sdk-storefront',
-          serviceAccountSlug: 'sdk',
-          serviceAccountName: 'SDK',
-          expiresAt: inDays(now, 12),
-        },
-      ],
-      publishableKeys: 1,
-      publishableKeyLastUsedAt: iso(now, 0, 7),
-      connectors: [
-        { name: 'stripe', activated: true, activatedAt: iso(now, 20) },
-        { name: 'attio', activated: false, activatedAt: null },
-      ],
+      tokens: {
+        serviceAccounts: 2,
+        activeTokens: 2,
+        tokensExpiring30Days: 1,
+        tokensWithoutExpiry: 1,
+        tokensExpiring: [
+          {
+            name: 'storefront',
+            slug: 'sdk-storefront',
+            serviceAccountSlug: 'sdk',
+            serviceAccountName: 'SDK',
+            expiresAt: inDays(now, 12),
+          },
+        ],
+      },
+      publishableKeys: { count: 1, lastUsedAt: iso(now, 0, 7) },
+      connectors: {
+        items: [
+          { name: 'stripe', activated: true, activatedAt: iso(now, 20) },
+          { name: 'attio', activated: false, activatedAt: null },
+        ],
+      },
     },
     billing: {
       subscriptions: { active: 3, trial: 1, pastDue: 1, canceled: 0 },
@@ -669,10 +717,13 @@ export function buildCalmDashboardSummary(
 ): DashboardSummary {
   const busy = buildDashboardSummary(options);
   const none = { count: 0, items: [] };
+  const calmMeters = busy.saturation.filter(
+    (row) => !row.limitReached && !row.aboveWarning,
+  );
   return {
     ...busy,
     attention: {
-      hardLimits: none,
+      limitsReached: none,
       nearThreshold: none,
       rejectedReports24h: none,
       silentInstances: none,
@@ -689,38 +740,45 @@ export function buildCalmDashboardSummary(
         ...busy.figures.instances,
         activeInRange: 6,
         silentInRange: 0,
+        byStanding: { atLimit: 0, watch: 0, silent: 0, healthy: 6 },
       },
       usageReports: { accepted: 1157, rejected: 0, rejected24h: 0 },
     },
-    saturation: busy.saturation.filter(
-      (row) => !row.limitReached && !row.aboveWarning,
-    ),
+    saturation: calmMeters,
     usageReports: {
       perDay: busy.usageReports.perDay.map((day) => ({ ...day, rejected: 0 })),
-      byInstance: busy.usageReports.byInstance.map((row) => ({
-        ...row,
-        rejected: 0,
-        rejected24h: 0,
-        silent: false,
-        lastReportAt: row.lastReportAt ?? busy.asOf,
-        lastReadAt: row.lastReadAt ?? busy.asOf,
-      })),
+      byInstance: withStandings(
+        busy.usageReports.byInstance.map((row) => ({
+          ...row,
+          rejected: 0,
+          rejected24h: 0,
+          silent: false,
+          lastReportAt: row.lastReportAt ?? busy.asOf,
+          lastReadAt: row.lastReadAt ?? busy.asOf,
+        })),
+        calmMeters,
+      ),
     },
-    licenses: busy.licenses
-      ? {
-          ...busy.licenses,
-          archived: [],
-          ending: {
-            within30Days: 0,
-            within180Days: 3,
-            items: busy.licenses.ending.items.slice(1),
-          },
-        }
-      : undefined,
+    licenses: {
+      ...busy.licenses,
+      archived: [],
+      ending: {
+        within30Days: 0,
+        within180Days: 3,
+        items: busy.licenses.ending.items.slice(1),
+      },
+    },
     zones: busy.zones.map((zone) => ({ ...zone, releasesBehind: 0 })),
-    integrations: busy.integrations
-      ? { ...busy.integrations, tokensExpiring30Days: 0, tokensExpiring: [] }
-      : undefined,
+    integrations: {
+      ...busy.integrations,
+      tokens: busy.integrations?.tokens
+        ? {
+            ...busy.integrations.tokens,
+            tokensExpiring30Days: 0,
+            tokensExpiring: [],
+          }
+        : undefined,
+    },
     billing: busy.billing
       ? {
           ...busy.billing,
@@ -754,6 +812,7 @@ export function buildEmptyDashboardSummary(
         activeInRange: 0,
         silentInRange: 0,
         byStatus: { HEALTHY: 0, DEGRADED: 0, INCIDENT: 0, MAINTENANCE: 0 },
+        byStanding: { atLimit: 0, watch: 0, silent: 0, healthy: 0 },
       },
       usageReports: { accepted: 0, rejected: 0, rejected24h: 0 },
     },
@@ -776,14 +835,15 @@ export function buildEmptyDashboardSummary(
     },
     zones: [],
     integrations: {
-      serviceAccounts: 0,
-      activeTokens: 0,
-      tokensExpiring30Days: 0,
-      tokensWithoutExpiry: 0,
-      tokensExpiring: [],
-      publishableKeys: 0,
-      publishableKeyLastUsedAt: null,
-      connectors: [],
+      tokens: {
+        serviceAccounts: 0,
+        activeTokens: 0,
+        tokensExpiring30Days: 0,
+        tokensWithoutExpiry: 0,
+        tokensExpiring: [],
+      },
+      publishableKeys: { count: 0, lastUsedAt: null },
+      connectors: { items: [] },
     },
     billing: undefined,
   };

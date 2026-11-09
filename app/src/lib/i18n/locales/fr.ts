@@ -355,7 +355,7 @@ export default {
         more_one: '{{count}} de plus',
         more_other: '{{count}} de plus',
         checks: {
-          hardLimits: 'limites atteintes',
+          limitsReached: 'limites atteintes',
           nearThreshold: 'compteurs proches de leur limite',
           rejectedReports24h: 'reports refusés (24 h)',
           silentInstances: 'instances silencieuses',
@@ -367,15 +367,17 @@ export default {
           billing: 'santé de la facturation',
         },
         lines: {
-          hardLimit: {
+          limitReached: {
             title:
               '{{customer}} a atteint sa limite {{entitlement}} sur {{license}}',
-            detail: '{{used}} sur {{max}} · limite ferme · {{instance}}',
+            detailHard: '{{used}} sur {{max}} · limite ferme · {{instance}}',
+            detailSoft:
+              '{{used}} sur {{max}} autorisés · la marge de {{allowance}} % est épuisée · {{instance}}',
             action: "Ouvrir l'instance",
           },
-          hardLimits: {
-            title_one: '{{count}} compteur à une limite ferme',
-            title_other: '{{count}} compteurs à une limite ferme',
+          limitsReached: {
+            title_one: '{{count}} compteur à sa limite',
+            title_other: '{{count}} compteurs à leur limite',
             detail: '{{meters}}',
             action: 'Instances',
           },
@@ -575,6 +577,9 @@ export default {
         trial: 'Essai',
         pastDue: 'Impayé',
         canceled: 'Résilié',
+        incomplete: 'Incomplet',
+        endsAtPeriodEnd: 'Se termine',
+        other: '{{status}}',
         more_one: '{{count}} de plus sous 180 jours',
         more_other: '{{count}} de plus sous 180 jours',
         empty: 'Aucune licence ne se termine sous 180 jours.',
@@ -6346,44 +6351,6 @@ export default {
       groups: {
         organization: 'Organisation',
         browser: 'Ce navigateur',
-      },
-      Plan: {
-        title: 'Offre et consommation',
-        subtitle:
-          'L’offre Kaiten Cloud de votre organisation : ce qu’elle comprend, ce que vous consommez et comment vous payez.',
-        cardDescription:
-          'Consultez votre offre Kaiten Cloud et votre consommation, changez d’offre, gérez votre moyen de paiement et vos factures.',
-        openButton: 'Ouvrir l’offre et la consommation',
-        loading: 'Chargement de votre offre',
-        retry: 'Réessayer',
-        Change: {
-          title: 'Changer d’offre',
-          description:
-            'Passez à une autre offre Kaiten Cloud. Le montant dû s’affiche avant que vous confirmiez.',
-          back: 'Choisir une autre offre',
-        },
-        Problems: {
-          notEnabled: {
-            title: 'Indisponible pour cette organisation',
-            description:
-              'L’offre et la consommation ne sont pas disponibles pour votre organisation. Contactez-nous pour changer d’offre.',
-          },
-          notProvisioned: {
-            title: 'Votre organisation est en cours de création',
-            description:
-              'Kaiten Cloud n’a pas encore d’offre pour votre organisation. Réessayez dans quelques minutes.',
-          },
-          forbidden: {
-            title: 'Réservé aux administrateurs',
-            description:
-              'Seul un administrateur de l’organisation peut consulter et changer son offre.',
-          },
-          unavailable: {
-            title: 'Impossible de charger votre offre pour le moment',
-            description:
-              'Kaiten Cloud n’a pas répondu. Rien n’a changé sur votre offre. Réessayez.',
-          },
-        },
       },
       Notifications: {
         title: 'Notifications',

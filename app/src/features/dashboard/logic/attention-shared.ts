@@ -86,25 +86,59 @@ export function pushMore(
   }
 }
 
+export type BillingStatusKey =
+  | 'renews'
+  | 'endsAtPeriodEnd'
+  | 'trial'
+  | 'pastDue'
+  | 'canceled'
+  | 'incomplete'
+  | 'other';
+
+/**
+ * What a subscription says about the License ending: renewing, ending with
+ * its period, in trial, past due, canceled, never completed, or a status this
+ * console does not know, which it names rather than paints green.
+ */
 export function billingStatusKey(
   status: string,
-): 'renews' | 'trial' | 'pastDue' | 'canceled' {
+  cancelAtPeriodEnd = false,
+): BillingStatusKey {
   switch (status) {
+    case 'ACTIVE':
+      return cancelAtPeriodEnd ? 'endsAtPeriodEnd' : 'renews';
     case 'TRIAL':
-      return 'trial';
+      return cancelAtPeriodEnd ? 'endsAtPeriodEnd' : 'trial';
     case 'PAST_DUE':
       return 'pastDue';
     case 'CANCELED':
       return 'canceled';
+    case 'INCOMPLETE':
+      return 'incomplete';
     default:
-      return 'renews';
+      return 'other';
   }
+}
+
+/** The words for a License ending's subscription, or for having none. */
+export function billingStatusLabel(
+  t: TFunction,
+  status: string | null | undefined,
+  cancelAtPeriodEnd: boolean,
+): string {
+  if (!status) {
+    return t('Pages.Dashboard.comingUp.noSubscription');
+  }
+  const key = billingStatusKey(status, cancelAtPeriodEnd);
+  return key === 'other'
+    ? t('Pages.Dashboard.comingUp.other', { status })
+    : t(`Pages.Dashboard.comingUp.${key}`);
 }
 
 /** The checks the Customers view runs, in the order the card reads them. */
 export const CUSTOMERS_CHECKS = [
   'instancesNotHealthy',
-  'hardLimits',
+  'limitsReached',
   'nearThreshold',
   'silentInstances',
   'licensesEnding30d',
@@ -114,7 +148,7 @@ export const CUSTOMERS_CHECKS = [
 /** The checks the Integration view runs, in the order the card reads them. */
 export const INTEGRATION_CHECKS = [
   'rejectedReports24h',
-  'hardLimits',
+  'limitsReached',
   'nearThreshold',
   'silentInstances',
   'zonesBehind',

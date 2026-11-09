@@ -22,7 +22,9 @@ const ROWS = 6;
 const FEED_LIMIT = 100;
 
 // Reads, evaluations and reports are the trail's bulk and not a change anyone
-// made: the card shows what people, service accounts and Kaiten changed.
+// made: the card shows what people, service accounts and Kaiten changed. The
+// API leaves them out before paging, so a busy organization's hundred rows
+// are changes, not the SDK traffic of the last minutes.
 const LEFT_OUT = [
   'ENTITLEMENT_VALUE_GET',
   'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
@@ -79,7 +81,7 @@ type RecentChangesCardProps = {
  */
 export function RecentChangesCard({ view, locale }: RecentChangesCardProps) {
   const { t } = useTranslation();
-  const feed = useQuery(globalAuditTrailQueryOptions(FEED_LIMIT));
+  const feed = useQuery(globalAuditTrailQueryOptions(FEED_LIMIT, LEFT_OUT));
   const entries = feed.data ? selectRecentChanges(feed.data, view) : [];
 
   return (

@@ -2987,24 +2987,24 @@ components:
           items:
             type: string
           type: array
-        hardLimits:
-          $ref: "#/components/schemas/DashboardAttentionMeters"
-          description: "Meters at the most their grant allows, on a hard limit: the next report is refused"
         instancesNotHealthy:
           $ref: "#/components/schemas/DashboardAttentionInstances"
           description: Instances whose status is not HEALTHY
         licensesEnding30d:
           $ref: "#/components/schemas/DashboardAttentionLicenses"
           description: Instances whose License ends within 30 days
+        limitsReached:
+          $ref: "#/components/schemas/DashboardAttentionMeters"
+          description: "Meters at the most their grant allows, a hard limit or an allowance used up: the next report is refused"
         nearThreshold:
           $ref: "#/components/schemas/DashboardAttentionMeters"
-          description: Meters at or above their entitlement's warning threshold, below the limit
+          description: Meters at or above the warning threshold of their grant, below the limit; an entitlement with no threshold never is
         rejectedReports24h:
           $ref: "#/components/schemas/DashboardAttentionReports"
           description: Usage reports refused in the last 24 hours, by instance
         silentInstances:
           $ref: "#/components/schemas/DashboardAttentionInstances"
-          description: Instances with no accepted report and no entitlement read in the range
+          description: Instances with no report, accepted or refused, and no entitlement read in the range
         tokensExpiring30d:
           $ref: "#/components/schemas/DashboardAttentionTokens"
           description: Service account tokens that expire within 30 days
@@ -3012,7 +3012,7 @@ components:
           $ref: "#/components/schemas/DashboardAttentionZones"
           description: Deployment zones running a release older than the newest one
       required:
-        - hardLimits
+        - limitsReached
         - nearThreshold
         - rejectedReports24h
         - silentInstances
@@ -3152,6 +3152,16 @@ components:
         - activated
         - activatedAt
       type: object
+    DashboardConnectors:
+      additionalProperties: false
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/DashboardConnector"
+          type: array
+      required:
+        - items
+      type: object
     DashboardCustomerFigures:
       additionalProperties: false
       properties:
@@ -3274,9 +3284,12 @@ components:
       additionalProperties: false
       properties:
         activeInRange:
-          description: Instances with at least one accepted report or entitlement read in the range
+          description: Instances with at least one report, accepted or refused, or one entitlement read in the range
           format: int64
           type: integer
+        byStanding:
+          $ref: "#/components/schemas/DashboardStandingCounts"
+          description: Instances by standing, over the whole organization
         byStatus:
           additionalProperties:
             format: int64
@@ -3298,6 +3311,7 @@ components:
         - activeInRange
         - silentInRange
         - byStatus
+        - byStanding
       type: object
     DashboardInstanceReports:
       additionalProperties: false
@@ -3309,6 +3323,9 @@ components:
           type: string
         customerSlug:
           type: string
+        headline:
+          $ref: "#/components/schemas/DashboardMeter"
+          description: "The meter that decides the standing, when one does: a meter at its limit before one above its threshold, the higher ratio first"
         instanceName:
           type: string
         instanceSlug:
@@ -3339,8 +3356,16 @@ components:
           format: int64
           type: integer
         silent:
-          description: No accepted report and no entitlement read in the range
+          description: No report, accepted or refused, and no entitlement read in the range
           type: boolean
+        standing:
+          description: "The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing reported or read in the range, healthy otherwise; computed over every meter of the instance"
+          enum:
+            - atLimit
+            - watch
+            - silent
+            - healthy
+          type: string
       required:
         - instanceSlug
         - instanceName
@@ -3354,48 +3379,20 @@ components:
         - lastReportAt
         - lastReadAt
         - silent
+        - standing
       type: object
     DashboardIntegrations:
       additionalProperties: false
       properties:
-        activeTokens:
-          format: int64
-          type: integer
         connectors:
-          items:
-            $ref: "#/components/schemas/DashboardConnector"
-          type: array
-        publishableKeyLastUsedAt:
-          format: date-time
-          type:
-            - string
-            - "null"
+          $ref: "#/components/schemas/DashboardConnectors"
+          description: Absent when the caller cannot read the organization's connectors
         publishableKeys:
-          format: int64
-          type: integer
-        serviceAccounts:
-          format: int64
-          type: integer
-        tokensExpiring:
-          description: The next five to expire
-          items:
-            $ref: "#/components/schemas/DashboardTokenExpiring"
-          type: array
-        tokensExpiring30Days:
-          format: int64
-          type: integer
-        tokensWithoutExpiry:
-          format: int64
-          type: integer
-      required:
-        - serviceAccounts
-        - activeTokens
-        - tokensExpiring30Days
-        - tokensWithoutExpiry
-        - tokensExpiring
-        - publishableKeys
-        - publishableKeyLastUsedAt
-        - connectors
+          $ref: "#/components/schemas/DashboardPublishableKeys"
+          description: Absent when the caller cannot read publishable keys
+        tokens:
+          $ref: "#/components/schemas/DashboardTokens"
+          description: Service accounts and their tokens; absent when the caller cannot read tokens
       type: object
     DashboardInvoicedCurrency:
       additionalProperties: false
@@ -3425,10 +3422,13 @@ components:
       additionalProperties: false
       properties:
         billingStatus:
-          description: The instance's subscription status, when it has one
+          description: The instance's subscription status, when it has one; null too when the caller cannot read billing (the billing block says which)
           type:
             - string
             - "null"
+        cancelAtPeriodEnd:
+          description: The subscription ends with its period rather than renewing; false without one, and when the caller cannot read billing
+          type: boolean
         customerName:
           type: string
         customerSlug:
@@ -3450,6 +3450,7 @@ components:
         - licenseName
         - endsAt
         - billingStatus
+        - cancelAtPeriodEnd
       type: object
     DashboardLicenseFamilyMix:
       additionalProperties: false
@@ -3538,10 +3539,10 @@ components:
       additionalProperties: false
       properties:
         aboveWarning:
-          description: Ratio at or above the warning threshold, below the limit
+          description: Usage is at or past the warning threshold of the grant, below the limit, as the report path warns; never without a threshold
           type: boolean
         allowancePercent:
-          description: -1 unlimited allowance, 0 hard limit, above 0 the percentage past the grant a report is still accepted
+          description: 0 is a hard limit, -1 an unlimited allowance
           format: int64
           type: integer
         customerName:
@@ -3553,13 +3554,13 @@ components:
         entitlementSlug:
           type: string
         granted:
-          description: The effective grant; null when unlimited
+          description: The grant; null when it is unlimited
           format: double
           type:
             - number
             - "null"
         hardLimit:
-          description: "A zero allowance: the grant itself is the limit"
+          description: The grant allows nothing past itself
           type: boolean
         instanceName:
           type: string
@@ -3574,34 +3575,34 @@ components:
             - ARCHIVED
           type: string
         limitReached:
-          description: Used is at or above maxAllowed
+          description: "Usage is at or past maxAllowed: the next report is refused"
           type: boolean
         maxAllowed:
-          description: The grant plus its allowance, the value a report is refused above; null when nothing refuses
+          description: The grant plus its allowance, the most a report is accepted up to; null when nothing refuses
           format: double
           type:
             - number
             - "null"
         ratio:
-          description: Used over maxAllowed; null when nothing refuses
+          description: used over maxAllowed, or over the grant when nothing refuses; null when there is no grant to measure against
           format: double
           type:
             - number
             - "null"
         unit:
-          description: The entitlement's plural unit, when it has one
           type:
             - string
             - "null"
         used:
+          description: Usage in the current window
           format: double
           type: number
         warningThresholdPercent:
-          description: The entitlement's own threshold, 80 when it sets none
+          description: The entitlement's early-warning threshold, a percentage of the grant; 0 when none is configured
           format: int64
           type: integer
         windowStart:
-          description: The start of the current usage window, for a periodic counter
+          description: Start of the current window of a periodic entitlement; null for a lifetime one
           format: date-time
           type:
             - string
@@ -3627,6 +3628,23 @@ components:
         - aboveWarning
         - windowStart
       type: object
+    DashboardPublishableKeys:
+      additionalProperties: false
+      properties:
+        count:
+          description: Keys not revoked
+          format: int64
+          type: integer
+        lastUsedAt:
+          description: The last use of any of them
+          format: date-time
+          type:
+            - string
+            - "null"
+      required:
+        - count
+        - lastUsedAt
+      type: object
     DashboardRangeWindow:
       additionalProperties: false
       properties:
@@ -3650,6 +3668,27 @@ components:
         - from
         - to
         - days
+      type: object
+    DashboardStandingCounts:
+      additionalProperties: false
+      properties:
+        atLimit:
+          format: int64
+          type: integer
+        healthy:
+          format: int64
+          type: integer
+        silent:
+          format: int64
+          type: integer
+        watch:
+          format: int64
+          type: integer
+      required:
+        - atLimit
+        - watch
+        - silent
+        - healthy
       type: object
     DashboardSubscriptions:
       additionalProperties: false
@@ -3691,10 +3730,9 @@ components:
           $ref: "#/components/schemas/DashboardFigures"
         integrations:
           $ref: "#/components/schemas/DashboardIntegrations"
-          description: Absent when the caller cannot read tokens
+          description: Who talks to Kaiten; absent when the caller can read none of tokens, publishable keys and connectors
         licenses:
           $ref: "#/components/schemas/DashboardLicenses"
-          description: Absent when the caller cannot read licenses
         range:
           $ref: "#/components/schemas/DashboardRangeWindow"
         saturation:
@@ -3716,6 +3754,7 @@ components:
         - figures
         - saturation
         - usageReports
+        - licenses
         - zones
       type: object
     DashboardTokenExpiring:
@@ -3738,6 +3777,33 @@ components:
         - serviceAccountSlug
         - serviceAccountName
         - expiresAt
+      type: object
+    DashboardTokens:
+      additionalProperties: false
+      properties:
+        activeTokens:
+          format: int64
+          type: integer
+        serviceAccounts:
+          format: int64
+          type: integer
+        tokensExpiring:
+          description: The next five to expire
+          items:
+            $ref: "#/components/schemas/DashboardTokenExpiring"
+          type: array
+        tokensExpiring30Days:
+          format: int64
+          type: integer
+        tokensWithoutExpiry:
+          format: int64
+          type: integer
+      required:
+        - serviceAccounts
+        - activeTokens
+        - tokensExpiring30Days
+        - tokensWithoutExpiry
+        - tokensExpiring
       type: object
     DashboardUsageReportFigures:
       additionalProperties: false
@@ -22177,7 +22243,7 @@ paths:
         - customers
   /dashboard/summary:
     get:
-      description: "The console's home in one response, computed in the database over the whole organization: what needs attention (limits reached, refused reports, silent instances, Licenses ending, archived versions, expiring tokens, zones behind), the figures of the period, the meters closest to their limits, usage reports per day and per instance, evaluations per flag, who runs which License version, what runs where, and who talks to Kaiten. Blocks about a module the caller cannot read are absent; billing figures say nothing about whether billing is enabled, which GET /billing/capabilities does."
+      description: "The console's home in one response, computed in the database over the whole organization: what needs attention (limits reached, refused reports, silent instances, Licenses ending, archived versions, expiring tokens, zones behind), the figures of the period, the meters closest to their limits, usage reports per day and per instance, evaluations per flag, who runs which License version, what runs where, and who talks to Kaiten. The operation needs read:customers, read:instances and read:licenses. Blocks about a module the caller cannot read are absent; billing figures say nothing about whether billing is enabled, which GET /billing/capabilities does."
       operationId: getDashboardSummary
       parameters:
         - description: The period the rates and the lists cover

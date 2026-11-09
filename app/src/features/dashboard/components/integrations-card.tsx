@@ -28,7 +28,8 @@ export function IntegrationsCard({
   locale: string;
 }) {
   const { t } = useTranslation();
-  const expiring = integrations.tokensExpiring30Days;
+  const { tokens, publishableKeys, connectors } = integrations;
+  const expiring = tokens?.tokensExpiring30Days ?? 0;
 
   return (
     <Card data-testid="dashboard-integrations" className="h-full">
@@ -49,48 +50,51 @@ export function IntegrationsCard({
       </CardHeader>
       <CardContent>
         <ul className="divide-y divide-border">
-          <Row
-            to="/integrations/service-accounts"
-            name={t('Pages.Dashboard.integrations.serviceAccounts')}
-            detail={t('Pages.Dashboard.integrations.serviceAccountsDetail', {
-              accounts: integrations.serviceAccounts,
-              tokens: integrations.activeTokens,
-              noExpiry: integrations.tokensWithoutExpiry,
-            })}
-            badge={
-              expiring > 0
-                ? {
-                    className: BADGE.warn,
-                    label: t('Pages.Dashboard.integrations.expiring', {
-                      count: expiring,
-                    }),
-                  }
-                : {
-                    className: BADGE.ok,
-                    label: t('Pages.Dashboard.integrations.healthy'),
-                  }
-            }
-          />
-          <Row
-            to="/integrations/publishable-keys"
-            name={t('Pages.Dashboard.integrations.publishableKeys')}
-            detail={
-              integrations.publishableKeyLastUsedAt
-                ? t('Pages.Dashboard.integrations.lastUsed', {
-                    when: formatRelativeTimeToNow(
-                      integrations.publishableKeyLastUsedAt,
-                      locale,
-                    ),
-                  })
-                : t('Pages.Dashboard.integrations.neverUsed')
-            }
-            badge={{
-              className:
-                integrations.publishableKeys > 0 ? BADGE.ok : BADGE.off,
-              label: String(integrations.publishableKeys),
-            }}
-          />
-          {integrations.connectors.map((connector) => (
+          {tokens ? (
+            <Row
+              to="/integrations/service-accounts"
+              name={t('Pages.Dashboard.integrations.serviceAccounts')}
+              detail={t('Pages.Dashboard.integrations.serviceAccountsDetail', {
+                accounts: tokens.serviceAccounts,
+                tokens: tokens.activeTokens,
+                noExpiry: tokens.tokensWithoutExpiry,
+              })}
+              badge={
+                expiring > 0
+                  ? {
+                      className: BADGE.warn,
+                      label: t('Pages.Dashboard.integrations.expiring', {
+                        count: expiring,
+                      }),
+                    }
+                  : {
+                      className: BADGE.ok,
+                      label: t('Pages.Dashboard.integrations.healthy'),
+                    }
+              }
+            />
+          ) : null}
+          {publishableKeys ? (
+            <Row
+              to="/integrations/publishable-keys"
+              name={t('Pages.Dashboard.integrations.publishableKeys')}
+              detail={
+                publishableKeys.lastUsedAt
+                  ? t('Pages.Dashboard.integrations.lastUsed', {
+                      when: formatRelativeTimeToNow(
+                        publishableKeys.lastUsedAt,
+                        locale,
+                      ),
+                    })
+                  : t('Pages.Dashboard.integrations.neverUsed')
+              }
+              badge={{
+                className: publishableKeys.count > 0 ? BADGE.ok : BADGE.off,
+                label: String(publishableKeys.count),
+              }}
+            />
+          ) : null}
+          {(connectors?.items ?? []).map((connector) => (
             <Row
               key={connector.name}
               to="/integrations/connectors"

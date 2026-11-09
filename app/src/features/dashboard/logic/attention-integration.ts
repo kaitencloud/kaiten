@@ -40,17 +40,17 @@ export function buildIntegrationAttention(
       },
     });
   }
-  if (a.hardLimits.count > 0) {
+  if (a.limitsReached.count > 0) {
     lines.push({
-      id: 'hard',
+      id: 'limits',
       tone: 'destructive',
-      count: a.hardLimits.count,
-      title: t('Pages.Dashboard.attention.lines.hardLimits.title', {
-        count: a.hardLimits.count,
+      count: a.limitsReached.count,
+      title: t('Pages.Dashboard.attention.lines.limitsReached.title', {
+        count: a.limitsReached.count,
       }),
-      detail: listNames(a.hardLimits.items.map(meterLabel), locale),
+      detail: listNames(a.limitsReached.items.map(meterLabel), locale),
       action: {
-        label: t('Pages.Dashboard.attention.lines.hardLimits.action'),
+        label: t('Pages.Dashboard.attention.lines.limitsReached.action'),
         to: '/customers/instances',
       },
     });

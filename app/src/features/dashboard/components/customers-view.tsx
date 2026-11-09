@@ -50,7 +50,7 @@ export function CustomersView({
     health.data ?? null,
   );
   const fleet = buildFleet(summary);
-  const standings = countStandings(fleet);
+  const standings = countStandings(summary);
   const CustomerIcon = dataModelIcons.customer;
   const InstanceIcon = dataModelIcons.instance;
   const LicenseIcon = dataModelIcons.license;
@@ -95,7 +95,7 @@ export function CustomersView({
       tone: standings.atLimit > 0 ? 'destructive' : undefined,
       helpers: [
         t('Pages.Dashboard.figures.atLimitHelper', {
-          count: summary.attention.hardLimits.count,
+          count: summary.attention.limitsReached.count,
         }),
         t('Pages.Dashboard.figures.nearLimitHelper', {
           count: summary.attention.nearThreshold.count,
@@ -105,16 +105,13 @@ export function CustomersView({
     {
       id: 'licenses-ending',
       label: t('Pages.Dashboard.figures.licensesEnding'),
-      value: summary.licenses?.ending.within180Days ?? 0,
+      value: summary.licenses.ending.within180Days,
       unit: t('Pages.Dashboard.figures.licensesEndingHorizon'),
       icon: <LicenseIcon />,
-      tone:
-        (summary.licenses?.ending.within30Days ?? 0) > 0
-          ? 'warning'
-          : undefined,
+      tone: summary.licenses.ending.within30Days > 0 ? 'warning' : undefined,
       helpers: [
         t('Pages.Dashboard.figures.licensesEndingHelper', {
-          count: summary.licenses?.ending.within30Days ?? 0,
+          count: summary.licenses.ending.within30Days,
         }),
       ],
     },
@@ -170,12 +167,11 @@ export function CustomersView({
       <FleetCard rows={fleet} locale={locale} />
       <SignalsCards summary={summary} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {summary.licenses ? (
-          <LicenseMixCard mix={summary.licenses.mix} />
-        ) : null}
-        {summary.licenses ? (
-          <ComingUpCard ending={summary.licenses.ending} />
-        ) : null}
+        <LicenseMixCard mix={summary.licenses.mix} />
+        <ComingUpCard
+          ending={summary.licenses.ending}
+          billingVisible={summary.billing !== undefined}
+        />
       </div>
       {billing && billingOffered ? <BillingCard billing={billing} /> : null}
       <RecentChangesCard view="customers" locale={locale} />

@@ -37,7 +37,10 @@ LIMIT 5;
 -- entitled to once its License, add-ons, boosts and exceptions are combined
 -- (the instance_effective_entitlement view). How close it is to the most the
 -- grant allows is computed by the caller: the allowance and the unlimited
--- sentinel (-1) need a few branches SQL would only obscure.
+-- sentinel (-1) need a few branches SQL would only obscure. The reset
+-- configuration, the License start and the subscription facts let the caller
+-- resolve the current window the way the usage endpoints do, so a window that
+-- closed without a report reads 0 rather than its last value.
 SELECT
   i.slug AS instance_slug,
   i.name AS instance_name,
@@ -52,7 +55,13 @@ SELECT
   (eu.value->>'value')::double precision AS used,
   (iee.value->>'value')::double precision AS granted,
   COALESCE(iee.limit_cap_exceeded_overage_percent, 0)::int AS overage_percent,
-  eu.period_start
+  eu.period_start,
+  e.reset_period,
+  e.reset_anchor,
+  i.start_license_date,
+  COALESCE(ib.status::text, '')::text AS billing_status,
+  ib.anchor_at AS billing_anchor_at,
+  ib.live_ended_at
 FROM entitlement_usage eu
 JOIN instance i ON i.id = eu.instance_id
 JOIN customer c ON c.id = i.customer_id
@@ -60,6 +69,8 @@ JOIN license l ON l.id = i.license_id
 JOIN entitlement e ON e.id = eu.entitlement_id
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = eu.instance_id AND iee.entitlement_id = eu.entitlement_id
+LEFT JOIN instance_billing ib
+  ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
 WHERE eu.organization_id = sqlc.arg(organization_id)
   AND e.type IN ('NUMBER', 'NUMBER_AI_CREDIT')
   AND jsonb_typeof(iee.value->'value') = 'number'
@@ -190,12 +201,13 @@ SELECT
   l.name AS license_name,
   i.end_license_date,
   COALESCE((SELECT ib.status::text FROM instance_billing ib
-     WHERE ib.instance_id = i.id ORDER BY ib.created_at DESC LIMIT 1), '')::text AS billing_status
+     WHERE ib.instance_id = i.id ORDER BY ib.created_at DESC LIMIT 1), '')::text AS billing_status,
+  COALESCE((SELECT ib.cancel_at_period_end FROM instance_billing ib
+     WHERE ib.instance_id = i.id ORDER BY ib.created_at DESC LIMIT 1), false)::boolean AS cancel_at_period_end
 FROM instance i
 JOIN customer c ON c.id = i.customer_id
 JOIN license l ON l.id = i.license_id
 WHERE i.organization_id = sqlc.arg(organization_id)
-
   AND i.end_license_date >= sqlc.arg(now)
   AND i.end_license_date < sqlc.arg(in_180_days)
 ORDER BY i.end_license_date
@@ -243,7 +255,7 @@ LEFT JOIN LATERAL (
   SELECT d0.release_id, d0.created_at, d0.created_by_id
   FROM deployment d0
   WHERE d0.deployment_zone_id = z.id
-  ORDER BY d0.created_at DESC
+  ORDER BY d0.created_at DESC, d0.seq DESC
   LIMIT 1
 ) d ON true
 LEFT JOIN release r ON r.id = d.release_id
@@ -251,20 +263,25 @@ LEFT JOIN "user" u ON u.id = d.created_by_id
 WHERE z.organization_id = sqlc.arg(organization_id)
 ORDER BY z.name;
 
--- name: DashboardCredentials :one
+-- name: DashboardTokenCounts :one
+-- Service accounts and their tokens (read:tokens).
 SELECT
   (SELECT count(*) FROM "user" u
      WHERE u.organization_id = sqlc.arg(organization_id)::uuid AND u.type = 'machine' AND u.deleted_at IS NULL)::bigint AS service_accounts,
   count(*) FILTER (WHERE t.revoked_date IS NULL AND (t.expires_at IS NULL OR t.expires_at > sqlc.arg(now)))::bigint AS active_tokens,
   count(*) FILTER (WHERE t.revoked_date IS NULL AND t.expires_at IS NOT NULL
                      AND t.expires_at > sqlc.arg(now) AND t.expires_at <= sqlc.arg(in_30_days))::bigint AS tokens_expiring_30_days,
-  count(*) FILTER (WHERE t.revoked_date IS NULL AND t.expires_at IS NULL)::bigint AS tokens_without_expiry,
-  (SELECT count(*) FROM publishable_key k
-     WHERE k.organization_id = sqlc.arg(organization_id)::uuid AND k.revoked_at IS NULL)::bigint AS publishable_keys,
-  (SELECT max(k.last_used_at) FROM publishable_key k
-     WHERE k.organization_id = sqlc.arg(organization_id)::uuid AND k.revoked_at IS NULL)::timestamp AS publishable_key_last_used_at
+  count(*) FILTER (WHERE t.revoked_date IS NULL AND t.expires_at IS NULL)::bigint AS tokens_without_expiry
 FROM token t
 WHERE t.organization_id = sqlc.arg(organization_id)::uuid;
+
+-- name: DashboardPublishableKeyCounts :one
+-- The keys the vendor's own pages hold (read:publishable_keys).
+SELECT
+  count(*)::bigint AS count,
+  max(k.last_used_at)::timestamp AS last_used_at
+FROM publishable_key k
+WHERE k.organization_id = sqlc.arg(organization_id)::uuid AND k.revoked_at IS NULL;
 
 -- name: DashboardTokensExpiring :many
 SELECT t.name, t.slug, t.expires_at, u.slug AS service_account_slug, u.name AS service_account_name

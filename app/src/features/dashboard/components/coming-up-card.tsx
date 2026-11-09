@@ -11,22 +11,37 @@ import {
 } from '@/components/ui/card';
 import { formatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { billingStatusKey, instancePath } from '../logic/attention';
+import {
+  type BillingStatusKey,
+  billingStatusKey,
+  billingStatusLabel,
+  instancePath,
+} from '../logic/attention';
 import { daysUntil } from '../logic/format';
 
-const STATUS_CLASS: Record<
-  ReturnType<typeof billingStatusKey> | 'none',
-  string
-> = {
+const STATUS_CLASS: Record<BillingStatusKey | 'none', string> = {
   renews: 'bg-success-subtle text-success-subtle-foreground',
+  endsAtPeriodEnd: 'bg-warning-subtle text-warning-subtle-foreground',
   trial: 'bg-info-subtle text-info-subtle-foreground',
   pastDue: 'bg-destructive-subtle text-destructive-subtle-foreground',
   canceled: 'bg-muted text-muted-foreground',
+  incomplete: 'bg-warning-subtle text-warning-subtle-foreground',
+  other: 'bg-muted text-muted-foreground',
   none: 'bg-warning-subtle text-warning-subtle-foreground',
 };
 
-/** The Licenses that end in the next 180 days, the soonest first. */
-export function ComingUpCard({ ending }: { ending: DashboardLicensesEnding }) {
+/**
+ * The Licenses that end in the next 180 days, the soonest first. The badge
+ * says what the subscription says about the end, when the session reads
+ * billing; without it, the date stands alone.
+ */
+export function ComingUpCard({
+  ending,
+  billingVisible,
+}: {
+  ending: DashboardLicensesEnding;
+  billingVisible: boolean;
+}) {
   const { t } = useTranslation();
   const more = ending.within180Days - ending.items.length;
 
@@ -47,7 +62,7 @@ export function ComingUpCard({ ending }: { ending: DashboardLicensesEnding }) {
           <ul className="divide-y divide-border">
             {ending.items.map((item) => {
               const key = item.billingStatus
-                ? billingStatusKey(item.billingStatus)
+                ? billingStatusKey(item.billingStatus, item.cancelAtPeriodEnd)
                 : 'none';
               return (
                 <li
@@ -73,17 +88,23 @@ export function ComingUpCard({ ending }: { ending: DashboardLicensesEnding }) {
                       })}
                     </p>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      'border-transparent shadow-none',
-                      STATUS_CLASS[key],
-                    )}
-                  >
-                    {key === 'none'
-                      ? t('Pages.Dashboard.comingUp.noSubscription')
-                      : t(`Pages.Dashboard.comingUp.${key}`)}
-                  </Badge>
+                  {billingVisible ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'border-transparent shadow-none',
+                        STATUS_CLASS[key],
+                      )}
+                    >
+                      {billingStatusLabel(
+                        t,
+                        item.billingStatus,
+                        item.cancelAtPeriodEnd,
+                      )}
+                    </Badge>
+                  ) : (
+                    <span />
+                  )}
                 </li>
               );
             })}

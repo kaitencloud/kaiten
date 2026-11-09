@@ -345,7 +345,7 @@ export default {
         more_one: '{{count}} more',
         more_other: '{{count}} more',
         checks: {
-          hardLimits: 'limits reached',
+          limitsReached: 'limits reached',
           nearThreshold: 'meters near their limit',
           rejectedReports24h: 'refused reports (24 h)',
           silentInstances: 'silent instances',
@@ -357,15 +357,17 @@ export default {
           billing: 'billing health',
         },
         lines: {
-          hardLimit: {
+          limitReached: {
             title:
               '{{customer}} has reached its {{entitlement}} limit on {{license}}',
-            detail: '{{used}} of {{max}} · a hard limit · {{instance}}',
+            detailHard: '{{used}} of {{max}} · a hard limit · {{instance}}',
+            detailSoft:
+              '{{used}} of {{max}} allowed · the {{allowance}} % allowance is used up · {{instance}}',
             action: 'Open the instance',
           },
-          hardLimits: {
-            title_one: '{{count}} meter at a hard limit',
-            title_other: '{{count}} meters at a hard limit',
+          limitsReached: {
+            title_one: '{{count}} meter at its limit',
+            title_other: '{{count}} meters at their limit',
             detail: '{{meters}}',
             action: 'Instances',
           },
@@ -559,6 +561,9 @@ export default {
         trial: 'Trial',
         pastDue: 'Past due',
         canceled: 'Canceled',
+        incomplete: 'Incomplete',
+        endsAtPeriodEnd: 'Ends',
+        other: '{{status}}',
         more_one: '{{count}} more within 180 days',
         more_other: '{{count}} more within 180 days',
         empty: 'No License ends within 180 days.',
@@ -6258,44 +6263,6 @@ export default {
       groups: {
         organization: 'Organization',
         browser: 'This browser',
-      },
-      Plan: {
-        title: 'Plan & usage',
-        subtitle:
-          'Your organization’s Kaiten Cloud plan: what it includes, what you use, and how you pay.',
-        cardDescription:
-          'See your Kaiten Cloud plan and usage, change plan, and manage your payment method and invoices.',
-        openButton: 'Open plan & usage',
-        loading: 'Loading your plan',
-        retry: 'Try again',
-        Change: {
-          title: 'Change plan',
-          description:
-            'Move to another Kaiten Cloud plan. You see what is due before you confirm.',
-          back: 'Choose another plan',
-        },
-        Problems: {
-          notEnabled: {
-            title: 'Not available for this organization',
-            description:
-              'Plan & usage is not available for your organization. Contact us to change your plan.',
-          },
-          notProvisioned: {
-            title: 'Your organization is still being set up',
-            description:
-              'Kaiten Cloud has no plan for your organization yet. Try again in a few minutes.',
-          },
-          forbidden: {
-            title: 'Administrators only',
-            description:
-              'Only an administrator of the organization can see and change its plan.',
-          },
-          unavailable: {
-            title: 'Your plan cannot be loaded right now',
-            description:
-              'Kaiten Cloud did not answer. Nothing has changed on your plan. Try again.',
-          },
-        },
       },
       Notifications: {
         title: 'Notifications',

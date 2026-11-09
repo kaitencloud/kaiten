@@ -24,15 +24,16 @@ func (r Range) Days() int {
 }
 
 // Visibility is which blocks the caller may read, from its scopes. The
-// operation itself needs read:customers and read:instances; a block whose
-// module the caller cannot read is left out rather than refused, so a narrow
-// role still gets its home.
+// operation itself needs read:customers, read:instances and read:licenses,
+// the three the home is made of; a block whose module the caller cannot read
+// is left out rather than refused, so a narrow role still gets its home.
 type Visibility struct {
-	Licenses        bool
 	FeatureFlags    bool
 	Releases        bool
 	DeploymentZones bool
 	Tokens          bool
+	PublishableKeys bool
+	Connectors      bool
 	Billing         bool
 }
 
@@ -57,9 +58,9 @@ type DashboardSummary struct {
 	Saturation   []DashboardMeter       `json:"saturation" nullable:"false" doc:"The meters closest to the most their grant allows, highest ratio first, at most eight"`
 	UsageReports DashboardUsageReports  `json:"usageReports"`
 	FeatureFlags *DashboardFeatureFlags `json:"featureFlags,omitempty" doc:"Absent when the caller cannot read feature flags"`
-	Licenses     *DashboardLicenses     `json:"licenses,omitempty" doc:"Absent when the caller cannot read licenses"`
+	Licenses     DashboardLicenses      `json:"licenses"`
 	Zones        []DashboardZone        `json:"zones" nullable:"false" doc:"Empty when the caller cannot read deployment zones and releases"`
-	Integrations *DashboardIntegrations `json:"integrations,omitempty" doc:"Absent when the caller cannot read tokens"`
+	Integrations *DashboardIntegrations `json:"integrations,omitempty" doc:"Who talks to Kaiten; absent when the caller can read none of tokens, publishable keys and connectors"`
 	Billing      *DashboardBilling      `json:"billing,omitempty" doc:"Subscriptions and this month's invoices; absent when the caller cannot read billing. Whether billing is enabled for the organization is GET /billing/capabilities' answer, not this one's"`
 }
 
@@ -76,10 +77,10 @@ type DashboardRangeWindow struct {
 // Checked names the checks that ran, so an empty list can say what it looked
 // at.
 type DashboardAttention struct {
-	HardLimits          DashboardAttentionMeters    `json:"hardLimits" doc:"Meters at the most their grant allows, on a hard limit: the next report is refused"`
-	NearThreshold       DashboardAttentionMeters    `json:"nearThreshold" doc:"Meters at or above their entitlement's warning threshold, below the limit"`
+	LimitsReached       DashboardAttentionMeters    `json:"limitsReached" doc:"Meters at the most their grant allows, a hard limit or an allowance used up: the next report is refused"`
+	NearThreshold       DashboardAttentionMeters    `json:"nearThreshold" doc:"Meters at or above the warning threshold of their grant, below the limit; an entitlement with no threshold never is"`
 	RejectedReports24h  DashboardAttentionReports   `json:"rejectedReports24h" doc:"Usage reports refused in the last 24 hours, by instance"`
-	SilentInstances     DashboardAttentionInstances `json:"silentInstances" doc:"Instances with no accepted report and no entitlement read in the range"`
+	SilentInstances     DashboardAttentionInstances `json:"silentInstances" doc:"Instances with no report, accepted or refused, and no entitlement read in the range"`
 	InstancesNotHealthy DashboardAttentionInstances `json:"instancesNotHealthy" doc:"Instances whose status is not HEALTHY"`
 	LicensesEnding30d   DashboardAttentionLicenses  `json:"licensesEnding30d" doc:"Instances whose License ends within 30 days"`
 	ArchivedVersions    DashboardAttentionArchived  `json:"archivedVersions" doc:"Instances pinned to a License version withdrawn from sale"`
@@ -146,11 +147,23 @@ type DashboardCustomerFigures struct {
 }
 
 type DashboardInstanceFigures struct {
-	Total          int64            `json:"total"`
-	CreatedInRange int64            `json:"createdInRange"`
-	ActiveInRange  int64            `json:"activeInRange" doc:"Instances with at least one accepted report or entitlement read in the range"`
-	SilentInRange  int64            `json:"silentInRange"`
-	ByStatus       map[string]int64 `json:"byStatus" doc:"HEALTHY, DEGRADED, INCIDENT, MAINTENANCE"`
+	Total          int64                   `json:"total"`
+	CreatedInRange int64                   `json:"createdInRange"`
+	ActiveInRange  int64                   `json:"activeInRange" doc:"Instances with at least one report, accepted or refused, or one entitlement read in the range"`
+	SilentInRange  int64                   `json:"silentInRange"`
+	ByStatus       map[string]int64        `json:"byStatus" doc:"HEALTHY, DEGRADED, INCIDENT, MAINTENANCE"`
+	ByStanding     DashboardStandingCounts `json:"byStanding" doc:"Instances by standing, over the whole organization"`
+}
+
+// DashboardStandingCounts counts the instances by the one word that sums each
+// up: atLimit when one of its meters refuses, watch when one is above its
+// warning threshold, silent when nothing reported or read in the range,
+// healthy otherwise.
+type DashboardStandingCounts struct {
+	AtLimit int64 `json:"atLimit"`
+	Watch   int64 `json:"watch"`
+	Silent  int64 `json:"silent"`
+	Healthy int64 `json:"healthy"`
 }
 
 type DashboardUsageReportFigures struct {
@@ -160,7 +173,8 @@ type DashboardUsageReportFigures struct {
 }
 
 // DashboardMeter is one metered grant of one instance, against the most it
-// allows.
+// allows. For a periodic entitlement the usage is the current window's, as the
+// usage endpoints read it: a window that closed without a report reads 0.
 type DashboardMeter struct {
 	InstanceSlug            string     `json:"instanceSlug"`
 	InstanceName            string     `json:"instanceName"`
@@ -168,19 +182,19 @@ type DashboardMeter struct {
 	CustomerName            string     `json:"customerName"`
 	EntitlementSlug         string     `json:"entitlementSlug"`
 	EntitlementName         string     `json:"entitlementName"`
-	Unit                    *string    `json:"unit" doc:"The entitlement's plural unit, when it has one"`
+	Unit                    *string    `json:"unit"`
 	LicenseName             string     `json:"licenseName"`
 	LicenseState            string     `json:"licenseState" enum:"DRAFT,PUBLISHED,ARCHIVED"`
-	Used                    float64    `json:"used"`
-	Granted                 *float64   `json:"granted" doc:"The effective grant; null when unlimited"`
-	MaxAllowed              *float64   `json:"maxAllowed" doc:"The grant plus its allowance, the value a report is refused above; null when nothing refuses"`
-	AllowancePercent        int        `json:"allowancePercent" doc:"-1 unlimited allowance, 0 hard limit, above 0 the percentage past the grant a report is still accepted"`
-	Ratio                   *float64   `json:"ratio" doc:"Used over maxAllowed; null when nothing refuses"`
-	WarningThresholdPercent int        `json:"warningThresholdPercent" doc:"The entitlement's own threshold, 80 when it sets none"`
-	LimitReached            bool       `json:"limitReached" doc:"Used is at or above maxAllowed"`
-	HardLimit               bool       `json:"hardLimit" doc:"A zero allowance: the grant itself is the limit"`
-	AboveWarning            bool       `json:"aboveWarning" doc:"Ratio at or above the warning threshold, below the limit"`
-	WindowStart             *time.Time `json:"windowStart" doc:"The start of the current usage window, for a periodic counter"`
+	Used                    float64    `json:"used" doc:"Usage in the current window"`
+	Granted                 *float64   `json:"granted" doc:"The grant; null when it is unlimited"`
+	MaxAllowed              *float64   `json:"maxAllowed" doc:"The grant plus its allowance, the most a report is accepted up to; null when nothing refuses"`
+	AllowancePercent        int        `json:"allowancePercent" doc:"0 is a hard limit, -1 an unlimited allowance"`
+	Ratio                   *float64   `json:"ratio" doc:"used over maxAllowed, or over the grant when nothing refuses; null when there is no grant to measure against"`
+	WarningThresholdPercent int        `json:"warningThresholdPercent" doc:"The entitlement's early-warning threshold, a percentage of the grant; 0 when none is configured"`
+	LimitReached            bool       `json:"limitReached" doc:"Usage is at or past maxAllowed: the next report is refused"`
+	HardLimit               bool       `json:"hardLimit" doc:"The grant allows nothing past itself"`
+	AboveWarning            bool       `json:"aboveWarning" doc:"Usage is at or past the warning threshold of the grant, below the limit, as the report path warns; never without a threshold"`
+	WindowStart             *time.Time `json:"windowStart" doc:"Start of the current window of a periodic entitlement; null for a lifetime one"`
 }
 
 // DashboardUsageReports is the integration's pulse: reports per day and per
@@ -197,18 +211,20 @@ type DashboardDayReports struct {
 }
 
 type DashboardInstanceReports struct {
-	InstanceSlug string     `json:"instanceSlug"`
-	InstanceName string     `json:"instanceName"`
-	CustomerSlug string     `json:"customerSlug"`
-	CustomerName string     `json:"customerName"`
-	LicenseName  string     `json:"licenseName"`
-	LicenseState string     `json:"licenseState" enum:"DRAFT,PUBLISHED,ARCHIVED"`
-	Accepted     int64      `json:"accepted"`
-	Rejected     int64      `json:"rejected"`
-	Rejected24h  int64      `json:"rejected24h"`
-	LastReportAt *time.Time `json:"lastReportAt"`
-	LastReadAt   *time.Time `json:"lastReadAt" doc:"The last entitlement value read in the range"`
-	Silent       bool       `json:"silent" doc:"No accepted report and no entitlement read in the range"`
+	InstanceSlug string          `json:"instanceSlug"`
+	InstanceName string          `json:"instanceName"`
+	CustomerSlug string          `json:"customerSlug"`
+	CustomerName string          `json:"customerName"`
+	LicenseName  string          `json:"licenseName"`
+	LicenseState string          `json:"licenseState" enum:"DRAFT,PUBLISHED,ARCHIVED"`
+	Accepted     int64           `json:"accepted"`
+	Rejected     int64           `json:"rejected"`
+	Rejected24h  int64           `json:"rejected24h"`
+	LastReportAt *time.Time      `json:"lastReportAt"`
+	LastReadAt   *time.Time      `json:"lastReadAt" doc:"The last entitlement value read in the range"`
+	Silent       bool            `json:"silent" doc:"No report, accepted or refused, and no entitlement read in the range"`
+	Standing     string          `json:"standing" enum:"atLimit,watch,silent,healthy" doc:"The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing reported or read in the range, healthy otherwise; computed over every meter of the instance"`
+	Headline     *DashboardMeter `json:"headline,omitempty" doc:"The meter that decides the standing, when one does: a meter at its limit before one above its threshold, the higher ratio first"`
 }
 
 // DashboardFeatureFlags is the flags block: evaluations per flag in the range.
@@ -257,13 +273,14 @@ type DashboardLicensesEnding struct {
 }
 
 type DashboardLicenseEnding struct {
-	InstanceSlug  string    `json:"instanceSlug"`
-	InstanceName  string    `json:"instanceName"`
-	CustomerSlug  string    `json:"customerSlug"`
-	CustomerName  string    `json:"customerName"`
-	LicenseName   string    `json:"licenseName"`
-	EndsAt        time.Time `json:"endsAt"`
-	BillingStatus *string   `json:"billingStatus" doc:"The instance's subscription status, when it has one"`
+	InstanceSlug      string    `json:"instanceSlug"`
+	InstanceName      string    `json:"instanceName"`
+	CustomerSlug      string    `json:"customerSlug"`
+	CustomerName      string    `json:"customerName"`
+	LicenseName       string    `json:"licenseName"`
+	EndsAt            time.Time `json:"endsAt"`
+	BillingStatus     *string   `json:"billingStatus" doc:"The instance's subscription status, when it has one; null too when the caller cannot read billing (the billing block says which)"`
+	CancelAtPeriodEnd bool      `json:"cancelAtPeriodEnd" doc:"The subscription ends with its period rather than renewing; false without one, and when the caller cannot read billing"`
 }
 
 type DashboardArchivedVersion struct {
@@ -291,14 +308,26 @@ type DashboardZone struct {
 
 // DashboardIntegrations is who talks to Kaiten.
 type DashboardIntegrations struct {
-	ServiceAccounts          int64                    `json:"serviceAccounts"`
-	ActiveTokens             int64                    `json:"activeTokens"`
-	TokensExpiring30Days     int64                    `json:"tokensExpiring30Days"`
-	TokensWithoutExpiry      int64                    `json:"tokensWithoutExpiry"`
-	TokensExpiring           []DashboardTokenExpiring `json:"tokensExpiring" nullable:"false" doc:"The next five to expire"`
-	PublishableKeys          int64                    `json:"publishableKeys"`
-	PublishableKeyLastUsedAt *time.Time               `json:"publishableKeyLastUsedAt"`
-	Connectors               []DashboardConnector     `json:"connectors" nullable:"false"`
+	Tokens          *DashboardTokens          `json:"tokens,omitempty" doc:"Service accounts and their tokens; absent when the caller cannot read tokens"`
+	PublishableKeys *DashboardPublishableKeys `json:"publishableKeys,omitempty" doc:"Absent when the caller cannot read publishable keys"`
+	Connectors      *DashboardConnectors      `json:"connectors,omitempty" doc:"Absent when the caller cannot read the organization's connectors"`
+}
+
+type DashboardTokens struct {
+	ServiceAccounts      int64                    `json:"serviceAccounts"`
+	ActiveTokens         int64                    `json:"activeTokens"`
+	TokensExpiring30Days int64                    `json:"tokensExpiring30Days"`
+	TokensWithoutExpiry  int64                    `json:"tokensWithoutExpiry"`
+	TokensExpiring       []DashboardTokenExpiring `json:"tokensExpiring" nullable:"false" doc:"The next five to expire"`
+}
+
+type DashboardPublishableKeys struct {
+	Count      int64      `json:"count" doc:"Keys not revoked"`
+	LastUsedAt *time.Time `json:"lastUsedAt" doc:"The last use of any of them"`
+}
+
+type DashboardConnectors struct {
+	Items []DashboardConnector `json:"items" nullable:"false"`
 }
 
 type DashboardTokenExpiring struct {

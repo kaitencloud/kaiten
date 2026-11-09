@@ -4,9 +4,11 @@ import { graphql } from '@/api-client/graphql';
 // whole organization, so events not attached to an instance (customer created,
 // entitlement lifecycle, …) are included — unlike the previous per-instance
 // aggregation. Instance/customer fields are null for those events.
+// `excludeEventNames` leaves events out server-side, so a short page of
+// changes is not emptied by the reads and evaluations SDKs produce in bulk.
 export const GET_GLOBAL_AUDIT_TRAIL = graphql(`
-  query GetGlobalAuditTrail($limit: Int) {
-    organizationAuditTrails(limit: $limit) {
+  query GetGlobalAuditTrail($limit: Int, $excludeEventNames: [String!]) {
+    organizationAuditTrails(limit: $limit, excludeEventNames: $excludeEventNames) {
       items {
         id
         eventName

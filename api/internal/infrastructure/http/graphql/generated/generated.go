@@ -447,7 +447,7 @@ type ComplexityRoot struct {
 		LicenseFamily           func(childComplexity int, slug string) int
 		Licenses                func(childComplexity int, limit *int, cursor *string) int
 		MetadataFields          func(childComplexity int, resourceType db.MetadataFieldResourceType, includeArchived *bool, limit *int, cursor *string) int
-		OrganizationAuditTrails func(childComplexity int, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) int
+		OrganizationAuditTrails func(childComplexity int, eventName *string, excludeEventNames []string, after *time.Time, before *time.Time, limit *int, cursor *string) int
 		Release                 func(childComplexity int, id *uuid.UUID, slug *string) int
 		Releases                func(childComplexity int, limit *int, cursor *string) int
 	}
@@ -547,7 +547,7 @@ type QueryResolver interface {
 	DeploymentZone(ctx context.Context, id *uuid.UUID, slug *string) (*schema3.DeploymentZone, error)
 	Entitlements(ctx context.Context, limit *int, cursor *string) (*schema4.EntitlementPage, error)
 	AuditTrails(ctx context.Context, instanceSlug string, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema.AuditTrailPage, error)
-	OrganizationAuditTrails(ctx context.Context, eventName *string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema.OrganizationAuditTrailPage, error)
+	OrganizationAuditTrails(ctx context.Context, eventName *string, excludeEventNames []string, after *time.Time, before *time.Time, limit *int, cursor *string) (*schema.OrganizationAuditTrailPage, error)
 	Instances(ctx context.Context, hasIntegration *string, limit *int, cursor *string) (*schema.InstancePage, error)
 	Instance(ctx context.Context, id *uuid.UUID, slug *string) (*schema.Instance, error)
 	Licenses(ctx context.Context, limit *int, cursor *string) (*schema2.LicensePage, error)
@@ -2425,7 +2425,7 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 			return 0, false
 		}
 
-		return e.ComplexityRoot.Query.OrganizationAuditTrails(childComplexity, args["eventName"].(*string), args["after"].(*time.Time), args["before"].(*time.Time), args["limit"].(*int), args["cursor"].(*string)), true
+		return e.ComplexityRoot.Query.OrganizationAuditTrails(childComplexity, args["eventName"].(*string), args["excludeEventNames"].([]string), args["after"].(*time.Time), args["before"].(*time.Time), args["limit"].(*int), args["cursor"].(*string)), true
 	case "Query.release":
 		if e.ComplexityRoot.Query.Release == nil {
 			break
@@ -3263,6 +3263,12 @@ extend type Query {
   """
   organizationAuditTrails(
     eventName: String
+    """
+    Event names to leave out, server-side: the reads, evaluations and reports
+    that make up the bulk of a busy trail, when a page wants the changes behind
+    them. Nothing is left out when absent.
+    """
+    excludeEventNames: [String!]
     after: Time
     before: Time
     """Maximum number of entries to return (default 200, max 1000)"""
@@ -5231,38 +5237,46 @@ func (ec *executionContext) field_Query_organizationAuditTrails_args(ctx context
 		return nil, err
 	}
 	args["eventName"] = arg0
-	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "after",
+	arg1, err := graphql.ProcessArgField(ctx, rawArgs, "excludeEventNames",
+		func(ctx context.Context, v any) ([]string, error) {
+			return ec.unmarshalOString2ᚕstringᚄ(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["excludeEventNames"] = arg1
+	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "after",
 		func(ctx context.Context, v any) (*time.Time, error) {
 			return ec.unmarshalOTime2ᚖtimeᚐTime(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["after"] = arg1
-	arg2, err := graphql.ProcessArgField(ctx, rawArgs, "before",
+	args["after"] = arg2
+	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "before",
 		func(ctx context.Context, v any) (*time.Time, error) {
 			return ec.unmarshalOTime2ᚖtimeᚐTime(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["before"] = arg2
-	arg3, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
+	args["before"] = arg3
+	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "limit",
 		func(ctx context.Context, v any) (*int, error) {
 			return ec.unmarshalOInt2ᚖint(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["limit"] = arg3
-	arg4, err := graphql.ProcessArgField(ctx, rawArgs, "cursor",
+	args["limit"] = arg4
+	arg5, err := graphql.ProcessArgField(ctx, rawArgs, "cursor",
 		func(ctx context.Context, v any) (*string, error) {
 			return ec.unmarshalOString2ᚖstring(ctx, v)
 		})
 	if err != nil {
 		return nil, err
 	}
-	args["cursor"] = arg4
+	args["cursor"] = arg5
 	return args, nil
 }
 
@@ -12371,7 +12385,7 @@ func (ec *executionContext) _Query_organizationAuditTrails(ctx context.Context, 
 		},
 		func(ctx context.Context) (any, error) {
 			fc := graphql.GetFieldContext(ctx)
-			return ec.Resolvers.Query().OrganizationAuditTrails(ctx, fc.Args["eventName"].(*string), fc.Args["after"].(*time.Time), fc.Args["before"].(*time.Time), fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
+			return ec.Resolvers.Query().OrganizationAuditTrails(ctx, fc.Args["eventName"].(*string), fc.Args["excludeEventNames"].([]string), fc.Args["after"].(*time.Time), fc.Args["before"].(*time.Time), fc.Args["limit"].(*int), fc.Args["cursor"].(*string))
 		},
 		nil,
 		func(ctx context.Context, selections ast.SelectionSet, v *schema.OrganizationAuditTrailPage) graphql.Marshaler {
@@ -20279,6 +20293,41 @@ func (ec *executionContext) marshalORelease2ᚖgithubᚗcomᚋkaitencloudᚋkait
 		return graphql.Null
 	}
 	return ec._Release(ctx, sel, v)
+}
+
+func (ec *executionContext) unmarshalOString2ᚕstringᚄ(ctx context.Context, v any) ([]string, error) {
+	if v == nil {
+		return nil, nil
+	}
+	vSlice := graphql.CoerceList(v)
+	var err error
+	res := make([]string, len(vSlice))
+	for i := range vSlice {
+		ctx := graphql.WithPathContext(ctx, graphql.NewPathWithIndex(i))
+		res[i], err = ec.unmarshalNString2string(ctx, vSlice[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return res, nil
+}
+
+func (ec *executionContext) marshalOString2ᚕstringᚄ(ctx context.Context, sel ast.SelectionSet, v []string) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := make(graphql.Array, len(v))
+	for i := range v {
+		ret[i] = ec.marshalNString2string(ctx, sel, v[i])
+	}
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOString2ᚖstring(ctx context.Context, v any) (*string, error) {
