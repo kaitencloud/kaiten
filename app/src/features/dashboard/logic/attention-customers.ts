@@ -130,15 +130,21 @@ export function buildCustomersAttention(
         customer: item.customerName,
         when: whenDays(item.endsAt, t),
       }),
-      detail: t('Pages.Dashboard.attention.lines.licenseEnding.detail', {
-        license: item.licenseName,
-        instance: item.instanceName,
-        billing: billingStatusLabel(
-          t,
-          item.billingStatus,
-          item.cancelAtPeriodEnd,
-        ),
-      }),
+      detail:
+        summary.billing === undefined
+          ? t('Pages.Dashboard.attention.lines.licenseEnding.detailNoBilling', {
+              license: item.licenseName,
+              instance: item.instanceName,
+            })
+          : t('Pages.Dashboard.attention.lines.licenseEnding.detail', {
+              license: item.licenseName,
+              instance: item.instanceName,
+              billing: billingStatusLabel(
+                t,
+                item.billingStatus,
+                item.cancelAtPeriodEnd,
+              ),
+            }),
       action: {
         label: t('Pages.Dashboard.attention.lines.licenseEnding.action'),
         to: instancePath(item.instanceSlug),

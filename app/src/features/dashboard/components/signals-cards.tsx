@@ -11,7 +11,11 @@ import {
 } from '@/components/ui/card';
 import { formatDate } from '@/lib/format-date';
 import { cn } from '@/lib/utils';
-import { instanceEntitlementsPath, instancePath } from '../logic/attention';
+import {
+  instanceEntitlementsPath,
+  instancePath,
+  licensesEndingAtRisk,
+} from '../logic/attention';
 import { formatQuantity } from '../logic/format';
 
 type Signal = {
@@ -23,7 +27,6 @@ type Signal = {
 };
 
 const TOP = 4;
-const AT_RISK_STATUSES = ['CANCELED', 'INCOMPLETE', 'PAST_DUE'];
 
 /**
  * The growth and risk signals of the deck's "from signal to revenue": what the
@@ -86,28 +89,19 @@ export function SignalsCards({ summary }: { summary: DashboardSummary }) {
   ];
 
   const risk: Signal[] = [
-    // At risk: no subscription, one that ends with its period, or one that is
-    // canceled, never completed, or past due.
-    ...summary.licenses.ending.items
-      .filter(
-        (item) =>
-          !item.billingStatus ||
-          item.cancelAtPeriodEnd ||
-          AT_RISK_STATUSES.includes(item.billingStatus),
-      )
-      .map((item) => ({
-        id: `ending-${item.instanceSlug}`,
-        title: t('Pages.Dashboard.signals.ending', {
-          customer: item.customerName,
-          when: formatDate(item.endsAt),
-        }),
-        detail: t('Pages.Dashboard.signals.endingDetail', {
-          license: item.licenseName,
-          instance: item.instanceName,
-        }),
-        rule: t('Pages.Dashboard.signals.rules.ending'),
-        to: instancePath(item.instanceSlug),
-      })),
+    ...licensesEndingAtRisk(summary).map((item) => ({
+      id: `ending-${item.instanceSlug}`,
+      title: t('Pages.Dashboard.signals.ending', {
+        customer: item.customerName,
+        when: formatDate(item.endsAt),
+      }),
+      detail: t('Pages.Dashboard.signals.endingDetail', {
+        license: item.licenseName,
+        instance: item.instanceName,
+      }),
+      rule: t('Pages.Dashboard.signals.rules.ending'),
+      to: instancePath(item.instanceSlug),
+    })),
     ...a.silentInstances.items.map((item) => ({
       id: `silent-${item.instanceSlug}`,
       title: t('Pages.Dashboard.signals.silent', {

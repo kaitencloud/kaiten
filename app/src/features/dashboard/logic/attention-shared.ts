@@ -1,5 +1,9 @@
 import type { TFunction } from 'i18next';
-import type { DashboardMeter, DashboardSummary } from '@/api-client';
+import type {
+  DashboardLicenseEnding,
+  DashboardMeter,
+  DashboardSummary,
+} from '@/api-client';
 import { daysUntil, formatQuantity } from './format';
 
 export type AttentionTone = 'destructive' | 'warning' | 'info' | 'muted';
@@ -133,6 +137,29 @@ export function billingStatusLabel(
   return key === 'other'
     ? t('Pages.Dashboard.comingUp.other', { status })
     : t(`Pages.Dashboard.comingUp.${key}`);
+}
+
+const AT_RISK_STATUSES = ['CANCELED', 'INCOMPLETE', 'PAST_DUE'];
+
+/**
+ * The Licenses ending whose subscription puts the renewal in doubt: none, one
+ * that ends with its period, or one canceled, never completed or past due.
+ * Without `read:billing` the API leaves every status blank and also leaves out
+ * the `billing` block: that blank says nothing about the subscription, so no
+ * License is at risk on its strength.
+ */
+export function licensesEndingAtRisk(
+  summary: DashboardSummary,
+): DashboardLicenseEnding[] {
+  if (summary.billing === undefined) {
+    return [];
+  }
+  return summary.licenses.ending.items.filter(
+    (item) =>
+      !item.billingStatus ||
+      item.cancelAtPeriodEnd ||
+      AT_RISK_STATUSES.includes(item.billingStatus),
+  );
 }
 
 /** The checks the Customers view runs, in the order the card reads them. */

@@ -15,4 +15,5 @@ export {
   quietChecks,
   instanceEntitlementsPath,
   instancePath,
+  licensesEndingAtRisk,
 } from './attention-shared';

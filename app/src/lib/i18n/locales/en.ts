@@ -408,6 +408,7 @@ export default {
           licenseEnding: {
             title: "{{customer}}'s License ends {{when}}",
             detail: '{{license}} · {{instance}} · {{billing}}',
+            detailNoBilling: '{{license}} · {{instance}}',
             action: 'Open the instance',
           },
           archived: {
@@ -6263,6 +6264,44 @@ export default {
       groups: {
         organization: 'Organization',
         browser: 'This browser',
+      },
+      Plan: {
+        title: 'Plan & usage',
+        subtitle:
+          'Your organization’s Kaiten Cloud plan: what it includes, what you use, and how you pay.',
+        cardDescription:
+          'See your Kaiten Cloud plan and usage, change plan, and manage your payment method and invoices.',
+        openButton: 'Open plan & usage',
+        loading: 'Loading your plan',
+        retry: 'Try again',
+        Change: {
+          title: 'Change plan',
+          description:
+            'Move to another Kaiten Cloud plan. You see what is due before you confirm.',
+          back: 'Choose another plan',
+        },
+        Problems: {
+          notEnabled: {
+            title: 'Not available for this organization',
+            description:
+              'Plan & usage is not available for your organization. Contact us to change your plan.',
+          },
+          notProvisioned: {
+            title: 'Your organization is still being set up',
+            description:
+              'Kaiten Cloud has no plan for your organization yet. Try again in a few minutes.',
+          },
+          forbidden: {
+            title: 'Administrators only',
+            description:
+              'Only an administrator of the organization can see and change its plan.',
+          },
+          unavailable: {
+            title: 'Your plan cannot be loaded right now',
+            description:
+              'Kaiten Cloud did not answer. Nothing has changed on your plan. Try again.',
+          },
+        },
       },
       Notifications: {
         title: 'Notifications',
