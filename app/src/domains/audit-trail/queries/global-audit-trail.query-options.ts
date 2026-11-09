@@ -17,29 +17,25 @@ export const globalAuditTrailBaseQueryKey = [
 
 export const globalAuditTrailQueryKey = (
   limit = GLOBAL_AUDIT_TRAIL_LIMIT,
-  excludeEventNames: readonly string[] = [],
-) => [...globalAuditTrailBaseQueryKey, limit, excludeEventNames] as const;
+  changesOnly = false,
+) => [...globalAuditTrailBaseQueryKey, limit, changesOnly] as const;
 
 /**
- * The organization's trail, newest first. `excludeEventNames` leaves events
- * out server-side, for a page that wants the changes and not the reads and
- * evaluations SDKs produce in bulk: left to the client, a short page could
- * come back with nothing but them.
+ * The organization's trail, newest first. `changesOnly` leaves out, server-side,
+ * the reads and evaluations SDKs produce in bulk, for a page that wants the
+ * changes: left to the client, a short page could come back with nothing but
+ * them.
  */
 export const globalAuditTrailQueryOptions = (
   limit = GLOBAL_AUDIT_TRAIL_LIMIT,
-  excludeEventNames: readonly string[] = [],
+  changesOnly = false,
 ) =>
   queryOptions({
-    queryKey: globalAuditTrailQueryKey(limit, excludeEventNames),
+    queryKey: globalAuditTrailQueryKey(limit, changesOnly),
     queryFn: async ({ signal }) => {
       const data = await graphqlClient.request<GetGlobalAuditTrailQuery>(
         GET_GLOBAL_AUDIT_TRAIL.toString(),
-        {
-          limit,
-          excludeEventNames:
-            excludeEventNames.length > 0 ? [...excludeEventNames] : null,
-        },
+        { limit, changesOnly },
         signal,
       );
       return toGlobalAuditEntries(data.organizationAuditTrails.items);

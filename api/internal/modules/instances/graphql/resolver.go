@@ -231,7 +231,7 @@ const (
 // GetOrganizationAuditTrails returns a cursor-paginated page of audit trail
 // entries for the whole organization, including events not attached to an
 // instance.
-func GetOrganizationAuditTrails(ctx context.Context, port *listfororganization.UseCase, eventName *string, excludeEventNames []string, after, before *time.Time, limit *int, cursor *string) (*schema.OrganizationAuditTrailPage, error) {
+func GetOrganizationAuditTrails(ctx context.Context, port *listfororganization.UseCase, eventName *string, changesOnly *bool, after, before *time.Time, limit *int, cursor *string) (*schema.OrganizationAuditTrailPage, error) {
 	i, ok := principal.FromContext(ctx)
 	if !ok {
 		return nil, ErrMissingIdentity
@@ -255,7 +255,7 @@ func GetOrganizationAuditTrails(ctx context.Context, port *listfororganization.U
 		pageCursor = &pagination.CreatedAtCursor{CreatedAt: *cursorOccurredAt, ID: *cursorID}
 	}
 
-	entries, err := port.Execute(ctx, i.OrganizationID, eventName, excludeEventNames, after, before, l+1, pageCursor)
+	entries, err := port.Execute(ctx, i.OrganizationID, eventName, changesOnly != nil && *changesOnly, after, before, l+1, pageCursor)
 	if err != nil {
 		return nil, err
 	}

@@ -27,11 +27,10 @@ func NewUseCase(queries *db.Queries) *UseCase {
 // Execute returns at most limitPlusOne rows (see listforinstance.Execute's
 // doc comment for the pagination contract, which this shares), ordered by
 // occurred_at DESC, id DESC.
-// excludeEventNames leaves events out by name, server-side, so a page of
-// recent changes is not emptied by the reads and evaluations that make up the
-// bulk of a busy trail; nil excludes nothing.
+// changesOnly leaves out the reads, evaluations and reports that make up the
+// bulk of a busy trail, so a page of recent changes is not emptied by them.
 func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
-	eventName *string, excludeEventNames []string, after, before *time.Time, limitPlusOne int32, cursor *pagination.CreatedAtCursor,
+	eventName *string, changesOnly bool, after, before *time.Time, limitPlusOne int32, cursor *pagination.CreatedAtCursor,
 ) ([]*schema.OrganizationEntry, error) {
 	var cursorOccurredAt *time.Time
 	var cursorID *uuid.UUID
@@ -40,15 +39,14 @@ func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
 		cursorID = &cursor.ID
 	}
 
-	rows, err := uc.queries.ListOrganizationAuditTrails(ctx, db.ListOrganizationAuditTrailsParams{
-		OrganizationID:    orgID,
-		EventName:         eventName,
-		ExcludeEventNames: excludeEventNames,
-		AfterTs:           pgtime.TimePtrToPgTimestamptz(after),
-		BeforeTs:          pgtime.TimePtrToPgTimestamptz(before),
-		CursorOccurredAt:  pgtime.TimePtrToPgTimestamptz(cursorOccurredAt),
-		CursorID:          cursorID,
-		LimitPlusOne:      limitPlusOne,
+	rows, err := uc.page(ctx, changesOnly, db.ListOrganizationAuditTrailsParams{
+		OrganizationID:   orgID,
+		EventName:        eventName,
+		AfterTs:          pgtime.TimePtrToPgTimestamptz(after),
+		BeforeTs:         pgtime.TimePtrToPgTimestamptz(before),
+		CursorOccurredAt: pgtime.TimePtrToPgTimestamptz(cursorOccurredAt),
+		CursorID:         cursorID,
+		LimitPlusOne:     limitPlusOne,
 	})
 	if err != nil {
 		return nil, err
@@ -72,4 +70,23 @@ func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
 		})
 	}
 	return result, nil
+}
+
+// page reads one page through the query that serves it: the two select the same
+// columns and take the same parameters, and differ only in the filter
+// idx_audit_trail_changes is built for.
+func (uc *UseCase) page(ctx context.Context, changesOnly bool, params db.ListOrganizationAuditTrailsParams,
+) ([]db.ListOrganizationAuditTrailsRow, error) {
+	if !changesOnly {
+		return uc.queries.ListOrganizationAuditTrails(ctx, params)
+	}
+	changes, err := uc.queries.ListOrganizationChanges(ctx, db.ListOrganizationChangesParams(params))
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]db.ListOrganizationAuditTrailsRow, len(changes))
+	for i, change := range changes {
+		rows[i] = db.ListOrganizationAuditTrailsRow(change)
+	}
+	return rows, nil
 }

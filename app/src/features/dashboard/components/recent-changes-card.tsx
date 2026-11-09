@@ -21,21 +21,6 @@ import type { DashboardView } from '../search';
 const ROWS = 6;
 const FEED_LIMIT = 100;
 
-// Reads, evaluations and reports are the trail's bulk and not a change anyone
-// made: the card shows what people, service accounts and Kaiten changed. The
-// API leaves them out before paging, so a busy organization's hundred rows
-// are changes, not the SDK traffic of the last minutes.
-const LEFT_OUT = [
-  'ENTITLEMENT_VALUE_GET',
-  'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
-  'ENTITLEMENT_USAGE_REPORT_REJECTED',
-  'FEATURE_FLAG_EVALUATED',
-  'INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER',
-  'INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED',
-  'INSTANCE_ENTITLEMENT_USAGE_REACHED',
-  'INSTANCE_ENTITLEMENT_CAP_EXCEEDED',
-];
-
 // The commercial trail: customers, Licenses, grants, exceptions, vouchers,
 // subscriptions and invoices. Everything else is the technical one.
 const COMMERCIAL_HINTS = [
@@ -61,7 +46,6 @@ export function selectRecentChanges(
   view: DashboardView,
 ): GlobalAuditEntry[] {
   return entries
-    .filter((entry) => !LEFT_OUT.includes(entry.eventName))
     .filter((entry) =>
       view === 'customers'
         ? isCommercialEvent(entry.eventName)
@@ -81,7 +65,7 @@ type RecentChangesCardProps = {
  */
 export function RecentChangesCard({ view, locale }: RecentChangesCardProps) {
   const { t } = useTranslation();
-  const feed = useQuery(globalAuditTrailQueryOptions(FEED_LIMIT, LEFT_OUT));
+  const feed = useQuery(globalAuditTrailQueryOptions(FEED_LIMIT, true));
   const entries = feed.data ? selectRecentChanges(feed.data, view) : [];
 
   return (
