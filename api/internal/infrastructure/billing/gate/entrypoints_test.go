@@ -216,7 +216,9 @@ func TestCapabilitiesFollowIndependentGrants(t *testing.T) {
 		vouchers, addons bool
 		unavailable      string
 	}{
-		{"starter", false, false, ""}, {"growth", true, true, ""}, {"vouchers only", true, false, ""},
+		{"starter", false, false, ""},
+		{"growth", true, true, ""},
+		{"vouchers only", true, false, ""},
 		{"unknown voucher grant", true, true, dogfooding.VouchersEntitlementSlug},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
