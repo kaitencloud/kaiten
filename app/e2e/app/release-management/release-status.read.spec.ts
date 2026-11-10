@@ -17,6 +17,8 @@ test.describe('release-management release status', () => {
   test('reads a replaced release as Superseded on every screen', async ({
     page,
   }) => {
+    // Five full-page navigations exceed the default budget on slower CI runners.
+    test.slow();
     const model = createSupersededReleaseModel();
     const list = new ReleaseListDriver(page);
     const releases = new ReleasesDialogDriver(page);
@@ -134,6 +136,8 @@ test.describe('release-management release status', () => {
   test('reads a release as Superseded once a deployment has replaced it on its last zone', async ({
     page,
   }) => {
+    // Two deployments and the cross-screen reads need a multi-navigation budget.
+    test.slow();
     const model = createDeploymentFlowModel();
     const dialog = new DeploymentZoneDialogDriver(page);
     const list = new ReleaseListDriver(page);
