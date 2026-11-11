@@ -11,22 +11,32 @@ import { server } from '@/__tests__/msw-server';
 import type { Model } from '@/api-client';
 import { handleCreateModel, handleUpdateModel, handleGetModel } from '@/api-client/msw.gen';
 import { ModelForm } from '../model-form';
-import { wildcardQueryOptions } from '../../queries/ai-query-options';
+import { aiRateCardQueryOptions, type RateCardLicense } from '@/domains/ai-credits';
 
 const navigate = vi.hoisted(() => vi.fn());
 vi.mock('@tanstack/react-router', () => ({
   useNavigate: () => navigate,
   Link: ({ children, ...props }: { children: ReactNode }) => <a {...props}>{children}</a>,
 }));
-vi.mock('../../queries/ai-query-options', async (original) => ({
-  ...await original<typeof import('../../queries/ai-query-options')>(),
+vi.mock('@/domains/ai-credits', async (original) => ({
+  ...await original<typeof import('@/domains/ai-credits')>(),
   invalidateAiQueries: vi.fn(async () => {}),
 }));
 beforeEach(() => navigate.mockClear());
 const model = { id: 'test-model', createdAt: '2026-10-19T00:00:00Z', updatedAt: '2026-10-19T00:00:00Z', name: 'Synthetic model', slug: 'synthetic-model', vendor: 'Fixture vendor', modality: 'TEXT', status: 'ACTIVE', externalIds: ['provider-model'], metadata: { fixture: true }, vendorCosts: { currency: 'USD', perCacheWriteToken: '0.000002' } } as Model;
+const wildcardVersion = {
+  slug: 'pro-v1',
+  name: 'Pro',
+  versionName: 'Pro 1',
+  entitlements: [],
+  conversionRules: [
+    { id: 'rule-any', status: 'ACTIVE', modelSlug: null, requestType: 'COMPLETION', entitlementSlug: 'credits' },
+    { id: 'rule-embedding', status: 'ACTIVE', modelSlug: null, requestType: 'EMBEDDING', entitlementSlug: 'credits' },
+  ],
+} as unknown as RateCardLicense;
 function renderForm(value?: Model, context: AiNavigationContext = {}) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity }, mutations: { retry: false } } });
-  client.setQueryData(wildcardQueryOptions.queryKey, [{ licenseSlug: 'pro-v1', entitlementSlug: 'credits' }]);
+  client.setQueryData(aiRateCardQueryOptions.queryKey, [wildcardVersion]);
   setAiAccessInputsForTest(client, { capability: true, flag: true });
   render(<QueryClientProvider client={client}><Suspense fallback={null}><AiNavigationProvider context={context}><ModelForm model={value} /></AiNavigationProvider></Suspense></QueryClientProvider>);
 }
@@ -42,13 +52,15 @@ it('edits with immutable slug/modality and retains provider aliases, metadata an
   fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
   await waitFor(() => expect(body?.name).toBe('Renamed fixture'));
   expect(body).toMatchObject({ slug: model.slug, modality: 'TEXT', externalIds: ['provider-model'], metadata: { fixture: true }, vendorCosts: { currency: 'USD', perCacheWriteToken: '0.000002' } });
-  await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/catalog/models', search: { entitlementSlug: 'credits', licenseSlug: 'pro-v2' } }));
+  await waitFor(() => expect(navigate).toHaveBeenCalledWith({ to: '/ai/models', search: { entitlementSlug: 'credits', licenseSlug: 'pro-v2' } }));
 });
 it('shows affected wildcard versions before creating and normalizes provider identifiers', async () => {
   let body: Record<string, unknown> | undefined;
   server.use(handleCreateModel(async ({ request }) => { body = await request.json() as Record<string, unknown>; return HttpResponse.json({ ...model, ...body }, { status: 201 }); }));
   renderForm();
-  expect(await screen.findByText('pro-v1 / credits')).toBeInTheDocument();
+  expect(await screen.findByText('Pro · Pro 1 (pro-v1) · credits · Completion')).toBeInTheDocument();
+  // An embedding wildcard does not price a text model.
+  expect(screen.queryByText(/Embedding/)).not.toBeInTheDocument();
   fireEvent.change(await screen.findByLabelText('Name'), { target: { value: 'New fixture' } });
   fireEvent.change(screen.getByLabelText('Slug'), { target: { value: 'new-fixture' } });
   fireEvent.change(screen.getByLabelText('Vendor'), { target: { value: 'Local fixture' } });

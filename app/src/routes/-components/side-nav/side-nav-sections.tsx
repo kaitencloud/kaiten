@@ -1,5 +1,3 @@
-import { hasScope } from '@/lib/granted-scopes';
-import { OPERATION_SCOPES } from '@/lib/api/operation-scopes.gen';
 import { useAiAccess } from '@/domains/ai-credits';
 import { useTranslation } from 'react-i18next';
 import {
@@ -9,6 +7,7 @@ import {
 } from '@/domains/billing';
 import { useWebhooksServed } from '@/domains/webhooks';
 import {
+  aiSubRoutes,
   billingRoutes,
   catalogSubRoutes,
   footerRoutes,
@@ -122,17 +121,21 @@ export function useResolvedIntegrationsItems() {
  * session that may read them.
  */
 export function useResolvedCatalogItems() {
-  const routes = useResolvedSubRoutes(catalogSubRoutes);
-  const access = useAiAccess();
-  const aiEnabled = access.available;
-  const { scopes, isPending } = useGrantedScopes();
-  const mayReadModels =
-    !isPending &&
-    OPERATION_SCOPES.listModels.every((scope) => hasScope(scopes, scope));
+  return useResolvedSubRoutes(catalogSubRoutes);
+}
+
+/**
+ * The entries of the AI section, each where AI credits are on and the session may
+ * call what its screen reads. Empty while the access is read, and wherever AI is
+ * off: the section is then not drawn at all.
+ */
+export function useResolvedAiItems(): SideNavResolvedSubRoute[] {
   const { t } = useTranslation();
-  return aiEnabled && mayReadModels
-    ? [...routes, { label: t('AI.Models.title'), path: '/catalog/models' }]
-    : routes;
+  const access = useAiAccess();
+
+  return aiSubRoutes
+    .filter(({ operations }) => operations.every(access.allows))
+    .map(({ labelKey, path }) => ({ label: t(labelKey), path }));
 }
 
 export function SideNavFooterRoutes({ pathname }: SideNavRoutesProps) {

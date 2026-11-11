@@ -11,4 +11,4 @@ export {
   entitlementQueryOptions,
   entitlementsQueryOptions,
 } from './queries';
-export { EntitlementDetailCalculationTab } from './components';
+export { EntitlementDetailPricingTab } from './components';

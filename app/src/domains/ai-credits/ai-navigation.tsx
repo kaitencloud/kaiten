@@ -33,13 +33,13 @@ export function BackToEntitlement() {
       variant="outline"
       render={
         <Link
-          to="/catalog/entitlements/$entitlementSlug/calculation"
+          to="/catalog/entitlements/$entitlementSlug/pricing"
           params={{ entitlementSlug }}
-          search={{ licenseSlug }}
+          search={{ version: licenseSlug }}
         />
       }
     >
-      {t('AI.Calculation.back')}
+      {t('AI.Access.backToEntitlement')}
     </Button>
   );
 }

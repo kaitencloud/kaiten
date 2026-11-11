@@ -11,12 +11,10 @@ import { aiAccessQueryOptions } from './ai-access';
 export function useAiAccess() {
   const flag = useQuery(aiAccessQueryOptions());
   const { scopes, isPending } = useGrantedScopes();
-  // The shared QueryClient deadline revokes expiry; rendering reads only its subscribed snapshot.
-  const available =
-    flag.isSuccess &&
-    !flag.isStale &&
-    !flag.isError &&
-    flag.data?.enabled === true;
+  // Last known answer: a stale, refreshing or failing snapshot keeps a grant,
+  // only an explicit negative (data `enabled: false`) withdraws it. Never true
+  // before a first positive answer.
+  const available = flag.data?.enabled === true;
   function allows(operation: ApiOperationId) {
     return (
       available &&

@@ -318,6 +318,28 @@ export class InstanceAppModel {
     );
   }
 
+  /**
+   * A refund of AI credits gives them back to the pool in the window open now:
+   * the counter of the instance's usage falls by as much, and is not floored.
+   */
+  refundAiCredits(
+    instanceSlug: string,
+    entitlementSlug: string,
+    credits: string,
+  ) {
+    for (const usage of this.entitlementUsagesByInstance[instanceSlug] ?? []) {
+      if (
+        usage.entitlementSlug === entitlementSlug &&
+        usage.value.type === 'number'
+      ) {
+        usage.value = {
+          type: 'number',
+          value: Math.round((usage.value.value - Number(credits)) * 1e6) / 1e6,
+        };
+      }
+    }
+  }
+
   listEntitlementExceptions(instanceSlug: string, filter: 'active' | 'all') {
     this.findInstance(instanceSlug);
     return this.entitlementExceptions.list(instanceSlug, filter, Date.now());

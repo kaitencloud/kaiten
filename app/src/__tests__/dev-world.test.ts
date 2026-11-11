@@ -38,6 +38,8 @@ const releaseIds = new Set(releaseManagement.releases.map(({ id }) => id));
 describe('dev world', () => {
   it('seeds every area of the console', () => {
     expect(Object.keys(config).sort()).toEqual([
+      'ai',
+      'aiCapability',
       'auditTrail',
       'billing',
       'connectors',
@@ -45,6 +47,7 @@ describe('dev world', () => {
       'dashboard',
       'entitlements',
       'featureFlags',
+      'flagEvaluations',
       'instances',
       'licenses',
       'notifications',
@@ -717,5 +720,56 @@ describe('dev world, where the kept usage begins', () => {
     expect(Date.parse(second.body.errors?.[0]?.value ?? '')).toBeGreaterThan(
       Date.parse(named),
     );
+  });
+});
+
+describe('dev world, AI credits', () => {
+  const ai = slot(config.ai);
+  const licenseSlugs = new Set(
+    slot(config.licenses).licenses.map(({ slug }) => slug),
+  );
+
+  it('turns AI credits on, and off with ?ai=off', () => {
+    expect(config.aiCapability).toEqual({ enabled: true });
+    expect(config.flagEvaluations).toEqual({ 'ai-credits': true });
+    const off = createDevMockConfig({ ai: 'off' });
+    expect(off.aiCapability).toEqual({ enabled: false });
+    expect(off.flagEvaluations).toEqual({ 'ai-credits': false });
+  });
+
+  it('prices only versions and pools the other areas serve', () => {
+    for (const rule of ai.rules) {
+      expect(licenseSlugs).toContain(rule.licenseSlug);
+      expect(entitlementSlugs).toContain(rule.entitlementSlug);
+    }
+    for (const pool of ai.pools) {
+      expect(entitlementSlugs).toContain(pool.slug);
+    }
+    for (const grant of ai.grants) {
+      expect(instanceSlot.licenseEntitlements).toContainEqual(grant);
+    }
+  });
+
+  it('files every inference under an instance that measures its pool', () => {
+    for (const row of ai.inferences) {
+      expect(instanceSlugs).toContain(row.instanceSlug);
+      expect(
+        instanceSlot.entitlementUsagesByInstance[row.instanceSlug]?.map(
+          ({ entitlementSlug }) => entitlementSlug,
+        ),
+      ).toContain(row.entitlementSlug);
+    }
+  });
+
+  it('chains the counter of a feed up to what the pool has consumed', () => {
+    const usage = instanceSlot.entitlementUsagesByInstance[
+      'acme-production'
+    ]?.find(({ entitlementSlug }) => entitlementSlug === 'ai-credits');
+    const newest = ai.inferences.find(
+      (row) =>
+        row.instanceSlug === 'acme-production' && row.status === 'COMMITTED',
+    );
+    expect(newest?.valueAfter).toBe(usage?.value.value);
+    expect(usage?.reserved).toBe('1250.5');
   });
 });

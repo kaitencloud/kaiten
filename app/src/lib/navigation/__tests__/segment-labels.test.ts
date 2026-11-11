@@ -8,7 +8,8 @@ import {
 
 const translations: Record<string, string> = {
   'AI.Models.title': 'Modèles',
-  'AI.Calculation.title': 'Calcul',
+  'AI.Nav.pricing': 'Tarification',
+  'AI.Nav.title': 'IA',
   'Pages.Addons.Compatibility.title': 'Licences compatibles',
   'Pages.Addons.title': 'Options',
   'Pages.Billing.Invoices.Lines.title': 'Lignes',
@@ -108,7 +109,15 @@ describe('segment labels', () => {
   });
 });
 
-it('labels Models and Calculation under the catalogue', () => {
-  expect(getSectionForPath('/catalog/models/fixture/edit', t)).toEqual({ href: '/catalog/models', label: 'Modèles' });
-  expect(getSegmentLabel('calculation', t)).toBe('Calcul');
+it('labels the AI area, Models and Pricing', () => {
+  expect(getSegmentLabel('ai', t)).toBe('IA');
+  expect(getSegmentLabel('models', t)).toBe('Modèles');
+  expect(getSegmentLabel('pricing', t)).toBe('Tarification');
+});
+
+// The AI area is absent while AI credits are off: a missing page under it must
+// not offer a way back to another page of the area, which would be missing too.
+it('names no section under the AI area', () => {
+  expect(getSectionForPath('/ai/pricing', t)).toBeUndefined();
+  expect(getSectionForPath('/ai/models/fixture/edit', t)).toBeUndefined();
 });

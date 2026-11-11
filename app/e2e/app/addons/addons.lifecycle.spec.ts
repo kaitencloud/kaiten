@@ -251,7 +251,9 @@ test.describe('making an add-on', () => {
 
     await page.goto('/catalog/addons/new?family=no-such-family');
 
-    await expect(page.getByText('Page not found')).toBeVisible();
+    await expect(
+      page.getByRole('main').getByText('Page not found'),
+    ).toBeVisible();
   });
 });
 

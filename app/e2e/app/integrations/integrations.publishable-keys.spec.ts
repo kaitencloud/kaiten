@@ -550,7 +550,9 @@ test.describe('changing a publishable key', () => {
 
     await page.goto('/integrations/publishable-keys/ghost/edit');
 
-    await expect(page.getByText('Page not found')).toBeVisible();
+    await expect(
+      page.getByRole('main').getByText('Page not found'),
+    ).toBeVisible();
   });
 });
 

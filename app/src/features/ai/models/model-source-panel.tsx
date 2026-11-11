@@ -208,7 +208,7 @@ export function SourcePanel({
             nativeButton={false}
             render={
               <Link
-                to="/catalog/models/$modelSlug/edit"
+                to="/ai/models/$modelSlug/edit"
                 params={{ modelSlug: model.slug }}
                 search={context}
               />

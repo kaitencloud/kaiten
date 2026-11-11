@@ -607,6 +607,11 @@ const consolePage = 200
 // legitimateVariables is what a client sends beside a document in
 // legitimateQueries, wherever that changes what the document costs: its page.
 var legitimateVariables = map[string]map[string]any{
+	// The rate card pages by less than a console page (RATE_CARD_PAGE_SIZE in
+	// app/src/domains/ai-credits/rate-card/rate-card-query.ts): each version
+	// carries its grants and its rules with their authors, and a page of 200
+	// would cost more than the heaviest document.
+	"console/AiRateCard":                {"limit": 150},
 	"console/GetInstancesWithRelations": {"limit": consolePage},
 	"console/GetCustomersWithInstances": {"limit": consolePage},
 	"console/GetInstancesBilling":       {"limit": consolePage},
@@ -625,19 +630,29 @@ var legitimateVariables = map[string]map[string]any{
 // (tests/integrations/graphql/instance_entitlement_usage_test.go) -- which is
 // not a document the SDK sends, whatever its key says.
 var legitimateQueries = map[string]string{
-	"console/AiMatrix": `query AiMatrix($familySlug: String!) {
-		models { id name slug vendor modality status externalIds }
-		licenseFamily(slug: $familySlug) {
-			id slug
-			versions {
-				id slug name version versionName lifecycleState
-				entitlements { entitlementSlug entitlementType }
+	"console/AiRateCard": `query AiRateCard($limit: Int, $cursor: String) {
+		licenses(limit: $limit, cursor: $cursor) {
+			nextCursor
+			hasMore
+			items {
+				id slug name version versionNumber versionName lifecycleState isDefault
+				family { id slug currentVersion { slug name versionNumber } }
+				entitlements { entitlementSlug entitlementType value unlimited limitCapExceededOveragePercent }
 				conversionRules(status: ACTIVE) {
 					id licenseSlug entitlementSlug modelSlug requestType status grantedByLicense grantedByAddons
 					chargeOnError minimumCreditsPerRequest maximumCreditsPerRequest createdAt updatedAt
 					createdBy { id name } updatedBy { id name }
 					rates { perRequest perInputToken perCachedInputToken perCacheWriteToken perOutputToken perUnit perSecond }
 				}
+			}
+		}
+	}`,
+	"console/AiAddonGrants": `query AiAddonGrants($licenseSlug: String!, $entitlementSlug: String) {
+		license(slug: $licenseSlug) {
+			slug
+			addonGrants(entitlementSlug: $entitlementSlug) {
+				entitlementSlug addonId addonSlug addonFamilySlug addonName addonVersion
+				lifecycleState isDefault maxQuantity value unlimited overrideBehavior
 			}
 		}
 	}`,

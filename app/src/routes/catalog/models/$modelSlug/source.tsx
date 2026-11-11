@@ -1,9 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { ModelSourcePage } from '@/features/ai';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+
 export const Route = createFileRoute('/catalog/models/$modelSlug/source')({
-  component: SourcePage,
+  beforeLoad: ({ params, search }) => {
+    throw redirect({
+      to: '/ai/models/$modelSlug/source',
+      params,
+      search,
+      replace: true,
+    });
+  },
 });
-function SourcePage() {
-  const { modelSlug } = Route.useParams();
-  return <ModelSourcePage modelSlug={modelSlug} />;
-}

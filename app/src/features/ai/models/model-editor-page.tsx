@@ -14,9 +14,8 @@ export function ModelEditorPage({ modelSlug }: { modelSlug?: string }) {
     enabled: Boolean(modelSlug) && mayWrite,
   });
   if (!access.available) return null;
-  if (access.isPending)
-    return <AiLoading label={t('AI.Calculation.loadingAccess')} />;
-  if (!mayWrite) return <p role="status">{t('AI.Calculation.modelDenied')}</p>;
+  if (access.isPending) return <AiLoading label={t('AI.Access.loading')} />;
+  if (!mayWrite) return <p role="status">{t('AI.Access.modelDenied')}</p>;
   if (!modelSlug) return <ModelForm />;
   if (query.isPending) return <AiLoading label={t('AI.Models.loading')} />;
   if (query.isError)

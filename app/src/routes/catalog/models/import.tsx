@@ -1,5 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { ModelImportPage } from '@/features/ai';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+
 export const Route = createFileRoute('/catalog/models/import')({
-  component: ModelImportPage,
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: '/ai/models/import', search, replace: true });
+  },
 });

@@ -6,7 +6,7 @@ import {
   listConversionRulesQueryKey,
 } from '@/api-client/@tanstack/react-query.gen';
 import { fetchAllPages, MAX_PAGE_SIZE } from '@/lib/api/pagination';
-import { aiMatrixQueryKey, aiWildcardImpactQueryKey } from './query-keys';
+import { aiRateCardQueryKey } from './rate-card/rate-card-query';
 
 export const modelsQueryOptions = {
   ...listModelsOptions(),
@@ -32,7 +32,6 @@ export async function invalidateAiQueries(client: QueryClient) {
     client.invalidateQueries({ queryKey: modelsQueryOptions.queryKey }),
     client.invalidateQueries({ queryKey: [{ _id }] }),
     client.invalidateQueries({ queryKey: [{ _id: ruleKey._id }] }),
-    client.invalidateQueries({ queryKey: aiMatrixQueryKey }),
-    client.invalidateQueries({ queryKey: aiWildcardImpactQueryKey }),
+    client.invalidateQueries({ queryKey: aiRateCardQueryKey }),
   ]);
 }

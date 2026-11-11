@@ -1,4 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
+import { aiRateCardQueryKey, isAiEntitlement } from '@/domains/ai-credits';
 import { useRouteContext } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,30 +38,41 @@ export const EntitlementTableActions = ({
   );
   const isGrantedByLicense = licenseLinks.linkedLicenseCount > 0;
 
+  const deleteCallbacks = optimisticDeleteCallbacks<
+    Entitlement,
+    { path: { entitlementSlug: string } }
+  >(
+    queryClient,
+    listEntitlementsQueryKey(),
+    entitlement.id,
+    {
+      success: t('Pages.Entitlements.Mutation.deleteSuccess'),
+      error: t('Common.deleteError', 'Error deleting entitlement'),
+    },
+    // What a license grants is checked above; an instance that counts the
+    // entitlement or a price that meters it blocks the delete too, and the
+    // dialog says which, with how many. The table holds that dialog: the row
+    // leaves the list while the API answers, and takes with it whatever it
+    // holds, so a refusal kept here would never be shown. The record is the
+    // one the delete was sent for, since by then this row may show another.
+    {
+      handleError: (error, { path }) =>
+        onDeleteRefused(error, path.entitlementSlug),
+    },
+  );
   const deleteMutation = useMutation({
     ...deleteEntitlementMutation(),
-    ...optimisticDeleteCallbacks<
-      Entitlement,
-      { path: { entitlementSlug: string } }
-    >(
-      queryClient,
-      listEntitlementsQueryKey(),
-      entitlement.id,
-      {
-        success: t('Pages.Entitlements.Mutation.deleteSuccess'),
-        error: t('Common.deleteError', 'Error deleting entitlement'),
-      },
-      // What a license grants is checked above; an instance that counts the
-      // entitlement or a price that meters it blocks the delete too, and the
-      // dialog says which, with how many. The table holds that dialog: the row
-      // leaves the list while the API answers, and takes with it whatever it
-      // holds, so a refusal kept here would never be shown. The record is the
-      // one the delete was sent for, since by then this row may show another.
-      {
-        handleError: (error, { path }) =>
-          onDeleteRefused(error, path.entitlementSlug),
-      },
-    ),
+    ...deleteCallbacks,
+    onSuccess: () => {
+      deleteCallbacks.onSuccess();
+      // The rules of a credit pool go with it: the rate card read, which
+      // carries the rules of every version, is read again. Creating or editing
+      // a pool changes nothing that read holds (its pools come from the
+      // entitlement list, which those writes refresh).
+      if (isAiEntitlement(entitlement.type)) {
+        void queryClient.invalidateQueries({ queryKey: aiRateCardQueryKey });
+      }
+    },
   });
 
   const handleConfirm = async () => {

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw/http';
 import i18n from 'i18next';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
@@ -16,13 +17,12 @@ import { ModelImportPage } from '../model-import-page';
 import { ModelForm } from '../model-form';
 import { createOpenRouterImportDraft, type OpenRouterEntry } from '../openrouter-catalogue';
 import { associateOpenRouterSource } from '../openrouter-sync';
-import { wildcardQueryOptions } from '../../queries/ai-query-options';
+import { aiRateCardQueryOptions } from '@/domains/ai-credits';
 
 const { fetchCatalogue, navigate } = vi.hoisted(() => ({ fetchCatalogue: vi.fn(), navigate: vi.fn() }));
 vi.mock('../openrouter-catalogue', async original => ({ ...await original<typeof import('../openrouter-catalogue')>(), fetchOpenRouterCatalogue: fetchCatalogue }));
 vi.mock('@tanstack/react-router', () => ({ useNavigate: () => navigate, Link: ({ children, ...props }: { children: ReactNode }) => <a {...props}>{children}</a> }));
 vi.mock('@/domains/ai-credits', async original => ({ ...await original<typeof import('@/domains/ai-credits')>(), invalidateAiQueries: vi.fn(async () => {}) }));
-vi.mock('../../queries/ai-query-options', async original => ({ ...await original<typeof import('../../queries/ai-query-options')>(), invalidateAiQueries: vi.fn(async () => {}) }));
 const date = '2026-10-23T12:00:00Z';
 const entry: OpenRouterEntry = { id: 'provider/model-v1', canonicalSlug: 'provider/model-v1', name: 'Provider model', description: 'Source description', modality: 'TEXT', mappedVendorCosts: { currency: 'USD', perInputToken: '0.0000000001', perOutputToken: '0' }, rawPrices: { prompt: '1e-10', completion: '0' }, pricingStatus: 'fixed', issues: [] };
 const initial: Model = { id: 'local-id', slug: 'local-model', name: 'Local model', vendor: 'Original supplier', modality: 'TEXT', status: 'ACTIVE', createdAt: date, updatedAt: date, externalIds: ['unrelated'], vendorCosts: { currency: 'USD', perInputToken: '0.000003', perOutputToken: '0.000002', perUnit: '7' }, metadata: associateOpenRouterSource({ userKey: 'preserve' }, entry.id, date) };
@@ -33,7 +33,7 @@ function mount(child: ReactNode, scopes: string[] = ['read:models', 'write:model
   setAiAccessInputsForTest(client, { capability: true, flag: true });
   client.setQueryData(grantedScopesQueryKey, scopes);
   client.setQueryData(modelsQueryOptions.queryKey, { items: [], hasMore: false });
-  client.setQueryData(wildcardQueryOptions.queryKey, []);
+  client.setQueryData(aiRateCardQueryOptions.queryKey, []);
   render(<QueryClientProvider client={client}><AiNavigationProvider context={{ entitlementSlug: 'credits', licenseSlug: 'pro-v2' }}>{child}</AiNavigationProvider></QueryClientProvider>);
 }
 beforeEach(async () => {
@@ -99,7 +99,8 @@ it('browses exact display prices and requires a known modality before reviewing 
   mount(<ModelImportPage />);
   fireEvent.click(await screen.findByRole('button', { name: 'Review' }));
   expect(await screen.findByText(/Manual pricing required/)).toBeInTheDocument(); expect(screen.queryByRole('button', { name: 'Import model' })).not.toBeInTheDocument();
-  fireEvent.change(screen.getByLabelText('Choose a known model type'), { target: { value: 'AUDIO' } });
+  await userEvent.click(screen.getByLabelText('Choose a known model type'));
+  await userEvent.click(await screen.findByRole('option', { name: 'Audio' }));
   await screen.findByRole('button', { name: 'Import model' }); expect(screen.getByLabelText('Modality')).toHaveTextContent('Audio'); expect(writes).toEqual([]);
 });
 it('imports through the single form only after consent, keeping edited costs separate from applied snapshots', async () => {

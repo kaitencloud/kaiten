@@ -46,7 +46,9 @@ for (const [where, installWebhooks] of hidden) {
       test(`answers ${path} with the not-found page`, async ({ page }) => {
         await page.goto(path);
 
-        await expect(page.getByText('Page not found')).toBeVisible();
+        await expect(
+          page.getByRole('main').getByText('Page not found'),
+        ).toBeVisible();
         await expect(
           page.getByRole('heading', { name: 'Webhooks', level: 1 }),
         ).toHaveCount(0);
@@ -89,7 +91,9 @@ test.describe('webhooks on Kaiten Cloud', () => {
     await page.getByRole('link', { name: 'History' }).click();
 
     await expect(page).toHaveURL(/\/integrations\/webhooks\/history$/);
-    await expect(page.getByText('Page not found')).toHaveCount(0);
+    await expect(
+      page.getByRole('main').getByText('Page not found'),
+    ).toHaveCount(0);
   });
 
   test('offers the webhooks scope to a new token', async ({ page }) => {

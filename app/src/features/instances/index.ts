@@ -27,4 +27,8 @@ export {
 } from './entitlement-exceptions/exception-query-options';
 export { CreateExceptionDialog } from './entitlement-exceptions/create-exception-dialog';
 export { EndExceptionDialog } from './entitlement-exceptions/end-exception-dialog';
-export { InstanceAiUsageTab } from './components/instance-detail/instance-ai-usage-tab';
+export {
+  InstanceAiUsageTab,
+  aiUsageSearchSchema,
+  readAiUsageSearch,
+} from './components/instance-detail/ai-usage';
