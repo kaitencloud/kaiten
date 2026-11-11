@@ -206,8 +206,18 @@ func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 			eff.Accepted = true
 			eff.ReportedValue = charge.Charged.InexactFloat64()
 			eff.Behavior = BehaviorAppend
-			if math.IsInf(after.Value, 0) || math.Abs((after.Value-before.Value)-charge.Charged.InexactFloat64()) > 0.0000005 {
-				return nil, fmt.Errorf("AI credit counter precision exhausted: charge cannot be represented within half a quantum")
+			// A counter that is no longer a number cannot be stored or gated on.
+			if math.IsInf(after.Value, 0) || math.IsNaN(after.Value) {
+				return nil, fmt.Errorf("AI credit counter overflow: the charge cannot be added to the counter")
+			}
+			// The counter is a float64 and the charge a 6-decimal number: on a
+			// very large counter the sum is off by more than half a quantum
+			// (invariant I1). The inference happened and the provider was
+			// paid, so it is recorded anyway, with the exact charge in
+			// credits_charged, and the drift is reported instead of failing
+			// every commit to the pool with a 500.
+			if math.Abs((after.Value-before.Value)-charge.Charged.InexactFloat64()) > 0.0000005 {
+				outcome.Warnings = append(outcome.Warnings, schema.AiWarningCounterPrecisionDegraded)
 			}
 			valueBefore, valueAfter := before.Value, after.Value
 			row.ValueBefore = &valueBefore

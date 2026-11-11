@@ -3,6 +3,7 @@ package instances_test
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"testing"
 	"time"
@@ -759,6 +760,35 @@ func TestAISoftMaximumAndUnlimitedGate(t *testing.T) {
 		require.Equal(t, 2000.0, charged.Value.Number.Value)
 		require.NotContains(t, charged.AI.Warnings, "OVERDRAWN")
 	})
+}
+
+// The counter is a float64: past about 1e10 it cannot hold a micro-credit
+// charge within half a quantum. The commit is recorded all the same, with the
+// exact charge on the row and in the journal, and says the counter drifted.
+func TestAICommitOnASaturatedCounterIsRecordedWithAPrecisionWarning(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, -1)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_output_token=0.000001 WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	seedUsageRow(t, instance.Slug, pool.Slug, 10000000000, 1, nil)
+	commit := aiUsageBody("commit", "saturated", 1)
+	commit["model"], commit["requestType"] = "lifecycle-model", "COMPLETION"
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusOK)
+	require.Equal(t, "COMMITTED", charged.AI.Status)
+	require.Equal(t, "0.000001", *charged.AI.Credits.Charged)
+	require.Contains(t, charged.AI.Warnings, instanceschema.AiWarningCounterPrecisionDegraded)
+	var exact string
+	var before, after float64
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT credits_charged::text,value_before,value_after FROM ai_inference WHERE entitlement_id=$1`, pool.ID).Scan(&exact, &before, &after))
+	require.Equal(t, "0.000001", exact, "the NUMERIC charge is exact whatever the counter could hold")
+	require.Greater(t, math.Abs((after-before)-0.000001), 0.0000005, "the scenario is the one I1 cannot hold in")
+	var journal int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&journal))
+	require.Equal(t, 1, journal)
+	replay := aiReport(t, instance.Slug, pool.Slug, commit)
+	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
+	require.Equal(t, charged, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
 }
 
 func TestAIWireRejectsMissingMalformedIDsAndInvalidPhases(t *testing.T) {
