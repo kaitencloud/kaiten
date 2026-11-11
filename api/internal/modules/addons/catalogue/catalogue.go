@@ -23,6 +23,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // Deps is what every add-on use case needs.
@@ -40,6 +41,19 @@ func (d Deps) Caller(ctx context.Context) (*currentuser.User, error) {
 		return nil, err
 	}
 	if err := d.Gate.Require(ctx, user.OrganizationID); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// Writer is the caller whose plan permits new add-on uses. Reads and
+// retiring existing objects stay behind billing only after a downgrade.
+func (d Deps) Writer(ctx context.Context) (*currentuser.User, error) {
+	user, err := d.UserProvider.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
 		return nil, err
 	}
 	return user, nil

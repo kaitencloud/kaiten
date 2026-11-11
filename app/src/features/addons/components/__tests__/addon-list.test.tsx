@@ -97,6 +97,24 @@ const rowOf = async (versionName: string) => {
 };
 
 describe('the catalogue of add-ons', () => {
+  it('keeps catalogue and retirement controls after grant loss but hides expansion', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
+    renderList();
+
+    const draft = await rowOf('2027');
+    expect(within(draft).getByText('Draft')).toBeInTheDocument();
+    expect(within(draft).queryByRole('button', { name: 'Publish' })).toBeNull();
+    expect(await within(draft).findByRole('button', { name: 'Delete' })).toBeEnabled();
+    expect(within(await rowOf('2028')).getByRole('button', { name: 'Archive' })).toBeEnabled();
+    expect(screen.queryByRole('button', { name: 'Unarchive' })).toBeNull();
+    expect(screen.queryAllByRole('button', { name: 'Set as default' })).toHaveLength(0);
+    expect(screen.queryAllByRole('link', { name: 'New Version' })).toHaveLength(0);
+    expect(screen.queryAllByRole('link', { name: 'New add-on' })).toHaveLength(0);
+    const switches = screen.getAllByRole('switch');
+    expect(switches.find((toggle) => toggle.getAttribute('aria-checked') === 'true')).not.toHaveAttribute('aria-disabled', 'true');
+    expect(switches.find((toggle) => toggle.getAttribute('aria-checked') === 'false')).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('lists each family by its name with how many versions it has, its default, and whether it is public', async () => {
     renderList();
 
@@ -377,7 +395,8 @@ describe('the default version of a family', () => {
     expect(set).toBeDisabled();
   });
 
-  it('is taken off the version that has it, which is the way out for a default that has to be archived', async () => {
+  it('is taken off after grant loss with no other attributes changed, to allow retirement', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
     const bodies: AddonChanges[] = [];
     server.use(
       handleUpdateAddon(async ({ request }) => {
@@ -391,7 +410,13 @@ describe('the default version of a family', () => {
     await userEvent.click(await within(await rowOf('2026')).findByRole('button', { name: 'Unset default' }));
 
     await waitFor(() => expect(bodies).toHaveLength(1));
-    expect(bodies[0]?.isDefault).toBe(false);
+    expect(bodies[0]).toEqual({
+      description: SEATS_V1.description,
+      isDefault: false,
+      maxQuantity: SEATS_V1.maxQuantity,
+      name: SEATS_V1.name,
+      versionName: SEATS_V1.versionName,
+    });
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Default version unset'));
   });
 });

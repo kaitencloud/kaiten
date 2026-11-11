@@ -1113,6 +1113,13 @@ export default {
                 maxQuantity_one: 'Jusqu’à {{count}} unité',
                 maxQuantity_other: 'Jusqu’à {{count}} unités',
               },
+              UnavailableSelections: {
+                description:
+                  'Certains choix sont actuellement indisponibles. Ils n’ont pas été supprimés. Retirez-les pour vous abonner sans eux.',
+                clear: 'Retirer les choix indisponibles',
+                addon_one: '{{slug}} — {{count}} unité',
+                addon_other: '{{slug}} — {{count}} unités',
+              },
               BillingEmail: {
                 title: '{{customer}} n’a pas d’e-mail de facturation',
                 description:
@@ -6830,9 +6837,9 @@ export default {
             'La facturation ne peut pas être ouverte avec les accès de cette session.',
         },
         FEATURE_UNAVAILABLE: {
-          title: 'Indisponible dans cette version',
+          title: 'Fonction de facturation indisponible',
           description:
-            'Cette partie de la facturation n’est pas fournie par la version de Kaiten que vous utilisez.',
+            'Cette fonctionnalité de facturation n’est pas disponible pour cette organisation sur le déploiement actuel.',
         },
         UNREACHABLE: {
           title: 'La facturation est injoignable',

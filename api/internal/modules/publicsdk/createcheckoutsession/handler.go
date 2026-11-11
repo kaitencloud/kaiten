@@ -23,6 +23,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/shopspring/decimal"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/turnstile"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
@@ -53,6 +54,7 @@ type Activation interface {
 
 // Deps is what the start reads and writes.
 type Deps struct {
+	Gate       gate.Gate
 	Uof        *uow.UnitOfWork
 	Catalog    *getpubliccatalog.UseCase
 	Activation Activation
@@ -82,6 +84,19 @@ type Start struct {
 	RemoteIP         string
 }
 
+// authorizeStart follows key authentication/configuration and consumes the
+// stricter checkout buckets before asking licensing or Turnstile.
+func (u *UseCase) authorizeStart(ctx context.Context, start Start, draft checkout.CheckoutSessionDraft, anonymousEnabled bool) error {
+	if !anonymousEnabled {
+		return disabled()
+	}
+	if err := u.deps.Limits.Take(ctx, operation, start.PublishableKeyID, start.RemoteIP); err != nil {
+		return err
+	}
+	return PublicVoucherError(operation,
+		u.deps.Gate.RequireSelection(ctx, start.OrganizationID, draft.VoucherCode != nil, len(draft.AddOns) > 0))
+}
+
 // Execute starts a checkout, or previews one with dryRun.
 func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.CheckoutSessionDraft) (*checkout.CheckoutSessionStart, error) {
 	q := db.New(u.deps.Uof.DBTX(ctx))
@@ -92,10 +107,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	if err != nil {
 		return nil, err
 	}
-	if !key.AnonymousCheckout {
-		return nil, disabled()
-	}
-	if err := u.deps.Limits.Take(ctx, operation, start.PublishableKeyID, start.RemoteIP); err != nil {
+	if err := u.authorizeStart(ctx, start, draft, key.AnonymousCheckout); err != nil {
 		return nil, err
 	}
 	if err := u.verifyTurnstile(ctx, start, key, draft.TurnstileToken); err != nil {

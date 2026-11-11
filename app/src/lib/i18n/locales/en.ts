@@ -1095,6 +1095,13 @@ export default {
                 maxQuantity_one: 'Up to {{count}} unit',
                 maxQuantity_other: 'Up to {{count}} units',
               },
+              UnavailableSelections: {
+                description:
+                  'Some selections are currently unavailable. They have not been removed. Clear them to subscribe without them.',
+                clear: 'Clear unavailable selections',
+                addon_one: '{{slug}} — {{count}} unit',
+                addon_other: '{{slug}} — {{count}} units',
+              },
               BillingEmail: {
                 title: '{{customer}} has no billing e-mail',
                 description:
@@ -6725,9 +6732,9 @@ export default {
             'Billing cannot be opened with the access of this session.',
         },
         FEATURE_UNAVAILABLE: {
-          title: 'Not available in this version',
+          title: 'Billing feature unavailable',
           description:
-            'This part of billing is not shipped by the version of Kaiten you are running.',
+            'This billing feature is not available to this organization on the current deployment.',
         },
         UNREACHABLE: {
           title: 'Billing could not be reached',

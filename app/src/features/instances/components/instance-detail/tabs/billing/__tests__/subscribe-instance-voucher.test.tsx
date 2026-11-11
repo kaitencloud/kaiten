@@ -1,9 +1,10 @@
-import { screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 import type { AnchorHTMLAttributes } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
+import { billingCapabilitiesQueryOptions } from '@/domains/billing';
 import type {
   Addon,
   LicenseFamilyView,
@@ -157,15 +158,61 @@ function serveSubscribe(answer?: (body: NewSubscription) => Response) {
 }
 
 const renderDialog = (onClose = vi.fn()) => {
-  renderWithClient(<SubscribeInstanceDialog onClose={onClose} />);
+  const { client } = renderWithClient(<SubscribeInstanceDialog onClose={onClose} />);
 
-  return { onClose };
+  return { onClose, client };
 };
 
 const subscribe = () => screen.findByRole('button', { name: 'Subscribe' });
 const codeField = () => screen.findByLabelText(/^Voucher code/);
 
 describe('the voucher code a subscription can start with', () => {
+  it('keeps a now-unavailable voucher visible until the user explicitly removes it', async () => {
+    const bodies = serveSubscribe();
+    const { client } = renderDialog();
+    await userEvent.type(await codeField(), 'launch-20-off');
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
+    await act(async () => {
+      await client.refetchQueries({ queryKey: billingCapabilitiesQueryOptions.queryKey });
+    });
+
+    expect(await screen.findByTestId('unavailable-subscribe-selections')).toHaveTextContent('launch-20-off');
+    expect(bodies).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Clear unavailable selections' }));
+    await userEvent.click(await subscribe());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toHaveProperty('voucherCode');
+    expect(bodies[0]).toHaveProperty('basePriceId', MONTHLY.id);
+  });
+
+  it.each(['vouchers', 'addons'] as const)('clears only unavailable %s selections and preserves the other purchase choice', async (lost) => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.full() }));
+    const bodies = serveSubscribe();
+    const { client } = renderDialog();
+    await userEvent.type(await codeField(), 'launch-20-off');
+    await userEvent.click(await screen.findByRole('checkbox', { name: 'Extra seats · 2026' }));
+    const full = billingCapabilitiesProfiles.full();
+    const remaining = { ...full, features: { ...full.features, [lost]: false } };
+    server.use(handleGetBillingCapabilities({ body: remaining }));
+    await act(async () => {
+      await client.refetchQueries({ queryKey: billingCapabilitiesQueryOptions.queryKey });
+    });
+
+    await screen.findByTestId('unavailable-subscribe-selections');
+    expect(bodies).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Clear unavailable selections' }));
+    await userEvent.click(await subscribe());
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    if (lost === 'vouchers') {
+      expect(bodies[0]).not.toHaveProperty('voucherCode');
+      expect(bodies[0].addOns).toEqual([{ addonSlug: 'extra-seats-v1', quantity: 1 }]);
+    } else {
+      expect(bodies[0]).not.toHaveProperty('addOns');
+      expect(bodies[0]).toHaveProperty('voucherCode', 'launch-20-off');
+    }
+  });
+
   it('is asked for, optionally, where the release has vouchers and the session may redeem them', async () => {
     renderDialog();
 

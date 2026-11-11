@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
 import {
+  BillingNotFound,
+  requireBillingCapability,
   addonCompatibilityQueryOptions,
   addonLicenseFamiliesQueryOptions,
 } from '@/domains/billing';
@@ -18,10 +20,14 @@ const grantsSearchSchema = z.object({ grant: z.string().optional() });
 export const Route = createFileRoute('/catalog/addons/$addonSlug/entitlements')(
   {
     component: AddonGrantsRoute,
+    notFoundComponent: BillingNotFound,
     validateSearch: (search) => grantsSearchSchema.parse(search),
-    beforeLoad: () => ({
-      getTitle: () => i18n.t('Pages.Entitlements.title'),
-    }),
+    beforeLoad: async ({ context, search }) => {
+      if (search.grant) {
+        await requireBillingCapability(context.queryClient, 'addons');
+      }
+      return { getTitle: () => i18n.t('Pages.Entitlements.title') };
+    },
     loader: async ({ context, params: { addonSlug } }) => {
       await Promise.all([
         context.queryClient.ensureQueryData(addonQueryOptions(addonSlug)),

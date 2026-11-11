@@ -68,8 +68,8 @@ export function resolveBillingAvailability(
 }
 
 /**
- * Whether `feature` can be offered: billing on, and the release shipping the
- * part. Without a feature, whether billing is on.
+ * Whether `feature` can be offered: billing on, and the plan/deployment making
+ * the capability available. Without a feature, whether billing is on.
  */
 export function hasBillingFeature(
   availability: BillingAvailability,
@@ -79,7 +79,11 @@ export function hasBillingFeature(
     return false;
   }
 
-  return feature === undefined || availability.capabilities.features[feature];
+  return (
+    feature === undefined ||
+    (availability.capabilities.features[feature] &&
+      !availability.capabilities.featureCheckUnavailable?.includes(feature))
+  );
 }
 
 /** The gate a route guard applies: the screens, or the reason for none. */
@@ -93,6 +97,13 @@ export function toBillingGate(
       reason: availability.reason,
       scope: availability.scope,
     };
+  }
+
+  if (
+    feature &&
+    availability.capabilities.featureCheckUnavailable?.includes(feature)
+  ) {
+    return { available: false, reason: 'UNREACHABLE' };
   }
 
   return hasBillingFeature(availability, feature)

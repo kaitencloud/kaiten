@@ -149,18 +149,18 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		AuthenticatePublishableKey:  authenticatepublishablekey.NewUseCase(deps),
 		GetPublicCatalog:            catalog,
 		CreateSessionCheckout: createsessioncheckout.NewUseCase(createsessioncheckout.Deps{
-			UserProvider: svc.UserProvider, Catalog: catalog, Subscriber: from.Subscriber,
+			Gate: billingGate, UserProvider: svc.UserProvider, Catalog: catalog, Subscriber: from.Subscriber,
 			CustomerBilling: from.CustomerBilling, OpenSetup: from.OpenSetup, CompleteSetup: from.CompleteSetup,
 			Invoices: from.Invoices, BillingEmails: from.BillingEmails,
 		}),
 		CreateCheckoutSession: createcheckoutsession.NewUseCase(createcheckoutsession.Deps{
-			Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
+			Gate: billingGate, Uof: svc.Uof, Catalog: catalog, Activation: from.Activation, Secrets: deps.Secrets,
 			Turnstile: turnstile.NewClient(svc.TurnstileVerifyURL), Limits: checkout.StartLimits(svc.Config.Billing.CheckoutLimits),
 			Vouchers: from.CheckoutVouchers,
 		}),
 		GetCheckoutSession: getcheckoutsession.NewUseCase(getcheckoutsession.Deps{Uof: svc.Uof, Activation: from.Activation, Payments: from.CheckoutSetup}),
 		ConfirmCheckoutSession: confirmcheckoutsession.NewUseCase(confirmcheckoutsession.Deps{
-			UserProvider: svc.UserProvider, Uof: svc.Uof, Catalog: catalog, Activation: from.Activation,
+			Gate: billingGate, UserProvider: svc.UserProvider, Uof: svc.Uof, Catalog: catalog, Activation: from.Activation,
 			Customers: from.CheckoutCustomers, Instances: from.CheckoutInstances, Subscriber: from.CheckoutSubscriber,
 			Setup: from.CheckoutSetup, UsageReporter: svc.UsageReporter, Limits: checkout.ConfirmLimits(svc.Config.Billing.CheckoutLimits),
 			Vouchers: from.CheckoutVouchers,

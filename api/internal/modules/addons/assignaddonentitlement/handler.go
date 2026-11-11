@@ -29,7 +29,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 
 // Execute grants the entitlement per unit of the version.
 func (u *UseCase) Execute(ctx context.Context, addonSlug string, command NewAddonGrant) (*catalogue.AddonEntitlement, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

@@ -1,5 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute, redirect } from '@tanstack/react-router';
+import { BillingNotFound, requireBillingCapability } from '@/domains/billing';
 import {
   VoucherWizardPage,
   voucherQueryOptions,
@@ -10,7 +11,9 @@ import {
 // closed, takes no such edit: its page is where it goes, and where its own edit is.
 export const Route = createFileRoute('/catalog/vouchers/$voucherId/edit')({
   component: EditVoucherRoute,
+  notFoundComponent: BillingNotFound,
   beforeLoad: async ({ context, params }) => {
+    await requireBillingCapability(context.queryClient, 'vouchers');
     // The reads do not depend on the voucher, so they start beside it rather than after
     // it: the router runs `beforeLoad` to its end before the loader. The loader waits
     // for them, and joins these requests instead of asking again. They never throw.

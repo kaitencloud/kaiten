@@ -9,6 +9,7 @@ import {
   handleArchiveVoucher,
   handleDeleteVoucher,
   handleGetVoucher,
+  handleGetBillingCapabilities,
   handleListVoucherRedemptions,
   handlePublishVoucher,
   handleRevokeInstanceVoucher,
@@ -19,6 +20,7 @@ import {
   buildRedemption,
   buildVoucher,
 } from '../../../../../e2e/app/_support/fixtures';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { VoucherDetailPage, VoucherEditDialog } from '../index';
 import { renderScreen, serveReferences, sessionWith } from './voucher-test-support';
 
@@ -89,6 +91,25 @@ const renderPage = (id = 'voucher-welcome') =>
 const title = () => screen.findByRole('heading', { level: 1 });
 
 describe('the page of a voucher', () => {
+  it('keeps reads and archive after grant loss, without edit, boost creation or publication', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }));
+    const archive = vi.fn();
+    server.use(handleArchiveVoucher(() => {
+      archive();
+      return HttpResponse.json({ ...WELCOME, status: 'ARCHIVED' });
+    }));
+    renderPage();
+
+    expect(await title()).toHaveTextContent('Welcome spring');
+    expect(screen.getByTestId('voucher-code')).toHaveTextContent('WELCOME-SPRING-2027');
+    expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Add a boost' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Archive' }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+    await waitFor(() => expect(archive).toHaveBeenCalledOnce());
+  });
+
   it('gives its code in the header, under the name, with a copy button', async () => {
     renderPage();
 

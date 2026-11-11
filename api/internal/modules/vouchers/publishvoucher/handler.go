@@ -25,7 +25,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 
 // Execute makes a DRAFT voucher redeemable.
 func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID) (*catalogue.Voucher, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

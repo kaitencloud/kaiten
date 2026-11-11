@@ -21,6 +21,33 @@ export function installMswMocks<K extends ModelSlotKey>(
   return installSlot(page, slot, model.serializeForMsw());
 }
 
+/** Replace a running page's mock slot without reloading or touching its query cache. */
+export function updateMswMocks<K extends ModelSlotKey>(
+  page: Page,
+  slot: K,
+  model: SerializableModel<K>,
+): Promise<void> {
+  return page.evaluate(
+    async ({ storageKey, slotKey, slotValue }) => {
+      const target = window as Window & {
+        __KAITEN_MSW_UPDATE__?: (config: E2EMswConfig) => Promise<void>;
+      };
+      if (!target.__KAITEN_MSW_UPDATE__) {
+        throw new Error('The page has no running E2E mock API to update');
+      }
+      const config = JSON.parse(
+        window.sessionStorage.getItem(storageKey) ?? '{}',
+      ) as E2EMswConfig;
+      await target.__KAITEN_MSW_UPDATE__({ ...config, [slotKey]: slotValue });
+    },
+    {
+      storageKey: E2E_MSW_STORAGE_KEY,
+      slotKey: slot,
+      slotValue: model.serializeForMsw(),
+    },
+  );
+}
+
 /**
  * Answers the bulk OFREP evaluation the app gates its own features on, so a
  * spec can open a flag-gated surface (`{ 'demo-sandbox': true }`). Keyed by flag

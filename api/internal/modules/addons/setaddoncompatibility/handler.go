@@ -26,7 +26,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 // Execute records that the version fits the licence family. Repeating it
 // changes nothing and records nothing.
 func (u *UseCase) Execute(ctx context.Context, addonSlug, familySlug string) error {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return err
 	}

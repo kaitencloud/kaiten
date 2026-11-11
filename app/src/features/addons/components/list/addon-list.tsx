@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Addon, AddonFamily } from '@/api-client';
 import { GradientButton } from '@/components/gradient-button';
 import { ActionAccordion } from '@/components/ui/action-accordion';
-import { ListEmptyState, useCanPerform } from '@/domains/billing';
+import { ListEmptyState, useBillingFeatureAccess } from '@/domains/billing';
 import {
   type FilterFieldDefinition,
   FilterSearchInput,
@@ -38,7 +38,7 @@ const PRICING_TYPES = ['FREE', 'PAID', 'CUSTOM'] as const;
  */
 export function AddonList({ families }: AddonListProps) {
   const { t } = useTranslation();
-  const mayCreate = useCanPerform('addons.create');
+  const mayCreate = useBillingFeatureAccess('addons.create', 'addons').allowed;
   const versions = useMemo(() => getAllVersions(families), [families]);
   const nameLabel = t('Pages.Addons.List.addonName');
 

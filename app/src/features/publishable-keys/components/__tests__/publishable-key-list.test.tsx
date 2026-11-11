@@ -103,10 +103,10 @@ describe('the list of publishable keys', () => {
     expect(
       await within(intro).findByRole('link', { name: 'Licenses' }),
     ).toHaveAttribute('href', '/catalog/licenses');
-    // The add-ons are not shipped by this release.
+    // Existing catalogue reads remain reachable after grant loss.
     expect(
-      within(intro).queryByRole('link', { name: 'Add-ons' }),
-    ).not.toBeInTheDocument();
+      await within(intro).findByRole('link', { name: 'Add-ons' }),
+    ).toHaveAttribute('href', '/catalog/addons');
   });
 
   it('asks the API for the revoked keys when the page says so, and shows them as revoked', async () => {

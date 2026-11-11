@@ -49,6 +49,21 @@ const renderTab = () => renderScreen(<AddonCompatibilityTab addonSlug="extra-sea
 const box = (name: RegExp) => screen.findByRole('checkbox', { name });
 
 describe('the license families a version fits', () => {
+  it('permits removal but not compatibility expansion after grant loss', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
+    const removed = vi.fn();
+    server.use(handleRemoveAddonCompatibility(() => {
+      removed();
+      return new HttpResponse(null, { status: 204 });
+    }));
+    renderTab();
+
+    expect(await box(/enterprise/)).toBeDisabled();
+    expect(await box(/starter/)).toBeEnabled();
+    await userEvent.click(await box(/starter/));
+    await waitFor(() => expect(removed).toHaveBeenCalledOnce());
+  });
+
   it('are ticked as the API holds them, one box each', async () => {
     renderTab();
 

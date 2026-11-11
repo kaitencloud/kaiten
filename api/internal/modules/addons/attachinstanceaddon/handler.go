@@ -38,8 +38,11 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewI
 	if command.Quantity == 0 {
 		command.Quantity = 1
 	}
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
+		return nil, err
+	}
+	if err := u.deps.Gate.RequireSelectedAddon(ctx, user.OrganizationID, user.ID, instanceSlug, command.AddonSlug, command.Quantity); err != nil {
 		return nil, err
 	}
 	var attached catalogue.InstanceAddon

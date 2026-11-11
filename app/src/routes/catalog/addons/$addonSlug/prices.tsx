@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
-import { addonPricesQueryOptions } from '@/domains/billing';
+import {
+  addonPricesQueryOptions,
+  BillingNotFound,
+  requireBillingCapability,
+} from '@/domains/billing';
 import {
   AddonPricesTab,
   addonGrantsQueryOptions,
@@ -15,10 +19,14 @@ const pricesSearchSchema = z.object({ price: z.string().optional() });
 
 export const Route = createFileRoute('/catalog/addons/$addonSlug/prices')({
   component: AddonPricesRoute,
+  notFoundComponent: BillingNotFound,
   validateSearch: (search) => pricesSearchSchema.parse(search),
-  beforeLoad: () => ({
-    getTitle: () => i18n.t('Pages.Addons.Prices.title'),
-  }),
+  beforeLoad: async ({ context, search }) => {
+    if (search.price) {
+      await requireBillingCapability(context.queryClient, 'addons');
+    }
+    return { getTitle: () => i18n.t('Pages.Addons.Prices.title') };
+  },
   loader: async ({ context, params: { addonSlug } }) => {
     await Promise.all([
       context.queryClient.ensureQueryData(addonQueryOptions(addonSlug)),
