@@ -215,7 +215,28 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 		}
 		st.AIRules = append(st.AIRules, aicredit.Rule{ID: r.ID, ModelID: r.ModelID, RequestType: request, Active: true, Minimum: *decimalOf(r.MinimumCreditsPerRequest), Maximum: decimalOf(r.MaximumCreditsPerRequest), ChargeOnError: aicredit.ChargeOnError(r.ChargeOnError), Rates: aicredit.Rates{Request: decimalOf(r.RatePerRequest), InputToken: decimalOf(r.RatePerInputToken), CachedInputToken: decimalOf(r.RatePerCachedInputToken), CacheWriteToken: decimalOf(r.RatePerCacheWriteToken), OutputToken: decimalOf(r.RatePerOutputToken), Unit: decimalOf(r.RatePerUnit), Second: decimalOf(r.RatePerSecond)}})
 	}
+	return loadUnauthorizedAlready(ctx, q, st, v.Phase)
+}
+
+// unauthorizedReader is the one query loadUnauthorizedAlready may issue.
+type unauthorizedReader interface {
+	AIUnauthorizedRecordedToday(ctx context.Context, arg db.AIUnauthorizedRecordedTodayParams) (bool, error)
+}
+
+// loadUnauthorizedAlready answers whether MODEL_USAGE_UNAUTHORIZED was already
+// due today for this model and request type, which deduplicates the event to
+// one a day. Only a commit that resolves no rule emits it, so only that
+// commit asks: an authorized report, and every reserve, issues no lookup.
+// The lookup reads idx_ai_inference_unauthorized, under the pair's lock.
+func loadUnauthorizedAlready(ctx context.Context, q unauthorizedReader, st *State, phase string) error {
+	if phase != "commit" {
+		return nil
+	}
+	if rule, _ := aicredit.Resolve(st.AIRules, st.AIModel, st.AIRequestType); rule != nil {
+		return nil
+	}
 	day := time.Date(st.Now.Year(), st.Now.Month(), st.Now.Day(), 0, 0, 0, 0, time.UTC)
-	st.UnauthorizedAlready, err = q.AIUnauthorizedRecordedToday(ctx, db.AIUnauthorizedRecordedTodayParams{OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID, ModelRef: modelRef, RequestType: db.AiRequestType(requestType), DayStart: timestamp(day), DayEnd: timestamp(day.AddDate(0, 0, 1))})
+	already, err := q.AIUnauthorizedRecordedToday(ctx, db.AIUnauthorizedRecordedTodayParams{OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID, ModelRef: st.AIModelRef, RequestType: db.AiRequestType(st.AIRequestType), DayStart: timestamp(day), DayEnd: timestamp(day.AddDate(0, 0, 1))})
+	st.UnauthorizedAlready = already
 	return err
 }
