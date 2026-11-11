@@ -53,10 +53,6 @@ spec:
               cpu: 250m
               memory: 256Mi
           env:
-            {{- with .Values.migrate.licenseCapabilityRevisions }}
-            - name: KAITEN_LICENSE_CAPABILITY_REVISIONS
-              value: {{ . | toJson | quote }}
-            {{- end }}
             - name: KAITEN_DATABASE_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:

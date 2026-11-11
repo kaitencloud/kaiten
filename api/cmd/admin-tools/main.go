@@ -101,15 +101,7 @@ func buildMigrateUpCmd() *cobra.Command {
 				return err
 			}
 
-			plan, err := database.ParseCapabilityRevisionPlan(os.Getenv("KAITEN_LICENSE_CAPABILITY_REVISIONS"))
-			if err != nil {
-				return err
-			}
-			var plans []database.CapabilityRevisionPlan
-			if plan != nil {
-				plans = append(plans, *plan)
-			}
-			if err := database.RunMigrations(dsn, plans...); err != nil {
+			if err := database.RunMigrations(dsn); err != nil {
 				return fmt.Errorf("error running migrations: %w", err)
 			}
 

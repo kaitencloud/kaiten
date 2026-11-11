@@ -97,19 +97,23 @@ payment must still settle the selected add-ons/voucher through `AttachPaid` /
 `RedeemPaid`. Those existing payment-finalization paths remain gate-free. An
 OPEN checkout has bought nothing yet and must pass the current grants at confirm.
 
-## Release prerequisites — do not deploy the reader first
+## Release flow — catalogue and manual grant enablement
 
-1. In **saas-api**, upgrade the Core pin and add `capability(...)` catalog entries
-   for both slugs. Its catalog/type parity tests must pass.
-2. Supply the verified tenant/family policy to the **existing Core migration
-   Job** (see `api/cmd/admin-tools/README.md`). It creates missing BOOLEAN
-   definitions and source-specific equivalent successors, preserving contracts
-   and moving current/pending/scheduled client references in bounded batches.
-3. Run the version-safe SaaS bootstrap after that Job succeeds. Verify explicit
-   Starter `false`, Growth/Enterprise `true`, and the distinct vendor-family
-   grants; historical billed references must not hide an incomplete transition.
-4. Only then release/roll out this Core reader. These are operator prerequisites;
-   no live migration, deployment or credential change was executed by this PR.
+1. In **saas-api**, publish the BOOLEAN catalogue entries for both slugs. Its
+   catalogue/type parity tests must pass. Bootstrap does not associate these two
+   capabilities with licences or overwrite manually assigned values.
+2. Deploy the frontend/backend entitlement reader. In a licensed, non-exempt
+   organization, missing grants leave voucher/add-on features disabled; unavailable
+   checks remain fail-closed with retry behavior. Existing self-hosted/platform
+   exemptions are unchanged.
+3. An authorized operator can inspect the disabled features and manually associate
+   the capabilities with the correct licence, then verify access. Ordinary billed/
+   frozen-version guards still apply; this release adds no licence migration,
+   automatic grant backfill, static rollout policy, or guard bypass.
+
+No live deployment, licence edit, migration or credential change was performed by
+this PR. Existing checkout/trial/redemption consistency locks and one-time bounded
+selection authorization remain intact.
 
 The remaining proposal items are separate: service-account counting/deletion
 and backfill need a product decision; audit retention is already on Core main
