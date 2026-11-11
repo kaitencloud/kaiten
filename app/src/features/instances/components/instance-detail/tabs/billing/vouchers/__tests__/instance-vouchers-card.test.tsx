@@ -132,8 +132,8 @@ describe('what an instance redeemed', () => {
     expect(screen.getByRole('link', { name: 'Apply a code' })).toBeInTheDocument();
   });
 
-  it('is not there where the release ships no vouchers, nor for a session that may not read them', async () => {
-    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }));
+  it('is not there where billing is disabled, nor for a session that may not read them', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.disabled() }));
     const { unmount } = renderCard();
     await waitFor(() => expect(screen.queryByTestId('instance-vouchers')).not.toBeInTheDocument());
     await new Promise((resolve) => setTimeout(resolve, 50));
@@ -159,6 +159,25 @@ describe('what an instance redeemed', () => {
 });
 
 describe('taking a redemption back from the instance', () => {
+  it('keeps existing redemptions and revocation after grant loss, without offering redemption', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }));
+    const asked = vi.fn();
+    server.use(handleRevokeInstanceVoucher(async ({ request }) => {
+      asked(await request.json());
+      return HttpResponse.json({ ...BOOST_REDEMPTION, status: 'REVOKED' });
+    }));
+    renderCard();
+
+    const boost = await screen.findByRole('row', { name: /Storage boost.*Active/ });
+    expect(within(boost).getByRole('link', { name: /Storage boost/ })).toHaveAttribute('href', '/catalog/vouchers/voucher-storage');
+    expect(screen.queryByRole('link', { name: 'Apply a code' })).toBeNull();
+    await userEvent.click(within(boost).getByRole('button', { name: 'Revoke Storage boost' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.type(within(dialog).getByLabelText(/Reason/), 'plan downgrade');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Revoke' }));
+    await waitFor(() => expect(asked).toHaveBeenCalledWith({ reason: 'plan downgrade' }));
+  });
+
   it('offers it for what still applies only, needs a reason and shows the redemption revoked once it is', async () => {
     const asked: unknown[] = [];
     server.use(

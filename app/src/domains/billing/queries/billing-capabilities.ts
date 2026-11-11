@@ -71,8 +71,9 @@ export const billingCapabilitiesQueryOptions = queryOptions({
   ...getBillingCapabilitiesOptions(),
   queryFn: () => fetchBillingCapabilities(),
   retry: false,
-  // The capabilities change with a deployment, not with a click.
-  staleTime: 60_000,
+  // Keep healthy answers fresh; an unknown grant must be rechecked on Retry.
+  staleTime: (query) =>
+    query.state.data?.featureCheckUnavailable?.length ? 0 : 60_000,
 });
 
 /**
@@ -102,7 +103,7 @@ async function readAvailability(
 ): Promise<BillingAvailability> {
   try {
     return resolveBillingAvailability(
-      await queryClient.ensureQueryData(billingCapabilitiesQueryOptions),
+      await queryClient.fetchQuery(billingCapabilitiesQueryOptions),
       undefined,
     );
   } catch (error) {

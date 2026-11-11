@@ -288,7 +288,10 @@ page holds, or an export the API streams.
   is the explanation a link to a billing screen shows (`BillingUnavailable`).
   `features.*` hides capabilities the deployment or organization's plan does not
   offer. `features.addons` and `features.vouchers` follow their independent plan
-  grants; denied or unknown grants hide those screens without hiding billing.
+  grants; denied or unknown grants block expansion, not catalogue reads or retirement.
+  Optional top-level `featureCheckUnavailable` names checks that failed; feature-specific
+  gates use `UNREACHABLE` and Retry for those slugs, and recheck unknown answers instead
+  of caching a permanent denial. Baseline billing still gates all billing reads.
 - **A member with no value is absent or null, and the console reads both the same.**
   The API leaves an optional member out of an answer or, on the members it lists in its
   contract as required and nullable, says `null`. Whether a member is there is therefore

@@ -3,7 +3,7 @@ import { Pencil, Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import { Button } from '@/components/ui/button';
-import { useCanPerform } from '@/domains/billing';
+import { useBillingFeatureAccess } from '@/domains/billing';
 import { VoucherDeleteAction } from './voucher-delete-action';
 import { VoucherLifecycleAction } from './voucher-lifecycle-action';
 
@@ -22,8 +22,14 @@ type VoucherActionsProps = {
  */
 export function VoucherActions({ voucher }: VoucherActionsProps) {
   const { t } = useTranslation();
-  const mayUpdate = useCanPerform('vouchers.update');
-  const mayCreate = useCanPerform('vouchers.create');
+  const mayUpdate = useBillingFeatureAccess(
+    'vouchers.update',
+    'vouchers',
+  ).allowed;
+  const mayCreate = useBillingFeatureAccess(
+    'vouchers.create',
+    'vouchers',
+  ).allowed;
   const draft = voucher.status === 'DRAFT';
   const published = voucher.status === 'ACTIVE';
 

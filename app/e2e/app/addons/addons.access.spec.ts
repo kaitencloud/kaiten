@@ -8,13 +8,15 @@ import { BillingNavDriver } from '../_support/drivers/billing-nav.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { SESSION_SCOPES, signInWithScopes } from '../_support/session-scopes';
 import { createBillingStackModel } from '../billing/billing.scenarios';
+import { BILLED_NOW } from '../billing/billed-instances';
+import { InstanceAddonsDriver } from '../_support/drivers/instance-addons.driver';
+import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
+import { createAddonsBillingModel } from './addons.scenarios';
 import { installAddonsWorld } from './install-addons-world';
 
 // Where the add-ons are, and who may do what to them. They exist where billing is on and the
-// release ships them; the Catalog section lists them to a session that may read them; and a
+// baseline grants it; the Catalog section remains readable after independent feature grant loss; a
 // session that may only read sees the catalogue with none of its controls.
-
-const CATALOGUE_REQUESTS = /^\/api\/(addons|addon-families)(\/|$)/;
 
 test.describe('the entry of the navigation', () => {
   test('lists the add-ons in the catalog where the release ships them, and opens them', async ({
@@ -37,7 +39,7 @@ test.describe('the entry of the navigation', () => {
       'href',
       '/catalog/addons',
     );
-    await expect(nav.entry('Vouchers')).toHaveCount(0);
+    await expect(nav.entry('Vouchers')).toBeVisible();
     await nav.entry('Add-ons').click();
     await expect(page).toHaveURL('/catalog/addons');
     await list.expectLoaded();
@@ -57,16 +59,23 @@ test.describe('the entry of the navigation', () => {
     await expect(nav.entry('Add-ons')).toHaveAttribute('aria-current', 'page');
   });
 
-  test('is left out where the release does not ship them', async ({ page }) => {
+  test('remains reachable when the independent grant is lost', async ({
+    page,
+  }) => {
     const nav = new BillingNavDriver(page);
     await installBillingAppMocks(page, createBillingStackModel());
 
     await nav.gotoShell();
 
-    // The catalog keeps the licenses and the entitlements, without the add-ons.
+    // Existing catalogue reads remain reachable without the independent grant.
     await nav.open();
-    await nav.expectEntries(['Invoices', 'Licenses', 'Entitlements']);
-    await expect(nav.entry('Add-ons')).toHaveCount(0);
+    await nav.expectEntries([
+      'Invoices',
+      'Licenses',
+      'Entitlements',
+      'Add-ons',
+    ]);
+    await expect(nav.entry('Add-ons')).toBeVisible();
   });
 
   test('is left out for a session that may not read them, and offered to one that may', async ({
@@ -94,46 +103,94 @@ test.describe('the entry of the navigation', () => {
   });
 });
 
-test.describe('where the release ships no add-ons', () => {
+test.describe('after the add-ons grant is lost', () => {
+  function downgraded() {
+    const model = createAddonsBillingModel();
+    model.setCapabilities(billingCapabilitiesProfiles.stack());
+    return model;
+  }
+
   for (const path of [
-    '/catalog/addons',
     '/catalog/addons/new',
-    '/catalog/addons/extra-seats-v1',
-    '/catalog/addons/extra-seats-v1/entitlements',
-    '/catalog/addons/extra-seats-v1/prices',
-    '/catalog/addons/extra-seats-v1/compatibility',
+    '/catalog/addons/extra-seats-v1?mode=configure',
+    '/catalog/addons/extra-seats-v2/entitlements?grant=new',
+    '/catalog/addons/extra-seats-v2/prices?price=new',
+    '/customers/instances/initech-prod/billing/attach-addon',
   ]) {
-    test(`explains on ${path}, in place of the screen`, async ({ page }) => {
-      const nav = new BillingNavDriver(page);
-      await installBillingAppMocks(page, createBillingStackModel());
-
+    test(`blocks expansion at ${path}`, async ({ page }) => {
+      await installAddonsWorld(page, downgraded());
       await page.goto(path);
-
-      await nav.expectUnavailable('FEATURE_UNAVAILABLE');
-      await expect(
-        page.getByText('Billing feature unavailable'),
-      ).toBeVisible();
-      // An explanation, not an error and not a missing page.
-      await expect(page.getByText('Page not found')).toHaveCount(0);
-      await expect(page.getByRole('alert')).toHaveCount(0);
+      await new BillingNavDriver(page).expectUnavailable('FEATURE_UNAVAILABLE');
     });
   }
 
-  test('asks the API for nothing of the catalogue', async ({ page }) => {
-    const nav = new BillingNavDriver(page);
-    const requests: string[] = [];
-    page.on('request', (request) => {
-      const { pathname } = new URL(request.url());
-      if (CATALOGUE_REQUESTS.test(pathname)) {
-        requests.push(`${request.method()} ${pathname}`);
-      }
+  test('reads existing version tabs directly after grant loss', async ({
+    page,
+  }) => {
+    await installAddonsWorld(page, downgraded());
+    for (const path of [
+      '/catalog/addons/extra-seats-v1',
+      '/catalog/addons/extra-seats-v1/entitlements',
+      '/catalog/addons/extra-seats-v1/prices',
+      '/catalog/addons/extra-seats-v1/compatibility',
+    ]) {
+      await page.goto(path);
+      await expect(page.getByRole('heading', { level: 1 })).toContainText(
+        'Extra seats',
+      );
+      await expect(page.getByTestId('billing-unavailable')).toHaveCount(0);
+      await expect(page.locator('[data-addon-edit]')).toHaveCount(0);
+    }
+  });
+
+  test('keeps catalogue retirement controls and held quantities readable', async ({
+    page,
+  }) => {
+    await page.clock.setFixedTime(new Date(BILLED_NOW));
+    await installAddonsWorld(page, downgraded());
+    const list = new AddonsListDriver(page);
+    await list.goto();
+    await list.expandFamily('Extra seats');
+    await expect(list.newAddon()).toHaveCount(0);
+    await expect(list.action('Extra seats', '2027', 'Publish')).toHaveCount(0);
+    await expect(list.action('Extra seats', '2027', 'Delete')).toBeVisible();
+    await expect(
+      list.action('Extra seats', '2026', 'Unset default'),
+    ).toBeVisible();
+    await list.action('Extra seats', '2026', 'Unset default').click();
+    await expect(list.action('Extra seats', '2026', 'Archive')).toBeEnabled();
+    await expect(page.getByRole('link', { name: 'New Version' })).toHaveCount(
+      0,
+    );
+
+    await page.goto('/customers/instances/initech-prod/billing');
+    const held = new InstanceAddonsDriver(page);
+    await expect(held.row('Extra seats')).toBeVisible();
+    await expect(held.attachLink()).toHaveCount(0);
+    await expect(held.more('Extra seats')).toBeDisabled();
+    await held.fewer('Extra seats').click();
+    await expect(held.quantity('Extra seats')).toHaveText('1');
+    await held.removeButton('Extra seats').click();
+    await held.confirmRemoval();
+    await expect(held.row('Extra seats')).toHaveCount(0);
+  });
+
+  test('retries an unknown feature check instead of keeping a cached denial', async ({
+    page,
+  }) => {
+    const model = downgraded();
+    model.setCapabilities({
+      ...model.getCapabilities(),
+      featureCheckUnavailable: ['addons'],
     });
-    await installBillingAppMocks(page, createBillingStackModel());
-
-    await page.goto('/catalog/addons/extra-seats-v1');
-    await nav.expectUnavailable('FEATURE_UNAVAILABLE');
-
-    expect(requests).toEqual([]);
+    await installAddonsWorld(page, model);
+    await page.goto('/catalog/addons/new');
+    await new BillingNavDriver(page).expectUnavailable('UNREACHABLE');
+    model.setCapabilities(billingCapabilitiesProfiles.stackWithAddons());
+    await installBillingAppMocks(page, model);
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(page.getByRole('dialog')).toBeVisible();
+    await expect(page.getByTestId('billing-unavailable')).toHaveCount(0);
   });
 });
 

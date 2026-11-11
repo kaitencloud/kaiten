@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { Switch } from '@/components/ui/switch';
-import { useCanPerform } from '@/domains/billing';
+import { useBillingCapabilities, useCanPerform } from '@/domains/billing';
 import { useAddonFamilyVisibility } from '../../hooks';
 import type { AddonGroup } from '../../types';
 
@@ -20,6 +20,7 @@ export function AddonFamilyPublicToggle({
   group,
 }: AddonFamilyPublicToggleProps) {
   const { t } = useTranslation();
+  const featureOn = useBillingCapabilities().has('addons');
   const mayList = useCanPerform('addonFamily.setPublic');
   const visibility = useAddonFamilyVisibility();
 
@@ -33,7 +34,9 @@ export function AddonFamilyPublicToggle({
       <Switch
         aria-label={t('Pages.Addons.Public.switchLabel', { name: group.name })}
         checked={group.family.isPublic}
-        disabled={visibility.isPending}
+        disabled={
+          visibility.isPending || (!featureOn && !group.family.isPublic)
+        }
         onCheckedChange={(isPublic) =>
           visibility.mutate({ body: { isPublic }, path: { familySlug } })
         }

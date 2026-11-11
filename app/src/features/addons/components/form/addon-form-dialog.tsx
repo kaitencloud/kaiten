@@ -5,7 +5,7 @@ import type { Addon, AddonFamily } from '@/api-client';
 import { Button } from '@/components/ui/button';
 import {
   ProblemAlert,
-  useActionAccess,
+  useBillingFeatureAccess,
   useLeaveRestrictedDialog,
 } from '@/domains/billing';
 import {
@@ -183,8 +183,8 @@ export function AddonFormDialog({
   onSaved,
 }: AddonFormDialogProps) {
   const { t } = useTranslation();
-  const update = useActionAccess('addons.update');
-  const create = useActionAccess('addons.create');
+  const update = useBillingFeatureAccess('addons.update', 'addons');
+  const create = useBillingFeatureAccess('addons.create', 'addons');
   const mode: AddonFormMode = addon ? 'edit' : family ? 'version' : 'family';
   const text = getDialogText(t, mode, { addon, family });
 
@@ -229,7 +229,9 @@ function AddonFormDialogContent({
   const recovery = useFormRecovery(addonRecovery, {
     context: family ? `family:${family.slug}` : '',
     enabled: mode !== 'edit',
-    pristine: initialAddonFormValues(family ? getFamilyHead(family) : undefined),
+    pristine: initialAddonFormValues(
+      family ? getFamilyHead(family) : undefined,
+    ),
   });
   if (recovery.writer.status === 'reading') {
     return null;

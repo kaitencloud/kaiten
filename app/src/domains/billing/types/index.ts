@@ -1,6 +1,6 @@
 import type { BillingCapabilities, BillingFeatures } from '@/api-client';
 
-/** A part of billing a release may or may not ship (`features` of the capabilities). */
+/** A part of billing the plan or deployment may offer (`features` of the capabilities). */
 export type BillingFeatureKey = keyof BillingFeatures;
 
 /**
@@ -9,10 +9,10 @@ export type BillingFeatureKey = keyof BillingFeatures;
  * - `NOT_ENTITLED`: the organization's plan does not include it (Cloud);
  * - `MISSING_SCOPE`: the session cannot read the capabilities (the read scope of
  *   billing);
- * - `FEATURE_UNAVAILABLE`: billing is on but this release does not ship the
- *   part asked for, or the API predates billing altogether;
- * - `UNREACHABLE`: the capabilities could not be read (timeout, 5xx). Billing
- *   stays hidden: it fails closed.
+ * - `FEATURE_UNAVAILABLE`: billing is on but the plan/deployment does not offer
+ *   the part asked for, or the API predates billing altogether;
+ * - `UNREACHABLE`: the capabilities or a feature check could not be read
+ *   (timeout, 5xx). The affected gate fails closed and can be retried.
  */
 export type BillingUnavailableReason =
   | 'DEPLOYMENT_DISABLED'

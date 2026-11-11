@@ -79,7 +79,11 @@ export function hasBillingFeature(
     return false;
   }
 
-  return feature === undefined || availability.capabilities.features[feature];
+  return (
+    feature === undefined ||
+    (availability.capabilities.features[feature] &&
+      !availability.capabilities.featureCheckUnavailable?.includes(feature))
+  );
 }
 
 /** The gate a route guard applies: the screens, or the reason for none. */
@@ -93,6 +97,13 @@ export function toBillingGate(
       reason: availability.reason,
       scope: availability.scope,
     };
+  }
+
+  if (
+    feature &&
+    availability.capabilities.featureCheckUnavailable?.includes(feature)
+  ) {
+    return { available: false, reason: 'UNREACHABLE' };
   }
 
   return hasBillingFeature(availability, feature)

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Voucher } from '@/api-client';
 import { GradientButton } from '@/components/gradient-button';
-import { ListEmptyState, useCanPerform } from '@/domains/billing';
+import { ListEmptyState, useBillingFeatureAccess } from '@/domains/billing';
 import {
   type FilterFieldDefinition,
   useFilterBuilder,
@@ -32,7 +32,10 @@ type VoucherListProps = {
  */
 export function VoucherList({ vouchers }: VoucherListProps) {
   const { t } = useTranslation();
-  const mayCreate = useCanPerform('vouchers.create');
+  const mayCreate = useBillingFeatureAccess(
+    'vouchers.create',
+    'vouchers',
+  ).allowed;
   const customerNames = useVoucherCustomerNames();
   const fields = useMemo<FilterFieldDefinition<Voucher>[]>(
     () => createVoucherFilterFields({ customerNames, t }),
