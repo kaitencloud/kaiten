@@ -133,7 +133,6 @@ connectors:
 # Off blocks AI operations/catalogue access, not immutable financial evidence.
 # A missing, disabled or unavailable source denies AI.
 ai_usage:
-  idempotency_window: 840h
   reservation_ttl: 10m
   reservation_max_ttl: 1h
 

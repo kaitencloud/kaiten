@@ -73,7 +73,24 @@ type AiUsageValue struct {
 	RequestStatus *aicredit.RequestStatus `json:"requestStatus,omitempty" enum:"SUCCESS,PROVIDER_ERROR,CUSTOMER_ERROR,NOT_SENT"`
 	Usage         *AiUsage                `json:"usage,omitempty"`
 	TTLSeconds    *int64                  `json:"ttlSeconds,omitempty"`
+	// A pointer with omitempty: the request hash is over this struct's JSON, so
+	// a report that omits the field must keep marshalling as it did before.
+	VendorCost *string `json:"vendorCost,omitempty" pattern:"^[0-9]{1,12}(\\.[0-9]{1,12})?$" example:"0.0123" doc:"Commit only. What the provider charged for this request, in USD, as an exact decimal string. Recorded as evidence beside the cost computed from the model catalogue; it never changes the credits charged."`
 }
+
+// The warnings an AI report or an inference record may carry. The set is open:
+// clients must tolerate a value they do not know.
+const (
+	AiWarningModelDeprecated          = "MODEL_DEPRECATED"
+	AiWarningEstimateIncomplete       = "ESTIMATE_INCOMPLETE"
+	AiWarningReservationExpired       = "RESERVATION_EXPIRED"
+	AiWarningModelNotAuthorized       = "MODEL_NOT_AUTHORIZED"
+	AiWarningUnknownModel             = "UNKNOWN_MODEL"
+	AiWarningConversionInputMissing   = "CONVERSION_INPUT_MISSING"
+	AiWarningOverdrawn                = "OVERDRAWN"
+	AiWarningNoReservation            = "NO_RESERVATION"
+	AiWarningCounterPrecisionDegraded = "COUNTER_PRECISION_DEGRADED"
+)
 
 // Keep phase examples complete: reserve must not include commit-only fields.
 func (AiUsageValue) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {

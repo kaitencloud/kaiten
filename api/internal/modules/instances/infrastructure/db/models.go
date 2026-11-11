@@ -571,6 +571,12 @@ type AiInference struct {
 	CommitHash             []byte            `json:"commit_hash"`
 	ReserveResponse        []byte            `json:"reserve_response"`
 	CommitResponse         []byte            `json:"commit_response"`
+	Pricing                []byte            `json:"pricing"`
+	LicenseID              *uuid.UUID        `json:"license_id"`
+	Warnings               []string          `json:"warnings"`
+	ReportSeq              *int64            `json:"report_seq"`
+	VendorCostReported     pgtype.Numeric    `json:"vendor_cost_reported"`
+	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
 }
 
 type CreditConversionRule struct {
