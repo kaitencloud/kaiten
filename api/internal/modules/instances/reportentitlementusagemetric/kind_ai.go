@@ -59,6 +59,11 @@ func (aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 		}
 	}
 	eff := &Effect{}
+	// Period maintenance does not depend on what this report decides: a
+	// reserve, a refusal and a commit that charges nothing all persist the
+	// rollover they resolved, as a numeric report does. Otherwise
+	// PERIOD_ROLLED_OVER would wait for the next charged commit.
+	eff.rollover(st)
 	if v.Phase == "reserve" && !authorized {
 		code := "ModelNotAuthorized"
 		if st.AIModel == nil {
@@ -172,7 +177,6 @@ func (aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 			if err != nil {
 				return nil, err
 			}
-			eff.rollover(st)
 			eff.Counter = &after
 			eff.Accepted = true
 			eff.ReportedValue = charge.Charged.InexactFloat64()
@@ -217,7 +221,8 @@ func (aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 	eff.AIRow = &row
 	eff.AIUpdate = st.Operation != nil
 	eff.AIPhase = v.Phase
-	if eff.Counter != nil {
+	// Accepted, not Counter: a rollover alone also sets Counter, and moved nothing.
+	if eff.Accepted {
 		eff.crossings(st, st.Pair.WarningThresholdPercent, st.Resolution.Current.Value, before.Value, response)
 		if !st.Limit.Unlimited() && st.Limit.OveragePercent > 0 && st.Resolution.Current.Value <= st.Limit.Maximum() && before.Value > st.Limit.Maximum() {
 			eff.emit(events.InstanceEntitlementMaximumExceeded, InstanceEntitlementCapExceeded{EntitlementSlug: st.Pair.EntitlementSlug, Threshold: st.Limit.Maximum(), Value: before.Value, Overage: before.Value - st.Limit.Maximum()})

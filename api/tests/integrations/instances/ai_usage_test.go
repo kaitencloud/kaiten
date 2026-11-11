@@ -482,14 +482,15 @@ func TestAIReservationAcrossRolloverChargesNewWindow(t *testing.T) {
 	window, err := period.Current(time.Now().UTC(), period.Month, period.Calendar, time.Time{})
 	require.NoError(t, err)
 	oldStart := window.Start.AddDate(0, -1, 0)
-	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
-	beforeCounter := getUsageRow(t, instance.ID, pool.ID)
 	beforeEvents := recordedEvents(t)
 	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "rollover", 5)), http.StatusOK)
+	require.Equal(t, beforeEvents, recordedEvents(t))
+	// The reservation was taken in the previous window: its counter is seeded
+	// after the reserve, because a reserve now persists the rollover it
+	// resolves (TestAIRolloverPersistedOnEveryPhase).
+	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
 	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE ai_inference SET reported_at=$2 WHERE entitlement_id=$1`, pool.ID, window.Start.Add(-time.Second))
 	require.NoError(t, err)
-	require.Equal(t, beforeCounter, getUsageRow(t, instance.ID, pool.ID))
-	require.Equal(t, beforeEvents, recordedEvents(t))
 	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "rollover", 9)), http.StatusOK)
 	require.Equal(t, 9.0, charged.Value.Number.Value, "commit uses the new window, not old consumption plus charge")
 	require.Equal(t, int32(1), charged.Value.Number.EventCount)
@@ -505,6 +506,65 @@ func TestAIReservationAcrossRolloverChargesNewWindow(t *testing.T) {
 	require.Zero(t, before)
 	require.Equal(t, 9.0, after)
 	require.True(t, windowStart.Equal(*charged.CurrentPeriodStart))
+}
+
+// A reserve, a refused reserve and a commit that charges nothing are reports
+// like any other: each persists the rollover it resolved, once, and the next
+// charged commit finds the window already open.
+func TestAIRolloverPersistedOnEveryPhase(t *testing.T) {
+	useAIForThisTest(t)
+	unknown := func(phase, id string) map[string]any {
+		value := aiUsageBody(phase, id, 2)
+		value["model"], value["requestType"] = "missing-model", "COMPLETION"
+		return value
+	}
+	for _, scenario := range []struct {
+		name   string
+		first  map[string]any
+		status int
+		events int
+	}{
+		{"reserve", aiUsageBody("reserve", "first", 2), http.StatusOK, 1},
+		{"refused reserve", unknown("reserve", "first"), http.StatusUnprocessableEntity, 2},
+		{"zero-charge commit", unknown("commit", "first"), http.StatusOK, 2},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+			instance, pool := newAIUsagePair(t, 100)
+			_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE entitlement SET reset_period='MONTH',reset_anchor='CALENDAR' WHERE id=$1`, pool.ID)
+			require.NoError(t, err)
+			window, err := period.Current(time.Now().UTC(), period.Month, period.Calendar, time.Time{})
+			require.NoError(t, err)
+			oldStart := window.Start.AddDate(0, -1, 0)
+			seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
+			beforeEvents := recordedEvents(t)
+			response := aiReport(t, instance.Slug, pool.Slug, scenario.first)
+			require.Equal(t, scenario.status, response.StatusCode)
+			// The rollover, plus the phase's own event: REJECTED for the
+			// refusal, MODEL_USAGE_UNAUTHORIZED for the unknown model.
+			require.Len(t, recordedEvents(t), len(beforeEvents)+scenario.events)
+			closures := rolloverEvents(t)
+			require.Len(t, closures, 1, "rollover emitted once, by the first report of the window")
+			require.Equal(t, 9.0, closures[0].Value)
+			require.True(t, closures[0].ClosedPeriodStart.Equal(oldStart))
+			row := getUsageRow(t, instance.ID, pool.ID)
+			require.True(t, row.PeriodStart.Time.Equal(window.Start), "period_start = %v, want %v", row.PeriodStart.Time, window.Start)
+			counter, err := entitlementvalue.ParseNumberUsageValue(row.Value)
+			require.NoError(t, err)
+			require.Zero(t, counter.Value)
+			require.Zero(t, counter.EventCount)
+			var journal int
+			require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&journal))
+			require.Zero(t, journal, "a rollover alone is not a journal entry")
+
+			commit := aiUsageBody("commit", "charged", 4)
+			commit["model"], commit["requestType"] = "lifecycle-model", "COMPLETION"
+			charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusOK)
+			require.Equal(t, 4.0, charged.Value.Number.Value)
+			require.Equal(t, int32(1), charged.Value.Number.EventCount)
+			require.Len(t, rolloverEvents(t), 1, "and not again by the commit that charges")
+		})
+	}
 }
 
 func TestAIPhaseReplayIdentityAndHorizon(t *testing.T) {
