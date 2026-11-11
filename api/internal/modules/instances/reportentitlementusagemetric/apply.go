@@ -32,6 +32,12 @@ func (h *UseCase) apply(ctx context.Context, st *State, eff *Effect) error {
 			if err != nil {
 				return err
 			}
+			// The AI operation this report counted keeps the journal's
+			// sequence number: from an inference to its usage_ledger row, and
+			// back. Only a charged commit reaches this point.
+			if eff.AIRow != nil {
+				eff.AIRow.ReportSeq = &seq
+			}
 			err = h.commandRepo.AppendUsageLedger(ctx, LedgerEntry{
 				OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID, LicenseID: st.Pair.LicenseID,
 				ReportSeq: seq, ReportedAt: st.Now, WindowStart: st.Resolution.Window.Start, WindowEnd: st.Resolution.Window.End,

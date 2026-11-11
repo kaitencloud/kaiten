@@ -791,6 +791,62 @@ func TestAICommitOnASaturatedCounterIsRecordedWithAPrecisionWarning(t *testing.T
 	require.Equal(t, charged, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
 }
 
+// A charged commit is one journal entry; the inference keeps its sequence
+// number. What moved nothing has none.
+func TestAIChargedCommitKeepsTheJournalSequence(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	bare := aiUsageBody("commit", "bare", 2)
+	bare["model"], bare["requestType"] = "lifecycle-model", "COMPLETION"
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, bare), http.StatusOK)
+	// A numeric report in between takes a sequence number of its own.
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, reportUsage(t, instance.Slug, pool.Slug, 1, "append"), http.StatusOK)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "reserved", 3)), http.StatusOK)
+	sequence := func(id string) *int64 {
+		var seq *int64
+		require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT report_seq FROM ai_inference WHERE entitlement_id=$1 AND transaction_id=$2`, pool.ID, id).Scan(&seq))
+		return seq
+	}
+	require.Nil(t, sequence("reserved"), "a reservation counted nothing")
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "reserved", 4)), http.StatusOK)
+	unknown := aiUsageBody("commit", "uncharged", 5)
+	unknown["model"], unknown["requestType"] = "missing-model", "COMPLETION"
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, unknown), http.StatusOK)
+	released := aiUsageBody("reserve", "released", 1)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, released), http.StatusOK)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "released", "requestStatus": "NOT_SENT"}), http.StatusOK)
+	require.Nil(t, sequence("uncharged"), "a commit that charged nothing is not in the journal")
+	require.Nil(t, sequence("released"))
+
+	// Each charged inference joins exactly its own journal row, on the pair
+	// and the sequence number: same amount, same counter.
+	rows, err := testServer.Dependencies.DB.Query(t.Context(), `SELECT a.transaction_id, a.report_seq, a.credits_charged::float8, l.reported_value::float8, a.value_before, l.value_before::float8, a.value_after, l.value_after::float8
+		FROM ai_inference a JOIN usage_ledger l ON l.instance_id=a.instance_id AND l.entitlement_id=a.entitlement_id AND l.report_seq=a.report_seq
+		WHERE a.entitlement_id=$1 ORDER BY a.report_seq`, pool.ID)
+	require.NoError(t, err)
+	defer rows.Close()
+	var ids []string
+	var seqs []int64
+	for rows.Next() {
+		var id string
+		var seq int64
+		var charged, reported, before, journalBefore, after, journalAfter float64
+		require.NoError(t, rows.Scan(&id, &seq, &charged, &reported, &before, &journalBefore, &after, &journalAfter))
+		require.Equal(t, charged, reported, id)
+		require.Equal(t, before, journalBefore, id)
+		require.Equal(t, after, journalAfter, id)
+		require.InDelta(t, charged, after-before, 0.0000005, "I1: %s", id)
+		ids, seqs = append(ids, id), append(seqs, seq)
+	}
+	require.NoError(t, rows.Err())
+	require.Equal(t, []string{"bare", "reserved"}, ids)
+	require.Equal(t, []int64{1, 3}, seqs, "the numeric report took sequence 2")
+	var journal int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&journal))
+	require.Equal(t, 3, journal)
+}
+
 func TestAIWireRejectsMissingMalformedIDsAndInvalidPhases(t *testing.T) {
 	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })

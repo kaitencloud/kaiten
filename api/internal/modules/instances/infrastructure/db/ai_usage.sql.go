@@ -51,8 +51,8 @@ input_tokens = $7, cache_read_input_tokens = $8, cache_write_input_tokens = $9,
 output_tokens = $10, units = $11, unit_type = $12, duration_ms = $13,
 credit_conversion_rule_id = $14, authorized = $15, denial_reason = $16,
 credits_computed = $17, credits_charged = $18, value_before = $19, value_after = $20,
-window_start = $21, commit_hash = $22
-WHERE id = $23 AND organization_id = $24 AND status IN ('RESERVED','EXPIRED')
+window_start = $21, commit_hash = $22, report_seq = $23
+WHERE id = $24 AND organization_id = $25 AND status IN ('RESERVED','EXPIRED')
 `
 
 type CommitAIOperationParams struct {
@@ -78,6 +78,7 @@ type CommitAIOperationParams struct {
 	ValueAfter             *float64          `json:"value_after"`
 	WindowStart            pgtype.Timestamp  `json:"window_start"`
 	CommitHash             []byte            `json:"commit_hash"`
+	ReportSeq              *int64            `json:"report_seq"`
 	ID                     uuid.UUID         `json:"id"`
 	OrganizationID         uuid.UUID         `json:"organization_id"`
 }
@@ -106,6 +107,7 @@ func (q *Queries) CommitAIOperation(ctx context.Context, arg CommitAIOperationPa
 		arg.ValueAfter,
 		arg.WindowStart,
 		arg.CommitHash,
+		arg.ReportSeq,
 		arg.ID,
 		arg.OrganizationID,
 	)
@@ -318,12 +320,12 @@ INSERT INTO ai_inference (id, organization_id, instance_id, entitlement_id, tran
 reported_at, committed_at, expires_at, model_ref, model_id, request_type, request_status,
 input_tokens, cache_read_input_tokens, cache_write_input_tokens, output_tokens, units, unit_type, duration_ms,
 credit_conversion_rule_id, authorized, denial_reason, credits_reserved, credits_computed, credits_charged,
-value_before, value_after, window_start, request_hash, commit_hash)
+value_before, value_after, window_start, request_hash, commit_hash, report_seq)
 VALUES ($1, $2, $3, $4, $5, $6,
 $7, $8, $9, $10, $11, $12, $13,
 $14, $15, $16, $17, $18, $19, $20,
 $21, $22, $23, $24, $25, $26,
-$27, $28, $29, $30, $31)
+$27, $28, $29, $30, $31, $32)
 `
 
 type InsertAIOperationParams struct {
@@ -358,6 +360,7 @@ type InsertAIOperationParams struct {
 	WindowStart            pgtype.Timestamp  `json:"window_start"`
 	RequestHash            []byte            `json:"request_hash"`
 	CommitHash             []byte            `json:"commit_hash"`
+	ReportSeq              *int64            `json:"report_seq"`
 }
 
 func (q *Queries) InsertAIOperation(ctx context.Context, arg InsertAIOperationParams) error {
@@ -393,6 +396,7 @@ func (q *Queries) InsertAIOperation(ctx context.Context, arg InsertAIOperationPa
 		arg.WindowStart,
 		arg.RequestHash,
 		arg.CommitHash,
+		arg.ReportSeq,
 	)
 	return err
 }
