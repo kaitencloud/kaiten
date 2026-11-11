@@ -524,8 +524,8 @@ Table "token" {
   }
 
   Indexes {
-    (lookup_hash, hash, service_account_id, organization_id, scopes, expires_at) [type: btree, unique, name: "idx_token_lookup_hash_active"]
-    (lookup_hash, hash, service_account_id, scopes, expires_at) [type: btree, unique, name: "idx_token_platform_lookup_hash_active"]
+    lookup_hash [type: btree, unique, name: "idx_token_lookup_hash_active"]
+    lookup_hash [type: btree, unique, name: "idx_token_platform_lookup_hash_active"]
     (service_account_id, name, organization_id) [type: btree, unique, name: "token_name"]
     (slug, organization_id) [type: btree, unique, name: "token_slug"]
     issued_by_platform_token_id [type: btree, name: "idx_token_issued_by_platform_active"]
@@ -1367,7 +1367,7 @@ Table "publishable_key" {
   }
 
   Indexes {
-    (lookup_hash, organization_id, allowed_origins) [type: btree, unique, name: "idx_publishable_key_lookup_hash_active"]
+    lookup_hash [type: btree, unique, name: "idx_publishable_key_lookup_hash_active"]
     (id, organization_id) [type: btree, unique, name: "publishable_key_id_organization_id_key"]
     (organization_id, created_at) [type: btree, name: "idx_publishable_key_organization_created_at"]
   }
@@ -1390,7 +1390,7 @@ Table "customer_session" {
   }
 
   Indexes {
-    (lookup_hash, organization_id, customer_id, instance_id, expires_at) [type: btree, unique, name: "idx_customer_session_lookup_hash_active"]
+    lookup_hash [type: btree, unique, name: "idx_customer_session_lookup_hash_active"]
     customer_id [type: btree, name: "idx_customer_session_customer"]
     (organization_id, expires_at) [type: btree, name: "idx_customer_session_organization_expires_at"]
   }
@@ -1445,7 +1445,7 @@ Table "checkout_session" {
   }
 
   Indexes {
-    (lookup_hash, organization_id, status) [type: btree, unique, name: "idx_checkout_session_lookup_hash"]
+    lookup_hash [type: btree, unique, name: "idx_checkout_session_lookup_hash"]
     closed_at [type: btree, name: "idx_checkout_session_closed_at"]
     customer_id [type: btree, name: "idx_checkout_session_customer"]
     instance_id [type: btree, name: "idx_checkout_session_instance"]
@@ -1551,7 +1551,7 @@ Table "usage_ledger" {
   Indexes {
     (instance_id, entitlement_id, report_seq, reported_at) [pk, type: btree, name: "usage_ledger_pkey"]
     (organization_id, reported_at) [type: btree, name: "idx_usage_ledger_org_reported_at"]
-    (instance_id, entitlement_id, reported_at, report_seq, window_start, window_end, value_before, value_after, limit_value) [type: btree, name: "idx_usage_ledger_pair_reported_at"]
+    (instance_id, entitlement_id, reported_at) [type: btree, name: "idx_usage_ledger_pair_reported_at"]
     (instance_id, entitlement_id, transaction_id, reported_at) [type: btree, name: "idx_usage_ledger_transaction_id"]
   }
 }
@@ -1947,3 +1947,14 @@ The DBML above renders these without their `WHERE` clause, as plain indexes -- a
 - `uq_metadata_field_key_active`: `CREATE UNIQUE INDEX uq_metadata_field_key_active ON public.metadata_field USING btree (organization_id, resource_type, key) WHERE (archived_at IS NULL)`
 - `uq_token_platform_name_active`: `CREATE UNIQUE INDEX uq_token_platform_name_active ON public.token USING btree (name) WHERE ((kind = 'platform'::token_kind) AND (revoked_date IS NULL))`
 - `uq_token_platform_slug`: `CREATE UNIQUE INDEX uq_token_platform_slug ON public.token USING btree (slug) WHERE (kind = 'platform'::token_kind)`
+
+## Covering indexes
+
+The DBML above lists each of these with its key columns only. The `INCLUDE` columns are stored in the index, to answer a query without reading the table; they are not part of its key, and take no part in its uniqueness.
+
+- `idx_checkout_session_lookup_hash`: `CREATE UNIQUE INDEX idx_checkout_session_lookup_hash ON public.checkout_session USING btree (lookup_hash) INCLUDE (organization_id, status)`
+- `idx_customer_session_lookup_hash_active`: `CREATE UNIQUE INDEX idx_customer_session_lookup_hash_active ON public.customer_session USING btree (lookup_hash) INCLUDE (organization_id, customer_id, instance_id, expires_at) WHERE (revoked_at IS NULL)`
+- `idx_publishable_key_lookup_hash_active`: `CREATE UNIQUE INDEX idx_publishable_key_lookup_hash_active ON public.publishable_key USING btree (lookup_hash) INCLUDE (organization_id, allowed_origins) WHERE (revoked_at IS NULL)`
+- `idx_token_lookup_hash_active`: `CREATE UNIQUE INDEX idx_token_lookup_hash_active ON public.token USING btree (lookup_hash) INCLUDE (hash, service_account_id, organization_id, scopes, expires_at) WHERE (revoked_date IS NULL)`
+- `idx_token_platform_lookup_hash_active`: `CREATE UNIQUE INDEX idx_token_platform_lookup_hash_active ON public.token USING btree (lookup_hash) INCLUDE (hash, service_account_id, scopes, expires_at) WHERE ((kind = 'platform'::token_kind) AND (revoked_date IS NULL))`
+- `idx_usage_ledger_pair_reported_at`: `CREATE INDEX idx_usage_ledger_pair_reported_at ON public.usage_ledger USING btree (instance_id, entitlement_id, reported_at) INCLUDE (report_seq, window_start, window_end, value_before, value_after, limit_value)`
