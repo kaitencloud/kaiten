@@ -15,6 +15,23 @@ export function createCalmDashboardModel() {
   return new DashboardAppModel(buildCalmDashboardSummary());
 }
 
+/**
+ * The busy day, read over 30 days by an organization whose retention keeps a
+ * week of activity: the API reads the activity from where it starts.
+ */
+export function createRetentionCutDashboardModel() {
+  const summary = buildDashboardSummary();
+  const to = new Date(summary.range.to);
+  return new DashboardAppModel({
+    ...summary,
+    range: {
+      ...summary.range,
+      activityFrom: new Date(to.getTime() - 7 * 86_400_000).toISOString(),
+      activityDays: 7,
+    },
+  });
+}
+
 /** A brand-new organization: nothing recorded yet. */
 export function createEmptyDashboardModel() {
   return new DashboardAppModel(buildEmptyDashboardSummary());

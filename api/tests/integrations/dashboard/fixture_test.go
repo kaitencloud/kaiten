@@ -187,20 +187,25 @@ func grant(t *testing.T, licenseSlug, entitlementSlug string, threshold, overage
 // value reads from there.
 func newAuditTrailEntry(t *testing.T, instanceSlug, eventName string) {
 	t.Helper()
+	newAuditTrailEntryAt(t, instanceSlug, eventName, time.Now())
+}
+
+// newAuditTrailEntryAt records eventName on instanceSlug's trail at occurredAt.
+func newAuditTrailEntryAt(t *testing.T, instanceSlug, eventName string, occurredAt time.Time) {
+	t.Helper()
 	instance, err := instancedb.New(testServer.Dependencies.DB).GetOneInstance(t.Context(), instancedb.GetOneInstanceParams{
 		OrganizationID: testDb.DefaultData.OrganizationID,
 		Slug:           instanceSlug,
 	})
 	require.NoError(t, err)
 
-	now := time.Now()
 	_, err = auditdb.New(testDb.DbPool).CreateAuditTrail(t.Context(), auditdb.CreateAuditTrailParams{
 		OrganizationID: testDb.DefaultData.OrganizationID,
 		InstanceID:     &instance.ID,
 		ActorID:        &testDb.DefaultData.UserID,
 		EventName:      eventName,
 		EventType:      "com.kaiten.instance.entitlement.v1.usage_reported",
-		OccurredAt:     pgtime.TimePtrToPgTimestamptz(&now),
+		OccurredAt:     pgtime.TimePtrToPgTimestamptz(&occurredAt),
 		Payload:        []byte(`{}`),
 	})
 	require.NoError(t, err)

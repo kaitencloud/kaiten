@@ -5,6 +5,7 @@ import { Page } from '@/functionals/page';
 import { RouteTabs } from '@/functionals/route-tabs';
 import { getAppLocale } from '@/lib/app-locale';
 import { formatTimeOfDay } from '@/lib/feed-time';
+import { activityCutDays } from '../logic/activity';
 import {
   buildCustomersAttention,
   buildIntegrationAttention,
@@ -41,6 +42,7 @@ export function DashboardPage({
     dashboardSummaryQueryOptions(range),
   );
   const checkedAt = formatTimeOfDay(summary.asOf, locale);
+  const cutDays = activityCutDays(summary);
   const customersCount = buildCustomersAttention(
     summary,
     t,
@@ -94,6 +96,14 @@ export function DashboardPage({
             },
           ]}
         />
+        {cutDays === null ? null : (
+          <p
+            data-testid="dashboard-activity-cut"
+            className="mt-3 text-sm text-muted-foreground"
+          >
+            {t('Pages.Dashboard.range.activityCut', { count: cutDays })}
+          </p>
+        )}
       </Page.Fixed>
       <Page.Scroll contentClassName="pt-2">
         {view === 'integration' ? (

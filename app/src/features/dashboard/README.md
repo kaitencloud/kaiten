@@ -36,6 +36,7 @@ app/src/features/dashboard/
 │   ├── standing-badge.tsx
 │   └── stories/dashboard.stories.tsx
 ├── logic/
+│   ├── activity.ts               # the summary → the days a retention leaves the activity
 │   ├── attention.ts              # the summary → the attention lines of each tab
 │   ├── standing.ts               # the summary → one standing per instance
 │   └── format.ts                 # counts, quantities, days
@@ -57,6 +58,7 @@ The files of `logic/` are pure functions over the summary. The components receiv
 ## Behaviour
 
 - **Period.** The period applies to what is counted over time: customers and instances created, instances active or silent, usage reports accepted and refused, flag evaluations, the chart of reports per day. The attention checks keep their own horizons whatever the period: refused reports over the last 24 hours, licenses and tokens ending within 30 days.
+- **Activity window** (`logic/activity.ts`): the activity figures, usage reports, entitlement reads, flag evaluations and the active and silent instances, come from the audit trail and the usage history, which the organization keeps for its own retention. When either starts later than the period, the API reads the activity from there and says so in `range.activityFrom` and `range.activityDays`; the page then states how many days the activity covers, under the tabs, and the silent line counts those days. Customers and instances created keep the whole period.
 - **Standing of an instance** (`logic/standing.ts`): computed by the API over every meter of the instance, and carried by each row of `usageReports.byInstance` with the meter behind it (`standing`, `headline`). _At limit_ when a meter reached the most its grant allows (a hard limit, or a soft limit with its allowance used up): the next report is refused. _Watch_ when a meter is at or past the warning threshold of its grant, as the report path warns; an entitlement with no threshold never is. _Silent_ when the instance neither reported usage, accepted or refused, nor read an entitlement in the period. _Healthy_ otherwise. A meter at its limit ranks before one above its threshold, whatever their ratios. The fleet card lists every instance with its standing; the figures count the standings the API counted over the whole organization (`figures.instances.byStanding`). A periodic meter reads its current window, as the usage endpoints do: a window that closed without a report reads 0.
 - **Attention lines** (`logic/attention.ts`): one line per finding, with its count and the page to act on. Customers: instances at a limit, near a limit, silent, not healthy, licenses ending within 30 days, instances on an archived version, subscriptions past due and invoices overdue where billing is on. Integration: refused reports, silent instances, zones behind the latest release, tokens expiring within 30 days, flags nobody evaluates. A tab with nothing to say lists what was checked and when.
 - **Figures.** Customers: customers, instances (active in the period), instances at a limit, licenses ending within 180 days and, where billing is on, the amount invoiced this month; usage reports accepted otherwise. Integration: usage reports accepted and refused, instances that reported, flag evaluations, active tokens.
@@ -65,7 +67,7 @@ The files of `logic/` are pure functions over the summary. The components receiv
 ## Tests
 
 - Stories: `app/src/features/dashboard/components/stories/dashboard.stories.tsx` (`Features/Dashboard/P0DashboardStories`): the Customers and Integration tabs on a busy day, a quiet day and an empty organization, fed by the summary builders of `app/e2e/app/_support/model/dashboard-summary.ts`.
-- E2E: `app/e2e/app/dashboard/dashboard.read.spec.ts` checks the redirect from `/`, the attention lines, the fleet, the Integration tab, the period in the address and the error state; its scenarios are in `app/e2e/app/dashboard/dashboard.scenarios.ts` and the mocked endpoint in `app/src/e2e/msw/dashboard-handlers.ts`. Other specs render the page too: `app/e2e/app/accessibility/accessibility.spec.ts` runs WCAG checks on it, `app/e2e/app/mobile/mobile.read.spec.ts` uses a phone-sized viewport and `app/e2e/app/i18n/i18n.locale.spec.ts` switches it to French.
+- E2E: `app/e2e/app/dashboard/dashboard.read.spec.ts` checks the redirect from `/`, the attention lines, the fleet, the Integration tab, the period in the address, the activity window a retention cuts, and the error state; its scenarios are in `app/e2e/app/dashboard/dashboard.scenarios.ts` and the mocked endpoint in `app/src/e2e/msw/dashboard-handlers.ts`. Other specs render the page too: `app/e2e/app/accessibility/accessibility.spec.ts` runs WCAG checks on it, `app/e2e/app/mobile/mobile.read.spec.ts` uses a phone-sized viewport and `app/e2e/app/i18n/i18n.locale.spec.ts` switches it to French.
 
 ## Public API
 
