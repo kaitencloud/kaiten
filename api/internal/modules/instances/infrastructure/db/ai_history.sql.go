@@ -20,6 +20,8 @@ WHERE a.organization_id=$1 AND a.instance_id=$2 AND a.entitlement_id=$3
 AND a.reported_at >= $4::timestamp AND a.reported_at < $5::timestamp
 AND ($6::ai_inference_status IS NULL OR a.status=$6)
 AND ($7::text IS NULL OR a.transaction_id=$7)
+AND ($6::ai_inference_status = 'RELEASED' OR $7::text IS NOT NULL
+  OR NOT (a.status = 'RELEASED' AND a.warnings @> ARRAY['NO_RESERVATION']::text[]))
 AND ($8::boolean IS NULL OR a.authorized=$8)
 AND ($9::text IS NULL OR m.slug=$9)
 AND ($10::text IS NULL OR a.model_ref=$10)
@@ -54,6 +56,12 @@ type ListAIInferencesRow struct {
 // One page of a pair's operations, newest first. Every filter is optional;
 // model_slug is the catalogue model the operation resolved to, model_ref the
 // model as sent (the only handle on a model the catalogue does not know).
+//
+// Tombstones -- RELEASED rows warned NO_RESERVATION, the releases of what was
+// never reserved -- are identity markers, not operations: they are left out
+// unless the caller asks for RELEASED rows or for one transactionId. The
+// test is a residual filter on rows the keyset scan already reads, so the
+// listing keeps its index and its order.
 func (q *Queries) ListAIInferences(ctx context.Context, arg ListAIInferencesParams) ([]ListAIInferencesRow, error) {
 	rows, err := q.db.Query(ctx, listAIInferences,
 		arg.OrganizationID,
@@ -226,6 +234,8 @@ AND ($4::text IS NULL OR a.instance_id=(SELECT si.id FROM instance si WHERE si.o
 AND ($5::text IS NULL OR a.entitlement_id=(SELECT se.id FROM entitlement se WHERE se.organization_id=$1 AND se.slug=$5))
 AND ($6::ai_inference_status IS NULL OR a.status=$6)
 AND ($7::text IS NULL OR a.transaction_id=$7)
+AND ($6::ai_inference_status = 'RELEASED' OR $7::text IS NOT NULL
+  OR NOT (a.status = 'RELEASED' AND a.warnings @> ARRAY['NO_RESERVATION']::text[]))
 AND ($8::boolean IS NULL OR a.authorized=$8)
 AND ($9::text IS NULL OR m.slug=$9)
 AND ($10::text IS NULL OR a.model_ref=$10)
@@ -263,6 +273,7 @@ type ListOrganizationAIInferencesRow struct {
 // the keyset order of idx_ai_inference_org_reported_at. A slug filter that
 // names nothing in the organization (another tenant's included) matches no
 // row. The instance and pool slugs are absent once those are deleted.
+// Tombstones are left out as in ListAIInferences.
 func (q *Queries) ListOrganizationAIInferences(ctx context.Context, arg ListOrganizationAIInferencesParams) ([]ListOrganizationAIInferencesRow, error) {
 	rows, err := q.db.Query(ctx, listOrganizationAIInferences,
 		arg.OrganizationID,

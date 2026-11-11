@@ -126,7 +126,7 @@ func decimalOf(n pgtype.Numeric) *decimal.Decimal {
 
 // releasesNothing reports a NOT_SENT commit for a transactionId that holds no
 // operation inside the idempotency horizon: a release of what was never
-// reserved, answered without writing.
+// reserved, recorded as a tombstone (see releaseWithoutReservation).
 func releasesNothing(st *State, v *schema.AiUsageValue) bool {
 	return st.Operation == nil && v.Phase == "commit" && v.RequestStatus != nil && *v.RequestStatus == aicredit.NotSent
 }
@@ -196,10 +196,17 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 	if err := h.queryRepo.LoadLimits(ctx, st.Pair, instanceSlug, st.Pair.EntitlementSlug, st.OrganizationID); err != nil {
 		return err
 	}
-	// Releasing what was never reserved is a no-op: nothing to price, so no
-	// model, rule or request type is read or required. It comes after
-	// LoadLimits, so a pair nothing grants still answers 404.
+	// Releasing what was never reserved prices nothing: no model, rule or
+	// unauthorized-use lookup is made, and model and requestType stay
+	// optional. What the caller did send is kept on the tombstone as sent. It
+	// comes after LoadLimits, so a pair nothing grants still answers 404.
 	if releasesNothing(st, v) {
+		if v.Model != nil {
+			st.AIModelRef = *v.Model
+		}
+		if v.RequestType != nil {
+			st.AIRequestType = *v.RequestType
+		}
 		return nil
 	}
 	modelRef, requestType := "", aicredit.RequestType("")

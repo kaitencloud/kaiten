@@ -69,13 +69,35 @@ func computedVendorCost(costs *aicredit.Costs, quantity aicredit.Usage, status a
 	return aicredit.VendorCost(costs, quantity)
 }
 
-// releaseNothing answers a NOT_SENT commit whose transactionId never reserved.
-// An SDK releases on every failure path, including the ones that failed before
-// its reserve was accepted; recording each as a RELEASED row -- and possibly a
-// MODEL_USAGE_UNAUTHORIZED event -- would be evidence of nothing. The effect
-// carries no row, no counter and no event, not even a rollover, so the call
-// writes nothing and repeating it answers the same.
-func (aiKind) releaseNothing(st *State, v *schema.AiUsageValue) (*Effect, error) {
+// tombstoneRequestType is what a tombstone stores when its release named no
+// request type: the column is NOT NULL and its type has no neutral value.
+// The row prices nothing, so the value is never read as one.
+const tombstoneRequestType = db.AiRequestTypeCOMPLETION
+
+// releaseWithoutReservation answers a NOT_SENT commit whose transactionId
+// holds no operation. An SDK releases on every failure path, including the
+// ones that failed before its reserve was accepted -- or while the reserve
+// was still in flight. Writing nothing would leave the transactionId free: the
+// reserve could then land after the release and hold credits nobody releases
+// until its TTL. So the release closes the id with a tombstone: a RELEASED row
+// that carries the identity (transactionId, both hashes, the stored answer),
+// the licence and the NO_RESERVATION warning, and nothing else. A repeated
+// release replays it, and a reserve or another commit under the id is refused
+// like on any closed operation.
+//
+// It is a marker, not evidence of a model use: no model or rule is resolved,
+// so it has no pricing, no vendor cost and no MODEL_USAGE_UNAUTHORIZED event,
+// and it moves no counter and enters no journal. The columns the table forces
+// are filled with what misleads least: model_ref is the model as sent, or
+// empty; request_type is the one sent, or tombstoneRequestType; authorized is
+// true with no denial reason, because nothing was refused and an authorized =
+// false row would count as an unauthorized use of that model today. The
+// history reads leave tombstones out unless asked for.
+//
+// Like every phase that plans, it persists the window rollover it resolved.
+func (aiKind) releaseWithoutReservation(st *State, v *schema.AiUsageValue) (*Effect, error) {
+	eff := &Effect{}
+	eff.rollover(st)
 	response, err := usage.Present(st.gauge(st.Resolution.Current))
 	if err != nil {
 		return nil, err
@@ -88,13 +110,28 @@ func (aiKind) releaseNothing(st *State, v *schema.AiUsageValue) (*Effect, error)
 	}
 	response.Reserved = &reserved
 	response.AI = outcome
-	return &Effect{Response: response}, nil
+
+	requestType := db.AiRequestType(st.AIRequestType)
+	if requestType == "" {
+		requestType = tombstoneRequestType
+	}
+	authorized, notSent, licenseID := true, db.AiRequestStatus(aicredit.NotSent), st.Pair.LicenseID
+	eff.Response = response
+	eff.AIRow = &db.AiInference{
+		ID: uuid.New(), OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID,
+		TransactionID: v.TransactionID, Status: db.AiInferenceStatusRELEASED, ReportedAt: timestamp(st.Now), CommittedAt: timestamp(st.Now),
+		ModelRef: st.AIModelRef, RequestType: requestType, RequestStatus: &notSent, Authorized: &authorized,
+		CreditsComputed: numeric(decimal.Zero), CreditsCharged: numeric(decimal.Zero), WindowStart: timestampOrEmpty(st.Resolution.Window.Start),
+		RequestHash: st.AIHash, CommitHash: st.AIHash, LicenseID: &licenseID, Warnings: []string{schema.AiWarningNoReservation},
+	}
+	eff.AIPhase = v.Phase
+	return eff, nil
 }
 
 func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 	v := cmd.AI
 	if releasesNothing(st, v) {
-		return k.releaseNothing(st, v)
+		return k.releaseWithoutReservation(st, v)
 	}
 	rule, specificity := aicredit.Resolve(st.AIRules, st.AIModel, st.AIRequestType)
 	warnings := []string{}

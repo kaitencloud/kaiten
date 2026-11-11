@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
@@ -382,8 +383,10 @@ func TestAIReleasedOperationIsSettledAndReplaysOnlyIdenticalNotSent(t *testing.T
 }
 
 // An SDK releases on every failure path, including a call whose reserve never
-// reached Kaiten. That release is a question with a fixed answer, not evidence.
-func TestAIReleaseWithoutReservationWritesNothing(t *testing.T) {
+// reached Kaiten -- or has not reached it yet. That release closes the
+// transactionId with a tombstone: a RELEASED row that carries the identity,
+// the licence and the NO_RESERVATION warning, and is evidence of nothing else.
+func TestAIReleaseWithoutReservationLeavesATombstone(t *testing.T) {
 	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 10)
@@ -392,48 +395,152 @@ func TestAIReleaseWithoutReservationWritesNothing(t *testing.T) {
 	window, err := period.Current(time.Now().UTC(), period.Month, period.Calendar, time.Time{})
 	require.NoError(t, err)
 	oldStart := window.Start.AddDate(0, -1, 0)
-	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
 	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "held", 4)), http.StatusOK)
-	// The reserve above rolled the window over; stale it again so the no-op
-	// is shown to leave even period maintenance to the next real report.
+	// A stale window: the tombstone persists its rollover like every phase.
 	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
-	counterBefore := commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID)
-	operationsBefore := commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID)
-	beforeEvents := recordedEvents(t)
-
-	// Neither model nor requestType: there is nothing to price. An unknown
-	// model changes nothing either, and raises no unauthorized event.
-	release := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved", "requestStatus": "NOT_SENT"}
-	withModel := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved-either", "requestStatus": "NOT_SENT", "model": "missing-model", "requestType": "COMPLETION"}
-	for _, body := range []map[string]any{release, release, withModel} {
-		response := aiReport(t, instance.Slug, pool.Slug, body)
-		require.Empty(t, response.Header.Get("Idempotent-Replayed"), "nothing was stored to replay")
-		released := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, response, http.StatusOK)
-		require.Equal(t, "RELEASED", released.AI.Status)
-		require.Equal(t, "commit", released.AI.Phase)
-		require.Equal(t, "0", *released.AI.Credits.Charged)
-		require.Nil(t, released.AI.Credits.Reserved)
-		require.Nil(t, released.AI.Authorized, "no model was evaluated")
-		require.Equal(t, []string{instanceschema.AiWarningNoReservation}, released.AI.Warnings)
-		require.Equal(t, "4", *released.Reserved, "another operation's reservation is untouched")
-		require.Equal(t, "6", *released.AI.Remaining)
-		require.Zero(t, released.Value.Number.Value)
+	counter := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID)
 	}
-	require.Equal(t, counterBefore, commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID))
-	require.Equal(t, operationsBefore, commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID))
-	require.Equal(t, beforeEvents, recordedEvents(t))
+	operations := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID)
+	}
+	eventNames := func() map[string]int {
+		names := map[string]int{}
+		for _, event := range recordedEvents(t) {
+			names[event.Name]++
+		}
+		return names
+	}
+	seqBefore, journalBefore, eventsBefore := counterReportSeq(t, instance.ID, pool.ID), ledgerRows(t, instance.ID, pool.ID), eventNames()
 
-	// The key stays free: the operation can still be reported for real.
+	// Neither model nor requestType: there is nothing to price.
+	release := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved", "requestStatus": "NOT_SENT"}
+	response := aiReport(t, instance.Slug, pool.Slug, release)
+	require.Empty(t, response.Header.Get("Idempotent-Replayed"))
+	released := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, response, http.StatusOK)
+	require.Equal(t, "RELEASED", released.AI.Status)
+	require.Equal(t, "commit", released.AI.Phase)
+	require.Equal(t, "0", *released.AI.Credits.Computed)
+	require.Equal(t, "0", *released.AI.Credits.Charged)
+	require.Nil(t, released.AI.Credits.Reserved)
+	require.Nil(t, released.AI.Authorized, "no model was evaluated")
+	require.Nil(t, released.AI.Rule)
+	require.Equal(t, []string{instanceschema.AiWarningNoReservation}, released.AI.Warnings)
+	require.Equal(t, "4", *released.Reserved, "another operation's reservation is untouched")
+	require.Equal(t, "6", *released.AI.Remaining)
+	require.Zero(t, released.Value.Number.Value)
+
+	// One row, with exactly these columns.
+	var tombstone struct {
+		count                                                  int
+		status, modelRef, requestType, requestStatus, warnings string
+		authorized, hashes, neutral                            bool
+		computed, charged                                      string
+		licenseID                                              uuid.UUID
+	}
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) OVER (), status::text, model_ref, request_type::text, request_status::text, warnings::text,
+		authorized, request_hash = commit_hash AND octet_length(request_hash) = 32,
+		model_id IS NULL AND credit_conversion_rule_id IS NULL AND denial_reason IS NULL AND pricing IS NULL AND report_seq IS NULL
+		 AND vendor_cost_reported IS NULL AND vendor_cost_computed IS NULL AND credits_reserved IS NULL AND value_before IS NULL AND value_after IS NULL
+		 AND expires_at IS NULL AND committed_at = reported_at AND reserve_response IS NULL AND commit_response IS NOT NULL
+		 AND input_tokens IS NULL AND output_tokens IS NULL AND units IS NULL AND duration_ms IS NULL,
+		credits_computed::text, credits_charged::text, license_id
+		FROM ai_inference WHERE entitlement_id=$1 AND transaction_id='never-reserved'`, pool.ID).Scan(
+		&tombstone.count, &tombstone.status, &tombstone.modelRef, &tombstone.requestType, &tombstone.requestStatus, &tombstone.warnings,
+		&tombstone.authorized, &tombstone.hashes, &tombstone.neutral, &tombstone.computed, &tombstone.charged, &tombstone.licenseID))
+	require.Equal(t, 1, tombstone.count)
+	require.Equal(t, "RELEASED", tombstone.status)
+	require.Empty(t, tombstone.modelRef, "no model was sent")
+	require.Equal(t, "COMPLETION", tombstone.requestType, "the column is NOT NULL: the placeholder of a tombstone that named none")
+	require.Equal(t, "NOT_SENT", tombstone.requestStatus)
+	require.Equal(t, "{NO_RESERVATION}", tombstone.warnings)
+	require.True(t, tombstone.authorized, "nothing was refused: a tombstone is not an unauthorized use")
+	require.True(t, tombstone.hashes)
+	require.True(t, tombstone.neutral)
+	require.Equal(t, "0.000000", tombstone.computed)
+	require.Equal(t, "0.000000", tombstone.charged)
+	require.Equal(t, instance.LicenseID, tombstone.licenseID)
+
+	// Nothing was counted: no journal row, no sequence number, no usage event
+	// and no unauthorized-model event. The stale window alone was rolled over.
+	require.Equal(t, seqBefore, counterReportSeq(t, instance.ID, pool.ID))
+	require.Equal(t, journalBefore, ledgerRows(t, instance.ID, pool.ID))
+	eventsAfter := eventNames()
+	require.Equal(t, eventsBefore["INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER"]+1, eventsAfter["INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER"])
+	delete(eventsAfter, "INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER")
+	delete(eventsBefore, "INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER")
+	require.Equal(t, eventsBefore, eventsAfter)
+
+	// The same release again is a replay: the stored answer, nothing written.
+	counterBefore, operationsBefore, settledEvents := counter(), operations(), eventNames()
+	replay := aiReport(t, instance.Slug, pool.Slug, release)
+	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
+	require.Equal(t, released, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
+
+	// The race the tombstone closes: the reserve that was still in flight
+	// lands after the release. It is refused like on any closed operation,
+	// and holds nothing.
+	late := aiUsageBody("reserve", "never-reserved", 3)
+	problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, late), http.StatusConflict)
+	require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
+	// A commit with usage under the id, and a release with another body, are
+	// another body under a settled transactionId, as on any RELEASED operation.
 	commit := aiUsageBody("commit", "never-reserved", 2)
 	commit["model"], commit["requestType"] = "lifecycle-model", "COMPLETION"
-	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusOK)
-	require.Equal(t, "2", *charged.AI.Credits.Charged)
+	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusConflict)
+	require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
+	other := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved", "requestStatus": "NOT_SENT", "model": "lifecycle-model", "requestType": "COMPLETION"}
+	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, other), http.StatusConflict)
+	require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
+	require.Equal(t, counterBefore, counter())
+	require.Equal(t, operationsBefore, operations(), "no RESERVED row, and the tombstone untouched")
+	require.Equal(t, settledEvents, eventNames(), "a replay and three conflicts emit nothing")
+	gauge := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiRead(t, instance.Slug, pool.Slug, ""), http.StatusOK)
+	require.Equal(t, "4", *gauge.Reserved)
 
-	// A pair nothing grants still answers 404, and a pool that is not a
-	// credit pool still refuses AI usage.
+	// A model the catalogue does not know is kept as sent and never looked
+	// up: no unauthorized use is recorded for it, today or later.
+	withModel := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved-either", "requestStatus": "NOT_SENT", "model": "missing-model", "requestType": "EMBEDDING"}
+	named := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, withModel), http.StatusOK)
+	require.Equal(t, []string{instanceschema.AiWarningNoReservation}, named.AI.Warnings)
+	require.Nil(t, named.AI.Authorized)
+	var modelRef, requestType string
+	var authorized, unresolved bool
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT model_ref, request_type::text, authorized, model_id IS NULL AND denial_reason IS NULL FROM ai_inference WHERE entitlement_id=$1 AND transaction_id='never-reserved-either'`, pool.ID).Scan(&modelRef, &requestType, &authorized, &unresolved))
+	require.Equal(t, "missing-model", modelRef)
+	require.Equal(t, "EMBEDDING", requestType)
+	require.True(t, authorized)
+	require.True(t, unresolved)
+	require.Zero(t, eventNames()["INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED"])
+
+	// Tombstones are markers, not operations: both listings leave them out
+	// unless RELEASED rows or one transactionId are asked for.
+	require.Equal(t, []string{"held"}, transactionIDs(historyPage(t, instance.Slug, pool.Slug, url.Values{}).Items))
+	require.Empty(t, historyPage(t, instance.Slug, pool.Slug, url.Values{"model": {"missing-model"}}).Items)
+	require.ElementsMatch(t, []string{"never-reserved", "never-reserved-either"}, transactionIDs(historyPage(t, instance.Slug, pool.Slug, url.Values{"status": {"RELEASED"}}).Items))
+	byID := historyPage(t, instance.Slug, pool.Slug, url.Values{"transactionId": {"never-reserved"}})
+	require.Equal(t, []string{"never-reserved"}, transactionIDs(byID.Items))
+	require.Equal(t, "RELEASED", byID.Items[0].Status)
+	require.Equal(t, []string{instanceschema.AiWarningNoReservation}, byID.Items[0].Warnings)
+	require.Nil(t, byID.Items[0].Pricing)
+	require.Nil(t, byID.Items[0].VendorCost)
+	require.Nil(t, byID.Items[0].ReportSeq)
+	require.Equal(t, instance.LicenseSlug, *byID.Items[0].LicenseSlug)
+	require.Equal(t, []string{"held"}, organizationTransactionIDs(organizationPage(t, nil, url.Values{}).Items))
+	require.ElementsMatch(t, []string{"never-reserved", "never-reserved-either"}, organizationTransactionIDs(organizationPage(t, nil, url.Values{"status": {"RELEASED"}}).Items))
+	require.Equal(t, []string{"never-reserved-either"}, organizationTransactionIDs(organizationPage(t, nil, url.Values{"transactionId": {"never-reserved-either"}}).Items))
+	// A release that did close a reservation is an ordinary RELEASED row.
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "held", "requestStatus": "NOT_SENT"}), http.StatusOK)
+	require.Equal(t, []string{"held"}, transactionIDs(historyPage(t, instance.Slug, pool.Slug, url.Values{}).Items))
+
+	// A pair nothing grants still answers 404 and leaves no tombstone, and a
+	// pool that is not a credit pool still refuses AI usage.
 	ungranted := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 0)
-	problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, ungranted.Slug, release), http.StatusNotFound)
+	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, ungranted.Slug, release), http.StatusNotFound)
 	require.Equal(t, "ReportEntitlementUsageMetric.ContextNotFound", problem.Code)
+	var orphans int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM ai_inference WHERE entitlement_id=$1`, ungranted.ID).Scan(&orphans))
+	require.Zero(t, orphans)
 }
 
 func TestAIStaleWindowReplayWritesNoCounterOperationOrOutbox(t *testing.T) {

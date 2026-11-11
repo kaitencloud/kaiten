@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
@@ -83,25 +84,76 @@ func TestAICounterOverflowStillFailsTheCommit(t *testing.T) {
 	}
 }
 
-func TestAIReleaseWithoutReservationPlansNoWrite(t *testing.T) {
+// A release of what was never reserved closes its transactionId with a
+// tombstone and nothing else: no model or rule is resolved, no counter moves
+// beyond the rollover every phase persists, and no usage or unauthorized
+// event is emitted, whatever model the release names.
+func TestAIReleaseWithoutReservationPlansATombstone(t *testing.T) {
 	start := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
-	// A stale window, an unknown model and no rule: none of them may turn a
-	// release of nothing into a counter write, a row or an event.
-	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":10}`)}, Now: start.AddDate(0, 0, 3), Limit: usage.Limit{Threshold: 10}, AggregationMethod: "SUM", Reserved: decimal.NewFromInt(4), Resolution: usage.Resolution{Window: usage.Window{Start: &start}, Closures: []usage.Closure{{Value: 9, NewPeriodStart: start}}}}
-	status := aicredit.NotSent
-	effect, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "never-reserved", RequestStatus: &status}})
-	if err != nil {
-		t.Fatal(err)
+	license, hash := uuid.New(), make([]byte, 32)
+	status, embedding := aicredit.NotSent, aicredit.Embedding
+	state := func(stale bool) *State {
+		st := &State{OrganizationID: uuid.New(), Pair: &UsageContext{InstanceID: uuid.New(), EntitlementID: uuid.New(), LicenseID: license, EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":10}`)}, Now: start.AddDate(0, 0, 3), Limit: usage.Limit{Threshold: 10}, AggregationMethod: "SUM", Reserved: decimal.NewFromInt(4), AIHash: hash, Resolution: usage.Resolution{Window: usage.Window{Start: &start}}}
+		if stale {
+			st.Resolution.Closures = []usage.Closure{{Value: 9, NewPeriodStart: start}}
+		}
+		return st
 	}
-	if effect.AIRow != nil || effect.Counter != nil || len(effect.Events) != 0 || effect.Accepted || effect.Refusal != nil {
-		t.Fatalf("a release of nothing must plan no write: %+v", effect)
-	}
-	ai := effect.Response.AI
-	if ai.Status != "RELEASED" || *ai.Credits.Charged != "0" || ai.Authorized != nil || len(ai.Warnings) != 1 || ai.Warnings[0] != schema.AiWarningNoReservation {
-		t.Fatalf("unexpected outcome: %+v", ai)
-	}
-	if *effect.Response.Reserved != "4" || *ai.Remaining != "6" {
-		t.Fatalf("unexpected gauge: reserved=%s remaining=%s", *effect.Response.Reserved, *ai.Remaining)
+	for _, tc := range []struct {
+		name            string
+		stale           bool
+		modelRef        string
+		requestType     aicredit.RequestType
+		wantRequestType db.AiRequestType
+	}{
+		{"nothing named", false, "", "", tombstoneRequestType},
+		{"model and request type as sent, never looked up", false, "missing-model", embedding, db.AiRequestTypeEMBEDDING},
+		{"a stale window is rolled over, as on every phase", true, "", "", tombstoneRequestType},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := state(tc.stale)
+			st.AIModelRef, st.AIRequestType = tc.modelRef, tc.requestType
+			effect, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "never-reserved", RequestStatus: &status}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if effect.Accepted || effect.Refusal != nil || effect.AIUpdate || effect.AIPhase != "commit" {
+				t.Fatalf("a tombstone is an insert that counts nothing: %+v", effect)
+			}
+			if tc.stale {
+				if effect.Counter == nil || effect.Counter.Value != 0 || len(effect.Events) != 1 || effect.Events[0].Metadata.Name != events.InstanceEntitlementUsagePeriodRolledOver.Name {
+					t.Fatalf("the rollover is persisted and nothing else: counter=%+v events=%+v", effect.Counter, effect.Events)
+				}
+			} else if effect.Counter != nil || len(effect.Events) != 0 {
+				t.Fatalf("no counter write and no event: counter=%+v events=%+v", effect.Counter, effect.Events)
+			}
+			row := effect.AIRow
+			if row == nil || row.Status != db.AiInferenceStatusRELEASED || row.TransactionID != "never-reserved" || row.OrganizationID != st.OrganizationID || row.InstanceID != st.Pair.InstanceID || row.EntitlementID != st.Pair.EntitlementID {
+				t.Fatalf("tombstone identity: %+v", row)
+			}
+			if string(row.RequestHash) != string(hash) || string(row.CommitHash) != string(hash) || !row.CommittedAt.Valid || !row.ReportedAt.Valid || row.ExpiresAt.Valid {
+				t.Fatalf("tombstone replay evidence: %+v", row)
+			}
+			if row.ModelRef != tc.modelRef || row.RequestType != tc.wantRequestType || row.ModelID != nil || row.CreditConversionRuleID != nil || row.Pricing != nil {
+				t.Fatalf("nothing is resolved: %+v", row)
+			}
+			if row.RequestStatus == nil || *row.RequestStatus != db.AiRequestStatus(aicredit.NotSent) || row.Authorized == nil || !*row.Authorized || row.DenialReason != nil {
+				t.Fatalf("a tombstone is not an unauthorized use: %+v", row)
+			}
+			if got := decimalOf(row.CreditsCharged); got == nil || !got.IsZero() || !decimalOf(row.CreditsComputed).IsZero() || row.CreditsReserved.Valid || row.ValueBefore != nil || row.ValueAfter != nil || row.ReportSeq != nil || row.VendorCostReported.Valid || row.VendorCostComputed.Valid {
+				t.Fatalf("zero credits, no counter snapshot, no journal link, no vendor cost: %+v", row)
+			}
+			if row.LicenseID == nil || *row.LicenseID != license || !slices.Equal(row.Warnings, []string{schema.AiWarningNoReservation}) {
+				t.Fatalf("licence and warning: %+v", row)
+			}
+			ai := effect.Response.AI
+			if ai.Status != "RELEASED" || *ai.Credits.Charged != "0" || *ai.Credits.Computed != "0" || ai.Credits.Reserved != nil || ai.Authorized != nil || ai.Rule != nil || !slices.Equal(ai.Warnings, []string{schema.AiWarningNoReservation}) {
+				t.Fatalf("unexpected outcome: %+v", ai)
+			}
+			if *effect.Response.Reserved != "4" || *ai.Remaining != "6" {
+				t.Fatalf("unexpected gauge: reserved=%s remaining=%s", *effect.Response.Reserved, *ai.Remaining)
+			}
+		})
 	}
 }
 

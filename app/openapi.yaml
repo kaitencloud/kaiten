@@ -26050,20 +26050,24 @@ paths:
           schema:
             format: date-time
             type: string
-        - explode: false
+        - description: Only the operations in this status. A release that closed no reservation (RELEASED with the NO_RESERVATION warning) is listed only when status is RELEASED or transactionId is given.
+          explode: false
           in: query
           name: status
           schema:
+            description: Only the operations in this status. A release that closed no reservation (RELEASED with the NO_RESERVATION warning) is listed only when status is RELEASED or transactionId is given.
             enum:
               - RESERVED
               - COMMITTED
               - RELEASED
               - EXPIRED
             type: string
-        - explode: false
+        - description: Only the operation reported under this identifier, a release that closed no reservation included.
+          explode: false
           in: query
           name: transactionId
           schema:
+            description: Only the operation reported under this identifier, a release that closed no reservation included.
             maxLength: 128
             type: string
         - description: Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither.
@@ -34335,20 +34339,24 @@ paths:
             description: Only this credit pool's operations. A slug the organization does not have matches nothing.
             maxLength: 255
             type: string
-        - explode: false
+        - description: Only the operations in this status. A release that closed no reservation (RELEASED with the NO_RESERVATION warning) is listed only when status is RELEASED or transactionId is given.
+          explode: false
           in: query
           name: status
           schema:
+            description: Only the operations in this status. A release that closed no reservation (RELEASED with the NO_RESERVATION warning) is listed only when status is RELEASED or transactionId is given.
             enum:
               - RESERVED
               - COMMITTED
               - RELEASED
               - EXPIRED
             type: string
-        - explode: false
+        - description: Only the operation reported under this identifier, a release that closed no reservation included.
+          explode: false
           in: query
           name: transactionId
           schema:
+            description: Only the operation reported under this identifier, a release that closed no reservation included.
             maxLength: 128
             type: string
         - description: Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither.

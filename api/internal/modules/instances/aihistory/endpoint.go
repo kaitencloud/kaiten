@@ -25,8 +25,8 @@ type InferenceRequest struct {
 	EntitlementSlug string    `path:"entitlementSlug"`
 	From            time.Time `query:"from"`
 	To              time.Time `query:"to"`
-	Status          string    `query:"status" enum:"RESERVED,COMMITTED,RELEASED,EXPIRED"`
-	TransactionID   string    `query:"transactionId" maxLength:"128"`
+	Status          string    `query:"status" enum:"RESERVED,COMMITTED,RELEASED,EXPIRED" doc:"Only the operations in this status. A release that closed no reservation (RELEASED with the NO_RESERVATION warning) is listed only when status is RELEASED or transactionId is given."`
+	TransactionID   string    `query:"transactionId" maxLength:"128" doc:"Only the operation reported under this identifier, a release that closed no reservation included."`
 	Authorized      string    `query:"authorized" enum:"true,false" doc:"Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither."`
 	ModelSlug       string    `query:"modelSlug" maxLength:"255" doc:"Only the operations that resolved to this catalogue model."`
 	Model           string    `query:"model" maxLength:"255" doc:"Only the operations whose model, as sent, is exactly this one. Finds models the catalogue does not know."`
