@@ -25,6 +25,7 @@ type BillingCapabilities struct {
 	UsageHistoryRetentionSource string            `json:"usageHistoryRetentionSource" enum:"KBK,ENV,UNKNOWN" doc:"Where the retention comes from: KBK, the organization's licence or an add-on; ENV, the deployment's KAITEN_USAGE_LEDGER_RETENTION_MONTHS; UNKNOWN, the licensing authority could not tell. A null usageHistoryRetentionMonths reads as kept forever with KBK or ENV, and as unknown with UNKNOWN (V31-11)."`
 	UsageIdempotencyWindowDays  int               `json:"usageIdempotencyWindowDays" doc:"How long a usage report's transactionId is remembered, in days"`
 	Features                    BillingFeatures   `json:"features" doc:"Which shipped billing capabilities this organization may use"`
+	FeatureCheckUnavailable     []string          `json:"featureCheckUnavailable,omitempty" nullable:"false" doc:"Capabilities whose plan grant is temporarily unknown; their feature flag stays false, but clients can retry instead of treating it as a known denial"`
 }
 
 // BillingProvider is one way of collecting invoices.
@@ -131,7 +132,7 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		UsageHistoryRetentionSource: "UNKNOWN",
 		UsageIdempotencyWindowDays:  int(u.idempotencyWindow / (24 * time.Hour)),
 		Features: BillingFeatures{
-			Stripe: true, Lifecycle: true, Trials: true, Addons: true, Vouchers: true,
+			Stripe: true, Lifecycle: true, Trials: true,
 			ChargeAutomatically: true, PublicSurface: true,
 		},
 	}
@@ -147,8 +148,21 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		}
 		out.Enabled, out.DisabledReason, out.PublicSurface.Enabled = false, &reason, false
 	}
-	out.Features.Vouchers = out.Enabled && u.deps.Gate.GrantedEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug)
-	out.Features.Addons = out.Enabled && u.deps.Gate.GrantedEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug)
+	if out.Enabled {
+		for _, feature := range []struct {
+			slug string
+			flag *bool
+		}{
+			{dogfooding.VouchersEntitlementSlug, &out.Features.Vouchers},
+			{dogfooding.AddonsEntitlementSlug, &out.Features.Addons},
+		} {
+			granted, err := u.deps.Gate.CheckEntitlement(ctx, user.OrganizationID, feature.slug)
+			*feature.flag = err == nil && granted
+			if err != nil {
+				out.FeatureCheckUnavailable = append(out.FeatureCheckUnavailable, feature.slug)
+			}
+		}
+	}
 	months, source := u.deps.Usage.RetentionWindow(ctx, user.OrganizationID)
 	out.UsageHistoryRetentionSource = source
 	if months > 0 {

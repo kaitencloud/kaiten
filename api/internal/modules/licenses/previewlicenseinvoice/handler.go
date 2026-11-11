@@ -16,7 +16,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
-	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "PreviewLicenseInvoice"
@@ -71,19 +70,12 @@ type meter struct {
 //   - the voucher's discount, as a redemption would apply it, consuming
 //     nothing.
 func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scenario) (*rating.InvoicePreview, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if scenario.VoucherCode != nil {
-		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
-			return nil, err
-		}
-	}
-	if len(scenario.AddOns) > 0 {
-		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
-			return nil, err
-		}
+	if err := u.deps.Gate.RequireSelection(ctx, user.OrganizationID, scenario.VoucherCode != nil, len(scenario.AddOns) > 0); err != nil {
+		return nil, err
 	}
 	samples, err := parseSamples(scenario.SampleUsage)
 	if err != nil {

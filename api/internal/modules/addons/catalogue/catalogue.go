@@ -59,15 +59,6 @@ func (d Deps) Writer(ctx context.Context) (*currentuser.User, error) {
 	return user, nil
 }
 
-// RequireIncrease protects new units, not decreases, removals or unchanged
-// quantities on attachments an organization already holds after a downgrade.
-func (d Deps) RequireIncrease(ctx context.Context, organizationID uuid.UUID, current, quantity int32) error {
-	if quantity <= current {
-		return nil
-	}
-	return d.Gate.RequireEntitlement(ctx, organizationID, dogfooding.AddonsEntitlementSlug, "Addons")
-}
-
 // Queries binds to the transaction ctx carries, or the pool.
 func (d Deps) Queries(ctx context.Context) *db.Queries {
 	return db.New(d.Uof.DBTX(ctx))

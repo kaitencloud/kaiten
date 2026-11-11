@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 type UseCase struct {
@@ -31,7 +32,7 @@ type Command struct {
 // how a mid-period increase of its ADVANCE add-ons is billed (V31-70). A
 // change is recorded as ADDON_UPDATED on each of the family's versions.
 func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (*catalogue.AddonFamily, error) {
-	user, err := u.deps.Writer(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -39,6 +40,7 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (
 	if err != nil {
 		return nil, err
 	}
+	writePermission := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
 	var family catalogue.AddonFamily
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -48,6 +50,9 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (
 		}
 		if err != nil {
 			return err
+		}
+		if writePermission != nil && !onlyMakePrivate(before.IsPublic, string(before.IncreaseBilling), cmd) {
+			return writePermission
 		}
 		row, err := q.UpdateAddonFamilySettings(ctx, db.UpdateAddonFamilySettingsParams{
 			IsPublic: cmd.IsPublic, IncreaseBilling: increase, OrganizationID: user.OrganizationID, Slug: familySlug,

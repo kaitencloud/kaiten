@@ -360,8 +360,7 @@ func dueToday(preview *subscribeinstance.StartedSubscription, currency string) D
 		return due
 	}
 	shown := sessions.InvoiceFrom(*preview.Preview)
-	due.Currency, due.Subtotal, due.DiscountTotal, due.Total, due.Lines =
-		shown.Currency, shown.Subtotal, shown.DiscountTotal, shown.Total, shown.Lines
+	due.Currency, due.Subtotal, due.DiscountTotal, due.Total, due.Lines = shown.Currency, shown.Subtotal, shown.DiscountTotal, shown.Total, shown.Lines
 	return due
 }
 
@@ -394,7 +393,7 @@ func translate(err error) error {
 	case "SubscribeInstance.AlreadySubscribed":
 		return kaitenerrors.Conflict(operation+".AlreadySubscribed",
 			"this instance already has a live subscription that is not free; a plan change is made by the vendor")
-	case "SubscribeInstance.VoucherInvalid":
+	case "SubscribeInstance.VoucherInvalid", "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
 		// Opaque on purpose (rule 7): why a code is refused is not the browser's
 		// to learn, one code at a time.
 		return kaitenerrors.UnprocessableEntity(operation+".VoucherInvalid", "this voucher cannot be applied")

@@ -48,7 +48,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
-	entitlementslugs "github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "ConfirmCheckoutSession"
@@ -57,18 +56,8 @@ const operation = "ConfirmCheckoutSession"
 // creation. An already accepted AWAITING_PAYMENT selection does not pass here:
 // settling what its ACTIVATION payment bought remains grandfathered.
 func (u *UseCase) requireSelection(ctx context.Context, organizationID uuid.UUID, selection checkout.Selection) error {
-	if err := u.deps.Gate.Require(ctx, organizationID); err != nil {
-		return err
-	}
-	if selection.Voucher != nil {
-		if err := u.deps.Gate.RequireEntitlement(ctx, organizationID, entitlementslugs.VouchersEntitlementSlug, "Vouchers"); err != nil {
-			return err
-		}
-	}
-	if len(selection.AddOns) > 0 {
-		return u.deps.Gate.RequireEntitlement(ctx, organizationID, entitlementslugs.AddonsEntitlementSlug, "Addons")
-	}
-	return nil
+	return createcheckoutsession.PublicVoucherError(operation,
+		u.deps.Gate.RequireSelection(ctx, organizationID, selection.Voucher != nil, len(selection.AddOns) > 0))
 }
 
 // licenceHorizon is the end date a Tier 2 instance is created with: the spec
@@ -611,7 +600,7 @@ func translate(err error) error {
 		return err
 	}
 	switch refusal.Code {
-	case "SubscribeInstance.VoucherInvalid":
+	case "SubscribeInstance.VoucherInvalid", "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
 		// Opaque, as at the start (§14.8): why a code is refused is not the
 		// visitor's to learn.
 		return createcheckoutsession.VoucherInvalid(operation)

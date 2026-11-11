@@ -13,12 +13,17 @@ The first implementation slice of
 `Vouchers.NotEntitled` or `Addons.NotEntitled`. If the licensing authority
 cannot answer and no usable cached answer exists, the operation answers 503
 `Vouchers.EntitlementCheckUnavailable` or `Addons.EntitlementCheckUnavailable`.
-The billing gate's own refusal always precedes a capability refusal.
+The billing gate's own refusal always precedes a capability refusal. Public
+voucher boundaries preserve the opaque `422 <operation>.VoucherInvalid` contract
+for voucher-specific grant refusals; vendor/Core callers retain the detailed
+403/503 codes.
 
 Answers are cached per organization **and slug**, with the billing cache TTL.
 During an outage a known answer stands for at most 24 TTLs. A display-only
-capabilities read hides a feature whose grant is denied or unknown; it does
-not turn an unknown grant into permission to write. `features.vouchers` and
+capabilities read keeps a feature false when its grant is denied or unknown.
+Unknown grants also appear in `featureCheckUnavailable`, so clients can retry
+without confusing an outage with a known denial or losing baseline read access.
+It does not turn an unknown grant into permission to write. `features.vouchers` and
 `features.addons` are false when billing itself is unavailable for the
 organization. The existing console route/navigation guards consume those flags.
 
@@ -31,8 +36,9 @@ organization. The existing console route/navigation guards consume those flags.
   catalogue read of an existing redemption.
 - Attaching an add-on and increasing the quantity of an existing attachment.
 - Explicit `voucherCode` / `addOns` in a subscription or invoice preview.
-- Anonymous checkout creation (dry runs included), before Turnstile or session
-  writes, and confirmation of an OPEN checkout, before provider setup/adoption
+- Anonymous checkout creation (dry runs included), after key configuration and
+  checkout-specific limits but before Turnstile or session writes, and
+  confirmation of an OPEN checkout, before provider setup/adoption
   or customer/instance creation. Customer checkout's subscription preflight
   likewise precedes payment-method and billing-email changes.
 
@@ -43,7 +49,11 @@ attachments are not revoked or stopped by losing a grant. Catalogue reads
 (including GraphQL), redemption/attachment history, retirement operations
 (archive/delete/revoke/deprecate/remove/unassign), quantity decreases, removal
 and no-op quantities remain billing-only. A scheduled decrease may still be
-replaced or cancelled without increasing the currently held quantity.
+replaced or cancelled without increasing the currently held quantity. Purely
+clearing an add-on version's default flag or hiding a public family is also
+allowed: these are prerequisites for retirement, not catalogue expansion.
+Quantity writes prefetch the grant before taking row locks, then use the locked
+current quantity to decide whether that result applies.
 
 Existing billing readers and maintenance still apply previously granted
 discounts, boosts and add-ons. Shared activation pricing also remains readable

@@ -809,6 +809,11 @@ components:
         enabled:
           description: Whether the billing routes answer for this organization
           type: boolean
+        featureCheckUnavailable:
+          description: Capabilities whose plan grant is temporarily unknown; their feature flag stays false, but clients can retry instead of treating it as a known denial
+          items:
+            type: string
+          type: array
         features:
           $ref: "#/components/schemas/BillingFeatures"
           description: Which shipped billing capabilities this organization may use

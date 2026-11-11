@@ -40,7 +40,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/random"
 	"github.com/kaitencloud/kaiten/api/internal/shared/token"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
-	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "CreateCheckoutSession"
@@ -85,21 +84,21 @@ type Start struct {
 	RemoteIP         string
 }
 
+// authorizeStart follows key authentication/configuration and consumes the
+// stricter checkout buckets before asking licensing or Turnstile.
+func (u *UseCase) authorizeStart(ctx context.Context, start Start, draft checkout.CheckoutSessionDraft, anonymousEnabled bool) error {
+	if !anonymousEnabled {
+		return disabled()
+	}
+	if err := u.deps.Limits.Take(ctx, operation, start.PublishableKeyID, start.RemoteIP); err != nil {
+		return err
+	}
+	return PublicVoucherError(operation,
+		u.deps.Gate.RequireSelection(ctx, start.OrganizationID, draft.VoucherCode != nil, len(draft.AddOns) > 0))
+}
+
 // Execute starts a checkout, or previews one with dryRun.
 func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.CheckoutSessionDraft) (*checkout.CheckoutSessionStart, error) {
-	if err := u.deps.Gate.Require(ctx, start.OrganizationID); err != nil {
-		return nil, err
-	}
-	if draft.VoucherCode != nil {
-		if err := u.deps.Gate.RequireEntitlement(ctx, start.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
-			return nil, err
-		}
-	}
-	if len(draft.AddOns) > 0 {
-		if err := u.deps.Gate.RequireEntitlement(ctx, start.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
-			return nil, err
-		}
-	}
 	q := db.New(u.deps.Uof.DBTX(ctx))
 	key, err := q.GetPublishableKeyCheckout(ctx, db.GetPublishableKeyCheckoutParams{OrganizationID: start.OrganizationID, ID: start.PublishableKeyID})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -108,10 +107,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 	if err != nil {
 		return nil, err
 	}
-	if !key.AnonymousCheckout {
-		return nil, disabled()
-	}
-	if err := u.deps.Limits.Take(ctx, operation, start.PublishableKeyID, start.RemoteIP); err != nil {
+	if err := u.authorizeStart(ctx, start, draft, key.AnonymousCheckout); err != nil {
 		return nil, err
 	}
 	if err := u.verifyTurnstile(ctx, start, key, draft.TurnstileToken); err != nil {

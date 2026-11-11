@@ -86,6 +86,26 @@ func (g Gate) RequireEntitlement(ctx context.Context, organizationID uuid.UUID, 
 	if err := g.Require(ctx, organizationID); err != nil {
 		return err
 	}
+	return g.requireEntitlement(ctx, organizationID, slug, namespace)
+}
+
+// RequireSelection checks billing once, then only the new uses selected.
+func (g Gate) RequireSelection(ctx context.Context, organizationID uuid.UUID, hasVoucher, hasAddons bool) error {
+	if err := g.Require(ctx, organizationID); err != nil {
+		return err
+	}
+	if hasVoucher {
+		if err := g.requireEntitlement(ctx, organizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
+			return err
+		}
+	}
+	if hasAddons {
+		return g.requireEntitlement(ctx, organizationID, dogfooding.AddonsEntitlementSlug, "Addons")
+	}
+	return nil
+}
+
+func (g Gate) requireEntitlement(ctx context.Context, organizationID uuid.UUID, slug, namespace string) error {
 	granted, err := g.entitled(ctx, organizationID, slug)
 	if err != nil {
 		return apierrors.Unavailable(namespace+".EntitlementCheckUnavailable",
@@ -97,11 +117,11 @@ func (g Gate) RequireEntitlement(ctx context.Context, organizationID uuid.UUID, 
 	return nil
 }
 
-// GrantedEntitlement is the display-only answer: unknown reads false, while a
-// previously known answer follows the same TTL and staleness rules as a gate.
-func (g Gate) GrantedEntitlement(ctx context.Context, organizationID uuid.UUID, slug string) bool {
+// CheckEntitlement preserves an unknown answer for display. Known answers
+// follow the same TTL and bounded staleness policy as write authorization.
+func (g Gate) CheckEntitlement(ctx context.Context, organizationID uuid.UUID, slug string) (bool, error) {
 	granted, err := g.entitled(ctx, organizationID, slug)
-	return err == nil && granted
+	return err == nil && granted, err
 }
 
 // entitled asks the licensing authority, or answers what it said last.

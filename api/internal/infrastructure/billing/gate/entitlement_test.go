@@ -39,7 +39,9 @@ func TestRequireEntitlement(t *testing.T) {
 			require.NoError(t, g.RequireEntitlement(t.Context(), org, feature.slug, feature.namespace))
 			source.failures[feature.slug] = errors.New("KbK unavailable")
 			require.Equal(t, feature.namespace+".EntitlementCheckUnavailable", apierrors.GetCode(g.RequireEntitlement(t.Context(), org, feature.slug, feature.namespace)))
-			require.False(t, g.GrantedEntitlement(t.Context(), org, feature.slug))
+			granted, err := g.CheckEntitlement(t.Context(), org, feature.slug)
+			require.Error(t, err)
+			require.False(t, granted)
 			require.NoError(t, New(true, nil).RequireEntitlement(t.Context(), org, feature.slug, feature.namespace), "self-hosted is always entitled")
 			require.Equal(t, CodeDisabled, apierrors.GetCode(New(false, source).RequireEntitlement(t.Context(), org, feature.slug, feature.namespace)))
 			source.grants[dogfooding.BillingEntitlementSlug] = false
@@ -61,13 +63,35 @@ func TestCapabilityCacheSeparatesSlugsAndOrganizations(t *testing.T) {
 	require.NoError(t, g.RequireEntitlement(t.Context(), org, dogfooding.AddonsEntitlementSlug, "Addons"))
 	require.Equal(t, []string{dogfooding.BillingEntitlementSlug, dogfooding.VouchersEntitlementSlug, dogfooding.AddonsEntitlementSlug}, source.asks)
 	source.grants[dogfooding.AddonsEntitlementSlug] = false
-	require.True(t, g.GrantedEntitlement(t.Context(), org, dogfooding.AddonsEntitlementSlug), "fresh answer is trusted")
-	require.False(t, g.GrantedEntitlement(t.Context(), uuid.New(), dogfooding.AddonsEntitlementSlug), "another organization has its own answer")
+	require.True(t, knownCapability(t, g, org, dogfooding.AddonsEntitlementSlug), "fresh answer is trusted")
+	require.False(t, knownCapability(t, g, uuid.New(), dogfooding.AddonsEntitlementSlug), "another organization has its own answer")
 	now = now.Add(2 * time.Minute)
 	source.failures[dogfooding.AddonsEntitlementSlug] = errors.New("KbK unavailable")
-	require.True(t, g.GrantedEntitlement(t.Context(), org, dogfooding.AddonsEntitlementSlug), "last known grant survives an outage")
+	require.True(t, knownCapability(t, g, org, dogfooding.AddonsEntitlementSlug), "last known grant survives an outage")
 	require.NoError(t, g.RequireEntitlement(t.Context(), org, dogfooding.AddonsEntitlementSlug, "Addons"))
 	now = now.Add(25 * time.Minute)
-	require.False(t, g.GrantedEntitlement(t.Context(), org, dogfooding.AddonsEntitlementSlug), "expired stale answer is not a grant")
+	granted, err := g.CheckEntitlement(t.Context(), org, dogfooding.AddonsEntitlementSlug)
+	require.Error(t, err, "expired stale answer is unknown, not a known denial")
+	require.False(t, granted)
 	require.Equal(t, "Addons.EntitlementCheckUnavailable", apierrors.GetCode(g.RequireEntitlement(t.Context(), org, dogfooding.AddonsEntitlementSlug, "Addons")))
+}
+
+func knownCapability(t *testing.T, g Gate, org uuid.UUID, slug string) bool {
+	t.Helper()
+	granted, err := g.CheckEntitlement(t.Context(), org, slug)
+	require.NoError(t, err)
+	return granted
+}
+
+func TestRequireSelectionChecksBillingOnceWithoutCache(t *testing.T) {
+	source := &capabilityEntitlements{grants: map[string]bool{
+		dogfooding.BillingEntitlementSlug: true, dogfooding.VouchersEntitlementSlug: true, dogfooding.AddonsEntitlementSlug: true,
+	}}
+	g := New(true, source)
+	require.NoError(t, g.RequireSelection(t.Context(), uuid.New(), true, true))
+	require.Equal(t, []string{dogfooding.BillingEntitlementSlug, dogfooding.VouchersEntitlementSlug, dogfooding.AddonsEntitlementSlug}, source.asks)
+	source.asks = nil
+	source.grants[dogfooding.BillingEntitlementSlug] = false
+	require.Equal(t, CodeNotEntitled, apierrors.GetCode(g.RequireSelection(t.Context(), uuid.New(), true, true)))
+	require.Equal(t, []string{dogfooding.BillingEntitlementSlug}, source.asks)
 }

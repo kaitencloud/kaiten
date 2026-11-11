@@ -37,9 +37,9 @@ func TestOpenCheckoutSelectionRequiresCurrentGrants(t *testing.T) {
 		wantStatus  int
 	}{
 		{"base plan only", checkout.Selection{}, false, "", "", 0},
-		{"voucher lost since start", checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}}, false, "", "Vouchers.NotEntitled", http.StatusForbidden},
+		{"voucher lost since start", checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}}, false, "", operation + ".VoucherInvalid", http.StatusUnprocessableEntity},
 		{"addon lost since start", checkout.Selection{AddOns: []checkout.SelectedAddon{{AddonSlug: "extra"}}}, false, "", "Addons.NotEntitled", http.StatusForbidden},
-		{"voucher authority unknown", checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}}, true, dogfooding.VouchersEntitlementSlug, "Vouchers.EntitlementCheckUnavailable", http.StatusServiceUnavailable},
+		{"voucher authority unknown", checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}}, true, dogfooding.VouchersEntitlementSlug, operation + ".VoucherInvalid", http.StatusUnprocessableEntity},
 		{"addon authority unknown", checkout.Selection{AddOns: []checkout.SelectedAddon{{AddonSlug: "extra"}}}, true, dogfooding.AddonsEntitlementSlug, "Addons.EntitlementCheckUnavailable", http.StatusServiceUnavailable},
 		{"growth selection", checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}, AddOns: []checkout.SelectedAddon{{AddonSlug: "extra"}}}, true, "", "", 0},
 	} {

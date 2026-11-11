@@ -146,7 +146,12 @@ func (u *UseCase) Execute(ctx context.Context, check VoucherCheck) (*Validity, e
 func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Voucher, error) {
 	user, err := u.deps.Writer(ctx)
 	if err != nil {
-		return nil, err
+		switch kaitenerrors.GetCode(err) {
+		case "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
+			return nil, nil
+		default:
+			return nil, err
+		}
 	}
 	if err := u.limitSession(ctx, check.SessionID, check.CustomerID); err != nil {
 		return nil, err
@@ -219,7 +224,12 @@ type VisitorCheck struct {
 // limits bound the attempts (§14.8).
 func (u *UseCase) Visitor(ctx context.Context, check VisitorCheck) (*catalogue.Voucher, error) {
 	if err := u.deps.Gate.RequireEntitlement(ctx, check.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
-		return nil, err
+		switch kaitenerrors.GetCode(err) {
+		case "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
+			return nil, nil
+		default:
+			return nil, err
+		}
 	}
 	q := u.deps.Queries(ctx)
 	subject := catalogue.Subject{CustomerID: nil, Instance: nil, Plan: nil, Visitor: &catalogue.Visitor{AddonIDs: check.AddonIDs}}

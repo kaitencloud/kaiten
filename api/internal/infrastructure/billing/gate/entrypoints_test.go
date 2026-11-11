@@ -21,8 +21,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
-	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/checkout"
-	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
 	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/createvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/publishvoucher"
@@ -62,10 +60,6 @@ func TestCatalogueReadsRemainAllowedAfterDowngrade(t *testing.T) {
 	require.Equal(t, "Addons.NotEntitled", apierrors.GetCode(err))
 	_, err = vouchers.Writer(t.Context())
 	require.Equal(t, "Vouchers.NotEntitled", apierrors.GetCode(err))
-	for _, quantity := range []int32{0, 1, 2} {
-		require.NoError(t, addons.RequireIncrease(t.Context(), m.user.OrganizationID, 2, quantity))
-	}
-	require.Equal(t, "Addons.NotEntitled", apierrors.GetCode(addons.RequireIncrease(t.Context(), m.user.OrganizationID, 2, 3)))
 }
 
 // These cases deliberately have no database or provider. A forbidden new use
@@ -107,20 +101,8 @@ func TestNewUseIsRefusedBeforeDatabaseOrProvider(t *testing.T) {
 					_, err := validatevoucher.NewUseCase(vouchers).Execute(t.Context(), validatevoucher.VoucherCheck{})
 					return err
 				}},
-				{"session validate", func() error {
-					_, err := validatevoucher.NewUseCase(vouchers).Opaque(t.Context(), validatevoucher.OpaqueCheck{})
-					return err
-				}},
-				{"anonymous validate", func() error {
-					_, err := validatevoucher.NewUseCase(vouchers).Visitor(t.Context(), validatevoucher.VisitorCheck{OrganizationID: m.user.OrganizationID})
-					return err
-				}},
 				{"subscribe voucher", func() error {
 					_, err := subscribeinstance.NewUseCase(billing, nil, nil).Execute(t.Context(), "instance", subscribeinstance.Command{VoucherCode: &code})
-					return err
-				}},
-				{"anonymous checkout dry-run voucher", func() error {
-					_, err := createcheckoutsession.NewUseCase(createcheckoutsession.Deps{Gate: g}).Execute(t.Context(), createcheckoutsession.Start{OrganizationID: m.user.OrganizationID}, checkout.CheckoutSessionDraft{VoucherCode: &code, DryRun: true})
 					return err
 				}},
 				{"invoice preview voucher", func() error {
@@ -163,10 +145,6 @@ func TestNewUseIsRefusedBeforeDatabaseOrProvider(t *testing.T) {
 		}},
 		{"subscribe addon", func() error {
 			_, err := subscribeinstance.NewUseCase(billing, nil, nil).Execute(t.Context(), "instance", subscribeinstance.Command{AddOns: []subscribeinstance.SubscriptionAddon{{AddonSlug: "extra"}}})
-			return err
-		}},
-		{"anonymous checkout addon", func() error {
-			_, err := createcheckoutsession.NewUseCase(createcheckoutsession.Deps{Gate: g}).Execute(t.Context(), createcheckoutsession.Start{OrganizationID: m.user.OrganizationID}, checkout.CheckoutSessionDraft{AddOns: []subscribeinstance.SubscriptionAddon{{AddonSlug: "extra"}}})
 			return err
 		}},
 		{"invoice preview addon", func() error {
@@ -228,6 +206,25 @@ func TestCapabilitiesFollowIndependentGrants(t *testing.T) {
 			require.True(t, got.Enabled)
 			require.Equal(t, tc.vouchers && tc.unavailable != dogfooding.VouchersEntitlementSlug, got.Features.Vouchers)
 			require.Equal(t, tc.addons, got.Features.Addons)
+			if tc.unavailable == "" {
+				require.Empty(t, got.FeatureCheckUnavailable)
+			} else {
+				require.Equal(t, []string{tc.unavailable}, got.FeatureCheckUnavailable)
+			}
 		})
+	}
+}
+
+func TestPublicVoucherValidationKeepsGrantRefusalsOpaque(t *testing.T) {
+	m := member{currentuser.User{ID: uuid.New(), OrganizationID: uuid.New()}}
+	for _, unavailable := range []string{"", dogfooding.VouchersEntitlementSlug} {
+		g := gate.New(true, plans{grants: map[string]bool{dogfooding.BillingEntitlementSlug: true}, unavailable: unavailable})
+		u := validatevoucher.NewUseCase(vouchercatalogue.Deps{UserProvider: m, Gate: g})
+		voucher, err := u.Visitor(t.Context(), validatevoucher.VisitorCheck{OrganizationID: m.user.OrganizationID})
+		require.NoError(t, err)
+		require.Nil(t, voucher)
+		voucher, err = u.Opaque(t.Context(), validatevoucher.OpaqueCheck{})
+		require.NoError(t, err)
+		require.Nil(t, voucher)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "UpdateAddon"
@@ -35,10 +36,11 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 	if err := catalogue.ValidateMaxQuantity(operation, command.MaxQuantity); err != nil {
 		return nil, err
 	}
-	user, err := u.deps.Writer(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}
+	writePermission := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
 	var updated catalogue.Addon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -47,6 +49,9 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 			return err
 		}
 		before := locked.Addon()
+		if writePermission != nil && !onlyUnsetDefault(before, command) {
+			return writePermission
+		}
 		if command.IsDefault && before.LifecycleState != catalogue.Published {
 			return catalogue.DefaultMustBePublished(operation)
 		}
@@ -83,6 +88,23 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 		return nil, err
 	}
 	return &updated, nil
+}
+
+// onlyUnsetDefault permits the prerequisite for retiring an existing version,
+// not a bundled catalogue edit or making another version the default.
+func onlyUnsetDefault(before catalogue.Addon, command AddonChanges) bool {
+	if !before.IsDefault || command.IsDefault {
+		return false
+	}
+	after := before
+	after.Name, after.Description = command.Name, command.Description
+	after.IsDefault, after.MaxQuantity = command.IsDefault, command.MaxQuantity
+	after.VersionName = catalogue.DefaultName(before.Version)
+	if command.VersionName != nil {
+		after.VersionName = *command.VersionName
+	}
+	changed := changedFields(before, after)
+	return len(changed) == 1 && changed[0] == "isDefault"
 }
 
 func changedFields(before, after catalogue.Addon) []string {

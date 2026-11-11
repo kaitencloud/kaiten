@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // CustomerChange is what a customer's quantity write did.
@@ -33,6 +34,9 @@ func (u *UseCase) SetForCustomer(ctx context.Context, instanceSlug, addonSlug st
 	if err != nil {
 		return nil, err
 	}
+	// Read permission before taking a transaction/row lock. A refusal matters
+	// only if the locked current quantity makes this write an increase.
+	increasePermission := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
 	var out CustomerChange
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -40,7 +44,7 @@ func (u *UseCase) SetForCustomer(ctx context.Context, instanceSlug, addonSlug st
 		if err != nil {
 			return err
 		}
-		if err := u.deps.RequireIncrease(ctx, user.OrganizationID, write.Attachment.Quantity, quantity); err != nil {
+		if err := requireIncrease(write.Attachment.Quantity, quantity, increasePermission); err != nil {
 			return err
 		}
 		if err := catalogue.RefuseIncomplete(ctx, q, user.OrganizationID, write.Instance.ID, operation); err != nil {

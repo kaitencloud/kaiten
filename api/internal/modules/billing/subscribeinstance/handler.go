@@ -28,7 +28,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
-	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "SubscribeInstance"
@@ -143,19 +142,12 @@ const inlineWait = 20 * time.Second
 // and charged right after the commit -- when the commit is this call's own --
 // and the answer carries its status as persisted.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if cmd.VoucherCode != nil {
-		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
-			return nil, err
-		}
-	}
-	if len(cmd.AddOns) > 0 {
-		if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
-			return nil, err
-		}
+	if err := u.deps.Gate.RequireSelection(ctx, user.OrganizationID, cmd.VoucherCode != nil, len(cmd.AddOns) > 0); err != nil {
+		return nil, err
 	}
 	// Whether the commit is this call's own, asked before the transaction
 	// begins -- inside it, the context always carries one.
