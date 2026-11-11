@@ -37,6 +37,28 @@ func TestAICounterPrecisionExhaustionDoesNotWriteCorruptEvidence(t *testing.T) {
 	}
 }
 
+func TestAIReleaseWithoutReservationPlansNoWrite(t *testing.T) {
+	start := time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	// A stale window, an unknown model and no rule: none of them may turn a
+	// release of nothing into a counter write, a row or an event.
+	st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":10}`)}, Now: start.AddDate(0, 0, 3), Limit: usage.Limit{Threshold: 10}, AggregationMethod: "SUM", Reserved: decimal.NewFromInt(4), Resolution: usage.Resolution{Window: usage.Window{Start: &start}, Closures: []usage.Closure{{Value: 9, NewPeriodStart: start}}}}
+	status := aicredit.NotSent
+	effect, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "never-reserved", RequestStatus: &status}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if effect.AIRow != nil || effect.Counter != nil || len(effect.Events) != 0 || effect.Accepted || effect.Refusal != nil {
+		t.Fatalf("a release of nothing must plan no write: %+v", effect)
+	}
+	ai := effect.Response.AI
+	if ai.Status != "RELEASED" || *ai.Credits.Charged != "0" || ai.Authorized != nil || len(ai.Warnings) != 1 || ai.Warnings[0] != schema.AiWarningNoReservation {
+		t.Fatalf("unexpected outcome: %+v", ai)
+	}
+	if *effect.Response.Reserved != "4" || *ai.Remaining != "6" {
+		t.Fatalf("unexpected gauge: reserved=%s remaining=%s", *effect.Response.Reserved, *ai.Remaining)
+	}
+}
+
 func TestNumericCreditGateAllowsExactDecimalFitAndPartialRefund(t *testing.T) {
 	for _, tc := range []struct {
 		name                 string

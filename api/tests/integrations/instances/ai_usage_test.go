@@ -377,6 +377,61 @@ func TestAIReleasedOperationIsSettledAndReplaysOnlyIdenticalNotSent(t *testing.T
 	require.Zero(t, usageRows)
 }
 
+// An SDK releases on every failure path, including a call whose reserve never
+// reached Kaiten. That release is a question with a fixed answer, not evidence.
+func TestAIReleaseWithoutReservationWritesNothing(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 10)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE entitlement SET reset_period='MONTH',reset_anchor='CALENDAR' WHERE id=$1`, pool.ID)
+	require.NoError(t, err)
+	window, err := period.Current(time.Now().UTC(), period.Month, period.Calendar, time.Time{})
+	require.NoError(t, err)
+	oldStart := window.Start.AddDate(0, -1, 0)
+	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "held", 4)), http.StatusOK)
+	// The reserve above rolled the window over; stale it again so the no-op
+	// is shown to leave even period maintenance to the next real report.
+	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
+	counterBefore := commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID)
+	operationsBefore := commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID)
+	beforeEvents := recordedEvents(t)
+
+	// Neither model nor requestType: there is nothing to price. An unknown
+	// model changes nothing either, and raises no unauthorized event.
+	release := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved", "requestStatus": "NOT_SENT"}
+	withModel := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved-either", "requestStatus": "NOT_SENT", "model": "missing-model", "requestType": "COMPLETION"}
+	for _, body := range []map[string]any{release, release, withModel} {
+		response := aiReport(t, instance.Slug, pool.Slug, body)
+		require.Empty(t, response.Header.Get("Idempotent-Replayed"), "nothing was stored to replay")
+		released := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, response, http.StatusOK)
+		require.Equal(t, "RELEASED", released.AI.Status)
+		require.Equal(t, "commit", released.AI.Phase)
+		require.Equal(t, "0", *released.AI.Credits.Charged)
+		require.Nil(t, released.AI.Credits.Reserved)
+		require.Nil(t, released.AI.Authorized, "no model was evaluated")
+		require.Equal(t, []string{instanceschema.AiWarningNoReservation}, released.AI.Warnings)
+		require.Equal(t, "4", *released.Reserved, "another operation's reservation is untouched")
+		require.Equal(t, "6", *released.AI.Remaining)
+		require.Zero(t, released.Value.Number.Value)
+	}
+	require.Equal(t, counterBefore, commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID))
+	require.Equal(t, operationsBefore, commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID))
+	require.Equal(t, beforeEvents, recordedEvents(t))
+
+	// The key stays free: the operation can still be reported for real.
+	commit := aiUsageBody("commit", "never-reserved", 2)
+	commit["model"], commit["requestType"] = "lifecycle-model", "COMPLETION"
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusOK)
+	require.Equal(t, "2", *charged.AI.Credits.Charged)
+
+	// A pair nothing grants still answers 404, and a pool that is not a
+	// credit pool still refuses AI usage.
+	ungranted := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 0)
+	problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, ungranted.Slug, release), http.StatusNotFound)
+	require.Equal(t, "ReportEntitlementUsageMetric.ContextNotFound", problem.Code)
+}
+
 func TestAIStaleWindowReplayWritesNoCounterOperationOrOutbox(t *testing.T) {
 	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })

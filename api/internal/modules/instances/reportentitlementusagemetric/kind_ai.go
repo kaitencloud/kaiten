@@ -18,8 +18,33 @@ import (
 
 type aiKind struct{}
 
-func (aiKind) plan(st *State, cmd *Command) (*Effect, error) {
+// releaseNothing answers a NOT_SENT commit whose transactionId never reserved.
+// An SDK releases on every failure path, including the ones that failed before
+// its reserve was accepted; recording each as a RELEASED row -- and possibly a
+// MODEL_USAGE_UNAUTHORIZED event -- would be evidence of nothing. The effect
+// carries no row, no counter and no event, not even a rollover, so the call
+// writes nothing and repeating it answers the same.
+func (aiKind) releaseNothing(st *State, v *schema.AiUsageValue) (*Effect, error) {
+	response, err := usage.Present(st.gauge(st.Resolution.Current))
+	if err != nil {
+		return nil, err
+	}
+	zero, reserved := "0", st.Reserved.String()
+	outcome := &schema.AiUsageOutcome{TransactionID: v.TransactionID, Phase: v.Phase, Status: "RELEASED", Credits: schema.AiCredits{Computed: &zero, Charged: &zero}, Warnings: []string{schema.AiWarningNoReservation}}
+	if !st.Limit.Unlimited() {
+		remaining := decimal.NewFromFloat(st.Limit.Threshold).Sub(decimal.NewFromFloat(st.Resolution.Current.Value)).Sub(st.Reserved).String()
+		outcome.Remaining = &remaining
+	}
+	response.Reserved = &reserved
+	response.AI = outcome
+	return &Effect{Response: response}, nil
+}
+
+func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 	v := cmd.AI
+	if releasesNothing(st, v) {
+		return k.releaseNothing(st, v)
+	}
 	rule, _ := aicredit.Resolve(st.AIRules, st.AIModel, st.AIRequestType)
 	warnings := []string{}
 	authorized := rule != nil
