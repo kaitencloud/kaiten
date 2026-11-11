@@ -42,6 +42,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, command NewI
 	if err != nil {
 		return nil, err
 	}
+	if err := u.deps.Gate.RequireSelectedAddon(ctx, user.OrganizationID, user.ID, instanceSlug, command.AddonSlug, command.Quantity); err != nil {
+		return nil, err
+	}
 	var attached catalogue.InstanceAddon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)

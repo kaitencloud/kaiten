@@ -35,6 +35,26 @@ It does not turn an unknown grant into permission to write. `features.vouchers` 
 `features.addons` are false when billing itself is unavailable for the
 organization. The existing console route/navigation guards consume those flags.
 
+## One-time checkout authorization
+
+`BeginSelection` reads billing and the selected voucher/add-on grants before
+opening a transaction, with a ten-second check deadline and no process-cache
+outage fallback. Its private request-local scope lasts at most one minute,
+ends on request cancellation/return, and binds the authority, organization,
+actor, base price, voucher and add-on quantities. Anonymous completion binds it
+once to the instance it creates, after rechecking the locked checkout selection.
+A hosted-payment redirect carries no scope; the return request checks again.
+
+Nested subscribe/attach/redeem gates reuse only that exact decision. A changed,
+missing (for nested subscription), expired or foreign decision fails closed
+without licensing I/O under row locks. Direct subscribe, attach and redeem
+entrypoints retain their own authorization. Successful transactions validate
+the scope again before commit. This is authorization for one bounded attempt,
+not instantaneous grant revocation at commit. Checkout/instance/subscription
+locks, trial/redemption capacity, eligibility, quantities, frozen contracts and
+paid-finalization grandfathering remain unchanged. There is no process-wide
+completion lock or authorization cache.
+
 ## Protected operations
 
 - Creating, updating and publishing voucher/add-on catalogue objects, prices,
@@ -81,11 +101,15 @@ OPEN checkout has bought nothing yet and must pass the current grants at confirm
 
 1. In **saas-api**, upgrade the Core pin and add `capability(...)` catalog entries
    for both slugs. Its catalog/type parity tests must pass.
-2. Deploy that bootstrap to KbK noprod, then prod, and verify the slugs exist.
-3. Grant Starter `false` and Growth/Enterprise `true` for both slugs on the
-   licenses actually sold; verify beta-tester/Kaiten bootstrap grants too.
-4. Only then release/roll out this Core reader. No catalog, grant, pricing or
-   live-system writes are performed by this PR.
+2. Supply the verified tenant/family policy to the **existing Core migration
+   Job** (see `api/cmd/admin-tools/README.md`). It creates missing BOOLEAN
+   definitions and source-specific equivalent successors, preserving contracts
+   and moving current/pending/scheduled client references in bounded batches.
+3. Run the version-safe SaaS bootstrap after that Job succeeds. Verify explicit
+   Starter `false`, Growth/Enterprise `true`, and the distinct vendor-family
+   grants; historical billed references must not hide an incomplete transition.
+4. Only then release/roll out this Core reader. These are operator prerequisites;
+   no live migration, deployment or credential change was executed by this PR.
 
 The remaining proposal items are separate: service-account counting/deletion
 and backfill need a product decision; audit retention is already on Core main

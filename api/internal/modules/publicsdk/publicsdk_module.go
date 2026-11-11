@@ -149,7 +149,7 @@ func NewUseCases(svc services.Container, from Ports) *UseCases {
 		AuthenticatePublishableKey:  authenticatepublishablekey.NewUseCase(deps),
 		GetPublicCatalog:            catalog,
 		CreateSessionCheckout: createsessioncheckout.NewUseCase(createsessioncheckout.Deps{
-			UserProvider: svc.UserProvider, Catalog: catalog, Subscriber: from.Subscriber,
+			Gate: billingGate, UserProvider: svc.UserProvider, Catalog: catalog, Subscriber: from.Subscriber,
 			CustomerBilling: from.CustomerBilling, OpenSetup: from.OpenSetup, CompleteSetup: from.CompleteSetup,
 			Invoices: from.Invoices, BillingEmails: from.BillingEmails,
 		}),

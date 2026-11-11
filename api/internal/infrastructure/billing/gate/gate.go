@@ -129,6 +129,9 @@ func (g Gate) CheckEntitlement(ctx context.Context, organizationID uuid.UUID, sl
 
 // entitled asks the licensing authority, or answers what it said last.
 func (g Gate) entitled(ctx context.Context, organizationID uuid.UUID, slug string) (bool, error) {
+	if granted, scoped, err := g.selectionAnswer(ctx, organizationID, slug); scoped {
+		return granted, err
+	}
 	if g.answers == nil {
 		return g.entitlements.Entitled(ctx, organizationID, slug)
 	}

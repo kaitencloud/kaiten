@@ -214,6 +214,15 @@ debeziumServer:
 # disableWait on the HelmRelease itself, kept as defense-in-depth).
 migrate:
   enabled: true
+  # Optional, explicit capability-only client transition through migrate up.
+  # No commercial edition inference; verify tenant/family ids per installation.
+  # Empty disables data changes. Existing schema migrations still run normally.
+  licenseCapabilityRevisions: {}
+  # organizationId: <verified-tenant-uuid>
+  # families:
+  #   - familyId: <verified-family-uuid>
+  #     vouchers: false
+  #     addons: false
   image:
     repository: ghcr.io/kaitencloud/admin-tools
     tag: latest

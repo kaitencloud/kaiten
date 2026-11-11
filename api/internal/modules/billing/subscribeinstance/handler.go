@@ -146,9 +146,12 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 	if err != nil {
 		return nil, err
 	}
-	if err := u.deps.Gate.RequireSelection(ctx, user.OrganizationID, cmd.VoucherCode != nil, len(cmd.AddOns) > 0); err != nil {
+	scope, err := u.deps.Gate.BeginSelection(ctx, user.OrganizationID, user.ID, cmd.LicensingSelection(instanceSlug))
+	if err != nil {
 		return nil, err
 	}
+	defer scope.Close()
+	ctx = scope.Context()
 	// Whether the commit is this call's own, asked before the transaction
 	// begins -- inside it, the context always carries one.
 	ownsCommit := !u.deps.Uof.InTransaction(ctx)
@@ -158,7 +161,14 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 	}
 
 	var started *StartedSubscription
-	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) (txErr error) {
+		// Validate at every successful exit, including trials and zero-line
+		// activations. Expiry rolls back local writes, without an authority read.
+		defer func() {
+			if txErr == nil {
+				txErr = scope.Validate(ctx)
+			}
+		}()
 		q := u.deps.Queries(ctx)
 		instance, err := q.LockInstanceForSubscribe(ctx, db.LockInstanceForSubscribeParams{OrganizationID: user.OrganizationID, Slug: instanceSlug})
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -31,6 +31,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/completepaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/createpaymentmethodsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/getcustomerbilling"
@@ -140,6 +141,7 @@ type (
 
 // Deps is what a checkout needs.
 type Deps struct {
+	Gate            gate.Gate
 	UserProvider    currentuser.Provider
 	Catalog         *getpubliccatalog.UseCase
 	Subscriber      Subscriber
@@ -225,6 +227,15 @@ func (u *UseCase) Execute(ctx context.Context, session Session, request SessionC
 		none := int32(0)
 		base.TrialDays = &none
 	}
+
+	// Preview and completion share one bounded licensing decision; the
+	// hosted-page return is a new request and must acquire its own decision.
+	scope, err := u.deps.Gate.BeginSelection(ctx, user.OrganizationID, user.ID, base.LicensingSelection(instanceSlug))
+	if err != nil {
+		return nil, translate(err)
+	}
+	defer scope.Close()
+	ctx = scope.Context()
 
 	// Rule 11 and the totals of rule 3: the subscribe, rolled back. It bills
 	// through no provider -- what it composes does not depend on one -- so a

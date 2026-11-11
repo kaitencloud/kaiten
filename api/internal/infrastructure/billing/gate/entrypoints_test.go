@@ -224,3 +224,22 @@ func TestPublicVoucherValidationKeepsGrantRefusalsOpaque(t *testing.T) {
 		require.Nil(t, voucher)
 	}
 }
+
+func TestMismatchedCompletionProofIsRefusedByActualEntrypointsBeforeDatabase(t *testing.T) {
+	m := member{currentuser.User{ID: uuid.New(), OrganizationID: uuid.New()}}
+	source := &plans{grants: map[string]bool{dogfooding.BillingEntitlementSlug: true, dogfooding.VouchersEntitlementSlug: true, dogfooding.AddonsEntitlementSlug: true}}
+	g := gate.New(true, source)
+	code := "PROMO"
+	command := subscribeinstance.Command{BasePriceID: uuid.New(), VoucherCode: &code, AddOns: []subscribeinstance.SubscriptionAddon{{AddonSlug: "extra", Quantity: 2}}}
+	scope, err := g.BeginSelection(t.Context(), m.user.OrganizationID, m.user.ID, command.LicensingSelection("instance"))
+	require.NoError(t, err)
+	defer scope.Close()
+	// No DB/UOW/provider is wired: each actual nested entrypoint must reject
+	// the mismatched action without reaching any of them.
+	_, err = subscribeinstance.NewUseCase(access.Deps{UserProvider: m, Gate: g}, nil, nil).Execute(scope.Context(), "other", command)
+	require.Equal(t, gate.CodeEntitlementCheckUnavailable, apierrors.GetCode(err))
+	_, err = attachinstanceaddon.NewUseCase(addoncatalogue.Deps{UserProvider: m, Gate: g}).Execute(scope.Context(), "instance", attachinstanceaddon.NewInstanceAddon{AddonSlug: "extra", Quantity: 3})
+	require.Equal(t, gate.CodeEntitlementCheckUnavailable, apierrors.GetCode(err))
+	_, err = redeemvoucher.NewUseCase(vouchercatalogue.Deps{UserProvider: m, Gate: g}).Execute(scope.Context(), "instance", "OTHER")
+	require.Equal(t, gate.CodeEntitlementCheckUnavailable, apierrors.GetCode(err))
+}

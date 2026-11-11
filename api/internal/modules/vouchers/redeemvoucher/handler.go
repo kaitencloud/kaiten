@@ -37,6 +37,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*cata
 	if err != nil {
 		return nil, err
 	}
+	if err := u.deps.Gate.RequireSelectedVoucher(ctx, user.OrganizationID, user.ID, instanceSlug, code); err != nil {
+		return nil, err
+	}
 	var redemption catalogue.Redemption
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)

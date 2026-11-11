@@ -104,3 +104,53 @@ or contact a provider. Docker must be available:
 ```sh
 go test -shuffle=on ./cmd/admin-tools
 ```
+
+## Startup capability revisions
+
+The existing `migrate up` runner also accepts an optional
+`KAITEN_LICENSE_CAPABILITY_REVISIONS` JSON object. The Helm migration Job supplies
+it from `migrate.licenseCapabilityRevisions`. There is no separate command,
+service, public endpoint, checkpoint file, or dependency on SaaS tooling.
+An empty setting leaves business data untouched. Example shape (replace the
+synthetic ids with verified ids for the selected installation):
+
+```json
+{"organizationId":"11111111-1111-4111-8111-111111111111","families":[{"familyId":"22222222-2222-4222-8222-222222222222","vouchers":false,"addons":false}]}
+```
+
+Core owns only the mechanics. SaaS owns the edition mapping: Starter supplies
+explicit false for both grants, Growth/Enterprise true, and the verified vendor
+families true. Neither names nor slugs infer commercial identities. For noprod
+and prod, the operator must supply each installation's own verified tenant and
+family ids and existing migration database credential; this PR performs no live
+inventory, credential change or migration.
+
+The runner creates either missing BOOLEAN definition in the selected tenant; it
+refuses an existing non-BOOLEAN definition rather than replacing it. This avoids
+a bootstrap/migration ordering cycle without modifying other catalog entries.
+Each source version gets an equivalent same-family successor, retaining all other grants
+(including CONFIG/overage) and exact price snapshots (including captured metered
+sale-unit factors). Historical versions/prices and invoice snapshots remain.
+Exact selected-version/price voucher scopes admit their copied equivalents only.
+The designated current/default source is processed last so its successor stays
+current; historically different contracts are never flattened onto one price or
+quota. Existing holders move to their own contract-equivalent successors.
+
+Client/reference changes run in bounded transactions (up to 200 instances,
+orphan subscriptions and pending checkout sessions per batch). They preserve
+billing status, periods/anchors, trial consumption, pending selections, scheduled
+plans/cancellations, providers, invoices, add-ons and redemptions. No billing
+provider is called, invoice composed, or trial/redemption consumed. Ordinary
+frozen guards remain; only this validated migration sets the existing
+transaction-local plan-change escape. The runner keeps lineage and exact price
+mappings in the database, verifies contract/grant drift, and resumes committed
+batches when the same startup job retries. Archived source lifecycle states and
+overdue periods/debt are preserved, not reactivated or settled. It fails on changed
+policies/contracts or unexpected catalogue size instead of silently skipping clients. A failure prevents a
+successful rollout; committed batches are not destructively rolled back.
+
+Before releasing the capability reader, run the existing migration Job with the
+approved policy, then the version-safe SaaS bootstrap. Do not prune historical
+vendor versions or reassign heterogeneous source contracts to a single current
+version. Removing the policy does not undo completed revisions; reversing a
+commercial change needs a separately approved fix-forward migration.

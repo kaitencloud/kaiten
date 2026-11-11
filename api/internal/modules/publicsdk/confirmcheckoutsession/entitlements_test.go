@@ -44,11 +44,14 @@ func TestOpenCheckoutSelectionRequiresCurrentGrants(t *testing.T) {
 		{"growth selection", checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}, AddOns: []checkout.SelectedAddon{{AddonSlug: "extra"}}}, true, "", "", 0},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			u := &UseCase{deps: Deps{Gate: gate.New(true, selectionEntitlements{
+			u := &UseCase{deps: Deps{Gate: gate.New(true, &selectionEntitlements{
 				grants:      map[string]bool{dogfooding.BillingEntitlementSlug: true, dogfooding.VouchersEntitlementSlug: tc.granted, dogfooding.AddonsEntitlementSlug: tc.granted},
 				unavailable: tc.unavailable,
 			})}}
-			err := u.requireSelection(t.Context(), uuid.New(), tc.selection)
+			scope, err := u.requireSelection(t.Context(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), tc.selection)
+			if scope != nil {
+				defer scope.Close()
+			}
 			if tc.wantCode == "" {
 				require.NoError(t, err)
 				return
@@ -61,6 +64,6 @@ func TestOpenCheckoutSelectionRequiresCurrentGrants(t *testing.T) {
 
 func TestCheckoutSelectionKeepsBillingFirst(t *testing.T) {
 	u := &UseCase{deps: Deps{Gate: gate.New(false, nil)}}
-	err := u.requireSelection(t.Context(), uuid.New(), checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}})
+	_, err := u.requireSelection(t.Context(), uuid.New(), uuid.New(), uuid.New(), uuid.New(), checkout.Selection{Voucher: &checkout.SelectedVoucher{Code: "PROMO"}})
 	require.Equal(t, gate.CodeDisabled, apierrors.GetCode(err))
 }

@@ -74,7 +74,15 @@ func newProvider(db *sql.DB) (*goose.Provider, error) {
 }
 
 // RunMigrations applies all pending migrations to the database at connString.
-func RunMigrations(connString string) error {
+func RunMigrations(connString string, capabilityRevisions ...CapabilityRevisionPlan) error {
+	if len(capabilityRevisions) > 1 {
+		return errors.New("only one capability revision policy may be supplied")
+	}
+	if len(capabilityRevisions) == 1 {
+		if err := capabilityRevisions[0].validate(); err != nil {
+			return err
+		}
+	}
 	slog.Info("Starting database migrations.")
 
 	db, err := openDB(connString)
@@ -121,6 +129,12 @@ func RunMigrations(connString string) error {
 		}
 	}
 
+	if len(capabilityRevisions) == 1 {
+		if err := runCapabilityRevisions(ctx, db, capabilityRevisions[0]); err != nil {
+			return err
+		}
+		slog.Info("License capability revisions applied successfully.")
+	}
 	slog.Info("Database migrations applied successfully.")
 	return nil
 }
