@@ -17,6 +17,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // Deps is what the catalogue reads.
@@ -47,6 +48,16 @@ type Query struct {
 type UseCase struct{ deps Deps }
 
 func NewUseCase(deps Deps) *UseCase { return &UseCase{deps: deps} }
+
+// The public catalogue offers new selections, unlike the vendor catalogue
+// and existing holdings. Omit unavailable add-ons without closing base checkout.
+func (u *UseCase) offersAddons(ctx context.Context, organizationID uuid.UUID, include bool) bool {
+	if !include {
+		return false
+	}
+	granted, err := u.deps.Gate.CheckEntitlement(ctx, organizationID, dogfooding.AddonsEntitlementSlug)
+	return err == nil && granted
+}
 
 // Execute reads the organization's public catalogue. The organization comes
 // from the publishable key, through the facade, never from the request.
@@ -81,7 +92,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, query Q
 		return nil, err
 	}
 	var addons []db.ListPublicAddonsRow
-	if query.IncludeAddOns {
+	if u.offersAddons(ctx, organizationID, query.IncludeAddOns) {
 		if addons, err = q.ListPublicAddons(ctx, organizationID); err != nil {
 			return nil, err
 		}

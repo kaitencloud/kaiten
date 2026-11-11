@@ -86,7 +86,7 @@ func (g Gate) RequireEntitlement(ctx context.Context, organizationID uuid.UUID, 
 	if err := g.Require(ctx, organizationID); err != nil {
 		return err
 	}
-	return g.requireEntitlement(ctx, organizationID, slug, namespace)
+	return g.RequireCapability(ctx, organizationID, slug, namespace)
 }
 
 // RequireSelection checks billing once, then only the new uses selected.
@@ -95,17 +95,20 @@ func (g Gate) RequireSelection(ctx context.Context, organizationID uuid.UUID, ha
 		return err
 	}
 	if hasVoucher {
-		if err := g.requireEntitlement(ctx, organizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
+		if err := g.RequireCapability(ctx, organizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
 			return err
 		}
 	}
 	if hasAddons {
-		return g.requireEntitlement(ctx, organizationID, dogfooding.AddonsEntitlementSlug, "Addons")
+		return g.RequireCapability(ctx, organizationID, dogfooding.AddonsEntitlementSlug, "Addons")
 	}
 	return nil
 }
 
-func (g Gate) requireEntitlement(ctx context.Context, organizationID uuid.UUID, slug, namespace string) error {
+// RequireCapability checks only the feature grant after the caller has passed
+// Require for the same organization. It avoids a second billing lookup; callers
+// that have not passed billing must use RequireEntitlement or RequireSelection.
+func (g Gate) RequireCapability(ctx context.Context, organizationID uuid.UUID, slug, namespace string) error {
 	granted, err := g.entitled(ctx, organizationID, slug)
 	if err != nil {
 		return apierrors.Unavailable(namespace+".EntitlementCheckUnavailable",

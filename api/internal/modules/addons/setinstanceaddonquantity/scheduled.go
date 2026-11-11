@@ -36,7 +36,7 @@ func (u *UseCase) SetForCustomer(ctx context.Context, instanceSlug, addonSlug st
 	}
 	// Read permission before taking a transaction/row lock. A refusal matters
 	// only if the locked current quantity makes this write an increase.
-	increasePermission := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
+	increasePermission := u.deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
 	var out CustomerChange
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)

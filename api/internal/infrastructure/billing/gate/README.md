@@ -3,7 +3,9 @@
 `Gate.Require` keeps the commercial surface behind the deployment's billing
 switch, then the organization's BOOLEAN `billing` grant.
 `Gate.RequireEntitlement` keeps that order and checks an additional BOOLEAN
-grant. A self-hosted deployment remains `AlwaysEntitled`.
+grant. Callers already past `Require` use `RequireCapability` for the same
+organization without repeating the billing lookup. A self-hosted deployment
+remains `AlwaysEntitled`.
 
 ## Voucher and add-on plans
 
@@ -15,12 +17,18 @@ cannot answer and no usable cached answer exists, the operation answers 503
 `Vouchers.EntitlementCheckUnavailable` or `Addons.EntitlementCheckUnavailable`.
 The billing gate's own refusal always precedes a capability refusal. Public
 voucher boundaries preserve the opaque `422 <operation>.VoucherInvalid` contract
-for voucher-specific grant refusals; vendor/Core callers retain the detailed
-403/503 codes.
+for voucher-specific grant refusals, including customer-portal redemption and
+its dry runs; the portal keeps `NoLiveSubscription` / `SubscriptionIncomplete`
+ahead of that opaque refusal and prefetches the grant before row locks.
+Vendor/Core callers retain the detailed 403/503 codes. Billing and
+authentication refusals keep their own contracts. Public session validation
+counts its session/customer attempt before licensing, including grant-refused
+checks; an exhausted budget stops before any licensing call.
 
 Answers are cached per organization **and slug**, with the billing cache TTL.
 During an outage a known answer stands for at most 24 TTLs. A display-only
 capabilities read keeps a feature false when its grant is denied or unknown.
+The two independent display checks run together instead of stacking timeouts.
 Unknown grants also appear in `featureCheckUnavailable`, so clients can retry
 without confusing an outage with a known denial or losing baseline read access.
 It does not turn an unknown grant into permission to write. `features.vouchers` and
@@ -52,6 +60,10 @@ and no-op quantities remain billing-only. A scheduled decrease may still be
 replaced or cancelled without increasing the currently held quantity. Purely
 clearing an add-on version's default flag or hiding a public family is also
 allowed: these are prerequisites for retirement, not catalogue expansion.
+The public storefront is a new-selection surface: it omits add-on offers when
+their grant is denied or unknown while leaving base plans available; vendor
+catalogue reads and existing holdings are unchanged. Checkout still rechecks
+selections, so a catalogue snapshot never authorizes a purchase.
 Quantity writes prefetch the grant before taking row locks, then use the locked
 current quantity to decide whether that result applies.
 

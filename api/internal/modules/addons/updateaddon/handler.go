@@ -40,7 +40,7 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 	if err != nil {
 		return nil, err
 	}
-	writePermission := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
+	writePermission := u.deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
 	var updated catalogue.Addon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)

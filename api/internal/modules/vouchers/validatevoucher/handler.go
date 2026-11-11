@@ -144,17 +144,22 @@ func (u *UseCase) Execute(ctx context.Context, check VoucherCheck) (*Validity, e
 // same queries, so neither the answer nor its timing tells an unknown code
 // from an exhausted, reserved or ineligible one.
 func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Voucher, error) {
-	user, err := u.deps.Writer(ctx)
+	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
+		return nil, err
+	}
+	// A grant-refused check is still a public attempt. Bound it before
+	// licensing, just as redemption bounds its attempts before the code.
+	if err := u.limitSession(ctx, check.SessionID, check.CustomerID); err != nil {
+		return nil, err
+	}
+	if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
 		switch kaitenerrors.GetCode(err) {
 		case "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
 			return nil, nil
 		default:
 			return nil, err
 		}
-	}
-	if err := u.limitSession(ctx, check.SessionID, check.CustomerID); err != nil {
-		return nil, err
 	}
 	q := u.deps.Queries(ctx)
 	customerID := check.CustomerID

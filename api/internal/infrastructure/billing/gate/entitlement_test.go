@@ -83,6 +83,17 @@ func knownCapability(t *testing.T, g Gate, org uuid.UUID, slug string) bool {
 	return granted
 }
 
+func TestCapabilityAfterBillingDoesNotCheckBillingTwice(t *testing.T) {
+	source := &capabilityEntitlements{grants: map[string]bool{dogfooding.BillingEntitlementSlug: true}}
+	g := New(true, source)
+	org := uuid.New()
+	require.NoError(t, g.Require(t.Context(), org))
+	require.Equal(t, "Addons.NotEntitled", apierrors.GetCode(g.RequireCapability(t.Context(), org, dogfooding.AddonsEntitlementSlug, "Addons")))
+	require.Equal(t, []string{dogfooding.BillingEntitlementSlug, dogfooding.AddonsEntitlementSlug}, source.asks)
+	source.failures = map[string]error{dogfooding.AddonsEntitlementSlug: errors.New("licensing unavailable")}
+	require.Equal(t, "Addons.EntitlementCheckUnavailable", apierrors.GetCode(g.RequireCapability(t.Context(), org, dogfooding.AddonsEntitlementSlug, "Addons")))
+}
+
 func TestRequireSelectionChecksBillingOnceWithoutCache(t *testing.T) {
 	source := &capabilityEntitlements{grants: map[string]bool{
 		dogfooding.BillingEntitlementSlug: true, dogfooding.VouchersEntitlementSlug: true, dogfooding.AddonsEntitlementSlug: true,

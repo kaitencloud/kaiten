@@ -31,7 +31,7 @@ func (t Transition) Move(ctx context.Context, deps Deps, box *outbox.ScopedRepos
 		return nil, err
 	}
 	if t.To == Published {
-		if err := deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
+		if err := deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
 			return nil, err
 		}
 	}

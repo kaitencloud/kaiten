@@ -93,10 +93,6 @@ func TestNewUseIsRefusedBeforeDatabaseOrProvider(t *testing.T) {
 					_, err := redeemvoucher.NewUseCase(vouchers).Execute(t.Context(), "instance", code)
 					return err
 				}},
-				{"session redeem dry-run", func() error {
-					_, err := redeemvoucher.NewUseCase(vouchers).ForSession(t.Context(), "instance", code, true)
-					return err
-				}},
 				{"vendor validate", func() error {
 					_, err := validatevoucher.NewUseCase(vouchers).Execute(t.Context(), validatevoucher.VoucherCheck{})
 					return err

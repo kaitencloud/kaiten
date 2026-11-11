@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/telemetry"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // sessionOperation names the public redemption's refusals (§11.6).
@@ -20,6 +21,24 @@ const sessionOperation = "RedeemSessionVoucher"
 
 // errDryRun rolls a dry run's transaction back once its result is read.
 var errDryRun = errors.New("redeem: dry run")
+
+// sessionRefusal keeps state conflicts ahead of opaque voucher refusals. The
+// permission was fetched outside the transaction; deciding on it does no I/O.
+func sessionRefusal(state db.GetRedeemSubscriptionStateRow, readErr, permission error) error {
+	switch {
+	case errors.Is(readErr, pgx.ErrNoRows) || (readErr == nil && state.Status == "CANCELED"):
+		return noLiveSubscription()
+	case readErr != nil:
+		return readErr
+	case state.Status == "INCOMPLETE" || state.CheckoutPending:
+		return kaitenerrors.Conflict(sessionOperation+".SubscriptionIncomplete",
+			"a checkout waits for its payment: its own selection, voucher included, applies once paid")
+	case permission != nil:
+		return voucherInvalid()
+	default:
+		return nil
+	}
+}
 
 // ForSession redeems a code a customer typed in its portal, on the instance
 // its session is bound to (§11.6, V32-02): the redemption of Execute, on a
@@ -31,10 +50,13 @@ var errDryRun = errors.New("redeem: dry run")
 // whatever its reason, is 422 .VoucherInvalid with the same body, after the
 // same queries. dryRun runs everything and writes nothing.
 func (u *UseCase) ForSession(ctx context.Context, instanceSlug, code string, dryRun bool) (*catalogue.Redemption, error) {
-	user, err := u.deps.Writer(ctx)
+	user, err := u.deps.Caller(ctx)
 	if err != nil {
 		return nil, err
 	}
+	// Prefetch before row locks, but preserve the subscription preconditions
+	// before answering any refusal of the code.
+	permission := u.deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers")
 	var redemption catalogue.Redemption
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -46,14 +68,8 @@ func (u *UseCase) ForSession(ctx context.Context, instanceSlug, code string, dry
 			return err
 		}
 		state, err := q.GetRedeemSubscriptionState(ctx, db.GetRedeemSubscriptionStateParams{OrganizationID: user.OrganizationID, InstanceID: &instance.ID})
-		switch {
-		case errors.Is(err, pgx.ErrNoRows) || (err == nil && state.Status == "CANCELED"):
-			return noLiveSubscription()
-		case err != nil:
+		if err := sessionRefusal(state, err, permission); err != nil {
 			return err
-		case state.Status == "INCOMPLETE" || state.CheckoutPending:
-			return kaitenerrors.Conflict(sessionOperation+".SubscriptionIncomplete",
-				"a checkout waits for its payment: its own selection, voucher included, applies once paid")
 		}
 
 		// The same checks whether the code exists or not (§11.2 rule 6).

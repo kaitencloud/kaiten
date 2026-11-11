@@ -3,6 +3,7 @@ package getbillingcapabilities
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -149,17 +150,28 @@ func (u *UseCase) Execute(ctx context.Context) (*BillingCapabilities, error) {
 		out.Enabled, out.DisabledReason, out.PublicSurface.Enabled = false, &reason, false
 	}
 	if out.Enabled {
-		for _, feature := range []struct {
-			slug string
-			flag *bool
+		checks := []struct {
+			slug    string
+			flag    *bool
+			granted bool
+			err     error
 		}{
-			{dogfooding.VouchersEntitlementSlug, &out.Features.Vouchers},
-			{dogfooding.AddonsEntitlementSlug, &out.Features.Addons},
-		} {
-			granted, err := u.deps.Gate.CheckEntitlement(ctx, user.OrganizationID, feature.slug)
-			*feature.flag = err == nil && granted
-			if err != nil {
-				out.FeatureCheckUnavailable = append(out.FeatureCheckUnavailable, feature.slug)
+			{slug: dogfooding.VouchersEntitlementSlug, flag: &out.Features.Vouchers},
+			{slug: dogfooding.AddonsEntitlementSlug, flag: &out.Features.Addons},
+		}
+		// Independent reads share the wait rather than stacking authority
+		// timeouts. Join before writing the response to preserve stable order.
+		var waiting sync.WaitGroup
+		for i := range checks {
+			waiting.Go(func() {
+				checks[i].granted, checks[i].err = u.deps.Gate.CheckEntitlement(ctx, user.OrganizationID, checks[i].slug)
+			})
+		}
+		waiting.Wait()
+		for _, check := range checks {
+			*check.flag = check.err == nil && check.granted
+			if check.err != nil {
+				out.FeatureCheckUnavailable = append(out.FeatureCheckUnavailable, check.slug)
 			}
 		}
 	}
