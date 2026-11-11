@@ -9,15 +9,29 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/platformflags"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // setupPlatformFlags selects ONE operator-trusted source independently of
 // Metered.Enabled and driver-provided usage reporters. A configured remote
 // authority never falls back to local/customer flags on denial or source loss.
+// The selected source is read through aiusage.CachedFlags, which reuses each
+// organization's answer for ai_usage.flag_cache_ttl; a reader handed in by the
+// driver is used as given.
 func (s *Server) setupPlatformFlags(ctx context.Context) error {
 	if s.deps.PlatformFlags != nil {
 		return nil
 	}
+	if err := s.selectPlatformFlags(ctx); err != nil {
+		return err
+	}
+	if s.deps.PlatformFlags != nil {
+		s.deps.PlatformFlags = aiusage.NewCachedFlags(s.deps.PlatformFlags, s.cfg.AIUsage.FlagCacheTTL)
+	}
+	return nil
+}
+
+func (s *Server) selectPlatformFlags(ctx context.Context) error {
 	source, err := s.cfg.Metered.ResolvePlatformOrgID()
 	if err != nil {
 		return fmt.Errorf("resolve platform flag organization: %w", err)

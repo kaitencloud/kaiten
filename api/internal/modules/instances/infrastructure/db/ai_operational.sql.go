@@ -30,26 +30,3 @@ func (q *Queries) GetUsageTargetType(ctx context.Context, arg GetUsageTargetType
 	err := row.Scan(&type_)
 	return type_, err
 }
-
-const instanceHasAI = `-- name: InstanceHasAI :one
-SELECT EXISTS (
- SELECT 1 FROM instance i WHERE i.organization_id = $1 AND i.slug = $2
- AND (
- EXISTS(SELECT 1 FROM instance_effective_entitlement g JOIN entitlement e ON e.id = g.entitlement_id WHERE g.instance_id = i.id AND g.organization_id = i.organization_id AND e.type = 'NUMBER_AI_CREDIT')
- OR EXISTS(SELECT 1 FROM entitlement_usage u JOIN entitlement e ON e.id = u.entitlement_id WHERE u.instance_id = i.id AND u.organization_id = i.organization_id AND e.type = 'NUMBER_AI_CREDIT')
- OR EXISTS(SELECT 1 FROM instance_entitlement_exception x JOIN entitlement e ON e.id = x.entitlement_id WHERE x.instance_id = i.id AND x.organization_id = i.organization_id AND e.type = 'NUMBER_AI_CREDIT')
- OR EXISTS(SELECT 1 FROM ai_inference a WHERE a.instance_id = i.id AND a.organization_id = i.organization_id)
- ))::boolean
-`
-
-type InstanceHasAIParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	Slug           string    `json:"slug"`
-}
-
-func (q *Queries) InstanceHasAI(ctx context.Context, arg InstanceHasAIParams) (bool, error) {
-	row := q.db.QueryRow(ctx, instanceHasAI, arg.OrganizationID, arg.Slug)
-	var column_1 bool
-	err := row.Scan(&column_1)
-	return column_1, err
-}

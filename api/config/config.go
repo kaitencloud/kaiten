@@ -180,6 +180,12 @@ type AIUsage struct {
 	IdempotencyWindow time.Duration `mapstructure:"idempotency_window" validate:"gte=86400000000000"`
 	ReservationTTL    time.Duration `mapstructure:"reservation_ttl" validate:"gt=0,ltefield=ReservationMaxTTL"`
 	ReservationMaxTTL time.Duration `mapstructure:"reservation_max_ttl" validate:"gt=0"`
+	// FlagCacheTTL is how long one answer of the platform ai-credits flag is
+	// reused per organization, and so how long enabling or revoking it takes
+	// to reach a replica. During a source outage the last answer is served for
+	// ten times as long. Zero evaluates the flag on every operation.
+	// At most one hour: the stale bound is ten times this.
+	FlagCacheTTL time.Duration `mapstructure:"flag_cache_ttl" validate:"gte=0,lte=3600000000000"`
 }
 
 type Server struct {
@@ -421,6 +427,7 @@ var settings = []struct {
 	{"ai_usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},
 	{"ai_usage.reservation_ttl", "KAITEN_AI_RESERVATION_DEFAULT_TTL", "10m", false},
 	{"ai_usage.reservation_max_ttl", "KAITEN_AI_RESERVATION_MAX_TTL", "1h", false},
+	{"ai_usage.flag_cache_ttl", "KAITEN_AI_FLAG_CACHE_TTL", "30s", false},
 	{"retention.enabled", "KAITEN_RETENTION_ENABLED", true, false},
 	{"retention.initial_delay", "KAITEN_RETENTION_INITIAL_DELAY", "5m", false},
 	{"retention.interval", "KAITEN_RETENTION_INTERVAL", "12h", false},

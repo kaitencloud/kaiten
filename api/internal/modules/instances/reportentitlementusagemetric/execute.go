@@ -22,8 +22,13 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 	}
 	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if command.AI != nil {
-		if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
-			return nil, err
+		// The rollout flag admits NEW AI activity. A commit is evidence of an
+		// inference that already ran and already cost money: it is recorded
+		// whatever the flag says, and whether or not its source answers.
+		if command.AI.Phase != "commit" {
+			if err := h.deps.AIPolicy.RequireEnabled(ctx); err != nil {
+				return nil, err
+			}
 		}
 		if command.TransactionID != nil {
 			return nil, kaitenerrors.UnprocessableEntity("ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported", "AI usage uses value.transactionId; do not send Idempotency-Key")
@@ -32,18 +37,17 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 			return nil, err
 		}
 	}
-	if h.deps.AIPolicy.Enabled(ctx) {
-		defer func() {
-			if result == nil {
-				recordAIReport(ctx, command, nil, resultErr)
-			} else {
-				recordAIReport(ctx, command, result.Usage, resultErr)
-			}
-		}()
-	}
+	defer func() {
+		if result == nil {
+			recordAIReport(ctx, command, nil, resultErr)
+		} else {
+			recordAIReport(ctx, command, result.Usage, resultErr)
+		}
+	}()
 	// Preserve the ordinary attempt counter for missing/ungranted targets,
 	// unsupported types and validation/load failures. While off, classify the
-	// original entitlement before those failures: known AI never counts. Submit
+	// original entitlement before those failures: known AI is accepted as
+	// evidence but never counts, commits included. Submit
 	// after this report's owned transaction unwinds, because the reporter queue
 	// may block. A caller-owned ambient transaction can still surround Execute.
 	ordinaryAttempt := command.AI == nil
@@ -58,7 +62,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 		h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.EntitlementValuesReportedEntitlementSlug)
 	}
 	if !h.deps.AIPolicy.Enabled(ctx) && ordinaryAttempt {
-		defer func() { h.finishOrdinaryAttempt(user.OrganizationID, resultErr) }()
+		defer h.finishOrdinaryAttempt(user.OrganizationID)
 	}
 	properties, tooLarge, err := encodeMetadata(command.Metadata)
 	if err != nil {

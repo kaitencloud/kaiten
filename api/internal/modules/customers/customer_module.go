@@ -12,7 +12,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/updatecustomer"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/updateintegrations"
-	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // UseCases aggregates all use cases for the customers module.
@@ -47,7 +46,6 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		DeleteCustomer: deletecustomer.NewUseCase(deletecustomer.Deps{
-			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,

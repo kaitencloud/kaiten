@@ -136,6 +136,12 @@ ai_usage:
   idempotency_window: 840h
   reservation_ttl: 10m
   reservation_max_ttl: 1h
+  # KAITEN_AI_FLAG_CACHE_TTL — how long one answer of the ai-credits flag is
+  # reused per organization. Enabling or revoking takes up to this long per
+  # replica; if the source is down the last answer is served for ten times as
+  # long, then AI admission closes. 0 evaluates the flag on every operation;
+  # at most 1h.
+  flag_cache_ttl: 30s
 
 # The usage report path.
 usage:

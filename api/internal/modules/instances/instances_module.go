@@ -95,7 +95,6 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		DeleteInstance: deleteinstance.NewUseCase(deleteinstance.Deps{
-			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Uof:           svc.Uof,
 			UsageReporter: svc.UsageReporter,

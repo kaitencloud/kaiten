@@ -343,6 +343,8 @@ api:
       idempotency_window: 840h
       reservation_ttl: 10m
       reservation_max_ttl: 1h
+      # How long one answer of the ai-credits flag is reused per organization.
+      flag_cache_ttl: 30s
     logging:
       level: warn
       format: json
