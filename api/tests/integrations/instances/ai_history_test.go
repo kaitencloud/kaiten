@@ -28,11 +28,11 @@ import (
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
-// historyRow is one ai_inference row written straight to the database. The
-// report path that fills the explanation columns (pricing, licence, warnings,
-// report_seq, vendor costs) is another lot's; these tests pin the read side on
-// rows whose every column they choose. A nil Authorized writes a RESERVED
-// operation; otherwise a COMMITTED one, charged 2 credits when authorized.
+// historyRow is one ai_inference row written straight to the database, so
+// these tests pin the read side on rows whose every column they choose; the
+// rows the report path writes are read back in ai_explain_http_test.go. A nil
+// Authorized writes a RESERVED operation; otherwise a COMMITTED one, charged
+// 2 credits when authorized.
 type historyRow struct {
 	Org, Instance, Entitlement uuid.UUID
 	TransactionID              string
@@ -306,9 +306,9 @@ func TestAIHistoryPaginatesAFilteredListing(t *testing.T) {
 	require.Equal(t, "ListAiInferences.InvalidCursor", problem.Code)
 }
 
-// The organization-wide listing is not wired to HTTP in this change (the
-// integrator registers it), so these tests drive its use case against the
-// real database: the same Execute the facade will call.
+// These tests drive the organization listing's use case against the real
+// database, the same Execute the facade calls; its HTTP side (scope, tenant,
+// gate) is in ai_explain_http_test.go.
 func organizationInferences(organizationID uuid.UUID, flags aiusage.FlagReader) *listorganizationaiinferences.UseCase {
 	return listorganizationaiinferences.NewUseCase(listorganizationaiinferences.Deps{
 		AIPolicy:     aiusage.Policy{Flags: flags},
