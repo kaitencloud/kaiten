@@ -73,14 +73,10 @@ type UseCases struct {
 func NewUseCases(svc services.Container) *UseCases {
 	startAIMaintenance(svc)
 	queries := db.New(svc.Pool)
-	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool), auditretention.NewRetention(
-		svc.EntitlementConfig, svc.Config.Retention.Enabled, svc.Config.Retention.AuditTrailDays))
-	ledgerSettings := usageledger.Settings{
-		RetentionMonths:    svc.Config.UsageLedger.RetentionMonths,
-		MaxRetentionMonths: svc.Config.UsageLedger.MaxRetentionMonths,
-		IdempotencyWindow:  svc.Config.Usage.IdempotencyWindow,
-	}
-	retention := usageledger.Retention{Reader: svc.EntitlementConfig, Settings: ledgerSettings}
+	auditTrailPort := listforinstance.NewUseCase(auditdb.New(svc.Pool),
+		auditretention.FromConfig(svc.EntitlementConfig, svc.Config.Retention))
+	ledgerSettings := usageledger.SettingsFrom(svc.Config)
+	retention := usageledger.NewRetention(svc.EntitlementConfig, svc.Config)
 	useCases := &UseCases{
 		BillableUsage:  billableusage.New(svc.Pool, svc.Uof, retention),
 		AIInferences:   listaiinferences.UseCase{Reader: aihistory.Reader{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, User: svc.UserProvider, Queries: queries}},

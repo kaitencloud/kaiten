@@ -6,6 +6,7 @@ import {
   meterLabel,
   pushNotHealthy,
 } from './attention-shared';
+import { activityWindows, windowPhrase } from './activity';
 import { listNames } from './format';
 
 /**
@@ -62,6 +63,11 @@ export function buildIntegrationAttention(
       count: a.silentInstances.count,
       title: t('Pages.Dashboard.attention.lines.silents.title', {
         count: a.silentInstances.count,
+        window: windowPhrase(
+          t,
+          activityWindows(summary).both,
+          summary.range.days,
+        ),
       }),
       detail: listNames(
         a.silentInstances.items.map((item) => item.instanceSlug),

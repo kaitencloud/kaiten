@@ -25,15 +25,10 @@ func NewUseCases(svc services.Container) *UseCases {
 		GetSummary: getsummary.NewUseCase(getsummary.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      db.New(svc.Pool),
-			// The same retentions the audit trail's and the usage history's own
-			// reads apply, built as the instances module builds them.
-			AuditRetention: auditretention.NewRetention(
-				svc.EntitlementConfig, svc.Config.Retention.Enabled, svc.Config.Retention.AuditTrailDays),
-			UsageRetention: usageledger.Retention{Reader: svc.EntitlementConfig, Settings: usageledger.Settings{
-				RetentionMonths:    svc.Config.UsageLedger.RetentionMonths,
-				MaxRetentionMonths: svc.Config.UsageLedger.MaxRetentionMonths,
-				IdempotencyWindow:  svc.Config.Usage.IdempotencyWindow,
-			}},
+			// The retentions the audit trail's and the usage history's own reads
+			// apply, from the same constructors.
+			AuditRetention: auditretention.FromConfig(svc.EntitlementConfig, svc.Config.Retention),
+			UsageRetention: usageledger.NewRetention(svc.EntitlementConfig, svc.Config),
 		}),
 	}
 }

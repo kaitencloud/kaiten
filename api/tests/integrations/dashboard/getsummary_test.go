@@ -320,11 +320,18 @@ func TestGetDashboardSummary(t *testing.T) {
 		require.Empty(t, summary.Licenses.Mix)
 	})
 
-	t.Run("WhenARetentionIsShorterThanThePeriod_TheActivityStartsWhereItDoes", func(t *testing.T) {
+	t.Run("WhenARetentionIsShorterThanThePeriod_EachRecordIsReadFromItsOwnStart", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
-		instance := newInstances(t, 1)[0]
-		// The instance's one sign of life: an entitlement read ten days ago.
-		newAuditTrailEntryAt(t, instance.Slug, "ENTITLEMENT_VALUE_GET", time.Now().AddDate(0, 0, -10))
+		instances := newInstances(t, 2)
+		// The first instance's one sign of life: an entitlement read ten days ago.
+		readOnly := instances[0]
+		newAuditTrailEntryAt(t, readOnly.Slug, "ENTITLEMENT_VALUE_GET", time.Now().AddDate(0, 0, -10))
+		// The second's: a usage report accepted ten days ago, in the usage history.
+		reported := instances[1]
+		orders := newEntitlement(t, 0)
+		grant(t, reported.LicenseSlug, orders.Slug, 100, 0)
+		reportUsage(t, reported.Slug, orders.Slug, 1)
+		ageUsageHistory(t, reported.Slug, 10*24*time.Hour)
 
 		summaryFrom := func(t *testing.T, server *tests.TestServer, query string) getsummary.DashboardSummary {
 			t.Helper()
@@ -339,38 +346,55 @@ func TestGetDashboardSummary(t *testing.T) {
 			return server
 		}
 
-		t.Run("kept whole, the read counts", func(t *testing.T) {
+		t.Run("kept whole, both count, by whole days", func(t *testing.T) {
 			summary := summaryFrom(t, testServer, "?range=30d")
-			require.Equal(t, 30, summary.Range.ActivityDays)
-			require.WithinDuration(t, summary.Range.From, summary.Range.ActivityFrom, time.Second)
-			require.False(t, rowOf(t, summary.UsageReports.ByInstance, instance.Slug).Silent)
+			require.Equal(t, 30, summary.Range.UsageHistoryDays)
+			require.Equal(t, 30, summary.Range.AuditTrailDays)
+			firstDay := summary.Range.UsageHistoryFrom
+			require.Equal(t, firstDay, summary.Range.AuditTrailFrom)
+			require.True(t, firstDay.After(summary.Range.From), "the period's first whole day")
+			require.Equal(t, firstDay, firstDay.Truncate(24*time.Hour), "a day boundary")
+			require.Len(t, summary.UsageReports.PerDay, 30)
+			require.True(t, summary.UsageReports.PerDay[0].Day.Equal(firstDay), "the chart starts where the figures do")
+			require.False(t, rowOf(t, summary.UsageReports.ByInstance, readOnly.Slug).Silent)
+			require.False(t, rowOf(t, summary.UsageReports.ByInstance, reported.Slug).Silent)
 		})
 
-		t.Run("a seven-day audit trail, the read is past it", func(t *testing.T) {
+		t.Run("a seven-day audit trail cuts the reads, not the accepted reports", func(t *testing.T) {
 			server := serverWith(t, func(cfg *config.Config) {
 				cfg.Retention.Enabled = true
 				cfg.Retention.AuditTrailDays = 7
 			})
 			summary := summaryFrom(t, server, "?range=30d")
 			require.Equal(t, 30, summary.Range.Days, "the period stays the one asked for")
-			require.Equal(t, 7, summary.Range.ActivityDays)
-			require.WithinDuration(t, summary.Range.To.AddDate(0, 0, -7), summary.Range.ActivityFrom, time.Second)
-			require.Len(t, summary.UsageReports.PerDay, 7, "one entry a day of the activity window")
-			row := rowOf(t, summary.UsageReports.ByInstance, instance.Slug)
-			require.True(t, row.Silent, "silent over the seven days the trail keeps")
+			require.Equal(t, 30, summary.Range.UsageHistoryDays, "the usage history is kept whole")
+			require.Equal(t, 7, summary.Range.AuditTrailDays)
+			require.Len(t, summary.UsageReports.PerDay, 7, "the chart draws the days both records keep")
+			require.True(t, summary.UsageReports.PerDay[0].Day.Equal(summary.Range.AuditTrailFrom))
+
+			row := rowOf(t, summary.UsageReports.ByInstance, readOnly.Slug)
+			require.True(t, row.Silent, "its read is past the seven days the trail keeps")
 			require.Equal(t, "silent", row.Standing)
+
+			row = rowOf(t, summary.UsageReports.ByInstance, reported.Slug)
+			require.False(t, row.Silent, "its accepted report is still in the usage history")
+			require.EqualValues(t, 1, row.Accepted)
+			require.NotNil(t, row.LastReportAt)
+			require.EqualValues(t, 1, summary.Figures.Instances.ActiveInRange)
 		})
 
-		t.Run("a one-month usage history cuts a 90-day period", func(t *testing.T) {
+		t.Run("a one-month usage history cuts the accepted reports of a 90-day period", func(t *testing.T) {
 			server := serverWith(t, func(cfg *config.Config) { cfg.UsageLedger.RetentionMonths = 1 })
 			summary := summaryFrom(t, server, "?range=90d")
 			require.Equal(t, 90, summary.Range.Days)
-			require.GreaterOrEqual(t, summary.Range.ActivityDays, 28, "a calendar month")
-			require.LessOrEqual(t, summary.Range.ActivityDays, 31, "a calendar month")
-			require.True(t, summary.Range.ActivityFrom.After(summary.Range.From))
-			require.Len(t, summary.UsageReports.PerDay, summary.Range.ActivityDays)
-			require.False(t, rowOf(t, summary.UsageReports.ByInstance, instance.Slug).Silent,
-				"the read ten days ago is inside the month")
+			require.Equal(t, 90, summary.Range.AuditTrailDays, "the trail is kept whole")
+			require.GreaterOrEqual(t, summary.Range.UsageHistoryDays, 28, "a calendar month")
+			require.LessOrEqual(t, summary.Range.UsageHistoryDays, 31, "a calendar month")
+			require.Len(t, summary.UsageReports.PerDay, summary.Range.UsageHistoryDays)
+			require.False(t, rowOf(t, summary.UsageReports.ByInstance, readOnly.Slug).Silent,
+				"the read ten days ago is inside the trail")
+			require.False(t, rowOf(t, summary.UsageReports.ByInstance, reported.Slug).Silent,
+				"the report ten days ago is inside the month")
 		})
 	})
 

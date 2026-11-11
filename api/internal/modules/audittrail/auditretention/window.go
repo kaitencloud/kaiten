@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	infradogfooding "github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/sweep"
@@ -87,6 +88,13 @@ func cutoff(now time.Time, days int) time.Time {
 type Retention struct {
 	Reader   services.EntitlementConfig
 	Settings Settings
+}
+
+// FromConfig is the Retention a deployment's configuration states: the one
+// every reader of the trail applies, so that none of them drifts from the
+// others when a setting is added.
+func FromConfig(reader services.EntitlementConfig, cfg config.Retention) Retention {
+	return NewRetention(reader, cfg.Enabled, cfg.AuditTrailDays)
 }
 
 // NewRetention is the Retention of a deployment. One that switched retention
