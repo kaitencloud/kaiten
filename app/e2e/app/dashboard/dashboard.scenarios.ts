@@ -20,16 +20,7 @@ export function createCalmDashboardModel() {
  * week of activity: the API reads the activity from where it starts.
  */
 export function createRetentionCutDashboardModel() {
-  const summary = buildDashboardSummary();
-  const to = new Date(summary.range.to);
-  return new DashboardAppModel({
-    ...summary,
-    range: {
-      ...summary.range,
-      activityFrom: new Date(to.getTime() - 7 * 86_400_000).toISOString(),
-      activityDays: 7,
-    },
-  });
+  return new DashboardAppModel(buildDashboardSummary(), { auditTrailDays: 7 });
 }
 
 /** A brand-new organization: nothing recorded yet. */

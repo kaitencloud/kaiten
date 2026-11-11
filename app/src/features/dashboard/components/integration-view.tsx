@@ -6,6 +6,7 @@ import {
   INTEGRATION_CHECKS,
   quietChecks,
 } from '../logic/attention';
+import { activeDefinition, activityWindows } from '../logic/activity';
 import { compactCount } from '../logic/format';
 import { AttentionCard } from './attention-card';
 import { type Figure, FiguresRow } from './figures-row';
@@ -88,7 +89,7 @@ export function IntegrationView({
         t('Pages.Dashboard.figures.silent', {
           count: summary.figures.instances.silentInRange,
         }),
-        t('Pages.Dashboard.figures.activeDefinition'),
+        activeDefinition(t, activityWindows(summary)),
       ],
     },
     {
@@ -135,10 +136,19 @@ export function IntegrationView({
       <FiguresRow figures={figures} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
         <div className="xl:col-span-7">
-          <UsageReportsCard usage={summary.usageReports} locale={locale} />
+          <UsageReportsCard
+            usage={summary.usageReports}
+            locale={locale}
+            windows={activityWindows(summary)}
+          />
         </div>
         <div className="xl:col-span-5">
-          {flags ? <FlagEvaluationsCard flags={flags} /> : null}
+          {flags ? (
+            <FlagEvaluationsCard
+              flags={flags}
+              windows={activityWindows(summary)}
+            />
+          ) : null}
         </div>
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">

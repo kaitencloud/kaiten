@@ -78,20 +78,31 @@ test.describe('dashboard read', () => {
     await expect(page).toHaveURL(/\/dashboard$/);
   });
 
-  test('a retention shorter than the period says how far the activity goes', async ({
+  test('a retention shorter than the period says how far each record goes', async ({
     page,
   }) => {
     await installDashboardAppMocks(page, createRetentionCutDashboardModel());
     await page.goto('/dashboard');
 
     await expect(page.getByTestId('dashboard-activity-cut')).toHaveText(
-      'Activity covers the last 7 days: your organization keeps no older usage reports, reads or evaluations.',
+      'Refused reports, entitlement reads and flag evaluations cover the last 7 days: your organization keeps no older audit trail.',
     );
+    const attention = page.getByTestId('dashboard-attention');
     await expect(
-      page
-        .getByTestId('dashboard-attention')
-        .getByText('No usage report and no entitlement read in 7 days'),
+      attention.getByText(
+        'Sakura Tokyo has not used Sakura Tokyo Sales Demo over the last 7 days',
+      ),
     ).toBeVisible();
+    await expect(
+      attention.getByText(
+        'No usage report accepted over the period, and no refused report or entitlement read over the last 7 days',
+      ),
+    ).toBeVisible();
+
+    // Seven days ask no more than the trail keeps: nothing is cut.
+    await page.getByRole('button', { name: '7 days' }).click();
+    await expect(page).toHaveURL(/range=7d/);
+    await expect(page.getByTestId('dashboard-activity-cut')).toHaveCount(0);
   });
 
   test('the whole period, read whole, says nothing more', async ({ page }) => {

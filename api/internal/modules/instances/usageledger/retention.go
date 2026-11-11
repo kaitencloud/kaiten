@@ -8,12 +8,28 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	infradogfooding "github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/sweep"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
+
+// SettingsFrom is the journal's retention as a deployment configures it.
+func SettingsFrom(cfg config.CoreConfig) Settings {
+	return Settings{
+		RetentionMonths:    cfg.UsageLedger.RetentionMonths,
+		MaxRetentionMonths: cfg.UsageLedger.MaxRetentionMonths,
+		IdempotencyWindow:  cfg.Usage.IdempotencyWindow,
+	}
+}
+
+// NewRetention is the Retention a deployment's configuration states: the
+// window the history's own reads and the daily pass apply.
+func NewRetention(reader services.EntitlementConfig, cfg config.CoreConfig) Retention {
+	return Retention{Reader: reader, Settings: SettingsFrom(cfg)}
+}
 
 // Settings is how long the journal is kept, from the deployment's configuration.
 type Settings struct {

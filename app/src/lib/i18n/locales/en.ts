@@ -325,10 +325,26 @@ export default {
         '30d': '30 days',
         '90d': '90 days',
         asOf: 'As of {{time}}',
-        activityCut_one:
-          'Activity covers the last day: your organization keeps no older usage reports, reads or evaluations.',
-        activityCut_other:
-          'Activity covers the last {{count}} days: your organization keeps no older usage reports, reads or evaluations.',
+        cut: {
+          usageHistory_one:
+            'Accepted usage reports cover the last day: your organization keeps no older usage history.',
+          usageHistory_other:
+            'Accepted usage reports cover the last {{count}} days: your organization keeps no older usage history.',
+          auditTrail_one:
+            'Refused reports, entitlement reads and flag evaluations cover the last day: your organization keeps no older audit trail.',
+          auditTrail_other:
+            'Refused reports, entitlement reads and flag evaluations cover the last {{count}} days: your organization keeps no older audit trail.',
+        },
+      },
+      window: {
+        period: 'over the period',
+        lastDays_one: 'over the last day',
+        lastDays_other: 'over the last {{count}} days',
+      },
+      silence: {
+        same: 'No usage report and no entitlement read {{window}}',
+        split:
+          'No usage report accepted {{reports}}, and no refused report or entitlement read {{reads}}',
       },
       time: {
         today: 'today',
@@ -394,13 +410,12 @@ export default {
             action: 'Audit trail',
           },
           silent: {
-            title: '{{customer}} has not used {{instance}} over the period',
-            detail: 'No usage report and no entitlement read in {{days}} days',
+            title: '{{customer}} has not used {{instance}} {{window}}',
             action: 'Open the instance',
           },
           silents: {
-            title_one: '{{count}} instance silent over the period',
-            title_other: '{{count}} instances silent over the period',
+            title_one: '{{count}} instance silent {{window}}',
+            title_other: '{{count}} instances silent {{window}}',
             detail: '{{instances}}',
             action: 'Instances',
           },
@@ -459,7 +474,9 @@ export default {
         silent_one: '{{count}} silent',
         silent_other: '{{count}} silent',
         activeDefinition:
-          'Active: reported usage or read an entitlement over the period',
+          'Active: reported usage or read an entitlement {{window}}',
+        activeDefinitionSplit:
+          'Active: a usage report accepted {{reports}}, or a refused report or an entitlement read {{reads}}',
         atLimit: 'At their limits',
         atLimitHelper_one: '{{count}} meter at a limit',
         atLimitHelper_other: '{{count}} meters at a limit',
@@ -511,9 +528,9 @@ export default {
         standing: 'Standing',
         usage: 'Usage that matters',
         lastActivity: 'Last activity',
-        noUsage: 'No usage over the period',
+        noUsage: 'No usage {{window}}',
         noMeter: 'No metered entitlement reported',
-        never: 'Never over the period',
+        never: 'Never {{window}}',
         of: '{{used}} of {{max}}',
         unlimited: '{{used}} · unlimited',
         viewAll: 'All instances',
@@ -533,14 +550,13 @@ export default {
         archived: '{{customer}} · {{license}} is archived',
         archivedDetail: 'Version {{version}} · {{default}} · {{instance}}',
         silent: '{{customer}} · {{instance}} is silent',
-        silentDetail: 'No usage report and no entitlement read over the period',
         ending: '{{customer}} · License ends {{when}}',
         endingDetail: '{{license}} · {{instance}} · no subscription',
         rules: {
           atLimit: 'Rule: at a hard limit',
           nearLimit: 'Rule: above the warning threshold',
           archived: 'Rule: on an archived version',
-          silent: 'Rule: no activity over the period',
+          silent: 'Rule: no activity {{window}}',
           ending: 'Rule: License ending without a subscription',
         },
         open: 'Open',
@@ -586,7 +602,7 @@ export default {
       usage: {
         title: 'Usage reports per day',
         description:
-          'Accepted and refused over the period. A refused report is above the grant: nothing is written.',
+          'Accepted and refused {{window}}. A refused report is above the grant: nothing is written.',
         accepted: 'Accepted',
         refused: 'Refused',
         byInstance: 'By instance',
@@ -596,12 +612,12 @@ export default {
         more_one: '{{count}} more instance',
         more_other: '{{count}} more instances',
         empty:
-          'No usage report over the period. Send one with an SDK or the quickstart, and the chart draws it.',
+          'No usage report {{window}}. Send one with an SDK or the quickstart, and the chart draws it.',
       },
       flags: {
         title: 'Flags evaluated',
         description:
-          'Evaluations per flag over the period, at least: the publisher drops under load. A flag nobody evaluates is a flag to retire.',
+          'Evaluations per flag {{window}}, at least: the publisher drops under load. A flag nobody evaluates is a flag to retire.',
         never: 'never',
         retire: 'Retire?',
         disabled: 'disabled',
