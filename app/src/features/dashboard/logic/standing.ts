@@ -7,7 +7,8 @@ import type {
 /**
  * The one health word of an instance, as the API computes it over every meter
  * of the organization: at a limit when a meter refuses, watch when one is above
- * its warning threshold, silent when nothing reported or read over the period,
+ * its warning threshold, silent when nothing was reported or read in the windows
+ * the usage history and the audit trail cover,
  * healthy otherwise. The order is the order of attention.
  */
 export type Standing = DashboardInstanceReports['standing'];

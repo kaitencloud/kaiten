@@ -8,8 +8,10 @@ package dashboard
 
 import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	"github.com/kaitencloud/kaiten/api/internal/modules/dashboard/getsummary"
 	"github.com/kaitencloud/kaiten/api/internal/modules/dashboard/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 )
 
 // UseCases contains the use case handlers for the dashboard module.
@@ -23,6 +25,10 @@ func NewUseCases(svc services.Container) *UseCases {
 		GetSummary: getsummary.NewUseCase(getsummary.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      db.New(svc.Pool),
+			// The retentions the audit trail's and the usage history's own reads
+			// apply, from the same constructors.
+			AuditRetention: auditretention.FromConfig(svc.EntitlementConfig, svc.Config.Retention),
+			UsageRetention: usageledger.NewRetention(svc.EntitlementConfig, svc.Config),
 		}),
 	}
 }

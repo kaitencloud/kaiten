@@ -3199,11 +3199,11 @@ components:
           format: int64
           type: integer
         evaluations:
-          description: Evaluations recorded in the range; a floor, the evaluation publisher drops under pressure
+          description: Evaluations recorded since range.auditTrailFrom; a floor, the evaluation publisher drops under pressure
           format: int64
           type: integer
         notEvaluated:
-          description: Flags with no evaluation in the range
+          description: Flags with no evaluation since range.auditTrailFrom
           format: int64
           type: integer
         perFlag:
@@ -3284,7 +3284,7 @@ components:
       additionalProperties: false
       properties:
         activeInRange:
-          description: Instances with at least one report, accepted or refused, or one entitlement read in the range
+          description: Instances with an accepted report since range.usageHistoryFrom, or a refused report or an entitlement read since range.auditTrailFrom
           format: int64
           type: integer
         byStanding:
@@ -3331,7 +3331,7 @@ components:
         instanceSlug:
           type: string
         lastReadAt:
-          description: The last entitlement value read in the range
+          description: The last entitlement value read since range.auditTrailFrom
           format: date-time
           type:
             - string
@@ -3356,10 +3356,10 @@ components:
           format: int64
           type: integer
         silent:
-          description: No report, accepted or refused, and no entitlement read in the range
+          description: No accepted report since range.usageHistoryFrom, and no refused report nor entitlement read since range.auditTrailFrom
           type: boolean
         standing:
-          description: "The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing reported or read in the range, healthy otherwise; computed over every meter of the instance"
+          description: "The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing was reported or read in either window, healthy otherwise; computed over every meter of the instance"
           enum:
             - atLimit
             - watch
@@ -3648,6 +3648,14 @@ components:
     DashboardRangeWindow:
       additionalProperties: false
       properties:
+        auditTrailDays:
+          description: The calendar days from auditTrailFrom to To, today included; days when the audit trail covers the whole period
+          format: int64
+          type: integer
+        auditTrailFrom:
+          description: "Where refused reports, entitlement reads and flag evaluations are read from: the start of the period's first whole day, or later when the organization keeps its audit trail for less"
+          format: date-time
+          type: string
         days:
           format: int64
           type: integer
@@ -3663,11 +3671,23 @@ components:
         to:
           format: date-time
           type: string
+        usageHistoryDays:
+          description: The calendar days from usageHistoryFrom to To, today included; days when the usage history covers the whole period
+          format: int64
+          type: integer
+        usageHistoryFrom:
+          description: "Where the accepted usage reports are read from: the start of the period's first whole day, or later when the organization keeps its usage history for less"
+          format: date-time
+          type: string
       required:
         - range
         - from
         - to
         - days
+        - usageHistoryFrom
+        - usageHistoryDays
+        - auditTrailFrom
+        - auditTrailDays
       type: object
     DashboardStandingCounts:
       additionalProperties: false
@@ -3809,11 +3829,11 @@ components:
       additionalProperties: false
       properties:
         accepted:
-          description: Reports journalled in the range
+          description: "Reports accepted on the days usageReports.perDay covers: from the later of range.usageHistoryFrom and range.auditTrailFrom"
           format: int64
           type: integer
         rejected:
-          description: Reports refused in the range, from the audit trail
+          description: Reports refused on the same days, from the audit trail
           format: int64
           type: integer
         rejected24h:
@@ -3833,6 +3853,7 @@ components:
             $ref: "#/components/schemas/DashboardInstanceReports"
           type: array
         perDay:
+          description: "One entry a calendar day, today last, from the later of range.usageHistoryFrom and range.auditTrailFrom: the days both the accepted and the refused reports are kept"
           items:
             $ref: "#/components/schemas/DashboardDayReports"
           type: array

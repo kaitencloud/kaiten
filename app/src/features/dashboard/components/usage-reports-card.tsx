@@ -22,12 +22,14 @@ import {
 } from '@/components/ui/table';
 import { formatRelativeTimeToNow } from '@/lib/feed-time';
 import { formatDateForLocale, formatNumber } from '@/lib/format-date';
+import { type ActivityWindows, windowPhrase } from '../logic/activity';
 
 const ROWS = 6;
 
 type UsageReportsCardProps = {
   usage: DashboardUsageReports;
   locale: string;
+  windows: ActivityWindows;
 };
 
 /**
@@ -35,8 +37,13 @@ type UsageReportsCardProps = {
  * then the instances they came from. The one chart of the page: a daily series
  * is the one shape a count has.
  */
-export function UsageReportsCard({ usage, locale }: UsageReportsCardProps) {
+export function UsageReportsCard({
+  usage,
+  locale,
+  windows,
+}: UsageReportsCardProps) {
   const { t } = useTranslation();
+  const window = windowPhrase(t, windows.both, windows.period);
   const config = {
     accepted: {
       label: t('Pages.Dashboard.usage.accepted'),
@@ -66,11 +73,13 @@ export function UsageReportsCard({ usage, locale }: UsageReportsCardProps) {
   return (
     <ChartShell
       title={t('Pages.Dashboard.usage.title')}
-      description={t('Pages.Dashboard.usage.description')}
+      description={t('Pages.Dashboard.usage.description', { window })}
       contentClassName="space-y-4"
     >
       {total === 0 ? (
-        <ChartEmptyState message={t('Pages.Dashboard.usage.empty')} />
+        <ChartEmptyState
+          message={t('Pages.Dashboard.usage.empty', { window })}
+        />
       ) : (
         <ChartContainer
           config={config}

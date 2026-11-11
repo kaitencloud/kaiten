@@ -10,15 +10,18 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import { type ActivityWindows, windowPhrase } from '../logic/activity';
 import { compactCount } from '../logic/format';
 
 const ROWS = 8;
 
-/** Evaluations per flag over the period, the most evaluated first; a flag nobody evaluates asks to be retired. */
+/** Evaluations per flag over the audit trail's window, the most evaluated first; a flag nobody evaluates asks to be retired. */
 export function FlagEvaluationsCard({
   flags,
+  windows,
 }: {
   flags: DashboardFeatureFlags;
+  windows: ActivityWindows;
 }) {
   const { t } = useTranslation();
   const largest = Math.max(1, ...flags.perFlag.map((flag) => flag.evaluations));
@@ -30,7 +33,9 @@ export function FlagEvaluationsCard({
         <div className="min-w-0">
           <CardTitle>{t('Pages.Dashboard.flags.title')}</CardTitle>
           <CardDescription>
-            {t('Pages.Dashboard.flags.description')}
+            {t('Pages.Dashboard.flags.description', {
+              window: windowPhrase(t, windows.auditTrail, windows.period),
+            })}
           </CardDescription>
         </div>
         <Link

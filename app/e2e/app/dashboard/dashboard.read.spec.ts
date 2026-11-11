@@ -3,6 +3,7 @@ import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-ap
 import {
   createCalmDashboardModel,
   createDashboardReadModel,
+  createRetentionCutDashboardModel,
 } from './dashboard.scenarios';
 
 test.describe('dashboard read', () => {
@@ -75,6 +76,43 @@ test.describe('dashboard read', () => {
     await page.getByRole('button', { name: '30 days' }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  test('a retention shorter than the period says how far each record goes', async ({
+    page,
+  }) => {
+    await installDashboardAppMocks(page, createRetentionCutDashboardModel());
+    await page.goto('/dashboard');
+
+    await expect(page.getByTestId('dashboard-activity-cut')).toHaveText(
+      'Refused reports, entitlement reads and flag evaluations cover the last 7 days: your organization keeps no older audit trail.',
+    );
+    const attention = page.getByTestId('dashboard-attention');
+    await expect(
+      attention.getByText(
+        'Sakura Tokyo has not used Sakura Tokyo Sales Demo over the last 7 days',
+      ),
+    ).toBeVisible();
+    await expect(
+      attention.getByText(
+        'No usage report accepted over the period, and no refused report or entitlement read over the last 7 days',
+      ),
+    ).toBeVisible();
+
+    // Seven days ask no more than the trail keeps: nothing is cut.
+    await page.getByRole('button', { name: '7 days' }).click();
+    await expect(page).toHaveURL(/range=7d/);
+    await expect(page.getByTestId('dashboard-activity-cut')).toHaveCount(0);
+  });
+
+  test('the whole period, read whole, says nothing more', async ({ page }) => {
+    await installDashboardAppMocks(page, createDashboardReadModel());
+    await page.goto('/dashboard');
+
+    await expect(
+      page.getByTestId('dashboard-attention').getByText('Needs attention'),
+    ).toBeVisible();
+    await expect(page.getByTestId('dashboard-activity-cut')).toHaveCount(0);
   });
 
   test('a quiet organization reads what was checked', async ({ page }) => {

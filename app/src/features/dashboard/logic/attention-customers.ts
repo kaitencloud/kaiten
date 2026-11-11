@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
 import type { BillingHealth, DashboardSummary } from '@/api-client';
+import { activityWindows, silenceDetail, windowPhrase } from './activity';
 import {
   type AttentionLine,
   billingStatusLabel,
@@ -192,6 +193,7 @@ export function buildCustomersAttention(
   );
 
   a.silentInstances.items.slice(0, TOP).forEach((item) => {
+    const windows = activityWindows(summary);
     lines.push({
       id: `silent-${item.instanceSlug}`,
       tone: 'muted',
@@ -199,10 +201,9 @@ export function buildCustomersAttention(
       title: t('Pages.Dashboard.attention.lines.silent.title', {
         customer: item.customerName,
         instance: item.instanceName,
+        window: windowPhrase(t, windows.both, windows.period),
       }),
-      detail: t('Pages.Dashboard.attention.lines.silent.detail', {
-        days: summary.range.days,
-      }),
+      detail: silenceDetail(t, windows),
       action: {
         label: t('Pages.Dashboard.attention.lines.silent.action'),
         to: instancePath(item.instanceSlug),

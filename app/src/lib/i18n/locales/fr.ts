@@ -335,6 +335,26 @@ export default {
         '30d': '30 jours',
         '90d': '90 jours',
         asOf: 'Au {{time}}',
+        cut: {
+          usageHistory_one:
+            "Les reports d'usage acceptés couvrent le dernier jour : votre organisation ne conserve pas d'historique d'usage plus ancien.",
+          usageHistory_other:
+            "Les reports d'usage acceptés couvrent les {{count}} derniers jours : votre organisation ne conserve pas d'historique d'usage plus ancien.",
+          auditTrail_one:
+            "Les reports refusés, les lectures de droits et les évaluations de flags couvrent le dernier jour : votre organisation ne conserve pas d'audit trail plus ancien.",
+          auditTrail_other:
+            "Les reports refusés, les lectures de droits et les évaluations de flags couvrent les {{count}} derniers jours : votre organisation ne conserve pas d'audit trail plus ancien.",
+        },
+      },
+      window: {
+        period: 'sur la période',
+        lastDays_one: 'sur le dernier jour',
+        lastDays_other: 'sur les {{count}} derniers jours',
+      },
+      silence: {
+        same: "Aucun report d'usage ni lecture de droit {{window}}",
+        split:
+          "Aucun report d'usage accepté {{reports}}, ni report refusé ni lecture de droit {{reads}}",
       },
       time: {
         today: "aujourd'hui",
@@ -402,14 +422,12 @@ export default {
             action: "Piste d'audit",
           },
           silent: {
-            title: "{{customer}} n'a pas utilisé {{instance}} sur la période",
-            detail:
-              "Aucun report d'usage ni lecture de droit en {{days}} jours",
+            title: "{{customer}} n'a pas utilisé {{instance}} {{window}}",
             action: "Ouvrir l'instance",
           },
           silents: {
-            title_one: '{{count}} instance silencieuse sur la période',
-            title_other: '{{count}} instances silencieuses sur la période',
+            title_one: '{{count}} instance silencieuse {{window}}',
+            title_other: '{{count}} instances silencieuses {{window}}',
             detail: '{{instances}}',
             action: 'Instances',
           },
@@ -469,7 +487,9 @@ export default {
         silent_one: '{{count}} silencieuse',
         silent_other: '{{count}} silencieuses',
         activeDefinition:
-          "Active : a reporté de l'usage ou lu un droit sur la période",
+          "Active : a reporté de l'usage ou lu un droit {{window}}",
+        activeDefinitionSplit:
+          "Active : un report d'usage accepté {{reports}}, ou un report refusé ou une lecture de droit {{reads}}",
         atLimit: 'À leur limite',
         atLimitHelper_one: '{{count}} compteur à une limite',
         atLimitHelper_other: '{{count}} compteurs à une limite',
@@ -521,9 +541,9 @@ export default {
         standing: 'Situation',
         usage: "L'usage qui compte",
         lastActivity: 'Dernière activité',
-        noUsage: "Pas d'usage sur la période",
+        noUsage: "Pas d'usage {{window}}",
         noMeter: 'Aucun droit mesuré reporté',
-        never: 'Jamais sur la période',
+        never: 'Jamais {{window}}',
         of: '{{used}} sur {{max}}',
         unlimited: '{{used}} · illimité',
         viewAll: 'Toutes les instances',
@@ -544,14 +564,13 @@ export default {
         archived: '{{customer}} · {{license}} est archivée',
         archivedDetail: 'Version {{version}} · {{default}} · {{instance}}',
         silent: '{{customer}} · {{instance}} est silencieuse',
-        silentDetail: "Aucun report d'usage ni lecture de droit sur la période",
         ending: '{{customer}} · la licence se termine {{when}}',
         endingDetail: "{{license}} · {{instance}} · pas d'abonnement",
         rules: {
           atLimit: 'Règle : à une limite ferme',
           nearLimit: "Règle : au-dessus du seuil d'alerte",
           archived: 'Règle : sur une version archivée',
-          silent: 'Règle : aucune activité sur la période',
+          silent: 'Règle : aucune activité {{window}}',
           ending: 'Règle : licence qui se termine sans abonnement',
         },
         open: 'Ouvrir',
@@ -599,7 +618,7 @@ export default {
       usage: {
         title: "Reports d'usage par jour",
         description:
-          "Acceptés et refusés sur la période. Un report refusé dépasse la dotation : rien n'est écrit.",
+          "Acceptés et refusés {{window}}. Un report refusé dépasse la dotation : rien n'est écrit.",
         accepted: 'Acceptés',
         refused: 'Refusés',
         byInstance: 'Par instance',
@@ -609,12 +628,12 @@ export default {
         more_one: '{{count}} instance de plus',
         more_other: '{{count}} instances de plus',
         empty:
-          "Aucun report d'usage sur la période. Envoyez-en un avec un SDK ou le quickstart, et le graphique le dessine.",
+          "Aucun report d'usage {{window}}. Envoyez-en un avec un SDK ou le quickstart, et le graphique le dessine.",
       },
       flags: {
         title: 'Flags évalués',
         description:
-          "Évaluations par flag sur la période, au moins : le publieur en perd sous charge. Un flag que personne n'évalue est un flag à retirer.",
+          "Évaluations par flag {{window}}, au moins : le publieur en perd sous charge. Un flag que personne n'évalue est un flag à retirer.",
         never: 'jamais',
         retire: 'À retirer ?',
         disabled: 'désactivé',

@@ -838,8 +838,7 @@ func (s *Server) registerGraphQL(router fiber.Router) {
 			s.deps.ConnectorEntitlements,
 			s.cfg.Billing.EntitlementCacheTTL,
 		),
-		AuditRetention: auditretention.NewRetention(
-			s.deps.EntitlementConfig, s.cfg.Retention.Enabled, s.cfg.Retention.AuditTrailDays),
+		AuditRetention: auditretention.FromConfig(s.deps.EntitlementConfig, s.cfg.Retention),
 	})
 	gqlHandler.RegisterRoutes(router)
 }

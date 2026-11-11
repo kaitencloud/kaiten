@@ -187,20 +187,25 @@ func grant(t *testing.T, licenseSlug, entitlementSlug string, threshold, overage
 // value reads from there.
 func newAuditTrailEntry(t *testing.T, instanceSlug, eventName string) {
 	t.Helper()
+	newAuditTrailEntryAt(t, instanceSlug, eventName, time.Now())
+}
+
+// newAuditTrailEntryAt records eventName on instanceSlug's trail at occurredAt.
+func newAuditTrailEntryAt(t *testing.T, instanceSlug, eventName string, occurredAt time.Time) {
+	t.Helper()
 	instance, err := instancedb.New(testServer.Dependencies.DB).GetOneInstance(t.Context(), instancedb.GetOneInstanceParams{
 		OrganizationID: testDb.DefaultData.OrganizationID,
 		Slug:           instanceSlug,
 	})
 	require.NoError(t, err)
 
-	now := time.Now()
 	_, err = auditdb.New(testDb.DbPool).CreateAuditTrail(t.Context(), auditdb.CreateAuditTrailParams{
 		OrganizationID: testDb.DefaultData.OrganizationID,
 		InstanceID:     &instance.ID,
 		ActorID:        &testDb.DefaultData.UserID,
 		EventName:      eventName,
 		EventType:      "com.kaiten.instance.entitlement.v1.usage_reported",
-		OccurredAt:     pgtime.TimePtrToPgTimestamptz(&now),
+		OccurredAt:     pgtime.TimePtrToPgTimestamptz(&occurredAt),
 		Payload:        []byte(`{}`),
 	})
 	require.NoError(t, err)
@@ -213,6 +218,20 @@ func scopedServer(t *testing.T, scopes ...string) *tests.TestServer {
 	server := tests.NewTestServer(testDb, tests.TestServerOptions{Scopes: scopes})
 	t.Cleanup(func() { require.NoError(t, server.Close()) })
 	return server
+}
+
+// ageUsageHistory moves an instance's accepted reports back by age in the usage
+// history, the way they look once that much time has passed.
+func ageUsageHistory(t *testing.T, instanceSlug string, age time.Duration) {
+	t.Helper()
+	tag, err := testServer.Dependencies.DB.Exec(t.Context(), `
+		UPDATE usage_ledger ul
+		SET reported_at = ul.reported_at - make_interval(secs => $3)
+		FROM instance i
+		WHERE ul.instance_id = i.id AND i.slug = $1 AND ul.organization_id = $2`,
+		instanceSlug, testDb.DefaultData.OrganizationID, age.Seconds())
+	require.NoError(t, err)
+	require.Positive(t, tag.RowsAffected())
 }
 
 // closeUsageWindow moves the stored usage window of an instance's entitlement
