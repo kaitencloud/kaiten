@@ -37,7 +37,11 @@ type ConversionRule {
  status: ConversionRuleStatus!
  grantedByLicense: Boolean!
  createdAt: Time!
+ """Who created the rule. A service account is a user."""
+ createdBy: User!
  updatedAt: Time!
+ """Who last changed the rule: its pricing, or its archival."""
+ updatedBy: User!
 }
 extend type License {
  """All rules when status is omitted; an explicit status filters that relation."""

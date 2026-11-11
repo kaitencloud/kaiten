@@ -2956,6 +2956,10 @@ components:
         createdAt:
           format: date-time
           type: string
+        createdBy:
+          $ref: "#/components/schemas/User"
+          description: User who created this rule; a service account is a user
+          readOnly: true
         entitlementSlug:
           type: string
         grantedByLicense:
@@ -3002,6 +3006,10 @@ components:
         updatedAt:
           format: date-time
           type: string
+        updatedBy:
+          $ref: "#/components/schemas/User"
+          description: "User who last changed this rule: its pricing, or its archival"
+          readOnly: true
       required:
         - id
         - licenseSlug
@@ -3015,7 +3023,9 @@ components:
         - status
         - grantedByLicense
         - createdAt
+        - createdBy
         - updatedAt
+        - updatedBy
       type: object
     ConversionRuleDelivered:
       additionalProperties: false
@@ -3033,6 +3043,10 @@ components:
         createdAt:
           format: date-time
           type: string
+        createdBy:
+          $ref: "#/components/schemas/User"
+          description: User who created this rule; a service account is a user
+          readOnly: true
         customerSessionId:
           description: "With via customer_session: the session"
           format: uuid
@@ -3083,6 +3097,10 @@ components:
         updatedAt:
           format: date-time
           type: string
+        updatedBy:
+          $ref: "#/components/schemas/User"
+          description: "User who last changed this rule: its pricing, or its archival"
+          readOnly: true
         via:
           description: "customer_session: written through a kst_ customer session, under the vendor principal that minted it. checkout_session: written by an anonymous checkout, under system:kaiten. Absent otherwise"
           enum:
@@ -3102,7 +3120,9 @@ components:
         - status
         - grantedByLicense
         - createdAt
+        - createdBy
         - updatedAt
+        - updatedBy
       type: object
       x-kaiten-payload: "#/components/schemas/ConversionRule"
     ConversionRuleUpdatedDelivered:

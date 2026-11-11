@@ -11,6 +11,7 @@ export const AI_MATRIX = graphql(`
         conversionRules(status: ACTIVE) {
           id licenseSlug entitlementSlug modelSlug requestType status grantedByLicense
           chargeOnError minimumCreditsPerRequest maximumCreditsPerRequest createdAt updatedAt
+          createdBy { id name } updatedBy { id name }
           rates { perRequest perInputToken perCachedInputToken perCacheWriteToken perOutputToken perUnit perSecond }
         }
       }

@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
+	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 )
 
 type ConversionRuleStatus string
@@ -40,7 +41,9 @@ type ConversionRule struct {
 	Status                   ConversionRuleStatus   `json:"status" enum:"ACTIVE,ARCHIVED"`
 	GrantedByLicense         bool                   `json:"grantedByLicense"`
 	CreatedAt                time.Time              `json:"createdAt"`
+	CreatedBy                shared.User            `json:"createdBy" readOnly:"true" doc:"User who created this rule; a service account is a user"`
 	UpdatedAt                time.Time              `json:"updatedAt"`
+	UpdatedBy                shared.User            `json:"updatedBy" readOnly:"true" doc:"User who last changed this rule: its pricing, or its archival"`
 }
 
 type ConversionRuleUpdated struct {

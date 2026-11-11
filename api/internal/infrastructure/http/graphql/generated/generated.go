@@ -156,6 +156,7 @@ type ComplexityRoot struct {
 	ConversionRule struct {
 		ChargeOnError            func(childComplexity int) int
 		CreatedAt                func(childComplexity int) int
+		CreatedBy                func(childComplexity int) int
 		EntitlementSlug          func(childComplexity int) int
 		GrantedByLicense         func(childComplexity int) int
 		ID                       func(childComplexity int) int
@@ -167,6 +168,7 @@ type ComplexityRoot struct {
 		RequestType              func(childComplexity int) int
 		Status                   func(childComplexity int) int
 		UpdatedAt                func(childComplexity int) int
+		UpdatedBy                func(childComplexity int) int
 	}
 
 	Customer struct {
@@ -1017,6 +1019,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ConversionRule.CreatedAt(childComplexity), true
+	case "ConversionRule.createdBy":
+		if e.ComplexityRoot.ConversionRule.CreatedBy == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.CreatedBy(childComplexity), true
 	case "ConversionRule.entitlementSlug":
 		if e.ComplexityRoot.ConversionRule.EntitlementSlug == nil {
 			break
@@ -1083,6 +1091,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ConversionRule.UpdatedAt(childComplexity), true
+	case "ConversionRule.updatedBy":
+		if e.ComplexityRoot.ConversionRule.UpdatedBy == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.UpdatedBy(childComplexity), true
 
 	case "Customer.billingEmail":
 		if e.ComplexityRoot.Customer.BillingEmail == nil {
@@ -3686,7 +3700,11 @@ type ConversionRule {
  status: ConversionRuleStatus!
  grantedByLicense: Boolean!
  createdAt: Time!
+ """Who created the rule. A service account is a user."""
+ createdBy: User!
  updatedAt: Time!
+ """Who last changed the rule: its pricing, or its archival."""
+ updatedBy: User!
 }
 extend type License {
  """All rules when status is omitted; an explicit status filters that relation."""
@@ -4346,8 +4364,12 @@ func (ec *executionContext) childFields_ConversionRule(ctx context.Context, fiel
 		return ec.fieldContext_ConversionRule_grantedByLicense(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_ConversionRule_createdAt(ctx, field)
+	case "createdBy":
+		return ec.fieldContext_ConversionRule_createdBy(ctx, field)
 	case "updatedAt":
 		return ec.fieldContext_ConversionRule_updatedAt(ctx, field)
+	case "updatedBy":
+		return ec.fieldContext_ConversionRule_updatedBy(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type ConversionRule", field.Name)
 }
@@ -7546,6 +7568,38 @@ func (ec *executionContext) fieldContext_ConversionRule_createdAt(_ context.Cont
 	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type Time does not have child fields"))
 }
 
+func (ec *executionContext) _ConversionRule_createdBy(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_createdBy(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.CreatedBy, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v user.User) graphql.Marshaler {
+			return ec.marshalNUser2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋsharedᚋuserᚐUser(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_createdBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ConversionRule",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _ConversionRule_updatedAt(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -7567,6 +7621,38 @@ func (ec *executionContext) _ConversionRule_updatedAt(ctx context.Context, field
 }
 func (ec *executionContext) fieldContext_ConversionRule_updatedAt(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type Time does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_updatedBy(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_updatedBy(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UpdatedBy, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v user.User) graphql.Marshaler {
+			return ec.marshalNUser2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋsharedᚋuserᚐUser(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_updatedBy(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "ConversionRule",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_User(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Customer_id(ctx context.Context, field graphql.CollectedField, obj *schema3.Customer) (ret graphql.Marshaler) {
@@ -16268,8 +16354,18 @@ func (ec *executionContext) _ConversionRule(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "createdBy":
+			out.Values[i] = ec._ConversionRule_createdBy(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "updatedAt":
 			out.Values[i] = ec._ConversionRule_updatedAt(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "updatedBy":
+			out.Values[i] = ec._ConversionRule_updatedBy(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}

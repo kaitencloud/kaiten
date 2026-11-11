@@ -635,6 +635,7 @@ var legitimateQueries = map[string]string{
 				conversionRules(status: ACTIVE) {
 					id licenseSlug entitlementSlug modelSlug requestType status grantedByLicense
 					chargeOnError minimumCreditsPerRequest maximumCreditsPerRequest createdAt updatedAt
+					createdBy { id name } updatedBy { id name }
 					rates { perRequest perInputToken perCachedInputToken perCacheWriteToken perOutputToken perUnit perSecond }
 				}
 			}

@@ -14,6 +14,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -144,6 +145,7 @@ func Present(r db.ListConversionRulesRow) *schema.ConversionRule {
 		ID: r.ID, LicenseSlug: r.LicenseSlug, EntitlementSlug: r.EntitlementSlug, ModelSlug: r.ModelSlug, RequestType: request,
 		Rates:                    schema.ConversionRates{PerRequest: number(r.RatePerRequest), PerInputToken: number(r.RatePerInputToken), PerCachedInputToken: number(r.RatePerCachedInputToken), PerCacheWriteToken: number(r.RatePerCacheWriteToken), PerOutputToken: number(r.RatePerOutputToken), PerUnit: number(r.RatePerUnit), PerSecond: number(r.RatePerSecond)},
 		MinimumCreditsPerRequest: *number(r.MinimumCreditsPerRequest), MaximumCreditsPerRequest: number(r.MaximumCreditsPerRequest), ChargeOnError: aicredit.ChargeOnError(r.ChargeOnError), Status: schema.ConversionRuleStatus(r.Status), GrantedByLicense: r.GrantedByLicense, CreatedAt: r.CreatedAt.Time, UpdatedAt: r.UpdatedAt.Time,
+		CreatedBy: shared.User{ID: r.CreatedByID, Name: r.CreatedByName}, UpdatedBy: shared.User{ID: r.UpdatedByID, Name: r.UpdatedByName},
 	}
 }
 
