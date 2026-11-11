@@ -52,8 +52,9 @@ output_tokens = $10, units = $11, unit_type = $12, duration_ms = $13,
 credit_conversion_rule_id = $14, authorized = $15, denial_reason = $16,
 credits_computed = $17, credits_charged = $18, value_before = $19, value_after = $20,
 window_start = $21, commit_hash = $22, report_seq = $23,
-pricing = $24::jsonb, license_id = $25, warnings = $26::text[]
-WHERE id = $27 AND organization_id = $28 AND status IN ('RESERVED','EXPIRED')
+pricing = $24::jsonb, license_id = $25, warnings = $26::text[],
+vendor_cost_reported = $27, vendor_cost_computed = $28
+WHERE id = $29 AND organization_id = $30 AND status IN ('RESERVED','EXPIRED')
 `
 
 type CommitAIOperationParams struct {
@@ -83,6 +84,8 @@ type CommitAIOperationParams struct {
 	Pricing                []byte            `json:"pricing"`
 	LicenseID              *uuid.UUID        `json:"license_id"`
 	Warnings               []string          `json:"warnings"`
+	VendorCostReported     pgtype.Numeric    `json:"vendor_cost_reported"`
+	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
 	ID                     uuid.UUID         `json:"id"`
 	OrganizationID         uuid.UUID         `json:"organization_id"`
 }
@@ -115,6 +118,8 @@ func (q *Queries) CommitAIOperation(ctx context.Context, arg CommitAIOperationPa
 		arg.Pricing,
 		arg.LicenseID,
 		arg.Warnings,
+		arg.VendorCostReported,
+		arg.VendorCostComputed,
 		arg.ID,
 		arg.OrganizationID,
 	)
@@ -153,7 +158,8 @@ func (q *Queries) ExpireAIReservations(ctx context.Context) ([]uuid.UUID, error)
 }
 
 const getAIModel = `-- name: GetAIModel :one
-SELECT m.id, m.status FROM model m
+SELECT m.id, m.status, m.vendor_cost_per_request, m.vendor_cost_per_input_token, m.vendor_cost_per_cached_input_token,
+m.vendor_cost_per_cache_write_token, m.vendor_cost_per_output_token, m.vendor_cost_per_unit FROM model m
 WHERE m.organization_id = $1
 AND (m.slug = $2 OR EXISTS (SELECT 1 FROM model_external_id e WHERE e.organization_id = m.organization_id AND e.model_id = m.id AND e.external_id = $2))
 ORDER BY (m.slug = $2) DESC LIMIT 1
@@ -165,14 +171,31 @@ type GetAIModelParams struct {
 }
 
 type GetAIModelRow struct {
-	ID     uuid.UUID   `json:"id"`
-	Status ModelStatus `json:"status"`
+	ID                            uuid.UUID      `json:"id"`
+	Status                        ModelStatus    `json:"status"`
+	VendorCostPerRequest          pgtype.Numeric `json:"vendor_cost_per_request"`
+	VendorCostPerInputToken       pgtype.Numeric `json:"vendor_cost_per_input_token"`
+	VendorCostPerCachedInputToken pgtype.Numeric `json:"vendor_cost_per_cached_input_token"`
+	VendorCostPerCacheWriteToken  pgtype.Numeric `json:"vendor_cost_per_cache_write_token"`
+	VendorCostPerOutputToken      pgtype.Numeric `json:"vendor_cost_per_output_token"`
+	VendorCostPerUnit             pgtype.Numeric `json:"vendor_cost_per_unit"`
 }
 
+// The vendor costs come with the model: a commit computes what the request
+// cost the provider from them, without a second read of the catalogue.
 func (q *Queries) GetAIModel(ctx context.Context, arg GetAIModelParams) (GetAIModelRow, error) {
 	row := q.db.QueryRow(ctx, getAIModel, arg.OrganizationID, arg.ModelRef)
 	var i GetAIModelRow
-	err := row.Scan(&i.ID, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.VendorCostPerRequest,
+		&i.VendorCostPerInputToken,
+		&i.VendorCostPerCachedInputToken,
+		&i.VendorCostPerCacheWriteToken,
+		&i.VendorCostPerOutputToken,
+		&i.VendorCostPerUnit,
+	)
 	return i, err
 }
 
@@ -328,13 +351,13 @@ reported_at, committed_at, expires_at, model_ref, model_id, request_type, reques
 input_tokens, cache_read_input_tokens, cache_write_input_tokens, output_tokens, units, unit_type, duration_ms,
 credit_conversion_rule_id, authorized, denial_reason, credits_reserved, credits_computed, credits_charged,
 value_before, value_after, window_start, request_hash, commit_hash, report_seq,
-pricing, license_id, warnings)
+pricing, license_id, warnings, vendor_cost_reported, vendor_cost_computed)
 VALUES ($1, $2, $3, $4, $5, $6,
 $7, $8, $9, $10, $11, $12, $13,
 $14, $15, $16, $17, $18, $19, $20,
 $21, $22, $23, $24, $25, $26,
 $27, $28, $29, $30, $31, $32,
-$33::jsonb, $34, $35::text[])
+$33::jsonb, $34, $35::text[], $36, $37)
 `
 
 type InsertAIOperationParams struct {
@@ -373,6 +396,8 @@ type InsertAIOperationParams struct {
 	Pricing                []byte            `json:"pricing"`
 	LicenseID              *uuid.UUID        `json:"license_id"`
 	Warnings               []string          `json:"warnings"`
+	VendorCostReported     pgtype.Numeric    `json:"vendor_cost_reported"`
+	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
 }
 
 // pricing, license_id and warnings explain the row on its own: the rule as it
@@ -415,6 +440,8 @@ func (q *Queries) InsertAIOperation(ctx context.Context, arg InsertAIOperationPa
 		arg.Pricing,
 		arg.LicenseID,
 		arg.Warnings,
+		arg.VendorCostReported,
+		arg.VendorCostComputed,
 	)
 	return err
 }

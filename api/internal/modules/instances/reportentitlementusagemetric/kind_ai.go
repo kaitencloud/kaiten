@@ -52,6 +52,22 @@ func pricingSnapshot(rule *aicredit.Rule, specificity aicredit.Specificity) ([]b
 	})
 }
 
+// computedVendorCost applies the catalogue's costs to a commit. A request that
+// was never sent cost nothing to compute. A failed one is costed only from
+// the quantities the caller reports: without any, whether the provider billed
+// it is unknown, and the per-request cost alone would be a guess. An unknown
+// model has no costs, an archived or unauthorized one still does: the
+// provider was paid whatever the customer is charged.
+func computedVendorCost(costs *aicredit.Costs, quantity aicredit.Usage, status aicredit.RequestStatus) *decimal.Decimal {
+	if status == aicredit.NotSent {
+		return nil
+	}
+	if status != aicredit.Success && !quantity.Reported() {
+		return nil
+	}
+	return aicredit.VendorCost(costs, quantity)
+}
+
 // releaseNothing answers a NOT_SENT commit whose transactionId never reserved.
 // An SDK releases on every failure path, including the ones that failed before
 // its reserve was accepted; recording each as a RELEASED row -- and possibly a
@@ -222,6 +238,18 @@ func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 		row.CreditsComputed = numeric(charge.Computed)
 		row.CreditsCharged = numeric(charge.Charged)
 		row.CommitHash = st.AIHash
+		// What the request cost the provider, beside what it was charged:
+		// as the caller reports it, and as the catalogue computes it. Neither
+		// changes the charge.
+		row.VendorCostReported = numericOrEmpty(nil)
+		if v.VendorCost != nil {
+			reported, err := decimal.NewFromString(*v.VendorCost)
+			if err != nil {
+				return nil, err
+			}
+			row.VendorCostReported = numeric(reported)
+		}
+		row.VendorCostComputed = numericOrEmpty(computedVendorCost(st.AIModelCosts, quantity, status))
 		if v.Usage != nil {
 			row.InputTokens = v.Usage.InputTokens
 			row.CacheReadInputTokens = v.Usage.CacheReadInputTokens

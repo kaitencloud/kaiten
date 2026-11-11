@@ -22,6 +22,8 @@ import (
 var (
 	transactionPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 	unitsPattern       = regexp.MustCompile(`^[0-9]{1,12}(\.[0-9]{1,6})?$`)
+	// What ai_inference.vendor_cost_reported holds: NUMERIC(24, 12).
+	vendorCostPattern = regexp.MustCompile(`^[0-9]{1,12}(\.[0-9]{1,12})?$`)
 )
 
 const (
@@ -63,6 +65,12 @@ func validateAI(cmd *Command, maxTTL time.Duration) error {
 		if v.TTLSeconds != nil && (*v.TTLSeconds < 1 || *v.TTLSeconds > int64(maxTTL/time.Second)) {
 			return invalid("ttlSeconds is out of range")
 		}
+		// The provider has not been called yet: there is no cost to report.
+		// Refused rather than ignored, so the reserve's request hash never
+		// covers a member the reserve does not use.
+		if v.VendorCost != nil {
+			return invalid("reserve refuses vendorCost")
+		}
 	} else {
 		if v.RequestStatus == nil || v.TTLSeconds != nil {
 			return invalid("commit requires requestStatus and refuses ttlSeconds")
@@ -72,6 +80,9 @@ func validateAI(cmd *Command, maxTTL time.Duration) error {
 		default:
 			return invalid("invalid requestStatus")
 		}
+	}
+	if v.VendorCost != nil && !vendorCostPattern.MatchString(*v.VendorCost) {
+		return invalid("invalid vendorCost")
 	}
 	if v.Usage != nil {
 		u := v.Usage
@@ -136,6 +147,11 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 	if err != nil {
 		return err
 	}
+	// The hash is over the whole value of the phase, vendorCost included: it
+	// is absent from a reserve (refused there), so a commit with or without it
+	// closes the same reservation; and a retried commit must send the same
+	// vendorCost as the first, or it is another body under the same
+	// transactionId (409 TransactionIdReused), like any other member.
 	hash := sha256.Sum256(encoded)
 	st.AIHash = hash[:]
 	op, err := q.GetAIOperation(ctx, db.GetAIOperationParams{OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID, TransactionID: v.TransactionID, Since: timestamp(st.Now.Add(-h.deps.IdempotencyWindow))})
@@ -202,6 +218,7 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 	}
 	if err == nil {
 		st.AIModel = &aicredit.Model{ID: m.ID, Status: aicredit.ModelStatus(m.Status)}
+		st.AIModelCosts = &aicredit.Costs{Request: decimalOf(m.VendorCostPerRequest), InputToken: decimalOf(m.VendorCostPerInputToken), CachedInputToken: decimalOf(m.VendorCostPerCachedInputToken), CacheWriteToken: decimalOf(m.VendorCostPerCacheWriteToken), OutputToken: decimalOf(m.VendorCostPerOutputToken), Unit: decimalOf(m.VendorCostPerUnit)}
 	}
 	rows, err := q.GetAIRules(ctx, db.GetAIRulesParams{OrganizationID: st.OrganizationID, LicenseID: st.Pair.LicenseID, EntitlementID: st.Pair.EntitlementID})
 	if err != nil {

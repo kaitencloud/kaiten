@@ -1,5 +1,8 @@
+-- The vendor costs come with the model: a commit computes what the request
+-- cost the provider from them, without a second read of the catalogue.
 -- name: GetAIModel :one
-SELECT m.id, m.status FROM model m
+SELECT m.id, m.status, m.vendor_cost_per_request, m.vendor_cost_per_input_token, m.vendor_cost_per_cached_input_token,
+m.vendor_cost_per_cache_write_token, m.vendor_cost_per_output_token, m.vendor_cost_per_unit FROM model m
 WHERE m.organization_id = sqlc.arg(organization_id)
 AND (m.slug = sqlc.arg(model_ref) OR EXISTS (SELECT 1 FROM model_external_id e WHERE e.organization_id = m.organization_id AND e.model_id = m.id AND e.external_id = sqlc.arg(model_ref)))
 ORDER BY (m.slug = sqlc.arg(model_ref)) DESC LIMIT 1;
@@ -28,13 +31,13 @@ reported_at, committed_at, expires_at, model_ref, model_id, request_type, reques
 input_tokens, cache_read_input_tokens, cache_write_input_tokens, output_tokens, units, unit_type, duration_ms,
 credit_conversion_rule_id, authorized, denial_reason, credits_reserved, credits_computed, credits_charged,
 value_before, value_after, window_start, request_hash, commit_hash, report_seq,
-pricing, license_id, warnings)
+pricing, license_id, warnings, vendor_cost_reported, vendor_cost_computed)
 VALUES (sqlc.arg(id), sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(entitlement_id), sqlc.arg(transaction_id), sqlc.arg(status),
 sqlc.arg(reported_at), sqlc.narg(committed_at), sqlc.narg(expires_at), sqlc.arg(model_ref), sqlc.narg(model_id), sqlc.arg(request_type), sqlc.narg(request_status),
 sqlc.narg(input_tokens), sqlc.narg(cache_read_input_tokens), sqlc.narg(cache_write_input_tokens), sqlc.narg(output_tokens), sqlc.narg(units), sqlc.narg(unit_type), sqlc.narg(duration_ms),
 sqlc.narg(credit_conversion_rule_id), sqlc.narg(authorized), sqlc.narg(denial_reason), sqlc.narg(credits_reserved), sqlc.narg(credits_computed), sqlc.narg(credits_charged),
 sqlc.narg(value_before), sqlc.narg(value_after), sqlc.narg(window_start), sqlc.arg(request_hash), sqlc.narg(commit_hash), sqlc.narg(report_seq),
-sqlc.narg(pricing)::jsonb, sqlc.narg(license_id), sqlc.arg(warnings)::text[]);
+sqlc.narg(pricing)::jsonb, sqlc.narg(license_id), sqlc.arg(warnings)::text[], sqlc.narg(vendor_cost_reported), sqlc.narg(vendor_cost_computed));
 
 -- name: CommitAIOperation :execrows
 UPDATE ai_inference SET status = sqlc.arg(status), committed_at = sqlc.arg(committed_at),
@@ -44,7 +47,8 @@ output_tokens = sqlc.narg(output_tokens), units = sqlc.narg(units), unit_type = 
 credit_conversion_rule_id = sqlc.narg(credit_conversion_rule_id), authorized = sqlc.arg(authorized), denial_reason = sqlc.narg(denial_reason),
 credits_computed = sqlc.arg(credits_computed), credits_charged = sqlc.arg(credits_charged), value_before = sqlc.narg(value_before), value_after = sqlc.narg(value_after),
 window_start = sqlc.narg(window_start), commit_hash = sqlc.arg(commit_hash), report_seq = sqlc.narg(report_seq),
-pricing = sqlc.narg(pricing)::jsonb, license_id = sqlc.narg(license_id), warnings = sqlc.arg(warnings)::text[]
+pricing = sqlc.narg(pricing)::jsonb, license_id = sqlc.narg(license_id), warnings = sqlc.arg(warnings)::text[],
+vendor_cost_reported = sqlc.narg(vendor_cost_reported), vendor_cost_computed = sqlc.narg(vendor_cost_computed)
 WHERE id = sqlc.arg(id) AND organization_id = sqlc.arg(organization_id) AND status IN ('RESERVED','EXPIRED');
 
 -- name: AIUnauthorizedRecordedToday :one

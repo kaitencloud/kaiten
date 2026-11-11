@@ -184,6 +184,91 @@ func TestAIPricingSnapshotKeepsAnAbsentMaximumNull(t *testing.T) {
 	}
 }
 
+func TestAICommitRecordsVendorCosts(t *testing.T) {
+	inputCost, requestCost, rate := decimal.RequireFromString("0.000003"), decimal.RequireFromString("0.01"), decimal.NewFromInt(1)
+	costs := &aicredit.Costs{InputToken: &inputCost, Request: &requestCost}
+	known := &aicredit.Model{ID: uuid.New(), Status: aicredit.Active}
+	archived := &aicredit.Model{ID: uuid.New(), Status: aicredit.Archived}
+	tokens := int64(1000)
+	reported := "0.0123"
+	text := func(d *decimal.Decimal) string {
+		if d == nil {
+			return "NULL"
+		}
+		return d.String()
+	}
+	for _, tc := range []struct {
+		name         string
+		model        *aicredit.Model
+		costs        *aicredit.Costs
+		status       aicredit.RequestStatus
+		usage        *schema.AiUsage
+		vendorCost   *string
+		wantReported string
+		wantComputed string
+	}{
+		{"success, reported and computed", known, costs, aicredit.Success, &schema.AiUsage{InputTokens: &tokens}, &reported, "0.0123", "0.013"},
+		{"success, nothing reported", known, costs, aicredit.Success, &schema.AiUsage{InputTokens: &tokens}, nil, "NULL", "0.013"},
+		{"success without usage still costs the request", known, costs, aicredit.Success, nil, nil, "NULL", "0.01"},
+		{"model without costs", known, &aicredit.Costs{}, aicredit.Success, &schema.AiUsage{InputTokens: &tokens}, &reported, "0.0123", "NULL"},
+		{"unknown model", nil, nil, aicredit.Success, &schema.AiUsage{InputTokens: &tokens}, &reported, "0.0123", "NULL"},
+		{"archived model still cost the provider", archived, costs, aicredit.Success, &schema.AiUsage{InputTokens: &tokens}, nil, "NULL", "0.013"},
+		{"provider error with quantities", known, costs, aicredit.ProviderError, &schema.AiUsage{InputTokens: &tokens}, nil, "NULL", "0.013"},
+		{"customer error with quantities", known, costs, aicredit.CustomerError, &schema.AiUsage{InputTokens: &tokens}, nil, "NULL", "0.013"},
+		{"provider error without quantities", known, costs, aicredit.ProviderError, nil, &reported, "0.0123", "NULL"},
+		{"customer error with an empty usage", known, costs, aicredit.CustomerError, &schema.AiUsage{}, nil, "NULL", "NULL"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: tc.model, AIModelCosts: tc.costs, AIModelRef: "model", AIRequestType: aicredit.Completion, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{Request: &rate}, ChargeOnError: aicredit.Never}}}
+			without, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "cost", RequestStatus: &tc.status, Usage: tc.usage}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			effect, err := (aiKind{}).plan(st, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "cost", RequestStatus: &tc.status, Usage: tc.usage, VendorCost: tc.vendorCost}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if got := text(decimalOf(effect.AIRow.VendorCostReported)); got != tc.wantReported {
+				t.Fatalf("reported=%s, want %s", got, tc.wantReported)
+			}
+			if got := text(decimalOf(effect.AIRow.VendorCostComputed)); got != tc.wantComputed {
+				t.Fatalf("computed=%s, want %s", got, tc.wantComputed)
+			}
+			if *effect.Response.AI.Credits.Charged != *without.Response.AI.Credits.Charged {
+				t.Fatalf("a vendor cost changed the charge: %s, was %s", *effect.Response.AI.Credits.Charged, *without.Response.AI.Credits.Charged)
+			}
+		})
+	}
+}
+
+// A reservation costs the provider nothing yet, and a release never did.
+func TestAIReserveAndReleaseRecordNoComputedVendorCost(t *testing.T) {
+	inputCost, rate := decimal.RequireFromString("0.000003"), decimal.NewFromInt(1)
+	tokens := int64(1000)
+	st := func() *State {
+		return &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: &aicredit.Model{ID: uuid.New(), Status: aicredit.Active}, AIModelCosts: &aicredit.Costs{InputToken: &inputCost}, AIModelRef: "model", AIRequestType: aicredit.Completion, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{Request: &rate}, ChargeOnError: aicredit.Never}}}
+	}
+	reserve, err := (aiKind{}).plan(st(), &Command{AI: &schema.AiUsageValue{Phase: "reserve", TransactionID: "held", Usage: &schema.AiUsage{InputTokens: &tokens}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reserve.AIRow.VendorCostReported.Valid || reserve.AIRow.VendorCostComputed.Valid {
+		t.Fatalf("a reservation has no vendor cost: %+v", reserve.AIRow)
+	}
+	// The release closes that reservation: the estimate's quantities are
+	// repeated, and still cost nothing.
+	released := st()
+	released.Operation = reserve.AIRow
+	notSent := aicredit.NotSent
+	release, err := (aiKind{}).plan(released, &Command{AI: &schema.AiUsageValue{Phase: "commit", TransactionID: "held", RequestStatus: &notSent, Usage: &schema.AiUsage{InputTokens: &tokens}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if release.AIRow.Status != db.AiInferenceStatusRELEASED || release.AIRow.VendorCostComputed.Valid {
+		t.Fatalf("a request that was never sent has no computed cost: %+v", release.AIRow)
+	}
+}
+
 func TestNumericCreditGateAllowsExactDecimalFitAndPartialRefund(t *testing.T) {
 	for _, tc := range []struct {
 		name                 string
