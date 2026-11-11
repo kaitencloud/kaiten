@@ -1113,6 +1113,13 @@ export default {
                 maxQuantity_one: 'Jusqu’à {{count}} unité',
                 maxQuantity_other: 'Jusqu’à {{count}} unités',
               },
+              UnavailableSelections: {
+                description:
+                  'Certains choix sont actuellement indisponibles. Ils n’ont pas été supprimés. Retirez-les pour vous abonner sans eux.',
+                clear: 'Retirer les choix indisponibles',
+                addon_one: '{{slug}} — {{count}} unité',
+                addon_other: '{{slug}} — {{count}} unités',
+              },
               BillingEmail: {
                 title: '{{customer}} n’a pas d’e-mail de facturation',
                 description:

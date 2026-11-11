@@ -17,19 +17,18 @@ const voucherDetailSearchSchema = z
 export const Route = createFileRoute('/catalog/vouchers/$voucherId/')({
   component: VoucherDetailRoute,
   notFoundComponent: BillingNotFound,
+  validateSearch: (search) => voucherDetailSearchSchema.parse(search),
   beforeLoad: async ({ context, search }) => {
-    if (voucherDetailSearchSchema.parse(search).mode === 'configure') {
+    if (search.mode === 'configure') {
       await requireBillingCapability(context.queryClient, 'vouchers');
     }
   },
-  validateSearch: (search): z.infer<typeof voucherDetailSearchSchema> =>
-    voucherDetailSearchSchema.parse(search),
 });
 
 function VoucherDetailRoute() {
   const navigate = useNavigate();
   const { voucherId } = Route.useParams();
-  const { mode } = voucherDetailSearchSchema.parse(Route.useSearch());
+  const { mode } = Route.useSearch();
   const { data: voucher } = useSuspenseQuery(voucherQueryOptions(voucherId));
 
   const closeConfigure = () => {

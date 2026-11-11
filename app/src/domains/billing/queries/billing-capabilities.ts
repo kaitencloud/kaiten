@@ -112,8 +112,8 @@ async function readAvailability(
 }
 
 /**
- * The gate of a billing route: loads the capabilities (from the cache when they
- * are there) and tells whether the route's screens can render. A `feature` asks
+ * The gate of a billing route: loads the capabilities (from the cache while they
+ * are fresh) and tells whether the route's screens can render. A `feature` asks
  * for a part of billing the plan or deployment may not offer. It never
  * throws: `requireBillingCapability` decides what a closed gate does.
  */

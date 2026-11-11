@@ -172,6 +172,27 @@ describe('readBillingGate', () => {
     expect(requests).toBe(2);
   });
 
+  it('fails closed when an expired healthy answer cannot be refreshed', async () => {
+    vi.spyOn(logger, 'warn').mockImplementation(() => {});
+    const client = newClient();
+    const capabilities = billingCapabilitiesProfiles.full();
+    client.setQueryData(billingCapabilitiesQueryOptions.queryKey, capabilities, {
+      updatedAt: Date.now() - 61_000,
+    });
+    let requests = 0;
+    server.use(handleGetBillingCapabilities(() => {
+      requests += 1;
+      return problem(503, 'Billing.EntitlementCheckUnavailable', 'refused');
+    }));
+
+    await expect(readBillingGate(client, 'addons')).resolves.toEqual({
+      available: false,
+      reason: 'UNREACHABLE',
+    });
+    expect(requests).toBe(1);
+    expect(client.getQueryData(billingCapabilitiesQueryOptions.queryKey)).toEqual(capabilities);
+  });
+
   it('opens the gate when billing is on', async () => {
     answer();
 

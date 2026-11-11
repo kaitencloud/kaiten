@@ -1095,6 +1095,13 @@ export default {
                 maxQuantity_one: 'Up to {{count}} unit',
                 maxQuantity_other: 'Up to {{count}} units',
               },
+              UnavailableSelections: {
+                description:
+                  'Some selections are currently unavailable. They have not been removed. Clear them to subscribe without them.',
+                clear: 'Clear unavailable selections',
+                addon_one: '{{slug}} — {{count}} unit',
+                addon_other: '{{slug}} — {{count}} units',
+              },
               BillingEmail: {
                 title: '{{customer}} has no billing e-mail',
                 description:

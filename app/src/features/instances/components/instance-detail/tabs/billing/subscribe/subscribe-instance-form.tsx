@@ -107,6 +107,76 @@ export function SubscribeInstanceForm({
               voucherChecker={voucherChecker}
               vouchers={vouchers}
             />
+            <form.Subscribe
+              selector={(state) =>
+                [state.values.voucherCode, state.values.addOns] as const
+              }
+            >
+              {([voucherCode, chosenAddons]) => {
+                const unavailableVoucher =
+                  !vouchers && voucherCode.trim() !== '';
+                const unavailableAddons = Object.keys(chosenAddons).filter(
+                  (slug) => !addons.some((addon) => addon.slug === slug),
+                );
+                if (!unavailableVoucher && unavailableAddons.length === 0) {
+                  return null;
+                }
+                return (
+                  <div
+                    className="space-y-2 rounded-md border p-3"
+                    data-testid="unavailable-subscribe-selections"
+                    role="status"
+                  >
+                    <p className="text-sm">
+                      {t(
+                        'Pages.Customers.Instances.Detail.Billing.Subscribe.UnavailableSelections.description',
+                      )}
+                    </p>
+                    <ul className="space-y-1 text-sm">
+                      {unavailableVoucher ? (
+                        <li>
+                          {t(
+                            'Pages.Customers.Instances.Detail.Billing.Subscribe.Voucher.label',
+                          )}
+                          : {voucherCode}
+                        </li>
+                      ) : null}
+                      {unavailableAddons.map((slug) => (
+                        <li key={slug}>
+                          {t(
+                            'Pages.Customers.Instances.Detail.Billing.Subscribe.UnavailableSelections.addon',
+                            { slug, count: chosenAddons[slug] },
+                          )}
+                        </li>
+                      ))}
+                    </ul>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => {
+                        if (unavailableVoucher) {
+                          form.setFieldValue('voucherCode', '');
+                        }
+                        if (unavailableAddons.length > 0) {
+                          form.setFieldValue(
+                            'addOns',
+                            Object.fromEntries(
+                              Object.entries(chosenAddons).filter(
+                                ([slug]) => !unavailableAddons.includes(slug),
+                              ),
+                            ),
+                          );
+                        }
+                      }}
+                    >
+                      {t(
+                        'Pages.Customers.Instances.Detail.Billing.Subscribe.UnavailableSelections.clear',
+                      )}
+                    </Button>
+                  </div>
+                );
+              }}
+            </form.Subscribe>
             {addons.length > 0 ? (
               <SubscribeAddonsField addons={addons} form={form} />
             ) : null}

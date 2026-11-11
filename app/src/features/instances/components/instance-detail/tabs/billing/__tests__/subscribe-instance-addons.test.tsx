@@ -1,9 +1,10 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 import type { AnchorHTMLAttributes } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
+import { billingCapabilitiesQueryOptions } from '@/domains/billing';
 import type {
   Addon,
   LicenseFamilyView,
@@ -156,15 +157,34 @@ function serveSubscribe(answer?: (body: NewSubscription) => Response) {
 }
 
 const renderDialog = (onClose = vi.fn()) => {
-  renderWithClient(<SubscribeInstanceDialog onClose={onClose} />);
+  const { client } = renderWithClient(<SubscribeInstanceDialog onClose={onClose} />);
 
-  return { onClose };
+  return { onClose, client };
 };
 
 const subscribe = () => screen.findByRole('button', { name: 'Subscribe' });
 const fieldset = () => screen.findByTestId('subscribe-addons');
 
 describe('the add-ons a subscription can start with', () => {
+  it('keeps now-unavailable add-ons visible until the user explicitly removes them', async () => {
+    const bodies = serveSubscribe();
+    const { client } = renderDialog();
+    await userEvent.click(within(await fieldset()).getByRole('checkbox', { name: 'Extra seats · 2026' }));
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
+    await act(async () => {
+      await client.refetchQueries({ queryKey: billingCapabilitiesQueryOptions.queryKey });
+    });
+
+    expect(await screen.findByTestId('unavailable-subscribe-selections')).toHaveTextContent('extra-seats-v1');
+    expect(bodies).toHaveLength(0);
+    await userEvent.click(screen.getByRole('button', { name: 'Clear unavailable selections' }));
+    await userEvent.click(await subscribe());
+
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).not.toHaveProperty('addOns');
+    expect(bodies[0]).toHaveProperty('basePriceId', MONTHLY.id);
+  });
+
   it('are offered when they fit the license family of the instance and are on sale, each to include or not', async () => {
     renderDialog();
 
