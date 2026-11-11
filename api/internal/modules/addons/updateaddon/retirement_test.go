@@ -9,10 +9,10 @@ import (
 )
 
 func TestOnlyUnsetDefaultDoesNotAllowBundledCatalogueChanges(t *testing.T) {
-	max := int32(5)
+	maxQuantity := int32(5)
 	version := "Production"
-	before := catalogue.Addon{Name: "Extra seats", Description: "Existing", Version: 1, VersionName: version, IsDefault: true, MaxQuantity: &max}
-	cmd := AddonChanges{Name: before.Name, Description: before.Description, VersionName: &version, MaxQuantity: &max}
+	before := catalogue.Addon{Name: "Extra seats", Description: "Existing", Version: 1, VersionName: version, IsDefault: true, MaxQuantity: &maxQuantity}
+	cmd := AddonChanges{Name: before.Name, Description: before.Description, VersionName: &version, MaxQuantity: &maxQuantity}
 	require.True(t, onlyUnsetDefault(before, cmd))
 	for _, mutate := range []func(*AddonChanges){
 		func(c *AddonChanges) { c.Name = "Expanded" },
