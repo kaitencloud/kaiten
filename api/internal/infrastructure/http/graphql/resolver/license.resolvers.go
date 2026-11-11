@@ -17,6 +17,11 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 )
 
+// VersionNumber is the resolver for the versionNumber field.
+func (r *licenseResolver) VersionNumber(ctx context.Context, obj *schema.License) (int, error) {
+	return licensesGraphql.VersionNumber(obj)
+}
+
 // Family is the resolver for the family field.
 func (r *licenseResolver) Family(ctx context.Context, obj *schema.License) (*schema.LicenseFamily, error) {
 	return licensesGraphql.LoadLicenseFamily(ctx, obj.FamilyID)
@@ -38,6 +43,11 @@ func (r *licenseResolver) Prices(ctx context.Context, obj *schema.License, statu
 		return nil, err
 	}
 	return licensesGraphql.LoadLicensePrices(ctx, obj.ID, status)
+}
+
+// CurrentVersion is the resolver for the currentVersion field.
+func (r *licenseFamilyResolver) CurrentVersion(ctx context.Context, obj *schema.LicenseFamily) (*schema.License, error) {
+	return licensesGraphql.LoadLicenseFamilyCurrentVersion(ctx, obj.ID)
 }
 
 // Versions is the resolver for the versions field.
@@ -79,6 +89,9 @@ func (r *queryResolver) LicenseFamily(ctx context.Context, slug string) (*schema
 // License returns generated.LicenseResolver implementation.
 func (r *Resolver) License() generated.LicenseResolver { return &licenseResolver{r} }
 
+// LicenseFamily returns generated.LicenseFamilyResolver implementation.
+func (r *Resolver) LicenseFamily() generated.LicenseFamilyResolver { return &licenseFamilyResolver{r} }
+
 // LicenseFamilyView returns generated.LicenseFamilyViewResolver implementation.
 func (r *Resolver) LicenseFamilyView() generated.LicenseFamilyViewResolver {
 	return &licenseFamilyViewResolver{r}
@@ -86,5 +99,6 @@ func (r *Resolver) LicenseFamilyView() generated.LicenseFamilyViewResolver {
 
 type (
 	licenseResolver           struct{ *Resolver }
+	licenseFamilyResolver     struct{ *Resolver }
 	licenseFamilyViewResolver struct{ *Resolver }
 )

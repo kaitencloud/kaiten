@@ -1003,6 +1003,8 @@ var pinnedGraphQLResolvers = map[string]string{
 	"License.Prices":                                  "read:licenses",
 	// The licence row's own column, as GET /licenses returns it.
 	"License.PricingType": "",
+	// The licence row's own version, as the number it is.
+	"License.VersionNumber": "",
 	// The price row's own meter, as GET /licenses/{slug}/prices returns it.
 	"LicensePrice.MeteredEntitlement": "",
 	"LicensePrice.SaleUnitFactor":     "",
@@ -1019,6 +1021,7 @@ var pinnedGraphQLResolvers = map[string]string{
 	"Instance.License":               "read:licenses",
 	"License.Entitlements":           "read:licenses",
 	"License.Family":                 "read:licenses",
+	"LicenseFamily.CurrentVersion":   "read:licenses",
 	"License.Instances":              "read:instances",
 	"LicenseEntitlement.Entitlement": "read:entitlements",
 	// The grant's own value, and whether that value is the unlimited sentinel.

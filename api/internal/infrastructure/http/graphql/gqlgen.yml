@@ -164,6 +164,8 @@ models:
         resolver: true
       prices:
         resolver: true
+      versionNumber:
+        resolver: true
   LicensePrice:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices.Price
@@ -222,6 +224,10 @@ models:
   LicenseFamily:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamily
+    fields:
+      # Read only when a query selects it, batched across the response.
+      currentVersion:
+        resolver: true
   LicenseFamilyView:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamilyView

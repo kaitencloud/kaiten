@@ -55,6 +55,7 @@ type ResolverRoot interface {
 	Instance() InstanceResolver
 	License() LicenseResolver
 	LicenseEntitlement() LicenseEntitlementResolver
+	LicenseFamily() LicenseFamilyResolver
 	LicenseFamilyView() LicenseFamilyViewResolver
 	LicensePrice() LicensePriceResolver
 	Query() QueryResolver
@@ -357,6 +358,7 @@ type ComplexityRoot struct {
 		Type                  func(childComplexity int) int
 		Version               func(childComplexity int) int
 		VersionName           func(childComplexity int) int
+		VersionNumber         func(childComplexity int) int
 	}
 
 	LicenseEntitlement struct {
@@ -372,6 +374,7 @@ type ComplexityRoot struct {
 	}
 
 	LicenseFamily struct {
+		CurrentVersion               func(childComplexity int) int
 		FallbackLicenseFamilySlug    func(childComplexity int) int
 		ID                           func(childComplexity int) int
 		IsPublic                     func(childComplexity int) int
@@ -559,6 +562,8 @@ type InstanceResolver interface {
 	EntitlementUsage(ctx context.Context, obj *schema2.Instance) ([]schema2.EntitlementUsage, error)
 }
 type LicenseResolver interface {
+	VersionNumber(ctx context.Context, obj *schema.License) (int, error)
+
 	Family(ctx context.Context, obj *schema.License) (*schema.LicenseFamily, error)
 	Instances(ctx context.Context, obj *schema.License) ([]schema2.Instance, error)
 	PricingType(ctx context.Context, obj *schema.License) (string, error)
@@ -572,6 +577,9 @@ type LicenseEntitlementResolver interface {
 	Unlimited(ctx context.Context, obj *schema.LicenseEntitlement) (bool, error)
 
 	Entitlement(ctx context.Context, obj *schema.LicenseEntitlement) (*schema5.Entitlement, error)
+}
+type LicenseFamilyResolver interface {
+	CurrentVersion(ctx context.Context, obj *schema.LicenseFamily) (*schema.License, error)
 }
 type LicenseFamilyViewResolver interface {
 	Versions(ctx context.Context, obj *schema.LicenseFamilyView) ([]schema.License, error)
@@ -1990,6 +1998,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.License.VersionName(childComplexity), true
+	case "License.versionNumber":
+		if e.ComplexityRoot.License.VersionNumber == nil {
+			break
+		}
+
+		return e.ComplexityRoot.License.VersionNumber(childComplexity), true
 
 	case "LicenseEntitlement.entitlement":
 		if e.ComplexityRoot.LicenseEntitlement.Entitlement == nil {
@@ -2046,6 +2060,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.LicenseEntitlement.Value(childComplexity), true
 
+	case "LicenseFamily.currentVersion":
+		if e.ComplexityRoot.LicenseFamily.CurrentVersion == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseFamily.CurrentVersion(childComplexity), true
 	case "LicenseFamily.fallbackLicenseFamilySlug":
 		if e.ComplexityRoot.LicenseFamily.FallbackLicenseFamilySlug == nil {
 			break
@@ -3755,6 +3775,15 @@ type LicenseFamily {
   trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
   """How many days before a trial's end trial_will_end fires (1 to 30)."""
   trialReminderDays: Int!
+  """
+  The version this family currently serves: its default version, or its
+  highest-numbered PUBLISHED version. Null when every version is a draft or has
+  been archived. The same resolution as LicenseFamilyView.currentVersion, read
+  here so that a list of licenses can label each family (a family has no name
+  of its own: it is shown under its current version's) without one
+  licenseFamily query per family.
+  """
+  currentVersion: License
 }
 
 """How a licence or add-on version is sold."""
@@ -3833,6 +3862,11 @@ type License {
   description: String!
   type: LicenseType!
   version: String!
+  """
+  version as a number: the order of the versions in their family, 1 being the
+  first. Assigned by the server and never reused within a family.
+  """
+  versionNumber: Int!
   versionName: String
   isDefault: Boolean!
 
@@ -4722,6 +4756,8 @@ func (ec *executionContext) childFields_License(ctx context.Context, field graph
 		return ec.fieldContext_License_type(ctx, field)
 	case "version":
 		return ec.fieldContext_License_version(ctx, field)
+	case "versionNumber":
+		return ec.fieldContext_License_versionNumber(ctx, field)
 	case "versionName":
 		return ec.fieldContext_License_versionName(ctx, field)
 	case "isDefault":
@@ -4788,6 +4824,8 @@ func (ec *executionContext) childFields_LicenseFamily(ctx context.Context, field
 		return ec.fieldContext_LicenseFamily_trialEndWithoutPaymentMethod(ctx, field)
 	case "trialReminderDays":
 		return ec.fieldContext_LicenseFamily_trialReminderDays(ctx, field)
+	case "currentVersion":
+		return ec.fieldContext_LicenseFamily_currentVersion(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type LicenseFamily", field.Name)
 }
@@ -10881,6 +10919,29 @@ func (ec *executionContext) fieldContext_License_version(_ context.Context, fiel
 	return graphql.NewScalarFieldContext("License", field, false, false, errors.New("field of type String does not have child fields"))
 }
 
+func (ec *executionContext) _License_versionNumber(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_License_versionNumber(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.License().VersionNumber(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int) graphql.Marshaler {
+			return ec.marshalNInt2int(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_License_versionNumber(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("License", field, true, true, errors.New("field of type Int does not have child fields"))
+}
+
 func (ec *executionContext) _License_versionName(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11578,6 +11639,38 @@ func (ec *executionContext) _LicenseFamily_trialReminderDays(ctx context.Context
 }
 func (ec *executionContext) fieldContext_LicenseFamily_trialReminderDays(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("LicenseFamily", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseFamily_currentVersion(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamily) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseFamily_currentVersion(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return ec.Resolvers.LicenseFamily().CurrentVersion(ctx, obj)
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *schema.License) graphql.Marshaler {
+			return ec.marshalOLicense2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicense(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseFamily_currentVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "LicenseFamily",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_License(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _LicenseFamilyView_id(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseFamilyView) (ret graphql.Marshaler) {
@@ -18014,6 +18107,44 @@ func (ec *executionContext) _License(ctx context.Context, sel ast.SelectionSet, 
 			if out.Values[i] == graphql.Null {
 				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "versionNumber":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._License_versionNumber(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "versionName":
 			out.Values[i] = ec._License_versionName(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -18485,33 +18616,71 @@ func (ec *executionContext) _LicenseFamily(ctx context.Context, sel ast.Selectio
 		case "id":
 			out.Values[i] = ec._LicenseFamily_id(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "slug":
 			out.Values[i] = ec._LicenseFamily_slug(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "isPublic":
 			out.Values[i] = ec._LicenseFamily_isPublic(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "fallbackLicenseFamilySlug":
 			out.Values[i] = ec._LicenseFamily_fallbackLicenseFamilySlug(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "trialEndWithoutPaymentMethod":
 			out.Values[i] = ec._LicenseFamily_trialEndWithoutPaymentMethod(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
 		case "trialReminderDays":
 			out.Values[i] = ec._LicenseFamily_trialReminderDays(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
-				out.Invalids++
+				atomic.AddUint32(&out.Invalids, 1)
 			}
+		case "currentVersion":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._LicenseFamily_currentVersion(ctx, field, obj)
+				if res == graphql.RequiredNull {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -20995,6 +21164,22 @@ func (ec *executionContext) unmarshalNInstanceStatus2githubᚗcomᚋkaitencloud�
 func (ec *executionContext) marshalNInstanceStatus2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐInstanceStatus(ctx context.Context, sel ast.SelectionSet, v schema2.InstanceStatus) graphql.Marshaler {
 	_ = sel
 	res := graphql.MarshalString(string(v))
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
+func (ec *executionContext) unmarshalNInt2int(ctx context.Context, v any) (int, error) {
+	res, err := graphql.UnmarshalInt(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNInt2int(ctx context.Context, sel ast.SelectionSet, v int) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalInt(v)
 	if res == graphql.Null {
 		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
 			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
