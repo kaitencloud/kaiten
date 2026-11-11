@@ -159,6 +159,7 @@ export const OPERATION_SCOPES = {
   listMetadataFields: ['read:metadata_fields'],
   listModels: ['read:models'],
   listNotifications: ['read:notifications'],
+  listOrganizationAiInferences: ['read:instances'],
   listPublishableKeys: ['read:publishable_keys'],
   listReleases: ['read:releases'],
   listRoles: ['read:users'],

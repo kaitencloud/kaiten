@@ -1,6 +1,7 @@
 package reportentitlementusagemetric
 
 import (
+	"encoding/json"
 	"math"
 	"slices"
 	"testing"
@@ -154,11 +155,15 @@ func TestAIPlanSnapshotsRuleLicenceAndWarnings(t *testing.T) {
 				if !slices.Equal(row.Warnings, effect.Response.AI.Warnings) || !slices.Contains(row.Warnings, schema.AiWarningModelDeprecated) {
 					t.Fatalf("row warnings=%v, response warnings=%v", row.Warnings, effect.Response.AI.Warnings)
 				}
+				answered := effect.Response.AI.Rule
 				if tc.winner == nil {
-					if row.Pricing != nil || !slices.Contains(row.Warnings, schema.AiWarningModelNotAuthorized) {
-						t.Fatalf("an unauthorized commit has no pricing: %s %v", row.Pricing, row.Warnings)
+					if row.Pricing != nil || answered != nil || !slices.Contains(row.Warnings, schema.AiWarningModelNotAuthorized) {
+						t.Fatalf("an unauthorized commit has no pricing and names no rule: %s %+v %v", row.Pricing, answered, row.Warnings)
 					}
 					return
+				}
+				if answered == nil || answered.ID != tc.winner.ID || string(answered.Specificity) != tc.specificity {
+					t.Fatalf("answered rule=%+v, want %s %s", answered, tc.winner.ID, tc.specificity)
 				}
 				want := `{"ruleId":"` + tc.winner.ID.String() + `","specificity":"` + tc.specificity + `","rates":{"perInputToken":"0.001","perCachedInputToken":"0.0000000001"},"minimumCreditsPerRequest":"0.5","maximumCreditsPerRequest":"2.5","chargeOnError":"PROVIDER_ERROR_ONLY"}`
 				if string(row.Pricing) != want {
@@ -166,6 +171,23 @@ func TestAIPlanSnapshotsRuleLicenceAndWarnings(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// A phase's answer is stored as JSON and replayed from it. One stored before
+// the outcome named its rule must replay without the member, not with a null.
+func TestAIOutcomeStoredWithoutARuleReplaysWithoutOne(t *testing.T) {
+	stored := `{"transactionId":"tx","phase":"commit","status":"COMMITTED","credits":{"computed":"1","charged":"1"},"remaining":"9","authorized":true,"warnings":[]}`
+	var outcome schema.AiUsageOutcome
+	if err := json.Unmarshal([]byte(stored), &outcome); err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := json.Marshal(outcome)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(replayed) != stored {
+		t.Fatalf("replayed=%s\nstored  =%s", replayed, stored)
 	}
 }
 
@@ -217,6 +239,12 @@ func TestAICommitRecordsVendorCosts(t *testing.T) {
 		{"customer error with quantities", known, costs, aicredit.CustomerError, &schema.AiUsage{InputTokens: &tokens}, nil, "NULL", "0.013"},
 		{"provider error without quantities", known, costs, aicredit.ProviderError, nil, &reported, "0.0123", "NULL"},
 		{"customer error with an empty usage", known, costs, aicredit.CustomerError, &schema.AiUsage{}, nil, "NULL", "NULL"},
+		// The catalogue has no duration cost: nothing costed was reported, and
+		// the per-request cost alone would be a guess.
+		{"provider error with a duration alone", known, costs, aicredit.ProviderError, &schema.AiUsage{DurationMS: &duration}, &reported, "0.0123", "NULL"},
+		{"customer error with a duration alone", known, costs, aicredit.CustomerError, &schema.AiUsage{DurationMS: &duration}, nil, "NULL", "NULL"},
+		{"provider error with a duration and tokens", known, costs, aicredit.ProviderError, &schema.AiUsage{DurationMS: &duration, InputTokens: &tokens}, nil, "NULL", "0.013"},
+		{"success with a duration alone still costs the request", known, costs, aicredit.Success, &schema.AiUsage{DurationMS: &duration}, nil, "NULL", "0.01"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			st := &State{Pair: &UsageContext{EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: tc.model, AIModelCosts: tc.costs, AIModelRef: "model", AIRequestType: aicredit.Completion, AIRules: []aicredit.Rule{{Active: true, Rates: aicredit.Rates{Request: &rate}, ChargeOnError: aicredit.Never}}}
@@ -239,12 +267,6 @@ func TestAICommitRecordsVendorCosts(t *testing.T) {
 			}
 		})
 	}
-		// The catalogue has no duration cost: nothing costed was reported, and
-		// the per-request cost alone would be a guess.
-		{"provider error with a duration alone", known, costs, aicredit.ProviderError, &schema.AiUsage{DurationMS: &duration}, &reported, "0.0123", "NULL"},
-		{"customer error with a duration alone", known, costs, aicredit.CustomerError, &schema.AiUsage{DurationMS: &duration}, nil, "NULL", "NULL"},
-		{"provider error with a duration and tokens", known, costs, aicredit.ProviderError, &schema.AiUsage{DurationMS: &duration, InputTokens: &tokens}, nil, "NULL", "0.013"},
-		{"success with a duration alone still costs the request", known, costs, aicredit.Success, &schema.AiUsage{DurationMS: &duration}, nil, "NULL", "0.01"},
 }
 
 // A reservation costs the provider nothing yet, and a release never did.

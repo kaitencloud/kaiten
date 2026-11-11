@@ -138,8 +138,7 @@ export default {
       invalidRange: 'La date de début doit précéder la date de fin.',
       invalidCursor:
         'Ce curseur d’historique est invalide. Rechargez la liste.',
-      poolNotGranted:
-        'Ce quota de crédits IA n’est pas accordé à cette instance.',
+      poolNotFound: 'Cette instance ou ce quota de crédits IA est introuvable.',
       transactionRequired: 'Un identifiant d’opération IA est requis.',
       transactionInvalid:
         'Le format de l’identifiant d’opération IA est invalide.',

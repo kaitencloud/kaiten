@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
 )
@@ -90,10 +91,10 @@ const (
 	AiWarningOverdrawn                = "OVERDRAWN"
 	AiWarningNoReservation            = "NO_RESERVATION"
 	AiWarningCounterPrecisionDegraded = "COUNTER_PRECISION_DEGRADED"
-)
 	// Read side only: the inference is listed without a pricing snapshot
 	// because the stored one cannot be decoded.
 	AiWarningPricingSnapshotUnreadable = "PRICING_SNAPSHOT_UNREADABLE"
+)
 
 // Keep phase examples complete: reserve must not include commit-only fields.
 func (AiUsageValue) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
@@ -110,6 +111,13 @@ type AiCredits struct {
 	Charged  *string `json:"charged,omitempty"`
 }
 
+// AiUsageRule names the conversion rule a phase was priced with. The rates
+// themselves are in the inference record's pricing snapshot.
+type AiUsageRule struct {
+	ID          uuid.UUID            `json:"id" format:"uuid"`
+	Specificity aicredit.Specificity `json:"specificity" enum:"EXACT_TYPED,EXACT_ALL,ANY_TYPED,ANY_ALL" doc:"How the rule matched: its own model and request type, its own model for every request type, any model for its request type, or any model and request type."`
+}
+
 type AiUsageOutcome struct {
 	TransactionID string     `json:"transactionId"`
 	Phase         string     `json:"phase" enum:"reserve,commit"`
@@ -119,4 +127,7 @@ type AiUsageOutcome struct {
 	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
 	Authorized    *bool      `json:"authorized,omitempty"`
 	Warnings      []string   `json:"warnings" nullable:"false"`
+	// A pointer with omitempty: the answer of each phase is stored and replayed
+	// as it was, so one recorded before this member existed replays without it.
+	Rule *AiUsageRule `json:"rule,omitempty" doc:"The conversion rule that priced this phase. Absent when no rule applied, and on the replay of a phase answered before the member existed."`
 }

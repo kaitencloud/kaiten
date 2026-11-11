@@ -699,10 +699,24 @@ components:
         expiresAt:
           format: date-time
           type: string
+        licenseId:
+          description: The licence whose conversion rules were considered.
+          format: uuid
+          type: string
+        licenseSlug:
+          description: Absent once the licence is deleted.
+          type: string
         model:
           type: string
         modelSlug:
           type: string
+        pricing:
+          $ref: "#/components/schemas/AiInferencePricing"
+          description: The rule snapshot that priced the operation. Absent when no rule applied, and on operations recorded before snapshots existed.
+        reportSeq:
+          description: "The pool's report counter when the operation was counted: the link to the usage journal."
+          format: int64
+          type: integer
         reportedAt:
           format: date-time
           type: string
@@ -733,6 +747,13 @@ components:
         valueBefore:
           format: double
           type: number
+        vendorCost:
+          $ref: "#/components/schemas/AiVendorCost"
+        warnings:
+          description: The warnings of the phase that last wrote the operation.
+          items:
+            type: string
+          type: array
         windowStart:
           format: date-time
           type: string
@@ -744,6 +765,7 @@ components:
         - requestType
         - usage
         - credits
+        - warnings
       type: object
     AiInferencePage:
       additionalProperties: false
@@ -761,6 +783,66 @@ components:
       required:
         - items
         - hasMore
+      type: object
+    AiInferencePricing:
+      additionalProperties: false
+      properties:
+        chargeOnError:
+          enum:
+            - NEVER
+            - ALWAYS
+            - PROVIDER_ERROR_ONLY
+          type: string
+        maximumCreditsPerRequest:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type:
+            - string
+            - "null"
+        minimumCreditsPerRequest:
+          examples:
+            - "0.001"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,6})?$
+          type: string
+        rates:
+          $ref: "#/components/schemas/AiInferenceRates"
+        ruleId:
+          format: uuid
+          type: string
+        specificity:
+          description: "How the rule matched: its own model and request type, its own model for every request type, any model for its request type, or any model and request type."
+          enum:
+            - EXACT_TYPED
+            - EXACT_ALL
+            - ANY_TYPED
+            - ANY_ALL
+          type: string
+      required:
+        - ruleId
+        - specificity
+        - rates
+        - minimumCreditsPerRequest
+        - maximumCreditsPerRequest
+        - chargeOnError
+      type: object
+    AiInferenceRates:
+      additionalProperties: false
+      properties:
+        perCacheWriteToken:
+          type: string
+        perCachedInputToken:
+          type: string
+        perInputToken:
+          type: string
+        perOutputToken:
+          type: string
+        perRequest:
+          type: string
+        perSecond:
+          type: string
+        perUnit:
+          type: string
       type: object
     AiReservations:
       additionalProperties: false
@@ -826,6 +908,9 @@ components:
           type:
             - string
             - "null"
+        rule:
+          $ref: "#/components/schemas/AiUsageRule"
+          description: The conversion rule that priced this phase. Absent when no rule applied, and on the replay of a phase answered before the member existed.
         status:
           enum:
             - RESERVED
@@ -845,6 +930,24 @@ components:
         - credits
         - remaining
         - warnings
+      type: object
+    AiUsageRule:
+      additionalProperties: false
+      properties:
+        id:
+          format: uuid
+          type: string
+        specificity:
+          description: "How the rule matched: its own model and request type, its own model for every request type, any model for its request type, or any model and request type."
+          enum:
+            - EXACT_TYPED
+            - EXACT_ALL
+            - ANY_TYPED
+            - ANY_ALL
+          type: string
+      required:
+        - id
+        - specificity
       type: object
     AiUsageValue:
       additionalProperties: false
@@ -905,9 +1008,31 @@ components:
           type: string
         usage:
           $ref: "#/components/schemas/AiUsage"
+        vendorCost:
+          description: Commit only. What the provider charged for this request, in USD, as an exact decimal string. Recorded as evidence beside the cost computed from the model catalogue; it never changes the credits charged.
+          examples:
+            - "0.0123"
+          pattern: ^[0-9]{1,12}(\.[0-9]{1,12})?$
+          type: string
       required:
         - type
         - phase
+      type: object
+    AiVendorCost:
+      additionalProperties: false
+      properties:
+        computed:
+          description: From the model's catalogue costs and the reported usage. Absent when the model is not in the catalogue or the request was never sent.
+          type: string
+        currency:
+          enum:
+            - USD
+          type: string
+        reported:
+          description: As sent by the caller on the commit.
+          type: string
+      required:
+        - currency
       type: object
     AuditActor:
       additionalProperties: false
@@ -10012,6 +10137,114 @@ components:
       required:
         - type
         - value
+      type: object
+    OrganizationAiInference:
+      additionalProperties: false
+      properties:
+        authorized:
+          type: boolean
+        committedAt:
+          format: date-time
+          type: string
+        conversionRuleId:
+          type: string
+        credits:
+          $ref: "#/components/schemas/AiCredits"
+        denialReason:
+          type: string
+        entitlementSlug:
+          description: Absent once the entitlement is deleted.
+          type: string
+        expiresAt:
+          format: date-time
+          type: string
+        instanceSlug:
+          description: Absent once the instance is deleted.
+          type: string
+        licenseId:
+          description: The licence whose conversion rules were considered.
+          format: uuid
+          type: string
+        licenseSlug:
+          description: Absent once the licence is deleted.
+          type: string
+        model:
+          type: string
+        modelSlug:
+          type: string
+        pricing:
+          $ref: "#/components/schemas/AiInferencePricing"
+          description: The rule snapshot that priced the operation. Absent when no rule applied, and on operations recorded before snapshots existed.
+        reportSeq:
+          description: "The pool's report counter when the operation was counted: the link to the usage journal."
+          format: int64
+          type: integer
+        reportedAt:
+          format: date-time
+          type: string
+        requestStatus:
+          type: string
+        requestType:
+          enum:
+            - COMPLETION
+            - EMBEDDING
+            - IMAGE_GENERATION
+            - AUDIO
+            - VIDEO
+          type: string
+        status:
+          enum:
+            - RESERVED
+            - COMMITTED
+            - RELEASED
+            - EXPIRED
+          type: string
+        transactionId:
+          type: string
+        usage:
+          $ref: "#/components/schemas/AiUsage"
+        valueAfter:
+          format: double
+          type: number
+        valueBefore:
+          format: double
+          type: number
+        vendorCost:
+          $ref: "#/components/schemas/AiVendorCost"
+        warnings:
+          description: The warnings of the phase that last wrote the operation.
+          items:
+            type: string
+          type: array
+        windowStart:
+          format: date-time
+          type: string
+      required:
+        - transactionId
+        - status
+        - reportedAt
+        - model
+        - requestType
+        - usage
+        - credits
+        - warnings
+      type: object
+    OrganizationAiInferencePage:
+      additionalProperties: false
+      properties:
+        hasMore:
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/OrganizationAiInference"
+          type:
+            - array
+            - "null"
+        nextCursor:
+          type: string
+      required:
+        - items
+        - hasMore
       type: object
     Outcome:
       additionalProperties: false
@@ -25831,6 +26064,44 @@ paths:
           in: query
           name: transactionId
           schema:
+            maxLength: 128
+            type: string
+        - description: Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither.
+          explode: false
+          in: query
+          name: authorized
+          schema:
+            description: Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither.
+            enum:
+              - "true"
+              - "false"
+            type: string
+        - description: Only the operations that resolved to this catalogue model.
+          explode: false
+          in: query
+          name: modelSlug
+          schema:
+            description: Only the operations that resolved to this catalogue model.
+            maxLength: 255
+            type: string
+        - description: Only the operations whose model, as sent, is exactly this one. Finds models the catalogue does not know.
+          explode: false
+          in: query
+          name: model
+          schema:
+            description: Only the operations whose model, as sent, is exactly this one. Finds models the catalogue does not know.
+            maxLength: 255
+            type: string
+        - explode: false
+          in: query
+          name: requestType
+          schema:
+            enum:
+              - COMPLETION
+              - EMBEDDING
+              - IMAGE_GENERATION
+              - AUDIO
+              - VIDEO
             type: string
         - explode: false
           in: query
@@ -34027,6 +34298,156 @@ paths:
       summary: Revoke a token for a service account
       tags:
         - service-accounts
+  /usage/inferences:
+    get:
+      description: Every AI operation of the organization across instances and credit pools, newest first by report time, paged with cursor. Each carries the instance and the pool it belongs to, the rule snapshot that priced it, the licence whose rules were considered, its warnings and its vendor cost. Decimals are strings.
+      operationId: listOrganizationAiInferences
+      parameters:
+        - description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to.
+          explode: false
+          in: query
+          name: from
+          schema:
+            description: Start of the range, inclusive (RFC 3339). Defaults to 30 days before to.
+            format: date-time
+            type: string
+        - description: End of the range, exclusive (RFC 3339). Defaults to now.
+          explode: false
+          in: query
+          name: to
+          schema:
+            description: End of the range, exclusive (RFC 3339). Defaults to now.
+            format: date-time
+            type: string
+        - description: Only this instance's operations. A slug the organization does not have matches nothing.
+          explode: false
+          in: query
+          name: instanceSlug
+          schema:
+            description: Only this instance's operations. A slug the organization does not have matches nothing.
+            maxLength: 255
+            type: string
+        - description: Only this credit pool's operations. A slug the organization does not have matches nothing.
+          explode: false
+          in: query
+          name: entitlementSlug
+          schema:
+            description: Only this credit pool's operations. A slug the organization does not have matches nothing.
+            maxLength: 255
+            type: string
+        - explode: false
+          in: query
+          name: status
+          schema:
+            enum:
+              - RESERVED
+              - COMMITTED
+              - RELEASED
+              - EXPIRED
+            type: string
+        - explode: false
+          in: query
+          name: transactionId
+          schema:
+            maxLength: 128
+            type: string
+        - description: Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither.
+          explode: false
+          in: query
+          name: authorized
+          schema:
+            description: Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither.
+            enum:
+              - "true"
+              - "false"
+            type: string
+        - description: Only the operations that resolved to this catalogue model.
+          explode: false
+          in: query
+          name: modelSlug
+          schema:
+            description: Only the operations that resolved to this catalogue model.
+            maxLength: 255
+            type: string
+        - description: Only the operations whose model, as sent, is exactly this one. Finds models the catalogue does not know.
+          explode: false
+          in: query
+          name: model
+          schema:
+            description: Only the operations whose model, as sent, is exactly this one. Finds models the catalogue does not know.
+            maxLength: 255
+            type: string
+        - explode: false
+          in: query
+          name: requestType
+          schema:
+            enum:
+              - COMPLETION
+              - EMBEDDING
+              - IMAGE_GENERATION
+              - AUDIO
+              - VIDEO
+            type: string
+        - description: The nextCursor of the previous page.
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: The nextCursor of the previous page.
+            type: string
+        - description: Maximum number of operations to return (default 50, max 500).
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Maximum number of operations to return (default 50, max 500).
+            format: int32
+            maximum: 500
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrganizationAiInferencePage"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List the organization's AI inferences
+      tags:
+        - instances
   /usage/reports/export:
     get:
       description: Streams every usage report of the organization in the range, across instances and entitlements, as CSV or NDJSON, ordered by reportedAt. Filters narrow it to one instance or one entitlement, including deleted ones by ID. Use it to keep the usage history before deleting the organization.

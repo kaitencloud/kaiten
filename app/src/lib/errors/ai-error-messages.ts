@@ -51,7 +51,9 @@ export const AI_API_ERROR_KEYS: Record<string, string> = {
   'CreateConversionRule.EntitlementNotFound': 'Errors.api.NOT_FOUND',
   'CreateConversionRule.ModelNotFound': 'AI.Errors.modelNotFound',
   'ListAiInferences.InvalidCursor': 'AI.Errors.invalidCursor',
-  'ListAiInferences.ContextNotFound': 'AI.Errors.poolNotGranted',
+  'ListAiInferences.ContextNotFound': 'AI.Errors.poolNotFound',
+  'ListOrganizationAiInferences.InvalidRange': 'AI.Errors.invalidRange',
+  'ListOrganizationAiInferences.InvalidCursor': 'AI.Errors.invalidCursor',
   'ReportEntitlementUsageMetric.TransactionIdRequired':
     'AI.Errors.transactionRequired',
   'ReportEntitlementUsageMetric.InvalidTransactionId':

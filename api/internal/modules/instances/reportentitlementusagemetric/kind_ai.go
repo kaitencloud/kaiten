@@ -178,6 +178,9 @@ func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 	licenseID := st.Pair.LicenseID
 	row.LicenseID = &licenseID
 	outcome := &schema.AiUsageOutcome{TransactionID: v.TransactionID, Phase: v.Phase, Warnings: warnings}
+	if rule != nil {
+		outcome.Rule = &schema.AiUsageRule{ID: rule.ID, Specificity: specificity}
+	}
 	if v.Phase == "reserve" {
 		if st.Operation != nil {
 			return nil, apierrors.Conflict("ReportEntitlementUsageMetric.TransactionIdReused", "reservation already exists")

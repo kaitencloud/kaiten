@@ -125,7 +125,7 @@ export default {
       ruleNotFound: 'This conversion rule no longer exists.',
       invalidRange: 'The start date must precede the end date.',
       invalidCursor: 'This history cursor is invalid. Reload the list.',
-      poolNotGranted: 'This AI credit pool is not granted to the instance.',
+      poolNotFound: 'This instance or AI credit pool was not found.',
       transactionRequired: 'An AI operation identifier is required.',
       transactionInvalid: 'The AI operation identifier has an invalid format.',
       transactionReused:
