@@ -13,14 +13,19 @@ import (
 )
 
 const listAIInferences = `-- name: ListAIInferences :many
-SELECT a.id, a.organization_id, a.instance_id, a.entitlement_id, a.transaction_id, a.status, a.reported_at, a.committed_at, a.expires_at, a.model_ref, a.model_id, a.request_type, a.request_status, a.input_tokens, a.cache_read_input_tokens, a.cache_write_input_tokens, a.output_tokens, a.units, a.unit_type, a.duration_ms, a.credit_conversion_rule_id, a.authorized, a.denial_reason, a.credits_reserved, a.credits_computed, a.credits_charged, a.value_before, a.value_after, a.window_start, a.request_hash, a.commit_hash, a.reserve_response, a.commit_response, a.pricing, a.license_id, a.warnings, a.report_seq, a.vendor_cost_reported, a.vendor_cost_computed, m.slug AS model_slug FROM ai_inference a
+SELECT a.id, a.organization_id, a.instance_id, a.entitlement_id, a.transaction_id, a.status, a.reported_at, a.committed_at, a.expires_at, a.model_ref, a.model_id, a.request_type, a.request_status, a.input_tokens, a.cache_read_input_tokens, a.cache_write_input_tokens, a.output_tokens, a.units, a.unit_type, a.duration_ms, a.credit_conversion_rule_id, a.authorized, a.denial_reason, a.credits_reserved, a.credits_computed, a.credits_charged, a.value_before, a.value_after, a.window_start, a.request_hash, a.commit_hash, a.reserve_response, a.commit_response, a.pricing, a.license_id, a.warnings, a.report_seq, a.vendor_cost_reported, a.vendor_cost_computed, m.slug AS model_slug, l.slug AS license_slug FROM ai_inference a
 LEFT JOIN model m ON m.id=a.model_id AND m.organization_id=a.organization_id
+LEFT JOIN license l ON l.id=a.license_id AND l.organization_id=a.organization_id
 WHERE a.organization_id=$1 AND a.instance_id=$2 AND a.entitlement_id=$3
 AND a.reported_at >= $4::timestamp AND a.reported_at < $5::timestamp
 AND ($6::ai_inference_status IS NULL OR a.status=$6)
 AND ($7::text IS NULL OR a.transaction_id=$7)
-AND ($8::timestamp IS NULL OR (a.reported_at,a.id)<($8::timestamp,$9::uuid))
-ORDER BY a.reported_at DESC,a.id DESC LIMIT $10
+AND ($8::boolean IS NULL OR a.authorized=$8)
+AND ($9::text IS NULL OR m.slug=$9)
+AND ($10::text IS NULL OR a.model_ref=$10)
+AND ($11::ai_request_type IS NULL OR a.request_type=$11)
+AND ($12::timestamp IS NULL OR (a.reported_at,a.id)<($12::timestamp,$13::uuid))
+ORDER BY a.reported_at DESC,a.id DESC LIMIT $14
 `
 
 type ListAIInferencesParams struct {
@@ -31,54 +36,24 @@ type ListAIInferencesParams struct {
 	ToAt           pgtype.Timestamp   `json:"to_at"`
 	Status         *AiInferenceStatus `json:"status"`
 	TransactionID  *string            `json:"transaction_id"`
+	Authorized     *bool              `json:"authorized"`
+	ModelSlug      *string            `json:"model_slug"`
+	ModelRef       *string            `json:"model_ref"`
+	RequestType    *AiRequestType     `json:"request_type"`
 	CursorAt       pgtype.Timestamp   `json:"cursor_at"`
 	CursorID       *uuid.UUID         `json:"cursor_id"`
 	LimitPlusOne   int32              `json:"limit_plus_one"`
 }
 
 type ListAIInferencesRow struct {
-	ID                     uuid.UUID         `json:"id"`
-	OrganizationID         uuid.UUID         `json:"organization_id"`
-	InstanceID             uuid.UUID         `json:"instance_id"`
-	EntitlementID          uuid.UUID         `json:"entitlement_id"`
-	TransactionID          string            `json:"transaction_id"`
-	Status                 AiInferenceStatus `json:"status"`
-	ReportedAt             pgtype.Timestamp  `json:"reported_at"`
-	CommittedAt            pgtype.Timestamp  `json:"committed_at"`
-	ExpiresAt              pgtype.Timestamp  `json:"expires_at"`
-	ModelRef               string            `json:"model_ref"`
-	ModelID                *uuid.UUID        `json:"model_id"`
-	RequestType            AiRequestType     `json:"request_type"`
-	RequestStatus          *AiRequestStatus  `json:"request_status"`
-	InputTokens            *int64            `json:"input_tokens"`
-	CacheReadInputTokens   *int64            `json:"cache_read_input_tokens"`
-	CacheWriteInputTokens  *int64            `json:"cache_write_input_tokens"`
-	OutputTokens           *int64            `json:"output_tokens"`
-	Units                  pgtype.Numeric    `json:"units"`
-	UnitType               *string           `json:"unit_type"`
-	DurationMs             *int64            `json:"duration_ms"`
-	CreditConversionRuleID *uuid.UUID        `json:"credit_conversion_rule_id"`
-	Authorized             *bool             `json:"authorized"`
-	DenialReason           *string           `json:"denial_reason"`
-	CreditsReserved        pgtype.Numeric    `json:"credits_reserved"`
-	CreditsComputed        pgtype.Numeric    `json:"credits_computed"`
-	CreditsCharged         pgtype.Numeric    `json:"credits_charged"`
-	ValueBefore            *float64          `json:"value_before"`
-	ValueAfter             *float64          `json:"value_after"`
-	WindowStart            pgtype.Timestamp  `json:"window_start"`
-	RequestHash            []byte            `json:"request_hash"`
-	CommitHash             []byte            `json:"commit_hash"`
-	ReserveResponse        []byte            `json:"reserve_response"`
-	CommitResponse         []byte            `json:"commit_response"`
-	Pricing                []byte            `json:"pricing"`
-	LicenseID              *uuid.UUID        `json:"license_id"`
-	Warnings               []string          `json:"warnings"`
-	ReportSeq              *int64            `json:"report_seq"`
-	VendorCostReported     pgtype.Numeric    `json:"vendor_cost_reported"`
-	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
-	ModelSlug              *string           `json:"model_slug"`
+	AiInference AiInference `json:"ai_inference"`
+	ModelSlug   *string     `json:"model_slug"`
+	LicenseSlug *string     `json:"license_slug"`
 }
 
+// One page of a pair's operations, newest first. Every filter is optional;
+// model_slug is the catalogue model the operation resolved to, model_ref the
+// model as sent (the only handle on a model the catalogue does not know).
 func (q *Queries) ListAIInferences(ctx context.Context, arg ListAIInferencesParams) ([]ListAIInferencesRow, error) {
 	rows, err := q.db.Query(ctx, listAIInferences,
 		arg.OrganizationID,
@@ -88,6 +63,10 @@ func (q *Queries) ListAIInferences(ctx context.Context, arg ListAIInferencesPara
 		arg.ToAt,
 		arg.Status,
 		arg.TransactionID,
+		arg.Authorized,
+		arg.ModelSlug,
+		arg.ModelRef,
+		arg.RequestType,
 		arg.CursorAt,
 		arg.CursorID,
 		arg.LimitPlusOne,
@@ -100,46 +79,47 @@ func (q *Queries) ListAIInferences(ctx context.Context, arg ListAIInferencesPara
 	for rows.Next() {
 		var i ListAIInferencesRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.InstanceID,
-			&i.EntitlementID,
-			&i.TransactionID,
-			&i.Status,
-			&i.ReportedAt,
-			&i.CommittedAt,
-			&i.ExpiresAt,
-			&i.ModelRef,
-			&i.ModelID,
-			&i.RequestType,
-			&i.RequestStatus,
-			&i.InputTokens,
-			&i.CacheReadInputTokens,
-			&i.CacheWriteInputTokens,
-			&i.OutputTokens,
-			&i.Units,
-			&i.UnitType,
-			&i.DurationMs,
-			&i.CreditConversionRuleID,
-			&i.Authorized,
-			&i.DenialReason,
-			&i.CreditsReserved,
-			&i.CreditsComputed,
-			&i.CreditsCharged,
-			&i.ValueBefore,
-			&i.ValueAfter,
-			&i.WindowStart,
-			&i.RequestHash,
-			&i.CommitHash,
-			&i.ReserveResponse,
-			&i.CommitResponse,
-			&i.Pricing,
-			&i.LicenseID,
-			&i.Warnings,
-			&i.ReportSeq,
-			&i.VendorCostReported,
-			&i.VendorCostComputed,
+			&i.AiInference.ID,
+			&i.AiInference.OrganizationID,
+			&i.AiInference.InstanceID,
+			&i.AiInference.EntitlementID,
+			&i.AiInference.TransactionID,
+			&i.AiInference.Status,
+			&i.AiInference.ReportedAt,
+			&i.AiInference.CommittedAt,
+			&i.AiInference.ExpiresAt,
+			&i.AiInference.ModelRef,
+			&i.AiInference.ModelID,
+			&i.AiInference.RequestType,
+			&i.AiInference.RequestStatus,
+			&i.AiInference.InputTokens,
+			&i.AiInference.CacheReadInputTokens,
+			&i.AiInference.CacheWriteInputTokens,
+			&i.AiInference.OutputTokens,
+			&i.AiInference.Units,
+			&i.AiInference.UnitType,
+			&i.AiInference.DurationMs,
+			&i.AiInference.CreditConversionRuleID,
+			&i.AiInference.Authorized,
+			&i.AiInference.DenialReason,
+			&i.AiInference.CreditsReserved,
+			&i.AiInference.CreditsComputed,
+			&i.AiInference.CreditsCharged,
+			&i.AiInference.ValueBefore,
+			&i.AiInference.ValueAfter,
+			&i.AiInference.WindowStart,
+			&i.AiInference.RequestHash,
+			&i.AiInference.CommitHash,
+			&i.AiInference.ReserveResponse,
+			&i.AiInference.CommitResponse,
+			&i.AiInference.Pricing,
+			&i.AiInference.LicenseID,
+			&i.AiInference.Warnings,
+			&i.AiInference.ReportSeq,
+			&i.AiInference.VendorCostReported,
+			&i.AiInference.VendorCostComputed,
 			&i.ModelSlug,
+			&i.LicenseSlug,
 		); err != nil {
 			return nil, err
 		}
@@ -152,8 +132,9 @@ func (q *Queries) ListAIInferences(ctx context.Context, arg ListAIInferencesPara
 }
 
 const listAIReservations = `-- name: ListAIReservations :many
-SELECT a.id, a.organization_id, a.instance_id, a.entitlement_id, a.transaction_id, a.status, a.reported_at, a.committed_at, a.expires_at, a.model_ref, a.model_id, a.request_type, a.request_status, a.input_tokens, a.cache_read_input_tokens, a.cache_write_input_tokens, a.output_tokens, a.units, a.unit_type, a.duration_ms, a.credit_conversion_rule_id, a.authorized, a.denial_reason, a.credits_reserved, a.credits_computed, a.credits_charged, a.value_before, a.value_after, a.window_start, a.request_hash, a.commit_hash, a.reserve_response, a.commit_response, a.pricing, a.license_id, a.warnings, a.report_seq, a.vendor_cost_reported, a.vendor_cost_computed, m.slug AS model_slug FROM ai_inference a
+SELECT a.id, a.organization_id, a.instance_id, a.entitlement_id, a.transaction_id, a.status, a.reported_at, a.committed_at, a.expires_at, a.model_ref, a.model_id, a.request_type, a.request_status, a.input_tokens, a.cache_read_input_tokens, a.cache_write_input_tokens, a.output_tokens, a.units, a.unit_type, a.duration_ms, a.credit_conversion_rule_id, a.authorized, a.denial_reason, a.credits_reserved, a.credits_computed, a.credits_charged, a.value_before, a.value_after, a.window_start, a.request_hash, a.commit_hash, a.reserve_response, a.commit_response, a.pricing, a.license_id, a.warnings, a.report_seq, a.vendor_cost_reported, a.vendor_cost_computed, m.slug AS model_slug, l.slug AS license_slug FROM ai_inference a
 LEFT JOIN model m ON m.id=a.model_id AND m.organization_id=a.organization_id
+LEFT JOIN license l ON l.id=a.license_id AND l.organization_id=a.organization_id
 WHERE a.organization_id=$1 AND a.instance_id=$2 AND a.entitlement_id=$3
 AND a.status='RESERVED' AND a.expires_at>(clock_timestamp() AT TIME ZONE 'UTC')
 ORDER BY a.reported_at DESC,a.id DESC
@@ -166,46 +147,9 @@ type ListAIReservationsParams struct {
 }
 
 type ListAIReservationsRow struct {
-	ID                     uuid.UUID         `json:"id"`
-	OrganizationID         uuid.UUID         `json:"organization_id"`
-	InstanceID             uuid.UUID         `json:"instance_id"`
-	EntitlementID          uuid.UUID         `json:"entitlement_id"`
-	TransactionID          string            `json:"transaction_id"`
-	Status                 AiInferenceStatus `json:"status"`
-	ReportedAt             pgtype.Timestamp  `json:"reported_at"`
-	CommittedAt            pgtype.Timestamp  `json:"committed_at"`
-	ExpiresAt              pgtype.Timestamp  `json:"expires_at"`
-	ModelRef               string            `json:"model_ref"`
-	ModelID                *uuid.UUID        `json:"model_id"`
-	RequestType            AiRequestType     `json:"request_type"`
-	RequestStatus          *AiRequestStatus  `json:"request_status"`
-	InputTokens            *int64            `json:"input_tokens"`
-	CacheReadInputTokens   *int64            `json:"cache_read_input_tokens"`
-	CacheWriteInputTokens  *int64            `json:"cache_write_input_tokens"`
-	OutputTokens           *int64            `json:"output_tokens"`
-	Units                  pgtype.Numeric    `json:"units"`
-	UnitType               *string           `json:"unit_type"`
-	DurationMs             *int64            `json:"duration_ms"`
-	CreditConversionRuleID *uuid.UUID        `json:"credit_conversion_rule_id"`
-	Authorized             *bool             `json:"authorized"`
-	DenialReason           *string           `json:"denial_reason"`
-	CreditsReserved        pgtype.Numeric    `json:"credits_reserved"`
-	CreditsComputed        pgtype.Numeric    `json:"credits_computed"`
-	CreditsCharged         pgtype.Numeric    `json:"credits_charged"`
-	ValueBefore            *float64          `json:"value_before"`
-	ValueAfter             *float64          `json:"value_after"`
-	WindowStart            pgtype.Timestamp  `json:"window_start"`
-	RequestHash            []byte            `json:"request_hash"`
-	CommitHash             []byte            `json:"commit_hash"`
-	ReserveResponse        []byte            `json:"reserve_response"`
-	CommitResponse         []byte            `json:"commit_response"`
-	Pricing                []byte            `json:"pricing"`
-	LicenseID              *uuid.UUID        `json:"license_id"`
-	Warnings               []string          `json:"warnings"`
-	ReportSeq              *int64            `json:"report_seq"`
-	VendorCostReported     pgtype.Numeric    `json:"vendor_cost_reported"`
-	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
-	ModelSlug              *string           `json:"model_slug"`
+	AiInference AiInference `json:"ai_inference"`
+	ModelSlug   *string     `json:"model_slug"`
+	LicenseSlug *string     `json:"license_slug"`
 }
 
 func (q *Queries) ListAIReservations(ctx context.Context, arg ListAIReservationsParams) ([]ListAIReservationsRow, error) {
@@ -218,46 +162,175 @@ func (q *Queries) ListAIReservations(ctx context.Context, arg ListAIReservations
 	for rows.Next() {
 		var i ListAIReservationsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.InstanceID,
-			&i.EntitlementID,
-			&i.TransactionID,
-			&i.Status,
-			&i.ReportedAt,
-			&i.CommittedAt,
-			&i.ExpiresAt,
-			&i.ModelRef,
-			&i.ModelID,
-			&i.RequestType,
-			&i.RequestStatus,
-			&i.InputTokens,
-			&i.CacheReadInputTokens,
-			&i.CacheWriteInputTokens,
-			&i.OutputTokens,
-			&i.Units,
-			&i.UnitType,
-			&i.DurationMs,
-			&i.CreditConversionRuleID,
-			&i.Authorized,
-			&i.DenialReason,
-			&i.CreditsReserved,
-			&i.CreditsComputed,
-			&i.CreditsCharged,
-			&i.ValueBefore,
-			&i.ValueAfter,
-			&i.WindowStart,
-			&i.RequestHash,
-			&i.CommitHash,
-			&i.ReserveResponse,
-			&i.CommitResponse,
-			&i.Pricing,
-			&i.LicenseID,
-			&i.Warnings,
-			&i.ReportSeq,
-			&i.VendorCostReported,
-			&i.VendorCostComputed,
+			&i.AiInference.ID,
+			&i.AiInference.OrganizationID,
+			&i.AiInference.InstanceID,
+			&i.AiInference.EntitlementID,
+			&i.AiInference.TransactionID,
+			&i.AiInference.Status,
+			&i.AiInference.ReportedAt,
+			&i.AiInference.CommittedAt,
+			&i.AiInference.ExpiresAt,
+			&i.AiInference.ModelRef,
+			&i.AiInference.ModelID,
+			&i.AiInference.RequestType,
+			&i.AiInference.RequestStatus,
+			&i.AiInference.InputTokens,
+			&i.AiInference.CacheReadInputTokens,
+			&i.AiInference.CacheWriteInputTokens,
+			&i.AiInference.OutputTokens,
+			&i.AiInference.Units,
+			&i.AiInference.UnitType,
+			&i.AiInference.DurationMs,
+			&i.AiInference.CreditConversionRuleID,
+			&i.AiInference.Authorized,
+			&i.AiInference.DenialReason,
+			&i.AiInference.CreditsReserved,
+			&i.AiInference.CreditsComputed,
+			&i.AiInference.CreditsCharged,
+			&i.AiInference.ValueBefore,
+			&i.AiInference.ValueAfter,
+			&i.AiInference.WindowStart,
+			&i.AiInference.RequestHash,
+			&i.AiInference.CommitHash,
+			&i.AiInference.ReserveResponse,
+			&i.AiInference.CommitResponse,
+			&i.AiInference.Pricing,
+			&i.AiInference.LicenseID,
+			&i.AiInference.Warnings,
+			&i.AiInference.ReportSeq,
+			&i.AiInference.VendorCostReported,
+			&i.AiInference.VendorCostComputed,
 			&i.ModelSlug,
+			&i.LicenseSlug,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrganizationAIInferences = `-- name: ListOrganizationAIInferences :many
+SELECT a.id, a.organization_id, a.instance_id, a.entitlement_id, a.transaction_id, a.status, a.reported_at, a.committed_at, a.expires_at, a.model_ref, a.model_id, a.request_type, a.request_status, a.input_tokens, a.cache_read_input_tokens, a.cache_write_input_tokens, a.output_tokens, a.units, a.unit_type, a.duration_ms, a.credit_conversion_rule_id, a.authorized, a.denial_reason, a.credits_reserved, a.credits_computed, a.credits_charged, a.value_before, a.value_after, a.window_start, a.request_hash, a.commit_hash, a.reserve_response, a.commit_response, a.pricing, a.license_id, a.warnings, a.report_seq, a.vendor_cost_reported, a.vendor_cost_computed, m.slug AS model_slug, l.slug AS license_slug, i.slug AS instance_slug, e.slug AS entitlement_slug FROM ai_inference a
+LEFT JOIN model m ON m.id=a.model_id AND m.organization_id=a.organization_id
+LEFT JOIN license l ON l.id=a.license_id AND l.organization_id=a.organization_id
+LEFT JOIN instance i ON i.id=a.instance_id AND i.organization_id=a.organization_id
+LEFT JOIN entitlement e ON e.id=a.entitlement_id AND e.organization_id=a.organization_id
+WHERE a.organization_id=$1
+AND a.reported_at >= $2::timestamp AND a.reported_at < $3::timestamp
+AND ($4::text IS NULL OR a.instance_id=(SELECT si.id FROM instance si WHERE si.organization_id=$1 AND si.slug=$4))
+AND ($5::text IS NULL OR a.entitlement_id=(SELECT se.id FROM entitlement se WHERE se.organization_id=$1 AND se.slug=$5))
+AND ($6::ai_inference_status IS NULL OR a.status=$6)
+AND ($7::text IS NULL OR a.transaction_id=$7)
+AND ($8::boolean IS NULL OR a.authorized=$8)
+AND ($9::text IS NULL OR m.slug=$9)
+AND ($10::text IS NULL OR a.model_ref=$10)
+AND ($11::ai_request_type IS NULL OR a.request_type=$11)
+AND ($12::timestamp IS NULL OR (a.reported_at,a.id)<($12::timestamp,$13::uuid))
+ORDER BY a.reported_at DESC,a.id DESC LIMIT $14
+`
+
+type ListOrganizationAIInferencesParams struct {
+	OrganizationID  uuid.UUID          `json:"organization_id"`
+	FromAt          pgtype.Timestamp   `json:"from_at"`
+	ToAt            pgtype.Timestamp   `json:"to_at"`
+	InstanceSlug    *string            `json:"instance_slug"`
+	EntitlementSlug *string            `json:"entitlement_slug"`
+	Status          *AiInferenceStatus `json:"status"`
+	TransactionID   *string            `json:"transaction_id"`
+	Authorized      *bool              `json:"authorized"`
+	ModelSlug       *string            `json:"model_slug"`
+	ModelRef        *string            `json:"model_ref"`
+	RequestType     *AiRequestType     `json:"request_type"`
+	CursorAt        pgtype.Timestamp   `json:"cursor_at"`
+	CursorID        *uuid.UUID         `json:"cursor_id"`
+	LimitPlusOne    int32              `json:"limit_plus_one"`
+}
+
+type ListOrganizationAIInferencesRow struct {
+	AiInference     AiInference `json:"ai_inference"`
+	ModelSlug       *string     `json:"model_slug"`
+	LicenseSlug     *string     `json:"license_slug"`
+	InstanceSlug    *string     `json:"instance_slug"`
+	EntitlementSlug *string     `json:"entitlement_slug"`
+}
+
+// One page of the organization's operations across instances and pools, in
+// the keyset order of idx_ai_inference_org_reported_at. A slug filter that
+// names nothing in the organization (another tenant's included) matches no
+// row. The instance and pool slugs are absent once those are deleted.
+func (q *Queries) ListOrganizationAIInferences(ctx context.Context, arg ListOrganizationAIInferencesParams) ([]ListOrganizationAIInferencesRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationAIInferences,
+		arg.OrganizationID,
+		arg.FromAt,
+		arg.ToAt,
+		arg.InstanceSlug,
+		arg.EntitlementSlug,
+		arg.Status,
+		arg.TransactionID,
+		arg.Authorized,
+		arg.ModelSlug,
+		arg.ModelRef,
+		arg.RequestType,
+		arg.CursorAt,
+		arg.CursorID,
+		arg.LimitPlusOne,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOrganizationAIInferencesRow
+	for rows.Next() {
+		var i ListOrganizationAIInferencesRow
+		if err := rows.Scan(
+			&i.AiInference.ID,
+			&i.AiInference.OrganizationID,
+			&i.AiInference.InstanceID,
+			&i.AiInference.EntitlementID,
+			&i.AiInference.TransactionID,
+			&i.AiInference.Status,
+			&i.AiInference.ReportedAt,
+			&i.AiInference.CommittedAt,
+			&i.AiInference.ExpiresAt,
+			&i.AiInference.ModelRef,
+			&i.AiInference.ModelID,
+			&i.AiInference.RequestType,
+			&i.AiInference.RequestStatus,
+			&i.AiInference.InputTokens,
+			&i.AiInference.CacheReadInputTokens,
+			&i.AiInference.CacheWriteInputTokens,
+			&i.AiInference.OutputTokens,
+			&i.AiInference.Units,
+			&i.AiInference.UnitType,
+			&i.AiInference.DurationMs,
+			&i.AiInference.CreditConversionRuleID,
+			&i.AiInference.Authorized,
+			&i.AiInference.DenialReason,
+			&i.AiInference.CreditsReserved,
+			&i.AiInference.CreditsComputed,
+			&i.AiInference.CreditsCharged,
+			&i.AiInference.ValueBefore,
+			&i.AiInference.ValueAfter,
+			&i.AiInference.WindowStart,
+			&i.AiInference.RequestHash,
+			&i.AiInference.CommitHash,
+			&i.AiInference.ReserveResponse,
+			&i.AiInference.CommitResponse,
+			&i.AiInference.Pricing,
+			&i.AiInference.LicenseID,
+			&i.AiInference.Warnings,
+			&i.AiInference.ReportSeq,
+			&i.AiInference.VendorCostReported,
+			&i.AiInference.VendorCostComputed,
+			&i.ModelSlug,
+			&i.LicenseSlug,
+			&i.InstanceSlug,
+			&i.EntitlementSlug,
 		); err != nil {
 			return nil, err
 		}
@@ -272,7 +345,6 @@ func (q *Queries) ListAIReservations(ctx context.Context, arg ListAIReservations
 const resolveAIReadPair = `-- name: ResolveAIReadPair :one
 SELECT i.id AS instance_id,e.id AS entitlement_id FROM instance i
 JOIN entitlement e ON e.organization_id=i.organization_id AND e.slug=$1
-JOIN instance_effective_entitlement iee ON iee.organization_id=i.organization_id AND iee.instance_id=i.id AND iee.entitlement_id=e.id
 WHERE i.organization_id=$2 AND i.slug=$3 AND e.type='NUMBER_AI_CREDIT'
 `
 
@@ -287,6 +359,8 @@ type ResolveAIReadPairRow struct {
 	EntitlementID uuid.UUID `json:"entitlement_id"`
 }
 
+// History outlives the grant: the pair resolves from the instance and the
+// credit pool alone, so a pool removed from the licence keeps its record.
 func (q *Queries) ResolveAIReadPair(ctx context.Context, arg ResolveAIReadPairParams) (ResolveAIReadPairRow, error) {
 	row := q.db.QueryRow(ctx, resolveAIReadPair, arg.EntitlementSlug, arg.OrganizationID, arg.InstanceSlug)
 	var i ResolveAIReadPairRow
