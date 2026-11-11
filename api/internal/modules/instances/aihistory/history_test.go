@@ -41,8 +41,8 @@ func TestResolvePageDefaultsAndLimits(t *testing.T) {
 	now := time.Date(2026, 11, 11, 12, 0, 0, 0, time.UTC)
 	p, err := resolvePage(organizationOperation, Filter{}, now)
 	require.NoError(t, err)
-	require.Equal(t, now, p.to.Time)
-	require.Equal(t, now.Add(-DefaultRange), p.from.Time)
+	require.Equal(t, now.Add(time.Millisecond), p.to.Time, "the current millisecond is read")
+	require.Equal(t, p.to.Time.Add(-DefaultRange), p.from.Time)
 	require.EqualValues(t, DefaultLimit, p.limit)
 	require.Nil(t, p.cursorID)
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"slices"
 	"time"
@@ -82,6 +83,15 @@ func (r Reader) organization(ctx context.Context) (context.Context, uuid.UUID, e
 	return ctx, user.OrganizationID, nil
 }
 
+// now reads the usage clock: the database's, never this node's.
+func (r Reader) now(ctx context.Context) (time.Time, error) {
+	now, err := r.Queries.GetDatabaseNow(ctx)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("read the database clock: %w", err)
+	}
+	return now.Time.UTC(), nil
+}
+
 func (r Reader) pair(ctx context.Context, instance, pool string) (context.Context, db.ResolveAIReadPairRow, uuid.UUID, error) {
 	ctx, org, err := r.organization(ctx)
 	if err != nil {
@@ -102,9 +112,13 @@ type page struct {
 	cursorID *uuid.UUID
 }
 
+// resolvePage validates one read. now is the usage clock, the one operations
+// are dated by: a read that names no end stops just after it, the current
+// millisecond included, so an operation reported an instant ago is listed
+// whatever the application node's own clock says.
 func resolvePage(operation string, filter Filter, now time.Time) (page, error) {
 	if filter.To.IsZero() {
-		filter.To = now
+		filter.To = now.Add(time.Millisecond)
 	}
 	if filter.From.IsZero() {
 		filter.From = filter.To.Add(-DefaultRange)
@@ -150,7 +164,11 @@ func (r Reader) Inferences(ctx context.Context, instance, pool string, filter Fi
 	if err != nil {
 		return schema.AiInferencePage{}, err
 	}
-	p, err := resolvePage(pairOperation, filter, time.Now().UTC())
+	now, err := r.now(ctx)
+	if err != nil {
+		return schema.AiInferencePage{}, err
+	}
+	p, err := resolvePage(pairOperation, filter, now)
 	if err != nil {
 		return schema.AiInferencePage{}, err
 	}
@@ -192,7 +210,11 @@ func (r Reader) OrganizationInferences(ctx context.Context, filter OrganizationF
 	if err != nil {
 		return schema.OrganizationAiInferencePage{}, err
 	}
-	p, err := resolvePage(organizationOperation, filter.Filter, time.Now().UTC())
+	now, err := r.now(ctx)
+	if err != nil {
+		return schema.OrganizationAiInferencePage{}, err
+	}
+	p, err := resolvePage(organizationOperation, filter.Filter, now)
 	if err != nil {
 		return schema.OrganizationAiInferencePage{}, err
 	}
