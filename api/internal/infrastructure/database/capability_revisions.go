@@ -79,7 +79,7 @@ func runCapabilityRevisions(ctx context.Context, db *sql.DB, plan CapabilityRevi
 	defer cancel()
 	// All selected identities are checked before the first data write.
 	var exists bool
-	if err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM organization WHERE id = $1 AND deleted_at IS NULL)`, plan.OrganizationID).Scan(&exists); err != nil {
+	if err := db.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM organization WHERE id = $1)`, plan.OrganizationID).Scan(&exists); err != nil {
 		return fmt.Errorf("verify capability revision tenant: %w", err)
 	}
 	if !exists {

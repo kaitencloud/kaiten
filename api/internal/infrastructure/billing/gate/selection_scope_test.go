@@ -26,11 +26,13 @@ func (p *selectionPlans) Entitled(_ context.Context, _ uuid.UUID, slug string) (
 	p.asks = append(p.asks, slug)
 	return p.allowed[slug], nil
 }
+
 func (p *selectionPlans) asked() []string {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	return append([]string(nil), p.asks...)
 }
+
 func grantedSelectionPlans() *selectionPlans {
 	return &selectionPlans{allowed: map[string]bool{
 		dogfooding.BillingEntitlementSlug:  true,
@@ -117,8 +119,10 @@ func TestSelectionScopeDoesNotSurviveRequestCancellation(t *testing.T) {
 	require.Len(t, plans.asked(), 3)
 }
 
-type lockedSelectionKey struct{}
-type lockSensitivePlans struct{ calls []string }
+type (
+	lockedSelectionKey struct{}
+	lockSensitivePlans struct{ calls []string }
+)
 
 func (p *lockSensitivePlans) Entitled(ctx context.Context, _ uuid.UUID, slug string) (bool, error) {
 	p.calls = append(p.calls, slug)
@@ -127,6 +131,7 @@ func (p *lockSensitivePlans) Entitled(ctx context.Context, _ uuid.UUID, slug str
 	}
 	return true, nil
 }
+
 func TestDerivedTransactionContextDoesNotReachLicensing(t *testing.T) {
 	plans := &lockSensitivePlans{}
 	g := New(true, plans)

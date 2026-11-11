@@ -137,7 +137,7 @@ BEGIN
       WHERE license_id = successor AND entitlement_id = capability.id AND organization_id = tenant;
     IF NOT FOUND THEN
       INSERT INTO license_entitlement (entitlement_id, license_id, created_by_id, updated_by_id, value, organization_id, limit_cap_exceeded_overage_percent)
-        VALUES (capability.id, successor, actor, actor, jsonb_build_object('type','boolean','value',allowed), tenant, 0);
+        VALUES (capability.id, successor, actor, actor, jsonb_build_object('type','boolean','value',allowed), tenant, NULL);
     END IF;
   END LOOP;
   FOR price IN SELECT * FROM license_price WHERE license_id = source_id AND organization_id = tenant ORDER BY id LOOP
@@ -187,11 +187,20 @@ DECLARE
   changed INTEGER := 0;
   affected INTEGER;
   source_prices UUID[];
+  target_archived BOOLEAN;
   escape TEXT := current_setting('kaiten.billing_apply_plan_change', true);
 BEGIN
   SELECT * INTO STRICT revision FROM license_capability_revision
     WHERE source_license_id = source_id AND organization_id = tenant FOR SHARE;
-  PERFORM 1 FROM license WHERE id IN (source_id, revision.target_license_id) ORDER BY id FOR SHARE;
+  SELECT lifecycle_state = 'ARCHIVED' INTO target_archived FROM license WHERE id = revision.target_license_id;
+  IF target_archived THEN
+    PERFORM 1 FROM license WHERE id = source_id FOR SHARE;
+    PERFORM 1 FROM license WHERE id = revision.target_license_id FOR NO KEY UPDATE;
+  ELSE
+    -- Keep shared locks compatible with normal assignment-trigger reads;
+    -- ordinary subscription writers lock their instance before its licence.
+    PERFORM 1 FROM license WHERE id IN (source_id, revision.target_license_id) ORDER BY id FOR SHARE;
+  END IF;
   PERFORM 1 FROM license_entitlement WHERE license_id IN (source_id, revision.target_license_id) ORDER BY id FOR SHARE;
   PERFORM 1 FROM license_price WHERE license_id IN (source_id, revision.target_license_id) ORDER BY id FOR SHARE;
   IF revision.source_contract IS DISTINCT FROM license_capability_contract(tenant, source_id)
@@ -206,6 +215,13 @@ BEGIN
     RAISE EXCEPTION 'capability revision grant drift';
   END IF;
   source_prices := ARRAY(SELECT key::uuid FROM jsonb_object_keys(revision.price_map) AS keys(key));
+  SELECT lifecycle_state = 'ARCHIVED' INTO target_archived FROM license WHERE id = revision.target_license_id;
+  -- Stage an archived equivalent only inside this transaction, so the normal
+  -- assignment trigger remains unchanged. Other sessions see it archived;
+  -- every exit/rollback restores its original lifecycle before commit.
+  IF target_archived THEN
+    UPDATE license SET lifecycle_state = 'DRAFT' WHERE id = revision.target_license_id;
+  END IF;
   PERFORM set_config('kaiten.billing_apply_plan_change', 'on', true);
   FOR held IN SELECT i.* FROM instance i LEFT JOIN instance_billing ib ON ib.instance_id = i.id AND ib.organization_id = tenant
     WHERE i.organization_id = tenant AND (i.license_id = source_id OR ib.pending_license_id = source_id
@@ -244,6 +260,12 @@ BEGIN
   UPDATE checkout_session cs SET license_price_id = (revision.price_map ->> cs.license_price_id::text)::uuid
     FROM locked WHERE cs.id = locked.id;
   GET DIAGNOSTICS affected = ROW_COUNT;
+  IF target_archived THEN
+    UPDATE license SET lifecycle_state = 'ARCHIVED' WHERE id = revision.target_license_id;
+  END IF;
+  IF revision.source_contract IS DISTINCT FROM license_capability_contract(tenant, revision.target_license_id) THEN
+    RAISE EXCEPTION 'capability revision changed target contract during reference update';
+  END IF;
   PERFORM set_config('kaiten.billing_apply_plan_change', COALESCE(escape, ''), true);
   RETURN changed + affected;
 END;

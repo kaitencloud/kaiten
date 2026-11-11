@@ -55,8 +55,10 @@ func TestStartupCapabilityRevisionPreservesSoldContractAndDiscounts(t *testing.T
 	beforeInvoices := revisionSnapshot(t, "SELECT COALESCE(jsonb_agg(to_jsonb(ii) ORDER BY ii.id), '[]'::jsonb)::text FROM instance_invoice ii")
 	beforeRedemptions := revisionSnapshot(t, "SELECT COALESCE(jsonb_agg(to_jsonb(iv) ORDER BY iv.id), '[]'::jsonb)::text FROM instance_voucher iv")
 	beforeContract := revisionSnapshot(t, "SELECT license_capability_contract($1,$2)::text", testDb.DefaultData.OrganizationID, sold.version.ID)
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}},
+	}
 	require.NoError(t, database.RunMigrations(testDb.ConnectionString, plan))
 	var target uuid.UUID
 	var mappingRaw []byte
@@ -97,8 +99,10 @@ func TestCapabilityRevisionPreparationFailureRollsBackCopiedContract(t *testing.
  CREATE TRIGGER refuse_revision_price BEFORE INSERT ON license_price FOR EACH ROW EXECUTE FUNCTION refuse_revision_price();`)
 	require.NoError(t, err)
 	before := revisionSnapshot(t, "SELECT to_jsonb(f)::text FROM license_family f WHERE id = $1", sold.version.FamilyID)
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}},
+	}
 	require.ErrorContains(t, database.RunMigrations(testDb.ConnectionString, plan), "synthetic revision price failure")
 	require.JSONEq(t, before, revisionSnapshot(t, "SELECT to_jsonb(f)::text FROM license_family f WHERE id = $1", sold.version.FamilyID))
 	var revisions, versions int
@@ -155,8 +159,10 @@ func TestCapabilityRevisionRetainsTrialDebtCancellationAndPendingReferences(t *t
    FROM instance_billing ib WHERE instance_id = $1`, client.id)
 	}
 	trials := revisionSnapshot(t, "SELECT COALESCE(jsonb_agg(to_jsonb(ct) ORDER BY ct.customer_id), '[]'::jsonb)::text FROM customer_trial ct")
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}},
+	}
 	require.NoError(t, database.RunMigrations(testDb.ConnectionString, plan))
 	var target uuid.UUID
 	var annualTarget string
@@ -184,8 +190,10 @@ func TestCapabilityRevisionResumesMoreThanOneClientBatch(t *testing.T) {
 	for i := range 201 {
 		newInstance(t, fmt.Sprintf("batch-%d", i), customer.ID, sold.version.ID)
 	}
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}},
+	}
 	require.NoError(t, database.RunMigrations(testDb.ConnectionString, plan))
 	var remaining, migrated int
 	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), "SELECT count(*) FROM instance WHERE license_id = $1", sold.version.ID).Scan(&remaining))
@@ -197,8 +205,10 @@ func TestCapabilityRevisionResumesMoreThanOneClientBatch(t *testing.T) {
 func TestCapabilityRevisionCreatesMissingDefinitionsThroughExistingRunner(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	sold := newSold(t, flatFee("0", "MONTHLY"))
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(false), Addons: new(false)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(false), Addons: new(false)}},
+	}
 	require.NoError(t, database.RunMigrations(testDb.ConnectionString, plan))
 	var grants int
 	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM license_entitlement le JOIN entitlement e ON e.id = le.entitlement_id
@@ -214,8 +224,10 @@ func TestCapabilityRevisionRefusesWrongDefinitionBeforeAnyContractWrites(t *test
 		"name": "Existing config", "slug": "addons", "description": "Existing config", "type": "CONFIG",
 	}), fiber.StatusCreated)
 	before := revisionSnapshot(t, "SELECT to_jsonb(f)::text FROM license_family f WHERE id = $1", sold.version.FamilyID)
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}},
+	}
 	require.ErrorContains(t, database.RunMigrations(testDb.ConnectionString, plan), "existing definitions cannot be replaced")
 	require.JSONEq(t, before, revisionSnapshot(t, "SELECT to_jsonb(f)::text FROM license_family f WHERE id = $1", sold.version.FamilyID))
 	var definitions int
@@ -230,13 +242,19 @@ func TestCapabilityRevisionPreservesArchivedSourceLifecycleAndHolder(t *testing.
 	_, err := testServer.Dependencies.DB.Exec(t.Context(), "UPDATE license SET is_default = false, lifecycle_state = 'ARCHIVED' WHERE id = $1", sold.version.ID)
 	require.NoError(t, err)
 	before := revisionSnapshot(t, "SELECT license_capability_contract($1,$2)::text", testDb.DefaultData.OrganizationID, sold.version.ID)
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: sold.version.FamilyID, Vouchers: new(true), Addons: new(true)}},
+	}
 	require.NoError(t, database.RunMigrations(testDb.ConnectionString, plan))
 	var target uuid.UUID
 	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), "SELECT license_id FROM instance WHERE id = $1", sold.instance.ID).Scan(&target))
 	require.NotEqual(t, sold.version.ID, target)
 	require.JSONEq(t, before, revisionSnapshot(t, "SELECT license_capability_contract($1,$2)::text", plan.OrganizationID, target))
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), "UPDATE instance SET license_id = $1 WHERE id = $2", sold.version.ID, sold.instance.ID)
+	var pgErr *pgconn.PgError
+	require.ErrorAs(t, err, &pgErr)
+	require.Equal(t, "instance_license_not_archived", pgErr.ConstraintName, "ordinary archived assignment must remain refused")
 }
 
 func TestCapabilityRevisionKeepsHeterogeneousSameFamilyContractsSeparate(t *testing.T) {
@@ -263,8 +281,10 @@ func TestCapabilityRevisionKeepsHeterogeneousSameFamilyContractsSeparate(t *test
 	subscribe(t, instance.Slug, map[string]any{"basePriceId": price.ID})
 	oldContract := revisionSnapshot(t, "SELECT license_capability_contract($1,$2)::text", testDb.DefaultData.OrganizationID, old.version.ID)
 	currentContract := revisionSnapshot(t, "SELECT license_capability_contract($1,$2)::text", testDb.DefaultData.OrganizationID, current.ID)
-	plan := database.CapabilityRevisionPlan{OrganizationID: testDb.DefaultData.OrganizationID,
-		Families: []database.CapabilityRevisionFamily{{FamilyID: old.version.FamilyID, Vouchers: new(true), Addons: new(true)}}}
+	plan := database.CapabilityRevisionPlan{
+		OrganizationID: testDb.DefaultData.OrganizationID,
+		Families:       []database.CapabilityRevisionFamily{{FamilyID: old.version.FamilyID, Vouchers: new(true), Addons: new(true)}},
+	}
 	require.NoError(t, database.RunMigrations(testDb.ConnectionString, plan))
 	var oldTarget, currentTarget uuid.UUID
 	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), "SELECT license_id FROM instance WHERE id=$1", old.instance.ID).Scan(&oldTarget))

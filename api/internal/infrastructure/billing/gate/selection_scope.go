@@ -135,8 +135,10 @@ func (g Gate) BeginSelection(ctx context.Context, organizationID, actorID uuid.U
 	if !reflect.TypeOf(g.entitlements).Comparable() {
 		return nil, unavailableSelection()
 	}
-	decision := &selectionDecision{request: ctx, organizationID: organizationID, actorID: actorID,
-		authority: g.entitlements, expiresAt: time.Now().Add(selectionLifetime)}
+	decision := &selectionDecision{
+		request: ctx, organizationID: organizationID, actorID: actorID,
+		authority: g.entitlements, expiresAt: time.Now().Add(selectionLifetime),
+	}
 	scope := &SelectionScope{decision: decision, selection: selection, owner: true}
 	scope.ctx = context.WithValue(ctx, selectionKey{}, scope)
 	if err := scope.Validate(ctx); err != nil {
