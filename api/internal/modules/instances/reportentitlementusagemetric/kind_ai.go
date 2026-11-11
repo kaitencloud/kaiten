@@ -1,8 +1,10 @@
 package reportentitlementusagemetric
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +19,38 @@ import (
 )
 
 type aiKind struct{}
+
+// pricingSnapshot is the ai_inference.pricing document: the conversion rule
+// as it is applied, in the rule's own decimal strings. Nil when no rule
+// applies: an unauthorized operation has no price to explain.
+func pricingSnapshot(rule *aicredit.Rule, specificity aicredit.Specificity) ([]byte, error) {
+	if rule == nil {
+		return nil, nil
+	}
+	text := func(d *decimal.Decimal) *string {
+		if d == nil {
+			return nil
+		}
+		s := d.String()
+		return &s
+	}
+	return json.Marshal(schema.AiInferencePricing{
+		RuleID:      rule.ID,
+		Specificity: specificity,
+		Rates: schema.AiInferenceRates{
+			PerRequest:          text(rule.Rates.Request),
+			PerInputToken:       text(rule.Rates.InputToken),
+			PerCachedInputToken: text(rule.Rates.CachedInputToken),
+			PerCacheWriteToken:  text(rule.Rates.CacheWriteToken),
+			PerOutputToken:      text(rule.Rates.OutputToken),
+			PerUnit:             text(rule.Rates.Unit),
+			PerSecond:           text(rule.Rates.Second),
+		},
+		MinimumCreditsPerRequest: rule.Minimum.String(),
+		MaximumCreditsPerRequest: text(rule.Maximum),
+		ChargeOnError:            rule.ChargeOnError,
+	})
+}
 
 // releaseNothing answers a NOT_SENT commit whose transactionId never reserved.
 // An SDK releases on every failure path, including the ones that failed before
@@ -45,7 +79,7 @@ func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 	if releasesNothing(st, v) {
 		return k.releaseNothing(st, v)
 	}
-	rule, _ := aicredit.Resolve(st.AIRules, st.AIModel, st.AIRequestType)
+	rule, specificity := aicredit.Resolve(st.AIRules, st.AIModel, st.AIRequestType)
 	warnings := []string{}
 	authorized := rule != nil
 	denial := ""
@@ -116,6 +150,16 @@ func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 	} else {
 		row.CreditConversionRuleID = nil
 	}
+	// What explains the row once the rule has been edited or archived: the
+	// rule as it priced this phase, and the licence version whose rules were
+	// considered -- the one LoadLimits read under the pair's lock, never a
+	// second read of the grant. A commit overwrites what its reserve wrote,
+	// so an operation no rule prices in the end keeps no snapshot.
+	if row.Pricing, err = pricingSnapshot(rule, specificity); err != nil {
+		return nil, err
+	}
+	licenseID := st.Pair.LicenseID
+	row.LicenseID = &licenseID
 	outcome := &schema.AiUsageOutcome{TransactionID: v.TransactionID, Phase: v.Phase, Warnings: warnings}
 	if v.Phase == "reserve" {
 		if st.Operation != nil {
@@ -252,6 +296,9 @@ func (k aiKind) plan(st *State, cmd *Command) (*Effect, error) {
 		remaining := decimal.NewFromFloat(st.Limit.Threshold).Sub(decimal.NewFromFloat(before.Value)).Sub(reserved).String()
 		outcome.Remaining = &remaining
 	}
+	// The warnings the phase answers with, as answered: read back by the
+	// history without the stored response.
+	row.Warnings = slices.Clone(outcome.Warnings)
 	eff.Response = response
 	eff.AIRow = &row
 	eff.AIUpdate = st.Operation != nil

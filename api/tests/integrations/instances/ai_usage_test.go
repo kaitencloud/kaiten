@@ -1,6 +1,7 @@
 package instances_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"math"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
@@ -18,6 +20,7 @@ import (
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	instancedb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
@@ -780,7 +783,9 @@ func TestAICommitOnASaturatedCounterIsRecordedWithAPrecisionWarning(t *testing.T
 	require.Contains(t, charged.AI.Warnings, instanceschema.AiWarningCounterPrecisionDegraded)
 	var exact string
 	var before, after float64
-	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT credits_charged::text,value_before,value_after FROM ai_inference WHERE entitlement_id=$1`, pool.ID).Scan(&exact, &before, &after))
+	var warnings []string
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT credits_charged::text,value_before,value_after,warnings FROM ai_inference WHERE entitlement_id=$1`, pool.ID).Scan(&exact, &before, &after, &warnings))
+	require.Contains(t, warnings, instanceschema.AiWarningCounterPrecisionDegraded)
 	require.Equal(t, "0.000001", exact, "the NUMERIC charge is exact whatever the counter could hold")
 	require.Greater(t, math.Abs((after-before)-0.000001), 0.0000005, "the scenario is the one I1 cannot hold in")
 	var journal int
@@ -845,6 +850,142 @@ func TestAIChargedCommitKeepsTheJournalSequence(t *testing.T) {
 	var journal int
 	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&journal))
 	require.Equal(t, 3, journal)
+}
+
+// aiExplain is what an ai_inference row says about itself.
+type aiExplain struct {
+	pricing   *instanceschema.AiInferencePricing
+	licenseID *uuid.UUID
+	warnings  []string
+	snapshot  string
+}
+
+func readAIExplain(t *testing.T, poolID uuid.UUID, transactionID string) aiExplain {
+	t.Helper()
+	var raw []byte
+	var explain aiExplain
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT pricing,license_id,warnings,jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text)::text FROM ai_inference a WHERE entitlement_id=$1 AND transaction_id=$2`, poolID, transactionID).Scan(&raw, &explain.licenseID, &explain.warnings, &explain.snapshot))
+	if raw != nil {
+		// The stored document is the read type itself: what the history decodes.
+		explain.pricing = &instanceschema.AiInferencePricing{}
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		require.NoError(t, decoder.Decode(explain.pricing))
+	}
+	return explain
+}
+
+// The row explains its own charge: the rule as it priced the operation, the
+// licence version, and the warnings answered. Editing the rule afterwards
+// changes none of it.
+func TestAICommitSnapshotsTheRuleThatPricedIt(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 5)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_input_token=0.25,rate_per_cached_input_token=0.0125,minimum_credits_per_request=0.5,maximum_credits_per_request=40 WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	var ruleID uuid.UUID
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT id FROM credit_conversion_rule WHERE entitlement_id=$1`, pool.ID).Scan(&ruleID))
+	maximum := "40"
+	want := instanceschema.AiInferencePricing{
+		RuleID: ruleID, Specificity: aicredit.ExactAll,
+		Rates:                    instanceschema.AiInferenceRates{PerInputToken: ptr.To("0.25"), PerCachedInputToken: ptr.To("0.0125"), PerOutputToken: ptr.To("1")},
+		MinimumCreditsPerRequest: "0.5", MaximumCreditsPerRequest: &maximum, ChargeOnError: aicredit.Always,
+	}
+
+	reserved := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "explained", 2)), http.StatusOK)
+	atReserve := readAIExplain(t, pool.ID, "explained")
+	require.Equal(t, &want, atReserve.pricing, "the reserve snapshots the rule its estimate was priced with")
+	require.Equal(t, instance.LicenseID, *atReserve.licenseID)
+	require.Equal(t, reserved.AI.Warnings, atReserve.warnings)
+	require.Empty(t, atReserve.warnings)
+
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "explained", 7)), http.StatusOK)
+	require.Equal(t, "7", *charged.AI.Credits.Charged)
+	require.Contains(t, charged.AI.Warnings, instanceschema.AiWarningOverdrawn)
+	committed := readAIExplain(t, pool.ID, "explained")
+	require.Equal(t, &want, committed.pricing)
+	require.Equal(t, instance.LicenseID, *committed.licenseID)
+	require.Equal(t, charged.AI.Warnings, committed.warnings, "the row carries the warnings the commit answered with")
+
+	// The rule is edited in place (AC-13), then archived. The record still
+	// shows the rates it was charged at, and a replay rewrites nothing.
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_output_token=99,rate_per_input_token=NULL,maximum_credits_per_request=NULL,charge_on_error='NEVER' WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	beforeEvents := recordedEvents(t)
+	replay := aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "explained", 7))
+	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
+	require.Equal(t, charged, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
+	require.Equal(t, committed, readAIExplain(t, pool.ID, "explained"), "the snapshot is the old rule, and the replay wrote nothing")
+	require.Equal(t, beforeEvents, recordedEvents(t))
+
+	// The next call is priced, and snapshotted, with the rule as it now is.
+	next := aiUsageBody("commit", "repriced", 1)
+	next["model"], next["requestType"] = "lifecycle-model", "COMPLETION"
+	repriced := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, next), http.StatusOK)
+	require.Equal(t, "99", *repriced.AI.Credits.Charged)
+	require.Equal(t, &instanceschema.AiInferencePricing{
+		RuleID: ruleID, Specificity: aicredit.ExactAll,
+		Rates:                    instanceschema.AiInferenceRates{PerCachedInputToken: ptr.To("0.0125"), PerOutputToken: ptr.To("99")},
+		MinimumCreditsPerRequest: "0.5", ChargeOnError: aicredit.Never,
+	}, readAIExplain(t, pool.ID, "repriced").pricing)
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET status='ARCHIVED' WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	require.Equal(t, committed, readAIExplain(t, pool.ID, "explained"))
+}
+
+// A reservation does not lock the rates: the commit prices with the rule of
+// its own instant and overwrites the reserve's snapshot -- with nothing when
+// no rule applies any more.
+func TestAICommitOverwritesTheReserveSnapshot(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	for _, id := range []string{"repriced", "unpriced"} {
+		commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", id, 2)), http.StatusOK)
+		require.Equal(t, "1", *readAIExplain(t, pool.ID, id).pricing.Rates.PerOutputToken)
+	}
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_output_token=3 WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "repriced", 2)), http.StatusOK)
+	require.Equal(t, "6", *charged.AI.Credits.Charged)
+	require.Equal(t, "3", *readAIExplain(t, pool.ID, "repriced").pricing.Rates.PerOutputToken)
+
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET status='ARCHIVED' WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	denied := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "unpriced", 2)), http.StatusOK)
+	require.False(t, *denied.AI.Authorized)
+	unpriced := readAIExplain(t, pool.ID, "unpriced")
+	require.Nil(t, unpriced.pricing, "no rule priced the commit: the reserve's snapshot does not survive it")
+	require.Equal(t, instance.LicenseID, *unpriced.licenseID)
+	require.Equal(t, denied.AI.Warnings, unpriced.warnings)
+	require.Equal(t, []string{instanceschema.AiWarningModelNotAuthorized}, unpriced.warnings)
+}
+
+// An unauthorized operation has no price to explain, but still says which
+// licence refused it and what it was answered.
+func TestAIUnauthorizedCommitRecordsLicenceAndWarningsWithoutPricing(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE model SET status='DEPRECATED' WHERE slug='lifecycle-model'`)
+	require.NoError(t, err)
+	unknown := aiUsageBody("commit", "unknown", 2)
+	unknown["model"], unknown["requestType"] = "missing-model", "COMPLETION"
+	denied := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, unknown), http.StatusOK)
+	row := readAIExplain(t, pool.ID, "unknown")
+	require.Nil(t, row.pricing)
+	require.Equal(t, instance.LicenseID, *row.licenseID)
+	require.Equal(t, []string{instanceschema.AiWarningUnknownModel}, row.warnings)
+	require.Equal(t, denied.AI.Warnings, row.warnings)
+
+	// Several warnings are kept in the order they were answered.
+	deprecated := aiUsageBody("commit", "deprecated", 2)
+	deprecated["model"], deprecated["requestType"] = "lifecycle-model", "COMPLETION"
+	delete(deprecated, "usage")
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, deprecated), http.StatusOK)
+	require.Equal(t, []string{instanceschema.AiWarningModelDeprecated, instanceschema.AiWarningConversionInputMissing}, charged.AI.Warnings)
+	require.Equal(t, charged.AI.Warnings, readAIExplain(t, pool.ID, "deprecated").warnings)
 }
 
 func TestAIWireRejectsMissingMalformedIDsAndInvalidPhases(t *testing.T) {

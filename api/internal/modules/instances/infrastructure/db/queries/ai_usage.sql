@@ -19,17 +19,22 @@ AND instance_id = sqlc.arg(instance_id) AND entitlement_id = sqlc.arg(entitlemen
 AND transaction_id = sqlc.arg(transaction_id) AND reported_at >= sqlc.arg(since)::timestamp
 ORDER BY reported_at DESC, id DESC LIMIT 1;
 
+-- pricing, license_id and warnings explain the row on its own: the rule as it
+-- priced the phase, the licence version whose rules were considered, and the
+-- warnings the phase answered with. A commit overwrites what its reserve wrote.
 -- name: InsertAIOperation :exec
 INSERT INTO ai_inference (id, organization_id, instance_id, entitlement_id, transaction_id, status,
 reported_at, committed_at, expires_at, model_ref, model_id, request_type, request_status,
 input_tokens, cache_read_input_tokens, cache_write_input_tokens, output_tokens, units, unit_type, duration_ms,
 credit_conversion_rule_id, authorized, denial_reason, credits_reserved, credits_computed, credits_charged,
-value_before, value_after, window_start, request_hash, commit_hash, report_seq)
+value_before, value_after, window_start, request_hash, commit_hash, report_seq,
+pricing, license_id, warnings)
 VALUES (sqlc.arg(id), sqlc.arg(organization_id), sqlc.arg(instance_id), sqlc.arg(entitlement_id), sqlc.arg(transaction_id), sqlc.arg(status),
 sqlc.arg(reported_at), sqlc.narg(committed_at), sqlc.narg(expires_at), sqlc.arg(model_ref), sqlc.narg(model_id), sqlc.arg(request_type), sqlc.narg(request_status),
 sqlc.narg(input_tokens), sqlc.narg(cache_read_input_tokens), sqlc.narg(cache_write_input_tokens), sqlc.narg(output_tokens), sqlc.narg(units), sqlc.narg(unit_type), sqlc.narg(duration_ms),
 sqlc.narg(credit_conversion_rule_id), sqlc.narg(authorized), sqlc.narg(denial_reason), sqlc.narg(credits_reserved), sqlc.narg(credits_computed), sqlc.narg(credits_charged),
-sqlc.narg(value_before), sqlc.narg(value_after), sqlc.narg(window_start), sqlc.arg(request_hash), sqlc.narg(commit_hash), sqlc.narg(report_seq));
+sqlc.narg(value_before), sqlc.narg(value_after), sqlc.narg(window_start), sqlc.arg(request_hash), sqlc.narg(commit_hash), sqlc.narg(report_seq),
+sqlc.narg(pricing)::jsonb, sqlc.narg(license_id), sqlc.arg(warnings)::text[]);
 
 -- name: CommitAIOperation :execrows
 UPDATE ai_inference SET status = sqlc.arg(status), committed_at = sqlc.arg(committed_at),
@@ -38,7 +43,8 @@ input_tokens = sqlc.narg(input_tokens), cache_read_input_tokens = sqlc.narg(cach
 output_tokens = sqlc.narg(output_tokens), units = sqlc.narg(units), unit_type = sqlc.narg(unit_type), duration_ms = sqlc.narg(duration_ms),
 credit_conversion_rule_id = sqlc.narg(credit_conversion_rule_id), authorized = sqlc.arg(authorized), denial_reason = sqlc.narg(denial_reason),
 credits_computed = sqlc.arg(credits_computed), credits_charged = sqlc.arg(credits_charged), value_before = sqlc.narg(value_before), value_after = sqlc.narg(value_after),
-window_start = sqlc.narg(window_start), commit_hash = sqlc.arg(commit_hash), report_seq = sqlc.narg(report_seq)
+window_start = sqlc.narg(window_start), commit_hash = sqlc.arg(commit_hash), report_seq = sqlc.narg(report_seq),
+pricing = sqlc.narg(pricing)::jsonb, license_id = sqlc.narg(license_id), warnings = sqlc.arg(warnings)::text[]
 WHERE id = sqlc.arg(id) AND organization_id = sqlc.arg(organization_id) AND status IN ('RESERVED','EXPIRED');
 
 -- name: AIUnauthorizedRecordedToday :one

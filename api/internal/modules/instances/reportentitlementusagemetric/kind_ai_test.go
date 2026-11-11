@@ -104,6 +104,86 @@ func TestAIReleaseWithoutReservationPlansNoWrite(t *testing.T) {
 	}
 }
 
+// The stored document is a contract with the history reads: its member names
+// and its exact decimal strings are pinned here.
+func TestAIPlanSnapshotsRuleLicenceAndWarnings(t *testing.T) {
+	model := &aicredit.Model{ID: uuid.New(), Status: aicredit.Deprecated}
+	other := uuid.New()
+	completion, embedding := aicredit.Completion, aicredit.Embedding
+	rate, cached, maximum := decimal.RequireFromString("0.001"), decimal.RequireFromString("0.0000000001"), decimal.RequireFromString("2.5")
+	rule := func(modelID *uuid.UUID, request *aicredit.RequestType) aicredit.Rule {
+		return aicredit.Rule{ID: uuid.New(), ModelID: modelID, RequestType: request, Active: true, Rates: aicredit.Rates{InputToken: &rate, CachedInputToken: &cached}, Minimum: decimal.RequireFromString("0.5"), Maximum: &maximum, ChargeOnError: aicredit.ProviderErrorOnly}
+	}
+	exactTyped, exactAll, anyTyped, anyAll := rule(&model.ID, &completion), rule(&model.ID, nil), rule(nil, &completion), rule(nil, nil)
+	license := uuid.New()
+	status := aicredit.Success
+	tokens := int64(1000)
+	for _, tc := range []struct {
+		name        string
+		rules       []aicredit.Rule
+		winner      *aicredit.Rule
+		specificity string
+	}{
+		{"exact typed", []aicredit.Rule{anyAll, anyTyped, exactAll, exactTyped}, &exactTyped, "EXACT_TYPED"},
+		{"exact all", []aicredit.Rule{anyAll, anyTyped, exactAll}, &exactAll, "EXACT_ALL"},
+		{"any typed", []aicredit.Rule{anyAll, anyTyped}, &anyTyped, "ANY_TYPED"},
+		{"any all", []aicredit.Rule{anyAll, rule(&other, nil), rule(nil, &embedding)}, &anyAll, "ANY_ALL"},
+		{"no rule", []aicredit.Rule{rule(&other, nil)}, nil, ""},
+	} {
+		for _, phase := range []string{"reserve", "commit"} {
+			t.Run(tc.name+", "+phase, func(t *testing.T) {
+				st := &State{Pair: &UsageContext{LicenseID: license, EntitlementType: db.EntitlementTypeNUMBERAICREDIT, EntitlementSlug: "pool", EffectiveValue: []byte(`{"type":"number","value":-1}`)}, Now: time.Now().UTC(), Limit: usage.Limit{Threshold: -1}, AggregationMethod: "SUM", AIModel: model, AIModelRef: "model", AIRequestType: completion, AIRules: tc.rules}
+				value := &schema.AiUsageValue{Phase: phase, TransactionID: "tx", Usage: &schema.AiUsage{InputTokens: &tokens}}
+				if phase == "commit" {
+					value.RequestStatus = &status
+				}
+				effect, err := (aiKind{}).plan(st, &Command{AI: value})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if tc.winner == nil && phase == "reserve" {
+					if effect.Refusal == nil || effect.AIRow != nil {
+						t.Fatalf("an unauthorized reserve is refused and records nothing: %+v", effect)
+					}
+					return
+				}
+				row := effect.AIRow
+				if row.LicenseID == nil || *row.LicenseID != license {
+					t.Fatalf("license_id=%v, want the usage context's %s", row.LicenseID, license)
+				}
+				if !slices.Equal(row.Warnings, effect.Response.AI.Warnings) || !slices.Contains(row.Warnings, schema.AiWarningModelDeprecated) {
+					t.Fatalf("row warnings=%v, response warnings=%v", row.Warnings, effect.Response.AI.Warnings)
+				}
+				if tc.winner == nil {
+					if row.Pricing != nil || !slices.Contains(row.Warnings, schema.AiWarningModelNotAuthorized) {
+						t.Fatalf("an unauthorized commit has no pricing: %s %v", row.Pricing, row.Warnings)
+					}
+					return
+				}
+				want := `{"ruleId":"` + tc.winner.ID.String() + `","specificity":"` + tc.specificity + `","rates":{"perInputToken":"0.001","perCachedInputToken":"0.0000000001"},"minimumCreditsPerRequest":"0.5","maximumCreditsPerRequest":"2.5","chargeOnError":"PROVIDER_ERROR_ONLY"}`
+				if string(row.Pricing) != want {
+					t.Fatalf("pricing=%s\nwant    %s", row.Pricing, want)
+				}
+			})
+		}
+	}
+}
+
+func TestAIPricingSnapshotKeepsAnAbsentMaximumNull(t *testing.T) {
+	rate := decimal.NewFromInt(2)
+	id := uuid.New()
+	got, err := pricingSnapshot(&aicredit.Rule{ID: id, Active: true, Rates: aicredit.Rates{Request: &rate}, ChargeOnError: aicredit.Never}, aicredit.AnyAll)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := `{"ruleId":"` + id.String() + `","specificity":"ANY_ALL","rates":{"perRequest":"2"},"minimumCreditsPerRequest":"0","maximumCreditsPerRequest":null,"chargeOnError":"NEVER"}`; string(got) != want {
+		t.Fatalf("pricing=%s\nwant    %s", got, want)
+	}
+	if got, err := pricingSnapshot(nil, ""); got != nil || err != nil {
+		t.Fatalf("no rule, no snapshot: %s %v", got, err)
+	}
+}
+
 func TestNumericCreditGateAllowsExactDecimalFitAndPartialRefund(t *testing.T) {
 	for _, tc := range []struct {
 		name                 string
