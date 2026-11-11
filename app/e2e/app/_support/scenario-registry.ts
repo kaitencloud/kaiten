@@ -44,6 +44,7 @@ import {
   createCalmDashboardModel,
   createDashboardReadModel,
   createEmptyDashboardModel,
+  createRetentionCutDashboardModel,
 } from '../dashboard/dashboard.scenarios';
 import {
   createNotificationsFeedModel,
@@ -195,6 +196,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['dashboard/createDashboardReadModel', createDashboardReadModel],
   ['dashboard/createCalmDashboardModel', createCalmDashboardModel],
   ['dashboard/createEmptyDashboardModel', createEmptyDashboardModel],
+  [
+    'dashboard/createRetentionCutDashboardModel',
+    createRetentionCutDashboardModel,
+  ],
   ['notifications/createNotificationsFeedModel', createNotificationsFeedModel],
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],
   ['entitlements/createUnitEntitlementModel', createUnitEntitlementModel],
