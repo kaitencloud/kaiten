@@ -201,7 +201,7 @@ export function buildCustomersAttention(
         instance: item.instanceName,
       }),
       detail: t('Pages.Dashboard.attention.lines.silent.detail', {
-        days: summary.range.days,
+        days: summary.range.activityDays,
       }),
       action: {
         label: t('Pages.Dashboard.attention.lines.silent.action'),

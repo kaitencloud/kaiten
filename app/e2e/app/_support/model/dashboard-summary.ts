@@ -363,6 +363,8 @@ export function buildDashboardSummary(
       from: new Date(now.getTime() - days * DAY).toISOString(),
       to: now.toISOString(),
       days,
+      activityFrom: new Date(now.getTime() - days * DAY).toISOString(),
+      activityDays: days,
     },
     attention: {
       limitsReached: { count: 2, items: [ninjaMenu, ninjaLocations] },

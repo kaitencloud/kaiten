@@ -3199,11 +3199,11 @@ components:
           format: int64
           type: integer
         evaluations:
-          description: Evaluations recorded in the range; a floor, the evaluation publisher drops under pressure
+          description: Evaluations recorded since range.activityFrom; a floor, the evaluation publisher drops under pressure
           format: int64
           type: integer
         notEvaluated:
-          description: Flags with no evaluation in the range
+          description: Flags with no evaluation since range.activityFrom
           format: int64
           type: integer
         perFlag:
@@ -3284,7 +3284,7 @@ components:
       additionalProperties: false
       properties:
         activeInRange:
-          description: Instances with at least one report, accepted or refused, or one entitlement read in the range
+          description: Instances with at least one report, accepted or refused, or one entitlement read since range.activityFrom
           format: int64
           type: integer
         byStanding:
@@ -3331,7 +3331,7 @@ components:
         instanceSlug:
           type: string
         lastReadAt:
-          description: The last entitlement value read in the range
+          description: The last entitlement value read since range.activityFrom
           format: date-time
           type:
             - string
@@ -3356,10 +3356,10 @@ components:
           format: int64
           type: integer
         silent:
-          description: No report, accepted or refused, and no entitlement read in the range
+          description: No report, accepted or refused, and no entitlement read since range.activityFrom
           type: boolean
         standing:
-          description: "The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing reported or read in the range, healthy otherwise; computed over every meter of the instance"
+          description: "The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing reported or read since range.activityFrom, healthy otherwise; computed over every meter of the instance"
           enum:
             - atLimit
             - watch
@@ -3648,6 +3648,14 @@ components:
     DashboardRangeWindow:
       additionalProperties: false
       properties:
+        activityDays:
+          description: The days from activityFrom to To, rounded up; Days when the activity figures cover the whole period
+          format: int64
+          type: integer
+        activityFrom:
+          description: "Where the activity figures start: usage reports accepted and refused, entitlement reads, flag evaluations, and the active and silent instances. From, unless the organization keeps its audit trail or its usage history for less than the period; then the start of what it keeps"
+          format: date-time
+          type: string
         days:
           format: int64
           type: integer
@@ -3668,6 +3676,8 @@ components:
         - from
         - to
         - days
+        - activityFrom
+        - activityDays
       type: object
     DashboardStandingCounts:
       additionalProperties: false

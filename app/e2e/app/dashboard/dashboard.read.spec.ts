@@ -3,6 +3,7 @@ import { installDashboardAppMocks } from '../_support/mocks/install-dashboard-ap
 import {
   createCalmDashboardModel,
   createDashboardReadModel,
+  createRetentionCutDashboardModel,
 } from './dashboard.scenarios';
 
 test.describe('dashboard read', () => {
@@ -75,6 +76,32 @@ test.describe('dashboard read', () => {
     await page.getByRole('button', { name: '30 days' }).click();
 
     await expect(page).toHaveURL(/\/dashboard$/);
+  });
+
+  test('a retention shorter than the period says how far the activity goes', async ({
+    page,
+  }) => {
+    await installDashboardAppMocks(page, createRetentionCutDashboardModel());
+    await page.goto('/dashboard');
+
+    await expect(page.getByTestId('dashboard-activity-cut')).toHaveText(
+      'Activity covers the last 7 days: your organization keeps no older usage reports, reads or evaluations.',
+    );
+    await expect(
+      page
+        .getByTestId('dashboard-attention')
+        .getByText('No usage report and no entitlement read in 7 days'),
+    ).toBeVisible();
+  });
+
+  test('the whole period, read whole, says nothing more', async ({ page }) => {
+    await installDashboardAppMocks(page, createDashboardReadModel());
+    await page.goto('/dashboard');
+
+    await expect(
+      page.getByTestId('dashboard-attention').getByText('Needs attention'),
+    ).toBeVisible();
+    await expect(page.getByTestId('dashboard-activity-cut')).toHaveCount(0);
   });
 
   test('a quiet organization reads what was checked', async ({ page }) => {

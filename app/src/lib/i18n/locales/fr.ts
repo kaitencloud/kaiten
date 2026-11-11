@@ -335,6 +335,10 @@ export default {
         '30d': '30 jours',
         '90d': '90 jours',
         asOf: 'Au {{time}}',
+        activityCut_one:
+          "L'activité couvre le dernier jour : votre organisation ne conserve pas de rapports d'usage, de lectures ni d'évaluations plus anciens.",
+        activityCut_other:
+          "L'activité couvre les {{count}} derniers jours : votre organisation ne conserve pas de rapports d'usage, de lectures ni d'évaluations plus anciens.",
       },
       time: {
         today: "aujourd'hui",

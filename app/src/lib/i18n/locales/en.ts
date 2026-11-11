@@ -325,6 +325,10 @@ export default {
         '30d': '30 days',
         '90d': '90 days',
         asOf: 'As of {{time}}',
+        activityCut_one:
+          'Activity covers the last day: your organization keeps no older usage reports, reads or evaluations.',
+        activityCut_other:
+          'Activity covers the last {{count}} days: your organization keeps no older usage reports, reads or evaluations.',
       },
       time: {
         today: 'today',

@@ -64,12 +64,18 @@ type DashboardSummary struct {
 	Billing      *DashboardBilling      `json:"billing,omitempty" doc:"Subscriptions and this month's invoices; absent when the caller cannot read billing. Whether billing is enabled for the organization is GET /billing/capabilities' answer, not this one's"`
 }
 
-// DashboardRangeWindow is the period, resolved.
+// DashboardRangeWindow is the period, resolved, and the part of it the
+// activity figures cover.
 type DashboardRangeWindow struct {
 	Range Range     `json:"range" enum:"7d,30d,90d"`
 	From  time.Time `json:"from"`
 	To    time.Time `json:"to"`
 	Days  int       `json:"days"`
+	// The activity figures are read from the audit trail and the usage history,
+	// which each organization keeps for its own retention: a period that reaches
+	// further back would count the deleted part as silence.
+	ActivityFrom time.Time `json:"activityFrom" doc:"Where the activity figures start: usage reports accepted and refused, entitlement reads, flag evaluations, and the active and silent instances. From, unless the organization keeps its audit trail or its usage history for less than the period; then the start of what it keeps"`
+	ActivityDays int       `json:"activityDays" doc:"The days from activityFrom to To, rounded up; Days when the activity figures cover the whole period"`
 }
 
 // DashboardAttention is what needs a decision, one check per member. Each
@@ -149,7 +155,7 @@ type DashboardCustomerFigures struct {
 type DashboardInstanceFigures struct {
 	Total          int64                   `json:"total"`
 	CreatedInRange int64                   `json:"createdInRange"`
-	ActiveInRange  int64                   `json:"activeInRange" doc:"Instances with at least one report, accepted or refused, or one entitlement read in the range"`
+	ActiveInRange  int64                   `json:"activeInRange" doc:"Instances with at least one report, accepted or refused, or one entitlement read since range.activityFrom"`
 	SilentInRange  int64                   `json:"silentInRange"`
 	ByStatus       map[string]int64        `json:"byStatus" doc:"HEALTHY, DEGRADED, INCIDENT, MAINTENANCE"`
 	ByStanding     DashboardStandingCounts `json:"byStanding" doc:"Instances by standing, over the whole organization"`
@@ -221,9 +227,9 @@ type DashboardInstanceReports struct {
 	Rejected     int64           `json:"rejected"`
 	Rejected24h  int64           `json:"rejected24h"`
 	LastReportAt *time.Time      `json:"lastReportAt"`
-	LastReadAt   *time.Time      `json:"lastReadAt" doc:"The last entitlement value read in the range"`
-	Silent       bool            `json:"silent" doc:"No report, accepted or refused, and no entitlement read in the range"`
-	Standing     string          `json:"standing" enum:"atLimit,watch,silent,healthy" doc:"The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing reported or read in the range, healthy otherwise; computed over every meter of the instance"`
+	LastReadAt   *time.Time      `json:"lastReadAt" doc:"The last entitlement value read since range.activityFrom"`
+	Silent       bool            `json:"silent" doc:"No report, accepted or refused, and no entitlement read since range.activityFrom"`
+	Standing     string          `json:"standing" enum:"atLimit,watch,silent,healthy" doc:"The one word for the instance: atLimit when a meter refuses, watch when one is above its warning threshold, silent when nothing reported or read since range.activityFrom, healthy otherwise; computed over every meter of the instance"`
 	Headline     *DashboardMeter `json:"headline,omitempty" doc:"The meter that decides the standing, when one does: a meter at its limit before one above its threshold, the higher ratio first"`
 }
 
@@ -231,8 +237,8 @@ type DashboardInstanceReports struct {
 type DashboardFeatureFlags struct {
 	Total        int64                      `json:"total"`
 	Enabled      int64                      `json:"enabled"`
-	Evaluations  int64                      `json:"evaluations" doc:"Evaluations recorded in the range; a floor, the evaluation publisher drops under pressure"`
-	NotEvaluated int64                      `json:"notEvaluated" doc:"Flags with no evaluation in the range"`
+	Evaluations  int64                      `json:"evaluations" doc:"Evaluations recorded since range.activityFrom; a floor, the evaluation publisher drops under pressure"`
+	NotEvaluated int64                      `json:"notEvaluated" doc:"Flags with no evaluation since range.activityFrom"`
 	PerFlag      []DashboardFlagEvaluations `json:"perFlag" nullable:"false" doc:"Every flag, most evaluated first"`
 }
 

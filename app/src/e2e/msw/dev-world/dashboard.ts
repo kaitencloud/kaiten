@@ -520,6 +520,8 @@ export function createDashboardSummary(
       mix,
     },
     range: {
+      activityDays: DAYS,
+      activityFrom: daysAgo(DAYS),
       days: DAYS,
       from: daysAgo(DAYS),
       range: '30d',
