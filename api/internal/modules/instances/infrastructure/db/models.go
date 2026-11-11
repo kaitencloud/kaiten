@@ -579,6 +579,22 @@ type AiInference struct {
 	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
 }
 
+type AiInferenceRefund struct {
+	ID             uuid.UUID        `json:"id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	InferenceID    uuid.UUID        `json:"inference_id"`
+	TransactionID  string           `json:"transaction_id"`
+	RefundKey      string           `json:"refund_key"`
+	RequestHash    []byte           `json:"request_hash"`
+	Credits        pgtype.Numeric   `json:"credits"`
+	Reason         *string          `json:"reason"`
+	ReportSeq      int64            `json:"report_seq"`
+	CreatedAt      pgtype.Timestamp `json:"created_at"`
+	CreatedByID    uuid.UUID        `json:"created_by_id"`
+}
+
 type CreditConversionRule struct {
 	ID                       uuid.UUID                  `json:"id"`
 	OrganizationID           uuid.UUID                  `json:"organization_id"`

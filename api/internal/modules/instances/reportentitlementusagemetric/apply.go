@@ -32,6 +32,7 @@ func (h *UseCase) apply(ctx context.Context, st *State, eff *Effect) error {
 			if err != nil {
 				return err
 			}
+			eff.ReportSeq = &seq
 			// The AI operation this report counted keeps the journal's
 			// sequence number: from an inference to its usage_ledger row, and
 			// back. Only a charged commit reaches this point.

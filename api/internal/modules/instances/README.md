@@ -141,6 +141,81 @@ Rows written before these columns existed have none of them, and empty warnings.
   operation stores charge/balance evidence in the same transaction as the
   counter and outbox. No prompt or provider response is stored.
 
+## Refunding an inference
+
+`POST /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/inferences/{transactionId}/refund`
+(`refundAiInference`, `write:instances`, the report's scope) gives back credits
+charged for one inference. Body: `{credits?, reason?}`; `credits` is a positive
+decimal string and defaults to everything left; `reason` is at most 500
+characters. `Idempotency-Key` is required.
+
+A refund is evidence correction, not a new kind of counter movement. The use
+case (`refundaiinference`) composes the report use case into its own
+transaction, so the report path stays the sole counter writer:
+
+1. It resolves the pair like the history reads do, takes the pair's advisory
+   lock, and answers a replay of its key from `ai_inference_refund` before
+   anything else.
+2. Under the lock it reads the inference the `transactionId` names (the newest
+   one, since an identifier older than the idempotency window can be used
+   again), requires `COMMITTED`, and computes what is left: `credits_charged`
+   minus the sum of the inference's refunds. Nothing left, or nothing ever
+   charged (an unauthorized operation, a release, a tombstone), is refused.
+3. It sends a negative `append` report for the amount under the same key, as
+   the journal row's `transactionId`, with the metadata `{"refundOf":
+   "<transactionId>"}`. The reason is not copied there: journal metadata must
+   hold no personal data. That report is an ordinary one: it takes the lock
+   again (re-entrant), dates itself, rolls the window over, writes the counter
+   and the `usage_ledger` row and emits `ENTITLEMENT_USAGE_REPORT_ACCEPTED`. No
+   event of its own is added.
+4. It appends the link: one `ai_inference_refund` row with the inference, the
+   amount, the reason, the key, the journal's `report_seq`, the report's instant
+   and the caller. `ai_inference` is never updated.
+
+What follows from the movement being a report:
+
+- **Window.** The refund lands in the window open when it is made. Once the
+  charge's window has closed, the closed window keeps what it counted (its
+  `PERIOD_ROLLED_OVER` already said so, and billing may have read it) and the
+  refund lowers the open window's counter.
+- **Below zero.** A negative report on a credit pool is never refused by the
+  limit and the counter is not floored: a refund larger than the open window's
+  consumption leaves it negative, which is headroom for that window.
+- **Grant.** A report needs the pool to be granted to the instance at its
+  instant, so a refund on a pool the instance no longer holds answers 409
+  `RefundAiInference.PoolNotGranted`. The record stays readable.
+- **Gate.** AI usage off answers 403 `AIUsage.Disabled`, as every AI use case
+  and every report on a credit pool does.
+- **Precision.** The counter moves by the amount as a float64, like a commit's
+  charge; the exact amount is the link's `credits` (`NUMERIC(38, 6)`).
+
+Idempotency follows the numeric report's `Idempotency-Key` header, format
+included, with two differences. The key is required, since a refund sent twice
+without one would refund twice. And it is remembered for as long as the refund
+is, not for `KAITEN_USAGE_IDEMPOTENCY_WINDOW`: the lookup is the unique key
+`(instance, entitlement, refund_key)` of the link table. The same key with the
+same inference, amount (compared as a number) and reason answers the original
+refund with `Idempotent-Replayed: true`; with anything else, or when a plain
+numeric report of the pool already took the key, 409
+`RefundAiInference.IdempotencyKeyReused`.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `RefundAiInference.ContextNotFound` | no such instance or credit pool in the organization |
+| 404 | `RefundAiInference.InferenceNotFound` | no inference under this `transactionId` on this pair |
+| 409 | `RefundAiInference.NotCommitted` | the inference is RESERVED, RELEASED or EXPIRED |
+| 409 | `RefundAiInference.NothingToRefund` | charged nothing, or already refunded in full |
+| 409 | `RefundAiInference.ExceedsRefundable` | `credits` above what is left (`errors[0].value`) |
+| 409 | `RefundAiInference.IdempotencyKeyReused` | the key holds another refund, another body, or a numeric report |
+| 409 | `RefundAiInference.PoolNotGranted` | the instance no longer holds the pool |
+| 422 | `RefundAiInference.IdempotencyKeyRequired`, `.InvalidIdempotencyKey` | no key, or not `[A-Za-z0-9._:-]{1,128}` |
+| 422 | `RefundAiInference.InvalidAmount`, `.InvalidReason` | zero credits; a reason out of bounds (the schema refuses the other shapes) |
+
+The history reads list each inference's refunds, oldest first, as `refunds:
+[{id, credits, reason, reportSeq, createdAt, createdBy}]` (always an array) and
+their sum as `credits.refunded` (absent when there is none). `credits.charged`
+does not change: what the inference costs net is charged minus refunded.
+
 ## Configuration
 
 The shared configuration loader accepts:

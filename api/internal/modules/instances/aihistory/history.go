@@ -22,6 +22,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
+	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -180,9 +181,13 @@ func (r Reader) Inferences(ctx context.Context, instance, pool string, filter Fi
 	if err != nil {
 		return schema.AiInferencePage{}, err
 	}
+	refunds, err := refundsOf(ctx, r.Queries, org, rows, func(row db.ListAIInferencesRow) db.AiInference { return row.AiInference })
+	if err != nil {
+		return schema.AiInferencePage{}, err
+	}
 	result := schema.AiInferencePage{Items: make([]schema.AiInference, 0, len(rows)), NextCursor: next, HasMore: next != nil}
 	for _, row := range rows {
-		result.Items = append(result.Items, present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug))
+		result.Items = append(result.Items, refunded(present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug), refunds[row.AiInference.ID]))
 	}
 	return result, nil
 }
@@ -196,9 +201,10 @@ func (r Reader) Reservations(ctx context.Context, instance, pool string) (schema
 	if err != nil {
 		return schema.AiReservations{}, err
 	}
+	// An open reservation is charged nothing yet, so it has no refund to read.
 	result := schema.AiReservations{Items: make([]schema.AiInference, 0, len(rows))}
 	for _, row := range rows {
-		result.Items = append(result.Items, present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug))
+		result.Items = append(result.Items, refunded(present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug), nil))
 	}
 	return result, nil
 }
@@ -226,12 +232,80 @@ func (r Reader) OrganizationInferences(ctx context.Context, filter OrganizationF
 	if err != nil {
 		return schema.OrganizationAiInferencePage{}, err
 	}
+	refunds, err := refundsOf(ctx, r.Queries, org, rows, func(row db.ListOrganizationAIInferencesRow) db.AiInference { return row.AiInference })
+	if err != nil {
+		return schema.OrganizationAiInferencePage{}, err
+	}
 	result := schema.OrganizationAiInferencePage{Items: make([]schema.OrganizationAiInference, 0, len(rows)), NextCursor: next, HasMore: next != nil}
 	for _, row := range rows {
-		item := present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug)
+		item := refunded(present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug), refunds[row.AiInference.ID])
 		result.Items = append(result.Items, schema.OrganizationAiInference{AiInference: item, InstanceSlug: row.InstanceSlug, EntitlementSlug: row.EntitlementSlug})
 	}
 	return result, nil
+}
+
+// refundsOf reads, in one statement, the refunds of the charged operations of
+// a page, by operation. Only a COMMITTED operation can have been refunded, so
+// a page with none issues no query.
+func refundsOf[T any](ctx context.Context, queries *db.Queries, organizationID uuid.UUID, rows []T, key func(T) db.AiInference) (map[uuid.UUID][]schema.AiInferenceRefund, error) {
+	ids := make([]uuid.UUID, 0, len(rows))
+	for _, row := range rows {
+		if operation := key(row); operation.Status == db.AiInferenceStatusCOMMITTED {
+			ids = append(ids, operation.ID)
+		}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	refunds, err := queries.ListAIInferenceRefunds(ctx, db.ListAIInferenceRefundsParams{OrganizationID: organizationID, InferenceIds: ids})
+	if err != nil {
+		return nil, err
+	}
+	byOperation := make(map[uuid.UUID][]schema.AiInferenceRefund, len(refunds))
+	for _, refund := range refunds {
+		id := refund.AiInferenceRefund.InferenceID
+		byOperation[id] = append(byOperation[id], PresentRefund(refund.AiInferenceRefund, refund.CreatedByName))
+	}
+	return byOperation, nil
+}
+
+// refunded attaches an operation's refunds, oldest first, and their sum. The
+// list is never nil; the sum is absent when there is none.
+func refunded(operation schema.AiInference, refunds []schema.AiInferenceRefund) schema.AiInference {
+	operation.Refunds = refunds
+	if operation.Refunds == nil {
+		operation.Refunds = []schema.AiInferenceRefund{}
+		return operation
+	}
+	total := decimal.Zero
+	for _, refund := range refunds {
+		credits, err := decimal.NewFromString(refund.Credits)
+		if err != nil {
+			continue // PresentRefund wrote it from a NUMERIC: it parses.
+		}
+		total = total.Add(credits)
+	}
+	sum := total.String()
+	operation.Credits.Refunded = &sum
+	return operation
+}
+
+// PresentRefund maps one refund row. The author's name is empty when the
+// user row is gone: the link carries no foreign key, like the rest of the
+// evidence.
+func PresentRefund(row db.AiInferenceRefund, createdByName *string) schema.AiInferenceRefund {
+	name := ""
+	if createdByName != nil {
+		name = *createdByName
+	}
+	credits := "0"
+	if amount := money(row.Credits); amount != nil {
+		credits = *amount
+	}
+	return schema.AiInferenceRefund{
+		ID: row.ID, Credits: credits, Reason: row.Reason, ReportSeq: row.ReportSeq,
+		CreatedAt: row.CreatedAt.Time, CreatedBy: shared.User{ID: row.CreatedByID, Name: name},
+	}
 }
 
 func stamp(t time.Time) pgtype.Timestamp { return pgtype.Timestamp{Time: t, Valid: true} }

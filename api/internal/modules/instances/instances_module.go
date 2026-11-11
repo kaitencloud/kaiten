@@ -28,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listorganizationaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/refundaiinference"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateintegrations"
@@ -51,6 +52,7 @@ type UseCases struct {
 	UpdateInstance               *updateinstance.UseCase
 	UpdateIntegration            *updateintegrations.UseCase
 	ReportEntitlementUsageMetric *reportentitlementusagemetric.UseCase
+	RefundAIInference            *refundaiinference.UseCase
 	GetEntitlementUsageMetrics   *getentitlementusagemetrics.UseCase
 	GetEntitlementsUsageMetrics  *getentitlementsusagemetrics.UseCase
 	GetAuditTrails               *getaudittrails.UseCase
@@ -176,6 +178,15 @@ func NewUseCases(svc services.Container) *UseCases {
 			Retention:    retention,
 		}),
 	}
+
+	// A refund's counter movement is a report: it is handed the report use
+	// case itself, the one writer of a counter.
+	useCases.RefundAIInference = refundaiinference.NewUseCase(refundaiinference.Deps{
+		AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+		UserProvider: svc.UserProvider,
+		Uof:          svc.Uof,
+		Reporter:     useCases.ReportEntitlementUsageMetric,
+	})
 
 	// Built with a pool so every replica can ensure partitions before it serves;
 	// the daily pass only runs where background work does, like the other sweeps.

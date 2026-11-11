@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
+	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 )
 
 // AiVendorCostCurrency is the currency of the model catalogue's costs.
@@ -70,6 +71,19 @@ type AiInference struct {
 	Warnings    []string            `json:"warnings" nullable:"false" doc:"The warnings of the phase that last wrote the operation."`
 	ReportSeq   *int64              `json:"reportSeq,omitempty" doc:"The pool's report counter when the operation was counted: the link to the usage journal."`
 	VendorCost  *AiVendorCost       `json:"vendorCost,omitempty"`
+	Refunds     []AiInferenceRefund `json:"refunds" nullable:"false" doc:"The refunds of the operation's charge, oldest first. Their sum is credits.refunded."`
+}
+
+// AiInferenceRefund is credits given back on one inference's charge. The
+// counter movement is an ordinary negative report, the usage journal's row
+// reportSeq; this is the link from that movement to the inference it corrects.
+type AiInferenceRefund struct {
+	ID        uuid.UUID   `json:"id" format:"uuid"`
+	Credits   string      `json:"credits" pattern:"^[0-9]{1,32}(\\.[0-9]{1,6})?$" example:"3.4" doc:"Credits given back, a positive decimal."`
+	Reason    *string     `json:"reason,omitempty" maxLength:"500" doc:"Why, as the caller wrote it."`
+	ReportSeq int64       `json:"reportSeq" doc:"The pool's report counter of the negative report that moved the counter: the link to the usage journal."`
+	CreatedAt time.Time   `json:"createdAt" doc:"The instant the refund's report was dated by."`
+	CreatedBy shared.User `json:"createdBy" doc:"Who refunded; a service account is a user."`
 }
 
 // OrganizationAiInference is an inference in the organization-wide listing,

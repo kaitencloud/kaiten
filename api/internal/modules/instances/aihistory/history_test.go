@@ -131,3 +131,59 @@ func TestPresentListsARowWhoseSnapshotIsCorrupt(t *testing.T) {
 	require.Nil(t, bare.Pricing)
 	require.Equal(t, []string{schema.AiWarningPricingSnapshotUnreadable}, bare.Warnings)
 }
+
+func refundRow(id uuid.UUID, credits string, seq int64) db.AiInferenceRefund {
+	var amount pgtype.Numeric
+	if err := amount.Scan(credits); err != nil {
+		panic(err)
+	}
+	return db.AiInferenceRefund{ID: id, Credits: amount, ReportSeq: seq, CreatedAt: pgtype.Timestamp{Time: time.Date(2026, 11, 11, 10, 0, 0, 0, time.UTC), Valid: true}}
+}
+
+// A refund is presented from its row; an author whose user row is gone keeps
+// its id and has no name.
+func TestPresentRefund(t *testing.T) {
+	t.Parallel()
+	id, author := uuid.New(), uuid.New()
+	reason, name := "duplicate call", "Ada"
+	row := refundRow(id, "3.500000", 17)
+	row.Reason, row.CreatedByID = &reason, author
+
+	refund := PresentRefund(row, &name)
+	require.Equal(t, id, refund.ID)
+	require.Equal(t, "3.5", refund.Credits)
+	require.Equal(t, "duplicate call", *refund.Reason)
+	require.Equal(t, int64(17), refund.ReportSeq)
+	require.True(t, refund.CreatedAt.Equal(row.CreatedAt.Time))
+	require.Equal(t, author, refund.CreatedBy.ID)
+	require.Equal(t, "Ada", refund.CreatedBy.Name)
+
+	row.Reason = nil
+	orphan := PresentRefund(row, nil)
+	require.Nil(t, orphan.Reason)
+	require.Equal(t, author, orphan.CreatedBy.ID)
+	require.Empty(t, orphan.CreatedBy.Name)
+}
+
+// The list of refunds is never null, and their sum is exact and absent when
+// there is none.
+func TestRefundedAttachesTheRefundsAndTheirSum(t *testing.T) {
+	t.Parallel()
+	none := refunded(schema.AiInference{}, nil)
+	require.NotNil(t, none.Refunds)
+	require.Empty(t, none.Refunds)
+	require.Nil(t, none.Credits.Refunded)
+	encoded, err := json.Marshal(none)
+	require.NoError(t, err)
+	require.Contains(t, string(encoded), `"refunds":[]`)
+	require.NotContains(t, string(encoded), `"refunded"`)
+
+	refunds := []schema.AiInferenceRefund{
+		PresentRefund(refundRow(uuid.New(), "0.100000", 4), nil),
+		PresentRefund(refundRow(uuid.New(), "0.200000", 5), nil),
+		PresentRefund(refundRow(uuid.New(), "5.000001", 6), nil),
+	}
+	some := refunded(schema.AiInference{}, refunds)
+	require.Equal(t, refunds, some.Refunds)
+	require.Equal(t, "5.300001", *some.Credits.Refunded, "decimal, not float, addition")
+}

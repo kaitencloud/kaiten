@@ -180,6 +180,7 @@ export const OPERATION_SCOPES = {
   reactivateSubscription: ['write:billing'],
   recomposeInvoice: ['write:billing'],
   redeemVoucher: ['write:voucher_redemptions'],
+  refundAiInference: ['write:instances'],
   releaseInvoiceHold: ['write:billing'],
   removeAddonCompatibility: ['write:addons'],
   removeEntitlementFromGroup: ['write:entitlements'],

@@ -109,6 +109,7 @@ type AiCredits struct {
 	Reserved *string `json:"reserved,omitempty"`
 	Computed *string `json:"computed,omitempty"`
 	Charged  *string `json:"charged,omitempty"`
+	Refunded *string `json:"refunded,omitempty" doc:"The sum of the operation's refunds. Absent when it has none, and on a report's own answer."`
 }
 
 // AiUsageRule names the conversion rule a phase was priced with. The rates
