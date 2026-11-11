@@ -913,10 +913,20 @@ func TestAICommitSnapshotsTheRuleThatPricedIt(t *testing.T) {
 	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_output_token=99,rate_per_input_token=NULL,maximum_credits_per_request=NULL,charge_on_error='NEVER' WHERE entitlement_id=$1`, pool.ID)
 	require.NoError(t, err)
 	beforeEvents := recordedEvents(t)
+	// xmin changes on any write, an identical one included.
+	operationRow := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) FROM ai_inference a WHERE entitlement_id=$1 AND transaction_id='explained'`, pool.ID)
+	}
+	counterRow := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID)
+	}
+	operationBefore, counterBefore := operationRow(), counterRow()
 	replay := aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "explained", 7))
 	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
 	require.Equal(t, charged, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
-	require.Equal(t, committed, readAIExplain(t, pool.ID, "explained"), "the snapshot is the old rule, and the replay wrote nothing")
+	require.Equal(t, operationBefore, operationRow(), "the replay did not write the operation")
+	require.Equal(t, counterBefore, counterRow(), "the replay did not write the counter")
+	require.Equal(t, committed, readAIExplain(t, pool.ID, "explained"), "the snapshot is the old rule")
 	require.Equal(t, beforeEvents, recordedEvents(t))
 
 	// The next call is priced, and snapshotted, with the rule as it now is.
@@ -1063,6 +1073,10 @@ func TestAICommitRecordsReportedAndComputedVendorCost(t *testing.T) {
 	commit("error-without-usage", "lifecycle-model", "PROVIDER_ERROR", nil, nil)
 	_, computed = readAIVendorCost(t, pool.ID, "error-without-usage")
 	require.Empty(t, computed)
+	// A duration is not a quantity the catalogue can cost.
+	commit("error-with-duration", "lifecycle-model", "PROVIDER_ERROR", map[string]any{"durationMs": 60000}, nil)
+	_, computed = readAIVendorCost(t, pool.ID, "error-with-duration")
+	require.Empty(t, computed)
 
 	// A request that was never sent cost nothing to compute, reserved or not.
 	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "released", 5)), http.StatusOK)
@@ -1073,6 +1087,33 @@ func TestAICommitRecordsReportedAndComputedVendorCost(t *testing.T) {
 	release["requestStatus"] = "NOT_SENT"
 	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, release), http.StatusOK)
 	_, computed = readAIVendorCost(t, pool.ID, "released")
+	require.Empty(t, computed)
+}
+
+// A request that was never sent has no vendor cost: a release that reports
+// one is refused, whether it closes a reservation or none, and writes nothing.
+// The same release without it is accepted as before.
+func TestAIReleaseRefusesAVendorCost(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "held", 5)), http.StatusOK)
+	rows := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID)
+	}
+	before, beforeEvents := rows(), recordedEvents(t)
+	for _, id := range []string{"held", "never-reserved"} {
+		release := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": id, "requestStatus": "NOT_SENT", "vendorCost": "0.01"}
+		problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, release), http.StatusUnprocessableEntity)
+		require.Equal(t, "ReportEntitlementUsageMetric.InvalidAiUsage", problem.Code)
+	}
+	require.Equal(t, before, rows())
+	require.Equal(t, beforeEvents, recordedEvents(t))
+
+	released := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "held", "requestStatus": "NOT_SENT"}), http.StatusOK)
+	require.Equal(t, "RELEASED", released.AI.Status)
+	reported, computed := readAIVendorCost(t, pool.ID, "held")
+	require.Empty(t, reported)
 	require.Empty(t, computed)
 }
 

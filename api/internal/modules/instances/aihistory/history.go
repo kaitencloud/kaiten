@@ -7,7 +7,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
+	"log/slog"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -67,8 +68,8 @@ type Reader struct {
 	Queries  *db.Queries
 }
 
-// organization resolves the caller's organization and passes Tom's AI gate,
-// like every AI use case, before any read.
+// organization resolves the caller's organization and passes the AI gate
+// (aiusage.Policy), like every AI use case, before any read.
 func (r Reader) organization(ctx context.Context) (context.Context, uuid.UUID, error) {
 	user, err := r.User.GetUser(ctx)
 	if err != nil {
@@ -163,11 +164,7 @@ func (r Reader) Inferences(ctx context.Context, instance, pool string, filter Fi
 	}
 	result := schema.AiInferencePage{Items: make([]schema.AiInference, 0, len(rows)), NextCursor: next, HasMore: next != nil}
 	for _, row := range rows {
-		item, err := present(row.AiInference, row.ModelSlug, row.LicenseSlug)
-		if err != nil {
-			return schema.AiInferencePage{}, err
-		}
-		result.Items = append(result.Items, item)
+		result.Items = append(result.Items, present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug))
 	}
 	return result, nil
 }
@@ -183,11 +180,7 @@ func (r Reader) Reservations(ctx context.Context, instance, pool string) (schema
 	}
 	result := schema.AiReservations{Items: make([]schema.AiInference, 0, len(rows))}
 	for _, row := range rows {
-		item, err := present(row.AiInference, row.ModelSlug, row.LicenseSlug)
-		if err != nil {
-			return schema.AiReservations{}, err
-		}
-		result.Items = append(result.Items, item)
+		result.Items = append(result.Items, present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug))
 	}
 	return result, nil
 }
@@ -213,10 +206,7 @@ func (r Reader) OrganizationInferences(ctx context.Context, filter OrganizationF
 	}
 	result := schema.OrganizationAiInferencePage{Items: make([]schema.OrganizationAiInference, 0, len(rows)), NextCursor: next, HasMore: next != nil}
 	for _, row := range rows {
-		item, err := present(row.AiInference, row.ModelSlug, row.LicenseSlug)
-		if err != nil {
-			return schema.OrganizationAiInferencePage{}, err
-		}
+		item := present(ctx, row.AiInference, row.ModelSlug, row.LicenseSlug)
 		result.Items = append(result.Items, schema.OrganizationAiInference{AiInference: item, InstanceSlug: row.InstanceSlug, EntitlementSlug: row.EntitlementSlug})
 	}
 	return result, nil
@@ -240,7 +230,12 @@ func money(n pgtype.Numeric) *string {
 
 // present maps a whole row, so a column added to ai_inference reaches the
 // wire by being named here once, for every read.
-func present(row db.AiInference, modelSlug, licenseSlug *string) (schema.AiInference, error) {
+//
+// A pricing snapshot that cannot be decoded does not fail the read: one bad
+// row would hide the whole page, and the rest of the record is still true.
+// The row is listed without its pricing, says so with a warning, and the
+// decoding error is logged with the row's id.
+func present(ctx context.Context, row db.AiInference, modelSlug, licenseSlug *string) schema.AiInference {
 	result := schema.AiInference{TransactionID: row.TransactionID, Status: string(row.Status), ReportedAt: row.ReportedAt.Time, CommittedAt: instant(row.CommittedAt), ExpiresAt: instant(row.ExpiresAt), Model: row.ModelRef, ModelSlug: modelSlug, RequestType: string(row.RequestType), Authorized: row.Authorized, DenialReason: row.DenialReason, Credits: schema.AiCredits{Reserved: money(row.CreditsReserved), Computed: money(row.CreditsComputed), Charged: money(row.CreditsCharged)}, ValueBefore: row.ValueBefore, ValueAfter: row.ValueAfter, WindowStart: instant(row.WindowStart), Usage: schema.AiUsage{InputTokens: row.InputTokens, CacheReadInputTokens: row.CacheReadInputTokens, CacheWriteInputTokens: row.CacheWriteInputTokens, OutputTokens: row.OutputTokens, DurationMS: row.DurationMs, Units: money(row.Units), UnitType: row.UnitType}}
 	if row.RequestStatus != nil {
 		s := string(*row.RequestStatus)
@@ -250,25 +245,28 @@ func present(row db.AiInference, modelSlug, licenseSlug *string) (schema.AiInfer
 		s := row.CreditConversionRuleID.String()
 		result.ConversionRuleID = &s
 	}
+	result.Warnings = slices.Clone(row.Warnings)
+	if result.Warnings == nil {
+		result.Warnings = []string{}
+	}
 	if len(row.Pricing) > 0 {
 		var pricing schema.AiInferencePricing
 		if err := json.Unmarshal(row.Pricing, &pricing); err != nil {
-			return schema.AiInference{}, fmt.Errorf("ai_inference %s: pricing snapshot: %w", row.ID, err)
+			slog.ErrorContext(ctx, "ai_inference: the pricing snapshot cannot be decoded; the operation is listed without it",
+				"inference_id", row.ID, "organization_id", row.OrganizationID, "error", err)
+			result.Warnings = append(result.Warnings, schema.AiWarningPricingSnapshotUnreadable)
+		} else {
+			result.Pricing = &pricing
 		}
-		result.Pricing = &pricing
 	}
 	if row.LicenseID != nil {
 		s := row.LicenseID.String()
 		result.LicenseID = &s
 		result.LicenseSlug = licenseSlug
 	}
-	result.Warnings = row.Warnings
-	if result.Warnings == nil {
-		result.Warnings = []string{}
-	}
 	result.ReportSeq = row.ReportSeq
 	if row.VendorCostReported.Valid || row.VendorCostComputed.Valid {
 		result.VendorCost = &schema.AiVendorCost{Reported: money(row.VendorCostReported), Computed: money(row.VendorCostComputed), Currency: schema.AiVendorCostCurrency}
 	}
-	return result, nil
+	return result
 }

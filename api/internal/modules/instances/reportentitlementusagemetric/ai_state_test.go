@@ -16,7 +16,7 @@ import (
 )
 
 func TestValidateAI(t *testing.T) {
-	model, request, status := "model", aicredit.Completion, aicredit.Success
+	model, request, status, notSent := "model", aicredit.Completion, aicredit.Success, aicredit.NotSent
 	cost, tooPrecise, negative := "0.0123", "0.0000000000001", "-1"
 	for _, tc := range []struct {
 		name, code string
@@ -34,6 +34,8 @@ func TestValidateAI(t *testing.T) {
 		{"valid inherited commit", "", schema.AiUsageValue{Phase: "commit", TransactionID: "tx", RequestStatus: &status}, ""},
 		{"reserve with vendor cost", "InvalidAiUsage", schema.AiUsageValue{Phase: "reserve", TransactionID: "tx", Model: &model, RequestType: &request, VendorCost: &cost}, ""},
 		{"commit with vendor cost", "", schema.AiUsageValue{Phase: "commit", TransactionID: "tx", RequestStatus: &status, VendorCost: &cost}, ""},
+		{"release with vendor cost", "InvalidAiUsage", schema.AiUsageValue{Phase: "commit", TransactionID: "tx", RequestStatus: &notSent, VendorCost: &cost}, ""},
+		{"release without vendor cost", "", schema.AiUsageValue{Phase: "commit", TransactionID: "tx", RequestStatus: &notSent}, ""},
 		{"vendor cost beyond twelve decimals", "InvalidAiUsage", schema.AiUsageValue{Phase: "commit", TransactionID: "tx", RequestStatus: &status, VendorCost: &tooPrecise}, ""},
 		{"negative vendor cost", "InvalidAiUsage", schema.AiUsageValue{Phase: "commit", TransactionID: "tx", RequestStatus: &status, VendorCost: &negative}, ""},
 	} {

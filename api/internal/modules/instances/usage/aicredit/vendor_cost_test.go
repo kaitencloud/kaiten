@@ -69,18 +69,20 @@ func TestVendorCost(t *testing.T) {
 	}
 }
 
-func TestUsageReported(t *testing.T) {
-	zero := int64(0)
+func TestUsageCostable(t *testing.T) {
+	zero, minute := int64(0), int64(60000)
 	units := decimal.Zero
-	if (Usage{}).Reported() {
-		t.Fatal("no quantity is not a report")
+	for name, usage := range map[string]Usage{"no quantity": {}, "a duration alone": {DurationMS: &minute}, "a zero duration": {DurationMS: &zero}} {
+		if usage.Costable() {
+			t.Fatalf("%s: the catalogue has nothing to cost", name)
+		}
 	}
 	for name, usage := range map[string]Usage{
 		"input": {InputTokens: &zero}, "cache read": {CacheReadInputTokens: &zero}, "cache write": {CacheWriteInputTokens: &zero},
-		"output": {OutputTokens: &zero}, "units": {Units: &units}, "duration": {DurationMS: &zero},
+		"output": {OutputTokens: &zero}, "units": {Units: &units}, "a duration beside tokens": {DurationMS: &minute, OutputTokens: &zero},
 	} {
-		if !usage.Reported() {
-			t.Fatalf("%s: a reported zero is a report", name)
+		if !usage.Costable() {
+			t.Fatalf("%s: a reported zero is a costable quantity", name)
 		}
 	}
 }

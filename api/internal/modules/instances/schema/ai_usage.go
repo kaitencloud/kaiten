@@ -91,6 +91,9 @@ const (
 	AiWarningNoReservation            = "NO_RESERVATION"
 	AiWarningCounterPrecisionDegraded = "COUNTER_PRECISION_DEGRADED"
 )
+	// Read side only: the inference is listed without a pricing snapshot
+	// because the stored one cannot be decoded.
+	AiWarningPricingSnapshotUnreadable = "PRICING_SNAPSHOT_UNREADABLE"
 
 // Keep phase examples complete: reserve must not include commit-only fields.
 func (AiUsageValue) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {

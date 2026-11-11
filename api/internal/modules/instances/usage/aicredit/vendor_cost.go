@@ -20,10 +20,13 @@ const vendorCostScale = 12
 
 var vendorCostLimit = decimal.New(1, 12)
 
-// Reported tells whether the caller sent any quantity at all, a zero included.
-func (u Usage) Reported() bool {
+// Costable tells whether the caller sent a quantity the catalogue can cost,
+// a zero included. A duration is not one: Costs holds no per-second cost, so
+// a report of a duration alone gives VendorCost nothing to apply but the
+// per-request cost.
+func (u Usage) Costable() bool {
 	return u.InputTokens != nil || u.CacheReadInputTokens != nil || u.CacheWriteInputTokens != nil ||
-		u.OutputTokens != nil || u.Units != nil || u.DurationMS != nil
+		u.OutputTokens != nil || u.Units != nil
 }
 
 // VendorCost is what the provider request cost by the catalogue: each

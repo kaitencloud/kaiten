@@ -54,15 +54,16 @@ func pricingSnapshot(rule *aicredit.Rule, specificity aicredit.Specificity) ([]b
 
 // computedVendorCost applies the catalogue's costs to a commit. A request that
 // was never sent cost nothing to compute. A failed one is costed only from
-// the quantities the caller reports: without any, whether the provider billed
-// it is unknown, and the per-request cost alone would be a guess. An unknown
+// the quantities the caller reports that the catalogue can cost: without any
+// -- nothing at all, or a duration alone -- whether the provider billed it is
+// unknown, and the per-request cost alone would be a guess. An unknown
 // model has no costs, an archived or unauthorized one still does: the
 // provider was paid whatever the customer is charged.
 func computedVendorCost(costs *aicredit.Costs, quantity aicredit.Usage, status aicredit.RequestStatus) *decimal.Decimal {
 	if status == aicredit.NotSent {
 		return nil
 	}
-	if status != aicredit.Success && !quantity.Reported() {
+	if status != aicredit.Success && !quantity.Costable() {
 		return nil
 	}
 	return aicredit.VendorCost(costs, quantity)

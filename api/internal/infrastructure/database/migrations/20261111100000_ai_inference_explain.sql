@@ -37,10 +37,6 @@ ALTER TABLE "ai_inference"
 CREATE INDEX "idx_ai_inference_unauthorized"
   ON "ai_inference" ("instance_id", "entitlement_id", "model_ref", "request_type", "committed_at")
   WHERE "authorized" = false;
--- From a usage journal entry to the AI operation it counted.
-CREATE INDEX "idx_ai_inference_report_seq"
-  ON "ai_inference" ("instance_id", "entitlement_id", "report_seq")
-  WHERE "report_seq" IS NOT NULL;
 -- The organization's inferences across instances and pools, newest first, in
 -- the keyset order of the listing.
 CREATE INDEX "idx_ai_inference_org_reported_at"
@@ -50,7 +46,6 @@ CREATE INDEX "idx_ai_inference_org_reported_at"
 -- +goose Down
 -- +goose StatementBegin
 DROP INDEX IF EXISTS "idx_ai_inference_org_reported_at";
-DROP INDEX IF EXISTS "idx_ai_inference_report_seq";
 DROP INDEX IF EXISTS "idx_ai_inference_unauthorized";
 ALTER TABLE "ai_inference" DROP CONSTRAINT IF EXISTS "ai_inference_explain_nonnegative_check";
 ALTER TABLE "ai_inference" DROP CONSTRAINT IF EXISTS "ai_inference_pricing_check";

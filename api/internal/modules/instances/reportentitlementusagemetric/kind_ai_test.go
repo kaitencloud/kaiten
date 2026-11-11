@@ -189,7 +189,7 @@ func TestAICommitRecordsVendorCosts(t *testing.T) {
 	costs := &aicredit.Costs{InputToken: &inputCost, Request: &requestCost}
 	known := &aicredit.Model{ID: uuid.New(), Status: aicredit.Active}
 	archived := &aicredit.Model{ID: uuid.New(), Status: aicredit.Archived}
-	tokens := int64(1000)
+	tokens, duration := int64(1000), int64(60000)
 	reported := "0.0123"
 	text := func(d *decimal.Decimal) string {
 		if d == nil {
@@ -239,6 +239,12 @@ func TestAICommitRecordsVendorCosts(t *testing.T) {
 			}
 		})
 	}
+		// The catalogue has no duration cost: nothing costed was reported, and
+		// the per-request cost alone would be a guess.
+		{"provider error with a duration alone", known, costs, aicredit.ProviderError, &schema.AiUsage{DurationMS: &duration}, &reported, "0.0123", "NULL"},
+		{"customer error with a duration alone", known, costs, aicredit.CustomerError, &schema.AiUsage{DurationMS: &duration}, nil, "NULL", "NULL"},
+		{"provider error with a duration and tokens", known, costs, aicredit.ProviderError, &schema.AiUsage{DurationMS: &duration, InputTokens: &tokens}, nil, "NULL", "0.013"},
+		{"success with a duration alone still costs the request", known, costs, aicredit.Success, &schema.AiUsage{DurationMS: &duration}, nil, "NULL", "0.01"},
 }
 
 // A reservation costs the provider nothing yet, and a release never did.

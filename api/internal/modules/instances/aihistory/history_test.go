@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -67,8 +68,7 @@ func TestResolvePageRejectsAnEmptyRangeAndABadCursorUnderItsOperation(t *testing
 }
 
 func TestPresentBareRowHasEmptyWarningsAndNoExplanation(t *testing.T) {
-	item, err := present(db.AiInference{ID: uuid.New(), Status: db.AiInferenceStatusRESERVED, ModelRef: "m"}, nil, nil)
-	require.NoError(t, err)
+	item := present(t.Context(), db.AiInference{ID: uuid.New(), Status: db.AiInferenceStatusRESERVED, ModelRef: "m"}, nil, nil)
 	require.NotNil(t, item.Warnings)
 	require.Empty(t, item.Warnings)
 	require.Nil(t, item.Pricing)
@@ -89,8 +89,7 @@ func TestPresentCarriesTheExplanation(t *testing.T) {
 	seq := int64(42)
 	pricing := `{"ruleId":"` + rule.String() + `","specificity":"EXACT_TYPED","rates":{"perOutputToken":"0.003"},"minimumCreditsPerRequest":"0","maximumCreditsPerRequest":null,"chargeOnError":"NEVER"}`
 	slug := "pro"
-	item, err := present(db.AiInference{ID: uuid.New(), Pricing: []byte(pricing), LicenseID: &license, Warnings: []string{"OVERDRAWN"}, ReportSeq: &seq, VendorCostComputed: numeric(123, -4)}, nil, &slug)
-	require.NoError(t, err)
+	item := present(t.Context(), db.AiInference{ID: uuid.New(), Pricing: []byte(pricing), LicenseID: &license, Warnings: []string{"OVERDRAWN"}, ReportSeq: &seq, VendorCostComputed: numeric(123, -4)}, nil, &slug)
 	require.Equal(t, rule, item.Pricing.RuleID)
 	require.EqualValues(t, "EXACT_TYPED", item.Pricing.Specificity)
 	require.Equal(t, "0.003", *item.Pricing.Rates.PerOutputToken)
@@ -107,15 +106,28 @@ func TestPresentCarriesTheExplanation(t *testing.T) {
 
 func TestPresentDeletedLicenceKeepsItsID(t *testing.T) {
 	license := uuid.New()
-	item, err := present(db.AiInference{LicenseID: &license, VendorCostReported: numeric(5, 0)}, nil, nil)
-	require.NoError(t, err)
+	item := present(t.Context(), db.AiInference{LicenseID: &license, VendorCostReported: numeric(5, 0)}, nil, nil)
 	require.Equal(t, license.String(), *item.LicenseID)
 	require.Nil(t, item.LicenseSlug)
 	require.Equal(t, "5", *item.VendorCost.Reported)
 	require.Nil(t, item.VendorCost.Computed)
 }
 
-func TestPresentRefusesACorruptSnapshot(t *testing.T) {
-	_, err := present(db.AiInference{ID: uuid.New(), Pricing: []byte(`{"ruleId":"nope"}`)}, nil, nil)
-	require.Error(t, err)
+// One undecodable snapshot must not hide the page it is on: the row is still
+// listed, without pricing, and says why. The stored warnings are not touched.
+func TestPresentListsARowWhoseSnapshotIsCorrupt(t *testing.T) {
+	license := uuid.New()
+	stored := []string{"OVERDRAWN"}
+	row := db.AiInference{ID: uuid.New(), TransactionID: "tx", Status: db.AiInferenceStatusCOMMITTED, Pricing: []byte(`{"ruleId":"nope"}`), LicenseID: &license, Warnings: stored, CreditsCharged: numeric(7, 0)}
+	item := present(t.Context(), row, nil, nil)
+	require.Nil(t, item.Pricing)
+	require.Equal(t, []string{"OVERDRAWN", schema.AiWarningPricingSnapshotUnreadable}, item.Warnings)
+	require.Equal(t, []string{"OVERDRAWN"}, stored, "the row's own warnings are not rewritten")
+	require.Equal(t, "tx", item.TransactionID)
+	require.Equal(t, "7", *item.Credits.Charged)
+	require.Equal(t, license.String(), *item.LicenseID)
+
+	bare := present(t.Context(), db.AiInference{ID: uuid.New(), Pricing: []byte(`not json`)}, nil, nil)
+	require.Nil(t, bare.Pricing)
+	require.Equal(t, []string{schema.AiWarningPricingSnapshotUnreadable}, bare.Warnings)
 }

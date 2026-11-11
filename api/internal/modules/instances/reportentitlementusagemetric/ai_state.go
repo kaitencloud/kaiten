@@ -80,6 +80,11 @@ func validateAI(cmd *Command, maxTTL time.Duration) error {
 		default:
 			return invalid("invalid requestStatus")
 		}
+		// A request that was never sent cost the provider nothing: a cost on
+		// a release is a client error, not evidence to keep.
+		if *v.RequestStatus == aicredit.NotSent && v.VendorCost != nil {
+			return invalid("a NOT_SENT commit refuses vendorCost")
+		}
 	}
 	if v.VendorCost != nil && !vendorCostPattern.MatchString(*v.VendorCost) {
 		return invalid("invalid vendorCost")
