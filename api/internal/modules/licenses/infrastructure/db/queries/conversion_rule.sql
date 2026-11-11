@@ -18,6 +18,13 @@ WHERE organization_id = sqlc.arg(organization_id) AND slug = sqlc.arg(slug);
 SELECT c.*, l.slug AS license_slug, e.slug AS entitlement_slug, m.slug AS model_slug,
  EXISTS (SELECT 1 FROM license_entitlement le
    WHERE le.organization_id = c.organization_id AND le.license_id = c.license_id AND le.entitlement_id = c.entitlement_id) AS granted_by_license,
+ -- An add-on reaches a licence through compatibility alone, declared per
+ -- add-on version against the licence's FAMILY: true when such a version
+ -- grants the pool, whatever its lifecycle state (an instance holding an
+ -- archived version keeps its grant).
+ EXISTS (SELECT 1 FROM addon_entitlement ae
+   JOIN addon_compatible_license acl ON acl.addon_id = ae.addon_id AND acl.organization_id = ae.organization_id
+   WHERE ae.organization_id = c.organization_id AND ae.entitlement_id = c.entitlement_id AND acl.license_family_id = l.family_id) AS granted_by_addons,
  creator.name AS created_by_name, updater.name AS updated_by_name
 FROM credit_conversion_rule c
 JOIN license l ON l.id = c.license_id AND l.organization_id = c.organization_id

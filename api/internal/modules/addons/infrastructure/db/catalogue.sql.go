@@ -738,6 +738,85 @@ func (q *Queries) ListAddonFamilies(ctx context.Context, organizationID uuid.UUI
 	return items, nil
 }
 
+const listAddonGrantsByLicenseFamilies = `-- name: ListAddonGrantsByLicenseFamilies :many
+SELECT c.license_family_id,
+       a.id AS addon_id, a.slug AS addon_slug, af.slug AS addon_family_slug, a.name AS addon_name,
+       a.version AS addon_version, a.lifecycle_state, a.is_default, a.max_quantity,
+       e.slug AS entitlement_slug, e.type AS entitlement_type,
+       ae.value, ae.limit_cap_exceeded_overage_percent, ae.override_behavior
+FROM addon_compatible_license c
+JOIN addon a ON a.id = c.addon_id AND a.organization_id = c.organization_id
+JOIN addon_family af ON af.id = a.family_id AND af.organization_id = a.organization_id
+JOIN addon_entitlement ae ON ae.addon_id = a.id AND ae.organization_id = a.organization_id
+JOIN entitlement e ON e.id = ae.entitlement_id AND e.organization_id = ae.organization_id
+WHERE c.organization_id = $1
+  AND c.license_family_id = ANY ($2::uuid[])
+ORDER BY c.license_family_id, e.slug, af.slug, a.version DESC
+`
+
+type ListAddonGrantsByLicenseFamiliesParams struct {
+	OrganizationID   uuid.UUID   `json:"organization_id"`
+	LicenseFamilyIds []uuid.UUID `json:"license_family_ids"`
+}
+
+type ListAddonGrantsByLicenseFamiliesRow struct {
+	LicenseFamilyID                uuid.UUID             `json:"license_family_id"`
+	AddonID                        uuid.UUID             `json:"addon_id"`
+	AddonSlug                      string                `json:"addon_slug"`
+	AddonFamilySlug                string                `json:"addon_family_slug"`
+	AddonName                      string                `json:"addon_name"`
+	AddonVersion                   int32                 `json:"addon_version"`
+	LifecycleState                 LicenseLifecycleState `json:"lifecycle_state"`
+	IsDefault                      bool                  `json:"is_default"`
+	MaxQuantity                    *int32                `json:"max_quantity"`
+	EntitlementSlug                string                `json:"entitlement_slug"`
+	EntitlementType                EntitlementType       `json:"entitlement_type"`
+	Value                          []byte                `json:"value"`
+	LimitCapExceededOveragePercent *int16                `json:"limit_cap_exceeded_overage_percent"`
+	OverrideBehavior               AddonOverrideBehavior `json:"override_behavior"`
+}
+
+// What add-ons can grant on the versions of the given licence families: every
+// entitlement of every add-on version that declares the family compatible.
+// Compatibility is the only relation between an add-on and a licence, and it
+// is per add-on VERSION and licence FAMILY (addon_compatible_license), so the
+// answer is the same for every version of a family. Every lifecycle state is
+// returned: a DRAFT or an ARCHIVED version an instance holds still grants.
+func (q *Queries) ListAddonGrantsByLicenseFamilies(ctx context.Context, arg ListAddonGrantsByLicenseFamiliesParams) ([]ListAddonGrantsByLicenseFamiliesRow, error) {
+	rows, err := q.db.Query(ctx, listAddonGrantsByLicenseFamilies, arg.OrganizationID, arg.LicenseFamilyIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAddonGrantsByLicenseFamiliesRow
+	for rows.Next() {
+		var i ListAddonGrantsByLicenseFamiliesRow
+		if err := rows.Scan(
+			&i.LicenseFamilyID,
+			&i.AddonID,
+			&i.AddonSlug,
+			&i.AddonFamilySlug,
+			&i.AddonName,
+			&i.AddonVersion,
+			&i.LifecycleState,
+			&i.IsDefault,
+			&i.MaxQuantity,
+			&i.EntitlementSlug,
+			&i.EntitlementType,
+			&i.Value,
+			&i.LimitCapExceededOveragePercent,
+			&i.OverrideBehavior,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAddonPrices = `-- name: ListAddonPrices :many
 SELECT p.id, p.addon_id, p.billing_model, p.billing_timing, p.billing_period,
        p.unit_amount_decimal::text AS unit_amount_decimal, p.currency::text AS currency, p.meters_entitlement_id,

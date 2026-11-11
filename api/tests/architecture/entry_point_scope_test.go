@@ -984,6 +984,7 @@ var pinnedGraphQLResolvers = map[string]string{
 	"AddonPrice.MeteredEntitlement": "",
 	"AddonPrice.SaleUnitFactor":     "",
 	"License.ConversionRules":       "read:licenses",
+	"License.AddonGrants":           "read:addons",
 	"Query.Models":                  "read:models",
 	// The entry's own payload column, decoded.
 	"AuditTrail.Payload": "",

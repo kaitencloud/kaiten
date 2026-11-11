@@ -159,6 +159,7 @@ type ComplexityRoot struct {
 		CreatedAt                func(childComplexity int) int
 		CreatedBy                func(childComplexity int) int
 		EntitlementSlug          func(childComplexity int) int
+		GrantedByAddons          func(childComplexity int) int
 		GrantedByLicense         func(childComplexity int) int
 		ID                       func(childComplexity int) int
 		LicenseSlug              func(childComplexity int) int
@@ -340,6 +341,7 @@ type ComplexityRoot struct {
 	}
 
 	License struct {
+		AddonGrants           func(childComplexity int, entitlementSlug *string) int
 		ConversionRules       func(childComplexity int, status *schema.ConversionRuleStatus) int
 		Description           func(childComplexity int) int
 		Entitlements          func(childComplexity int) int
@@ -359,6 +361,23 @@ type ComplexityRoot struct {
 		Version               func(childComplexity int) int
 		VersionName           func(childComplexity int) int
 		VersionNumber         func(childComplexity int) int
+	}
+
+	LicenseAddonGrant struct {
+		AddonFamilySlug                func(childComplexity int) int
+		AddonID                        func(childComplexity int) int
+		AddonName                      func(childComplexity int) int
+		AddonSlug                      func(childComplexity int) int
+		AddonVersion                   func(childComplexity int) int
+		EntitlementSlug                func(childComplexity int) int
+		EntitlementType                func(childComplexity int) int
+		IsDefault                      func(childComplexity int) int
+		LifecycleState                 func(childComplexity int) int
+		LimitCapExceededOveragePercent func(childComplexity int) int
+		MaxQuantity                    func(childComplexity int) int
+		OverrideBehavior               func(childComplexity int) int
+		Unlimited                      func(childComplexity int) int
+		Value                          func(childComplexity int) int
 	}
 
 	LicenseEntitlement struct {
@@ -569,6 +588,7 @@ type LicenseResolver interface {
 	PricingType(ctx context.Context, obj *schema.License) (string, error)
 
 	Prices(ctx context.Context, obj *schema.License, status *string) ([]prices.Price, error)
+	AddonGrants(ctx context.Context, obj *schema.License, entitlementSlug *string) ([]graphql3.LicenseAddonGrant, error)
 	ConversionRules(ctx context.Context, obj *schema.License, status *schema.ConversionRuleStatus) ([]schema.ConversionRule, error)
 	Entitlements(ctx context.Context, obj *schema.License) ([]schema.LicenseEntitlement, error)
 }
@@ -1039,6 +1059,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.ConversionRule.EntitlementSlug(childComplexity), true
+	case "ConversionRule.grantedByAddons":
+		if e.ComplexityRoot.ConversionRule.GrantedByAddons == nil {
+			break
+		}
+
+		return e.ComplexityRoot.ConversionRule.GrantedByAddons(childComplexity), true
 	case "ConversionRule.grantedByLicense":
 		if e.ComplexityRoot.ConversionRule.GrantedByLicense == nil {
 			break
@@ -1880,6 +1906,17 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.InstancePage.NextCursor(childComplexity), true
 
+	case "License.addonGrants":
+		if e.ComplexityRoot.License.AddonGrants == nil {
+			break
+		}
+
+		args, err := ec.field_License_addonGrants_args(ctx, rawArgs)
+		if err != nil {
+			return 0, false
+		}
+
+		return e.ComplexityRoot.License.AddonGrants(childComplexity, args["entitlementSlug"].(*string)), true
 	case "License.conversionRules":
 		if e.ComplexityRoot.License.ConversionRules == nil {
 			break
@@ -2004,6 +2041,91 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.License.VersionNumber(childComplexity), true
+
+	case "LicenseAddonGrant.addonFamilySlug":
+		if e.ComplexityRoot.LicenseAddonGrant.AddonFamilySlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.AddonFamilySlug(childComplexity), true
+	case "LicenseAddonGrant.addonId":
+		if e.ComplexityRoot.LicenseAddonGrant.AddonID == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.AddonID(childComplexity), true
+	case "LicenseAddonGrant.addonName":
+		if e.ComplexityRoot.LicenseAddonGrant.AddonName == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.AddonName(childComplexity), true
+	case "LicenseAddonGrant.addonSlug":
+		if e.ComplexityRoot.LicenseAddonGrant.AddonSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.AddonSlug(childComplexity), true
+	case "LicenseAddonGrant.addonVersion":
+		if e.ComplexityRoot.LicenseAddonGrant.AddonVersion == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.AddonVersion(childComplexity), true
+	case "LicenseAddonGrant.entitlementSlug":
+		if e.ComplexityRoot.LicenseAddonGrant.EntitlementSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.EntitlementSlug(childComplexity), true
+	case "LicenseAddonGrant.entitlementType":
+		if e.ComplexityRoot.LicenseAddonGrant.EntitlementType == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.EntitlementType(childComplexity), true
+	case "LicenseAddonGrant.isDefault":
+		if e.ComplexityRoot.LicenseAddonGrant.IsDefault == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.IsDefault(childComplexity), true
+	case "LicenseAddonGrant.lifecycleState":
+		if e.ComplexityRoot.LicenseAddonGrant.LifecycleState == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.LifecycleState(childComplexity), true
+	case "LicenseAddonGrant.limitCapExceededOveragePercent":
+		if e.ComplexityRoot.LicenseAddonGrant.LimitCapExceededOveragePercent == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.LimitCapExceededOveragePercent(childComplexity), true
+	case "LicenseAddonGrant.maxQuantity":
+		if e.ComplexityRoot.LicenseAddonGrant.MaxQuantity == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.MaxQuantity(childComplexity), true
+	case "LicenseAddonGrant.overrideBehavior":
+		if e.ComplexityRoot.LicenseAddonGrant.OverrideBehavior == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.OverrideBehavior(childComplexity), true
+	case "LicenseAddonGrant.unlimited":
+		if e.ComplexityRoot.LicenseAddonGrant.Unlimited == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.Unlimited(childComplexity), true
+	case "LicenseAddonGrant.value":
+		if e.ComplexityRoot.LicenseAddonGrant.Value == nil {
+			break
+		}
+
+		return e.ComplexityRoot.LicenseAddonGrant.Value(childComplexity), true
 
 	case "LicenseEntitlement.entitlement":
 		if e.ComplexityRoot.LicenseEntitlement.Entitlement == nil {
@@ -3003,6 +3125,74 @@ type AddonPrice {
   deprecatedAt: Time
 }
 
+"""How a NUMBER grant of an add-on combines with the licence's own."""
+enum AddonOverrideBehavior {
+  ADD
+  OVERRIDE
+  MAX
+}
+
+"""
+An entitlement an add-on version grants, on a licence it fits: one way an
+instance of that licence can come to hold the entitlement without the licence
+granting it.
+
+An add-on attaches to an instance, never to a licence. What ties it to a
+licence is compatibility, declared per add-on version against a licence
+FAMILY: the grants are therefore the same for every version of a family.
+Nothing here says an instance holds the add-on; Instance.addons does.
+"""
+type LicenseAddonGrant {
+  entitlementSlug: String!
+  entitlementType: String!
+  addonId: UUID!
+  """The add-on version: what an attachment names."""
+  addonSlug: String!
+  addonFamilySlug: String!
+  addonName: String!
+  """The version number in its add-on family."""
+  addonVersion: Int!
+  """
+  DRAFT: attachable to an instance with no live subscription only. PUBLISHED:
+  attachable. ARCHIVED: no new attachment, the instances that hold it keep it
+  and its grant.
+  """
+  lifecycleState: AddonLifecycleState!
+  """The version its add-on family resolves to. Only a PUBLISHED version."""
+  isDefault: Boolean!
+  """The most one instance may hold; null when unbounded."""
+  maxQuantity: Int
+  """
+  The grant per unit of quantity, shaped like a licence grant:
+  {type:"number",value:N}, {type:"boolean",value:B}, {type:"object",value:{...}}.
+  """
+  value: Map!
+  """True when the value is the unlimited sentinel."""
+  unlimited: Boolean!
+  """
+  The overage the add-on allows; null inherits the licence grant's (0 for an
+  entitlement only add-ons grant).
+  """
+  limitCapExceededOveragePercent: Int
+  """
+  How a number grant combines with the licence's: ADD sums value x quantity,
+  OVERRIDE replaces it with the latest attached add-on's, MAX keeps the larger.
+  A boolean always ORs, a config always overrides.
+  """
+  overrideBehavior: AddonOverrideBehavior!
+}
+
+extend type License {
+  """
+  What add-ons can grant on this licence: every entitlement of every add-on
+  version compatible with the licence's family, optionally one entitlement.
+  The licence's own grants are License.entitlements. Like the REST add-on
+  catalogue, it needs billing to be enabled for the organization, and
+  read:addons.
+  """
+  addonGrants(entitlementSlug: String): [LicenseAddonGrant!]!
+}
+
 """
 A cursor-paginated page of add-on versions.
 """
@@ -3718,7 +3908,14 @@ type ConversionRule {
  maximumCreditsPerRequest: String
  chargeOnError: ChargeOnErrorPolicy!
  status: ConversionRuleStatus!
+ """Whether the licence itself grants the pool."""
  grantedByLicense: Boolean!
+ """
+ Whether an add-on version compatible with the licence's family grants the
+ pool, whatever its lifecycle state: instances of the licence can then hold
+ the pool without the licence granting it. License.addonGrants lists them.
+ """
+ grantedByAddons: Boolean!
  createdAt: Time!
  """Who created the rule. A service account is a user."""
  createdBy: User!
@@ -4396,6 +4593,8 @@ func (ec *executionContext) childFields_ConversionRule(ctx context.Context, fiel
 		return ec.fieldContext_ConversionRule_status(ctx, field)
 	case "grantedByLicense":
 		return ec.fieldContext_ConversionRule_grantedByLicense(ctx, field)
+	case "grantedByAddons":
+		return ec.fieldContext_ConversionRule_grantedByAddons(ctx, field)
 	case "createdAt":
 		return ec.fieldContext_ConversionRule_createdAt(ctx, field)
 	case "createdBy":
@@ -4778,12 +4977,48 @@ func (ec *executionContext) childFields_License(ctx context.Context, field graph
 		return ec.fieldContext_License_selfServeCtaUrl(ctx, field)
 	case "prices":
 		return ec.fieldContext_License_prices(ctx, field)
+	case "addonGrants":
+		return ec.fieldContext_License_addonGrants(ctx, field)
 	case "conversionRules":
 		return ec.fieldContext_License_conversionRules(ctx, field)
 	case "entitlements":
 		return ec.fieldContext_License_entitlements(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type License", field.Name)
+}
+
+func (ec *executionContext) childFields_LicenseAddonGrant(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "entitlementSlug":
+		return ec.fieldContext_LicenseAddonGrant_entitlementSlug(ctx, field)
+	case "entitlementType":
+		return ec.fieldContext_LicenseAddonGrant_entitlementType(ctx, field)
+	case "addonId":
+		return ec.fieldContext_LicenseAddonGrant_addonId(ctx, field)
+	case "addonSlug":
+		return ec.fieldContext_LicenseAddonGrant_addonSlug(ctx, field)
+	case "addonFamilySlug":
+		return ec.fieldContext_LicenseAddonGrant_addonFamilySlug(ctx, field)
+	case "addonName":
+		return ec.fieldContext_LicenseAddonGrant_addonName(ctx, field)
+	case "addonVersion":
+		return ec.fieldContext_LicenseAddonGrant_addonVersion(ctx, field)
+	case "lifecycleState":
+		return ec.fieldContext_LicenseAddonGrant_lifecycleState(ctx, field)
+	case "isDefault":
+		return ec.fieldContext_LicenseAddonGrant_isDefault(ctx, field)
+	case "maxQuantity":
+		return ec.fieldContext_LicenseAddonGrant_maxQuantity(ctx, field)
+	case "value":
+		return ec.fieldContext_LicenseAddonGrant_value(ctx, field)
+	case "unlimited":
+		return ec.fieldContext_LicenseAddonGrant_unlimited(ctx, field)
+	case "limitCapExceededOveragePercent":
+		return ec.fieldContext_LicenseAddonGrant_limitCapExceededOveragePercent(ctx, field)
+	case "overrideBehavior":
+		return ec.fieldContext_LicenseAddonGrant_overrideBehavior(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type LicenseAddonGrant", field.Name)
 }
 
 func (ec *executionContext) childFields_LicenseEntitlement(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -5249,6 +5484,20 @@ func (ec *executionContext) field_Instance_entitlementExceptions_args(ctx contex
 		return nil, err
 	}
 	args["filter"] = arg0
+	return args, nil
+}
+
+func (ec *executionContext) field_License_addonGrants_args(ctx context.Context, rawArgs map[string]any) (map[string]any, error) {
+	var err error
+	args := map[string]any{}
+	arg0, err := graphql.ProcessArgField(ctx, rawArgs, "entitlementSlug",
+		func(ctx context.Context, v any) (*string, error) {
+			return ec.unmarshalOString2ᚖstring(ctx, v)
+		})
+	if err != nil {
+		return nil, err
+	}
+	args["entitlementSlug"] = arg0
 	return args, nil
 }
 
@@ -7580,6 +7829,29 @@ func (ec *executionContext) _ConversionRule_grantedByLicense(ctx context.Context
 	)
 }
 func (ec *executionContext) fieldContext_ConversionRule_grantedByLicense(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _ConversionRule_grantedByAddons(ctx context.Context, field graphql.CollectedField, obj *schema.ConversionRule) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_ConversionRule_grantedByAddons(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.GrantedByAddons, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_ConversionRule_grantedByAddons(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("ConversionRule", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
@@ -11211,6 +11483,50 @@ func (ec *executionContext) fieldContext_License_prices(ctx context.Context, fie
 	return fc, nil
 }
 
+func (ec *executionContext) _License_addonGrants(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_License_addonGrants(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			fc := graphql.GetFieldContext(ctx)
+			return ec.Resolvers.License().AddonGrants(ctx, obj, fc.Args["entitlementSlug"].(*string))
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []graphql3.LicenseAddonGrant) graphql.Marshaler {
+			return ec.marshalNLicenseAddonGrant2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐLicenseAddonGrantᚄ(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_License_addonGrants(ctx context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "License",
+		Field:      field,
+		IsMethod:   true,
+		IsResolver: true,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_LicenseAddonGrant(ctx, field)
+		},
+	}
+	defer func() {
+		if r := recover(); r != nil {
+			err = ec.Recover(ctx, r)
+			ec.Error(ctx, err)
+		}
+	}()
+	ctx = graphql.WithFieldContext(ctx, fc)
+	if fc.Args, err = ec.field_License_addonGrants_args(ctx, field.ArgumentMap(ec.Variables)); err != nil {
+		ec.Error(ctx, err)
+		return fc, err
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _License_conversionRules(ctx context.Context, field graphql.CollectedField, obj *schema.License) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -11285,6 +11601,328 @@ func (ec *executionContext) fieldContext_License_entitlements(_ context.Context,
 		},
 	}
 	return fc, nil
+}
+
+func (ec *executionContext) _LicenseAddonGrant_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_entitlementSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EntitlementSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_entitlementSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_entitlementType(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_entitlementType(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EntitlementType, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_entitlementType(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_addonId(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_addonId(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddonID, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v uuid.UUID) graphql.Marshaler {
+			return ec.marshalNUUID2githubᚗcomᚋgoogleᚋuuidᚐUUID(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_addonId(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type UUID does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_addonSlug(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_addonSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddonSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_addonSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_addonFamilySlug(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_addonFamilySlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddonFamilySlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_addonFamilySlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_addonName(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_addonName(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddonName, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_addonName(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_addonVersion(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_addonVersion(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AddonVersion, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_addonVersion(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_lifecycleState(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_lifecycleState(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LifecycleState, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNAddonLifecycleState2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_lifecycleState(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type AddonLifecycleState does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_isDefault(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_isDefault(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.IsDefault, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_isDefault(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_maxQuantity(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_maxQuantity(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.MaxQuantity, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_maxQuantity(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_value(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_value(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Value, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v map[string]any) graphql.Marshaler {
+			return ec.marshalNMap2map(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_value(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type Map does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_unlimited(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_unlimited(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Unlimited, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v bool) graphql.Marshaler {
+			return ec.marshalNBoolean2bool(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_unlimited(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type Boolean does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_limitCapExceededOveragePercent(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_limitCapExceededOveragePercent(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LimitCapExceededOveragePercent, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *int32) graphql.Marshaler {
+			return ec.marshalOInt2ᚖint32(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_limitCapExceededOveragePercent(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _LicenseAddonGrant_overrideBehavior(ctx context.Context, field graphql.CollectedField, obj *graphql3.LicenseAddonGrant) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_LicenseAddonGrant_overrideBehavior(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.OverrideBehavior, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNAddonOverrideBehavior2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_LicenseAddonGrant_overrideBehavior(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("LicenseAddonGrant", field, false, false, errors.New("field of type AddonOverrideBehavior does not have child fields"))
 }
 
 func (ec *executionContext) _LicenseEntitlement_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema.LicenseEntitlement) (ret graphql.Marshaler) {
@@ -16442,6 +17080,11 @@ func (ec *executionContext) _ConversionRule(ctx context.Context, sel ast.Selecti
 			if out.Values[i] == graphql.Null {
 				out.Invalids++
 			}
+		case "grantedByAddons":
+			out.Values[i] = ec._ConversionRule_grantedByAddons(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		case "createdAt":
 			out.Values[i] = ec._ConversionRule_createdAt(ctx, field, obj)
 			if out.Values[i] == graphql.Null {
@@ -18327,6 +18970,44 @@ func (ec *executionContext) _License(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "addonGrants":
+			field := field
+
+			innerFunc := func(ctx context.Context, fs *graphql.FieldSet) (res graphql.Marshaler) {
+				defer func() {
+					if r := recover(); r != nil {
+						ec.Error(ctx, ec.Recover(ctx, r))
+					}
+				}()
+				res = ec._License_addonGrants(ctx, field, obj)
+				if res == graphql.Null {
+					atomic.AddUint32(&fs.Invalids, 1)
+				}
+				return res
+			}
+
+			if field.IsDeferred() {
+				deferredFieldSet.AddField(field)
+				fieldIndex := len(deferredFieldSet.Values) - 1
+				deferredFieldSet.Concurrently(fieldIndex, func(ctx context.Context) graphql.Marshaler {
+					return innerFunc(ctx, deferredFieldSet)
+				})
+
+				for _, deferrable := range field.Deferrables {
+					view, ok := deferLabelToView[deferrable.Label]
+					if !ok {
+						view = deferredFieldSet.NewView()
+						deferLabelToView[deferrable.Label] = view
+					}
+					view.AddIndices(fieldIndex)
+				}
+
+				// don't run the out.Concurrently() call below
+				out.Values[i] = graphql.Null
+				continue
+			}
+
+			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
 		case "conversionRules":
 			field := field
 
@@ -18403,6 +19084,109 @@ func (ec *executionContext) _License(ctx context.Context, sel ast.SelectionSet, 
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var licenseAddonGrantImplementors = []string{"LicenseAddonGrant"}
+
+func (ec *executionContext) _LicenseAddonGrant(ctx context.Context, sel ast.SelectionSet, obj *graphql3.LicenseAddonGrant) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, licenseAddonGrantImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("LicenseAddonGrant")
+		case "entitlementSlug":
+			out.Values[i] = ec._LicenseAddonGrant_entitlementSlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "entitlementType":
+			out.Values[i] = ec._LicenseAddonGrant_entitlementType(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "addonId":
+			out.Values[i] = ec._LicenseAddonGrant_addonId(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "addonSlug":
+			out.Values[i] = ec._LicenseAddonGrant_addonSlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "addonFamilySlug":
+			out.Values[i] = ec._LicenseAddonGrant_addonFamilySlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "addonName":
+			out.Values[i] = ec._LicenseAddonGrant_addonName(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "addonVersion":
+			out.Values[i] = ec._LicenseAddonGrant_addonVersion(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "lifecycleState":
+			out.Values[i] = ec._LicenseAddonGrant_lifecycleState(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "isDefault":
+			out.Values[i] = ec._LicenseAddonGrant_isDefault(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "maxQuantity":
+			out.Values[i] = ec._LicenseAddonGrant_maxQuantity(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "value":
+			out.Values[i] = ec._LicenseAddonGrant_value(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "unlimited":
+			out.Values[i] = ec._LicenseAddonGrant_unlimited(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "limitCapExceededOveragePercent":
+			out.Values[i] = ec._LicenseAddonGrant_limitCapExceededOveragePercent(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "overrideBehavior":
+			out.Values[i] = ec._LicenseAddonGrant_overrideBehavior(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -20652,6 +21436,22 @@ func (ec *executionContext) marshalNAddonLifecycleState2string(ctx context.Conte
 	return res
 }
 
+func (ec *executionContext) unmarshalNAddonOverrideBehavior2string(ctx context.Context, v any) (string, error) {
+	res, err := graphql.UnmarshalString(v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNAddonOverrideBehavior2string(ctx context.Context, sel ast.SelectionSet, v string) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalString(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return res
+}
+
 func (ec *executionContext) marshalNAddonPage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐAddonPage(ctx context.Context, sel ast.SelectionSet, v graphql3.AddonPage) graphql.Marshaler {
 	return ec._AddonPage(ctx, sel, &v)
 }
@@ -21232,6 +22032,26 @@ func (ec *executionContext) marshalNLicense2ᚖgithubᚗcomᚋkaitencloudᚋkait
 		return graphql.Null
 	}
 	return ec._License(ctx, sel, v)
+}
+
+func (ec *executionContext) marshalNLicenseAddonGrant2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐLicenseAddonGrant(ctx context.Context, sel ast.SelectionSet, v graphql3.LicenseAddonGrant) graphql.Marshaler {
+	return ec._LicenseAddonGrant(ctx, sel, &v)
+}
+
+func (ec *executionContext) marshalNLicenseAddonGrant2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐLicenseAddonGrantᚄ(ctx context.Context, sel ast.SelectionSet, v []graphql3.LicenseAddonGrant) graphql.Marshaler {
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNLicenseAddonGrant2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋaddonsᚋgraphqlᚐLicenseAddonGrant(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) marshalNLicenseEntitlement2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋlicensesᚋschemaᚐLicenseEntitlement(ctx context.Context, sel ast.SelectionSet, v schema.LicenseEntitlement) graphql.Marshaler {

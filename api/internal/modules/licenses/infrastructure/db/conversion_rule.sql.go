@@ -163,6 +163,13 @@ const listConversionRules = `-- name: ListConversionRules :many
 SELECT c.id, c.organization_id, c.license_id, c.entitlement_id, c.model_id, c.request_type, c.rate_per_request, c.rate_per_input_token, c.rate_per_cached_input_token, c.rate_per_cache_write_token, c.rate_per_output_token, c.rate_per_unit, c.rate_per_second, c.minimum_credits_per_request, c.maximum_credits_per_request, c.charge_on_error, c.status, c.created_at, c.created_by_id, c.updated_at, c.updated_by_id, l.slug AS license_slug, e.slug AS entitlement_slug, m.slug AS model_slug,
  EXISTS (SELECT 1 FROM license_entitlement le
    WHERE le.organization_id = c.organization_id AND le.license_id = c.license_id AND le.entitlement_id = c.entitlement_id) AS granted_by_license,
+ -- An add-on reaches a licence through compatibility alone, declared per
+ -- add-on version against the licence's FAMILY: true when such a version
+ -- grants the pool, whatever its lifecycle state (an instance holding an
+ -- archived version keeps its grant).
+ EXISTS (SELECT 1 FROM addon_entitlement ae
+   JOIN addon_compatible_license acl ON acl.addon_id = ae.addon_id AND acl.organization_id = ae.organization_id
+   WHERE ae.organization_id = c.organization_id AND ae.entitlement_id = c.entitlement_id AND acl.license_family_id = l.family_id) AS granted_by_addons,
  creator.name AS created_by_name, updater.name AS updated_by_name
 FROM credit_conversion_rule c
 JOIN license l ON l.id = c.license_id AND l.organization_id = c.organization_id
@@ -214,6 +221,7 @@ type ListConversionRulesRow struct {
 	EntitlementSlug          string                     `json:"entitlement_slug"`
 	ModelSlug                *string                    `json:"model_slug"`
 	GrantedByLicense         bool                       `json:"granted_by_license"`
+	GrantedByAddons          bool                       `json:"granted_by_addons"`
 	CreatedByName            string                     `json:"created_by_name"`
 	UpdatedByName            string                     `json:"updated_by_name"`
 }
@@ -264,6 +272,7 @@ func (q *Queries) ListConversionRules(ctx context.Context, arg ListConversionRul
 			&i.EntitlementSlug,
 			&i.ModelSlug,
 			&i.GrantedByLicense,
+			&i.GrantedByAddons,
 			&i.CreatedByName,
 			&i.UpdatedByName,
 		); err != nil {

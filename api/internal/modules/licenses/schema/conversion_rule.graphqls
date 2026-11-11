@@ -35,7 +35,14 @@ type ConversionRule {
  maximumCreditsPerRequest: String
  chargeOnError: ChargeOnErrorPolicy!
  status: ConversionRuleStatus!
+ """Whether the licence itself grants the pool."""
  grantedByLicense: Boolean!
+ """
+ Whether an add-on version compatible with the licence's family grants the
+ pool, whatever its lifecycle state: instances of the licence can then hold
+ the pool without the licence granting it. License.addonGrants lists them.
+ """
+ grantedByAddons: Boolean!
  createdAt: Time!
  """Who created the rule. A service account is a user."""
  createdBy: User!

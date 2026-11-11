@@ -60,6 +60,16 @@ rates fall back to the selected rule's input rate; explicit zero is free.
 
 `grantedByLicense` describes only a direct licence allowance. Add-ons can grant a
 pool while that flag is false; such instances can still use the version's rules.
+`grantedByAddons` says whether that can happen: an add-on attaches to an
+instance, never to a licence, and what ties it to a licence is compatibility,
+declared per add-on version against a licence family
+(`addon_compatible_license`). The flag is true when an add-on version
+compatible with the licence's family grants the pool, whatever its lifecycle
+state, since an instance that holds an archived version keeps its grant. It is
+the same for every version of a family, and says nothing of what any instance
+holds. GraphQL lists those grants as `License.addonGrants(entitlementSlug)`,
+beside the licence's own in `License.entitlements`; like the add-on catalogue
+it needs billing to be enabled and `read:addons`, which the flag does not.
 Reservations are estimates, not locked quotes: rate/rule/model changes affect
 pending commits because current configuration is resolved at commit.
 

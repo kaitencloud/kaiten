@@ -2962,6 +2962,9 @@ components:
           readOnly: true
         entitlementSlug:
           type: string
+        grantedByAddons:
+          description: "Whether an add-on version compatible with the licence's family grants the pool, whatever its lifecycle state: instances of the licence can then hold the pool without the licence granting it. It says nothing of what any instance holds."
+          type: boolean
         grantedByLicense:
           type: boolean
         id:
@@ -3022,6 +3025,7 @@ components:
         - chargeOnError
         - status
         - grantedByLicense
+        - grantedByAddons
         - createdAt
         - createdBy
         - updatedAt
@@ -3053,6 +3057,9 @@ components:
           type: string
         entitlementSlug:
           type: string
+        grantedByAddons:
+          description: "Whether an add-on version compatible with the licence's family grants the pool, whatever its lifecycle state: instances of the licence can then hold the pool without the licence granting it. It says nothing of what any instance holds."
+          type: boolean
         grantedByLicense:
           type: boolean
         id:
@@ -3119,6 +3126,7 @@ components:
         - chargeOnError
         - status
         - grantedByLicense
+        - grantedByAddons
         - createdAt
         - createdBy
         - updatedAt
