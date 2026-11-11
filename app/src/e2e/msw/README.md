@@ -1,7 +1,18 @@
 # Browser mock adapter
 
 `handlers.ts` rehydrates models and assembles handlers in their first-match
-order, with explicit sibling fallbacks last. `browser.ts` starts MSW. Each object owns a
+order, with explicit sibling fallbacks last. `browser.ts` starts MSW.
+
+`installMswMocks` seeds a slot before navigation; it does not update a mounted
+page. For in-page API changes such as capability recovery before Retry, use
+`updateMswMocks` (or `updateBillingAppMocks`). It replaces the selected serialized
+slot and uses the existing handler rebuild/reset path, retaining other stored
+slots without reloading the page or touching the console query cache. A page
+without a running mock API fails explicitly. `src/__tests__/e2e-msw-update.test.ts`
+checks the controller and wire response; feature-specific route-guard tests
+exercise Retry itself.
+
+Each object owns a
 `*-handlers.ts` set; stateful business logic remains in
 `e2e/app/_support/model/<area>-app-model.ts`. A REST handler starts from the
 operation's handler generated from the OpenAPI contract (`@/api-client/msw.gen`),

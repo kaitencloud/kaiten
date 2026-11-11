@@ -5,7 +5,10 @@ import { AddonGrantsDriver } from '../_support/drivers/addon-grants.driver';
 import { AddonPricesDriver } from '../_support/drivers/addon-prices.driver';
 import { AddonsListDriver } from '../_support/drivers/addons-list.driver';
 import { BillingNavDriver } from '../_support/drivers/billing-nav.driver';
-import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
+import {
+  installBillingAppMocks,
+  updateBillingAppMocks,
+} from '../_support/mocks/install-billing-app-mocks';
 import { SESSION_SCOPES, signInWithScopes } from '../_support/session-scopes';
 import { createBillingStackModel } from '../billing/billing.scenarios';
 import { BILLED_NOW } from '../billing/billed-instances';
@@ -187,7 +190,7 @@ test.describe('after the add-ons grant is lost', () => {
     await page.goto('/catalog/addons/new');
     await new BillingNavDriver(page).expectUnavailable('UNREACHABLE');
     model.setCapabilities(billingCapabilitiesProfiles.stackWithAddons());
-    await installBillingAppMocks(page, model);
+    await updateBillingAppMocks(page, model);
     await page.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(page.getByRole('dialog')).toBeVisible();
     await expect(page.getByTestId('billing-unavailable')).toHaveCount(0);

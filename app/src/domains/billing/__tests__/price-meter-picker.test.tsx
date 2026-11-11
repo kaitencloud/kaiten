@@ -224,7 +224,7 @@ describe('the way a stock is sold, said under the entitlements that cannot be me
   const settled = async (client: { isFetching: () => number }) =>
     waitFor(() => expect(client.isFetching()).toBe(0));
 
-  it('links to the add-ons where the release ships them and the session may read them', async () => {
+  it('links to the add-ons where billing is on and the session may read them', async () => {
     server.use(
       handleGetBillingCapabilities({
         body: billingCapabilitiesProfiles.stackWithAddons(),
@@ -239,7 +239,7 @@ describe('the way a stock is sold, said under the entitlements that cannot be me
     expect(screen.getByText(hint)).toBeInTheDocument();
   });
 
-  it('names the way and links nowhere where the release has no add-ons', async () => {
+  it('keeps the catalogue link when the independent add-ons grant is lost', async () => {
     server.use(
       handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
     );
@@ -247,7 +247,7 @@ describe('the way a stock is sold, said under the entitlements that cannot be me
     await settled(client);
 
     expect(screen.getByText(hint)).toBeInTheDocument();
-    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByRole('link', { name: 'See the add-ons' })).toHaveAttribute('href', '/catalog/addons');
   });
 
   it('links nowhere to a session that may not read the add-ons', async () => {

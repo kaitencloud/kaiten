@@ -4,7 +4,7 @@ import { VoucherDetailDriver } from '../_support/drivers/voucher-detail.driver';
 import { VoucherListDriver } from '../_support/drivers/voucher-list.driver';
 import { SESSION_SCOPES, signInWithScopes } from '../_support/session-scopes';
 import { BILLED_NOW } from '../billing/billed-instances';
-import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
+import { updateBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import { installVouchersWorld } from './install-vouchers-world';
 import {
@@ -151,7 +151,7 @@ test.describe('after the vouchers grant is lost', () => {
     await page.goto('/catalog/vouchers/new');
     await new BillingNavDriver(page).expectUnavailable('UNREACHABLE');
     model.setCapabilities(billingCapabilitiesProfiles.stackWithVouchers());
-    await installBillingAppMocks(page, model);
+    await updateBillingAppMocks(page, model);
     await page.getByRole('button', { name: 'Retry', exact: true }).click();
     await expect(
       page.getByRole('heading', { name: 'New voucher', exact: true }),
