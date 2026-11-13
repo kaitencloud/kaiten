@@ -79,19 +79,24 @@ The shared configuration loader accepts:
 | `KAITEN_USAGE_IDEMPOTENCY_WINDOW` | `840h` (minimum `24h`) |
 | `KAITEN_AI_RESERVATION_DEFAULT_TTL` | `10m` |
 | `KAITEN_AI_RESERVATION_MAX_TTL` | `1h` |
+| `KAITEN_AI_FLAG_CACHE_TTL` | `30s` |
 
 The default TTL must be positive and no greater than the maximum. `ttlSeconds`
 may override it per reserve. AI rollout authority is the **platform-owned Kaiten
 `ai-credits` feature flag**, not a configuration boolean. Customer flags,
 billing licences, SDK opt-in and localhost cannot enable the API. An absent,
 disabled, unready, malformed or failed source denies AI. Omitted policies deny.
-Operational refusals are 403 `AIUsage.Disabled`, including reserve, commit,
-NOT_SENT release, exact AI replay and numeric adjustments/replay of a persisted
-AI pool. Ordinary numeric attempt accounting is retained, including missing,
+Operational refusals are 403 `AIUsage.Disabled`: reserve and its exact replay.
+The flag admits new activity; it never refuses evidence. A commit (NOT_SENT
+release and exact replay included) and a numeric adjustment of a persisted AI
+pool are accepted and recorded the same way whether the flag is on, off or
+unavailable, and deleting an instance, a customer or an organization is not
+blocked by its AI rows. Ordinary numeric attempt accounting is retained, including missing,
 unsupported and validation/load-failed targets: while off a query-only original
 catalogue-type check runs before those failures, and the attempt is submitted
 after this report's owned transaction unwinds (an ambient caller transaction may
-still surround the call). A known-AI denial counts nothing; a failed type lookup
+still surround the call). While off a known-AI report counts nothing, accepted
+or not; a failed type lookup
 fails closed rather than guessing that the target is ordinary. GraphQL reports
 the same code/status through its existing error presenter.
 
@@ -131,10 +136,12 @@ New subscription activation still preflights its complete selected/held grants.
 Trusted fulfilment of already-paid ACTIVATION checkouts remains financial
 bookkeeping, not operational AI admission.
 
-AI maintenance and gauges resolve the current flag separately for each
-organization on each run; disabled/unavailable organizations have no AI expiry
-writes or observed AI gauges. General retention and billing jobs are unchanged.
-No data is deleted or rewritten when the flag is disabled.
+AI maintenance expires overdue reservations for every organization, flag on or
+off, in bounded batches of one statement over the expiry index: expiry changes
+a status, never a balance. The open-holds gauge resolves the
+flag separately for each organization on each run; disabled/unavailable
+organizations have no observed AI gauge. General retention and billing jobs are
+unchanged. No data is deleted when the flag is disabled.
 
 For prepared local development, configure the trusted local platform organization.
 The **separately authorized `local-ai` profile** converges its `ai-credits` flag;
@@ -144,13 +151,19 @@ product flags. API examples/Helm contain durations, not a rollout switch. See [l
 operator-owned source/credential setup; no localhost or credential-class bypass
 can authorize AI. Do not run a seed or change hosted flags merely to enable a UI.
 
-There is no positive cache and no restart requirement for new-operation
-revocation. Already-admitted atomic operations can finish using their local
+The server reads the flag through a per-replica cache (`aiusage.CachedFlags`):
+one answer per organization, true or false, is reused for
+`ai_usage.flag_cache_ttl` (30 s by default, at most 1 h; `0` evaluates on every operation), and
+concurrent operations on a cold organization share one source call. Enabling
+or revoking therefore takes up to one TTL per replica, with no restart. When the
+source errors or times out, the last answer is served for up to ten TTLs, then
+admission closes again; an organization never seen stays closed. A revocation
+issued during a source outage is not seen until the source answers or that bound
+passes. Already-admitted atomic operations can finish using their local
 decision; this is not an instantaneous cluster kill switch. Quiesce and drain
-provider calls before planned disable. Blanket off-state denial can leave pending
-reservations/settlement uncertain; retain transaction identities and surface
-uncertainty instead of treating denial as zero-price/unmetered success. A drain
-protocol requires separate design/approval. New-version creation of an AI-bearing
+provider calls before planned disable. Pending reservations can still be
+settled or released while off, since commits are never refused; a refused reserve
+is not a zero-price or unmetered success. New-version creation of an AI-bearing
 licence family is refused while off because the request supplies no canonical
 copy-source version; ordinary metadata edits preserve hidden relations.
 

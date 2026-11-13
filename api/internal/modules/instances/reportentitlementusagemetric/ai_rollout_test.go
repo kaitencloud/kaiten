@@ -27,7 +27,7 @@ func (r *rolloutReporter) ReportAndEnforce(context.Context, uuid.UUID, string) e
 
 func (r *rolloutReporter) Decrement(context.Context, uuid.UUID, string) error { r.writes++; return nil }
 
-func TestDisabledIncomingAIRejectsEveryPhaseBeforeDatabaseAndCounters(t *testing.T) {
+func TestDisabledIncomingAIRejectsAdmissionButNeverACommit(t *testing.T) {
 	t.Parallel()
 	user := &currentuser.StaticUserProvider{UserID: uuid.New(), OrganizationID: uuid.New()}
 	for _, phase := range []string{"reserve", "commit", "release", "invalid"} {
@@ -38,7 +38,12 @@ func TestDisabledIncomingAIRejectsEveryPhaseBeforeDatabaseAndCounters(t *testing
 			key := "generic-header-cannot-override-off"
 			result, err := u.Execute(t.Context(), "instance", "pool", &Command{TransactionID: &key, AI: &schema.AiUsageValue{Phase: phase, TransactionID: "same-transaction"}})
 			require.Nil(t, result)
-			require.Equal(t, "AIUsage.Disabled", apierrors.GetCode(err))
+			if phase == "commit" {
+				// Past the gate: refused by the next check, ordinary validation.
+				require.Equal(t, "ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported", apierrors.GetCode(err))
+			} else {
+				require.Equal(t, "AIUsage.Disabled", apierrors.GetCode(err))
+			}
 			require.Zero(t, reporter.writes)
 		})
 	}

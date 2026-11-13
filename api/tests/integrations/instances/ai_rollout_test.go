@@ -30,7 +30,7 @@ func (r *deniedAIReporter) Decrement(context.Context, uuid.UUID, string) error {
 
 // Uses the existing disposable integration fixture. Do not run this suite
 // against an existing workshop database or as part of an implicit reseed.
-func TestAIShutdownDeniesSettlementAndBothReplayNamespacesWithoutAccountingWrites(t *testing.T) {
+func TestAIShutdownRefusesAdmissionButRecordsSettlementAndNumericEvidence(t *testing.T) {
 	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	instance, pool := newAIUsagePair(t, 100)
@@ -55,24 +55,24 @@ func TestAIShutdownDeniesSettlementAndBothReplayNamespacesWithoutAccountingWrite
 		require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT coalesce(jsonb_agg(to_jsonb(a) ORDER BY id), '[]'::jsonb)::text FROM ai_inference a WHERE organization_id=$1 AND instance_id=$2 AND entitlement_id=$3`, testDb.DefaultData.OrganizationID, instance.ID, pool.ID).Scan(&snapshot))
 		return snapshot
 	}
+	status := func(transactionID string) (status string) {
+		require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT status::text FROM ai_inference WHERE organization_id=$1 AND instance_id=$2 AND entitlement_id=$3 AND transaction_id=$4`, testDb.DefaultData.OrganizationID, instance.ID, pool.ID, transactionID).Scan(&status))
+		return status
+	}
 	beforeOperations := operations()
-	fresh := aiUsageBody("commit", "fresh", 1)
-	fresh["model"], fresh["requestType"] = "lifecycle-model", "COMPLETION"
-	unsent := aiUsageBody("commit", "held", 0)
-	unsent["requestStatus"] = "NOT_SENT"
 	path := "/api/instances/" + instance.Slug + "/entitlements/" + pool.Slug + "/usage"
-	for _, body := range []map[string]any{aiUsageBody("reserve", "fresh-reserve", 1), held, fresh, commit, unsent, release} {
+	post := func(body map[string]any) *http.Response {
 		response, err := off.App.Test(fixture.NewJSONRequest(t, http.MethodPost, path, map[string]any{"value": body}), fiber.TestConfig{})
 		require.NoError(t, err)
-		problem := fixture.AssertJSONResponse[apierrors.Problem](t, response, 403)
+		t.Cleanup(func() { fixture.MustCloseBody(t, response.Body) })
+		return response
+	}
+
+	// Admission stays closed: a new reservation, and the replay of an open one.
+	for _, body := range []map[string]any{aiUsageBody("reserve", "fresh-reserve", 1), held} {
+		problem := fixture.AssertJSONResponse[apierrors.Problem](t, post(body), 403)
 		require.Equal(t, "AIUsage.Disabled", problem.Code)
-		fixture.MustCloseBody(t, response.Body)
 	}
-	for _, value := range []string{"1", "-1"} {
-		answer := reportWithKey(t, off.App, instance.Slug, pool.Slug, value, "append", "fresh-numeric-"+value)
-		require.Equal(t, 403, answer.status)
-	}
-	require.Equal(t, 403, reportWithKey(t, off.App, instance.Slug, pool.Slug, "1", "append", "numeric-existing").status)
 	for _, suffix := range []string{"", "/inferences", "/reservations"} {
 		response, err := off.App.Test(fixture.NewJSONRequest(t, http.MethodGet, path+suffix, nil), fiber.TestConfig{})
 		require.NoError(t, err)
@@ -82,8 +82,36 @@ func TestAIShutdownDeniesSettlementAndBothReplayNamespacesWithoutAccountingWrite
 	require.Equal(t, seq, counterReportSeq(t, instance.ID, pool.ID))
 	require.Equal(t, journal, ledgerRows(t, instance.ID, pool.ID))
 	require.Equal(t, events, recordedEvents(t))
-	require.Equal(t, beforeOperations, operations(), "operations/reservations, timestamps and exact credit evidence remain identical")
-	require.Zero(t, reporter.calls, "rollout refusal must not increment or compensate dogfooding counters")
+	require.Equal(t, beforeOperations, operations(), "a refusal writes nothing")
+
+	// Evidence is recorded: an inference that ran without a reservation, the
+	// release of an open hold, and both exact replays.
+	fresh := aiUsageBody("commit", "fresh", 1)
+	fresh["model"], fresh["requestType"] = "lifecycle-model", "COMPLETION"
+	unsent := aiUsageBody("commit", "held", 0)
+	unsent["requestStatus"] = "NOT_SENT"
+	charged := post(fresh)
+	require.Empty(t, charged.Header.Get("Idempotent-Replayed"))
+	fixture.AssertJSONResponse[schema.EntitlementUsage](t, charged, 200)
+	require.Equal(t, "COMMITTED", status("fresh"))
+	fixture.AssertJSONResponse[schema.EntitlementUsage](t, post(unsent), 200)
+	require.Equal(t, "RELEASED", status("held"))
+	for _, body := range []map[string]any{commit, release, fresh} {
+		replayed := post(body)
+		require.Equal(t, "true", replayed.Header.Get("Idempotent-Replayed"))
+		fixture.AssertJSONResponse[schema.EntitlementUsage](t, replayed, 200)
+	}
+	// So are numeric adjustments of the pool, the refund included, and their replay.
+	for _, value := range []string{"1", "-1"} {
+		require.Equal(t, 200, reportWithKey(t, off.App, instance.Slug, pool.Slug, value, "append", "fresh-numeric-"+value).status)
+	}
+	existing := reportWithKey(t, off.App, instance.Slug, pool.Slug, "1", "append", "numeric-existing")
+	require.Equal(t, 200, existing.status)
+	require.Equal(t, "true", existing.replayed)
+	journal = ledgerRows(t, instance.ID, pool.ID)
+	require.Greater(t, counterReportSeq(t, instance.ID, pool.ID), seq)
+	require.Zero(t, reporter.calls, "known AI still counts nothing in dogfooding while off")
+	beforeOperations = operations()
 
 	// The immutable invoice-linked journal remains a read-only financial path,
 	// even though the live gauge and inference/reservation history are denied.

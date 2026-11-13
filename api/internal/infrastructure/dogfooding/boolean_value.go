@@ -14,8 +14,10 @@ import (
 const brokenTargetingRulesMetadataKey = "kaiten.brokenTargetingRules"
 
 // BooleanValue reads a trusted platform flag about organizationID, not the
-// organization authenticating the provider request. Every call evaluates anew;
-// metering exemptions and last-known CONFIG values cannot authorize a flag.
+// organization authenticating the provider request. Every call evaluates anew
+// (the server reads it through aiusage.CachedFlags, which reuses an answer for
+// a short TTL); metering exemptions and last-known CONFIG values cannot
+// authorize a flag.
 func (r *Reporter) BooleanValue(ctx context.Context, organizationID uuid.UUID, flagKey string) (bool, error) {
 	if r == nil || organizationID == uuid.Nil || strings.TrimSpace(flagKey) == "" {
 		return false, fmt.Errorf("platform flag requires a reporter, organization and key")
