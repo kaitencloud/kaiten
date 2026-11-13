@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import { ChoiceButton } from '@/components/choice-button';
@@ -83,11 +84,15 @@ function useOptionDetail() {
 export function PriceMeterPicker({
   model,
   onSelect,
-  options,
+  options: canonicalOptions,
   scope = 'license',
   value,
 }: PriceMeterPickerProps) {
   const { i18n, t } = useTranslation();
+  const access = useAiAccess();
+  const options = canonicalOptions.filter(
+    (option) => access.available || !isAiEntitlement(option.entitlement.type),
+  );
   const detailOf = useOptionDetail();
   const hasStock = options.some((option) => option.disabledReason === 'stock');
   const formatFactor = (factor: number) => factor.toLocaleString(i18n.language);

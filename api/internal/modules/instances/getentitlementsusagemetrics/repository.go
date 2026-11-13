@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/shopspring/decimal"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
@@ -14,21 +15,30 @@ import (
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 type QueryRepository struct {
+	policy     aiusage.Policy
 	repository *db.Queries
 }
 
-func NewQueryRepository(repository *db.Queries) *QueryRepository {
+func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
 	return &QueryRepository{
+		policy:     policy,
 		repository: repository,
 	}
 }
 
 func (r *QueryRepository) GetEntitlementsUsageMetrics(ctx context.Context, instanceSlug string, organizationID uuid.UUID) ([]entitlementUsageSchema.EntitlementUsage, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	instanceID, err := r.resolveInstanceSlug(ctx, instanceSlug, organizationID)
 	if err != nil {
 		return nil, err
@@ -37,6 +47,7 @@ func (r *QueryRepository) GetEntitlementsUsageMetrics(ctx context.Context, insta
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
 	defer done()
 	entitlements, err := r.repository.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
+		HideAi:         !r.policy.Enabled(ctx),
 		OrganizationID: organizationID,
 		InstanceID:     instanceID,
 	})
@@ -126,7 +137,13 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 		if err != nil {
 			return nil, err
 		}
+		var reserved *string
+		if e.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
+			text := decimal.NewFromBigInt(e.Reserved.Int, e.Reserved.Exp).String()
+			reserved = &text
+		}
 		result = append(result, entitlementUsageSchema.EntitlementUsage{
+			Reserved:                       reserved,
 			EntitlementID:                  e.EntitlementID,
 			EntitlementSlug:                e.EntitlementSlug,
 			LicenseID:                      e.LicenseID,

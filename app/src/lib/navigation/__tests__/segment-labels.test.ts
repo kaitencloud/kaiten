@@ -7,6 +7,8 @@ import {
 } from '../segment-labels';
 
 const translations: Record<string, string> = {
+  'AI.Models.title': 'Modèles',
+  'AI.Calculation.title': 'Calcul',
   'Pages.Addons.Compatibility.title': 'Licences compatibles',
   'Pages.Addons.title': 'Options',
   'Pages.Billing.Invoices.Lines.title': 'Lignes',
@@ -104,4 +106,9 @@ describe('segment labels', () => {
     expect(getSectionForPath('/unknown/page', t)).toBeUndefined();
     expect(getSectionForPath('/', t)).toBeUndefined();
   });
+});
+
+it('labels Models and Calculation under the catalogue', () => {
+  expect(getSectionForPath('/catalog/models/fixture/edit', t)).toEqual({ href: '/catalog/models', label: 'Modèles' });
+  expect(getSegmentLabel('calculation', t)).toBe('Calcul');
 });

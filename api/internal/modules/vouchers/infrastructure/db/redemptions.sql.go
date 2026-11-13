@@ -869,7 +869,7 @@ func (q *Queries) ListRedemptions(ctx context.Context, arg ListRedemptionsParams
 }
 
 const lockInstanceVoucher = `-- name: LockInstanceVoucher :one
-SELECT iv.id, iv.status
+SELECT iv.id, iv.status, iv.voucher_id
 FROM instance_voucher iv
 WHERE iv.organization_id = $1
   AND iv.instance_id = $2
@@ -884,14 +884,15 @@ type LockInstanceVoucherParams struct {
 }
 
 type LockInstanceVoucherRow struct {
-	ID     uuid.UUID             `json:"id"`
-	Status InstanceVoucherStatus `json:"status"`
+	ID        uuid.UUID             `json:"id"`
+	Status    InstanceVoucherStatus `json:"status"`
+	VoucherID uuid.UUID             `json:"voucher_id"`
 }
 
 func (q *Queries) LockInstanceVoucher(ctx context.Context, arg LockInstanceVoucherParams) (LockInstanceVoucherRow, error) {
 	row := q.db.QueryRow(ctx, lockInstanceVoucher, arg.OrganizationID, arg.InstanceID, arg.ID)
 	var i LockInstanceVoucherRow
-	err := row.Scan(&i.ID, &i.Status)
+	err := row.Scan(&i.ID, &i.Status, &i.VoucherID)
 	return i, err
 }
 

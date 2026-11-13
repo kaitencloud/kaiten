@@ -569,11 +569,21 @@ func TestEveryCredentialedFacadeMethodRequiresItsOperationsScope(t *testing.T) {
 			pos := facade.Fset.Position(fn.Pos())
 			scopes, executes := scopeAndExecuteTargets(facade.TypesInfo, fn.Body)
 
+			// Deployment readiness is not a product authorization. Keep this exact
+			// facade method as the only auth-only exception; its zero-caller and
+			// readiness-only contract are tested in internal/kaiten.
+			if label == "Models.Capabilities" {
+				if len(scopes) != 0 || len(executes) != 1 || !executes["github.com/kaitencloud/kaiten/api/internal/modules/models/getaiusagecapabilities"] {
+					violations = append(violations, label+": capabilities must run only its auth-only readiness use case")
+				}
+				continue
+			}
 			if len(scopes) == 0 && len(executes) == 0 {
 				violations = append(violations, fmt.Sprintf(
 					"%s: %s takes a credentialed caller but neither requires a scope nor runs a use case -- "+
 						"a method on this surface exists to authorize one operation and call it",
-					pos, label))
+					pos, label,
+				))
 				continue
 			}
 
@@ -581,13 +591,15 @@ func TestEveryCredentialedFacadeMethodRequiresItsOperationsScope(t *testing.T) {
 				violations = append(violations, fmt.Sprintf(
 					"%s: %s calls %s.Execute but requires no scope from %s -- the operation is published as needing "+
 						"one and enforces none",
-					pos, label, shortPkg(pkgPath), shortPkg(pkgPath)))
+					pos, label, shortPkg(pkgPath), shortPkg(pkgPath),
+				))
 			}
 			for _, pkgPath := range sortedKeys(setDifference(scopes, executes)) {
 				violations = append(violations, fmt.Sprintf(
 					"%s: %s requires a %s from %s but runs no use case from it -- a scope check on the wrong "+
 						"operation reads as correct in review",
-					pos, label, requiredScopeSuffix, shortPkg(pkgPath)))
+					pos, label, requiredScopeSuffix, shortPkg(pkgPath),
+				))
 			}
 		}
 	}
@@ -668,7 +680,7 @@ func TestEveryRegistrarPassesItsOwnPackagesRequiredScope(t *testing.T) {
 				}
 
 				// Introspection declares authentication, deliberately no permission.
-				if name == "RegisterAuthorizationIntrospection" {
+				if name == "RegisterAuthorizationIntrospection" || name == "RegisterAIUsageCapabilities" {
 					return true
 				}
 
@@ -679,7 +691,8 @@ func TestEveryRegistrarPassesItsOwnPackagesRequiredScope(t *testing.T) {
 				if len(call.Args) <= scopeArg {
 					violations = append(violations, fmt.Sprintf(
 						"%s: %s is called with %d argument(s), too few to carry a scope -- registrarOperationArg "+
-							"is describing a signature that changed", pos, name, len(call.Args)))
+							"is describing a signature that changed", pos, name, len(call.Args),
+					))
 					return true
 				}
 				seen++
@@ -690,17 +703,20 @@ func TestEveryRegistrarPassesItsOwnPackagesRequiredScope(t *testing.T) {
 					violations = append(violations, fmt.Sprintf(
 						"%s: %s is passed a scope that is not a package-level declaration -- a value computed at "+
 							"the call site is one the facade cannot reference, so there is nothing for the two "+
-							"sides to share", pos, name))
+							"sides to share", pos, name,
+					))
 				case !strings.HasSuffix(obj.Name(), requiredScopeSuffix):
 					violations = append(violations, fmt.Sprintf(
 						"%s: %s is passed %s, which does not end in %s -- the suffix is how a reader and this test "+
 							"tell an operation's scope from any other string in the package",
-						pos, name, obj.Name(), requiredScopeSuffix))
+						pos, name, obj.Name(), requiredScopeSuffix,
+					))
 				case obj.Pkg().Path() != pkg.PkgPath:
 					violations = append(violations, fmt.Sprintf(
 						"%s: %s is passed %s.%s, another package's declaration -- it now names two operations, and "+
 							"changing the scope of one changes the other silently",
-						pos, name, shortPkg(obj.Pkg().Path()), obj.Name()))
+						pos, name, shortPkg(obj.Pkg().Path()), obj.Name(),
+					))
 				}
 				return true
 			})

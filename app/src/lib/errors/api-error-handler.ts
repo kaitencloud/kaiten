@@ -1,4 +1,5 @@
 import i18n from 'i18next';
+import { AI_API_ERROR_KEYS } from './ai-error-messages';
 import { logger } from '../logger';
 import type { ApiError } from './api-error';
 import { isApiError } from './api-error';
@@ -86,7 +87,10 @@ export function mapApiError(
     return {
       code,
       status,
-      message: problemText(data) ?? genericMessage(code, t),
+      message:
+        data.code && AI_API_ERROR_KEYS[data.code]
+          ? t(AI_API_ERROR_KEYS[data.code])
+          : (problemText(data) ?? genericMessage(code, t)),
       details: data.errors ?? undefined,
       originalError: error,
     };
@@ -160,7 +164,10 @@ export function handleApiError(
     logger.error(error);
     return {
       code: 'UNKNOWN',
-      message: error.message,
+      message:
+        error.message === 'AIUsage.Disabled'
+          ? t('AI.Errors.unavailable')
+          : error.message,
       originalError: error,
     };
   }

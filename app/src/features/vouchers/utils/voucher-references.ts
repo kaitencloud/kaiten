@@ -89,6 +89,13 @@ export function buildVoucherNames({
         entitlement.slug ? [[entitlement.slug, entitlement.name]] : [],
       ),
     ),
+    entitlementTypes: Object.fromEntries(
+      entitlements.flatMap((entitlement) =>
+        entitlement.slug && entitlement.type
+          ? [[entitlement.slug, entitlement.type]]
+          : [],
+      ),
+    ),
     licenses: byId(licenses, (license) => getLicenseLabel(license, t)),
     prices,
   };

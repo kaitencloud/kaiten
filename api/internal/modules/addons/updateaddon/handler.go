@@ -41,6 +41,7 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 		return nil, err
 	}
 	writePermission := u.deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var updated catalogue.Addon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -51,6 +52,21 @@ func (u *UseCase) Execute(ctx context.Context, slug string, command AddonChanges
 		before := locked.Addon()
 		if writePermission != nil && !onlyUnsetDefault(before, command) {
 			return writePermission
+		}
+		if command.IsDefault != before.IsDefault && !u.deps.AIPolicy.Enabled(ctx) {
+			hasAI, err := q.AddonFamilyHasAI(ctx, db.AddonFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: &locked.Row.FamilyID, FamilySlug: nil})
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return u.deps.AIPolicy.RequireEnabled(ctx)
+			}
+		}
+		sameMax := command.MaxQuantity == nil && before.MaxQuantity == nil || command.MaxQuantity != nil && before.MaxQuantity != nil && *command.MaxQuantity == *before.MaxQuantity
+		if !sameMax {
+			if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, locked.Row.ID, u.deps.AIPolicy); err != nil {
+				return err
+			}
 		}
 		if command.IsDefault && before.LifecycleState != catalogue.Published {
 			return catalogue.DefaultMustBePublished(operation)

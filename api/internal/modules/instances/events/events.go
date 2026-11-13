@@ -10,14 +10,16 @@ const (
 )
 
 var (
-	InstanceCreated                 = events.New("INSTANCE_CREATED", "com.kaiten.instance.v1.created")
-	InstanceUpdated                 = events.New("INSTANCE_UPDATED", "com.kaiten.instance.v1.updated")
-	InstanceStatusChanged           = events.New("INSTANCE_STATUS_CHANGED", "com.kaiten.instance.v1.status_changed")
-	InstanceLifecycleStageChanged   = events.New("INSTANCE_LIFECYCLE_STAGE_CHANGED", "com.kaiten.instance.v1.lifecycle_stage_changed")
-	InstanceDeleted                 = events.New("INSTANCE_DELETED", "com.kaiten.instance.v1.deleted")
-	InstanceDeployed                = events.New("INSTANCE_DEPLOYED", "com.kaiten.instance.v1.deployed")
-	InstanceMigrated                = events.New("INSTANCE_MIGRATED", "com.kaiten.instance.v1.migrated")
-	InstanceEntitlementUsageReached = events.New("INSTANCE_ENTITLEMENT_USAGE_REACHED", "com.kaiten.instance.entitlement.v1.usage_reached")
+	InstanceEntitlementMaximumExceeded = events.New("INSTANCE_ENTITLEMENT_MAXIMUM_EXCEEDED", "com.kaiten.instance.entitlement.v1.maximum_exceeded")
+	InstanceAIModelUsageUnauthorized   = events.New("INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED", "com.kaiten.instance.ai.v1.model_usage_unauthorized")
+	InstanceCreated                    = events.New("INSTANCE_CREATED", "com.kaiten.instance.v1.created")
+	InstanceUpdated                    = events.New("INSTANCE_UPDATED", "com.kaiten.instance.v1.updated")
+	InstanceStatusChanged              = events.New("INSTANCE_STATUS_CHANGED", "com.kaiten.instance.v1.status_changed")
+	InstanceLifecycleStageChanged      = events.New("INSTANCE_LIFECYCLE_STAGE_CHANGED", "com.kaiten.instance.v1.lifecycle_stage_changed")
+	InstanceDeleted                    = events.New("INSTANCE_DELETED", "com.kaiten.instance.v1.deleted")
+	InstanceDeployed                   = events.New("INSTANCE_DEPLOYED", "com.kaiten.instance.v1.deployed")
+	InstanceMigrated                   = events.New("INSTANCE_MIGRATED", "com.kaiten.instance.v1.migrated")
+	InstanceEntitlementUsageReached    = events.New("INSTANCE_ENTITLEMENT_USAGE_REACHED", "com.kaiten.instance.entitlement.v1.usage_reached")
 
 	// InstanceEntitlementCapExceeded fires when a SOFT-enforcement entitlement's
 	// usage crosses from below the cap to above it (the report is still accepted

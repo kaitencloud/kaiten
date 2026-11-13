@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -24,6 +25,7 @@ import (
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	UsageReporter services.UsageReporter
 	Uof           *uow.UnitOfWork
@@ -54,6 +56,11 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+
+	if err := h.deps.AIPolicy.RequireType(ctx, string(request.Type)); err != nil {
+		return nil, err
+	}
 
 	resolvedAggregationMethod := request.AggregationMethod
 	if schema.IsNumberFamily(request.Type) {
@@ -62,6 +69,10 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 		}
 	} else {
 		resolvedAggregationMethod = nil
+	}
+
+	if err := schema.ValidateAICreditAggregation(request.Type, resolvedAggregationMethod); err != nil {
+		return nil, kaitenerrors.UnprocessableEntity("CreateEntitlement.AiCreditPoolRequiresSum", err.Error())
 	}
 
 	if err := schema.ValidateTypeConfiguration(request.Type, resolvedAggregationMethod); err != nil {

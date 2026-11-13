@@ -56,7 +56,7 @@ func (r *CommandRepository) AcceptEntitlementUsage(ctx context.Context, instance
 		EntitlementID:  entitlementID,
 		Value:          value,
 		OrganizationID: organizationID,
-		PeriodStart:    timestamp(periodStart),
+		PeriodStart:    optionalTimestamp(periodStart),
 	})
 }
 
@@ -79,8 +79,8 @@ func (r *CommandRepository) AppendUsageLedger(ctx context.Context, e LedgerEntry
 		LicenseID:         e.LicenseID,
 		ReportSeq:         e.ReportSeq,
 		ReportedAt:        pgtype.Timestamp{Time: e.ReportedAt, Valid: true},
-		WindowStart:       timestamp(e.WindowStart),
-		WindowEnd:         timestamp(e.WindowEnd),
+		WindowStart:       optionalTimestamp(e.WindowStart),
+		WindowEnd:         optionalTimestamp(e.WindowEnd),
 		Behavior:          db.UsageReportBehavior(e.Behavior),
 		AggregationMethod: db.AggregationMethod(e.AggregationMethod),
 		ReportedValue:     decimalString(e.ReportedValue),
@@ -102,7 +102,7 @@ func decimalString(v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
-func timestamp(t *time.Time) pgtype.Timestamp {
+func optionalTimestamp(t *time.Time) pgtype.Timestamp {
 	if t == nil {
 		return pgtype.Timestamp{}
 	}

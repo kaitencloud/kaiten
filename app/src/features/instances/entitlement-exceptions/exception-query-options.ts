@@ -1,3 +1,4 @@
+import { requireAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import type { QueryClient } from '@tanstack/react-query';
 import {
   getEntitlementsUsageMetricsQueryKey,
@@ -27,4 +28,18 @@ export async function invalidateEntitlementExceptions(
       queryKey: getEntitlementsUsageMetricsQueryKey({ path: { instanceSlug } }),
     }),
   ]);
+}
+
+/** Classify generic targets before mounting an operational AI dialog. */
+export async function requireExceptionAccess(
+  queryClient: QueryClient,
+  instanceSlug: string,
+  exceptionId: string,
+) {
+  const rows = await queryClient.ensureQueryData(
+    entitlementExceptionsQueryOptions(instanceSlug),
+  );
+  const target = rows.find((row) => row.id === exceptionId);
+  if (isAiEntitlement(target?.entitlementType))
+    await requireAiAccess(queryClient);
 }

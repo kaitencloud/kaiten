@@ -338,6 +338,11 @@ api:
   configMountPath: /etc/kaiten
 
   config:
+    # AI rollout authority is the trusted platform-owned ai-credits flag.
+    ai_usage:
+      idempotency_window: 840h
+      reservation_ttl: 10m
+      reservation_max_ttl: 1h
     logging:
       level: warn
       format: json

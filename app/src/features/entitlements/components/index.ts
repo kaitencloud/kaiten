@@ -6,3 +6,4 @@ export {
 } from './entitlement-detail';
 export { EntitlementFormDialog } from './form/entitlement-form-dialog';
 export { EntitlementsPageContent } from './entitlements-page-content';
+export { EntitlementDetailCalculationTab } from './entitlement-detail';

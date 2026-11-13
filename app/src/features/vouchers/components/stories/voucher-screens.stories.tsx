@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import type { RequestHandler } from 'msw';
 import { type ReactNode, Suspense } from 'react';
-import { expect, screen, userEvent, within } from 'storybook/test';
+import { expect, screen, userEvent, waitFor, within } from 'storybook/test';
+import { aiAccessQueryOptions, AI_ACCESS_FRESHNESS_MS } from '@/domains/ai-credits';
 import type { Customer, Entitlement, License, Voucher } from '@/api-client';
 import {
   handleGetBillingCapabilities,
@@ -150,12 +151,21 @@ const handlersFor = (voucher?: Voucher): RequestHandler[] => [
 function Frame({
   children,
   path,
+  aiInputs = { capability: false, flag: false },
 }: {
   children: ReactNode;
   path: string;
+  aiInputs?: { capability: boolean; flag: boolean };
 }) {
   return (
-    <StorybookRouter initialEntries={[path]}>
+    <StorybookRouter
+      initialEntries={[path]}
+      // Synthetic successful inputs for this story only; no live provider/flag calls.
+      seed={(queryClient) => queryClient.setQueryData(aiAccessQueryOptions().queryKey, {
+        enabled: aiInputs.capability === true && aiInputs.flag === true,
+        expiresAt: performance.now() + AI_ACCESS_FRESHNESS_MS,
+      })}
+    >
       <Suspense fallback={null}>{children}</Suspense>
     </StorybookRouter>
   );
@@ -196,7 +206,7 @@ export const WizardKinds: Story = {
 export const WizardBoostOffer: Story = {
   parameters: { msw: { handlers: handlersFor() } },
   render: () => (
-    <Frame path="/catalog/vouchers/new">
+    <Frame path="/catalog/vouchers/new" aiInputs={{ capability: true, flag: true }}>
       <VoucherWizardPage />
     </Frame>
   ),
@@ -215,6 +225,25 @@ export const WizardBoostOffer: Story = {
       option.textContent?.trim(),
     );
     await expect(offered.sort()).toEqual(['AI credits', 'SSO', 'Theme', 'Tokens']);
+  },
+};
+
+// A server capability alone does not enable AI: all ordinary typed choices remain.
+export const WizardBoostOfferWithoutAi: Story = {
+  parameters: { msw: { handlers: handlersFor() } },
+  render: () => (
+    <Frame path="/catalog/vouchers/new" aiInputs={{ capability: true, flag: false }}>
+      <VoucherWizardPage />
+    </Frame>
+  ),
+  play: async () => {
+    await userEvent.click(await screen.findByRole('button', { name: /^Boost/ }));
+    await userEvent.type(await screen.findByLabelText(/^Name/), 'More tokens');
+    await userEvent.click(await nextButton());
+    await userEvent.click(await screen.findByRole('button', { name: /Add a change/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Choose an entitlement/ }));
+    const offered = (await screen.findAllByRole('option')).map((option) => option.textContent?.trim());
+    await expect(offered.sort()).toEqual(['SSO', 'Theme', 'Tokens']);
   },
 };
 
@@ -302,9 +331,11 @@ export const DetailOfABoost: Story = {
     </Frame>
   ),
   play: async () => {
-    await expect(await screen.findByTestId('voucher-summary')).toHaveTextContent(
+    const summary = await screen.findByTestId('voucher-summary');
+    // The voucher arrives before its original entitlement types/names resolve.
+    await waitFor(() => expect(summary).toHaveTextContent(
       'Tokens + 50,000, for one billing period.',
-    );
+    ));
     await expect(
       screen.queryByRole('link', { name: 'Add a boost' }),
     ).not.toBeInTheDocument();

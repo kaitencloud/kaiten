@@ -148,6 +148,9 @@ func (v EntitlementValue) TypeString() string {
 }
 
 type EntitlementUsage struct {
+	Replayed        bool             `json:"-"`
+	Reserved        *string          `json:"reserved,omitempty" doc:"Open, unexpired reserved credits; present only on AI credit pools"`
+	AI              *AiUsageOutcome  `json:"ai,omitempty" doc:"Outcome of this AI report; absent on ordinary reads"`
 	EntitlementID   uuid.UUID        `json:"entitlementId" doc:"Unique identifier for the entitlement" example:"123e4567-e89b-12d3-a456-426614174000"`
 	EntitlementSlug string           `json:"entitlementSlug" doc:"URL-friendly identifier of the entitlement" example:"premium-support"`
 	LicenseID       uuid.UUID        `json:"licenseId" doc:"Unique identifier for the license to which this entitlement usage belongs" example:"123e4567-e89b-12d3-a456-426614174001"`

@@ -27,6 +27,8 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/redeemvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/validatevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
@@ -154,7 +156,8 @@ func TestNewUseIsRefusedBeforeDatabaseOrProvider(t *testing.T) {
 
 // The shared pricing reader also serves legacy checkout reads. It must not
 // require a new-use grant; the fake returns a normal pricing refusal, not one
-// from the plan, without reaching any database.
+// from the plan, without reaching any database. The AI rollout is on here: off,
+// the preview first reads whether the selection carries AI credits.
 type missingPrice struct{ ports.CatalogueSource }
 
 func (missingPrice) Price(context.Context, uuid.UUID, uuid.UUID) (*ports.CataloguePrice, error) {
@@ -163,7 +166,7 @@ func (missingPrice) Price(context.Context, uuid.UUID, uuid.UUID) (*ports.Catalog
 
 func TestExistingCheckoutPricingDoesNotRequireNewUseGrants(t *testing.T) {
 	code := "PROMO"
-	u := subscribeinstance.NewUseCase(access.Deps{Uof: uow.NewUnitOfWork(nil), Catalogue: missingPrice{}}, nil, nil)
+	u := subscribeinstance.NewUseCase(access.Deps{AIPolicy: aiusage.Policy{Flags: aitest.Flags(true)}, Uof: uow.NewUnitOfWork(nil), Catalogue: missingPrice{}}, nil, nil)
 	_, err := u.PreviewActivation(t.Context(), uuid.New(), subscribeinstance.PreviewCommand{VoucherCode: &code, AddOns: []subscribeinstance.SubscriptionAddon{{AddonSlug: "extra"}}})
 	require.Equal(t, "SubscribeInstance.PriceNotFound", apierrors.GetCode(err))
 }

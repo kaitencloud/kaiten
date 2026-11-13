@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations/getintegration"
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations/upsertintegration"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 type UseCases struct {
@@ -34,6 +35,7 @@ func NewUseCases(svc services.Container) *UseCases {
 		// createdeploymentzone constructing createdeployment.NewService
 		// inline): no module threads its UseCases into another's wiring.
 		UpsertIntegration: upsertintegration.NewUseCase(upsertintegration.Deps{
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Uow:          svc.Uof,
 			CustomerCreator: createcustomer.NewUseCase(createcustomer.Deps{
@@ -46,12 +48,14 @@ func NewUseCases(svc services.Container) *UseCases {
 				Uof:          svc.Uof,
 			}),
 			InstanceCreator: createinstance.NewUseCase(createinstance.Deps{
+				AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 				UserProvider:         svc.UserProvider,
 				UsageReporter:        svc.UsageReporter,
 				Uof:                  svc.Uof,
 				MetadataFieldsLister: validator.NewLister(svc.Pool),
 			}),
 			InstanceUpdater: updateinstance.NewUseCase(updateinstance.Deps{
+				AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 				UserProvider:         svc.UserProvider,
 				Uof:                  svc.Uof,
 				MetadataFieldsLister: validator.NewLister(svc.Pool),

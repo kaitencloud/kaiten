@@ -23,6 +23,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/random"
 	"github.com/kaitencloud/kaiten/api/internal/shared/token"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -65,6 +66,7 @@ type PublishableKeyCreated struct {
 
 // Deps is what every key use case needs.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 	// Gate keeps the management of publishable keys behind the billing switch

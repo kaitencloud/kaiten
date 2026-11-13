@@ -33,6 +33,7 @@ func (u *UseCase) Execute(ctx context.Context, sessionID uuid.UUID) (*checkout.C
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	row, err := u.deps.Queries(ctx).GetCheckoutSession(ctx, db.GetCheckoutSessionParams{OrganizationID: user.OrganizationID, ID: sessionID})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, kaitenerrors.NotFoundf("GetCheckoutSessionAdmin.NotFound", "checkout session %s not found", sessionID)

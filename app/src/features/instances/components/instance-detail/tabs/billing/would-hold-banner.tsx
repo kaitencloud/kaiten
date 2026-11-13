@@ -23,7 +23,7 @@ export function WouldHoldBanner({
   wouldHold,
 }: WouldHoldBannerProps) {
   const { t } = useTranslation();
-  const { entitlementsRows } = useInstanceDetail();
+  const { entitlementsRows, canonicalEntitlementsRows } = useInstanceDetail();
 
   if (wouldHold.length === 0) {
     return null;
@@ -33,7 +33,7 @@ export function WouldHoldBanner({
     entitlementId,
     invariant,
   }: InvoicePreview['wouldHold'][number]) {
-    const row = entitlementsRows.find(
+    const row = (canonicalEntitlementsRows ?? entitlementsRows).find(
       (candidate) => candidate.entitlementId === entitlementId,
     );
     const reason = isKnownHoldReason(invariant)

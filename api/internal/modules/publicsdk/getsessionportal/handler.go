@@ -27,6 +27,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	vouchercatalogue "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -157,13 +158,13 @@ type (
 		Execute(ctx context.Context, instanceSlug string) (*rating.InvoicePreview, error)
 	}
 	EntitlementReader interface {
-		Execute(ctx context.Context, instanceSlug string) ([]instanceschema.EntitlementUsage, error)
+		ExecuteWithinOperation(ctx context.Context, instanceSlug string) ([]instanceschema.EntitlementUsage, error)
 	}
 	AddonReader interface {
-		Execute(ctx context.Context, instanceSlug string, includeRemoved bool) ([]addoncatalogue.InstanceAddon, error)
+		ExecuteWithinOperation(ctx context.Context, instanceSlug string, includeRemoved bool) ([]addoncatalogue.InstanceAddon, error)
 	}
 	VoucherReader interface {
-		Execute(ctx context.Context, instanceSlug, status string) ([]vouchercatalogue.Redemption, error)
+		ExecuteWithinOperation(ctx context.Context, instanceSlug, status string) ([]vouchercatalogue.Redemption, error)
 	}
 	CustomerBillingReader interface {
 		Execute(ctx context.Context, customerSlug string) (*getcustomerbilling.CustomerBilling, error)
@@ -172,6 +173,7 @@ type (
 
 // Deps is what the portal reads.
 type Deps struct {
+	AIPolicy        aiusage.Policy
 	Queries         func(ctx context.Context) *db.Queries
 	Catalog         *getpubliccatalog.UseCase
 	Subscription    SubscriptionReader
@@ -190,12 +192,13 @@ func NewUseCase(deps Deps) *UseCase { return &UseCase{deps: deps} }
 // Execute reads the portal of the session's customer, and its instance when
 // the session is bound to one.
 func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session Session) (*SessionPortal, error) {
+	ctx = u.deps.AIPolicy.Resolve(ctx, organizationID)
 	q := u.deps.Queries(ctx)
 	customer, err := q.GetPortalCustomer(ctx, db.GetPortalCustomerParams{OrganizationID: organizationID, ID: session.CustomerID})
 	if err != nil {
 		return nil, err
 	}
-	catalog, err := u.deps.Catalog.Execute(ctx, organizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: false})
+	catalog, err := u.deps.Catalog.ExecuteWithinOperation(ctx, organizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: false})
 	if err != nil {
 		return nil, err
 	}
@@ -269,14 +272,14 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 	if out.Entitlements, err = u.entitlements(ctx, q, organizationID, slug); err != nil {
 		return nil, err
 	}
-	addOns, err := u.deps.AddOns.Execute(ctx, slug, false)
+	addOns, err := u.deps.AddOns.ExecuteWithinOperation(ctx, slug, false)
 	if err != nil {
 		return nil, err
 	}
 	for _, addon := range addOns {
 		out.AddOns = append(out.AddOns, sessions.AddonFrom(addon))
 	}
-	redeemed, err := u.deps.Vouchers.Execute(ctx, slug, "ACTIVE")
+	redeemed, err := u.deps.Vouchers.ExecuteWithinOperation(ctx, slug, "ACTIVE")
 	if err != nil {
 		return nil, err
 	}
@@ -311,7 +314,7 @@ func (u *UseCase) Execute(ctx context.Context, organizationID uuid.UUID, session
 }
 
 func (u *UseCase) entitlements(ctx context.Context, q *db.Queries, organizationID uuid.UUID, instanceSlug string) ([]PortalEntitlement, error) {
-	usages, err := u.deps.Entitlements.Execute(ctx, instanceSlug)
+	usages, err := u.deps.Entitlements.ExecuteWithinOperation(ctx, instanceSlug)
 	if err != nil || len(usages) == 0 {
 		return []PortalEntitlement{}, err
 	}

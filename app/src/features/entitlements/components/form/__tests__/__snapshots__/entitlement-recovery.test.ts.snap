@@ -98,6 +98,11 @@ exports[`the recovery descriptor of the entitlement creation page > stores value
     "userFacing": {
       "type": "boolean",
     },
+    "warningThresholdPercent": {
+      "maximum": 100,
+      "minimum": 0,
+      "type": "integer",
+    },
   },
   "required": [
     "name",

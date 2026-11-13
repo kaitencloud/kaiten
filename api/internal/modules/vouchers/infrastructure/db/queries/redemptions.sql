@@ -113,7 +113,7 @@ LIMIT sqlc.narg(row_limit)::integer;
 
 
 -- name: LockInstanceVoucher :one
-SELECT iv.id, iv.status
+SELECT iv.id, iv.status, iv.voucher_id
 FROM instance_voucher iv
 WHERE iv.organization_id = sqlc.arg(organization_id)
   AND iv.instance_id = sqlc.arg(instance_id)

@@ -34,6 +34,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var updated catalogue.Voucher
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -45,11 +46,66 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 		if err != nil {
 			return err
 		}
-		if draft.VoucherType != stored.VoucherType {
-			return kaitenerrors.Conflict(operation+".NotEditable", "a voucher's type never changes")
-		}
 		if draft.Code == nil {
 			draft.Code = stored.Code
+		}
+		var preserved []string
+		if !u.deps.AIPolicy.Enabled(ctx) {
+			// Hidden omissions are not deletions. Exact echoes are preservation, but
+			// changed AI grants are refused before UpdateVoucher or grant replacement.
+			draft.Grants = slices.Clone(draft.Grants)
+			for _, old := range stored.Grants {
+				if old.EntitlementType != "NUMBER_AI_CREDIT" {
+					continue
+				}
+				matched := false
+				for i, requested := range draft.Grants {
+					if requested.EntitlementSlug != old.EntitlementSlug {
+						continue
+					}
+					sameModifier := old.ModifierValue == nil && requested.ModifierValue == nil
+					if old.ModifierValue != nil && requested.ModifierValue != nil {
+						x, e1 := decimal.NewFromString(*old.ModifierValue)
+						y, e2 := decimal.NewFromString(*requested.ModifierValue)
+						sameModifier = e1 == nil && e2 == nil && x.Equal(y)
+					}
+					if requested.ModifierType != old.ModifierType || !sameModifier || !sameJSON(requested.Value, old.Value) {
+						return u.deps.AIPolicy.RequireEnabled(ctx)
+					}
+					draft.Grants[i] = old
+					matched = true
+				}
+				if !matched {
+					draft.Grants = append(draft.Grants, old)
+				}
+				preserved = append(preserved, old.EntitlementSlug)
+			}
+			refs, err := q.VoucherAIPriceReferences(ctx, db.VoucherAIPriceReferencesParams{OrganizationID: user.OrganizationID, LicensePriceIds: stored.ApplicableLicensePriceIDs, AddonPriceIds: stored.ApplicableAddonPriceIDs})
+			if err != nil {
+				return err
+			}
+			draft.ApplicableLicensePriceIDs = slices.Clone(draft.ApplicableLicensePriceIDs)
+			draft.ApplicableAddonPriceIDs = slices.Clone(draft.ApplicableAddonPriceIDs)
+			for _, ref := range refs {
+				if ref.Addon {
+					if !slices.Contains(draft.ApplicableAddonPriceIDs, ref.ID) {
+						draft.ApplicableAddonPriceIDs = append(draft.ApplicableAddonPriceIDs, ref.ID)
+					}
+				} else {
+					if !slices.Contains(draft.ApplicableLicensePriceIDs, ref.ID) {
+						draft.ApplicableLicensePriceIDs = append(draft.ApplicableLicensePriceIDs, ref.ID)
+					}
+				}
+			}
+			if err := requireUnchangedAIBehavior(stored, draft, len(preserved) > 0, len(refs) > 0); err != nil {
+				return err
+			}
+		}
+		if err := catalogue.CheckDraftOperational(ctx, q, user.OrganizationID, u.deps.AIPolicy, draft, preserved, stored.ApplicableLicensePriceIDs, stored.ApplicableAddonPriceIDs); err != nil {
+			return err
+		}
+		if draft.VoucherType != stored.VoucherType {
+			return kaitenerrors.Conflict(operation+".NotEditable", "a voucher's type never changes")
 		}
 		switch locked.Status {
 		case db.VoucherStatusDRAFT:
@@ -88,7 +144,7 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 			return err
 		}
 		if locked.Status == db.VoucherStatusDRAFT {
-			if err := catalogue.WriteGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.Grants, resolved.Entitlements); err != nil {
+			if err := catalogue.WriteOperationalGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.Grants, resolved.Entitlements, !u.deps.AIPolicy.Enabled(ctx)); err != nil {
 				return err
 			}
 			if err := catalogue.WriteFlagGrants(ctx, q, operation, user.OrganizationID, voucherID, draft.VoucherType, draft.FlagGrants, resolved.Flags); err != nil {
@@ -99,7 +155,15 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalo
 		if err != nil {
 			return err
 		}
-		return catalogue.Announce(ctx, u.outbox, user.OrganizationID, events.VoucherUpdated, updated)
+		if err := catalogue.Announce(ctx, u.outbox, user.OrganizationID, events.VoucherUpdated, updated); err != nil {
+			return err
+		}
+		visible, err := catalogue.VisibleVoucher(ctx, q, user.OrganizationID, u.deps.AIPolicy, updated)
+		if err != nil {
+			return err
+		}
+		updated = visible
+		return nil
 	})
 	if err != nil {
 		return nil, err

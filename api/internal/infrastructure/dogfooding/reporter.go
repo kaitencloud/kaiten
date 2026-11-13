@@ -20,10 +20,10 @@ import (
 )
 
 const (
-	openFeatureDomain  = "dogfooding"
-	IsKaitenFlagKey    = "is-kaiten"
-	evaluationTimeout  = 5 * time.Second
-	usageReportTimeout = 10 * time.Second
+	openFeatureDomainPrefix = "dogfooding"
+	IsKaitenFlagKey         = "is-kaiten"
+	evaluationTimeout       = 5 * time.Second
+	usageReportTimeout      = 10 * time.Second
 )
 
 // ErrThresholdExceeded signals that the entitlement usage limit has been reached.
@@ -88,7 +88,10 @@ func validateConfig(cfg Config) error {
 	return err
 }
 
-func newClient(cfg Config, serviceToken string) (*client, error) {
+func newClient(cfg Config, serviceToken, domain string) (*client, error) {
+	if strings.TrimSpace(domain) == "" {
+		return nil, fmt.Errorf("dogfooding provider domain is required")
+	}
 	if err := validateConfig(cfg); err != nil {
 		return nil, err
 	}
@@ -128,13 +131,13 @@ func newClient(cfg Config, serviceToken string) (*client, error) {
 		ofrep.WithClient(httpClient),
 		ofrep.WithBearerToken(serviceToken),
 	)
-	if err := ofsdk.SetNamedProviderAndWait(openFeatureDomain, provider); err != nil {
+	if err := ofsdk.SetNamedProviderAndWait(domain, provider); err != nil {
 		return nil, fmt.Errorf("init dogfooding OFREP provider: %w", err)
 	}
 
 	return &client{
 		sdkClient:             sdkClient,
-		ofClient:              ofsdk.NewClient(openFeatureDomain),
+		ofClient:              ofsdk.NewClient(domain),
 		kaitenOrgID:           kaitenOrgID,
 		checkSelfEntitlements: cfg.CheckSelfEntitlements,
 	}, nil

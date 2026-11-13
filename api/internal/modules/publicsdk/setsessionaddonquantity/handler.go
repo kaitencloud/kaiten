@@ -30,6 +30,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/getpubliccatalog"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -48,20 +49,21 @@ type Session struct {
 // The add-ons module's operations, through ports this module owns.
 type (
 	Lister interface {
-		Execute(ctx context.Context, instanceSlug string, includeRemoved bool) ([]addoncatalogue.InstanceAddon, error)
+		ExecuteWithinOperation(ctx context.Context, instanceSlug string, includeRemoved bool) ([]addoncatalogue.InstanceAddon, error)
 	}
 	Attacher interface {
-		Execute(ctx context.Context, instanceSlug string, command attachinstanceaddon.NewInstanceAddon) (*addoncatalogue.InstanceAddon, error)
+		ExecuteWithinOperation(ctx context.Context, instanceSlug string, command attachinstanceaddon.NewInstanceAddon) (*addoncatalogue.InstanceAddon, error)
 	}
 	// QuantitySetter is the customer's quantity write on a held add-on,
 	// removal included.
 	QuantitySetter interface {
-		SetForCustomer(ctx context.Context, instanceSlug, addonSlug string, quantity int32) (*setinstanceaddonquantity.CustomerChange, error)
+		SetForCustomerWithinOperation(ctx context.Context, instanceSlug, addonSlug string, quantity int32) (*setinstanceaddonquantity.CustomerChange, error)
 	}
 )
 
 // Deps is what the operation needs.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Catalog      *getpubliccatalog.UseCase
 	List         Lister
@@ -80,12 +82,13 @@ func (u *UseCase) Execute(ctx context.Context, session Session, addonSlug string
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	if session.InstanceSlug == nil {
 		return nil, kaitenerrors.UnprocessableEntity(operation+".InstanceRequired",
 			"add-ons are held by one instance: mint the session with an instanceSlug")
 	}
 	instanceSlug := *session.InstanceSlug
-	catalog, err := u.deps.Catalog.Execute(ctx, user.OrganizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true})
+	catalog, err := u.deps.Catalog.ExecuteWithinOperation(ctx, user.OrganizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true})
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +96,7 @@ func (u *UseCase) Execute(ctx context.Context, session Session, addonSlug string
 	// A concurrent attach can land between the read and the write; the
 	// second look sees it and answers as if it had been there.
 	for attempt := 0; ; attempt++ {
-		held, err := u.deps.List.Execute(ctx, instanceSlug, false)
+		held, err := u.deps.List.ExecuteWithinOperation(ctx, instanceSlug, false)
 		if err != nil {
 			return nil, err
 		}
@@ -115,7 +118,7 @@ func (u *UseCase) set(ctx context.Context, catalog *getpubliccatalog.PublicCatal
 		if !publicFamily(catalog, current.FamilySlug) {
 			return nil, notPublic(addonSlug)
 		}
-		changed, err := u.deps.SetQuantity.SetForCustomer(ctx, instanceSlug, addonSlug, quantity)
+		changed, err := u.deps.SetQuantity.SetForCustomerWithinOperation(ctx, instanceSlug, addonSlug, quantity)
 		if err != nil {
 			return nil, err
 		}
@@ -141,7 +144,7 @@ func (u *UseCase) set(ctx context.Context, catalog *getpubliccatalog.PublicCatal
 			MaxQuantity: public.MaxQuantity, Prices: public.Prices,
 		}, nil
 	}
-	attached, err := u.deps.Attach.Execute(ctx, instanceSlug, attachinstanceaddon.NewInstanceAddon{AddonSlug: addonSlug, Quantity: quantity})
+	attached, err := u.deps.Attach.ExecuteWithinOperation(ctx, instanceSlug, attachinstanceaddon.NewInstanceAddon{AddonSlug: addonSlug, Quantity: quantity})
 	if err != nil {
 		return nil, err
 	}

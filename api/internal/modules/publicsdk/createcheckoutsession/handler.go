@@ -37,6 +37,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/telemetry"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/random"
 	"github.com/kaitencloud/kaiten/api/internal/shared/token"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
@@ -49,11 +50,12 @@ const tokenBodyLength = 43
 
 // Activation prices a subscription with no instance yet.
 type Activation interface {
-	PreviewActivation(ctx context.Context, organizationID uuid.UUID, cmd subscribeinstance.PreviewCommand) (*subscribeinstance.ActivationPreview, error)
+	PreviewActivationWithinOperation(ctx context.Context, organizationID uuid.UUID, cmd subscribeinstance.PreviewCommand) (*subscribeinstance.ActivationPreview, error)
 }
 
 // Deps is what the start reads and writes.
 type Deps struct {
+	AIPolicy   aiusage.Policy
 	Gate       gate.Gate
 	Uof        *uow.UnitOfWork
 	Catalog    *getpubliccatalog.UseCase
@@ -99,6 +101,7 @@ func (u *UseCase) authorizeStart(ctx context.Context, start Start, draft checkou
 
 // Execute starts a checkout, or previews one with dryRun.
 func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.CheckoutSessionDraft) (*checkout.CheckoutSessionStart, error) {
+	ctx = u.deps.AIPolicy.Resolve(ctx, start.OrganizationID)
 	q := db.New(u.deps.Uof.DBTX(ctx))
 	key, err := q.GetPublishableKeyCheckout(ctx, db.GetPublishableKeyCheckoutParams{OrganizationID: start.OrganizationID, ID: start.PublishableKeyID})
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -114,7 +117,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 		return nil, err
 	}
 
-	catalog, err := u.deps.Catalog.Execute(ctx, start.OrganizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true, PublishableKeyID: nil})
+	catalog, err := u.deps.Catalog.ExecuteWithinOperation(ctx, start.OrganizationID, getpubliccatalog.Query{FamilySlug: nil, IncludeAddOns: true, PublishableKeyID: nil})
 	if err != nil {
 		return nil, err
 	}
@@ -183,7 +186,7 @@ func (u *UseCase) Execute(ctx context.Context, start Start, draft checkout.Check
 		}
 	}
 
-	preview, err := u.deps.Activation.PreviewActivation(ctx, start.OrganizationID, subscribeinstance.PreviewCommand{
+	preview, err := u.deps.Activation.PreviewActivationWithinOperation(ctx, start.OrganizationID, subscribeinstance.PreviewCommand{
 		BasePriceID: priceID, AddOns: draft.AddOns, TrialDays: trialDays, VoucherCode: pricedCode,
 	})
 	if err != nil {

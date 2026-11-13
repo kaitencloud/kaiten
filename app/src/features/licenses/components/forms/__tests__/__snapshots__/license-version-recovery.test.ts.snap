@@ -11,6 +11,9 @@ exports[`the recovery descriptor of a new license version > stores values of the
     "baseVersion": {
       "type": "string",
     },
+    "copyAiRules": {
+      "type": "boolean",
+    },
     "copyPrices": {
       "type": "boolean",
     },

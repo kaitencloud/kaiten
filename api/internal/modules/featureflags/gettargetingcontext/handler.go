@@ -7,12 +7,14 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/common"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container. EntitlementCatalogue is the entitlements module's
 // read port, the same one the write path lints slugs against.
 type Deps struct {
+	AIPolicy             aiusage.Policy
 	UserProvider         currentuser.Provider
 	EntitlementCatalogue catalogue.Port
 }
@@ -38,6 +40,7 @@ func (h *UseCase) Execute(ctx context.Context) ([]featureflag.TargetingContextNo
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	known := common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)
 

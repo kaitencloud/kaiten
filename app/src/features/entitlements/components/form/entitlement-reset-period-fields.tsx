@@ -110,6 +110,22 @@ export function EntitlementResetPeriodFields({
       value,
     }));
 
+  if (locked && entitlement?.type === 'NUMBER_AI_CREDIT')
+    return (
+      <div className="space-y-2 text-sm">
+        <p>
+          {t(`Pages.Entitlements.ResetPeriods.${entitlement.resetPeriod}`)} ·{' '}
+          {t(
+            `Pages.Entitlements.ResetAnchors.${entitlement.resetAnchor ?? 'CALENDAR'}`,
+          )}{' '}
+          · {t('AI.Minimal.fixed')}
+        </p>
+        {entitlement.resetAnchor === BILLING_PERIOD ? (
+          <BillingPeriodHint />
+        ) : null}
+      </div>
+    );
+
   return (
     <form.Subscribe
       selector={(state: any) => state.values.aggregationMethod as string}

@@ -8,6 +8,6 @@ import "context"
 // started, and a PRICE voucher applies from the ACTIVATION invoice composed
 // next.
 func (u *UseCase) RedeemForSubscription(ctx context.Context, instanceSlug, code string) error {
-	_, err := u.Execute(ctx, instanceSlug, code)
+	_, err := u.ExecuteWithinOperation(ctx, instanceSlug, code)
 	return err
 }

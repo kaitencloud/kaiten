@@ -1,3 +1,5 @@
+import { useAiAccess } from '@/domains/ai-credits';
+import { assertCopiableGrants } from '../utils/ai-grant-preflight';
 import { useMutation } from '@tanstack/react-query';
 import { useCallback, useMemo } from 'react';
 import type { Entitlement, License, LicenseWritable } from '@/api-client';
@@ -101,6 +103,7 @@ function useAttachDraftEntitlements(entitlements: Entitlement[]) {
 }
 
 export const useLicenseSave = (entitlements: Entitlement[]) => {
+  const access = useAiAccess();
   const attachDraftEntitlements = useAttachDraftEntitlements(entitlements);
   const { mutateAsync: createLicense } = useMutation({
     ...createLicenseMutation(),
@@ -121,6 +124,7 @@ export const useLicenseSave = (entitlements: Entitlement[]) => {
       body,
       draftEntitlements,
     }: CreateLicenseWithGrantsOptions): Promise<CreateLicenseWithGrantsResult> => {
+      assertCopiableGrants(draftEntitlements, entitlements, access.available);
       const license = await createLicense({
         body: { ...body, lifecycleState: 'DRAFT' },
       });
@@ -140,7 +144,13 @@ export const useLicenseSave = (entitlements: Entitlement[]) => {
         return { error, license };
       }
     },
-    [attachDraftEntitlements, createLicense, publishLicense],
+    [
+      access.available,
+      entitlements,
+      attachDraftEntitlements,
+      createLicense,
+      publishLicense,
+    ],
   );
 
   return {

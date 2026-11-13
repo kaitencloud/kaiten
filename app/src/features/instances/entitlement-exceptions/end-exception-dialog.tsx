@@ -1,3 +1,8 @@
+import {
+  assertAiRequestAllowed,
+  useAiAccess,
+  isAiEntitlement,
+} from '@/domains/ai-credits';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { revokeEntitlementExceptionMutation } from '@/api-client/@tanstack/react-query.gen';
@@ -28,6 +33,7 @@ export function EndExceptionDialog({
   const { instance } = useInstanceDetail();
   const instanceSlug = instance.slug ?? instance.id;
   const access = useGrantedScopes();
+  const aiAccess = useAiAccess();
   const queryClient = useQueryClient();
   const allowed =
     !access.isPending &&
@@ -42,9 +48,19 @@ export function EndExceptionDialog({
         hasScope(access.scopes, scope),
       ),
   });
-  const exception = exceptions.data?.find((row) => row.id === exceptionId);
+  const target = exceptions.data?.find((row) => row.id === exceptionId);
+  const exception =
+    target && (aiAccess.available || !isAiEntitlement(target.entitlementType))
+      ? target
+      : undefined;
+  const revoke = revokeEntitlementExceptionMutation();
   const mutation = useMutation({
-    ...revokeEntitlementExceptionMutation(),
+    ...revoke,
+    mutationFn: (variables, context) => {
+      if (isAiEntitlement(target?.entitlementType))
+        assertAiRequestAllowed(queryClient);
+      return revoke.mutationFn!(variables, context);
+    },
     onSuccess: async () => {
       await invalidateEntitlementExceptions(queryClient, instanceSlug);
       onClose();

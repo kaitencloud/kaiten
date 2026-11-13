@@ -10,20 +10,29 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
 type QueryRepository struct {
+	policy     aiusage.Policy
 	repository *db.Queries
 }
 
-func NewQueryRepository(repository *db.Queries) *QueryRepository {
+func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
 	return &QueryRepository{
+		policy:     policy,
 		repository: repository,
 	}
 }
 
 func (r *QueryRepository) GetEntitlements(ctx context.Context, organizationID uuid.UUID, limitPlusOne int32, cursor *pagination.CreatedAtCursor) ([]*schema.Entitlement, error) {
+	ctx = r.policy.ForOrganization(ctx, organizationID)
+
 	var (
 		cursorCreatedAt pgtype.Timestamp
 		cursorID        *uuid.UUID
@@ -34,6 +43,7 @@ func (r *QueryRepository) GetEntitlements(ctx context.Context, organizationID uu
 	}
 
 	entitlements, err := r.repository.GetEntitlementsByCursor(ctx, db.GetEntitlementsByCursorParams{
+		HideAi:          !r.policy.Enabled(ctx),
 		OrganizationID:  organizationID,
 		CursorCreatedAt: cursorCreatedAt,
 		CursorID:        cursorID,

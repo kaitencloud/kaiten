@@ -364,10 +364,27 @@ func countAll(_ context.Context, refusal error, count func() (int32, error), wan
 
 // WriteGrants replaces a voucher's grants.
 func WriteGrants(ctx context.Context, q *db.Queries, operation string, organizationID, voucherID uuid.UUID, voucherType string, grants []Grant, entitlements []uuid.UUID) error {
-	if err := q.DeleteVoucherGrants(ctx, db.DeleteVoucherGrantsParams{OrganizationID: organizationID, VoucherID: voucherID}); err != nil {
-		return err
+	return writeGrants(ctx, q, operation, organizationID, voucherID, voucherType, grants, entitlements, false)
+}
+
+func WriteOperationalGrants(ctx context.Context, q *db.Queries, operation string, organizationID, voucherID uuid.UUID, voucherType string, grants []Grant, entitlements []uuid.UUID, preserveAI bool) error {
+	return writeGrants(ctx, q, operation, organizationID, voucherID, voucherType, grants, entitlements, preserveAI)
+}
+
+func writeGrants(ctx context.Context, q *db.Queries, operation string, organizationID, voucherID uuid.UUID, voucherType string, grants []Grant, entitlements []uuid.UUID, preserveAI bool) error {
+	if preserveAI {
+		if err := q.DeleteOrdinaryVoucherGrants(ctx, db.DeleteOrdinaryVoucherGrantsParams{OrganizationID: organizationID, VoucherID: voucherID}); err != nil {
+			return err
+		}
+	} else {
+		if err := q.DeleteVoucherGrants(ctx, db.DeleteVoucherGrantsParams{OrganizationID: organizationID, VoucherID: voucherID}); err != nil {
+			return err
+		}
 	}
 	for i, grant := range grants {
+		if preserveAI && grant.EntitlementType == "NUMBER_AI_CREDIT" {
+			continue
+		}
 		if err := q.InsertVoucherGrant(ctx, db.InsertVoucherGrantParams{
 			OrganizationID: organizationID, VoucherID: voucherID, VoucherType: db.VoucherType(voucherType), EntitlementID: entitlements[i],
 			ModifierType: db.BoostModifierType(grant.ModifierType), ModifierValue: grant.ModifierValue, Value: bytes.TrimSpace(grant.Value),

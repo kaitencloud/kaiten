@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
+import { getUsageStatus } from '@/domains/entitlement-usage';
+import { findHistoryRow } from '../usage-history.utils';
 import {
   buildEntitlementsRows,
   getEntitlementsMetrics,
@@ -30,35 +32,70 @@ const createSoftLimitEntitlement = (partial: Partial<InstanceEntitlementRow>) =>
   createEntitlement({ limitCapExceededOveragePercent: 20, ...partial });
 
 describe('instance-detail-entitlements utils', () => {
-  // The grant's own type has no AI-credit variant, so the row keeps what the
-  // catalogue calls it for the label, while enforcement stays on NUMBER.
-  it('keeps what the catalogue calls an AI-credit grant', () => {
-    const rows = buildEntitlementsRows(
-      [
-        {
-          entitlementName: 'AI Credits',
-          entitlementSlug: 'ai-credits',
-          entitlementType: 'NUMBER',
-          value: { type: 'number', value: 1000 },
-        },
-      ] as never,
-      [],
+  it('keeps AI definition identity from the grant when catalogue data is unavailable', () => {
+    const [row] = buildEntitlementsRows(
+      [{ entitlementName: 'AI Credits', entitlementSlug: 'ai-credits', entitlementType: 'NUMBER_AI_CREDIT', value: { type: 'number', value: 1000 } }] as never,
+      [{ entitlementSlug: 'ai-credits', value: { type: 'number', value: 0.99 }, limit: { type: 'number', value: 1000 } }] as never,
       'Unknown',
-      [
-        {
-          id: 'ent-ai',
-          name: 'AI Credits',
-          slug: 'ai-credits',
-          type: 'NUMBER_AI_CREDIT',
-        },
-      ] as never,
     );
-
-    expect(rows[0]).toMatchObject({
-      catalogueEntitlementType: 'NUMBER_AI_CREDIT',
-      entitlementType: 'NUMBER',
-    });
+    expect(row).toMatchObject({ entitlementType: 'NUMBER', catalogueEntitlementType: 'NUMBER_AI_CREDIT', value: 0.99, threshold: 1000 });
+    expect(findHistoryRow([row], 'ai-credits')).toBe(row);
   });
+  // Cover both legacy normalized grants and the actual AI-credit wire type.
+  it.each(['NUMBER', 'NUMBER_AI_CREDIT'] as const)(
+    'normalizes the %s wire grant while keeping its AI-credit catalogue label',
+    (entitlementType) => {
+      const rows = buildEntitlementsRows(
+        [
+          {
+            entitlementName: 'AI Credits',
+            entitlementSlug: 'ai-credits',
+            entitlementType,
+            value: { type: 'number', value: 1000 },
+          },
+        ] as never,
+        [
+          {
+            entitlementId: 'ent-ai',
+            entitlementSlug: 'ai-credits',
+            value: { type: 'number', value: 0.99 },
+            limit: { type: 'number', value: 1000 },
+            limitCapExceededOveragePercent: 0,
+            currentPeriodStart: '2026-10-01T00:00:00Z',
+            currentPeriodEnd: '2026-11-01T00:00:00Z',
+          },
+        ] as never,
+        'Unknown',
+        [
+          {
+            id: 'ent-ai',
+            name: 'AI Credits',
+            slug: 'ai-credits',
+            type: 'NUMBER_AI_CREDIT',
+          },
+        ] as never,
+      );
+
+      expect(rows[0]).toMatchObject({
+        catalogueEntitlementType: 'NUMBER_AI_CREDIT',
+        entitlementType: 'NUMBER',
+        value: 0.99,
+        threshold: 1000,
+        limitCapExceededOveragePercent: 0,
+        currentPeriodStart: '2026-10-01T00:00:00Z',
+        currentPeriodEnd: '2026-11-01T00:00:00Z',
+      });
+      expect(
+        getUsageStatus(
+          rows[0].value,
+          rows[0].threshold,
+          rows[0].limitCapExceededOveragePercent,
+        ),
+      ).toBe('HEALTHY');
+      expect(findHistoryRow(rows, 'ai-credits')).toBe(rows[0]);
+      expect(isEntitlementExhausted(rows[0])).toBe(false);
+    },
+  );
 
   // An add-on adds to what the license grants, and the API composes the cap the
   // usage is measured against: it is the one the row shows.

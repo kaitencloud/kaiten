@@ -1,3 +1,4 @@
+import { isAiEntitlement } from '@/domains/ai-credits';
 import type { EntitlementWritable } from '@/api-client';
 import { getEntitlement, updateEntitlement } from '@/api-client';
 import { FRESH_READ_OPTIONS, writeOnFresh } from '@/lib/api/fresh-write';
@@ -18,11 +19,15 @@ export type SaveEntitlementVariables = {
  * is read again and the form's changes are applied on top of it (`writeOnFresh`).
  * An entitlement deleted meanwhile is refused by the read, and nothing is written.
  */
-export function saveEntitlementOnFresh({
-  edited,
-  entitlementSlug,
-  opened,
-}: SaveEntitlementVariables) {
+export function saveEntitlementOnFresh(
+  { edited, entitlementSlug, opened }: SaveEntitlementVariables,
+  aiAvailable = false,
+) {
+  if (
+    !aiAvailable &&
+    (isAiEntitlement(opened.type) || isAiEntitlement(edited.type))
+  )
+    throw new Error('AIUsage.Disabled');
   return writeOnFresh({
     edited,
     opened,
@@ -33,6 +38,8 @@ export function saveEntitlementOnFresh({
         throwOnError: true,
       });
 
+      if (!aiAvailable && isAiEntitlement(data.type))
+        throw new Error('AIUsage.Disabled');
       return data;
     },
     restate: (entitlement) => entitlementToUpdateBody(entitlement),

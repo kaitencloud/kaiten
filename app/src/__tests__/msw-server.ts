@@ -1,3 +1,4 @@
+import { http, HttpResponse } from 'msw/http';
 import { setupServer } from 'msw/node';
 import { handleGetBillingCapabilities } from '@/api-client/msw.gen';
 import { billingCapabilitiesProfiles } from '../../e2e/app/_support/model/billing-capabilities';
@@ -20,6 +21,7 @@ import { graphqlOperationHandler } from '../e2e/msw/handler-factory';
  * `msw-setup.ts` drops them after each test.
  */
 export const server = setupServer(
+  http.get('*/ai/capabilities', () => HttpResponse.json({ enabled: false }, { headers: { 'Cache-Control': 'no-store' } })),
   handleGetBillingCapabilities({
     body: billingCapabilitiesProfiles.disabled(),
   }),

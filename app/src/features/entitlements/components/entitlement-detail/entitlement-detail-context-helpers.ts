@@ -9,6 +9,7 @@ import {
   getUsageRatio,
   getUsageStatus,
 } from '@/domains/entitlement-usage';
+import { isNumberFamily } from '../../utils/entitlement-writable';
 import type {
   BucketKey,
   EnrichedUsage,
@@ -45,7 +46,7 @@ export function getBucketKey(ratio: number | null): BucketKey {
 }
 
 export function getNumberThreshold(mapping: LicenseEntitlement) {
-  if (mapping.entitlementType !== 'NUMBER') {
+  if (!isNumberFamily(mapping.entitlementType)) {
     return null;
   }
 

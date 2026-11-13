@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { ReactNode } from 'react';
+import { type ReactNode, Suspense } from 'react';
 import { expect, fn, screen } from 'storybook/test';
 import type { Customer } from '@/api-client';
 import {
@@ -14,6 +14,8 @@ import {
 } from '@/test-fixtures/storybook-billing-fixtures';
 import { storyCustomers } from '@/test-fixtures/storybook-fixtures';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
+import { instanceDetailHandlers } from '@/test-fixtures/storybook-handlers';
+import { InstanceDetailProvider } from '../instance-detail/instance-detail-context';
 import { SubscribeInstanceForm } from '../instance-detail/tabs/billing/subscribe/subscribe-instance-form';
 import { SubscribedState } from '../instance-detail/tabs/billing/subscribe/subscribed-state';
 
@@ -23,6 +25,7 @@ const meta = {
     layout: 'fullscreen',
     msw: {
       handlers: [
+        ...instanceDetailHandlers,
         handleGetBillingSettings({
           body: {
             defaultCollectionMethod: 'SEND_INVOICE',
@@ -82,14 +85,18 @@ const form = (
   billingEmail?: string,
   defaultTrialDays?: number,
 ) => (
-  <SubscribeInstanceForm
-    customer={customer(billingEmail)}
-    defaultTrialDays={defaultTrialDays}
-    instanceSlug="acme-production"
-    onCancel={fn()}
-    onSubscribed={fn()}
-    prices={prices}
-  />
+  <Suspense fallback={null}>
+    <InstanceDetailProvider instanceId="acme-production">
+      <SubscribeInstanceForm
+        customer={customer(billingEmail)}
+        defaultTrialDays={defaultTrialDays}
+        instanceSlug="acme-production"
+        onCancel={fn()}
+        onSubscribed={fn()}
+        prices={prices}
+      />
+    </InstanceDetailProvider>
+  </Suspense>
 );
 
 // The price to pin the subscription to, the default first, the payment terms and
@@ -134,6 +141,7 @@ export const WithATrial: Story = {
   parameters: {
     msw: {
       handlers: [
+        ...instanceDetailHandlers,
         settingsHandler,
         handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
       ],

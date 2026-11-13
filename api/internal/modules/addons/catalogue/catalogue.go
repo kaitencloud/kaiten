@@ -21,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
@@ -28,6 +29,7 @@ import (
 
 // Deps is what every add-on use case needs.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 	// Gate keeps add-ons behind the billing switch.

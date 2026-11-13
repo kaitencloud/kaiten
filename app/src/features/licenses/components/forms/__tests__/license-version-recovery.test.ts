@@ -22,6 +22,7 @@ describe('the recovery descriptor of a new license version', () => {
     expect(Object.keys(licenseVersionRecovery.fieldLabels).sort()).toEqual([
       'baseLicenseSlug',
       'baseVersion',
+      'copyAiRules',
       'copyPrices',
       'createAsDraft',
       'description',

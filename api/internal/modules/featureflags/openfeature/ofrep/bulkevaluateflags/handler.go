@@ -19,6 +19,7 @@ import (
 	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/flaggrants"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/dogfoodingctx"
 )
@@ -29,9 +30,13 @@ import (
 // this handler never imports another module's generated db package
 // directly.
 type Deps struct {
-	UserProvider  currentuser.Provider
-	Queries       *db.Queries
-	UsageReporter services.UsageReporter
+	AIPolicy aiusage.Policy
+	// ClosedCustomerFacts excludes AI facts when this organization is the
+	// trusted rollout source. Source evaluation must never resolve itself.
+	ClosedCustomerFacts customertargetingfacts.Port
+	UserProvider        currentuser.Provider
+	Queries             *db.Queries
+	UsageReporter       services.UsageReporter
 	// PlatformOrgID is the organization kaiten runs itself on
 	// (config.Config.Metered.ResolvePlatformOrgID). A caller authenticated as it is
 	// making a platform-internal evaluation; uuid.Nil means none is
@@ -77,6 +82,7 @@ func (h *UseCase) Execute(ctx context.Context, ofrepContext ofrep.Context) []Fla
 	// anyone holding read:feature_flags exempt itself from both billing and the
 	// audit trail by sending it.
 	internal := dogfoodingctx.IsInternal(user.OrganizationID, h.deps.PlatformOrgID)
+	ctx, customerFacts := h.operationFacts(ctx, user.OrganizationID)
 
 	if !internal {
 		h.deps.UsageReporter.TrackAsync(user.OrganizationID, dogfooding.FeatureFlagEvaluatedEntitlementSlug)
@@ -92,11 +98,11 @@ func (h *UseCase) Execute(ctx context.Context, ofrepContext ofrep.Context) []Fla
 	// client supplied.
 	// The subject is the instance kaiten.instanceSlug names, else the
 	// targeting key's customer's oldest instance (§7.4 rule 5).
-	subject := ofrep.EnrichWithServerFacts(ctx, h.deps.CustomerFacts, h.deps.InstanceFacts, user.OrganizationID, &evaluationContext)
+	subject := ofrep.EnrichWithServerFacts(ctx, customerFacts, h.deps.InstanceFacts, user.OrganizationID, &evaluationContext)
 	// Which instance, if any, is asking — read from the caller-supplied
 	// kaiten.instanceSlug/kaiten.instanceId input, never from targetingKey
 	// (already claimed above for customer-slug resolution).
-	ofrep.EnrichWithInstanceFacts(ctx, h.deps.InstanceFacts, h.deps.CustomerFacts, h.deps.DeploymentZoneFacts, user.OrganizationID, &evaluationContext)
+	ofrep.EnrichWithInstanceFacts(ctx, h.deps.InstanceFacts, customerFacts, h.deps.DeploymentZoneFacts, user.OrganizationID, &evaluationContext)
 
 	var flags []schema.FeatureFlag
 	rawFlags, hasFlags := ofrepContext["flags"]
@@ -158,4 +164,13 @@ func (h *UseCase) Execute(ctx context.Context, ofrepContext ofrep.Context) []Fla
 	wg.Wait()
 
 	return results
+}
+
+// operationFacts closes the trusted source's AI-facts dependency cycle. The
+// UUID comes from authenticated identity and operator wiring, not OFREP inputs.
+func (h *UseCase) operationFacts(ctx context.Context, organizationID uuid.UUID) (context.Context, customertargetingfacts.Port) {
+	if dogfoodingctx.IsInternal(organizationID, h.deps.PlatformOrgID) {
+		return ctx, h.deps.ClosedCustomerFacts
+	}
+	return h.deps.AIPolicy.Resolve(ctx, organizationID), h.deps.CustomerFacts
 }

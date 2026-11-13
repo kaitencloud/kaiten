@@ -21,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/integrations/adapter"
 	integrationschema "github.com/kaitencloud/kaiten/api/internal/modules/integrations/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/integrationurl"
 	"github.com/kaitencloud/kaiten/api/internal/shared/patchutil"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
@@ -34,6 +35,7 @@ import (
 // customers, the exact rejection event) their own modules' direct-create
 // paths use.
 type Deps struct {
+	AIPolicy        aiusage.Policy
 	UserProvider    currentuser.Provider
 	Uow             *uow.UnitOfWork
 	CustomerCreator CustomerCreator
@@ -345,6 +347,10 @@ func (h *UseCase) UpsertInstance(ctx context.Context, adapterName, externalID st
 		}, nil
 	}
 
+	// Create resolves in its standalone use case. Updates must resolve before
+	// this parent transaction, then pass the snapshot to the composed updater.
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+
 	var response *integrationschema.InstanceIntegrationResource
 	var resourceChanged bool
 
@@ -435,7 +441,7 @@ func (h *UseCase) UpsertInstance(ctx context.Context, adapterName, externalID st
 		integration := current.Integration
 		var updatedInstance *instanceschema.Instance
 		if resourceChanged {
-			updatedInstance, err = h.deps.InstanceUpdater.Execute(ctx, &updateinstance.Command{
+			updatedInstance, err = h.deps.InstanceUpdater.ExecuteWithinOperation(ctx, &updateinstance.Command{
 				Name:             resolvedName,
 				Description:      resolvedDescription,
 				CustomerID:       resolvedCustomerID,

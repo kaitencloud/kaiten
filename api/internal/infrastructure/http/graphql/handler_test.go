@@ -625,6 +625,21 @@ var legitimateVariables = map[string]map[string]any{
 // (tests/integrations/graphql/instance_entitlement_usage_test.go) -- which is
 // not a document the SDK sends, whatever its key says.
 var legitimateQueries = map[string]string{
+	"console/AiMatrix": `query AiMatrix($familySlug: String!) {
+		models { id name slug vendor modality status externalIds }
+		licenseFamily(slug: $familySlug) {
+			id slug
+			versions {
+				id slug name version versionName lifecycleState
+				entitlements { entitlementSlug entitlementType }
+				conversionRules(status: ACTIVE) {
+					id licenseSlug entitlementSlug modelSlug requestType status grantedByLicense
+					chargeOnError minimumCreditsPerRequest maximumCreditsPerRequest createdAt updatedAt
+					rates { perRequest perInputToken perCachedInputToken perCacheWriteToken perOutputToken perUnit perSecond }
+				}
+			}
+		}
+	}`,
 	"console/GetInstancesWithRelations": `query GetInstancesWithRelations($limit: Int, $cursor: String) {
 		instances(limit: $limit, cursor: $cursor) {
 			nextCursor hasMore

@@ -1,11 +1,15 @@
 import { OFREPWebProvider } from '@openfeature/ofrep-web-provider';
-import { type EvaluationContext, OpenFeature } from '@openfeature/web-sdk';
+import { OpenFeature } from '@openfeature/web-sdk';
 import { type QueryClient, queryOptions } from '@tanstack/react-query';
-import tokens from 'virtual:dev-tokens';
 import env from '@/env';
-import { getAuthToken } from './auth-token';
-import { deriveOrganizationId } from './external-id';
-import { getStoredDevToken } from './local-auth';
+import {
+  BYPASS_AUTH,
+  type FlagSource,
+  localSource,
+  platformSource,
+  resolveSource,
+  usesPlatform,
+} from './feature-flag-source';
 
 /**
  * Kaiten's own platform flags — the ones this app gates its own features on —
@@ -21,10 +25,10 @@ import { getStoredDevToken } from './local-auth';
  * in a context shaped so that a rule can read the organization's tracked
  * instance (`__kaiten.instance.metadata.demo`).
  *
- * Local and e2e builds have no platform flag service: there the app's own API
- * plays that part, with the session's credential, as it always has. A deployed
- * build with none configured (self-hosted) evaluates nothing, and every
- * platform flag is off.
+ * Ordinary local demo flags retain the session-source fallback. AI never uses
+ * a customer catalog: real local builds need the same platform URL/read-only
+ * token wiring as hosted builds. Only explicit mocked E2E builds can use their
+ * MSW source for AI. A build without a trusted platform source keeps AI off.
  *
  * The flags themselves, each created in the KbK's Dogfooding organization by
  * saas-api's bootstrap (internal/modules/kbkbootstrap/flags.go):
@@ -39,140 +43,17 @@ import { getStoredDevToken } from './local-auth';
  * checks on every webhooks route,
  * and the console reads the answer off those routes (`domains/webhooks`).
  *
- * Why not a React-bound client: it lives in React context, so it cannot be read
- * from a router `beforeLoad`, which runs before the tree renders.
+ * The client is readable by router `beforeLoad`, before React context exists.
  */
 export const DEMO_SANDBOX_FLAG = 'demo-sandbox';
 export const PLAN_BILLING_FLAG = 'plan-billing';
+export const AI_CREDITS_FLAG = 'ai-credits';
 
 /** Every platform flag this app reads. */
-type PlatformFlag = typeof DEMO_SANDBOX_FLAG | typeof PLAN_BILLING_FLAG;
-
-/** Vite folds this at build time, so it is not a runtime bypass in a real build. */
-const BYPASS_AUTH = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true';
-const LOCAL_AUTH = import.meta.env.VITE_LOCAL_AUTH === 'true';
-
-type ClerkWindow = Window & {
-  Clerk?: {
-    user?: { id?: string } | null;
-    organization?: { id?: string } | null;
-  };
-};
-
-/** Where platform flags are read from, and as whom. */
-type FlagSource = {
-  baseUrl: string;
-  headers: () => Promise<[string, string][]>;
-  context: EvaluationContext;
-};
-
-/**
- * The organization platform flags are evaluated for: Kaiten's internal id for
- * the signed-in organization.
- *
- * Two ways to get there, because there are two ways to sign in. A dev token
- * carries the internal id outright (the seeder assigned it), and a session from
- * an identity provider carries the external one, which the API derives the
- * internal id from -- so the browser derives it the same way rather than asking.
- *
- * Null when no organization can be identified, which keeps every gate closed
- * rather than evaluating for nobody.
- */
-async function resolveOrganizationId(): Promise<string | null> {
-  if (LOCAL_AUTH) {
-    const current = getStoredDevToken();
-
-    return tokens.find((entry) => entry.token === current)?.org_id ?? null;
-  }
-
-  const externalOrganizationId = (window as ClerkWindow).Clerk?.organization
-    ?.id;
-
-  return externalOrganizationId
-    ? deriveOrganizationId(externalOrganizationId)
-    : null;
-}
-
-/**
- * The platform source: this app's own organization, as the platform flag
- * service knows it.
- */
-async function platformSource(): Promise<FlagSource | null> {
-  const organizationId = await resolveOrganizationId();
-  if (!organizationId) {
-    return null;
-  }
-
-  const token = env.PLATFORM_FLAGS_TOKEN;
-
-  return {
-    // Ends in `/api`: the provider appends `/ofrep/v1/...` to it.
-    baseUrl: env.PLATFORM_API_URL,
-    headers: async () => [['Authorization', `Bearer ${token}`]],
-    context: {
-      targetingKey: organizationId,
-      organizationId,
-      kaiten: { instanceSlug: organizationId },
-    },
-  };
-}
-
-/**
- * The local source, for builds with no platform flag service: the app's own API,
- * as the signed-in user — the subject the seeded rules reference
- * (`user.role == 'admin'`).
- *
- * The targeting key is not optional: the evaluator answers PROVIDER_FATAL
- * ("missing targeting key") for any flag it cannot pin to a subject, which the
- * SDK maps to the default value, so an empty context reads as "every flag is off".
- */
-async function localSource(): Promise<FlagSource | null> {
-  // Without a credential there is nothing to evaluate against, and asking
-  // anyway would cache "off" for a session that is merely still signing in.
-  // The e2e build is the deliberate exception: it bypasses auth entirely and
-  // answers from MSW, so it has no token to offer and never will.
-  if (!BYPASS_AUTH && !(await getAuthToken())) {
-    return null;
-  }
-
-  const userId = LOCAL_AUTH
-    ? // Identity comes from the token TABLE, never from decoding the JWT's own
-      // claims: the seeder that creates the orgs writes that table, so it
-      // cannot drift from them the way a renamed claim does.
-      (tokens.find((entry) => entry.token === getStoredDevToken())?.user_id ??
-      null)
-    : ((window as ClerkWindow).Clerk?.user?.id ?? null);
-  // `e2e` stands in for the user the bypassed build never signs in as; the MSW
-  // handler ignores it, and the real evaluator would reject an empty one.
-  const targetingKey = userId ?? (BYPASS_AUTH ? 'e2e' : null);
-  if (!targetingKey) {
-    return null;
-  }
-
-  return {
-    baseUrl: env.API_URL,
-    // Consulted per request, so a rotated Clerk token is picked up on its own.
-    headers: async () => {
-      const token = await getAuthToken();
-      return token ? [['Authorization', `Bearer ${token}`]] : [];
-    },
-    context: { targetingKey },
-  };
-}
-
-function usesPlatform(): boolean {
-  return Boolean(env.PLATFORM_API_URL && env.PLATFORM_FLAGS_TOKEN);
-}
-
-function resolveSource(): Promise<FlagSource | null> {
-  if (usesPlatform()) {
-    return platformSource();
-  }
-  if (LOCAL_AUTH || BYPASS_AUTH || import.meta.env.DEV) {
-    return localSource();
-  }
-  return Promise.resolve(null);
-}
+type PlatformFlag =
+  | typeof DEMO_SANDBOX_FLAG
+  | typeof PLAN_BILLING_FLAG
+  | typeof AI_CREDITS_FLAG;
 
 let providerReady: Promise<void> | null = null;
 let providerSubject: string | null = null;
@@ -310,3 +191,54 @@ export const demoSandboxFlagQueryOptions =
  */
 export const planBillingFlagQueryOptions =
   platformFlagQueryOptions(PLAN_BILLING_FLAG);
+let aiEvaluation: { subject: string; pending: Promise<boolean> } | null = null;
+
+/** AI alone requires a fresh network evaluation, never the provider's old map. */
+export const aiCreditsFlagQueryOptions = queryOptions({
+  queryKey: [...featureFlagsQueryKey, AI_CREDITS_FLAG],
+  queryFn: async () => {
+    // Only trusted platform wiring or an explicit MSW bypass can supply AI flags.
+    const source = usesPlatform()
+      ? await platformSource()
+      : BYPASS_AUTH && !env.PLATFORM_API_URL && !env.PLATFORM_FLAGS_TOKEN
+        ? await localSource()
+        : null;
+    if (!source) return false;
+    const subject = `${source.baseUrl} ${String(source.context.targetingKey)}`;
+    // Share pending initialization: replacing it revokes healthy StrictMode reads.
+    if (aiEvaluation?.subject === subject) return aiEvaluation.pending;
+    const pending = OpenFeature.setProviderAndWait(
+      'kaiten-ai-rollout',
+      new OFREPWebProvider({
+        baseUrl: source.baseUrl,
+        headersFactory: source.headers,
+        cacheMode: 'disabled',
+        pollInterval: 0,
+        disableVisibilityRefresh: true,
+      }),
+      source.context,
+    )
+      .then(() => {
+        const client = OpenFeature.getClient('kaiten-ai-rollout');
+        const details = client.getBooleanDetails(AI_CREDITS_FLAG, false);
+        return (
+          client.providerStatus === 'READY' &&
+          details.value === true &&
+          !details.errorCode &&
+          ['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT'].includes(
+            details.reason ?? '',
+          )
+        );
+      })
+      .catch(() => false);
+    aiEvaluation = { subject, pending };
+    try {
+      return await pending;
+    } finally {
+      // Never retain a completed result, and never clear another subject's read.
+      if (aiEvaluation?.pending === pending) aiEvaluation = null;
+    }
+  },
+  staleTime: 0,
+  retry: false,
+});

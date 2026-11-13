@@ -33,6 +33,7 @@ import (
 	organizationschema "github.com/kaitencloud/kaiten/api/internal/modules/organization/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases/createrelease"
 	usersdb "github.com/kaitencloud/kaiten/api/internal/modules/users/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/seeder"
 	"github.com/kaitencloud/kaiten/api/internal/seeder/seedkit"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
@@ -183,13 +184,18 @@ func (p *Profile) seedOrganization(ctx context.Context, sc *seeder.SeederContext
 		return err
 	}
 
-	// Step 9: feature flags
+	// Step 9: ordinary product flags, never the platform's AI rollout flag.
 	if err := p.seedFeatureFlags(ctx, orgCtx); err != nil {
 		return err
 	}
 
 	// Step 9b: vouchers, which name license versions, entitlements and a flag
 	if err := p.seedVouchers(ctx, orgCtx, catalogue, now); err != nil {
+		return err
+	}
+
+	// Read the target's platform eligibility before optional synthetic AI data.
+	if err := p.seedAI(ctx, orgCtx, &currentuser.StaticUserProvider{UserID: opsTeamID, OrganizationID: organization.ID}, instancesSeeded); err != nil {
 		return err
 	}
 
@@ -419,7 +425,8 @@ func (p *Profile) seedLicenses(ctx context.Context, sc *seeder.SeederContext) (s
 			ctx, licensesdb.GetCurrentLicenseVersionsByFamilyIDsParams{
 				OrganizationID: sc.OrganizationID,
 				FamilyIds:      []uuid.UUID{familyID},
-			})
+			},
+		)
 		if err != nil {
 			return seededCatalogue{}, fmt.Errorf("resolve current version of license %q: %w", lic.Name, err)
 		}
@@ -433,7 +440,8 @@ func (p *Profile) seedLicenses(ctx context.Context, sc *seeder.SeederContext) (s
 		if slices.Contains(heldBack, served[0].ID) {
 			return seededCatalogue{}, fmt.Errorf(
 				"license %q resolves to v%d, which is archived once its instances exist; give the family a default or a newer published version",
-				lic.Name, served[0].Version)
+				lic.Name, served[0].Version,
+			)
 		}
 		catalogue.current[lic.Name] = served[0].ID
 		catalogue.currentSlug[lic.Name] = served[0].Slug
@@ -854,7 +862,8 @@ func (p *Profile) seedCustomersAndInstances(
 			}
 
 			if !inst.CreatedAt.IsZero() {
-				if err := orgCtx.Exec(ctx,
+				if err := orgCtx.Exec(
+					ctx,
 					`UPDATE instance SET created_at = $1, updated_at = $1 WHERE id = $2`,
 					relativeToNow(inst.CreatedAt, now), createdInst.ID,
 				); err != nil {

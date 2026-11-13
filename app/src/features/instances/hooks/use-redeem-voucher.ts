@@ -16,6 +16,12 @@ import {
   invalidateInstanceVoucherQueries,
   useBoundaryRetry,
 } from '@/domains/billing';
+import { assertAiRequestAllowed, useAiAccess } from '@/domains/ai-credits';
+import {
+  hasAiVoucherGrant,
+  isAiVoucherGrant,
+  type VoucherEntitlement,
+} from '../utils/voucher-ai';
 import { upcomingInvoiceQueryOptions } from '../queries';
 import {
   diffEffectiveValues,
@@ -37,6 +43,7 @@ export type CheckedCode = {
  */
 export type RedeemOutcome = {
   changes: EffectiveChange[];
+  aiEntitlementSlugs?: string[];
   flagGrants?: Voucher['flagGrants'];
   hasPrice?: boolean;
   invoice: { after: InvoicePreview; before: InvoicePreview } | null;
@@ -53,7 +60,11 @@ export type RedeemOutcome = {
  * that bills is. Any other refusal is kept as the failure, with the dialog still open and
  * the code as typed.
  */
-export function useRedeemVoucher(instanceSlug: string) {
+export function useRedeemVoucher(
+  instanceSlug: string,
+  entitlements: readonly VoucherEntitlement[] = [],
+) {
+  const aiAccess = useAiAccess();
   const queryClient = useQueryClient();
   const validate = useMutation(validateVoucherMutation());
   const redeem = useMutation(redeemVoucherMutation());
@@ -75,6 +86,8 @@ export function useRedeemVoucher(instanceSlug: string) {
         body: { code, instanceSlug },
       });
 
+      if (validity.valid && hasAiVoucherGrant(validity.voucher, entitlements))
+        assertAiRequestAllowed(queryClient);
       setChecked({ code, validity });
     } catch (error) {
       setFailure(error);
@@ -83,15 +96,30 @@ export function useRedeemVoucher(instanceSlug: string) {
     }
   }
 
-  async function readState() {
+  function assertCheckedAllowed() {
+    if (hasAiVoucherGrant(checked?.validity.voucher, entitlements))
+      assertAiRequestAllowed(queryClient);
+  }
+
+  async function readState(afterRedemption = false) {
+    let readUsage = true;
+    try {
+      assertCheckedAllowed();
+    } catch (error) {
+      if (!afterRedemption) throw error;
+      // A completed redemption remains financial evidence after operational access is lost.
+      readUsage = false;
+    }
     const usage = getEntitlementsUsageMetricsOptions({
       path: { instanceSlug },
     });
     const invoice = upcomingInvoiceQueryOptions(instanceSlug);
     const [usageNow, invoiceNow] = await Promise.all([
-      queryClient
-        .fetchQuery({ ...usage, staleTime: 0 })
-        .catch((): EntitlementUsage[] | undefined => undefined),
+      readUsage
+        ? queryClient
+            .fetchQuery({ ...usage, staleTime: 0 })
+            .catch((): EntitlementUsage[] | undefined => undefined)
+        : undefined,
       queryClient
         .fetchQuery({ ...invoice, staleTime: 0 })
         .catch((): InvoicePreview | null => null),
@@ -108,25 +136,29 @@ export function useRedeemVoucher(instanceSlug: string) {
     setFailure(null);
     try {
       const before = await readState();
-      const redemption = await send(() =>
-        redeem.mutateAsync({
+      const redemption = await send(() => {
+        assertCheckedAllowed();
+        return redeem.mutateAsync({
           body: { code: checked.code },
           path: { instanceSlug },
-        }),
-      );
+        });
+      });
 
       await invalidateInstanceVoucherQueries(
         queryClient,
         instanceSlug,
         redemption.voucherId,
       );
-      const after = await readState();
+      const after = await readState(true);
       const hasPrice =
         redemption.voucherType === 'PRICE' ||
         (redemption.voucherType === 'COMPOSITE' &&
           Boolean(checked.validity.voucher?.priceDiscountType));
 
       setOutcome({
+        aiEntitlementSlugs: checked.validity.voucher?.grants
+          .filter((grant) => isAiVoucherGrant(grant, entitlements))
+          .map((grant) => grant.entitlementSlug),
         flagGrants: checked.validity.voucher?.flagGrants ?? [],
         hasPrice,
         changes:
@@ -152,7 +184,11 @@ export function useRedeemVoucher(instanceSlug: string) {
 
   return {
     check,
-    checked,
+    checked:
+      aiAccess.available ||
+      !hasAiVoucherGrant(checked?.validity.voucher, entitlements)
+        ? checked
+        : null,
     closing,
     confirm,
     failure,

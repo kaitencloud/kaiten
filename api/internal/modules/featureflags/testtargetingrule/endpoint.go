@@ -42,11 +42,12 @@ type Response struct {
 // TargetingRuleRehearsal is what the rehearsal found, in the order an author
 // reads it: is the rule well-formed, what did the server see, did it match.
 type TargetingRuleRehearsal struct {
-	Facts           map[string]any                   `json:"facts" doc:"The __kaiten namespace as enriched for this context — what a rule actually reads. Empty sub-roots mean the context resolved nothing for them"`
-	Issues          []featureflag.TargetingRuleIssue `json:"issues" nullable:"false" doc:"Problems the lint found. The rule is only run when there are none"`
-	EvaluationError string                           `json:"evaluationError,omitempty" doc:"Why the engine could not answer, when it could not — e.g. the rule reads a host attribute this context does not carry. At a real evaluation the rule would simply not match"`
-	Valid           bool                             `json:"valid" doc:"Whether the rule lints clean"`
-	Matched         bool                             `json:"matched" doc:"Whether the rule matched this context. Meaningful only when valid and evaluationError is empty"`
+	EntitlementTypes map[string]string                `json:"entitlementTypes" doc:"Original catalogue types by known entitlement slug; classifies facts.entitlements without interpreting arbitrary CONFIG or metadata keys"`
+	Facts            map[string]any                   `json:"facts" doc:"The __kaiten namespace as enriched for this context — what a rule actually reads. Empty sub-roots mean the context resolved nothing for them"`
+	Issues           []featureflag.TargetingRuleIssue `json:"issues" nullable:"false" doc:"Problems the lint found. The rule is only run when there are none"`
+	EvaluationError  string                           `json:"evaluationError,omitempty" doc:"Why the engine could not answer, when it could not — e.g. the rule reads a host attribute this context does not carry. At a real evaluation the rule would simply not match"`
+	Valid            bool                             `json:"valid" doc:"Whether the rule lints clean"`
+	Matched          bool                             `json:"matched" doc:"Whether the rule matched this context. Meaningful only when valid and evaluationError is empty"`
 }
 
 func RegisterEndpoint(api huma.API, app Rehearser) {
@@ -70,18 +71,20 @@ func RegisterEndpoint(api huma.API, app Rehearser) {
 		}
 
 		rehearsal, err := app.TestTargetingRule(
-			ctx, cl, request.Body.Rule, request.Body.TargetingKey, request.Body.Context)
+			ctx, cl, request.Body.Rule, request.Body.TargetingKey, request.Body.Context,
+		)
 		if err != nil {
 			return nil, err
 		}
 
 		return &Response{
 			Body: TargetingRuleRehearsal{
-				Valid:           rehearsal.Valid,
-				Issues:          rehearsal.Issues,
-				Matched:         rehearsal.Matched,
-				EvaluationError: rehearsal.EvaluationError,
-				Facts:           rehearsal.Facts,
+				EntitlementTypes: rehearsal.EntitlementTypes,
+				Valid:            rehearsal.Valid,
+				Issues:           rehearsal.Issues,
+				Matched:          rehearsal.Matched,
+				EvaluationError:  rehearsal.EvaluationError,
+				Facts:            rehearsal.Facts,
 			},
 		}, nil
 	})

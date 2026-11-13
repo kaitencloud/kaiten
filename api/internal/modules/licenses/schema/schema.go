@@ -219,7 +219,7 @@ func (v LicenseEntitlementValue) Schema(r huma.Registry) *huma.Schema {
 type LicenseEntitlement struct {
 	EntitlementSlug string                  `json:"entitlementSlug,omitempty" format:"string" example:"premium-support" doc:"URL-friendly identifier for the entitlement"`
 	EntitlementName string                  `json:"entitlementName" readOnly:"true" example:"Premium Support" doc:"Name of the entitlement feature or service"`
-	EntitlementType string                  `json:"entitlementType,omitempty" readOnly:"true" enum:"BOOLEAN,NUMBER,CONFIG" example:"NUMBER" doc:"Type of entitlement (BOOLEAN, NUMBER, or CONFIG)"`
+	EntitlementType string                  `json:"entitlementType,omitempty" readOnly:"true" enum:"BOOLEAN,NUMBER,CONFIG,NUMBER_AI_CREDIT" example:"NUMBER_AI_CREDIT" doc:"Definition type of the granted entitlement. NUMBER_AI_CREDIT is a calculated numeric entitlement; its granted allowance and usage value still use the number shape."`
 	LicenseID       uuid.UUID               `json:"licenseId" readOnly:"true" example:"a1b2c3d4-e5f6-7g8h-9i0j-k1l2m3n4o5p6" doc:"Unique identifier for the license this entitlement belongs to"`
 	LicenseSlug     string                  `json:"licenseSlug" readOnly:"true" example:"enterprise-license" doc:"URL-friendly identifier for the license this entitlement belongs to"`
 	CreatedBy       shared.User             `json:"createdBy" readOnly:"true" doc:"User who created this entitlement"`
@@ -236,6 +236,6 @@ type LicenseEntitlement struct {
 	//     before being rejected (soft limit).
 	// Null when Value is not numeric (BOOLEAN/CONFIG entitlements have no
 	// usage cap to enforce).
-	LimitCapExceededOveragePercent *int32                                        `json:"limitCapExceededOveragePercent,omitempty" doc:"Derives this grant's enforcement from its own numeric value: -1 when the value is unlimited (no cap, no overage); otherwise 0 rejects usage above the value (hard limit) and a positive percentage allows usage to exceed it by that much before being rejected (soft limit). Null for non-numeric (BOOLEAN/CONFIG) grants." example:"10"`
+	LimitCapExceededOveragePercent *int32                                        `json:"limitCapExceededOveragePercent,omitempty" doc:"Enforcement derived from the numeric allowance: -1 is unlimited; otherwise 0 is a hard limit and a positive percentage permits overage. AI reservations and numeric adjustments use this bound; AI commits account actual usage even beyond it. Null for non-numeric (BOOLEAN/CONFIG) grants." example:"10"`
 	EntitlementGroups              []*entitlementsschema.EntitlementGroupSummary `json:"entitlementGroups,omitempty" readOnly:"true" doc:"Groups associated with this entitlement"`
 }

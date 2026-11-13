@@ -173,8 +173,10 @@ const (
 // may read, and the shape it reads in. An entitlement's type is immutable, so
 // a rule linted against it stays valid.
 type KnownEntitlement struct {
-	Slug string
-	Type EntitlementType
+	// DeclaredType retains the catalogue discriminator while Type describes the evaluation shape.
+	DeclaredType string
+	Slug         string
+	Type         EntitlementType
 }
 
 // The names a rule may read under each sub-root, derived from the structs

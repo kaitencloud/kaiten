@@ -320,17 +320,19 @@ FROM license_entitlement le
        JOIN entitlement e ON le.entitlement_id = e.id
        INNER JOIN "user" creator ON le.created_by_id = creator.id
        INNER JOIN "user" updater ON le.updated_by_id = updater.id
-WHERE le.organization_id = $1
-  AND le.license_id = $2
+WHERE (NOT $1::boolean OR e.type <> 'NUMBER_AI_CREDIT')
+ AND le.organization_id = $2
+  AND le.license_id = $3
   AND (
-    $3::timestamp IS NULL
-    OR (le.created_at, le.id) < ($3::timestamp, $4::uuid)
+    $4::timestamp IS NULL
+    OR (le.created_at, le.id) < ($4::timestamp, $5::uuid)
   )
 ORDER BY le.created_at DESC, le.id DESC
-LIMIT $5
+LIMIT $6
 `
 
 type GetEntitlementsForLicenseByCursorParams struct {
+	HideAi          bool             `json:"hide_ai"`
 	OrganizationID  uuid.UUID        `json:"organization_id"`
 	LicenseID       uuid.UUID        `json:"license_id"`
 	CursorCreatedAt pgtype.Timestamp `json:"cursor_created_at"`
@@ -366,6 +368,7 @@ type GetEntitlementsForLicenseByCursorRow struct {
 // both cursor_created_at and cursor_id.
 func (q *Queries) GetEntitlementsForLicenseByCursor(ctx context.Context, arg GetEntitlementsForLicenseByCursorParams) ([]GetEntitlementsForLicenseByCursorRow, error) {
 	rows, err := q.db.Query(ctx, getEntitlementsForLicenseByCursor,
+		arg.HideAi,
 		arg.OrganizationID,
 		arg.LicenseID,
 		arg.CursorCreatedAt,

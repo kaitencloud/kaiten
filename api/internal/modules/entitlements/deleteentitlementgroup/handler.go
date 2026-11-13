@@ -8,12 +8,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	entitlementEvents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	UsageReporter services.UsageReporter
 	Uof           *uow.UnitOfWork
@@ -41,8 +44,18 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if !h.deps.AIPolicy.Enabled(ctx) {
+			hasAI, err := db.New(h.deps.Uof.DBTX(ctx)).EntitlementGroupHasAI(ctx, db.EntitlementGroupHasAIParams{OrganizationID: user.OrganizationID, Slug: slug})
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return h.deps.AIPolicy.RequireEnabled(ctx)
+			}
+		}
 		deletedGroup, err := h.repo.DeleteEntitlementGroup(ctx, user.OrganizationID, slug)
 		if err != nil {
 			return err

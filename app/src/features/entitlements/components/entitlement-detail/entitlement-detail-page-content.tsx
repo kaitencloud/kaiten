@@ -1,4 +1,6 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { EntityIcon } from '@/components/ui/icon';
+import { Badge } from '@/components/ui/badge';
 import { useRouterState } from '@tanstack/react-router';
 import { type PropsWithChildren, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +35,10 @@ const useEntitlementActiveTab = (entitlementSlug: string) => {
 
   return getActiveTabFromPathname({
     defaultTab: 'overview',
-    matchers: [{ suffix: '/usage', value: 'usage' }],
+    matchers: [
+      { suffix: '/calculation', value: 'calculation' },
+      { suffix: '/usage', value: 'usage' },
+    ],
     pathname,
     basePath: `/catalog/entitlements/${entitlementSlug}`,
   });
@@ -94,6 +99,9 @@ function EntitlementDetailHeader({
                 label={t('Pages.Entitlements.Detail.editName', 'Edit name')}
               />
             </Page.Title>
+            {entitlement.type === 'NUMBER_AI_CREDIT' ? (
+              <Badge variant="secondary">{t('AI.Calculation.typeLabel')}</Badge>
+            ) : null}
           </Page.TitleRow>
           <Page.Subtitle>
             {entitlement.description ??
@@ -111,6 +119,9 @@ function EntitlementDetailHeader({
 const getEntitlementTabs = (
   entitlementSlug: string,
   t: ReturnType<typeof useTranslation>['t'],
+  entitlement: Entitlement,
+  licenseSlug?: string,
+  mayCalculateAi = false,
 ) => {
   return [
     {
@@ -118,12 +129,25 @@ const getEntitlementTabs = (
       params: { entitlementSlug },
       to: '/catalog/entitlements/$entitlementSlug',
       value: 'overview',
+      search: { licenseSlug },
     },
+    ...(mayCalculateAi && entitlement.type === 'NUMBER_AI_CREDIT'
+      ? [
+          {
+            label: t('AI.Calculation.title'),
+            params: { entitlementSlug },
+            to: '/catalog/entitlements/$entitlementSlug/calculation',
+            value: 'calculation',
+            search: { licenseSlug },
+          },
+        ]
+      : []),
     {
       label: t('Pages.Entitlements.Detail.tabs.usage', 'Usage'),
       params: { entitlementSlug },
       to: '/catalog/entitlements/$entitlementSlug/usage',
       value: 'usage',
+      search: { licenseSlug },
     },
   ];
 };
@@ -133,7 +157,14 @@ function EntitlementDetailLayout({
   entitlementSlug,
 }: PropsWithChildren<{ entitlementSlug: string }>) {
   const { i18n, t } = useTranslation();
+  const access = useAiAccess();
   const activeTab = useEntitlementActiveTab(entitlementSlug);
+  const licenseSlug = useRouterState({
+    select: (state) => {
+      const slug = state.location.search.licenseSlug;
+      return typeof slug === 'string' ? slug : undefined;
+    },
+  });
   const locale = i18n.resolvedLanguage ?? 'en-US';
   const { entitlement, isLoading, isUsageLoading, metrics } =
     useEntitlementDetailContext();
@@ -142,17 +173,26 @@ function EntitlementDetailLayout({
     <DetailEntityLayout>
       <DetailEntityLayout.Top>
         <EntitlementDetailHeader entitlement={entitlement} />
-        <EntitlementDetailStats
-          isLoading={isLoading}
-          isUsageLoading={isUsageLoading}
-          locale={locale}
-          metrics={metrics}
-        />
+        {activeTab !== 'calculation' && (
+          <EntitlementDetailStats
+            isLoading={isLoading}
+            isUsageLoading={isUsageLoading}
+            locale={locale}
+            metrics={metrics}
+          />
+        )}
       </DetailEntityLayout.Top>
       <DetailEntityLayout.Body>
         <DetailEntityLayout.Tabs
           activeTab={activeTab}
-          items={getEntitlementTabs(entitlementSlug, t)}
+          items={getEntitlementTabs(
+            entitlementSlug,
+            t,
+            entitlement,
+            licenseSlug,
+            access.allows('getLicenses') &&
+              access.allows('listConversionRules'),
+          )}
         />
         <DetailEntityLayout.Content>{children}</DetailEntityLayout.Content>
       </DetailEntityLayout.Body>
@@ -165,6 +205,8 @@ export function EntitlementDetailPageContent({
   entitlement,
   entitlementSlug,
 }: EntitlementDetailPageContentProps) {
+  const access = useAiAccess();
+  if (isAiEntitlement(entitlement.type) && !access.available) return null;
   return (
     <EntitlementDetailProvider entitlement={entitlement}>
       <EntitlementDetailLayout entitlementSlug={entitlementSlug}>

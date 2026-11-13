@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useEffect } from 'react';
@@ -29,6 +30,7 @@ export function ExceptionsCard() {
   const { instance, entitlements } = useInstanceDetail();
   const instanceSlug = instance.slug ?? instance.id;
   const access = useGrantedScopes();
+  const aiAccess = useAiAccess();
   const queryClient = useQueryClient();
   const read =
     !access.isPending &&
@@ -171,7 +173,10 @@ export function ExceptionsCard() {
       ) : (
         <TableCard.Table
           columns={columns}
-          data={exceptions.data}
+          data={exceptions.data?.filter(
+            (row) =>
+              aiAccess.available || !isAiEntitlement(row.entitlementType),
+          )}
           emptyMessage={t(`${KEY}.empty`)}
           variant="simple"
         />

@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
@@ -58,7 +59,7 @@ func GetAddons(ctx context.Context, queries *db.Queries, billing gate.Gate, limi
 // newAddonPricesBatchFn reads the prices of every version a batch names in one
 // statement, every status, in display order -- what GET
 // /addons/{slug}/prices answers for each of them.
-func newAddonPricesBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []prices.Price] {
+func newAddonPricesBatchFn(queries *db.Queries, policy aiusage.Policy) dataloaderLib.BatchFunc[uuid.UUID, []prices.Price] {
 	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[[]prices.Price] {
 		results := make([]*dataloaderLib.Result[[]prices.Price], len(keys))
 		fail := func(err error) []*dataloaderLib.Result[[]prices.Price] {
@@ -72,7 +73,7 @@ func newAddonPricesBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUI
 		if !ok {
 			return fail(dataloader.ErrMissingIdentity)
 		}
-		byAddon, err := catalogue.Prices(ctx, queries, i.OrganizationID, keys, nil)
+		byAddon, err := catalogue.PricesOperational(ctx, queries, i.OrganizationID, keys, nil, !policy.Enabled(ctx))
 		if err != nil {
 			return fail(err)
 		}

@@ -18,6 +18,8 @@ import (
 	instanceEvents "github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	instancedb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
@@ -486,7 +488,7 @@ func TestReportEntitlementUsageMetric_EnforcementPolicy(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		instances := newInstances(t, 1)
 		entitlement := newEntitlementWithPolicy(t, entitlementschema.Number, 0)
-		assignEntitlementToLicenseWithOverage(t, instances[0].LicenseSlug, entitlement.Slug, 10, 100) // max allowed = 20
+		assignAIPoolToLicense(t, instances[0].LicenseSlug, entitlement.Slug, 10, 100) // max allowed = 20
 
 		resp := reportUsage(t, instances[0].Slug, entitlement.Slug, 15, "append") // 0 -> 15, over the cap of 10, within max of 20
 		defer commonfixture.MustCloseBody(t, resp.Body)
@@ -610,6 +612,7 @@ func TestReportEntitlementUsageMetric_EnforcementPolicy(t *testing.T) {
 	// a hard-configured grant rejects usage above its limit exactly like a
 	// NUMBER entitlement would.
 	t.Run("WhenNumberAICreditHardLimit_Returns409AndRejects", func(t *testing.T) {
+		useAIForThisTest(t)
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		instances := newInstances(t, 1)
 		entitlement := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 0)
@@ -623,10 +626,11 @@ func TestReportEntitlementUsageMetric_EnforcementPolicy(t *testing.T) {
 	})
 
 	t.Run("WhenNumberAICreditSoftLimit_AcceptsWithinOverage", func(t *testing.T) {
+		useAIForThisTest(t)
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		instances := newInstances(t, 1)
 		entitlement := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 0)
-		assignEntitlementToLicenseWithOverage(t, instances[0].LicenseSlug, entitlement.Slug, 10, 100) // max allowed = 20
+		assignEntitlementToLicenseWithOverage(t, instances[0].LicenseSlug, entitlement.Slug, 10, 100, aiusage.Policy{Flags: aitest.Flags(true)}) // max allowed = 20
 
 		resp := reportUsage(t, instances[0].Slug, entitlement.Slug, 15, "append") // over the cap of 10, within max of 20
 		defer commonfixture.MustCloseBody(t, resp.Body)

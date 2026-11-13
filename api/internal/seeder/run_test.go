@@ -3,8 +3,22 @@ package seeder
 import (
 	"testing"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
+
+func TestTargetedSeedRefusesTrustedSourceBeforeCleanup(t *testing.T) {
+	platformID := uuid.New()
+	// No pool and no profiles: refusal must occur before any target DB read or
+	// cleanup and reject the entire mixed batch, not only the platform row.
+	err := Run(t.Context(), nil, nil, RunOptions{
+		PlatformOrganizationID: platformID,
+		OrganizationIDs:        []uuid.UUID{uuid.New(), platformID},
+	})
+	require.ErrorContains(t, err, "trusted platform source")
+	require.NoError(t, validateTargetOrganizations([]uuid.UUID{uuid.New()}, platformID))
+	require.NoError(t, validateTargetOrganizations([]uuid.UUID{uuid.New()}, uuid.Nil))
+}
 
 func TestDeletionOrder(t *testing.T) {
 	t.Run("children before parents", func(t *testing.T) {

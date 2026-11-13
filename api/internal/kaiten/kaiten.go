@@ -63,6 +63,10 @@ type Options struct {
 	// say so twice.
 	UsageReporter services.UsageReporter
 
+	// PlatformFlags reads trusted rollout flags, independently of metering.
+	// Nil denies AI; driver opt-ins never replace a platform flag evaluation.
+	PlatformFlags services.PlatformFlags
+
 	// ConnectorEntitlements answers whether an organization's license permits a
 	// connector. Nil is legal and becomes services.AlwaysEntitled, which is what a
 	// self-hosted deployment wants: there is no licensing authority to ask, so every

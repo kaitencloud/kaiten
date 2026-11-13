@@ -36,6 +36,7 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	increase, err := catalogue.ParseIncreaseBilling("UpdateAddonFamily", cmd.IncreaseBilling)
 	if err != nil {
 		return nil, err
@@ -53,6 +54,15 @@ func (u *UseCase) Execute(ctx context.Context, familySlug string, cmd Command) (
 		}
 		if writePermission != nil && !onlyMakePrivate(before.IsPublic, string(before.IncreaseBilling), cmd) {
 			return writePermission
+		}
+		if !u.deps.AIPolicy.Enabled(ctx) && (cmd.IsPublic != nil || cmd.IncreaseBilling != nil) {
+			hasAI, err := q.AddonFamilyHasAI(ctx, db.AddonFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: &before.ID, FamilySlug: nil})
+			if err != nil {
+				return err
+			}
+			if hasAI {
+				return u.deps.AIPolicy.RequireEnabled(ctx)
+			}
 		}
 		row, err := q.UpdateAddonFamilySettings(ctx, db.UpdateAddonFamilySettingsParams{
 			IsPublic: cmd.IsPublic, IncreaseBilling: increase, OrganizationID: user.OrganizationID, Slug: familySlug,

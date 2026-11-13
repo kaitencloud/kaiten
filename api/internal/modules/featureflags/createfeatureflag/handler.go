@@ -15,6 +15,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/validator"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -24,6 +25,7 @@ import (
 // own public read port -- this module never imports entitlements'
 // generated db package directly.
 type Deps struct {
+	AIPolicy             aiusage.Policy
 	UserProvider         currentuser.Provider
 	UsageReporter        services.UsageReporter
 	Uof                  *uow.UnitOfWork
@@ -56,6 +58,7 @@ func (h *UseCase) Execute(ctx context.Context, flag *schema.FeatureFlag) (*schem
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, u.OrganizationID)
 
 	userProvidedSlug := flag.Slug != ""
 	if userProvidedSlug {

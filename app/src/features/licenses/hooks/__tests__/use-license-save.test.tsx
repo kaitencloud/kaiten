@@ -310,3 +310,20 @@ describe('useLicenseSave', () => {
     });
   });
 });
+
+// A partial rule copy is handled like a failed grant: never publish the draft.
+it('leaves a draft when the after-grants rule copy fails', async () => {
+  const calls = serveLicenseWrites();
+  const { result } = renderHook(() => useLicenseSave(entitlements), { wrapper: createWrapper() });
+  const error = new Error('rule copy failed');
+  const saved = await result.current.createLicenseWithGrants({
+    body: { name: 'Next', type: 'PAID', lifecycleState: 'PUBLISHED', description: '', isDefault: false },
+    draftEntitlements: drafts,
+    afterGrants: async () => {
+      expect(calls.filter(({ op }) => op === 'associate')).toHaveLength(4);
+      throw error;
+    },
+  });
+  expect(saved.error).toBe(error);
+  expect(calls.some(({ op }) => op === 'publish')).toBe(false);
+});

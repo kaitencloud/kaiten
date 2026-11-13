@@ -5,31 +5,8 @@ import (
 	"errors"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 )
-
-// InstanceEntitlementUsagePeriodRolledOver is the outbox payload for
-// INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER. One is emitted per
-// rolloverClosure -- see the events.InstanceEntitlementUsagePeriodRolledOver
-// doc comment for what real vs. synthetic closures mean.
-type InstanceEntitlementUsagePeriodRolledOver struct {
-	EntitlementID     uuid.UUID  `json:"entitlement_id"`
-	EntitlementSlug   string     `json:"entitlement_slug"`
-	InstanceID        uuid.UUID  `json:"instance_id"`
-	Value             float64    `json:"value"`
-	EventCount        int32      `json:"event_count"`
-	ClosedPeriodStart *time.Time `json:"closed_period_start"`
-	ClosedPeriodEnd   *time.Time `json:"closed_period_end"`
-	NewPeriodStart    time.Time  `json:"new_period_start"`
-	IsSynthetic       bool       `json:"is_synthetic"`
-	// Reason is ANCHOR_CHANGED when the window configuration changed since
-	// the stored window opened -- the subscription a BILLING_PERIOD window
-	// follows, a lifetime counter that adopted a reset, a licence start --
-	// and PERIOD_ENDED otherwise, synthetic closures included (§6.7 rule 6).
-	Reason string `json:"reason" enum:"PERIOD_ENDED,ANCHOR_CHANGED"`
-}
 
 // Reasons of a closure.
 const (

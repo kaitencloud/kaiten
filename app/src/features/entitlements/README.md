@@ -14,7 +14,7 @@ An entitlement is something a license can grant: a capability, a numeric allowan
 
 The entitlements are the second entry of the Catalog section of the side navigation (`catalogSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`), listed on every deployment.
 
-`app/src/routes/catalog/entitlements/route.tsx` is the layout of every entitlement route. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and the two tabs (Overview and Usage) around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
+`app/src/routes/catalog/entitlements/route.tsx` is the layout of every entitlement route. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and Overview and Usage plus Calculation for AI-credit definitions around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
 
 ## Structure
 
@@ -129,3 +129,23 @@ The licenses feature does not import this one; it declares its own `entitlements
 
 Only route-consumed symbols are exposed. The form, displays, table internals and
 overview story alias are private to their component modules.
+
+
+## Calculated entitlement configuration
+
+`/catalog/entitlements/$entitlementSlug/calculation` is a thin route assembling
+`EntitlementDetailCalculationTab`. The parent definition context fixes the pool;
+`?licenseSlug=<exact-version>&rule=new|<id>` controls version choice and editor.
+Save/cancel clears only `rule`; browser history and contextual model/matrix links
+retain pool/version. The version picker lists all licences, not merely direct
+grants, and only the selected version's active rules are requested through the
+existing generated `listConversionRulesOptions` with `entitlementSlug`.
+Add-on-only rules remain visible, including `grantedByLicense: false`.
+
+The shared editor/preview/summary comes from `domains/ai-credits`. Read-only rules
+show model slugs without requesting models. Editing additionally requires licence
+writes and model reads. Scope checks use the existing token claims and generated
+operation requirements; known denial suppresses section reads, unknown claims
+leave API refusals authoritative. The existing parent detail queries/scopes are
+unchanged. The Calculation tab remains discoverable for AI definitions while the
+flag is unavailable, explaining that state inline with Retry rather than 404.

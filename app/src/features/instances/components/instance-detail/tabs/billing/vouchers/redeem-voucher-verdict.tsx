@@ -1,13 +1,18 @@
 import { CircleAlert, CircleCheck } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import type { Entitlement, Validity } from '@/api-client';
+import type { Validity } from '@/api-client';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { describeVoucherOffer, VoucherTypeBadge } from '@/domains/billing';
+import { useAiAccess } from '@/domains/ai-credits';
+import {
+  isAiVoucherGrant,
+  type VoucherEntitlement,
+} from '../../../../../utils/voucher-ai';
 import { getValidityReasonKey } from '../../../../../utils/voucher-validity';
 
 type RedeemVoucherVerdictProps = {
   /** The entitlements the instance has, to name what a boost changes. */
-  entitlements: readonly Pick<Entitlement, 'name' | 'slug'>[];
+  entitlements: readonly (VoucherEntitlement & { name: string })[];
   instanceName: string;
   /** What is said of a code that is valid, in place of the sentence about redeeming it now. */
   note?: string;
@@ -29,6 +34,7 @@ export function RedeemVoucherVerdict({
   validity,
 }: RedeemVoucherVerdictProps) {
   const { i18n, t } = useTranslation();
+  const aiAccess = useAiAccess();
   const entitlementNames = Object.fromEntries(
     entitlements.flatMap(({ name, slug }) => (slug ? [[slug, name]] : [])),
   );
@@ -47,11 +53,21 @@ export function RedeemVoucherVerdict({
           <div className="flex flex-wrap items-center gap-2">
             <VoucherTypeBadge type={validity.voucher.voucherType} />
             <span>
-              {describeVoucherOffer(validity.voucher, {
-                entitlementNames,
-                language: i18n.language,
-                t,
-              })}
+              {describeVoucherOffer(
+                {
+                  ...validity.voucher,
+                  grants: validity.voucher.grants.filter(
+                    (grant) =>
+                      aiAccess.available ||
+                      !isAiVoucherGrant(grant, entitlements),
+                  ),
+                },
+                {
+                  entitlementNames,
+                  language: i18n.language,
+                  t,
+                },
+              )}
             </span>
           </div>
           <p>

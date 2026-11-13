@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type {
@@ -44,6 +45,7 @@ export const useInstanceDetailDerivedState = ({
   releases,
 }: UseInstanceDetailDerivedStateParams) => {
   const { t } = useTranslation();
+  const access = useAiAccess();
 
   // Resolve release info via the actual data chain only:
   // instance.deploymentZoneId → zone → zone.releaseId → release. Free-form
@@ -106,7 +108,7 @@ export const useInstanceDetailDerivedState = ({
     actor: instance.updatedBy,
   });
 
-  const entitlementsRows = useMemo(
+  const canonicalEntitlementsRows = useMemo(
     () =>
       buildEntitlementsRows(
         licenseEntitlements,
@@ -115,6 +117,14 @@ export const useInstanceDetailDerivedState = ({
         entitlements,
       ),
     [entitlements, entitlementUsages, licenseEntitlements, t],
+  );
+  const entitlementsRows = useMemo(
+    () =>
+      canonicalEntitlementsRows.filter(
+        (row) =>
+          access.available || !isAiEntitlement(row.catalogueEntitlementType),
+      ),
+    [canonicalEntitlementsRows, access.available],
   );
   const entitlementsMetrics = useMemo(
     () => getEntitlementsMetrics(entitlementsRows),
@@ -126,6 +136,7 @@ export const useInstanceDetailDerivedState = ({
 
   return {
     entitlementsRows,
+    canonicalEntitlementsRows,
     entitlementsMetrics,
     releaseVersion,
     releaseStatus,

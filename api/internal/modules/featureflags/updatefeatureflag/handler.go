@@ -11,6 +11,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/validator"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -19,6 +20,7 @@ import (
 // own public read port -- this module never imports entitlements'
 // generated db package directly.
 type Deps struct {
+	AIPolicy             aiusage.Policy
 	UserProvider         currentuser.Provider
 	Uof                  *uow.UnitOfWork
 	EntitlementCatalogue catalogue.Port
@@ -43,6 +45,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string, flag *schema.Feature
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, u.OrganizationID)
 
 	flagValidator := validator.NewValidator()
 

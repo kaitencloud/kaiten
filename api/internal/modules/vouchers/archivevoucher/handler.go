@@ -29,11 +29,15 @@ func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID) (*catalogue.
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var moved catalogue.Voucher
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
 		locked, err := catalogue.Lock(ctx, q, user.OrganizationID, voucherID, operation)
 		if err != nil {
+			return err
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, voucherID, u.deps.AIPolicy); err != nil {
 			return err
 		}
 		if locked.Status == db.VoucherStatusARCHIVED {

@@ -1,5 +1,16 @@
+import { isApiError } from '@/lib/errors';
+import {
+  requireAiAccess,
+  useAiAccess,
+  isAiEntitlement,
+} from '@/domains/ai-credits';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router';
+import {
+  createFileRoute,
+  notFound,
+  Outlet,
+  useNavigate,
+} from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { z } from 'zod';
 import {
@@ -19,10 +30,20 @@ export const Route = createFileRoute('/catalog/entitlements/$entitlementSlug')({
   component: EntitlementDetailRouteLayout,
   validateSearch: (search) => entitlementDetailSearchSchema.parse(search),
   beforeLoad: async ({ context, params: { entitlementSlug } }) => {
-    const entitlement = await context.queryClient.ensureQueryData(
-      entitlementQueryOptions(entitlementSlug),
-    );
+    const entitlement = await context.queryClient
+      .ensureQueryData(entitlementQueryOptions(entitlementSlug))
+      .catch((error: unknown) => {
+        // A disabled server can refuse the generic target before returning its type.
+        if (
+          isApiError(error) &&
+          (error.data as { code?: string } | null)?.code === 'AIUsage.Disabled'
+        )
+          throw notFound();
+        throw error;
+      });
 
+    if (isAiEntitlement(entitlement.type))
+      await requireAiAccess(context.queryClient);
     return { getTitle: () => entitlement.name };
   },
   loader: ({ context, params }) =>
@@ -35,6 +56,7 @@ export const Route = createFileRoute('/catalog/entitlements/$entitlementSlug')({
 });
 
 function EntitlementDetailRouteLayout() {
+  const access = useAiAccess();
   const navigate = useNavigate();
   const { entitlementSlug } = Route.useParams();
   const search = Route.useSearch();
@@ -43,6 +65,7 @@ function EntitlementDetailRouteLayout() {
     entitlementQueryOptions(entitlementSlug),
   );
 
+  if (isAiEntitlement(entitlement.type) && !access.available) return null;
   return (
     <EntitlementDetailPageContent
       entitlement={entitlement}

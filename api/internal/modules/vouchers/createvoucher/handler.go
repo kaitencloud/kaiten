@@ -26,9 +26,13 @@ func (u *UseCase) Execute(ctx context.Context, draft catalogue.VoucherDraft) (*c
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var created catalogue.Voucher
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
+		if err := catalogue.CheckDraftOperational(ctx, q, user.OrganizationID, u.deps.AIPolicy, draft, nil, nil, nil); err != nil {
+			return err
+		}
 		resolved, err := draft.Resolve(ctx, q, operation, user.OrganizationID, user.ID)
 		if err != nil {
 			return err

@@ -16,6 +16,7 @@ func (u *UseCase) Execute(ctx context.Context, slug string) (*catalogue.Addon, e
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	addon, err := catalogue.Get(ctx, u.deps.Queries(ctx), user.OrganizationID, slug, "GetAddon.NotFound")
 	if err != nil {
 		return nil, err

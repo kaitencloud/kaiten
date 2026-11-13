@@ -1,3 +1,4 @@
+import { isAiEntitlement } from '@/domains/ai-credits';
 import type { AddonGrant } from '@/api-client';
 import { getAddonEntitlement, updateAddonEntitlement } from '@/api-client';
 import { FRESH_READ_OPTIONS, writeOnFresh } from '@/lib/api/fresh-write';
@@ -23,12 +24,10 @@ export type SaveAddonGrantVariables = {
  * of it (`writeOnFresh`). A grant removed meanwhile is refused by the read, and
  * nothing is written.
  */
-export function saveAddonGrantOnFresh({
-  addonSlug,
-  edited,
-  entitlementSlug,
-  opened,
-}: SaveAddonGrantVariables) {
+export function saveAddonGrantOnFresh(
+  { addonSlug, edited, entitlementSlug, opened }: SaveAddonGrantVariables,
+  aiAvailable = false,
+) {
   return writeOnFresh({
     edited,
     opened,
@@ -39,6 +38,8 @@ export function saveAddonGrantOnFresh({
         throwOnError: true,
       });
 
+      if (!aiAvailable && isAiEntitlement(data.entitlementType))
+        throw new Error('AIUsage.Disabled');
       return data;
     },
     restate: (grant) => grantFormValuesToUpdateBody(grantToFormValues(grant)),
