@@ -111,6 +111,29 @@ func TestConfigValueAnswersTheLastKnownValueWhenTheAuthorityFails(t *testing.T) 
 	require.NotErrorIs(t, err, services.ErrNoLicensingAuthority)
 }
 
+func TestLiveConfigValueNeverAnswersFromMemory(t *testing.T) {
+	server := newConfigServer(t)
+	reporter := newConfigReporter(t, server.URL, uuid.New())
+	org := uuid.New()
+
+	_, err := reporter.ConfigValue(t.Context(), org, slugs.UsageHistoryRetentionEntitlementSlug)
+	require.NoError(t, err)
+
+	server.answer(http.StatusOK, `{"value":{"type":"object","value":{"months":24}}}`)
+	value, err := reporter.LiveConfigValue(t.Context(), org, slugs.UsageHistoryRetentionEntitlementSlug)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"months":24}`, string(value), "a licence changed inside the cache's day is read as it is now")
+
+	server.answer(http.StatusInternalServerError, `{}`)
+	_, err = reporter.LiveConfigValue(t.Context(), org, slugs.UsageHistoryRetentionEntitlementSlug)
+	require.Error(t, err, "an outage is an error, not the last value read")
+
+	// The tolerant read keeps its contract, on what the live read last saw.
+	value, err = reporter.ConfigValue(t.Context(), org, slugs.UsageHistoryRetentionEntitlementSlug)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"months":24}`, string(value))
+}
+
 func TestConfigValueIsNilWhenTheLicenceDoesNotGrantIt(t *testing.T) {
 	server := newConfigServer(t)
 	server.answer(http.StatusNotFound, `{"title":"not found"}`)

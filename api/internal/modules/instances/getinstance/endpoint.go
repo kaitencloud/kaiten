@@ -24,7 +24,8 @@ type Request struct {
 }
 
 type Response struct {
-	Body *schema.Instance
+	CacheControl string `header:"Cache-Control"`
+	Body         *schema.Instance
 }
 
 func RegisterEndpoint(api huma.API, app Getter) {
@@ -33,7 +34,7 @@ func RegisterEndpoint(api huma.API, app Getter) {
 		Method:      "GET",
 		Path:        "/instances/{instanceSlug}",
 		Summary:     "Get an instance by slug",
-		Description: "Retrieve an instance by their unique slug",
+		Description: "Retrieve an existing instance by its unique slug, including its assigned license term state at UTC database time. licenseTerm is always present on this detail read, with a start-inclusive, end-exclusive interval. NOT_STARTED and EXPIRED describe the retrieved resource, not a failed GET. Catalog publication, operational status and commercial lifecycle do not change the term state.",
 		Tags:        []string{"instances"},
 		Errors:      []int{http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {
@@ -48,7 +49,8 @@ func RegisterEndpoint(api huma.API, app Getter) {
 		}
 
 		return &Response{
-			Body: instance,
+			CacheControl: "no-store",
+			Body:         instance,
 		}, nil
 	})
 }

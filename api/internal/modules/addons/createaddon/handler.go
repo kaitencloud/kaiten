@@ -62,7 +62,7 @@ func (u *UseCase) Execute(ctx context.Context, command NewAddon) (*catalogue.Add
 	if command.IsDefault && state != catalogue.Published {
 		return nil, catalogue.DefaultMustBePublished(operation)
 	}
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

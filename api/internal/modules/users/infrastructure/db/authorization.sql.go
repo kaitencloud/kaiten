@@ -14,25 +14,26 @@ import (
 
 const bootstrapUserAdministrator = `-- name: BootstrapUserAdministrator :one
 WITH claimed AS (
-  INSERT INTO user_administrator_bootstrap (singleton, user_id, organization_id)
-  SELECT TRUE, u.id, o.id
+  INSERT INTO organization_administrator_bootstrap (organization_id, user_id)
+  SELECT o.id, u.id
   FROM "user" u
   JOIN user_on_organization m ON m.user_id = u.id AND m.deleted_at IS NULL
   JOIN organization o ON o.id = m.organization_id
-  LEFT JOIN user_organization_authorization a
-    ON a.organization_id = m.organization_id AND a.user_id = u.id
-  WHERE COALESCE(a.enabled, TRUE)
-    AND u.id = $1
+  WHERE u.id = $1
     AND o.id = $2
     AND u.deleted_at IS NULL AND u.type = 'human'
     AND u.external_id NOT LIKE 'system:%'
-  ON CONFLICT (singleton) DO NOTHING
+    AND NOT EXISTS (
+      SELECT 1 FROM organization_administrator_bootstrap_alias b WHERE b.external_id = o.external_id
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM user_organization_authorization a WHERE a.organization_id = o.id
+    )
+  ON CONFLICT DO NOTHING
   RETURNING user_id, organization_id
 ), granted AS (
   INSERT INTO user_organization_authorization (organization_id, user_id, roles)
   SELECT organization_id, user_id, ARRAY['administrator']::text[] FROM claimed
-  ON CONFLICT (organization_id, user_id) DO UPDATE
-    SET roles = ARRAY['administrator']::text[], enabled = TRUE
   RETURNING user_id
 )
 SELECT EXISTS (SELECT 1 FROM granted)::boolean AS bootstrapped
@@ -43,9 +44,9 @@ type BootstrapUserAdministratorParams struct {
 	OrganizationID uuid.UUID `json:"organization_id"`
 }
 
-// Called after EnsureMembership succeeds, inside EnsureUser's transaction.
-// A conflicting claimant waits for commit/rollback: only the winning successful
-// transaction gets a row from claimed, and a rollback consumes nothing.
+// Called after EnsureMembership under the organization lock in EnsureUser's
+// transaction. Exactly one successful claimant per organization, across processes.
+// Existing memberships may claim; explicit local policies must never be replaced.
 func (q *Queries) BootstrapUserAdministrator(ctx context.Context, arg BootstrapUserAdministratorParams) (bool, error) {
 	row := q.db.QueryRow(ctx, bootstrapUserAdministrator, arg.UserID, arg.OrganizationID)
 	var bootstrapped bool

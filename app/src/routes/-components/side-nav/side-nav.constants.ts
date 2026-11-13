@@ -134,7 +134,7 @@ export const integrationsSubRoutes: SideNavSubRouteDefinition[] = [
 // The Catalog section: what the organization sells. The licenses and the
 // entitlements exist on every deployment, so the section is always drawn. The
 // add-ons and the vouchers are billing's: each is listed entry by entry, by what the
-// release ships and by what the session may read.
+// baseline billing offers and by what the session may read.
 export const catalogSubRoutes: SideNavSubRouteDefinition[] = [
   {
     labelKey: 'Pages.Licenses.title',
@@ -146,14 +146,14 @@ export const catalogSubRoutes: SideNavSubRouteDefinition[] = [
   },
   {
     labelKey: 'Pages.Addons.title',
-    needsBilling: { action: 'addons.list', capability: { feature: 'addons' } },
+    needsBilling: { action: 'addons.list', capability: {} },
     path: '/catalog/addons',
   },
   {
     labelKey: 'Pages.Vouchers.title',
     needsBilling: {
       action: 'vouchers.list',
-      capability: { feature: 'vouchers' },
+      capability: {},
     },
     path: '/catalog/vouchers',
   },

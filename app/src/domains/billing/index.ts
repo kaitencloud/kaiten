@@ -72,6 +72,7 @@ export {
   useActionAccess,
   useAlertFocus,
   useBillingActionForm,
+  useBillingFeatureAccess,
   useBillingProvider,
   useBillingScreenOffered,
   useCheckoutSessionsOffered,

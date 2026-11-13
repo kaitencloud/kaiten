@@ -30,7 +30,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 
 // Execute replaces a DRAFT voucher, or the four members an ACTIVE one takes.
 func (u *UseCase) Execute(ctx context.Context, voucherID uuid.UUID, draft catalogue.VoucherDraft) (*catalogue.Voucher, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

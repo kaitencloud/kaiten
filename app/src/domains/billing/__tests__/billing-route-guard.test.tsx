@@ -28,6 +28,7 @@ import { logger } from '@/lib/logger';
 import { billingCapabilitiesProfiles } from '../../../../e2e/app/_support/model/billing-capabilities';
 import { BillingNotFound } from '../components';
 import { requireBillingCapability } from '../queries';
+import type { BillingFeatureKey } from '../types';
 
 // A guarded billing route as the console builds one, with a screen below it that
 // loads data, which is what the guard must keep from loading where billing is
@@ -63,7 +64,7 @@ const refuse = (status: number, code: string, detail: string) =>
     ),
   );
 
-function mount(path: string) {
+function mount(path: string, feature?: BillingFeatureKey) {
   const screenBeforeLoad = vi.fn(async () => ({}));
   const screenLoader = vi.fn(async () => 'invoices');
   const queryClient = new QueryClient();
@@ -72,7 +73,7 @@ function mount(path: string) {
   });
   const invoices = createRoute({
     beforeLoad: async ({ context }) => {
-      await requireBillingCapability(context.queryClient);
+      await requireBillingCapability(context.queryClient, feature);
     },
     component: function InvoicesLayout() {
       return (
@@ -166,6 +167,25 @@ describe('the guard of a billing route', () => {
     mount('/invoices/nowhere');
 
     expect(await screen.findByText('Page not found')).toBeInTheDocument();
+    expect(screen.queryByTestId('billing-unavailable')).toBeNull();
+  });
+
+  it.each(['addons', 'vouchers'] as const)('rechecks an unknown %s grant when Retry is clicked, without reloading the page', async (feature) => {
+    const full = billingCapabilitiesProfiles.full();
+    answer({
+      ...full,
+      features: { ...full.features, [feature]: false },
+      featureCheckUnavailable: [feature],
+    });
+    const { screenLoader } = mount('/invoices', feature);
+    const retry = await screen.findByRole('button', { name: 'Retry' });
+    expect(screenLoader).not.toHaveBeenCalled();
+
+    answer(full);
+    await userEvent.click(retry);
+
+    expect(await screen.findByText('The invoices')).toBeInTheDocument();
+    expect(screenLoader).toHaveBeenCalledTimes(1);
     expect(screen.queryByTestId('billing-unavailable')).toBeNull();
   });
 

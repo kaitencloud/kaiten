@@ -384,6 +384,7 @@ type CheckoutSession struct {
 	ExpiredAt              pgtype.Timestamp      `json:"expired_at"`
 	ClosedAt               pgtype.Timestamp      `json:"closed_at"`
 	UpdatedAt              pgtype.Timestamp      `json:"updated_at"`
+	CustomerName           *string               `json:"customer_name"`
 }
 
 type PublishableKey struct {

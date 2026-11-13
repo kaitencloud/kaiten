@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/action-accordion';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useCanPerform } from '@/domains/billing';
+import { useBillingFeatureAccess } from '@/domains/billing';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { AddonGroup } from '../../types';
 import { AddonFamilyPublicToggle } from './addon-family-public-toggle';
@@ -27,7 +27,7 @@ type AddonListItemProps = {
  */
 export function AddonListItem({ group }: AddonListItemProps) {
   const { t } = useTranslation();
-  const mayCreate = useCanPerform('addons.create');
+  const mayCreate = useBillingFeatureAccess('addons.create', 'addons').allowed;
   const AddonIcon = dataModelIcons.addon;
 
   return (

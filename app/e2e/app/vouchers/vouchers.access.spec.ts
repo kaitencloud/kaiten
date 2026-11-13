@@ -4,6 +4,8 @@ import { VoucherDetailDriver } from '../_support/drivers/voucher-detail.driver';
 import { VoucherListDriver } from '../_support/drivers/voucher-list.driver';
 import { SESSION_SCOPES, signInWithScopes } from '../_support/session-scopes';
 import { BILLED_NOW } from '../billing/billed-instances';
+import { updateBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
+import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import { installVouchersWorld } from './install-vouchers-world';
 import {
   createVouchersBillingModel,
@@ -11,10 +13,8 @@ import {
 } from './vouchers.scenarios';
 
 // Where the vouchers are, and who may do what to them. They exist where billing is on and the
-// release ships them; the Catalog section lists them to a session that may read them; and a
+// baseline grants it; the Catalog section remains readable after independent feature grant loss; a
 // session that may only read sees the catalogue and the code with none of its controls.
-
-const CATALOGUE_REQUESTS = /^\/api\/vouchers(\/|$)/;
 
 test.describe('the entry of the navigation', () => {
   test('lists the vouchers in the catalog where the release ships them, and opens them', async ({
@@ -55,7 +55,9 @@ test.describe('the entry of the navigation', () => {
     await expect(nav.entry('Vouchers')).toHaveAttribute('aria-current', 'page');
   });
 
-  test('is left out where the release does not ship them', async ({ page }) => {
+  test('remains reachable when the independent grant is lost', async ({
+    page,
+  }) => {
     const nav = new BillingNavDriver(page);
     await installVouchersWorld(page, createVouchersNotShippedBillingModel());
 
@@ -63,7 +65,7 @@ test.describe('the entry of the navigation', () => {
     await nav.open();
 
     await nav.expectEntries(['Invoices', 'Add-ons']);
-    await expect(nav.entry('Vouchers')).toHaveCount(0);
+    await expect(nav.entry('Vouchers')).toBeVisible();
   });
 
   test('is left out for a session that may not read them, and offered to one that may', async ({
@@ -90,64 +92,71 @@ test.describe('the entry of the navigation', () => {
   });
 });
 
-test.describe('where the release ships no vouchers', () => {
+test.describe('after the vouchers grant is lost', () => {
   for (const path of [
-    '/catalog/vouchers',
     '/catalog/vouchers/new',
-    '/catalog/vouchers/voucher-welcome',
     '/catalog/vouchers/voucher-draft/edit',
+    '/catalog/vouchers/voucher-welcome?mode=configure',
+    '/customers/instances/initech-prod/billing/redeem-voucher',
   ]) {
-    test(`explains on ${path}, in place of the screen`, async ({ page }) => {
-      const nav = new BillingNavDriver(page);
+    test(`blocks expansion at ${path}`, async ({ page }) => {
       await installVouchersWorld(page, createVouchersNotShippedBillingModel());
-
       await page.goto(path);
-
-      await nav.expectUnavailable('FEATURE_UNAVAILABLE');
-      await expect(
-        page.getByText('Not available in this version'),
-      ).toBeVisible();
-      // An explanation, not an error and not a missing page.
-      await expect(page.getByText('Page not found')).toHaveCount(0);
-      await expect(page.getByRole('alert')).toHaveCount(0);
+      await new BillingNavDriver(page).expectUnavailable('FEATURE_UNAVAILABLE');
     });
   }
 
-  test('asks the API for nothing of the catalogue', async ({ page }) => {
-    const nav = new BillingNavDriver(page);
-    const requests: string[] = [];
-    page.on('request', (request) => {
-      const { pathname } = new URL(request.url());
-      if (CATALOGUE_REQUESTS.test(pathname)) {
-        requests.push(`${request.method()} ${pathname}`);
-      }
-    });
-    await installVouchersWorld(page, createVouchersNotShippedBillingModel());
-
-    await page.goto('/catalog/vouchers/voucher-welcome');
-    await nav.expectUnavailable('FEATURE_UNAVAILABLE');
-
-    expect(requests).toEqual([]);
-  });
-
-  test('offers no card of vouchers on the Billing tab of an instance, and no code in the dialog that subscribes', async ({
+  test('keeps catalogue reads, archive and redemptions reachable but blocks new codes', async ({
     page,
   }) => {
     await page.clock.setFixedTime(new Date(BILLED_NOW));
     await installVouchersWorld(page, createVouchersNotShippedBillingModel());
+    await page.goto('/catalog/vouchers/voucher-welcome');
+    await expect(page.getByTestId('voucher-code')).toBeVisible();
+    await expect(page.locator('[data-voucher-edit]')).toHaveCount(0);
+    await expect(
+      page.getByRole('button', { name: 'Archive', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Add a boost' })).toHaveCount(
+      0,
+    );
 
     await page.goto('/customers/instances/initech-prod/billing');
+    await expect(page.getByTestId('instance-vouchers')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Apply a code' })).toHaveCount(
+      0,
+    );
     await expect(
-      page.getByRole('tab', { name: 'Billing', exact: true }),
+      page
+        .getByTestId('instance-vouchers')
+        .getByRole('button', { name: /^Revoke/ })
+        .first(),
     ).toBeVisible();
-
-    await expect(page.getByTestId('instance-vouchers')).toHaveCount(0);
-
     await page.goto('/customers/instances/initech-fresh/billing/subscribe');
     await expect(
       page.getByRole('dialog').getByLabel(/^Base price/),
     ).toBeVisible();
     await expect(page.getByLabel(/^Voucher code/)).toHaveCount(0);
+  });
+
+  test('offers Retry for an unknown grant and recovers when it can be checked', async ({
+    page,
+  }) => {
+    const model = createVouchersNotShippedBillingModel();
+    model.setCapabilities({
+      ...model.getCapabilities(),
+      featureCheckUnavailable: ['vouchers'],
+    });
+    await installVouchersWorld(page, model);
+    await page.goto('/catalog/vouchers/new');
+    await new BillingNavDriver(page).expectUnavailable('UNREACHABLE');
+    model.setCapabilities(billingCapabilitiesProfiles.stackWithVouchers());
+    await updateBillingAppMocks(page, model);
+    await page.getByRole('button', { name: 'Retry', exact: true }).click();
+    await expect(
+      page.getByRole('heading', { name: 'New voucher', exact: true }),
+    ).toBeVisible();
+    await expect(page.getByTestId('billing-unavailable')).toHaveCount(0);
   });
 });
 

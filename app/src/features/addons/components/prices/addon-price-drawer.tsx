@@ -9,7 +9,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { ProblemAlert } from '@/domains/billing';
+import {
+  ProblemAlert,
+  useBillingFeatureAccess,
+  useLeaveRestrictedDialog,
+} from '@/domains/billing';
 import { createFormSubmitHandler } from '@/hooks/form';
 import { useAddonPriceForm } from '../../hooks';
 import type { AddonPricing } from '../../hooks';
@@ -40,6 +44,8 @@ export function AddonPriceDrawer({
 }: AddonPriceDrawerProps) {
   const { t } = useTranslation();
   const formId = useId();
+  const access = useBillingFeatureAccess('addonPrices.create', 'addons');
+  useLeaveRestrictedDialog(access, onClose);
   const { addon } = pricing;
   // What a metered price may measure is what the version grants. The allowance an
   // overage bills above is the instance's: the grant of an add-on adds to the license's.
@@ -56,6 +62,10 @@ export function AddonPriceDrawer({
       onFrozen,
       pricing,
     });
+
+  if (!access.allowed) {
+    return null;
+  }
 
   return (
     <Sheet onOpenChange={(open) => !open && onClose()} open>

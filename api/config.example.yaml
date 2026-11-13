@@ -87,6 +87,10 @@ retention:
   # audit evidence that it existed and when it stopped working. Zero or less
   # disables the sweep and keeps every row forever.
   retired_tokens: 2160h    # KAITEN_RETENTION_RETIRED_TOKENS
+  # Audit trail entries, in days, when no licensing authority answers for the
+  # organization: every self-hosted deployment. 0 keeps every entry forever. On
+  # Kaiten Cloud each organization's licence states it (audit-retention).
+  audit_trail_days: 0      # KAITEN_RETENTION_AUDIT_TRAIL_DAYS
 
 # Whether this deployment's usage is counted, and by whom. Was `dogfooding:`,
 # which named the practice rather than the setting; the old KAITEN_DOGFOODING_*

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/invoices"
+	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscribeinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/subscriptions"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -155,12 +156,12 @@ func TestSubscribeInstance(t *testing.T) {
 		require.Equal(t, "SubscribeInstance.StartAtInFuture", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path,
 			map[string]any{"basePriceId": s.monthly.ID, "startAt": time.Now().UTC().Add(time.Hour)}))
 		require.Equal(t, "SubscribeInstance.StartAtTooEarly", problemCode(t, fiber.StatusUnprocessableEntity, "POST", path,
-			map[string]any{"basePriceId": s.monthly.ID, "startAt": time.Now().UTC().AddDate(0, -1, -2)}))
+			map[string]any{"basePriceId": s.monthly.ID, "startAt": rating.AddMonthsClamped(time.Now().UTC(), -1).AddDate(0, 0, -2)}))
 
 		startAt := time.Now().UTC().AddDate(0, 0, -10).Add(123 * time.Millisecond)
 		started := subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID, "startAt": startAt})
 		require.True(t, started.AnchorAt.Equal(startAt.Truncate(time.Second)))
-		require.True(t, started.CurrentPeriodEnd.Equal(started.AnchorAt.AddDate(0, 1, 0)))
+		require.True(t, started.CurrentPeriodEnd.Equal(rating.AddMonthsClamped(started.AnchorAt, 1)))
 	})
 
 	t.Run("WhatItSubscribesTo_IsChecked", func(t *testing.T) {

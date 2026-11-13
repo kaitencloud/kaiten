@@ -48,6 +48,9 @@ catalog:
   vite-plus: 1.0.0
   '@openfeature/ofrep-web-provider': ^0.4.3
   '@openfeature/web-sdk': ^1.10.0
+  '@kaitencloud/client': 1.2.0
+  '@kaitencloud/react': 1.0.1
+  '@kaitencloud/react-ui': 1.0.1
 
 # packages/api-codegen cannot use the default catalog's TypeScript: openapi-ts
 # drives the TypeScript compiler JS API (ts.SyntaxKind ...), which the Go-based

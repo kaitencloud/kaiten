@@ -2,10 +2,13 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -14,6 +17,13 @@ import (
 )
 
 const (
+	// dbmlCLI is the @dbml/cli release db2dbml comes from, pinned so the
+	// document changes when the schema does, not when the tool does.
+	dbmlCLI = "@dbml/cli@12.0.0"
+	// partitionedTablesMarker separates the list of the tables
+	// flatten_partitions.sql flattened, which it prints, from the DBML in the
+	// container's output.
+	partitionedTablesMarker = "--- partitioned tables ---"
 	// partialIndexesMarker separates the DBML from the partial index list in
 	// the generator container's output.
 	partialIndexesMarker = "--- partial indexes ---"
@@ -22,7 +32,21 @@ const (
 	partialIndexesQuery = "SELECT '- `' || indexname || '`: `' || indexdef || '`' " +
 		"FROM pg_indexes WHERE schemaname = 'public' AND indexdef LIKE '% WHERE %' " +
 		"ORDER BY indexname"
+	// coveringIndexesMarker separates the partial index list from the covering
+	// index list.
+	coveringIndexesMarker = "--- covering indexes ---"
+	// coveringIndexesQuery prints each index with an INCLUDE list as its name
+	// and its definition, separated by a tab.
+	coveringIndexesQuery = "SELECT indexname || E'\\t' || indexdef " +
+		"FROM pg_indexes WHERE schemaname = 'public' AND indexdef LIKE '% INCLUDE (%' " +
+		"ORDER BY indexname"
 )
+
+// flattenPartitionsSQL turns each partitioned table into an ordinary one before
+// db2dbml reads the schema; flatten_partitions.sql says why.
+//
+//go:embed flatten_partitions.sql
+var flattenPartitionsSQL string
 
 func main() {
 	ctx := context.Background()
@@ -53,10 +77,11 @@ func generate(ctx context.Context, root, dbUser, dbPassword, dbName, outputPath 
 	}()
 
 	dbPasswordSecret := client.SetSecret("kaiten_db_password", dbPassword)
-	connSecret := client.SetSecret(
-		"kaiten_db_conn",
-		fmt.Sprintf("postgres://%s:%s@db:5432/%s?sslmode=disable", dbUser, dbPassword, dbName),
-	)
+	// Built as URLs, so that a user or a password holding @ : / # % still
+	// parses: pasted in, it broke the URI, and db2dbml prints such an error on
+	// its standard output, connection string included, then exits 0.
+	connSecret := client.SetSecret("kaiten_db_conn", databaseURL("postgres", dbUser, dbPassword, dbName, "sslmode=disable"))
+	db2dbmlSecret := client.SetSecret("kaiten_db2dbml_conn", databaseURL("postgresql", dbUser, dbPassword, dbName, "schemas=public"))
 
 	// ── 1. PostgreSQL 17.4 service ─────────────────────────────────────────────
 	postgres := client.Container().
@@ -91,10 +116,20 @@ func generate(ctx context.Context, root, dbUser, dbPassword, dbName, outputPath 
 	// not have (license.family_id is not unique; one default per family is).
 	// The partial indexes are therefore listed after the DBML, from the same
 	// database, so the document says what they really are.
+	//
+	// db2dbml cannot read a partitioned table either: flatten_partitions.sql
+	// turns each one into an ordinary table of the same definition, and prints
+	// what it flattened, which the document lists.
+	//
+	// db2dbml also prints an index's INCLUDE columns as key columns, which
+	// claims keys the schema does not have: a unique index on lookup_hash that
+	// includes organization_id reads as unique on the pair. The covering indexes
+	// are listed after the partial ones, and their DBML lines are corrected to
+	// their key columns below.
 	output, err := client.Container().
 		From("node:22-alpine").
 		WithMountedCache("/root/.npm", client.CacheVolume("kaiten-npm")).
-		WithExec([]string{"npm", "install", "-g", "@dbml/cli"}).
+		WithExec([]string{"npm", "install", "-g", dbmlCLI}).
 		WithExec([]string{"apk", "add", "--no-cache", "postgresql-client"}).
 		WithFile("/bin/kaiten-admin-tools", adminToolsBin, dagger.ContainerWithFileOpts{Permissions: 0o755}).
 		WithServiceBinding("db", postgres).
@@ -103,24 +138,50 @@ func generate(ctx context.Context, root, dbUser, dbPassword, dbName, outputPath 
 		WithEnvVariable("PGUSER", dbUser).
 		WithEnvVariable("PGDATABASE", dbName).
 		WithSecretVariable("PGPASSWORD", dbPasswordSecret).
+		WithSecretVariable("DB2DBML_CONNECTION", db2dbmlSecret).
+		WithEnvVariable("PARTITIONED_TABLES_MARKER", partitionedTablesMarker).
+		WithEnvVariable("FLATTEN_PARTITIONS_SQL", flattenPartitionsSQL).
 		WithEnvVariable("PARTIAL_INDEXES_MARKER", partialIndexesMarker).
 		WithEnvVariable("PARTIAL_INDEXES_QUERY", partialIndexesQuery).
+		WithEnvVariable("COVERING_INDEXES_MARKER", coveringIndexesMarker).
+		WithEnvVariable("COVERING_INDEXES_QUERY", coveringIndexesQuery).
 		WithExec([]string{
 			"sh", "-c",
 			`/bin/kaiten-admin-tools migrate up 1>&2 && ` +
-				`db2dbml postgres "postgresql://$PGUSER:$PGPASSWORD@db:5432/$PGDATABASE?schemas=public" && ` +
-				`echo "$PARTIAL_INDEXES_MARKER" && psql -At -c "$PARTIAL_INDEXES_QUERY"`,
+				`psql -q -At -v ON_ERROR_STOP=1 -c "$FLATTEN_PARTITIONS_SQL" && echo "$PARTITIONED_TABLES_MARKER" && ` +
+				`db2dbml postgres "$DB2DBML_CONNECTION" && ` +
+				`echo "$PARTIAL_INDEXES_MARKER" && psql -At -c "$PARTIAL_INDEXES_QUERY" && ` +
+				`echo "$COVERING_INDEXES_MARKER" && psql -At -c "$COVERING_INDEXES_QUERY"`,
 		}).
 		Stdout(ctx)
 	if err != nil {
 		return fmt.Errorf("generating DBML: %w", err)
 	}
-	dbml, partialIndexes, _ := strings.Cut(output, partialIndexesMarker+"\n")
+	partitionedTables, rest, _ := strings.Cut(output, partitionedTablesMarker+"\n")
+	dbml, rest, _ := strings.Cut(rest, partialIndexesMarker+"\n")
+	partialIndexes, coveringIndexes, _ := strings.Cut(rest, coveringIndexesMarker+"\n")
+	// db2dbml reports a failure on its standard output and exits 0, so its
+	// output is checked before it becomes the document: an output without a
+	// table is that report, and so is an ERROR line printed after some tables.
+	if err := checkDBML(dbml); err != nil {
+		return err
+	}
+	dbml, coveringList, err := correctCoveringIndexes(dbml, coveringIndexes)
+	if err != nil {
+		return err
+	}
 
 	// ── 5. Write markdown output ───────────────────────────────────────────────
 	content := "# Database Schema\n\n" +
 		"> Auto-generated. Run `task schema-docs` to update.\n\n" +
 		"```dbml\n" + strings.TrimRight(dbml, "\n") + "\n```\n"
+	if partitionedTables = strings.TrimSpace(partitionedTables); partitionedTables != "" {
+		content += "\n## Partitioned tables\n\n" +
+			"The DBML above shows each of these once, as the table its partitions " +
+			"share: the same columns, constraints and indexes, under the same " +
+			"names. The partitions themselves are left out.\n\n" +
+			partitionedTables + "\n"
+	}
 	if partialIndexes = strings.TrimSpace(partialIndexes); partialIndexes != "" {
 		content += "\n## Partial indexes\n\n" +
 			"The DBML above renders these without their `WHERE` clause, as plain " +
@@ -128,10 +189,77 @@ func generate(ctx context.Context, root, dbUser, dbPassword, dbName, outputPath 
 			"unique column. Each one only covers the rows its condition selects.\n\n" +
 			partialIndexes + "\n"
 	}
+	if coveringList != "" {
+		content += "\n## Covering indexes\n\n" +
+			"The DBML above lists each of these with its key columns only. The " +
+			"`INCLUDE` columns are stored in the index, to answer a query without " +
+			"reading the table; they are not part of its key, and take no part in " +
+			"its uniqueness.\n\n" +
+			coveringList + "\n"
+	}
 
 	//nolint:gosec // generated documentation checked into the repo; 0600 would
 	// make the file unreadable to everything but the account that ran the tool
 	return os.WriteFile(outputPath, []byte(content), 0o644)
+}
+
+// databaseURL is the connection string of the throwaway database, with the
+// user and the password escaped.
+func databaseURL(scheme, user, password, database, query string) string {
+	return (&url.URL{
+		Scheme:   scheme,
+		User:     url.UserPassword(user, password),
+		Host:     "db:5432",
+		Path:     "/" + database,
+		RawQuery: query,
+	}).String()
+}
+
+// checkDBML refuses db2dbml's output when it is an error report rather than a
+// schema: db2dbml prints its failures on its standard output and exits 0.
+func checkDBML(dbml string) error {
+	if !strings.Contains("\n"+dbml, "\nTable ") {
+		return fmt.Errorf("db2dbml returned no table:\n%s", strings.TrimSpace(dbml))
+	}
+	for line := range strings.SplitSeq(dbml, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "ERROR:") {
+			return fmt.Errorf("db2dbml reported an error:\n%s", strings.TrimSpace(line))
+		}
+	}
+	return nil
+}
+
+// coveringIndexDef splits an index definition with an INCLUDE list into its
+// key columns and its included ones.
+var coveringIndexDef = regexp.MustCompile(` USING \w+ \((.+?)\) INCLUDE \((.+?)\)`)
+
+// correctCoveringIndexes rewrites, in the DBML, the column list of every index
+// listed (one "name<TAB>definition" line each) to its key columns, and returns
+// the corrected DBML with the markdown list of those indexes. An index it
+// cannot find in the DBML stops the run: the document would keep its wrong key.
+func correctCoveringIndexes(dbml, listed string) (string, string, error) {
+	var items []string
+	for line := range strings.SplitSeq(strings.TrimSpace(listed), "\n") {
+		if line == "" {
+			continue
+		}
+		name, def, ok := strings.Cut(line, "\t")
+		m := coveringIndexDef.FindStringSubmatch(def)
+		if !ok || m == nil {
+			return "", "", fmt.Errorf("covering index not understood: %q", line)
+		}
+		key := m[1]
+		if strings.Contains(key, ",") {
+			key = "(" + key + ")"
+		}
+		indexLine := regexp.MustCompile(`(?m)^(\s+)\S.*?( \[[^\]]*name: "` + regexp.QuoteMeta(name) + `"[^\]]*\])$`)
+		if !indexLine.MatchString(dbml) {
+			return "", "", fmt.Errorf("covering index %s not found in the DBML", name)
+		}
+		dbml = indexLine.ReplaceAllString(dbml, "${1}"+strings.ReplaceAll(key, "$", "$$")+"${2}")
+		items = append(items, "- `"+name+"`: `"+def+"`")
+	}
+	return dbml, strings.Join(items, "\n"), nil
 }
 
 // buildAdminTools cross-compiles cmd/admin-tools for the Linux container that

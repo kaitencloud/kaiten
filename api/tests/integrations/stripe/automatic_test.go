@@ -228,6 +228,26 @@ func TestDetach(t *testing.T) {
 		"/api/instances/"+s.instance.Slug+"/billing", map[string]any{"collectionMethod": "CHARGE_AUTOMATICALLY"}).Code)
 }
 
+// Automatic collection needs no billing e-mail: a switch to Stripe under
+// CHARGE_AUTOMATICALLY, for a customer that has none, keeps the Stripe
+// customer its card was saved for.
+func TestSwitchToAutomaticWithoutBillingEmail(t *testing.T) {
+	fresh(t)
+	connect(t, nil)
+	s := newSold(t, "acme")
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE customer SET billing_email = NULL WHERE id = $1`, s.customer.ID)
+	require.NoError(t, err)
+	saveCard(t, s, stripefake.CardSucceeds)
+	path := "/api/instances/" + s.instance.Slug + "/billing"
+	commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", path, map[string]any{"basePriceId": s.monthly.ID}), fiber.StatusCreated)
+
+	switched := commonfixture.AssertJSONResponse[subscriptions.InstanceBilling](t, call(t, "PATCH", path,
+		map[string]any{"providerKind": "STRIPE", "collectionMethod": "CHARGE_AUTOMATICALLY"}), fiber.StatusOK)
+	require.Equal(t, "STRIPE", switched.ProviderKind)
+	require.Equal(t, "CHARGE_AUTOMATICALLY", switched.CollectionMethod)
+	require.Equal(t, 1, fake.Customers(stripefake.DefaultAccount), "the customer its card was saved for")
+}
+
 // S09-082: a setup session nobody completed still converges, through sync.
 func TestSyncAdoptsACompletedSession(t *testing.T) {
 	fresh(t)

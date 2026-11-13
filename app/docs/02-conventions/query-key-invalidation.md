@@ -138,10 +138,11 @@ export const customersWithInstancesQueryOptions = queryOptions({
 Other examples are `instancesWithRelationsBaseQueryKey`
 (`app/src/domains/customer-management/queries/`), `licensesWithInstancesBaseQueryKey`
 (`app/src/features/licenses/queries/`) and `webhooksBaseQueryKey`
-(`app/src/features/webhooks/queries/`). The dashboard's main query, `useDashboardData`
-(`app/src/features/dashboard/queries/use-dashboard-data.ts`), uses the literal key
-`['dashboard']`, which no mutation invalidates. Export a key for it before
-invalidating it.
+(`app/src/features/webhooks/queries/`). The dashboard's summary
+(`app/src/features/dashboard/queries/dashboard-summary.ts`) spreads the options the
+generated client builds for `getDashboardSummary`, so its key is the generated one,
+with the period in it. No mutation invalidates it: it is a read over the whole
+organization that stays fresh for a minute and is read again on the next visit.
 
 ## Entities read through REST and GraphQL
 

@@ -37,7 +37,7 @@ func SelectedVoucher(ctx context.Context, vouchers Vouchers, operation string, o
 		OrganizationID: organizationID, Code: code, LicensePriceID: priceID, AddonIDs: addonIDs,
 	})
 	if err != nil {
-		return nil, err
+		return nil, PublicVoucherError(operation, err)
 	}
 	if voucher == nil {
 		return nil, VoucherInvalid(operation)
@@ -59,6 +59,17 @@ func PricedCode(voucher *catalogue.Voucher, code string) *string {
 // redemption the payment records, a COMPOSITE's other parts included (§9.10).
 func RecordableAtPayment(voucher *catalogue.Voucher) bool {
 	return voucher == nil || voucher.PriceDiscountType != nil
+}
+
+// PublicVoucherError keeps plan refusals opaque at every public boundary.
+// Other failures retain their normal retry/security contract.
+func PublicVoucherError(operation string, err error) error {
+	switch kaitenerrors.GetCode(err) {
+	case "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
+		return VoucherInvalid(operation)
+	default:
+		return err
+	}
 }
 
 // VoucherInvalid is the checkout's one answer to a code it cannot apply.

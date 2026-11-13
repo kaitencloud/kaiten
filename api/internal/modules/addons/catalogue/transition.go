@@ -11,6 +11,7 @@ import (
 	addonevents "github.com/kaitencloud/kaiten/api/internal/modules/addons/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // Transition is one edge of an add-on version's lifecycle: publish, archive or
@@ -28,6 +29,11 @@ func (t Transition) Move(ctx context.Context, deps Deps, box *outbox.ScopedRepos
 	user, err := deps.Caller(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if t.To == Published {
+		if err := deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons"); err != nil {
+			return nil, err
+		}
 	}
 	ctx = deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var moved Addon

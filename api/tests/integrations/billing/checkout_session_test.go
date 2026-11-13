@@ -347,6 +347,64 @@ func TestCheckoutSessionFreePlan(t *testing.T) {
 	require.Len(t, outboxPayloads(t, "CHECKOUT_SESSION_COMPLETED"), 1, "completed once")
 }
 
+// TestCheckoutSessionNamesTheCustomer: the completion names the new customer
+// and its instance after the customerName the start gave, trimmed, and after
+// the e-mail when it gave none or a blank one.
+func TestCheckoutSessionNamesTheCustomer(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	community := newDefaultVersion(t, "Community", "FREE")
+	makePublic(t, community.FamilySlug)
+	free := createPrice(t, community.Slug, defaultFlatFee("0", "MONTHLY"))
+	key := anonymousKey(t)
+
+	complete := func(t *testing.T, email string, name any) (checkout.CheckoutSession, map[string]any, map[string]any) {
+		t.Helper()
+		body := map[string]any{
+			"turnstileToken": "pass:app.acme.test", "priceId": free.ID, "email": email, "returnUrl": storefront + "/welcome",
+		}
+		if name != nil {
+			body["customerName"] = name
+		}
+		opened := commonfixture.AssertJSONResponse[checkout.CheckoutSessionStart](t, startCheckout(t, key.Key, body), fiber.StatusCreated)
+		done := commonfixture.AssertJSONResponse[checkout.CheckoutConfirmation](t, confirmCheckout(t, opened.SessionID.String(), *opened.Token), fiber.StatusOK)
+		require.Equal(t, checkout.ConfirmCompleted, done.Status)
+		customer := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/customers/"+*done.Session.CustomerSlug, nil), fiber.StatusOK)
+		instance := commonfixture.AssertJSONResponse[map[string]any](t, call(t, "GET", "/api/instances/"+*done.Session.InstanceSlug, nil), fiber.StatusOK)
+		return done.Session, customer, instance
+	}
+
+	t.Run("a given name names both, trimmed", func(t *testing.T) {
+		session, customer, instance := complete(t, "founder@acme.test", "  Acme Robotics  ")
+		require.Equal(t, "Acme Robotics", customer["name"])
+		require.Equal(t, "Acme Robotics", instance["name"])
+		require.Equal(t, "founder@acme.test", customer["billingEmail"], "the e-mail is still the billing e-mail")
+		require.NotNil(t, session.CustomerName)
+		require.Equal(t, "Acme Robotics", *session.CustomerName, "the session reads it back as stored")
+		admin := commonfixture.AssertJSONResponse[checkout.CheckoutSessionAdmin](t,
+			call(t, "GET", "/api/checkout-sessions/"+session.SessionID.String(), nil), fiber.StatusOK)
+		require.NotNil(t, admin.CustomerName)
+		require.Equal(t, "Acme Robotics", *admin.CustomerName, "and so does the vendor")
+	})
+
+	for label, name := range map[string]any{"no name": nil, "a blank name": "   "} {
+		t.Run(label+" names both after the e-mail", func(t *testing.T) {
+			email := strings.ReplaceAll(label, " ", "-") + "@example.com"
+			session, customer, instance := complete(t, email, name)
+			require.Equal(t, email, customer["name"])
+			require.Equal(t, email, instance["name"])
+			require.Nil(t, session.CustomerName)
+		})
+	}
+
+	t.Run("a name longer than 255 characters is refused", func(t *testing.T) {
+		resp := startCheckout(t, key.Key, map[string]any{
+			"turnstileToken": "pass:app.acme.test", "priceId": free.ID, "email": "long@example.com",
+			"returnUrl": storefront + "/welcome", "customerName": strings.Repeat("a", 256),
+		})
+		require.Equal(t, fiber.StatusUnprocessableEntity, resp.StatusCode)
+	})
+}
+
 // TestCheckoutSessionVendorReads: the vendor reads its anonymous checkouts
 // (§13.18): newest first, filtered by status (an OPEN one past its expiry is
 // ABANDONED), normalized e-mail and clientReferenceId; never a ksc_.

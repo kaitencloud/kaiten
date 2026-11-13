@@ -16,6 +16,8 @@ type AddonCompatibilityCardProps = {
   onChange: (familySlug: string, compatible: boolean) => void;
   /** Whether the session may change which families the version fits. */
   readOnly: boolean;
+  maySet?: boolean;
+  mayRemove?: boolean;
   families: readonly LicenseFamilyView[];
 };
 
@@ -68,6 +70,8 @@ export function AddonCompatibilityCard({
   isBusy,
   onChange,
   readOnly,
+  maySet = true,
+  mayRemove = true,
 }: AddonCompatibilityCardProps) {
   const { t } = useTranslation();
   const fits = new Set(compatible);
@@ -106,7 +110,11 @@ export function AddonCompatibilityCard({
             {families.map((family) => (
               <FamilyBox
                 checked={fits.has(family.slug)}
-                disabled={readOnly || isBusy(family.slug)}
+                disabled={
+                  readOnly ||
+                  isBusy(family.slug) ||
+                  (fits.has(family.slug) ? !mayRemove : !maySet)
+                }
                 family={family}
                 key={family.id}
                 onChange={(next) => onChange(family.slug, next)}

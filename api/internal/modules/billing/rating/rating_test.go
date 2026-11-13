@@ -285,6 +285,7 @@ func TestAddMonthsClamped(t *testing.T) {
 		{day(2027, 3, 31), -1, day(2027, 2, 28)},
 		{day(2027, 1, 15), 12, day(2028, 1, 15)},
 		{day(2027, 8, 31), 3, day(2027, 11, 30)},
+		{day(2026, 10, 31), 1, day(2026, 11, 30)},
 		{day(2027, 1, 15), -1, day(2026, 12, 15)},
 	} {
 		if got := AddMonthsClamped(tc.from, tc.k); !got.Equal(tc.want) {

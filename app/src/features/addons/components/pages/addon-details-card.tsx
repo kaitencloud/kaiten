@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { Addon } from '@/api-client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { useCanPerform } from '@/domains/billing';
+import { useBillingFeatureAccess } from '@/domains/billing';
 import { DetailCard } from '@/functionals/detail-card';
 import {
   INCREASE_BILLING_LABEL_KEYS,
@@ -25,7 +25,7 @@ type AddonDetailsCardProps = {
 // the search says `mode=configure`, over whichever tab is open.
 function EditLink() {
   const { t } = useTranslation();
-  const mayUpdate = useCanPerform('addons.update');
+  const mayUpdate = useBillingFeatureAccess('addons.update', 'addons').allowed;
 
   if (!mayUpdate) {
     return null;

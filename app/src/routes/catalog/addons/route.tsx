@@ -14,7 +14,7 @@ export const Route = createFileRoute('/catalog/addons')({
   // it loads anything, and BillingUnavailable explains instead of the screen: a link to
   // an add-ons page never fails, and nothing of the catalogue is requested.
   beforeLoad: async ({ context }) => {
-    await requireBillingCapability(context.queryClient, 'addons');
+    await requireBillingCapability(context.queryClient);
 
     return { getTitle: () => i18n.t('Pages.Addons.title') };
   },

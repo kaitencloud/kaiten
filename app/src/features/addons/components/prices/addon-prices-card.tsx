@@ -3,7 +3,7 @@ import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import type { Price } from '@/api-client';
 import { Button } from '@/components/ui/button';
-import { useCanPerform } from '@/domains/billing';
+import { useBillingFeatureAccess } from '@/domains/billing';
 import { TableCard } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { AddonPricing } from '../../hooks';
@@ -30,7 +30,10 @@ export function AddonPricesCard({
   pricing,
 }: AddonPricesCardProps) {
   const { t } = useTranslation();
-  const mayCreate = useCanPerform('addonPrices.create');
+  const mayCreate = useBillingFeatureAccess(
+    'addonPrices.create',
+    'addons',
+  ).allowed;
   const { addon, canAdd, entitlementBySlug, prices, slots } = pricing;
 
   return (

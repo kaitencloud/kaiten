@@ -17,7 +17,9 @@ write; None removes only the direct grant, not inherited access. Role definition
 are editable scope groups; built-in system templates are read-only. Deleting an
 assigned role and demoting/disabling the last administrator are refused server-side.
 
-Generated REST operations and schemas own the contract. Mutations invalidate users,
+Generated REST operations and schemas own the contract. The users directory
+refetches on entry/remount and every 30 seconds while observed and the page is
+visible; it does not poll in the background. Mutations invalidate users,
 roles and `/me`, including failed attempts, to refresh the server's current state.
 Enablement and assignment edits each use atomic PATCH. Status changes preserve roles, and role edits preserve current enablement, so concurrent administrator changes cannot silently re-enable a disabled member.
 Local development shows a current Core-verified Administrator/Member header badge,

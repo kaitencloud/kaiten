@@ -4,7 +4,7 @@ import type { Voucher } from '@/api-client';
 import { Button } from '@/components/ui/button';
 import {
   ProblemAlert,
-  useActionAccess,
+  useBillingFeatureAccess,
   useLeaveRestrictedDialog,
 } from '@/domains/billing';
 import {
@@ -67,7 +67,7 @@ export function VoucherEditDialog({
   voucher,
 }: VoucherEditDialogProps) {
   const { t } = useTranslation();
-  const update = useActionAccess('vouchers.update');
+  const update = useBillingFeatureAccess('vouchers.update', 'vouchers');
 
   // The edit is opened by a link: for a session that may not write vouchers the link is
   // inert, and for a voucher that is not published there is nothing the API takes.
