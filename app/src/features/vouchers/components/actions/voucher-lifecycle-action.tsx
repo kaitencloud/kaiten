@@ -1,5 +1,9 @@
 import type { Voucher } from '@/api-client';
-import { useCanPerform, VersionLifecycleAction } from '@/domains/billing';
+import {
+  useBillingCapabilities,
+  useCanPerform,
+  VersionLifecycleAction,
+} from '@/domains/billing';
 import { useVoucherTransitions } from '../../hooks/use-voucher-transitions';
 import { VOUCHER_TRANSITION_KEYS } from '../../utils/voucher-labels';
 
@@ -19,9 +23,12 @@ export function VoucherLifecycleAction({
   voucher,
 }: VoucherLifecycleActionProps) {
   const { archive, publish } = useVoucherTransitions(voucher.id);
-  const allowed = useCanPerform(
-    transition === 'publish' ? 'vouchers.publish' : 'vouchers.archive',
-  );
+  const featureOn = useBillingCapabilities().has('vouchers');
+  const allowed =
+    useCanPerform(
+      transition === 'publish' ? 'vouchers.publish' : 'vouchers.archive',
+    ) &&
+    (transition === 'archive' || featureOn);
 
   return (
     <VersionLifecycleAction

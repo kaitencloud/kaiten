@@ -11,7 +11,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
-import { handleBillingProblem, useCanPerform } from '@/domains/billing';
+import {
+  handleBillingProblem,
+  useBillingFeatureAccess,
+} from '@/domains/billing';
 import {
   ADDON_FREEZE_DESCRIPTION_KEYS,
   ADDON_FREEZE_TITLE_KEYS,
@@ -40,7 +43,7 @@ export function FrozenVersionDialog({
   onClose,
 }: FrozenVersionDialogProps) {
   const { t } = useTranslation();
-  const mayCreate = useCanPerform('addons.create');
+  const mayCreate = useBillingFeatureAccess('addons.create', 'addons').allowed;
   const problem = handleBillingProblem(error);
   // A refusal this dialog is opened for is one of the two; billed is the one that is
   // not a state of the version, and the safe thing to say of the rest.

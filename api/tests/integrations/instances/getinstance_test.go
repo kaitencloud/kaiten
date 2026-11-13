@@ -26,6 +26,9 @@ func TestGetInstanceByID(t *testing.T) {
 
 		// Assert
 		actual := commonfixture.AssertJSONResponse[schema.Instance](t, resp, fiber.StatusOK)
+		require.NotNil(t, actual.LicenseTerm)
+		require.Equal(t, "no-store", resp.Header.Get("Cache-Control"))
+		actual.LicenseTerm = nil // Compare the unchanged persisted representation.
 		require.Equal(t, expected, actual)
 		require.Equal(t, schema.InstanceStatusHealthy, actual.Status)
 	})

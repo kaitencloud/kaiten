@@ -7,6 +7,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/archivevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/createvoucher"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/deletevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/getvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/listinstancevouchers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/listvoucherredemptions"
@@ -29,6 +30,7 @@ func registerVouchers(core huma.API, app kaiten.Vouchers) {
 	updatevoucher.RegisterEndpoint(core, app)
 	publishvoucher.RegisterEndpoint(core, app)
 	archivevoucher.RegisterEndpoint(core, app)
+	deletevoucher.RegisterEndpoint(core, app)
 	listvoucherredemptions.RegisterEndpoint(core, app)
 	validatevoucher.RegisterEndpoint(core, app)
 	redeemvoucher.RegisterEndpoint(core, app)

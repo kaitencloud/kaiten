@@ -2,6 +2,7 @@ import { HttpResponse } from 'msw/http';
 import {
   handleArchiveVoucher,
   handleCreateVoucher,
+  handleDeleteVoucher,
   handleGetVoucher,
   handleListInstanceVouchers,
   handleListVoucherRedemptions,
@@ -46,8 +47,9 @@ const oneOf = <T extends string>(
 
 /**
  * The catalogue of vouchers: reading them with their codes, making a draft, replacing
- * it, publishing and archiving, finding a voucher by its code and checking whether a
- * code would redeem. A code travels in the body of the last two, never in a path.
+ * it, publishing, archiving and deleting one never redeemed, finding a voucher by its code
+ * and checking whether a code would redeem. A code travels in the body of the last two,
+ * never in a path.
  */
 const catalogueHandlers = (
   model: BillingAppModel,
@@ -117,6 +119,13 @@ const catalogueHandlers = (
         const archived = vouchers.archiveVoucher(params.voucherId);
         persist();
         return HttpResponse.json(archived);
+      }),
+    ),
+    handleDeleteVoucher(
+      withProblems(({ params }) => {
+        vouchers.deleteVoucher(params.voucherId);
+        persist();
+        return new HttpResponse(null, { status: 204 });
       }),
     ),
     handleListVoucherRedemptions(

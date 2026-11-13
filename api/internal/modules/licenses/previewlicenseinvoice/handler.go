@@ -70,8 +70,11 @@ type meter struct {
 //   - the voucher's discount, as a redemption would apply it, consuming
 //     nothing.
 func (u *UseCase) Execute(ctx context.Context, licenseSlug string, scenario Scenario) (*rating.InvoicePreview, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
+		return nil, err
+	}
+	if err := u.deps.Gate.RequireSelection(ctx, user.OrganizationID, scenario.VoucherCode != nil, len(scenario.AddOns) > 0); err != nil {
 		return nil, err
 	}
 	samples, err := parseSamples(scenario.SampleUsage)

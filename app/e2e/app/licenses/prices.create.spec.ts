@@ -231,10 +231,11 @@ test.describe('adding a price', () => {
     await expect(drawer.meterOption('Seats')).toContainText(
       'it never resets, so it cannot be metered',
     );
-    // Where the release ships no add-ons, the hint says where a stock is sold
-    // and links nowhere.
+    // Catalogue reads stay reachable without the add-ons grant.
     await expect(drawer.stockHint()).toContainText('sold as an add-on');
-    await expect(drawer.picker().getByRole('link')).toHaveCount(0);
+    await expect(
+      drawer.picker().getByRole('link', { name: 'See the add-ons' }),
+    ).toHaveAttribute('href', '/catalog/addons');
 
     // Usage cannot be billed before it happens, and a metered price has no
     // period of its own.

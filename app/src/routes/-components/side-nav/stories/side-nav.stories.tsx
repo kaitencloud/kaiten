@@ -224,8 +224,8 @@ export const Expanded: Story = {
 };
 
 // Billing on, as the API of the stack serves it: the invoices are an entry of the
-// navigation. The release ships neither add-ons nor vouchers, so the catalog goes
-// without them.
+// navigation. Independent add-on/voucher grants are absent, but the catalog
+// remains readable so existing objects can be inspected and retired.
 export const BillingOn: Story = {
   render: () => (
     <SideNavWithContent
@@ -251,11 +251,9 @@ export const BillingOn: Story = {
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     await userEvent.click(catalog);
-    for (const name of ['Licenses', 'Entitlements']) {
+    for (const name of ['Licenses', 'Entitlements', 'Add-ons', 'Vouchers']) {
       await expect(canvas.getByRole('link', { name })).toBeVisible();
     }
-    await expect(canvas.queryByRole('link', { name: 'Add-ons' })).toBeNull();
-    await expect(canvas.queryByRole('link', { name: 'Vouchers' })).toBeNull();
   },
 };
 

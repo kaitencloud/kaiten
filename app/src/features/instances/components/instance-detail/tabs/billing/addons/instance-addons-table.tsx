@@ -33,6 +33,8 @@ type InstanceAddonsTableProps = {
   mayDetach: boolean;
   /** Whether the session may change the quantity of an add-on. */
   maySetQuantity: boolean;
+  /** Increases need the feature grant; decreases are retirement. */
+  mayIncrease?: boolean;
   rows: readonly HeldAddon[];
 };
 
@@ -126,11 +128,13 @@ function QuantityCell({
   boundaryAt,
   locked,
   maySetQuantity,
+  mayIncrease,
   row,
 }: {
   boundaryAt?: string;
   locked: boolean;
   maySetQuantity: boolean;
+  mayIncrease: boolean;
   row: HeldAddon;
 }) {
   const { t } = useTranslation();
@@ -154,7 +158,7 @@ function QuantityCell({
             group: t(KEYS.group, { name: label }),
             increase: t(KEYS.increase, { name: label }),
           }}
-          max={held.maxQuantity ?? undefined}
+          max={mayIncrease ? (held.maxQuantity ?? undefined) : held.quantity}
           onChange={(quantity) =>
             void actions.perform({ held, kind: 'quantity', label, quantity })
           }
@@ -251,6 +255,7 @@ export function InstanceAddonsTable({
   locked = false,
   mayDetach,
   maySetQuantity,
+  mayIncrease = true,
   rows,
 }: InstanceAddonsTableProps) {
   const { i18n, t } = useTranslation();
@@ -268,6 +273,7 @@ export function InstanceAddonsTable({
             boundaryAt={boundaryAt}
             locked={locked}
             maySetQuantity={maySetQuantity}
+            mayIncrease={mayIncrease}
             row={row.original}
           />
         ),
@@ -291,12 +297,22 @@ export function InstanceAddonsTable({
         id: 'since',
       },
       ...(mayDetach
-        ? [createActionsColumn<HeldAddon>((row) => (
-            <RemoveCell locked={locked} row={row} />
-          ))]
+        ? [
+            createActionsColumn<HeldAddon>((row) => (
+              <RemoveCell locked={locked} row={row} />
+            )),
+          ]
         : []),
     ],
-    [boundaryAt, i18n.language, locked, mayDetach, maySetQuantity, t],
+    [
+      boundaryAt,
+      i18n.language,
+      locked,
+      mayDetach,
+      maySetQuantity,
+      mayIncrease,
+      t,
+    ],
   );
 
   return (

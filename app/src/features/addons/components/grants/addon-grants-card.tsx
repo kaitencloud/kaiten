@@ -2,7 +2,7 @@ import { Link } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
-import { useCanPerform } from '@/domains/billing';
+import { useBillingFeatureAccess } from '@/domains/billing';
 import { TableCard } from '@/functionals/table';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import type { AddonGrants } from '../../hooks';
@@ -25,7 +25,10 @@ type AddonGrantsCardProps = {
  */
 export function AddonGrantsCard({ grants, onFrozen }: AddonGrantsCardProps) {
   const { t } = useTranslation();
-  const mayAssign = useCanPerform('addonGrants.assign');
+  const mayAssign = useBillingFeatureAccess(
+    'addonGrants.assign',
+    'addons',
+  ).allowed;
   const { addon, available, entitlementBySlug, grants: granted } = grants;
 
   return (

@@ -33,7 +33,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 // transaction: the checks, the conditional increment of the voucher's count,
 // and the redemption.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug, code string) (*catalogue.Redemption, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -49,6 +49,9 @@ func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug, code
 		return nil, err
 	}
 
+	if err := u.deps.Gate.RequireSelectedVoucher(ctx, user.OrganizationID, user.ID, instanceSlug, code); err != nil {
+		return nil, err
+	}
 	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 	var redemption catalogue.Redemption
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {

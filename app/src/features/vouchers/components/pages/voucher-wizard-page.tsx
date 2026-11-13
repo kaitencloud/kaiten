@@ -6,7 +6,7 @@ import type { Voucher } from '@/api-client';
 import { focusFirstInvalidControl } from '@/components/form/use-submit-focus';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ProblemAlert } from '@/domains/billing';
+import { ProblemAlert, useBillingFeatureAccess } from '@/domains/billing';
 import {
   type FormRecovery,
   FormRecoveryAlert,
@@ -78,6 +78,13 @@ export function VoucherWizardPage({ boostFor, draft }: VoucherWizardPageProps) {
     pristine: start?.values ?? initialVoucherFormValues,
   });
   const stepLabels = VOUCHER_STEPS.map((id) => t(STEP_LABEL_KEYS[id]));
+  const access = useBillingFeatureAccess(
+    draft ? 'vouchers.update' : 'vouchers.create',
+    'vouchers',
+  );
+  if (!access.allowed) {
+    return null;
+  }
 
   return (
     <>

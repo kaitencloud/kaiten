@@ -185,7 +185,7 @@ test.describe('capabilities that cannot be read', () => {
     await page.goto('/invoices');
 
     await nav.expectUnavailable('FEATURE_UNAVAILABLE');
-    await expect(page.getByText('Not available in this version')).toBeVisible();
+    await expect(page.getByText('Billing feature unavailable')).toBeVisible();
     await expectNoToast(page);
   });
 

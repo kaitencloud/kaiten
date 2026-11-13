@@ -76,6 +76,7 @@ func Register(deps Deps) {
 	registerPublicSDK(deps.Core, deps.App.PublicSDK())
 	registerIntegrations(deps.Core, deps.App.Integrations())
 	registerInstances(deps.Core, deps.App.Instances())
+	registerDashboard(deps.Core, deps.App.Dashboard())
 	registerFeatureFlags(deps.Core, deps.Router, deps.App.FeatureFlags())
 	registerNotifications(deps.Core, deps.Router, deps.App.Notifications())
 

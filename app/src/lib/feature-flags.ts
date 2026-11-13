@@ -26,8 +26,13 @@ import { getStoredDevToken } from './local-auth';
  * token wiring as hosted builds. Only explicit mocked E2E builds can use their
  * MSW source for AI. A build without a trusted platform source keeps AI off.
  *
- * SaaS bootstrap (internal/modules/kbkbootstrap/flags.go) creates `demo-sandbox`
- * in Dogfooding for demo organizations' banner and seed/reset card.
+ * The flags themselves, each created in the KbK's Dogfooding organization by
+ * saas-api's bootstrap (internal/modules/kbkbootstrap/flags.go):
+ * - `demo-sandbox` (`DEMO_SANDBOX_FLAG`): the demo banner and seed/reset card,
+ *   for organizations whose tracked instance is a demo.
+ * - `plan-billing` (`PLAN_BILLING_FLAG`): the Plan & usage page, for
+ *   organizations whose tracked instance carries metadata `planBilling=true`
+ *   (every organization bought on kaiten.sh).
  *
  * Outbound webhooks are not one of them: an organization has them when its
  * Kaiten licence grants it webhook events (any number but 0), which saas-api
@@ -37,10 +42,14 @@ import { getStoredDevToken } from './local-auth';
  * The client is readable by router `beforeLoad`, before React context exists.
  */
 export const DEMO_SANDBOX_FLAG = 'demo-sandbox';
+export const PLAN_BILLING_FLAG = 'plan-billing';
 export const AI_CREDITS_FLAG = 'ai-credits';
 
 /** Every platform flag this app reads. */
-type PlatformFlag = typeof DEMO_SANDBOX_FLAG | typeof AI_CREDITS_FLAG;
+type PlatformFlag =
+  | typeof DEMO_SANDBOX_FLAG
+  | typeof PLAN_BILLING_FLAG
+  | typeof AI_CREDITS_FLAG;
 
 /** Vite folds this at build time, so it is not a runtime bypass in a real build. */
 const BYPASS_AUTH = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true';
@@ -296,6 +305,14 @@ function platformFlagQueryOptions(flag: PlatformFlag) {
 export const demoSandboxFlagQueryOptions =
   platformFlagQueryOptions(DEMO_SANDBOX_FLAG);
 
+/**
+ * Whether this organization has the Plan & usage page: on the platform flag
+ * service, `plan-billing` targets organizations whose tracked instance carries
+ * metadata `planBilling=true`. saas-api checks the same flag before it mints the
+ * page's session, so the gate here only decides what is offered.
+ */
+export const planBillingFlagQueryOptions =
+  platformFlagQueryOptions(PLAN_BILLING_FLAG);
 let aiEvaluation: { subject: string; pending: Promise<boolean> } | null = null;
 
 /** AI alone requires a fresh network evaluation, never the provider's old map. */

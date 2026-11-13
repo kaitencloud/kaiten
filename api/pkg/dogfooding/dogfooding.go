@@ -1,7 +1,7 @@
 // Package dogfooding holds the entitlement and entitlement-group slugs of
 // kaiten's own metering catalogue -- the vocabulary, and nothing else.
 //
-// The catalogue has twenty-one entitlements in four groups. Kaiten reports against
+// The catalogue has twenty-four entitlements in four groups. Kaiten reports against
 // some of them, the installation that holds the licences gates on others, and
 // some are declarative terms or capabilities nobody reports against at all.
 // Every slug lives here, so that whoever creates the catalogue and whoever
@@ -73,6 +73,11 @@ const (
 	// licensing authority. BOOLEAN, read rather than reported.
 	BillingEntitlementSlug = "billing"
 
+	// Vouchers and add-ons require separate BOOLEAN grants for new writes.
+	// Losing a grant does not remove existing redemptions or attachments.
+	VouchersEntitlementSlug = "vouchers"
+	AddonsEntitlementSlug   = "addons"
+
 	// ConnectorStripeEntitlementSlug is what a licence has to grant before an
 	// organization may activate the Stripe connector. BOOLEAN rather than
 	// NUMBER because the question is "is this sold to this organization", not
@@ -131,6 +136,8 @@ var EntitlementSlugs = []string{
 	SLAUptimeEntitlementSlug,
 	UsageHistoryRetentionEntitlementSlug,
 	BillingEntitlementSlug,
+	VouchersEntitlementSlug,
+	AddonsEntitlementSlug,
 	ConnectorStripeEntitlementSlug,
 	RemovePoweredByEntitlementSlug,
 
@@ -176,6 +183,8 @@ var GatedEntitlementSlugs = []string{
 // ConfigEntitlementSlugs.
 var BooleanEntitlementSlugs = []string{
 	BillingEntitlementSlug,
+	VouchersEntitlementSlug,
+	AddonsEntitlementSlug,
 	ConnectorStripeEntitlementSlug,
 	RemovePoweredByEntitlementSlug,
 }

@@ -32,6 +32,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/nullable"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // Deps is what every voucher use case needs.
@@ -50,6 +51,19 @@ func (d Deps) Caller(ctx context.Context) (*currentuser.User, error) {
 		return nil, err
 	}
 	if err := d.Gate.Require(ctx, user.OrganizationID); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// Writer is the caller whose plan permits new voucher uses. Reads and
+// retiring existing objects stay behind billing only after a downgrade.
+func (d Deps) Writer(ctx context.Context) (*currentuser.User, error) {
+	user, err := d.UserProvider.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if err := d.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
 		return nil, err
 	}
 	return user, nil

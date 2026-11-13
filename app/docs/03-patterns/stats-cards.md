@@ -51,11 +51,11 @@ An icon that stands for an entity is that entity's icon from `dataModelIcons` (`
 
 ## Colour when the number is a state
 
-An alert, an expiry, an overrun: colour under a condition, as the dashboard does (`app/src/features/dashboard/components/cards/dashboard-stats-cards.tsx`). A count stays neutral: a "0" is not a success.
+An alert, an expiry, an overrun: colour under a condition, as the dashboard does (`app/src/features/dashboard/components/customers-view.tsx` sets a `tone` on a figure only while something is at its limit, ending or overdue). A count stays neutral: a "0" is not a success.
 
 ## Two columns up to `xl`
 
-By default the row has two columns from `md` and four from `xl` (`md:grid-cols-2 xl:grid-cols-4`), and two columns below `md`. A row of six, or of three, passes its own `columnsClassName` and keeps two or three columns below `xl`. The dashboard passes `md:grid-cols-3 xl:grid-cols-6`.
+By default the row has two columns from `md` and four from `xl` (`md:grid-cols-2 xl:grid-cols-4`), and two columns below `md`. A row of six, or of three, passes its own `columnsClassName` and keeps two or three columns below `xl`. The dashboard's row of five passes `md:grid-cols-3 xl:grid-cols-5`.
 
 A row whose figures are wider than a number can keep two columns higher up. The strip of an invoice holds dates with their zone and a period of two dates, which a third of a tablet cuts in two: it has two columns up to `lg`, with its period across the second row (`col-span-2 lg:col-span-1` on the card), and sets that one figure a size below the others (`text-xl md:text-2xl`), as the usage alerts of an instance set their two. A period that is still too long wraps after its dash, each date whole.
 

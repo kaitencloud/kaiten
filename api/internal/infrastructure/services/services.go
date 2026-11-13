@@ -149,6 +149,13 @@ type EntitlementConfig interface {
 	// deployment has nobody to ask, and the caller falls back to its own
 	// configuration; any other error means the value is unknown right now.
 	ConfigValue(ctx context.Context, organizationID uuid.UUID, entitlementSlug string) (json.RawMessage, error)
+
+	// LiveConfigValue is ConfigValue without its tolerance: it asks the
+	// licensing authority now, and an unreachable authority is an error however
+	// recently the value was read. It is the read to base an irreversible action
+	// on, where ConfigValue's cached or last-known answer could be the value of
+	// a licence that has since changed.
+	LiveConfigValue(ctx context.Context, organizationID uuid.UUID, entitlementSlug string) (json.RawMessage, error)
 }
 
 // ErrNoLicensingAuthority is what EntitlementConfig answers on a deployment no
@@ -164,6 +171,10 @@ type NoLicensingAuthority struct{}
 var _ EntitlementConfig = NoLicensingAuthority{}
 
 func (NoLicensingAuthority) ConfigValue(context.Context, uuid.UUID, string) (json.RawMessage, error) {
+	return nil, ErrNoLicensingAuthority
+}
+
+func (NoLicensingAuthority) LiveConfigValue(context.Context, uuid.UUID, string) (json.RawMessage, error) {
 	return nil, ErrNoLicensingAuthority
 }
 

@@ -56,6 +56,7 @@ func TestMachineAuthorizationIsResolvedFromStorage(t *testing.T) {
 	request(sign("other-subject", org, jwt.SigningMethodNone), "/components", 401)
 	request(sign(subject, "other-org", jwt.SigningMethodNone), "/components", 401)
 	require.Zero(t, scalar(t, database, `SELECT count(*) FROM user_administrator_bootstrap`))
+	require.Zero(t, scalar(t, database, `SELECT count(*) FROM organization_administrator_bootstrap`))
 	_, err = database.DbPool.Exec(t.Context(), `UPDATE token SET scopes='{}' WHERE id=$1`, tokenID)
 	require.NoError(t, err)
 	request(credential, "/components", 403)

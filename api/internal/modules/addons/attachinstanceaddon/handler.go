@@ -49,8 +49,11 @@ func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug strin
 	if command.Quantity == 0 {
 		command.Quantity = 1
 	}
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
+		return nil, err
+	}
+	if err := u.deps.Gate.RequireSelectedAddon(ctx, user.OrganizationID, user.ID, instanceSlug, command.AddonSlug, command.Quantity); err != nil {
 		return nil, err
 	}
 

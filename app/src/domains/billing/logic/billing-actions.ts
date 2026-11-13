@@ -109,6 +109,7 @@ export const BILLING_ACTIONS = {
   'vouchers.update': 'updateVoucher',
   'vouchers.publish': 'publishVoucher',
   'vouchers.archive': 'archiveVoucher',
+  'vouchers.delete': 'deleteVoucher',
   'vouchers.redemptions': 'listVoucherRedemptions',
   'vouchers.revoke': 'revokeInstanceVoucher',
   'vouchers.validate': 'validateVoucher',

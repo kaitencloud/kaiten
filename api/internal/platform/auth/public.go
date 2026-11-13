@@ -230,7 +230,8 @@ func (p *PublicMiddleware) publishable(ctx fiber.Ctx) error {
 const ClientAddressHeader = "X-Envoy-External-Address"
 
 func clientAddress(ctx fiber.Ctx) string {
-	return strings.TrimSpace(ctx.Get(ClientAddressHeader))
+	// Rate-limit buckets retain this address beyond Fiber's request-buffer lifetime.
+	return strings.Clone(strings.TrimSpace(ctx.Get(ClientAddressHeader)))
 }
 
 // session authenticates a session route: a publishable key is the wrong class

@@ -126,7 +126,10 @@ func (u *UnitOfWork) Transact(ctx context.Context, fn func(ctx context.Context) 
 // join. Work that must only happen after a commit -- a call to the outside
 // world about a row the transaction wrote -- asks it to tell whether the commit
 // is its own to wait for, or its caller's.
-func (u *UnitOfWork) InTransaction(ctx context.Context) bool {
+func (u *UnitOfWork) InTransaction(ctx context.Context) bool { return InTransaction(ctx) }
+
+// InTransaction reports whether a composed operation already holds a transaction.
+func InTransaction(ctx context.Context) bool {
 	_, ok := ctx.Value(txDBTXKey{}).(pgx.Tx)
 	return ok
 }

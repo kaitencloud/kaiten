@@ -11,24 +11,30 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
 type UseCase struct {
-	queries *db.Queries
+	queries   *db.Queries
+	retention auditretention.Retention
 }
 
-func NewUseCase(queries *db.Queries) *UseCase {
-	return &UseCase{queries: queries}
+// NewUseCase builds the read. retention keeps entries past the organization's
+// window out of it while the sweep has yet to delete them.
+func NewUseCase(queries *db.Queries, retention auditretention.Retention) *UseCase {
+	return &UseCase{queries: queries, retention: retention}
 }
 
 // Execute returns at most limitPlusOne rows (see listforinstance.Execute's
 // doc comment for the pagination contract, which this shares), ordered by
 // occurred_at DESC, id DESC.
+// changesOnly leaves out the reads, evaluations and reports that make up the
+// bulk of a busy trail, so a page of recent changes is not emptied by them.
 func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
-	eventName *string, after, before *time.Time, limitPlusOne int32, cursor *pagination.CreatedAtCursor,
+	eventName *string, changesOnly bool, after, before *time.Time, limitPlusOne int32, cursor *pagination.CreatedAtCursor,
 ) ([]*schema.OrganizationEntry, error) {
 	var cursorOccurredAt *time.Time
 	var cursorID *uuid.UUID
@@ -37,7 +43,9 @@ func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
 		cursorID = &cursor.ID
 	}
 
-	rows, err := uc.queries.ListOrganizationAuditTrails(ctx, db.ListOrganizationAuditTrailsParams{
+	after = uc.retention.Clamp(ctx, orgID, time.Now().UTC(), after)
+
+	rows, err := uc.page(ctx, changesOnly, db.ListOrganizationAuditTrailsParams{
 		OrganizationID:   orgID,
 		EventName:        eventName,
 		AfterTs:          pgtime.TimePtrToPgTimestamptz(after),
@@ -68,4 +76,23 @@ func (uc *UseCase) Execute(ctx context.Context, orgID uuid.UUID,
 		})
 	}
 	return result, nil
+}
+
+// page reads one page through the query that serves it: the two select the same
+// columns and take the same parameters, and differ only in the filter
+// idx_audit_trail_changes is built for.
+func (uc *UseCase) page(ctx context.Context, changesOnly bool, params db.ListOrganizationAuditTrailsParams,
+) ([]db.ListOrganizationAuditTrailsRow, error) {
+	if !changesOnly {
+		return uc.queries.ListOrganizationAuditTrails(ctx, params)
+	}
+	changes, err := uc.queries.ListOrganizationChanges(ctx, db.ListOrganizationChangesParams(params))
+	if err != nil {
+		return nil, err
+	}
+	rows := make([]db.ListOrganizationAuditTrailsRow, len(changes))
+	for i, change := range changes {
+		rows[i] = db.ListOrganizationAuditTrailsRow(change)
+	}
+	return rows, nil
 }

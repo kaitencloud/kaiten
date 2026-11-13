@@ -270,6 +270,8 @@ type InstanceIntegration struct {
 // corresponding *ID field, never accepted on input; Status/LifecycleStage
 // are set exclusively via PATCH (see patchinstance). All are readOnly:"true":
 // a write never supplies them.
+// LicenseTerm is read-only current data, populated only by GET instance details;
+// collection, create and event representations omit it.
 // Integrations is accepted on create but not settable through update-instance
 // (it has its own dedicated endpoints); update-instance's handler rejects it
 // being present with a 422 rather than silently ignoring it.
@@ -290,8 +292,9 @@ type Instance struct {
 	LicenseSlug        string         `json:"licenseSlug" readOnly:"true" doc:"Slug of the license associated with this instance" example:"my-license"`
 	DeploymentZoneID   *uuid.UUID     `json:"deploymentZoneId,omitempty" doc:"ID of the deployment zone associated with this instance (optional)" example:"123e4567-e89b-12d3-a456-426614174005"`
 	DeploymentZoneSlug *string        `json:"deploymentZoneSlug,omitempty" readOnly:"true" doc:"Slug of the deployment zone associated with this instance (optional)" example:"aws-us-west-2"`
-	StartLicenseDate   time.Time      `json:"startLicenseDate" doc:"Start date of the license for this instance" example:"2023-10-01T12:00:00Z"`
-	EndLicenseDate     time.Time      `json:"endLicenseDate" doc:"End date of the license for this instance" example:"2024-10-01T12:00:00Z"`
+	StartLicenseDate   time.Time      `json:"startLicenseDate" doc:"UTC inclusive start of the assigned license term for this instance" example:"2023-10-01T12:00:00Z"`
+	EndLicenseDate     time.Time      `json:"endLicenseDate" doc:"UTC exclusive end of the assigned license term for this instance" example:"2024-10-01T12:00:00Z"`
+	LicenseTerm        *LicenseTerm   `json:"licenseTerm,omitempty" readOnly:"true" doc:"Assigned license term state at UTC database time. Always present on GET instance details; omitted from list, create and event representations."`
 	// Metadata is required:"false" rather than omitempty: the repository
 	// hydrates a created instance's metadata as a non-nil empty map when
 	// none is given, and omitempty would drop that empty map from the

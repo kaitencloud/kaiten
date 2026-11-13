@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/archivevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/createvoucher"
+	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/deletevoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/getvoucher"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/listinstancevouchers"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/listvoucherredemptions"
@@ -84,6 +85,13 @@ func (v Vouchers) ArchiveVoucher(ctx context.Context, cl caller.OrganizationCall
 		return nil, err
 	}
 	return v.uc.ArchiveVoucher.Execute(bindOrganization(ctx, cl), voucherID)
+}
+
+func (v Vouchers) DeleteVoucher(ctx context.Context, cl caller.OrganizationCaller, voucherID uuid.UUID) error {
+	if err := cl.Require(deletevoucher.RequiredScope); err != nil {
+		return err
+	}
+	return v.uc.DeleteVoucher.Execute(bindOrganization(ctx, cl), voucherID)
 }
 
 func (v Vouchers) ListVoucherRedemptions(ctx context.Context, cl caller.OrganizationCaller, voucherID uuid.UUID, cursor string, limit int32) (pagination.Page[catalogue.Redemption], error) {

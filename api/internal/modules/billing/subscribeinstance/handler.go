@@ -143,7 +143,7 @@ const inlineWait = 20 * time.Second
 // and charged right after the commit -- when the commit is this call's own --
 // and the answer carries its status as persisted.
 func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -154,11 +154,18 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 // ExecuteWithinOperation composes a parent operation using its already-resolved
 // platform decision. It performs no provider evaluation while a transaction is held.
 func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug string, cmd Command) (*StartedSubscription, error) {
-	user, err := u.deps.Caller(ctx)
+	// BeginSelection reads the billing grant itself: Caller would read it twice.
+	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	scope, err := u.deps.Gate.BeginSelection(ctx, user.OrganizationID, user.ID, cmd.LicensingSelection(instanceSlug))
+	if err != nil {
+		return nil, err
+	}
+	defer scope.Close()
+	ctx = scope.Context()
 	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 	if err := u.requireOperationalSelection(ctx, user.OrganizationID, instanceSlug, cmd.BasePriceID, cmd.MoveToLicenseID, cmd.AddOns, cmd.VoucherCode); err != nil {
 		return nil, err
@@ -172,7 +179,14 @@ func (u *UseCase) ExecuteWithinOperation(ctx context.Context, instanceSlug strin
 	}
 
 	var started *StartedSubscription
-	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) (txErr error) {
+		// Validate at every successful exit, including trials and zero-line
+		// activations. Expiry rolls back local writes, without an authority read.
+		defer func() {
+			if txErr == nil {
+				txErr = scope.Validate(ctx)
+			}
+		}()
 		q := u.deps.Queries(ctx)
 		instance, err := q.LockInstanceForSubscribe(ctx, db.LockInstanceForSubscribeParams{OrganizationID: user.OrganizationID, Slug: instanceSlug})
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -804,12 +818,8 @@ func ensureCustomer(ctx context.Context, q *db.Queries, conn *provider.Connectio
 	if err != nil {
 		return err
 	}
-	email := ""
-	if customer.BillingEmail != nil {
-		email = *customer.BillingEmail
-	}
 	if _, err := providers.EnsureCustomer(ctx, q, conn, organizationID,
-		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, timeout, clock.Time.UTC()); err != nil {
+		providers.Customer{ID: customer.ID, Name: customer.Name, Email: customer.BillingEmail}, timeout, clock.Time.UTC()); err != nil {
 		return providers.APIError(operation, err)
 	}
 	return nil

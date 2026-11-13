@@ -56,7 +56,8 @@ function keepClickOffTheRow(event: MouseEvent) {
  * a draft that will not be published is removed instead, with what it was given.
  * Nothing is offered for other states. The versions of a license and those of an
  * add-on share the dialog and the looks; each feature brings its words, its guard and
- * the deletion itself.
+ * the deletion itself. A voucher no instance redeemed is deleted through it too,
+ * whatever its state: its guard is the count of its redemptions.
  */
 export function VersionDraftDeleteAction({
   appearance,

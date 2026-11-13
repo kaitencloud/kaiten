@@ -115,8 +115,8 @@ func (r *CommandRepository) UpdateInstance(ctx context.Context, command *Command
 		CustomerID:       command.CustomerID,
 		LicenseID:        command.LicenseID,
 		DeploymentZoneID: command.DeploymentZoneID,
-		StartLicenseDate: pgtype.Timestamp{Time: command.StartLicenseDate, Valid: !command.StartLicenseDate.IsZero()},
-		EndLicenseDate:   pgtype.Timestamp{Time: command.EndLicenseDate, Valid: !command.EndLicenseDate.IsZero()},
+		StartLicenseDate: pgtype.Timestamp{Time: command.StartLicenseDate.UTC(), Valid: !command.StartLicenseDate.IsZero()},
+		EndLicenseDate:   pgtype.Timestamp{Time: command.EndLicenseDate.UTC(), Valid: !command.EndLicenseDate.IsZero()},
 		Metadata:         metadataBytes,
 		NewSlug:          command.Slug,
 	}

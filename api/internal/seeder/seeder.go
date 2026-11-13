@@ -23,8 +23,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields"
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
+	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/pkg/scope"
 )
 
 // Profile defines the interface that all seed profiles must implement.
@@ -54,6 +56,18 @@ type SeederContext struct {
 	Licenses        *licenses.UseCases
 	MetadataFields  *metadatafields.UseCases
 	Releases        *releases.UseCases
+
+	// Add-ons and vouchers are reached through their facade namespaces, acting
+	// as Caller, not through the kaiten.Modules handoff above: that handoff
+	// only shrinks (tests/architecture/facade_bypass_test.go caps it), so a
+	// module the seed starts driving goes through the facade. Zero on the root
+	// context, set by WithOrganization.
+	Addons   kaiten.Addons
+	Vouchers kaiten.Vouchers
+	// Caller is the user the context is pinned to, in its organization. It
+	// holds every scope: the use cases above check none, so a narrower set
+	// would bound nothing.
+	Caller caller.OrganizationCaller
 
 	// OrganizationID the context is scoped to — zero on the root context, set by
 	// WithOrganization. Exposed so seeders can write org-scoped SQL directly for
@@ -95,10 +109,15 @@ func NewSeederContext(pool *pgxpool.Pool, usageReporter services.UsageReporter) 
 // container it says it to is the same one the server builds.
 func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContext {
 	app, err := kaiten.New(kaiten.Options{
-		DB:            sc.pool,
-		Config:        config.CoreConfig{},
+		DB: sc.pool,
+		// The one setting: the billing switch, on, because the demo profile seeds
+		// its billing catalogue -- license prices, add-ons, vouchers -- through
+		// use cases behind it, which refuse while it is off. With no background
+		// workers it starts no billing job, and whether the deployment serving
+		// the data bills is that deployment's own KAITEN_BILLING_ENABLED. Seeding
+		// takes no other configuration.
+		Config:        config.CoreConfig{Billing: config.Billing{Enabled: true}},
 		PlatformFlags: sc.PlatformFlags,
-		// Preserve the seeder's unrelated zero configuration; no workers start here.
 		UserProvider: &currentuser.StaticUserProvider{
 			UserID:         userID,
 			OrganizationID: orgID,
@@ -123,15 +142,18 @@ func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContex
 		panic(fmt.Sprintf("seeder: construct application: %v", err))
 	}
 
-	// The application constructs all fifteen modules; the ten surfaced here are the
-	// ones seed profiles actually drive. The rest are reachable through the facade
-	// when a profile needs them, which is a better place to ask for them than a
-	// public field nothing reads.
+	// The application constructs every module; the ten surfaced here are the ones
+	// seed profiles drive through the handoff. The rest are reachable through the
+	// facade when a profile needs them, as add-ons and vouchers are below, which
+	// is a better place to ask for them than a public field nothing reads.
 	m := app.Modules()
 
 	return &SeederContext{
 		AIPolicy:        aiusage.Policy{Flags: sc.PlatformFlags},
 		PlatformFlags:   sc.PlatformFlags,
+		Addons:          app.Addons(),
+		Vouchers:        app.Vouchers(),
+		Caller:          caller.Static(userID, orgID, scope.AllScopes()),
 		Components:      m.Components,
 		Customers:       m.Customers,
 		DeploymentZones: m.DeploymentZones,
