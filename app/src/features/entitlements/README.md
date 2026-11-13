@@ -14,7 +14,7 @@ An entitlement is something a license can grant: a capability, a numeric allowan
 
 The entitlements are the second entry of the Catalog section of the side navigation (`catalogSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`), listed on every deployment.
 
-`app/src/routes/catalog/entitlements/route.tsx` is the layout of every entitlement route. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and Overview and Usage plus Calculation for AI-credit definitions around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
+`app/src/routes/catalog/entitlements/route.tsx` is the layout of every entitlement route. It loads the entitlements and the groups, and wraps the outlet in a Suspense boundary. `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx` loads one entitlement, sets its name as the breadcrumb title and renders `EntitlementDetailPageContent`, which draws the header, the stats strip and Overview and Usage plus Pricing for AI-credit definitions around the child route. It also opens `EntitlementFormDialog` when the URL carries `?mode=configure`; the Edit button of the Overview tab navigates there.
 
 ## Structure
 
@@ -87,7 +87,7 @@ Scopes: listing and reading entitlements and groups needs `read:entitlements`; c
   - Left blank, the form leaves it out of the request and the API generates it from the name: lowercase, accents and apostrophes dropped, every other run of characters turned into one hyphen, then a hyphen and 6 random hexadecimal characters (the suffix alone when the name leaves nothing), such as `storage-reads-3fa9c1`. The placeholder shows the part the name gives on its own (`generateSlug`, which follows the API's rules), or a generic example while the name is empty, and the description under the field spells out the generated shape with an example built from the name.
   - A slug typed in the field is sent as it is. It must follow the API's format: 2 to 100 characters, lowercase letters, digits and hyphens, none at either end. The rule comes from the generated schema, with a translated message, and an invalid slug keeps Next disabled on step 1. A slug another entitlement already uses is a conflict that the API reports in an error toast.
   - An existing entitlement keeps its slug: the API answers 422 to an update that carries a different one. The edit dialog shows the stored slug in a disabled field and keeps it out of the form values, so it reaches neither the validation nor the PUT.
-- The type is Boolean, Number or Config. It is required and cannot change after creation. The API also defines an AI credit type, which the list and the detail page display but the form does not offer.
+- The type is Boolean, Number or Config, plus Credits (`NUMBER_AI_CREDIT`) when AI is on. It is required and cannot change after creation.
 - Only a NUMBER entitlement has an aggregation method (Count, Sum, Average, Min, Max or Latest; Sum by default), which cannot change after creation, a usage reset and units. For a Boolean or Config entitlement, the form drops these fields from the payload.
 - Usage reset: a lifetime counter (the default) or a cadence of hour, day, week, month or year, with a window anchored on the calendar, on the license start date or on the billing date. The billing date phases the windows off the billing anchor of the instance's subscription (the license start date for an instance without one), so it takes a monthly or yearly cadence only: the select lists it on a shorter one with the reason, as disabled, the form takes the calendar back when the cadence moves to one it cannot follow, and the schema refuses the pair for a client that got there anyway (`entitlement-reset-period.shared.ts`). Choosing it shows a hint that the windows follow the subscription and that a change of billing date closes the current window early. Once an entitlement stores a cadence, it can never change or be removed, and neither can its anchor: the fields become read-only with the reason, and the payload repeats the stored pair, because the PUT replaces the whole entitlement and the API refuses one that leaves the anchor out (400 `UpdateEntitlement.ImmutableResetAnchor`). The one moment the anchor is chosen after creation is when a lifetime counter adopts a cadence in an edit. The API's refusals about the pair are said in a sentence of the locales and not in the API's English (`REFUSALS` of `use-entitlement-mutation-form.ts`): 422 `CreateEntitlement.InvalidResetAnchor` and `UpdateEntitlement.InvalidResetAnchor` are shown on the anchor, which the person can change. 400 `UpdateEntitlement.ImmutableResetAnchor` and `.ImmutableResetPeriod` are about a field that is read-only, so they are shown above the buttons (`EntitlementRefusalAlert`) and not pinned to a control that cannot be edited: the form is not left stuck, and sends again. When the cadence moves off a month or a year while the billing date is chosen, the alignment goes back to the calendar and a notice says so, until the person chooses an alignment. The Latest aggregation cannot have a cadence, so the fields give way to an explanation.
 - Units: a pair of labels (singular and plural) for the base unit. A "sold in different units" switch adds a sale unit: singular and plural labels, and the number of base units in one sale unit (greater than zero). The base pair is all-or-none, and the sale unit (both labels and the factor) is all-or-none and needs the base pair. The schema flags a partial configuration as invalid, and the payload builders run `conditionUnitFields`, which drops a partial configuration instead of sending it to the API. The units belong to the whole number family (`NUMBER` and `NUMBER_AI_CREDIT`, told apart by the exported `isNumberFamily`): the full-replace PUT erases what it leaves out, so an edit of an AI credit entitlement sends its units back. A boolean or a config entitlement carries none.
@@ -131,21 +131,38 @@ Only route-consumed symbols are exposed. The form, displays, table internals and
 overview story alias are private to their component modules.
 
 
-## Calculated entitlement configuration
+## Credit pool Pricing tab
 
-`/catalog/entitlements/$entitlementSlug/calculation` is a thin route assembling
-`EntitlementDetailCalculationTab`. The parent definition context fixes the pool;
-`?licenseSlug=<exact-version>&rule=new|<id>` controls version choice and editor.
-Save/cancel clears only `rule`; browser history and contextual model/matrix links
-retain pool/version. The version picker lists all licences, not merely direct
-grants, and only the selected version's active rules are requested through the
-existing generated `listConversionRulesOptions` with `entitlementSlug`.
-Add-on-only rules remain visible, including `grantedByLicense: false`.
+An entitlement of type `NUMBER_AI_CREDIT` has a Pricing tab,
+`/catalog/entitlements/$entitlementSlug/pricing` (`?version=<licenceSlug>`
+highlights one row). The former `…/calculation?licenseSlug=` URL redirects there,
+the licence becoming `version`. The tab is a read-only summary, not an editor:
+rules are edited in AI › Pricing, the rate card, and every row links to it
+(`/ai/pricing?pool=<slug>&version=<licenceSlug>`).
 
-The shared editor/preview/summary comes from `domains/ai-credits`. Read-only rules
-show model slugs without requesting models. Editing additionally requires licence
-writes and model reads. Scope checks use the existing token claims and generated
-operation requirements; known denial suppresses section reads, unknown claims
-leave API refusals authoritative. The existing parent detail queries/scopes are
-unchanged. The Calculation tab remains discoverable for AI definitions while the
-flag is unavailable, explaining that state inline with Retry rather than 404.
+One row per licence version that grants the pool or carries rules for it, with
+its grant per window (hard limit, overage and maximum, unlimited, not granted),
+its rule count, the models priced and wildcard rules, and the cost per credit
+range across the models (vendor cost of each model's default reference call
+divided by the credits charged for it, computed with the pricing engine of
+`domains/ai-credits`). A version that grants the pool with no rule is flagged:
+every call on it is refused. Where a version does not grant the pool and an
+add-on version compatible with its family can, the grant cell says "Through
+add-on" with the add-on's name and opens the add-on versions (state, what each
+grants, the default one): an add-on can grant the pool to an instance on the
+family's versions, which does not mean every instance holds it. The names come
+from a read of their own (`AiAddonGrants`, `useAddonGrants` of the domain) that
+the API refuses where billing is off or without `read:addons`; the cell then
+says so and keeps "Through add-on", which the rules alone establish. Rules on a
+version that neither grants the pool nor has such an add-on are noted: they
+price only instances that get the pool another way. Archived versions are
+dimmed, never hidden. A pool neither granted nor priced
+anywhere shows what to do next.
+
+The data is the rate card's read (GraphQL `AiRateCard`, `domains/ai-credits/
+rate-card`) and the REST model catalogue, which holds the vendor costs. Deleting
+a credit pool clears the rate card's key: its rules go with it. The tab
+needs licence, rule and model reads.
+
+On the new-entitlement form, the type help mentions Credits when AI is on, and
+the unit placeholders read credit/credits for a Credits entitlement.

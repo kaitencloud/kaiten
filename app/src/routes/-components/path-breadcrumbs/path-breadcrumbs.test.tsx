@@ -375,6 +375,61 @@ describe('PathBreadcrumbs', () => {
     expect(document.title).toBe('Page not found · Kaiten');
   });
 
+  it('stops the trail above a route that is not there for this session, and does not name it', () => {
+    mockRoutesByPath = { '/ai': {}, '/ai/pricing': {} };
+    mockUseMatches.mockReturnValue([
+      { pathname: '/', fullPath: '/', context: {} },
+      // AI credits are off: the guard of the area answers "not found".
+      {
+        pathname: '/ai',
+        fullPath: '/ai',
+        status: 'notFound',
+        error: { isNotFound: true, routeId: '/ai' },
+        context: {},
+      },
+      { pathname: '/ai/pricing/', fullPath: '/ai/pricing/', status: 'pending', context: {} },
+    ]);
+
+    render(<PathBreadcrumbs />);
+
+    expect(screen.getByText('Page not found')).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByText('Pricing')).not.toBeInTheDocument();
+    expect(screen.queryByText(/^A[Ii]$/)).not.toBeInTheDocument();
+    expect(document.title).toBe('Page not found · Kaiten');
+  });
+
+  it('keeps the levels above a tab that is not there, and names only them', () => {
+    mockRoutesByPath = {
+      '/customers': {},
+      '/customers/instances': {},
+      '/customers/instances/$instanceSlug': {},
+      '/customers/instances/$instanceSlug/ai-usage': {},
+    };
+    mockUseMatches.mockReturnValue([
+      { pathname: '/', fullPath: '/', context: {} },
+      { pathname: '/customers', fullPath: '/customers', context: {} },
+      { pathname: '/customers/instances', fullPath: '/customers/instances', context: {} },
+      {
+        pathname: '/customers/instances/acme',
+        fullPath: '/customers/instances/$instanceSlug',
+        context: { getTitle: () => 'Acme Production' },
+      },
+      {
+        pathname: '/customers/instances/acme/ai-usage',
+        fullPath: '/customers/instances/$instanceSlug/ai-usage',
+        status: 'notFound',
+        error: { isNotFound: true },
+        context: {},
+      },
+    ]);
+
+    render(<PathBreadcrumbs />);
+
+    expect(screen.getByRole('link', { name: 'Acme Production' })).toBeInTheDocument();
+    expect(screen.getByText('Page not found')).toHaveAttribute('aria-current', 'page');
+    expect(screen.queryByText(/usage/i)).not.toBeInTheDocument();
+  });
+
   it('titles the tab "Page not found" for a URL no route answers', () => {
     mockLocationPathname = '/does/not/exist';
     mockUseMatches.mockReturnValue([

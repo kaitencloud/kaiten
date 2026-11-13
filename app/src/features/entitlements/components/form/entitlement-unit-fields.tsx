@@ -242,26 +242,38 @@ export function EntitlementUnitFields({ form }: EntitlementUnitFieldsProps) {
         <p className="text-sm font-medium">
           {t('Pages.Entitlements.Mutation.Form.Labels.units')}
         </p>
-        <div className="grid grid-cols-2 gap-4">
-          <UnitLabelField
-            form={form}
-            name="unitSingular"
-            ariaLabel={t(
-              'Pages.Entitlements.Mutation.Form.Labels.unitSingular',
-            )}
-            placeholder={t(
-              'Pages.Entitlements.Mutation.Form.Placeholders.unitSingular',
-            )}
-          />
-          <UnitLabelField
-            form={form}
-            name="unitPlural"
-            ariaLabel={t('Pages.Entitlements.Mutation.Form.Labels.unitPlural')}
-            placeholder={t(
-              'Pages.Entitlements.Mutation.Form.Placeholders.unitPlural',
-            )}
-          />
-        </div>
+        <form.Subscribe
+          selector={(state: any) => state.values.type === 'NUMBER_AI_CREDIT'}
+        >
+          {(credits: boolean) => (
+            <div className="grid grid-cols-2 gap-4">
+              <UnitLabelField
+                form={form}
+                name="unitSingular"
+                ariaLabel={t(
+                  'Pages.Entitlements.Mutation.Form.Labels.unitSingular',
+                )}
+                placeholder={t(
+                  credits
+                    ? 'AI.Pool.unitSingular'
+                    : 'Pages.Entitlements.Mutation.Form.Placeholders.unitSingular',
+                )}
+              />
+              <UnitLabelField
+                form={form}
+                name="unitPlural"
+                ariaLabel={t(
+                  'Pages.Entitlements.Mutation.Form.Labels.unitPlural',
+                )}
+                placeholder={t(
+                  credits
+                    ? 'AI.Pool.unitPlural'
+                    : 'Pages.Entitlements.Mutation.Form.Placeholders.unitPlural',
+                )}
+              />
+            </div>
+          )}
+        </form.Subscribe>
       </div>
 
       <form.Subscribe

@@ -99,6 +99,33 @@ answer to its creation and nowhere else, so that the state a page persists never
 
 The anonymous checkouts are `BillingCheckoutSessions` (`billing-checkout-sessions.ts`, served by `billing-checkout-session-handlers.ts`): newest first, a cursor per page, the filters the API applies (`status` repeated, the e-mail in any case, the reference exactly), a checkout left open past its expiry read as abandoned from the clock of the page, and 404 `GetCheckoutSessionAdmin.NotFound` for an unknown or a deleted one. The model only reads, because a checkout is started, confirmed and completed on the public surface, which the console does not use. `buildCheckoutSession` (`e2e/app/_support/fixtures`) builds one as the vendor reads it.
 
+AI credits are the `ai` slot (`AiAppModel`, served by `ai-handlers.ts`): the model catalogue, the
+conversion rules of a licence version, the inference feed and the open reservations of an instance's
+pool, the refund of a charge, and the two GraphQL documents: `AiRateCard` (the rules with the
+versions, their grants, their number in the family and the version the family serves, paged by
+versions) and `AiAddonGrants` (what add-on versions can grant on a licence's family). Writes change
+the model and persist it, and the mock prices a call with the console's own engine
+(`@/domains/ai-credits/pricing`). The feed answers as the API does: a committed row carries the
+`pricing` snapshot, the licence, `reportSeq`, both vendor costs, its warnings and its refunds; the
+filters `authorized`, `modelSlug`, `model` and `requestType` are applied; a release that closed no
+reservation is listed only with `status=RELEASED` or `transactionId`. Rows `014` and `015` of Acme
+Production are older rows without a snapshot, `004` was priced before its rule was edited, `017` is
+refunded in part. `refundAiInference` refuses with the API's codes (`ai-usage-ledger.ts`) and, when
+the page serves the instances, lowers the pool's counter. `AiAddonGrants` is refused whole to a
+token without `read:addons` (`GRAPHQL_DOCUMENT_SCOPES`), and with `Billing.Disabled` when the model
+is seeded with `billingDisabled`. The model keeps its own copy of
+the licences and the grants: a grant added on the licence pages is not seen by `AiRateCard` in the
+same session. The capability and the platform flag are two other slots (`aiCapability`,
+`flagEvaluations`), both off unless a spec installs them; `createAiWorldModels` and
+`installAiWorldMocks` (`e2e/app/ai/ai.scenarios.ts`, `e2e/app/_support/mocks/install-ai-app-mocks.ts`)
+install the whole world. With the `ai` slot installed, `openrouter-handlers.ts` answers
+`https://openrouter.ai/api/v1/models`, which the model import reads from the browser, with a
+synthetic catalogue: no page of the mock API reaches the real site. In `dev:mock` AI is on, and
+`?ai=off` in the address of a tab starts it off; `?catalogue=large` starts it with fifty-five models
+over ten vendors and four Enterprise versions (the two added versions exist in the AI area only),
+and `?addonGrants=billing-off` with the add-on grants refused as where billing is off. `src/__tests__/ai-mocks.test.ts` reads these
+answers off the wire.
+
 Stripe's connector is served by `connector-handlers.ts` over the operations of Attio's, told apart
 by the name in the path (`ConnectorAppModel`: the key is write-only and redacted, a save
 activates the connector after the checks the API makes in its order, the Vault, the plan, the

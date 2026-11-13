@@ -2,27 +2,28 @@ import { QueryClient } from '@tanstack/react-query';
 import { createMemoryHistory, createRootRouteWithContext, createRoute, createRouter } from '@tanstack/react-router';
 import { beforeEach, expect, it, vi } from 'vite-plus/test';
 import { aiAccessQueryOptions } from '@/domains/ai-credits';
-import { Route as models } from '../../catalog/models/route';
 import { Route as legacy } from '../route';
 import { Route as usage } from '../../customers/instances/$instanceSlug/ai-usage';
 import { Route as calculation } from '../../catalog/entitlements/$entitlementSlug/calculation';
+import { Route as poolPricing } from '../../catalog/entitlements/$entitlementSlug/pricing';
 import { Route as detail } from '../../catalog/entitlements/$entitlementSlug/route';
 const { capability, flag, entitlement } = vi.hoisted(() => ({ capability: vi.fn<() => Promise<boolean>>(), flag: vi.fn<() => Promise<boolean>>(), entitlement: { type: 'NUMBER_AI_CREDIT', name: 'Pool' } }));
 vi.mock('@/domains/ai-credits/ai-capabilities.api', () => ({ readAiCapability: capability }));
 vi.mock('@/lib/feature-flags', () => ({ aiCreditsFlagQueryOptions: { queryFn: flag } }));
 vi.mock('@/lib/session-identity', () => ({ getSessionIdentity: () => ({ userId: 'fixture', organizationId: 'organization' }) }));
 vi.mock('@/features/ai', () => ({ AiCatalogueLayout: () => null }));
-vi.mock('@/features/instances', () => ({ InstanceAiUsageTab: () => null }));
-vi.mock('@/features/entitlements', () => ({ EntitlementDetailCalculationTab: () => null, EntitlementDetailPageContent: () => null, EntitlementFormDialog: () => null, entitlementQueryOptions: (slug: string) => ({ queryKey: ['fixture-entitlement', slug], queryFn: async () => entitlement }), entitlementGroupsQueryOptions: { queryKey: ['fixture-groups'], queryFn: async () => [] } }));
+vi.mock('@/features/instances', () => ({ InstanceAiUsageTab: () => null, readAiUsageSearch: (search: unknown) => search }));
+vi.mock('@/features/entitlements', () => ({ EntitlementDetailCalculationTab: () => null, EntitlementDetailPricingTab: () => null, EntitlementDetailPageContent: () => null, EntitlementFormDialog: () => null, entitlementQueryOptions: (slug: string) => ({ queryKey: ['fixture-entitlement', slug], queryFn: async () => entitlement }), entitlementGroupsQueryOptions: { queryKey: ['fixture-groups'], queryFn: async () => [] } }));
 beforeEach(() => { capability.mockReset().mockResolvedValue(false); flag.mockReset().mockResolvedValue(true); entitlement.type = 'NUMBER_AI_CREDIT'; });
 const cases = [
-  { url: '/catalog/models/import', path: '/catalog/models', child: 'import', beforeLoad: models.options.beforeLoad },
-  { url: '/catalog/models/existing/edit', path: '/catalog/models', child: '$modelSlug/edit', beforeLoad: models.options.beforeLoad },
+  { url: '/ai/models/import', path: '/ai', child: 'models/import', beforeLoad: legacy.options.beforeLoad },
+  { url: '/ai/pricing', path: '/ai', child: 'pricing', beforeLoad: legacy.options.beforeLoad },
   { url: '/ai/models/existing/edit', path: '/ai', child: 'models/$modelSlug/edit', beforeLoad: legacy.options.beforeLoad },
   { url: '/ai/matrix', path: '/ai', child: 'matrix', beforeLoad: legacy.options.beforeLoad },
   { url: '/catalog/entitlements/credits/calculation', path: '/catalog/entitlements/$entitlementSlug/calculation', child: undefined, beforeLoad: calculation.options.beforeLoad },
   { url: '/catalog/entitlements/credits?mode=configure', path: '/catalog/entitlements/$entitlementSlug', child: undefined, beforeLoad: detail.options.beforeLoad },
   { url: '/customers/instances/instance/ai-usage', path: '/customers/instances/$instanceSlug/ai-usage', child: undefined, beforeLoad: usage.options.beforeLoad },
+  { url: '/catalog/entitlements/credits/pricing', path: '/catalog/entitlements/$entitlementSlug/pricing', child: undefined, beforeLoad: poolPricing.options.beforeLoad },
 ];
 async function load(testCase: (typeof cases)[number]) {
   const queryClient = new QueryClient(); queryClient.setQueryData(aiAccessQueryOptions().queryKey, { enabled: true, expiresAt: performance.now() + 30_000 });

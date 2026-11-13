@@ -123,7 +123,8 @@ it('aborts on caller cancellation and after 20 seconds', async () => {
   const caller = new AbortController(); caller.abort();
   await expect(fetchOpenRouterCatalogue(caller.signal)).rejects.toThrow('aborted');
   const promise = fetchOpenRouterCatalogue();
-  const rejection = expect(promise).rejects.toThrow('aborted');
+  // A timeout is reported as the catalogue being unreachable, not as a cancellation.
+  const rejection = expect(promise).rejects.toThrow('unreachable');
   await vi.advanceTimersByTimeAsync(20000);
   await rejection;
   expect(vi.getTimerCount()).toBe(0);

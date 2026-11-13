@@ -9,7 +9,7 @@ import type { Model } from '@/api-client';
 import en from '@/lib/i18n/locales/en';
 import fr from '@/lib/i18n/locales/fr';
 import { ModelsPage } from '../models-page';
-import { modelsQueryOptions } from '../../queries/ai-query-options';
+import { modelsQueryOptions } from '@/domains/ai-credits';
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, ...props }: { children: ReactNode } & ComponentProps<'a'>) => <a {...props}>{children}</a>,
@@ -37,10 +37,10 @@ it('keeps all model identity/provider/status fields and Edit in compact cards, w
   const card = within(list).getAllByRole('listitem')[0];
   for (const text of ['Workshop model', 'workshop-model', 'Fixture supplier', 'Text', 'Active']) expect(within(card).getByText(text)).toBeInTheDocument();
   expect(within(card).getByText('Edit')).toBeInTheDocument();
-  expect(within(card).getByRole('button', { name: 'Delete' })).toHaveAttribute('data-variant', 'ghost');
+  expect(within(card).getByRole('button', { name: 'Delete Workshop model' })).toHaveAttribute('data-variant', 'ghost');
   expect(screen.getByText('Create model')).toHaveAttribute('data-variant', 'outline');
   expect(screen.getByText('Import from OpenRouter')).toHaveAttribute('data-variant', 'default');
-  expect(screen.getByText('Conversion matrix')).toHaveAttribute('data-variant', 'outline');
+  expect(screen.getByText('Pricing')).toHaveAttribute('data-variant', 'outline');
   fireEvent.change(screen.getByLabelText('Search models'), { target: { value: 'Fixture supplier' } });
   expect(within(list).getAllByRole('listitem')).toHaveLength(1);
   expect(screen.getByRole('status')).toHaveTextContent('1 of 2 models');

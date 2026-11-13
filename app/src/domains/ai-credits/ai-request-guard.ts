@@ -4,7 +4,7 @@ import { client } from '@/api-client/client.gen';
 import type { ResolvedRequestOptions } from '@/api-client/client';
 import {
   aiAccessQueryKey,
-  hasCurrentAiAccess,
+  hasAiAccessGrant,
   isAiEntitlement,
   aiAccessQueryOptions,
   deniedAiAccess,
@@ -32,7 +32,7 @@ export function isAiOperationalQuery(query: Pick<Query, 'queryKey'>) {
 }
 
 export function assertAiRequestAllowed(queryClient: QueryClient) {
-  if (!hasCurrentAiAccess(queryClient)) throw new Error('AIUsage.Disabled');
+  if (!hasAiAccessGrant(queryClient)) throw new Error('AIUsage.Disabled');
 }
 
 function isAiPath(path: string) {
@@ -102,10 +102,20 @@ export function subscribeAiAccess(queryClient: QueryClient) {
   function scheduleExpiry() {
     clearTimeout(expiry);
     const snapshot = queryClient.getQueryData(aiAccessQueryOptions().queryKey);
-    if (snapshot?.enabled && Number.isFinite(snapshot.expiresAt)) {
+    // An already expired grant waits for the poll or focus refresh: rescheduling
+    // it here would loop on a failing refresh.
+    if (
+      snapshot?.enabled &&
+      Number.isFinite(snapshot.expiresAt) &&
+      snapshot.expiresAt > performance.now()
+    ) {
+      // Expiry asks for a fresh answer; it never revokes or aborts on its own.
       expiry = setTimeout(
         () => {
-          if (!hasCurrentAiAccess(queryClient)) revokeAiAccess(queryClient);
+          void queryClient.refetchQueries({
+            queryKey: aiAccessQueryKey,
+            type: 'active',
+          });
         },
         Math.max(0, snapshot.expiresAt - performance.now()),
       );
@@ -205,7 +215,7 @@ export function subscribeAiAccess(queryClient: QueryClient) {
     if (event.query.queryKey[0] === aiAccessQueryKey[0]) scheduleExpiry();
     if (
       event.query.queryKey[0] !== aiAccessQueryKey[0] ||
-      hasCurrentAiAccess(queryClient)
+      hasAiAccessGrant(queryClient)
     )
       return;
     cancelOperationalRequests();

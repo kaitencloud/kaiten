@@ -202,10 +202,14 @@ test.describe('the reports behind a line', () => {
 
     // A base fee has no usage.
     await page.goto(`/invoices/${INVOICE}/lines/${INVOICE}-line-2`);
-    await expect(page.getByText('Page not found')).toBeVisible();
+    await expect(
+      page.getByRole('main').getByText('Page not found'),
+    ).toBeVisible();
 
     await page.goto(`/invoices/${INVOICE}/lines/inv-p1-line-9`);
-    await expect(page.getByText('Page not found')).toBeVisible();
+    await expect(
+      page.getByRole('main').getByText('Page not found'),
+    ).toBeVisible();
   });
 });
 

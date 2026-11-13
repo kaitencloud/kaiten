@@ -5,6 +5,6 @@ export const Route = createFileRoute('/ai')({
   component: Outlet,
   beforeLoad: async ({ context }) => {
     await requireAiAccess(context.queryClient);
-    return { getTitle: () => i18n.t('AI.title') };
+    return { getTitle: () => i18n.t('AI.Nav.title') };
   },
 });

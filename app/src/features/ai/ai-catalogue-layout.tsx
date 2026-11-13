@@ -22,7 +22,7 @@ export function AiCatalogueLayout({
         <AiAvailability
           access={access}
           mayRead={access.allows('listModels')}
-          deniedMessage={t('AI.Calculation.modelsReadDenied')}
+          deniedMessage={t('AI.Access.modelsReadDenied')}
         >
           {children}
         </AiAvailability>

@@ -100,6 +100,42 @@ A capability or a limit that a license can grant, defined once per organization.
 
 A named set of entitlements (`/entitlement-groups`). It groups entitlements for display and filtering, and its usage can be aggregated for an instance. Deleting a group does not delete its entitlements.
 
+### AI credit pool
+
+An [entitlement](#entitlement) of type `NUMBER_AI_CREDIT`: a quantity of credits that calls to AI models draw from. A license version grants it like a number (included credits, with or without a permitted overage), and an add-on or a boost can grant it too. A call reserves credits, then commits what it used; what a call costs in credits is decided by the [conversion rules](#conversion-rule) of the instance's license version. The console shows AI credits only where the deployment and the platform flag `ai-credits` both allow them. Code: `app/src/domains/ai-credits/`.
+
+### Model
+
+An AI model the organization can price: a name, a slug, a vendor, a modality, external identifiers a call may name it by, a status (`ACTIVE`, `DEPRECATED`, `ARCHIVED`) and optional **vendor costs**, in USD per token, request or unit. Vendor costs are what the organization pays; they never change what a customer is charged. An archived model is never priced. Feature: `app/src/features/ai/`.
+
+### Conversion rule
+
+What a call costs in credits: rates per request, per input, cached and output token, per unit and per second, a minimum and a maximum per request, and what an error charges. A rule belongs to one license version and one pool. It names a model or **any model** (a **wildcard**), and a request type or any. The API resolves a call through four levels, most specific first: exact model and request type, exact model and any type, any model and the request type, any model and any type. One whole rule wins; a model with a rule that names it has its **own rule**, a model priced by a wildcard inherits it, and a model no rule prices is refused.
+
+### Rate card
+
+The page `/ai/pricing`: for a credit pool, what the [reference call](#reference-call) costs on each license version for each model, where that price comes from (own rule, wildcard, none) and the [cost per credit](#cost-per-credit-and-margin). Rules are created, edited and archived in the panel beside it, and nowhere else.
+
+### Reference call
+
+One typical call per request type (1,500 input and 500 output tokens for a completion by default) that the rate card and its panel price everywhere, so that prices compare across models and versions. It is kept in the browser, not in Kaiten.
+
+### Cost per credit and margin
+
+The **cost per credit** is the vendor cost of a call divided by the credits charged for it: what a credit costs the organization for that model. The **margin** is `1 − cost per credit ÷ value of a credit`. The value of a credit is typed per pool on the rate card and kept in the browser only, since the API has no field for it: without it the console shows the cost per credit and no margin.
+
+### Charge receipt
+
+The explanation of one AI call on an instance's AI usage tab: the stored amounts (reserved, computed, charged), the rule that priced it or why none did, its refunds, and the vendor cost. The API stores on the row the rates it applied at commit (the **pricing snapshot**), on the license version it considered: the receipt reads them, and says when the rule has been edited since, with the current values beside. A row recorded before snapshots has none: its arithmetic is shown only when recomputing it from the rule gives exactly the stored amounts and the rule was not edited since, labelled as a recomputation. The stored amounts are the facts. Code: `app/src/features/instances/components/instance-detail/ai-usage/receipt/`.
+
+### Refund (of an AI charge)
+
+Credits given back for a charged inference, from its receipt: an amount up to what is left (charged minus refunded) and an optional reason. The credits return to the pool in the window open when the refund is made; the charge itself stays on record, with its refunds listed beside it and each one's place in the usage journal. A refund is not undone from the console.
+
+### Grant through an add-on
+
+A credit pool that a license version does not grant, and that an add-on version compatible with the version's family can. The add-on is attached to an instance, never to a license: the rate card and the pool's Pricing tab say "through add-on", which means an instance on that family *can* hold the pool, not that every instance does.
+
 ### Deployment zone
 
 One place where a customer runs a release: a target the customer names and classifies, holding the release currently on it. It is not an installation of Kaiten. Its `type` is free-form; the console labels `production`, `staging` and `development`, and targeting rules can match it. Changing its release records a deployment. Feature: `app/src/features/deployment-zones/`.

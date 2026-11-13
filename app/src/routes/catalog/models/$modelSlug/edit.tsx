@@ -1,8 +1,12 @@
-import { createFileRoute } from '@tanstack/react-router';
-import { ModelEditorPage } from '@/features/ai';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+
 export const Route = createFileRoute('/catalog/models/$modelSlug/edit')({
-  component: EditModel,
+  beforeLoad: ({ params, search }) => {
+    throw redirect({
+      to: '/ai/models/$modelSlug/edit',
+      params,
+      search,
+      replace: true,
+    });
+  },
 });
-function EditModel() {
-  return <ModelEditorPage modelSlug={Route.useParams().modelSlug} />;
-}
