@@ -282,6 +282,12 @@ type Retention struct {
 	// audit evidence that it existed and when it stopped working, which outlives a
 	// transport buffer's debugging window. Zero or less disables the sweep.
 	RetiredTokens time.Duration `mapstructure:"retired_tokens"`
+	// AuditTrailDays is how many days of audit trail an organization keeps when
+	// no licensing authority says otherwise: every self-hosted deployment. 0, the
+	// default, keeps every entry, so an installation loses nothing by upgrading.
+	// Where a licence governs the organization, its audit-retention term wins
+	// over this value (see internal/modules/audittrail/auditretention).
+	AuditTrailDays int `mapstructure:"audit_trail_days" validate:"gte=0"`
 }
 
 // Metered is whether this deployment's usage is counted, and by whom. The
@@ -426,6 +432,7 @@ var settings = []struct {
 	{"retention.outbox_events", "KAITEN_RETENTION_OUTBOX_EVENTS", "168h", false},
 	{"retention.inbox_events", "KAITEN_RETENTION_INBOX_EVENTS", "168h", false},
 	{"retention.retired_tokens", "KAITEN_RETENTION_RETIRED_TOKENS", "2160h", false},
+	{"retention.audit_trail_days", "KAITEN_RETENTION_AUDIT_TRAIL_DAYS", 0, false},
 	{"metered.enabled", "KAITEN_METERED_ENABLED", false, false},
 	{"metered.organization_external_id", "KAITEN_METERED_ORGANIZATION_EXTERNAL_ID", nil, false},
 	{"metered.organization_id", "KAITEN_METERED_ORGANIZATION_ID", nil, false},

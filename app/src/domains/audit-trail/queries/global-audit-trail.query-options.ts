@@ -15,18 +15,27 @@ export const globalAuditTrailBaseQueryKey = [
   'global',
 ] as const;
 
-export const globalAuditTrailQueryKey = (limit = GLOBAL_AUDIT_TRAIL_LIMIT) =>
-  [...globalAuditTrailBaseQueryKey, limit] as const;
+export const globalAuditTrailQueryKey = (
+  limit = GLOBAL_AUDIT_TRAIL_LIMIT,
+  changesOnly = false,
+) => [...globalAuditTrailBaseQueryKey, limit, changesOnly] as const;
 
+/**
+ * The organization's trail, newest first. `changesOnly` leaves out, server-side,
+ * the reads and evaluations SDKs produce in bulk, for a page that wants the
+ * changes: left to the client, a short page could come back with nothing but
+ * them.
+ */
 export const globalAuditTrailQueryOptions = (
   limit = GLOBAL_AUDIT_TRAIL_LIMIT,
+  changesOnly = false,
 ) =>
   queryOptions({
-    queryKey: globalAuditTrailQueryKey(limit),
+    queryKey: globalAuditTrailQueryKey(limit, changesOnly),
     queryFn: async ({ signal }) => {
       const data = await graphqlClient.request<GetGlobalAuditTrailQuery>(
         GET_GLOBAL_AUDIT_TRAIL.toString(),
-        { limit },
+        { limit, changesOnly },
         signal,
       );
       return toGlobalAuditEntries(data.organizationAuditTrails.items);

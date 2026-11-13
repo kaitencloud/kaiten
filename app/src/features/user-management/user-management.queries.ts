@@ -6,6 +6,9 @@ import { deleteRole, listRoles, saveProfileOnFresh, saveRole, setUserEnabled, ty
 
 export const allUsersOptions = () => ({
   ...listUsersOptions(),
+  staleTime: 0,
+  refetchOnMount: 'always' as const,
+  refetchInterval: 30_000,
   retry: false,
   queryFn: async ({ signal }: { signal: AbortSignal }) => ({
     hasMore: false,

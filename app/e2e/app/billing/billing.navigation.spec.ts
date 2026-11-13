@@ -64,11 +64,11 @@ test.describe('the billing entries of the navigation', () => {
     await expect(nav.entry('Handoff')).toHaveCount(0);
     await nav.open();
     await nav.expectEntries(['Licenses', 'Entitlements']);
-    await expect(nav.entry('Add-ons')).toHaveCount(0);
-    await expect(nav.entry('Vouchers')).toHaveCount(0);
+    await expect(nav.entry('Add-ons')).toBeVisible();
+    await expect(nav.entry('Vouchers')).toBeVisible();
   });
 
-  test('hide the entries of the parts the release does not ship', async ({
+  test('preserve catalogue read entries after feature grant loss', async ({
     page,
   }) => {
     const nav = new BillingNavDriver(page);
@@ -78,8 +78,8 @@ test.describe('the billing entries of the navigation', () => {
     await nav.open();
 
     await nav.expectEntries(['Invoices', 'Licenses', 'Entitlements']);
-    await expect(nav.entry('Add-ons')).toHaveCount(0);
-    await expect(nav.entry('Vouchers')).toHaveCount(0);
+    await expect(nav.entry('Add-ons')).toBeVisible();
+    await expect(nav.entry('Vouchers')).toBeVisible();
   });
 
   test('list every entry when every part is shipped, the add-ons and the vouchers after the licenses and the entitlements', async ({

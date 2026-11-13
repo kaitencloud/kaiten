@@ -33,6 +33,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/retention"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/attio"
 	connectorstripe "github.com/kaitencloud/kaiten/api/internal/modules/connectors/stripe"
 	"github.com/kaitencloud/kaiten/api/internal/platform/auth"
@@ -848,6 +849,8 @@ func (s *Server) registerGraphQL(router fiber.Router) {
 			s.deps.ConnectorEntitlements,
 			s.cfg.Billing.EntitlementCacheTTL,
 		),
+		AuditRetention: auditretention.NewRetention(
+			s.deps.EntitlementConfig, s.cfg.Retention.Enabled, s.cfg.Retention.AuditTrailDays),
 	})
 	gqlHandler.RegisterRoutes(router)
 }

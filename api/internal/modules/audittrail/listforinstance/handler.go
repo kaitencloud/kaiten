@@ -11,17 +11,21 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
 type UseCase struct {
-	queries *db.Queries
+	queries   *db.Queries
+	retention auditretention.Retention
 }
 
-func NewUseCase(queries *db.Queries) *UseCase {
-	return &UseCase{queries: queries}
+// NewUseCase builds the read. retention keeps entries past the organization's
+// window out of it while the sweep has yet to delete them.
+func NewUseCase(queries *db.Queries, retention auditretention.Retention) *UseCase {
+	return &UseCase{queries: queries, retention: retention}
 }
 
 // Execute returns at most limitPlusOne rows (the caller is expected to pass
@@ -38,6 +42,8 @@ func (uc *UseCase) Execute(ctx context.Context, instanceSlug string, orgID uuid.
 		cursorOccurredAt = &cursor.CreatedAt
 		cursorID = &cursor.ID
 	}
+
+	after = uc.retention.Clamp(ctx, orgID, time.Now().UTC(), after)
 
 	rows, err := uc.queries.ListAuditTrails(ctx, db.ListAuditTrailsParams{
 		OrganizationID:   orgID,

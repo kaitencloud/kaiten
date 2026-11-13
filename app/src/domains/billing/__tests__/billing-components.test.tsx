@@ -60,10 +60,11 @@ describe('BillingUnavailable', () => {
     expect(screen.getByText('read:billing')).toBeInTheDocument();
   });
 
-  it('explains a part of billing the release does not ship', () => {
+  it('explains a billing feature unavailable for the organization', () => {
     render(<BillingUnavailable reason="FEATURE_UNAVAILABLE" />);
 
-    expect(screen.getByText('Not available in this version')).toBeInTheDocument();
+    expect(screen.getByText('Billing feature unavailable')).toBeInTheDocument();
+    expect(screen.getByText(/this organization on the current deployment/)).toBeInTheDocument();
   });
 
   it('offers to read the capabilities again when they could not be read', async () => {

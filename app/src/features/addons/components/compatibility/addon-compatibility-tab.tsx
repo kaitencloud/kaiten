@@ -3,6 +3,7 @@ import {
   addonCompatibilityQueryOptions,
   addonLicenseFamiliesQueryOptions,
   useCanPerform,
+  useBillingCapabilities,
 } from '@/domains/billing';
 import { useAddonCompatibility } from '../../hooks';
 import { AddonCompatibilityCard } from './addon-compatibility-card';
@@ -25,7 +26,8 @@ export function AddonCompatibilityTab({
   const { data: families } = useSuspenseQuery(
     addonLicenseFamiliesQueryOptions(),
   );
-  const maySet = useCanPerform('addonCompatibility.set');
+  const featureOn = useBillingCapabilities().has('addons');
+  const maySet = useCanPerform('addonCompatibility.set') && featureOn;
   const mayRemove = useCanPerform('addonCompatibility.remove');
   const { declare, isBusy } = useAddonCompatibility(addonSlug);
 
@@ -37,7 +39,9 @@ export function AddonCompatibilityTab({
       onChange={(familySlug, compatible) =>
         void declare(familySlug, compatible)
       }
-      readOnly={!(maySet && mayRemove)}
+      readOnly={!(maySet || mayRemove)}
+      maySet={maySet}
+      mayRemove={mayRemove}
     />
   );
 }

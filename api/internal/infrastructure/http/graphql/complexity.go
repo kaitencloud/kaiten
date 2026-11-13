@@ -75,7 +75,7 @@ func newComplexityRoot() generated.ComplexityRoot {
 		return fanOut(pageSize(limit), childComplexity)
 	}
 	root.Query.OrganizationAuditTrails = func(
-		childComplexity int, _ *string, _ *time.Time, _ *time.Time, limit *int, _ *string,
+		childComplexity int, _ *string, _ *bool, _ *time.Time, _ *time.Time, limit *int, _ *string,
 	) int {
 		return fanOut(organizationAuditTrailPageSize(limit), childComplexity)
 	}

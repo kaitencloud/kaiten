@@ -342,7 +342,11 @@ export default defineConfig({
           // Keep the browser suite lean: don't collect/import E2E-covered
           // (Router/Form/Query/chart/CEL) stories. The addon-vitest plugin
           // merges this with its own defaults.
-          exclude: ['**/node_modules/**', '**/dist/**', ...storybookTestExclude],
+          exclude: [
+            '**/node_modules/**',
+            '**/dist/**',
+            ...storybookTestExclude,
+          ],
           // Reuse one browser context across story files instead of a fresh
           // iframe per file. The per-file iframe churn is what intermittently
           // throws "Cannot connect to the iframe" on CI under load (the error
@@ -477,6 +481,15 @@ export default defineConfig({
           }
           if (/node_modules\/(cel-js|chevrotain|@chevrotain)\//.test(id)) {
             return 'cel';
+          }
+          // Kaiten's own React SDK is only reachable through the lazy Plan &
+          // usage route (features/settings/plan). Left to default chunking, as
+          // monaco is above, it stays in that route's chunk instead of adding
+          // its weight to the eager vendor bundle every page loads.
+          if (
+            /node_modules\/@kaitencloud\/(client|react|react-ui)\//.test(id)
+          ) {
+            return undefined;
           }
           // Other vendor libraries
           if (id.includes('node_modules')) {

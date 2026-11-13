@@ -371,9 +371,9 @@ func (p *Pusher) ensureCustomer(ctx context.Context, q *db.Queries, conn *provid
 	if err != nil {
 		return "", err
 	}
-	email := deref(row.BillingEmail)
-	if email == "" {
-		email = deref(customer.BillingEmail)
+	email := row.BillingEmail
+	if deref(email) == "" {
+		email = customer.BillingEmail
 	}
 	return providers.EnsureCustomer(ctx, q, conn, row.OrganizationID,
 		providers.Customer{ID: customer.ID, Name: customer.Name, Email: email}, p.cfg.Timeout, now)

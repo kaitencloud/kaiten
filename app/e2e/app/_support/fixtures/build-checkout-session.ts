@@ -23,6 +23,7 @@ export function buildCheckoutSession({
   clientReferenceId = null,
   closedAt,
   createdAt = CREATED_AT,
+  customerName = null,
   customerSlug = null,
   dueToday,
   email,
@@ -40,6 +41,7 @@ export function buildCheckoutSession({
   clientReferenceId?: string | null;
   closedAt?: string | null;
   createdAt?: string;
+  customerName?: string | null;
   customerSlug?: string | null;
   /** What is due today; one base line of 49.00 EUR when left out. */
   dueToday?: CheckoutSessionAdmin['dueToday'];
@@ -68,6 +70,7 @@ export function buildCheckoutSession({
     closedAt: closed,
     completedAt: status === 'COMPLETED' ? closed : null,
     createdAt,
+    customerName,
     customerSlug,
     dueToday: dueToday ?? {
       currency: 'EUR',

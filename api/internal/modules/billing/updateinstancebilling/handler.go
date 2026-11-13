@@ -126,7 +126,7 @@ func (u *UseCase) checkProvider(ctx context.Context, organizationID uuid.UUID, i
 		return nil, err
 	}
 	if _, err := providers.EnsureCustomer(ctx, q, conn, organizationID, providers.Customer{
-		ID: customer.ID, Name: customer.Name, Email: *customer.BillingEmail,
+		ID: customer.ID, Name: customer.Name, Email: customer.BillingEmail,
 	}, u.deps.ProviderTimeout, now); err != nil {
 		return nil, providers.APIError(operation, err)
 	}

@@ -259,3 +259,185 @@ func (q *Queries) ListOrganizationAuditTrails(ctx context.Context, arg ListOrgan
 	}
 	return items, nil
 }
+
+const listOrganizationChanges = `-- name: ListOrganizationChanges :many
+SELECT
+  at.id,
+  at.instance_id,
+  i.slug AS instance_slug,
+  i.name AS instance_name,
+  c.id AS customer_id,
+  c.slug AS customer_slug,
+  c.name AS customer_name,
+  at.actor_id,
+  u.name AS actor_name,
+  COALESCE(u.type::text, '')::text AS actor_type,
+  u.external_id AS actor_external_id,
+  at.event_name,
+  at.event_type,
+  at.occurred_at,
+  at.payload
+FROM audit_trail at
+LEFT JOIN instance i ON at.instance_id = i.id
+LEFT JOIN customer c ON i.customer_id = c.id
+LEFT JOIN "user" u ON u.id = at.actor_id
+WHERE at.organization_id = $1
+  AND at.event_name <> ALL('{ENTITLEMENT_VALUE_GET,ENTITLEMENT_USAGE_REPORT_ACCEPTED,ENTITLEMENT_USAGE_REPORT_REJECTED,FEATURE_FLAG_EVALUATED,INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER,INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED,INSTANCE_ENTITLEMENT_USAGE_REACHED,INSTANCE_ENTITLEMENT_CAP_EXCEEDED}'::text[])
+  AND ($2::text IS NULL OR at.event_name = $2)
+  AND ($3::timestamptz IS NULL OR at.occurred_at >= $3)
+  AND ($4::timestamptz IS NULL OR at.occurred_at <= $4)
+  AND (
+    $5::timestamptz IS NULL
+    OR (at.occurred_at, at.id) < ($5::timestamptz, $6::uuid)
+  )
+ORDER BY at.occurred_at DESC, at.id DESC
+LIMIT $7
+`
+
+type ListOrganizationChangesParams struct {
+	OrganizationID   uuid.UUID          `json:"organization_id"`
+	EventName        *string            `json:"event_name"`
+	AfterTs          pgtype.Timestamptz `json:"after_ts"`
+	BeforeTs         pgtype.Timestamptz `json:"before_ts"`
+	CursorOccurredAt pgtype.Timestamptz `json:"cursor_occurred_at"`
+	CursorID         *uuid.UUID         `json:"cursor_id"`
+	LimitPlusOne     int32              `json:"limit_plus_one"`
+}
+
+type ListOrganizationChangesRow struct {
+	ID              uuid.UUID          `json:"id"`
+	InstanceID      *uuid.UUID         `json:"instance_id"`
+	InstanceSlug    *string            `json:"instance_slug"`
+	InstanceName    *string            `json:"instance_name"`
+	CustomerID      *uuid.UUID         `json:"customer_id"`
+	CustomerSlug    *string            `json:"customer_slug"`
+	CustomerName    *string            `json:"customer_name"`
+	ActorID         *uuid.UUID         `json:"actor_id"`
+	ActorName       *string            `json:"actor_name"`
+	ActorType       string             `json:"actor_type"`
+	ActorExternalID *string            `json:"actor_external_id"`
+	EventName       string             `json:"event_name"`
+	EventType       string             `json:"event_type"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	Payload         []byte             `json:"payload"`
+}
+
+// ListOrganizationAuditTrails without the reads, evaluations and reports SDKs
+// produce in bulk: what people, service accounts and Kaiten changed. Pagination
+// and filters as above. The event list is written here rather than bound as a
+// parameter, and is idx_audit_trail_changes' list, character for character:
+// with a bound list a generic plan cannot prove that index applies, and walks
+// past every SDK event of every organization (seconds on a large trail).
+func (q *Queries) ListOrganizationChanges(ctx context.Context, arg ListOrganizationChangesParams) ([]ListOrganizationChangesRow, error) {
+	rows, err := q.db.Query(ctx, listOrganizationChanges,
+		arg.OrganizationID,
+		arg.EventName,
+		arg.AfterTs,
+		arg.BeforeTs,
+		arg.CursorOccurredAt,
+		arg.CursorID,
+		arg.LimitPlusOne,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOrganizationChangesRow
+	for rows.Next() {
+		var i ListOrganizationChangesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.InstanceID,
+			&i.InstanceSlug,
+			&i.InstanceName,
+			&i.CustomerID,
+			&i.CustomerSlug,
+			&i.CustomerName,
+			&i.ActorID,
+			&i.ActorName,
+			&i.ActorType,
+			&i.ActorExternalID,
+			&i.EventName,
+			&i.EventType,
+			&i.OccurredAt,
+			&i.Payload,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOrganizationsWithAuditTrailBefore = `-- name: ListOrganizationsWithAuditTrailBefore :many
+SELECT o.id
+FROM organization o
+WHERE EXISTS (
+  SELECT 1
+  FROM audit_trail at
+  WHERE at.organization_id = o.id
+    AND at.occurred_at < $1
+)
+`
+
+// The organizations the retention pass (see ../../../auditretention) has any
+// reason to look up: those holding an entry older than the shortest window
+// there is. One index probe per organization, on
+// idx_audit_trail_org_occurred_at.
+func (q *Queries) ListOrganizationsWithAuditTrailBefore(ctx context.Context, before pgtype.Timestamptz) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, listOrganizationsWithAuditTrailBefore, before)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const purgeOrganizationAuditTrail = `-- name: PurgeOrganizationAuditTrail :execrows
+WITH expired AS (
+  SELECT at.id
+  FROM audit_trail at
+  WHERE at.organization_id = $1
+    AND at.occurred_at < $2
+  ORDER BY at.occurred_at, at.id
+  LIMIT $3
+  FOR UPDATE SKIP LOCKED
+)
+DELETE FROM audit_trail at
+USING expired
+WHERE at.id = expired.id
+`
+
+type PurgeOrganizationAuditTrailParams struct {
+	OrganizationID uuid.UUID          `json:"organization_id"`
+	Cutoff         pgtype.Timestamptz `json:"cutoff"`
+	BatchSize      int32              `json:"batch_size"`
+}
+
+// One bounded batch of an organization's entries older than cutoff, oldest
+// first, so a backlog is drained over many short transactions instead of one
+// long one holding locks and bloating WAL. idx_audit_trail_org_occurred_at
+// serves the predicate and the order, so a batch reads only the rows it
+// deletes. SKIP LOCKED avoids waiting behind a transaction touching an expired
+// row; notification_read rows go with the entry (ON DELETE CASCADE).
+func (q *Queries) PurgeOrganizationAuditTrail(ctx context.Context, arg PurgeOrganizationAuditTrailParams) (int64, error) {
+	result, err := q.db.Exec(ctx, purgeOrganizationAuditTrail, arg.OrganizationID, arg.Cutoff, arg.BatchSize)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}

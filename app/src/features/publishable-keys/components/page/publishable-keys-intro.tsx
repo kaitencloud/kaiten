@@ -15,7 +15,7 @@ export function PublishableKeysIntro() {
   const { t } = useTranslation();
   const billing = useBillingCapabilities();
   const mayOpenLicenses = useCanPerform('licenseFamilies.list');
-  const mayOpenAddons = useCanPerform('addons.list') && billing.has('addons');
+  const mayOpenAddons = useCanPerform('addons.list') && billing.isEnabled;
 
   return (
     <div

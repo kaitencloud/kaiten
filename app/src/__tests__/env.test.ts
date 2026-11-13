@@ -33,8 +33,8 @@ describe('env', () => {
     });
   });
 
-  it('should export exactly 5 environment variables', () => {
-    expect(Object.keys(env)).toHaveLength(5);
+  it('should export exactly 6 environment variables', () => {
+    expect(Object.keys(env)).toHaveLength(6);
   });
 
   it('never reports an unsubstituted placeholder as a platform flag source', () => {
@@ -47,7 +47,11 @@ describe('env', () => {
     // Asserted as "a string that is not a placeholder" rather than "empty",
     // because pointing a local app at a stack through app/.env.local is a
     // supported thing to do and must not fail the suite.
-    for (const value of [env.PLATFORM_API_URL, env.PLATFORM_FLAGS_TOKEN]) {
+    for (const value of [
+      env.PLATFORM_API_URL,
+      env.PLATFORM_FLAGS_TOKEN,
+      env.PLATFORM_PUBLISHABLE_KEY,
+    ]) {
       expect(typeof value).toBe('string');
       expect(value).not.toContain('VITE_');
     }

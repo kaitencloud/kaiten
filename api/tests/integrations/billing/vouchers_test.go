@@ -113,6 +113,79 @@ func TestVoucherCatalogue(t *testing.T) {
 	})
 }
 
+// TestDeleteVoucher: a voucher no instance ever redeemed can be deleted,
+// whatever its status. Its grants and flag grants go with it, which releases
+// the entitlement and the flag they pinned and frees its code. One redeemed,
+// or applied by a checkout waiting for its payment, is history.
+func TestDeleteVoucher(t *testing.T) {
+	t.Run("ANeverRedeemedVoucherGoes_AndReleasesWhatItPinned", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		newEntitlement(t, "seats", 0)
+		newFlag(t, "beta")
+		voucher := newVoucher(t, composite(map[string]any{"code": "SPRING-BUNDLE-2027"}))
+		publish(t, voucher)
+		require.Equal(t, "DeleteEntitlement.InUseConflict", problemCode(t, fiber.StatusConflict, "DELETE", "/api/entitlements/seats", nil))
+		require.Equal(t, "DeleteFeatureFlag.InUseConflict", problemCode(t, fiber.StatusConflict, "DELETE", "/api/feature-flags/beta", nil))
+
+		path := "/api/vouchers/" + voucher.ID.String()
+		require.Equal(t, fiber.StatusNoContent, call(t, "DELETE", path, nil).StatusCode)
+		var grants, flagGrants int
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `
+			SELECT (SELECT count(*) FROM voucher_entitlement_grant WHERE voucher_id = $1),
+			       (SELECT count(*) FROM voucher_flag_grant WHERE voucher_id = $1)`, voucher.ID).Scan(&grants, &flagGrants))
+		require.Zero(t, grants)
+		require.Zero(t, flagGrants)
+		require.Equal(t, "GetVoucher.NotFound", problemCode(t, fiber.StatusNotFound, "GET", path, nil))
+		require.Equal(t, "DeleteVoucher.NotFound", problemCode(t, fiber.StatusNotFound, "DELETE", path, nil))
+		deleted := outboxPayloads(t, "VOUCHER_DELETED")
+		require.Len(t, deleted, 1)
+		require.Equal(t, voucher.ID.String(), deleted[0]["id"])
+		require.Equal(t, catalogue.StatusActive, deleted[0]["status"], "its last state")
+		require.NotContains(t, deleted[0], "code", "an event never carries the code")
+
+		require.Equal(t, fiber.StatusNoContent, call(t, "DELETE", "/api/entitlements/seats", nil).StatusCode)
+		require.Equal(t, fiber.StatusNoContent, call(t, "DELETE", "/api/feature-flags/beta", nil).StatusCode)
+		newVoucher(t, percentOff("10", map[string]any{"code": "spring-bundle-2027"}))
+	})
+
+	t.Run("ARedeemedVoucherStays_EvenArchived", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		voucher := newVoucher(t, percentOff("30", nil))
+		publish(t, voucher)
+		redeem(t, s.instance.Slug, *voucher.Code)
+
+		path := "/api/vouchers/" + voucher.ID.String()
+		require.Equal(t, "DeleteVoucher.Redeemed", problemCode(t, fiber.StatusConflict, "DELETE", path, nil))
+		commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "POST", path+"/archive", nil), fiber.StatusOK)
+		require.Equal(t, "DeleteVoucher.Redeemed", problemCode(t, fiber.StatusConflict, "DELETE", path, nil),
+			"archiving retires it, it does not make it deletable")
+		require.Empty(t, outboxPayloads(t, "VOUCHER_DELETED"))
+	})
+
+	t.Run("ACheckoutWaitingForItsPaymentHoldsIt", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		s := newSold(t, flatFee("2900", "MONTHLY"))
+		subscribe(t, s.instance.Slug, map[string]any{"basePriceId": s.monthly.ID})
+		voucher := newVoucher(t, percentOff("50", nil))
+		publish(t, voucher)
+		// What a checkout waiting over the live subscription stores (§9.10
+		// rule 6): its ACTIVATION discounted the voucher, its payment redeems it.
+		exec(t, `UPDATE instance_billing
+		         SET pending_license_id = $2, incomplete_expires_at = (now() AT TIME ZONE 'UTC') + interval '23 hours',
+		             pending_selection = jsonb_build_object('licensePriceId', $3::text, 'addOns', '[]'::jsonb,
+		               'voucher', jsonb_build_object('instanceVoucherId', gen_random_uuid(), 'voucherId', $4::text, 'code', $5::text))
+		         WHERE instance_id = $1`, s.instance.ID, s.version.ID, s.monthly.ID.String(), voucher.ID.String(), *voucher.Code)
+
+		path := "/api/vouchers/" + voucher.ID.String()
+		require.Equal(t, "DeleteVoucher.Redeemed", problemCode(t, fiber.StatusConflict, "DELETE", path, nil))
+		// The checkout expired unpaid: nothing redeemed the voucher.
+		exec(t, `UPDATE instance_billing SET pending_license_id = NULL, pending_selection = NULL, incomplete_expires_at = NULL
+		         WHERE instance_id = $1`, s.instance.ID)
+		require.Equal(t, fiber.StatusNoContent, call(t, "DELETE", path, nil).StatusCode)
+	})
+}
+
 func TestRedemptions(t *testing.T) {
 	t.Run("Checks_RedeemAndRevoke", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })

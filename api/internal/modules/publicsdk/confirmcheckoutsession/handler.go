@@ -14,6 +14,7 @@
 package confirmcheckoutsession
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -25,6 +26,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
@@ -51,6 +53,21 @@ import (
 )
 
 const operation = "ConfirmCheckoutSession"
+
+// requireSelection protects an OPEN checkout before provider setup or customer
+// creation. An already accepted AWAITING_PAYMENT selection does not pass here:
+// settling what its ACTIVATION payment bought remains grandfathered.
+func (u *UseCase) requireSelection(ctx context.Context, organizationID, actorID, sessionID, priceID uuid.UUID, selection checkout.Selection) (*gate.SelectionScope, error) {
+	authorized := gate.Selection{CheckoutSessionID: sessionID, BasePriceID: priceID}
+	if selection.Voucher != nil {
+		authorized.VoucherCode = &selection.Voucher.Code
+	}
+	for _, addon := range selection.AddOns {
+		authorized.AddOns = append(authorized.AddOns, gate.SelectionAddon{Slug: addon.AddonSlug, Quantity: addon.Quantity})
+	}
+	scope, err := u.deps.Gate.BeginSelection(ctx, organizationID, actorID, authorized)
+	return scope, createcheckoutsession.PublicVoucherError(operation, err)
+}
 
 // licenceHorizon is the end date a Tier 2 instance is created with: the spec
 // gives it none (§9.12 rule 4 step 3), the column requires one.
@@ -83,6 +100,7 @@ type (
 // Deps is what the confirm needs.
 type Deps struct {
 	AIPolicy      aiusage.Policy
+	Gate          gate.Gate
 	UserProvider  currentuser.Provider
 	Uof           *uow.UnitOfWork
 	Catalog       *getpubliccatalog.UseCase
@@ -203,6 +221,19 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 	if err := json.Unmarshal(row.Selection, &selection); err != nil {
 		return nil, err
 	}
+	user, err := u.deps.UserProvider.GetUser(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if user.OrganizationID != organizationID {
+		return nil, kaitenerrors.Unauthorized("PublicAuth.InvalidCredential", "invalid credential")
+	}
+	scope, err := u.requireSelection(ctx, organizationID, user.ID, sessionID, row.LicensePriceID, selection)
+	if err != nil {
+		return nil, err
+	}
+	defer scope.Close()
+	ctx = scope.Context()
 	addOns := make([]subscribeinstance.SubscriptionAddon, 0, len(selection.AddOns))
 	for _, a := range selection.AddOns {
 		addOns = append(addOns, subscribeinstance.SubscriptionAddon{AddonSlug: a.AddonSlug, Quantity: a.Quantity})
@@ -316,10 +347,6 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 
 	// The creation limits, enforced before the transaction and compensated
 	// if it fails (§9.12 rule 3).
-	user, err := u.deps.UserProvider.GetUser(ctx)
-	if err != nil {
-		return nil, err
-	}
 	compensate, err := u.enforceLimits(ctx, organizationID)
 	if err != nil {
 		return nil, err
@@ -333,7 +360,12 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		customerID uuid.UUID
 	)
 	instanceSlug := ""
-	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) (txErr error) {
+		defer func() {
+			if txErr == nil {
+				txErr = scope.Validate(ctx)
+			}
+		}()
 		q := db.New(u.deps.Uof.DBTX(ctx))
 		locked, err := q.LockCheckoutSession(ctx, db.LockCheckoutSessionParams{OrganizationID: organizationID, ID: sessionID})
 		if err != nil {
@@ -341,6 +373,13 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 		}
 		if locked.CustomerID != nil || locked.Status != db.CheckoutSessionStatusOPEN {
 			return nil // completed meanwhile, by another caller: answered as it now is
+		}
+		// The preauthorized purchase must still be the one we complete. A
+		// changed selection/price/buyer requires a fresh attempt, never a
+		// licensing call while this session lock is held.
+		if locked.Email != row.Email || locked.LicensePriceID != row.LicensePriceID ||
+			locked.PublishableKeyID != row.PublishableKeyID || !bytes.Equal(locked.Selection, row.Selection) {
+			return dueTodayChanged()
 		}
 		if trial {
 			if err := q.LockTrialEmail(ctx, db.LockTrialEmailParams{OrganizationID: organizationID.String(), Email: locked.Email}); err != nil {
@@ -359,20 +398,31 @@ func (u *UseCase) confirm(ctx context.Context, organizationID, sessionID uuid.UU
 			}
 		}
 		email := locked.Email
-		customer, err := u.deps.Customers.Persist(ctx, organizationID, user.ID, &createcustomer.Command{Name: email, BillingEmail: &email})
+		// The name the buyer gave at the start, else the e-mail: a customer and
+		// an instance both need a name, and the e-mail is the one thing every
+		// session holds.
+		name := email
+		if locked.CustomerName != nil {
+			name = *locked.CustomerName
+		}
+		customer, err := u.deps.Customers.Persist(ctx, organizationID, user.ID, &createcustomer.Command{Name: name, BillingEmail: &email})
 		if err != nil {
 			return err
 		}
 		customerID = customer.ID
 		now := time.Now().UTC()
 		instance, err := u.deps.Instances.Persist(ctx, organizationID, user.ID, &createinstance.Command{
-			Name: email, Description: "", CustomerID: customer.ID, LicenseID: instanceLicenseID,
+			Name: name, Description: "", CustomerID: customer.ID, LicenseID: instanceLicenseID,
 			StartLicenseDate: now, EndLicenseDate: now.Add(licenceHorizon), Metadata: map[string]interface{}{},
 		})
 		if err != nil {
 			return err
 		}
 		instanceSlug = instance.Slug
+		ctx, err = scope.BindInstance(ctx, instance.Slug)
+		if err != nil {
+			return err
+		}
 		if adopted != nil {
 			if err := u.deps.Setup.Link(ctx, organizationID, customer.ID, customer.Slug, *adopted); err != nil {
 				return err
@@ -584,7 +634,7 @@ func translate(err error) error {
 		return err
 	}
 	switch refusal.Code {
-	case "SubscribeInstance.VoucherInvalid":
+	case "SubscribeInstance.VoucherInvalid", "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
 		// Opaque, as at the start (§14.8): why a code is refused is not the
 		// visitor's to learn.
 		return createcheckoutsession.VoucherInvalid(operation)
