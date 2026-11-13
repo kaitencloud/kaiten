@@ -4,14 +4,20 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/featureflag"
+	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
+	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
@@ -66,7 +72,8 @@ func TestEntitlementsArePresentedToCustomers(t *testing.T) {
 	for _, ent := range entitlements {
 		require.Truef(t, ent.UserFacing, "entitlement %q is hidden from customer-facing components", ent.Slug)
 		require.NoErrorf(t, entitlementschema.ValidateIcon(ent.Icon), "entitlement %q icon", ent.Slug)
-		require.NoErrorf(t, entitlementschema.ValidateUnitsConfiguration(ent.Type, ent.UnitSingular, ent.UnitPlural, nil, nil, nil),
+		require.NoErrorf(t, entitlementschema.ValidateUnitsConfiguration(ent.Type, ent.UnitSingular, ent.UnitPlural,
+			ent.SaleUnitSingular, ent.SaleUnitPlural, ent.SaleUnitFactor),
 			"entitlement %q units", ent.Slug)
 		if ent.Type == entitlementschema.Number {
 			require.NotNilf(t, ent.UnitSingular, "NUMBER entitlement %q has no unit labels", ent.Slug)
@@ -525,4 +532,234 @@ func TestRevisedFamiliesChangeWhatTheyGrant(t *testing.T) {
 		}
 		require.Truef(t, changed, "every version of license %q grants the same thing", lic.Name)
 	}
+}
+
+// The billing tests below pin the catalogue to the one brain's console captures
+// show (screenshots/specs/screenshots.billing.ts), so the seeder, the captures
+// and the docs tell one story: a change here that the captures do not make is
+// a test to change on purpose.
+
+// versionSlug is the slug of version vi of lic: the family's own for the
+// first, {slug}-v{n} after.
+func versionSlug(lic licenseDef, vi int) string {
+	if vi == 0 {
+		return lic.Slug
+	}
+	return fmt.Sprintf("%s-v%d", lic.Slug, vi+1)
+}
+
+// describePrice is a price as these tests compare it. A metered price bills
+// per the sale unit of its entitlement, which the API reads back with it.
+func describePrice(p prices.Draft) string {
+	period := p.MeteredEntitlementSlug
+	if p.BillingPeriod != nil {
+		period = *p.BillingPeriod
+	}
+	described := fmt.Sprintf("%s: %s %s %s %s", *p.DisplayLabel, p.BillingModel, p.BillingTiming, period, p.UnitAmountDecimal)
+	if ent, ok := entitlementBySlug(p.MeteredEntitlementSlug); ok && ent.SaleUnitSingular != nil {
+		described += fmt.Sprintf(" per %s/%s x%g", *ent.SaleUnitSingular, *ent.SaleUnitPlural, *ent.SaleUnitFactor)
+	}
+	if p.IsDefault {
+		described += " default"
+	}
+	return described
+}
+
+// TestLicensePricesFollowTheCaptures pins each version's prices, in euro cents.
+// Each passes the checks CreateLicensePrice makes before reading anything, and
+// a FREE version's are 0. An archived version takes no new price, so a priced
+// version that ends archived must be one seedLicensePricing still finds on sale.
+func TestLicensePricesFollowTheCaptures(t *testing.T) {
+	standard := []string{
+		"Standard, monthly: FLAT_FEE ADVANCE MONTHLY 4900 default",
+		"Standard, yearly: FLAT_FEE ADVANCE ANNUAL 49000 default",
+		"Orders above the allowance: OVERAGE ARREARS monthly-orders 50 per order/orders x1",
+	}
+	want := map[string][]string{
+		"starter":     {"Starter: FLAT_FEE ADVANCE MONTHLY 0 default"},
+		"standard":    standard,
+		"standard-v2": standard,
+		"premium": {
+			"Premium, monthly: FLAT_FEE ADVANCE MONTHLY 24000 default",
+			"Orders above the allowance: OVERAGE ARREARS monthly-orders 15 per order/orders x1",
+		},
+		"premium-v2": {
+			"Premium, yearly: FLAT_FEE ADVANCE ANNUAL 290000 default",
+			"Premium, monthly: FLAT_FEE ADVANCE MONTHLY 29000 default",
+			"Orders above the allowance: OVERAGE ARREARS monthly-orders 15 per order/orders x1",
+		},
+		"premium-v3": nil,
+	}
+
+	got := make(map[string][]string)
+	for _, lic := range licenses {
+		for vi, version := range lic.Versions {
+			slug := versionSlug(lic, vi)
+			got[slug] = nil
+			for _, price := range version.Prices {
+				_, amount, err := price.Shape("CreateLicensePrice")
+				require.NoErrorf(t, err, "%s: %s", slug, describePrice(price))
+				require.NoErrorf(t, prices.RefuseAboveZeroOnFree("CreateLicensePrice", licensesdb.PricingType(lic.PricingType), amount),
+					"%s: %s", slug, describePrice(price))
+				got[slug] = append(got[slug], describePrice(price))
+			}
+			if len(version.Prices) > 0 && version.LifecycleState == licenseschema.Archived {
+				require.Truef(t, pinnedToVersion(lic.Name, vi), "%s is priced, and archived before seedLicensePricing runs", slug)
+			}
+		}
+	}
+	require.Equal(t, want, got)
+}
+
+// TestLicenseFamiliesAreSoldAsInTheCaptures pins how each family is sold:
+// Starter free and the fallback of the two others, Standard online, Premium on
+// request through its sales page; all three in the public catalogue. A
+// fallback must be another FREE family (UpdateLicenseFamily.InvalidFallback).
+func TestLicenseFamiliesAreSoldAsInTheCaptures(t *testing.T) {
+	pricingTypes := make(map[string]licenseschema.PricingType, len(licenses))
+	got := make(map[string]string, len(licenses))
+	for _, lic := range licenses {
+		pricingTypes[lic.Slug] = lic.PricingType
+		described := string(lic.PricingType)
+		if lic.SelfServeCtaURL != nil {
+			require.NoError(t, licenseschema.ValidateSelfServeCtaURL("CreateLicense", *lic.SelfServeCtaURL))
+			described += " via " + *lic.SelfServeCtaURL
+		}
+		if lic.Public {
+			described += ", public"
+		}
+		if lic.Fallback != nil {
+			described += ", falls back to " + *lic.Fallback
+		}
+		got[lic.Slug] = described
+	}
+	require.Equal(t, map[string]string{
+		"starter":  "FREE, public",
+		"standard": "PAID, public, falls back to starter",
+		"premium":  "CUSTOM via https://kaiten-sushi.example/contact-sales, public, falls back to starter",
+	}, got)
+
+	for _, lic := range licenses {
+		if lic.Fallback != nil {
+			require.NotEqual(t, lic.Slug, *lic.Fallback)
+			require.Equalf(t, licenseschema.PricingTypeFree, pricingTypes[*lic.Fallback], "%s falls back to %q", lic.Slug, *lic.Fallback)
+		}
+	}
+}
+
+// TestAddonsFollowTheCaptures pins the two add-ons: their version, prices and
+// grants, the license families they fit, and which one the public catalogue
+// lists. What they name must be in the dataset.
+func TestAddonsFollowTheCaptures(t *testing.T) {
+	families := make([]string, 0, len(licenses))
+	for _, lic := range licenses {
+		families = append(families, lic.Slug)
+	}
+
+	got := make(map[string][]string, len(addons))
+	for _, addon := range addons {
+		slug := *addon.Addon.Slug
+		_, err := slugutil.New(slug)
+		require.NoError(t, err)
+		require.NoError(t, addoncatalogue.ValidateMaxQuantity("CreateAddon", addon.Addon.MaxQuantity))
+
+		described := []string{fmt.Sprintf("%s: %s, max %d, default %t",
+			addon.Addon.Name, *addon.Addon.VersionName, *addon.Addon.MaxQuantity, addon.Addon.IsDefault)}
+		for _, price := range addon.Prices {
+			_, _, err := price.Shape("CreateAddonPrice")
+			require.NoError(t, err)
+			described = append(described, describePrice(price))
+		}
+		for _, grant := range addon.Grants {
+			_, ok := entitlementBySlug(grant.EntitlementSlug)
+			require.Truef(t, ok, "%s grants unknown entitlement %q", slug, grant.EntitlementSlug)
+			described = append(described, fmt.Sprintf("%s %s %v", grant.OverrideBehavior, grant.EntitlementSlug, grant.Value["value"]))
+		}
+		for _, family := range addon.Compatible {
+			require.Containsf(t, families, family, "%s fits unknown license family %q", slug, family)
+		}
+		described = append(described, "fits "+strings.Join(addon.Compatible, ", "))
+		if addon.Public {
+			described = append(described, "public")
+		}
+		got[slug] = described
+	}
+	require.Equal(t, map[string][]string{
+		"extra-delivery-drivers": {
+			"Extra delivery drivers: Packs of five, max 10, default true",
+			"Extra delivery drivers, monthly: FLAT_FEE ADVANCE MONTHLY 1900 default",
+			"Extra delivery drivers, yearly: FLAT_FEE ADVANCE ANNUAL 19000 default",
+			"ADD delivery-drivers 5",
+			"fits standard, premium",
+			"public",
+		},
+		"priority-support": {
+			"Priority support: Two-hour response, max 1, default true",
+			"Priority support, monthly: FLAT_FEE ADVANCE MONTHLY 9900 default",
+			"Priority support, yearly: FLAT_FEE ADVANCE ANNUAL 99000 default",
+			"OVERRIDE support-tier map[channels:[email slack phone] response_sla_hours:2 tier:priority]",
+			"fits premium",
+		},
+	}, got)
+}
+
+// TestVouchersFollowTheCaptures pins the five vouchers the seed publishes:
+// type, code, duration, bounds, discount, grants and flag grants, and the
+// license versions they apply to. What they name must be in the dataset: the
+// versions, the entitlements a grant changes, and a flag with its variant.
+func TestVouchersFollowTheCaptures(t *testing.T) {
+	versions := make([]string, 0)
+	for _, lic := range licenses {
+		for vi := range lic.Versions {
+			versions = append(versions, versionSlug(lic, vi))
+		}
+	}
+
+	got := make([]string, 0, len(vouchers))
+	for _, voucher := range vouchers {
+		d := voucher.Draft
+		parts := []string{*d.Code, d.VoucherType, d.Duration}
+		if d.DurationInPeriods != nil {
+			parts = append(parts, fmt.Sprintf("x%d", *d.DurationInPeriods))
+		}
+		if d.MaxRedemptions != nil {
+			parts = append(parts, fmt.Sprintf("max %d", *d.MaxRedemptions))
+		}
+		if d.ExpiresAt != nil {
+			parts = append(parts, "expires "+d.ExpiresAt.Format(time.RFC3339))
+		}
+		if d.PriceDiscountType != nil {
+			parts = append(parts, *d.PriceDiscountValue, *d.PriceDiscountType)
+			if d.Currency != nil {
+				parts = append(parts, *d.Currency)
+			}
+			parts = append(parts, "on", *d.PriceAppliesTo)
+		}
+		for _, grant := range d.Grants {
+			_, ok := entitlementBySlug(grant.EntitlementSlug)
+			require.Truef(t, ok, "%s grants unknown entitlement %q", *d.Code, grant.EntitlementSlug)
+			parts = append(parts, grant.ModifierType, *grant.ModifierValue, grant.EntitlementSlug)
+		}
+		for _, grant := range d.FlagGrants {
+			i := slices.IndexFunc(featureFlags, func(flag schema.FeatureFlag) bool { return flag.Slug == grant.FlagSlug })
+			require.GreaterOrEqualf(t, i, 0, "%s grants unknown flag %q", *d.Code, grant.FlagSlug)
+			require.Truef(t, slices.ContainsFunc(featureFlags[i].Variants, func(v schema.Variant) bool { return v.Name == grant.Variant }),
+				"%s grants %q, which flag %q does not have", *d.Code, grant.Variant, grant.FlagSlug)
+			parts = append(parts, grant.FlagSlug+"="+grant.Variant)
+		}
+		for _, slug := range voucher.ApplicableLicenses {
+			require.Containsf(t, versions, slug, "%s applies to unknown license %q", *d.Code, slug)
+		}
+		if len(voucher.ApplicableLicenses) > 0 {
+			parts = append(parts, "for "+strings.Join(voucher.ApplicableLicenses, ","))
+		}
+		got = append(got, strings.Join(parts, " "))
+	}
+	require.Equal(t, []string{
+		"WELCOME20 PRICE REPEATING x3 max 200 20 PERCENTAGE on LICENSE_BASE for standard,standard-v2",
+		"PEAK-SEASON ENTITLEMENT_BOOST REPEATING x1 max 25 ADD 200 monthly-orders for premium,premium-v2",
+		"TRACKING-PILOT FLAG_GRANT REPEATING x2 delivery-tracking-enabled=on for starter",
+		"NEW-LOCATION COMPOSITE REPEATING x3 max 100 10 PERCENTAGE on LICENSE_BASE ADD 2 delivery-drivers for standard,standard-v2",
+		"SUMMER-FESTIVAL PRICE ONE_TIME expires 2026-08-31T23:59:59Z 1000 FIXED_AMOUNT EUR on LICENSE_BASE",
+	}, got)
 }

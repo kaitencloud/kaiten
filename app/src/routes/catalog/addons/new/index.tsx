@@ -5,6 +5,7 @@ import {
   AddonsPageContent,
   addonFamiliesQueryOptions,
 } from '@/features/addons';
+import { BillingNotFound, requireBillingCapability } from '@/domains/billing';
 import i18n from '@/lib/i18n/config';
 
 // `?family=<slug>` makes the dialog the next version of that family; without it, it
@@ -13,9 +14,11 @@ const newAddonSearchSchema = z.object({ family: z.string().optional() });
 
 export const Route = createFileRoute('/catalog/addons/new/')({
   component: NewAddonRoute,
+  notFoundComponent: BillingNotFound,
   pendingComponent: () => null,
   validateSearch: (search) => newAddonSearchSchema.parse(search),
   beforeLoad: async ({ context, search }) => {
+    await requireBillingCapability(context.queryClient, 'addons');
     const families = await context.queryClient.ensureQueryData(
       addonFamiliesQueryOptions,
     );

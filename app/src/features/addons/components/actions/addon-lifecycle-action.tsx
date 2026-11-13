@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import type { Addon } from '@/api-client';
 import {
   type RowActionAppearance,
+  useBillingCapabilities,
   useCanPerform,
   VersionLifecycleAction,
 } from '@/domains/billing';
@@ -53,7 +54,10 @@ export function AddonLifecycleAction({
   appearance,
 }: AddonLifecycleActionProps) {
   const { isPending, run, transition } = useAddonLifecycleTransition(addon);
-  const allowed = useCanPerform(TRANSITION_ACTIONS[transition]);
+  const featureOn = useBillingCapabilities().has('addons');
+  const allowed =
+    useCanPerform(TRANSITION_ACTIONS[transition]) &&
+    (transition === 'archive' || featureOn);
 
   return (
     <VersionLifecycleAction

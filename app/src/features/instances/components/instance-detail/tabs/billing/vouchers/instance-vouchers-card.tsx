@@ -26,15 +26,17 @@ type InstanceVouchersCardProps = {
  * redemption back with the reason it is taken back for. A boost applies at once, a
  * discount to the invoices the instance is yet to be issued, and the card says so.
  *
- * Where the release has no vouchers, or the session may not read those of an instance,
+ * Where baseline billing is off, or the session may not read those of an instance,
  * there is no card.
  */
 export function InstanceVouchersCard({
   instanceSlug,
 }: InstanceVouchersCardProps) {
   const { t } = useTranslation();
-  const featureOn = useBillingCapabilities().has('vouchers');
-  const mayList = useCanPerform('instance.vouchers.list') && featureOn;
+  const capabilities = useBillingCapabilities();
+  const featureOn = capabilities.has('vouchers');
+  const mayList =
+    useCanPerform('instance.vouchers.list') && capabilities.isEnabled;
   const mayRedeem = useCanPerform('instance.vouchers.redeem') && featureOn;
   const mayRevoke = useCanPerform('vouchers.revoke');
   const mayReadVouchers = useCanPerform('vouchers.read');
@@ -44,7 +46,10 @@ export function InstanceVouchersCard({
     enabled: mayList,
   });
 
-  if (!mayList) {
+  if (
+    !mayList ||
+    (!featureOn && redemptions.isSuccess && redemptions.data.items.length === 0)
+  ) {
     return null;
   }
 

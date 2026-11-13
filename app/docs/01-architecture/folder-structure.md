@@ -178,7 +178,7 @@ Where things go:
 | Variants list and editor | `features/feature-flags/variants/` |
 | Aggregated query over releases, deployment zones and instances | `domains/release-management/queries/` |
 | A license's entitlements table | `features/licenses/components/` |
-| A hook tied to one screen, such as the dashboard metrics | `features/dashboard/hooks/` |
+| The pure logic of one screen, such as the dashboard's attention lines | `features/dashboard/logic/` |
 
 ## `hooks/`: shared hooks
 

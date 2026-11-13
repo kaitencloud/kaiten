@@ -7,7 +7,7 @@
 // resolving the token that carried them, which is strictly before any credential
 // this deployment issued exists. Reachable only through kaiten.InProcess.
 //
-// User, membership and first-human administrator bootstrap are one transaction. The
+// User, membership and per-organization administrator bootstrap are one transaction. The
 // order is not incidental -- the membership references the user, and a refusal at
 // either step rolls the other back, so a login that is refused leaves neither a
 // user nor a membership behind. It emits no event, for the reason

@@ -13,11 +13,15 @@ import (
 )
 
 const abandonCheckoutSession = `-- name: AbandonCheckoutSession :one
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'ABANDONED',
-    abandoned_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    abandoned_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = $1
   AND id = $2
   AND status = 'OPEN'
@@ -83,7 +87,7 @@ SET status      = 'AWAITING_PAYMENT',
 WHERE organization_id = $3
   AND id = $4
   AND status = 'OPEN'
-RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at, customer_name
 `
 
 type AwaitCheckoutPaymentParams struct {
@@ -128,22 +132,27 @@ func (q *Queries) AwaitCheckoutPayment(ctx context.Context, arg AwaitCheckoutPay
 		&i.ExpiredAt,
 		&i.ClosedAt,
 		&i.UpdatedAt,
+		&i.CustomerName,
 	)
 	return i, err
 }
 
 const completeCheckoutSession = `-- name: CompleteCheckoutSession :one
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'COMPLETED',
     customer_id  = $1,
     instance_id  = $2,
-    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    completed_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = $3
   AND id = $4
   AND status = 'OPEN'
-RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+RETURNING checkout_session.id, checkout_session.organization_id, checkout_session.publishable_key_id, checkout_session.lookup_hash, checkout_session.status, checkout_session.email, checkout_session.client_reference_id, checkout_session.license_price_id, checkout_session.selection, checkout_session.due_today_minor, checkout_session.currency, checkout_session.trial_refused_reason, checkout_session.return_url, checkout_session.external_setup_session_id, checkout_session.setup_completed_at, checkout_session.customer_id, checkout_session.instance_id, checkout_session.created_at, checkout_session.expires_at, checkout_session.completed_at, checkout_session.abandoned_at, checkout_session.expired_at, checkout_session.closed_at, checkout_session.updated_at, checkout_session.customer_name
 `
 
 type CompleteCheckoutSessionParams struct {
@@ -154,6 +163,7 @@ type CompleteCheckoutSessionParams struct {
 }
 
 // A completion with nothing due: COMPLETED, closed, with what it created.
+// Read the wall clock once: closed_at must equal the terminal timestamp.
 func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheckoutSessionParams) (CheckoutSession, error) {
 	row := q.db.QueryRow(ctx, completeCheckoutSession,
 		arg.CustomerID,
@@ -187,16 +197,21 @@ func (q *Queries) CompleteCheckoutSession(ctx context.Context, arg CompleteCheck
 		&i.ExpiredAt,
 		&i.ClosedAt,
 		&i.UpdatedAt,
+		&i.CustomerName,
 	)
 	return i, err
 }
 
 const expireCheckoutSession = `-- name: ExpireCheckoutSession :exec
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status     = 'EXPIRED',
-    expired_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at  = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    expired_at = closing.instant,
+    closed_at  = closing.instant,
+    updated_at = closing.instant
+FROM closing
 WHERE organization_id = $1
   AND id = $2
   AND status = 'AWAITING_PAYMENT'
@@ -245,7 +260,7 @@ func (q *Queries) GetCheckoutFallbackLicense(ctx context.Context, arg GetCheckou
 }
 
 const getCheckoutSession = `-- name: GetCheckoutSession :one
-SELECT cs.id, cs.organization_id, cs.publishable_key_id, cs.lookup_hash, cs.status, cs.email, cs.client_reference_id, cs.license_price_id, cs.selection, cs.due_today_minor, cs.currency, cs.trial_refused_reason, cs.return_url, cs.external_setup_session_id, cs.setup_completed_at, cs.customer_id, cs.instance_id, cs.created_at, cs.expires_at, cs.completed_at, cs.abandoned_at, cs.expired_at, cs.closed_at, cs.updated_at, lp.billing_period AS price_billing_period, l.slug AS license_slug, l.id AS license_id,
+SELECT cs.id, cs.organization_id, cs.publishable_key_id, cs.lookup_hash, cs.status, cs.email, cs.client_reference_id, cs.license_price_id, cs.selection, cs.due_today_minor, cs.currency, cs.trial_refused_reason, cs.return_url, cs.external_setup_session_id, cs.setup_completed_at, cs.customer_id, cs.instance_id, cs.created_at, cs.expires_at, cs.completed_at, cs.abandoned_at, cs.expired_at, cs.closed_at, cs.updated_at, cs.customer_name, lp.billing_period AS price_billing_period, l.slug AS license_slug, l.id AS license_id,
        l.pricing_type AS license_pricing_type, l.requires_payment_method AS license_requires_payment_method,
        c.slug AS customer_slug, i.slug AS instance_slug,
        (cs.status = 'OPEN' AND cs.expires_at <= (clock_timestamp() AT TIME ZONE 'UTC'))::boolean AS lapsed
@@ -296,6 +311,7 @@ type GetCheckoutSessionRow struct {
 	ExpiredAt                    pgtype.Timestamp      `json:"expired_at"`
 	ClosedAt                     pgtype.Timestamp      `json:"closed_at"`
 	UpdatedAt                    pgtype.Timestamp      `json:"updated_at"`
+	CustomerName                 *string               `json:"customer_name"`
 	PriceBillingPeriod           *BillingPeriod        `json:"price_billing_period"`
 	LicenseSlug                  string                `json:"license_slug"`
 	LicenseID                    uuid.UUID             `json:"license_id"`
@@ -335,6 +351,7 @@ func (q *Queries) GetCheckoutSession(ctx context.Context, arg GetCheckoutSession
 		&i.ExpiredAt,
 		&i.ClosedAt,
 		&i.UpdatedAt,
+		&i.CustomerName,
 		&i.PriceBillingPeriod,
 		&i.LicenseSlug,
 		&i.LicenseID,
@@ -378,16 +395,16 @@ func (q *Queries) HasCheckoutFallback(ctx context.Context, arg HasCheckoutFallba
 }
 
 const insertCheckoutSession = `-- name: InsertCheckoutSession :one
-INSERT INTO checkout_session (organization_id, publishable_key_id, lookup_hash, email, client_reference_id,
-                              license_price_id, selection, due_today_minor, currency, trial_refused_reason,
-                              return_url, created_at, expires_at, updated_at)
+INSERT INTO checkout_session (organization_id, publishable_key_id, lookup_hash, email, customer_name,
+                              client_reference_id, license_price_id, selection, due_today_minor, currency,
+                              trial_refused_reason, return_url, created_at, expires_at, updated_at)
 VALUES ($1, $2, $3, $4,
         $5, $6, $7, $8,
-        $9, $10, $11,
+        $9, $10, $11, $12,
         date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
         date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') + interval '24 hours',
         date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'))
-RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+RETURNING id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at, customer_name
 `
 
 type InsertCheckoutSessionParams struct {
@@ -395,6 +412,7 @@ type InsertCheckoutSessionParams struct {
 	PublishableKeyID   uuid.UUID `json:"publishable_key_id"`
 	LookupHash         string    `json:"lookup_hash"`
 	Email              string    `json:"email"`
+	CustomerName       *string   `json:"customer_name"`
 	ClientReferenceID  *string   `json:"client_reference_id"`
 	LicensePriceID     uuid.UUID `json:"license_price_id"`
 	Selection          []byte    `json:"selection"`
@@ -411,6 +429,7 @@ func (q *Queries) InsertCheckoutSession(ctx context.Context, arg InsertCheckoutS
 		arg.PublishableKeyID,
 		arg.LookupHash,
 		arg.Email,
+		arg.CustomerName,
 		arg.ClientReferenceID,
 		arg.LicensePriceID,
 		arg.Selection,
@@ -445,6 +464,7 @@ func (q *Queries) InsertCheckoutSession(ctx context.Context, arg InsertCheckoutS
 		&i.ExpiredAt,
 		&i.ClosedAt,
 		&i.UpdatedAt,
+		&i.CustomerName,
 	)
 	return i, err
 }
@@ -609,7 +629,7 @@ func (q *Queries) LockAwaitingCheckoutSession(ctx context.Context, arg LockAwait
 }
 
 const lockCheckoutSession = `-- name: LockCheckoutSession :one
-SELECT id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at
+SELECT id, organization_id, publishable_key_id, lookup_hash, status, email, client_reference_id, license_price_id, selection, due_today_minor, currency, trial_refused_reason, return_url, external_setup_session_id, setup_completed_at, customer_id, instance_id, created_at, expires_at, completed_at, abandoned_at, expired_at, closed_at, updated_at, customer_name
 FROM checkout_session
 WHERE organization_id = $1
   AND id = $2
@@ -651,6 +671,7 @@ func (q *Queries) LockCheckoutSession(ctx context.Context, arg LockCheckoutSessi
 		&i.ExpiredAt,
 		&i.ClosedAt,
 		&i.UpdatedAt,
+		&i.CustomerName,
 	)
 	return i, err
 }
@@ -695,11 +716,15 @@ func (q *Queries) MarkCheckoutSetupCompleted(ctx context.Context, arg MarkChecko
 }
 
 const payCheckoutSession = `-- name: PayCheckoutSession :exec
+WITH closing AS MATERIALIZED (
+  SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC') AS instant
+)
 UPDATE checkout_session
 SET status       = 'COMPLETED',
-    completed_at = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    closed_at    = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC'),
-    updated_at   = date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')
+    completed_at = closing.instant,
+    closed_at    = closing.instant,
+    updated_at   = closing.instant
+FROM closing
 WHERE organization_id = $1
   AND id = $2
   AND status = 'AWAITING_PAYMENT'

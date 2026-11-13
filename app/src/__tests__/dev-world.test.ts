@@ -678,10 +678,19 @@ describe('dev world', () => {
   });
 
   it('counts on the dashboard what the lists show', () => {
-    const { data } = slot(config.dashboard);
-    expect(data.customers).toHaveLength(customerIds.size);
-    expect(data.instances).toHaveLength(instanceSlugs.size);
-    expect(data.licenses).toHaveLength(licenseIds.size);
+    const { summary } = slot(config.dashboard);
+    expect(summary.figures.customers.total).toBe(customerIds.size);
+    expect(summary.figures.instances.total).toBe(instanceSlugs.size);
+    expect(
+      summary.usageReports.byInstance.map(({ instanceSlug }) => instanceSlug),
+    ).toEqual(expect.arrayContaining([...instanceSlugs]));
+    expect(
+      summary.licenses?.mix.flatMap(({ versions }) => versions),
+    ).toHaveLength(licenseIds.size);
+    for (const meter of summary.saturation) {
+      expect(instanceSlugs.has(meter.instanceSlug)).toBe(true);
+      expect(entitlementSlugs.has(meter.entitlementSlug)).toBe(true);
+    }
   });
 });
 

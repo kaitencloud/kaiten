@@ -52,10 +52,10 @@ test.describe('the list of publishable keys', () => {
     await expect(
       keys.intro().getByRole('link', { name: 'Licenses', exact: true }),
     ).toHaveAttribute('href', '/catalog/licenses');
-    // This release ships no add-ons on the stack's capabilities: no way to their switch.
+    // Catalogue retirement stays reachable even without the add-ons grant.
     await expect(
       keys.intro().getByRole('link', { name: 'Add-ons', exact: true }),
-    ).toHaveCount(0);
+    ).toHaveAttribute('href', '/catalog/addons');
   });
 
   test('stands whatever `publicSurface.enabled` says, which is the flag of billing and is not read', async ({

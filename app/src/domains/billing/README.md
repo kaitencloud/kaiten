@@ -286,8 +286,12 @@ page holds, or an export the API streams.
   `enabled: true`. A 403, a 404 (an API older than billing), a 503, a timeout or a
   network failure all hide billing, with no error page and no toast; what differs
   is the explanation a link to a billing screen shows (`BillingUnavailable`).
-  `features.*` hides what the running release does not ship (add-ons, vouchers), and
-  the console has the screens of the add-ons, behind `features.addons`.
+  `features.*` hides capabilities the deployment or organization's plan does not
+  offer. `features.addons` and `features.vouchers` follow their independent plan
+  grants; denied or unknown grants block expansion, not catalogue reads or retirement.
+  Optional top-level `featureCheckUnavailable` names checks that failed; feature-specific
+  gates use `UNREACHABLE` and Retry for those slugs, and recheck unknown answers instead
+  of caching a permanent denial. Baseline billing still gates all billing reads.
 - **A member with no value is absent or null, and the console reads both the same.**
   The API leaves an optional member out of an answer or, on the members it lists in its
   contract as required and nullable, says `null`. Whether a member is there is therefore
@@ -599,7 +603,8 @@ page holds, or an export the API streams.
   The transitions a thing goes through may be fewer than three: a voucher is published and
   archived and never put back on sale, so `VersionLifecycleAction` and
   `VersionLifecycleKeys` are generic over the transitions they say, and the block that
-  stops the archiving of a default is optional.
+  stops the archiving of a default is optional. `VersionDraftDeleteAction` deletes a voucher
+  no instance redeemed too, whatever its state: its guard is the count of its redemptions.
 - **A voucher shows the status the API stores.** The API sets EXPIRED once an ACTIVE
   voucher's end has passed (the billing-lifecycle job) and EXHAUSTED with the redemption
   that reaches its maximum, so `VoucherStatusBadge`, the filter and the column of the list

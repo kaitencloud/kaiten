@@ -1,4 +1,3 @@
-import type { License } from '@/api-client';
 import { STRIPE_CONNECTOR_NAME } from '@/domains/billing';
 import type { GetAttioSyncedRecordsQuery } from '@/api-client/graphql/graphql';
 import { ATTIO_CONNECTOR_NAME } from '@/domains/crm-sync';
@@ -58,9 +57,9 @@ import {
   moveSubscriptionToStripe,
 } from './stripe';
 import { createCheckoutSessions } from './checkout-sessions';
+import { createDashboardSummary } from './dashboard';
 import { createPublishableKeys } from './publishable-keys';
 import { createVouchers } from './vouchers';
-import { bySlug } from './by-slug';
 import { createFeatureFlags } from './feature-flags';
 import {
   createEntitlementUsages,
@@ -109,39 +108,6 @@ export const createDevWorld = () => {
 };
 
 type DevWorld = ReturnType<typeof createDevWorld>;
-
-const toDashboardLicense = (license: License) => ({
-  id: license.id,
-  name: license.name,
-  slug: license.slug ?? license.id,
-  type: license.type,
-});
-
-/** The dashboard's counts and charts, over the same records. */
-const dashboardData = ({
-  customers,
-  instances,
-  licenses,
-}: DevWorld): ConstructorParameters<typeof DashboardAppModel>[0] => ({
-  customers: customers.map(({ createdAt, id, name, slug }) => ({
-    createdAt,
-    id,
-    name,
-    slug: slug ?? id,
-  })),
-  instances: instances.map((instance) => ({
-    createdAt: instance.createdAt,
-    customerId: instance.customerId,
-    endLicenseDate: instance.endLicenseDate,
-    id: instance.id,
-    license: toDashboardLicense(bySlug(licenses, instance.licenseSlug)),
-    licenseId: instance.licenseId,
-    name: instance.name,
-    slug: instance.slug ?? instance.id,
-    startLicenseDate: instance.startLicenseDate,
-  })),
-  licenses: licenses.map(toDashboardLicense),
-});
 
 /** The customers and instances the CRM sync linked to Attio. */
 const syncedWithAttio = ({
@@ -265,6 +231,7 @@ export function createDevMockConfig({
   // `from` set to the start it named is already behind it: this world moves on too.
   instances.usageHistory.slideRetentionStart(RETENTION_SLIDE_MS);
 
+  const publishableKeys = createPublishableKeys();
   const billing = new BillingAppModel({
     addonCatalogue,
     addons: attachments,
@@ -274,7 +241,7 @@ export function createDevMockConfig({
     ...billingSubscriptions,
     providerTruth: stripeWorld.providerTruth,
     providers: createStripeProviders(),
-    publishableKeys: createPublishableKeys(),
+    publishableKeys,
     voucherCatalogue,
   });
   // An add-on, or a boost, applies at once, so the effective limits of the instances
@@ -330,7 +297,15 @@ export function createDevMockConfig({
       customers: world.customers,
       instances: instances.getInstancesWithRelations().instances.items,
     }).serializeForMsw(),
-    dashboard: new DashboardAppModel(dashboardData(world)).serializeForMsw(),
+    dashboard: new DashboardAppModel(
+      createDashboardSummary(world, {
+        invoices: billingInvoices.invoices,
+        publishableKeys,
+        stripeConnected: stripe === 'connected' || stripe === 'connectedLive',
+        subscriptions: billingSubscriptions.subscriptions,
+        usageReports: createUsageReports(),
+      }),
+    ).serializeForMsw(),
     entitlements: new EntitlementAppModel({
       entitlements: world.entitlements,
     }).serializeForMsw(),

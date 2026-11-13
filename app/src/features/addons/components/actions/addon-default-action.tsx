@@ -10,6 +10,7 @@ import {
 import {
   ROW_ACTION_LOOKS,
   type RowActionAppearance,
+  useBillingCapabilities,
   useCanPerform,
 } from '@/domains/billing';
 import { useAddonDefault } from '../../hooks';
@@ -33,7 +34,9 @@ export function AddonDefaultAction({
   appearance,
 }: AddonDefaultActionProps) {
   const { t } = useTranslation();
-  const allowed = useCanPerform('addons.update');
+  const featureOn = useBillingCapabilities().has('addons');
+  const allowed =
+    useCanPerform('addons.update') && (addon.isDefault || featureOn);
   const { isPending, setDefault, unsetDefault } = useAddonDefault(addon);
   const look = ROW_ACTION_LOOKS[appearance];
 

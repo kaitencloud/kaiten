@@ -41,7 +41,11 @@ import {
   createDisconnectedAttioModel,
   createStripeConnectorModels,
 } from '../connectors/connectors.scenarios';
-import { createDashboardReadModel } from '../dashboard/dashboard.scenarios';
+import {
+  createCalmDashboardModel,
+  createDashboardReadModel,
+  createEmptyDashboardModel,
+} from '../dashboard/dashboard.scenarios';
 import {
   createNotificationsFeedModel,
   createMixedObjectsFeedModel,
@@ -192,6 +196,8 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createPagedBilledInstancesModels,
   ],
   ['dashboard/createDashboardReadModel', createDashboardReadModel],
+  ['dashboard/createCalmDashboardModel', createCalmDashboardModel],
+  ['dashboard/createEmptyDashboardModel', createEmptyDashboardModel],
   ['notifications/createNotificationsFeedModel', createNotificationsFeedModel],
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],
   ['entitlements/createUnitEntitlementModel', createUnitEntitlementModel],

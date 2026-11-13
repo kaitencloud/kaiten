@@ -49,6 +49,7 @@ import { Route as SettingsAccessRouteImport } from './routes/settings/access'
 import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
+import { Route as SettingsPlanRouteImport } from './routes/settings/plan'
 import { Route as AiMatrixIndexRouteImport } from './routes/ai/matrix/index'
 import { Route as AiModelsIndexRouteImport } from './routes/ai/models/index'
 import { Route as AiModelsImportRouteImport } from './routes/ai/models/import'
@@ -356,6 +357,11 @@ const SettingsMetadataRoute = SettingsMetadataRouteImport.update({
 const SettingsNotificationsRoute = SettingsNotificationsRouteImport.update({
   id: '/settings/notifications',
   path: '/settings/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPlanRoute = SettingsPlanRouteImport.update({
+  id: '/settings/plan',
+  path: '/settings/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AiMatrixIndexRoute = AiMatrixIndexRouteImport.update({
@@ -955,6 +961,7 @@ export interface FileRoutesByFullPath {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/plan': typeof SettingsPlanRoute
   '/ai/': typeof AiIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
   '/catalog/': typeof CatalogIndexRoute
@@ -1076,6 +1083,7 @@ export interface FileRoutesByTo {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/plan': typeof SettingsPlanRoute
   '/ai': typeof AiIndexRoute
   '/audit-trail': typeof AuditTrailIndexRoute
   '/catalog': typeof CatalogIndexRoute
@@ -1209,6 +1217,7 @@ export interface FileRoutesById {
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
+  '/settings/plan': typeof SettingsPlanRoute
   '/ai/': typeof AiIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
   '/catalog/': typeof CatalogIndexRoute
@@ -1350,6 +1359,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
+    | '/settings/plan'
     | '/ai/'
     | '/audit-trail/'
     | '/catalog/'
@@ -1471,6 +1481,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
+    | '/settings/plan'
     | '/ai'
     | '/audit-trail'
     | '/catalog'
@@ -1603,6 +1614,7 @@ export interface FileRouteTypes {
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
+    | '/settings/plan'
     | '/ai/'
     | '/audit-trail/'
     | '/catalog/'
@@ -1734,6 +1746,7 @@ export interface RootRouteChildren {
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsMetadataRoute: typeof SettingsMetadataRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
+  SettingsPlanRoute: typeof SettingsPlanRoute
   AuditTrailIndexRoute: typeof AuditTrailIndexRoute
   CatalogIndexRoute: typeof CatalogIndexRoute
   DashboardIndexRoute: typeof DashboardIndexRoute
@@ -2030,6 +2043,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/notifications'
       fullPath: '/settings/notifications'
       preLoaderRoute: typeof SettingsNotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/plan': {
+      id: '/settings/plan'
+      path: '/settings/plan'
+      fullPath: '/settings/plan'
+      preLoaderRoute: typeof SettingsPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ai/matrix/': {
@@ -3323,6 +3343,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsBillingRoute: SettingsBillingRoute,
   SettingsMetadataRoute: SettingsMetadataRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,
+  SettingsPlanRoute: SettingsPlanRoute,
   AuditTrailIndexRoute: AuditTrailIndexRoute,
   CatalogIndexRoute: CatalogIndexRoute,
   DashboardIndexRoute: DashboardIndexRoute,

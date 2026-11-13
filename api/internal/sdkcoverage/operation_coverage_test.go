@@ -61,6 +61,13 @@ var consoleAuthoringOperations = map[string]string{
 	"get-targeting-context":      "the editor's autocomplete schema; SDK callers author rules from their own knowledge",
 	"lint-targeting-rule":        "per-keystroke feedback for the editor; SDK callers get the same verdict from the write path",
 	"test-targeting-rule":        "interactive dry-run for the editor; nothing programmatic rehearses a rule it is about to submit",
+
+	// The console's home: one response that summarizes, for a person opening the
+	// console, what the SDK already reads row by row (customers, instances, usage,
+	// licenses, flags, zones, tokens, billing). A machine client has its own
+	// questions and asks the lists; the admin surface of the product will get a
+	// contract of its own rather than this screen's.
+	"getDashboardSummary": "the console's home in one response; SDK callers read the lists and the usage it summarizes",
 }
 
 /*
@@ -166,6 +173,7 @@ var awaitingSDKOperations = map[string]string{
 	"updateVoucher":            awaitsBilling,
 	"publishVoucher":           awaitsBilling,
 	"archiveVoucher":           awaitsBilling,
+	"deleteVoucher":            awaitsBilling,
 	"listVoucherRedemptions":   awaitsBilling,
 	"validateVoucher":          awaitsBilling,
 	"redeemVoucher":            awaitsBilling,

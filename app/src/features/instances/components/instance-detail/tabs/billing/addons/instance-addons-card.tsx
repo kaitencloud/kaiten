@@ -61,7 +61,7 @@ type InstanceAddonsCardProps = {
  * One the instance already holds stays listed, and can be stepped or removed
  * whatever the state of the subscription.
  *
- * Where the release has no add-ons, or the session may not read the add-ons of an
+ * Where baseline billing is off, or the session may not read the add-ons of an
  * instance, there is no card; and an instance nobody bills that holds none has
  * nothing to list.
  */
@@ -71,14 +71,17 @@ export function InstanceAddonsCard({
 }: InstanceAddonsCardProps) {
   const { t } = useTranslation();
   const { entitlements } = useInstanceDetail();
-  const featureOn = useBillingCapabilities().has('addons');
-  const mayList = useCanPerform('instance.addons.list') && featureOn;
+  const capabilities = useBillingCapabilities();
+  const featureOn = capabilities.has('addons');
+  const mayList =
+    useCanPerform('instance.addons.list') && capabilities.isEnabled;
   const mayReadCatalogue = useCanPerform('addons.read');
   const mayAttachToInstance = useCanPerform('instance.addons.attach');
   const mayReadFamilies = useCanPerform('licenseFamilies.list');
   // Which add-ons fit an instance is found by the family of its license, and from
   // the catalogue: the dialog needs both to offer any.
-  const mayAttach = mayAttachToInstance && mayReadCatalogue && mayReadFamilies;
+  const mayAttach =
+    featureOn && mayAttachToInstance && mayReadCatalogue && mayReadFamilies;
   const maySetQuantity = useCanPerform('instance.addons.setQuantity');
   const mayDetach = useCanPerform('instance.addons.detach');
   const held = useQuery({
@@ -119,7 +122,7 @@ export function InstanceAddonsCard({
     );
   }
   const rows = joinHeldAddons(held.data.items, versions.data?.items ?? []);
-  if (rows.length === 0 && !subscription) {
+  if (rows.length === 0 && (!subscription || !featureOn)) {
     return null;
   }
 
@@ -198,6 +201,7 @@ export function InstanceAddonsCard({
                 locked={incomplete}
                 mayDetach={mayDetach}
                 maySetQuantity={maySetQuantity}
+                mayIncrease={featureOn}
                 rows={rows}
               />
             )}

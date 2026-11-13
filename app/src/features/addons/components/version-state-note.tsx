@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import type { Addon } from '@/api-client';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { useCanPerform } from '@/domains/billing';
+import { useBillingFeatureAccess } from '@/domains/billing';
 
 type VersionStateNoteProps = {
   addon: Pick<Addon, 'familySlug' | 'lifecycleState'>;
@@ -21,7 +21,7 @@ type VersionStateNoteProps = {
  */
 export function VersionStateNote({ addon, messages }: VersionStateNoteProps) {
   const { t } = useTranslation();
-  const mayCreate = useCanPerform('addons.create');
+  const mayCreate = useBillingFeatureAccess('addons.create', 'addons').allowed;
 
   return (
     <Alert>

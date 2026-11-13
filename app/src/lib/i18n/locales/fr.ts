@@ -577,145 +577,351 @@ export default {
   Pages: {
     Dashboard: {
       title: 'Tableau de bord',
-      subtitle:
-        'Vue de sante operationnelle des clients, licences, releases et automatisations',
-      loading: 'Chargement...',
-      errorLoadingData: 'Erreur lors du chargement du tableau de bord',
-      refreshingInsights: 'Actualisation des insights complementaires...',
-      customers: 'Clients',
-      instances: 'Instances',
-      licenses: 'Licences',
-      expiringIn60Days: 'Expiration sous 60 jours',
-      stats: {
+      subtitle: 'Vos clients sur Kaiten',
+      tabs: {
         customers: 'Clients',
-        activeInstances: 'Instances actives',
-        expiringIn60Days: 'Expiration sous 60 jours',
-        expiringIn60DaysHelper: '{{count}} sous 60 jours',
-        expiringIn30Days: 'Expiration sous 30 jours',
-        licenses: 'Licences',
-        featureFlagsEnabled: 'Feature flags actives',
-        tokensExpiringSoon: 'Tokens bientot expires',
-        totalTokens_one: '{{count}} token au total',
-        totalTokens_other: '{{count}} tokens au total',
-        activeTokens_one: '{{count}} token actif',
-        activeTokens_other: '{{count}} tokens actifs',
+        integration: 'Intégration',
       },
-      insights: {
-        entitlementAlerts: {
-          title: 'Droits proches du seuil',
-          description_one: '{{count}} droit depasse la limite',
-          description_other: '{{count}} droits depassent la limite',
-          currentPeriod_one:
-            '{{count}} d\u2019entre eux se réinitialise avec sa fenêtre en cours',
-          currentPeriod_other:
-            '{{count}} d\u2019entre eux se réinitialisent avec leur fenêtre en cours',
+      range: {
+        label: 'Période',
+        '7d': '7 jours',
+        '30d': '30 jours',
+        '90d': '90 jours',
+        asOf: 'Au {{time}}',
+      },
+      time: {
+        today: "aujourd'hui",
+        inDays_one: 'dans {{count}} jour',
+        inDays_other: 'dans {{count}} jours',
+      },
+      attention: {
+        title: 'À traiter',
+        customersDescription:
+          "Ce que vos clients demandent comme décision aujourd'hui. Chaque ligne ouvre l'endroit où agir.",
+        integrationDescription:
+          "Des vérifications de l'intégration, faites à la lecture. Chaque ligne ouvre l'endroit où agir.",
+        items_one: '{{count}} élément',
+        items_other: '{{count}} éléments',
+        allClear: 'Rien ne demande votre attention',
+        checkedAt: 'Vérifié à {{time}} : {{checks}}.',
+        alsoChecked: 'Vérifié aussi, rien à signaler : {{checks}}.',
+        more_one: '{{count}} de plus',
+        more_other: '{{count}} de plus',
+        checks: {
+          limitsReached: 'limites atteintes',
+          nearThreshold: 'compteurs proches de leur limite',
+          rejectedReports24h: 'reports refusés (24 h)',
+          silentInstances: 'instances silencieuses',
+          instancesNotHealthy: 'statut des instances',
+          licensesEnding30d: 'licences qui se terminent (30 j)',
+          archivedVersions: 'versions archivées',
+          tokensExpiring30d: 'tokens qui expirent (30 j)',
+          zonesBehind: 'zones en retard',
+          billing: 'santé de la facturation',
         },
-        releaseCoverage: {
-          title: 'Couverture des releases',
-          description:
-            'Zones actuellement rattachees a une version de release.',
-        },
-        automationSurface: {
-          title: 'Surface d automatisation',
-          description_one: '{{count}} token sur les comptes de service',
-          description_other: '{{count}} tokens sur les comptes de service',
+        lines: {
+          limitReached: {
+            title:
+              '{{customer}} a atteint sa limite {{entitlement}} sur {{license}}',
+            detailHard: '{{used}} sur {{max}} · limite ferme · {{instance}}',
+            detailSoft:
+              '{{used}} sur {{max}} autorisés · la marge de {{allowance}} % est épuisée · {{instance}}',
+            action: "Ouvrir l'instance",
+          },
+          limitsReached: {
+            title_one: '{{count}} compteur à sa limite',
+            title_other: '{{count}} compteurs à leur limite',
+            detail: '{{meters}}',
+            action: 'Instances',
+          },
+          nearThreshold: {
+            title: '{{customer}} approche de sa limite {{entitlement}}',
+            detail:
+              '{{used}} sur {{max}} autorisés · {{percent}} % · {{license}} · {{instance}}',
+            action: 'Revoir la dotation',
+          },
+          nearThresholds: {
+            title_one: "{{count}} compteur au-dessus de son seuil d'alerte",
+            title_other: "{{count}} compteurs au-dessus de leur seuil d'alerte",
+            detail: '{{meters}}',
+            action: 'Instances',
+          },
+          rejectedReports: {
+            title_one:
+              "{{count}} report d'usage refusé ces 24 dernières heures",
+            title_other:
+              "{{count}} reports d'usage refusés ces 24 dernières heures",
+            detail: '{{instances}}',
+            action: "Piste d'audit",
+          },
+          silent: {
+            title: "{{customer}} n'a pas utilisé {{instance}} sur la période",
+            detail:
+              "Aucun report d'usage ni lecture de droit en {{days}} jours",
+            action: "Ouvrir l'instance",
+          },
+          silents: {
+            title_one: '{{count}} instance silencieuse sur la période',
+            title_other: '{{count}} instances silencieuses sur la période',
+            detail: '{{instances}}',
+            action: 'Instances',
+          },
+          notHealthy: {
+            title: '{{instance}} de {{customer}} est {{status}}',
+            detail: "Statut posé sur l'instance",
+            action: "Ouvrir l'instance",
+          },
+          licenseEnding: {
+            title: 'La licence de {{customer}} se termine {{when}}',
+            detail: '{{license}} · {{instance}} · {{billing}}',
+            detailNoBilling: '{{license}} · {{instance}}',
+            action: "Ouvrir l'instance",
+          },
+          archived: {
+            title:
+              '{{customer}} tourne sur une version archivée de {{license}}',
+            detail: 'Version {{version}} · {{default}} · {{instance}}',
+            noDefault: "la famille n'a pas de version publiée par défaut",
+            defaultIs: '{{name}} est la version par défaut',
+            action: 'Changer de licence',
+          },
+          tokenExpiring: {
+            title: 'Le token {{name}} expire {{when}}',
+            detail: '{{account}} · token de compte de service',
+            action: 'Comptes de service',
+          },
+          zoneBehind: {
+            title_one: '{{zone}} a {{count}} release de retard',
+            title_other: '{{zone}} a {{count}} releases de retard',
+            detail: 'Exécute {{release}} · {{instances}} instances',
+            action: 'Releases',
+          },
+          billing: {
+            pastDue_one: '{{count}} abonnement est en impayé',
+            pastDue_other: '{{count}} abonnements sont en impayé',
+            overdue_one: '{{count}} facture est en retard',
+            overdue_other: '{{count}} factures sont en retard',
+            held_one: '{{count}} facture est retenue',
+            held_other: '{{count}} factures sont retenues',
+            pushFailures_one:
+              '{{count}} facture que le prestataire de paiement refuse encore',
+            pushFailures_other:
+              '{{count}} factures que le prestataire de paiement refuse encore',
+            detail: 'Depuis la santé de la facturation',
+            action: 'Factures',
+          },
         },
       },
-      chartLabels: {
+      figures: {
+        customers: 'Clients',
+        newInPeriod_one: '{{count}} nouveau sur la période',
+        newInPeriod_other: '{{count}} nouveaux sur la période',
         instances: 'Instances',
-        created: 'Creees',
-        started: 'Demarrees',
-        ending: 'En fin de licence',
-        enabled: 'Activees',
-        disabled: 'Desactivees',
-        flags: 'Flags',
-        releases: 'Releases',
-        zones: 'Zones',
-        healthy: 'Sains',
-        expiringSoon: 'Expiration proche',
-        expired: 'Expires',
-        revoked: 'Revoques',
-        noExpiry: 'Sans expiration',
-        tokens: 'Tokens',
+        active_one: '{{count}} active',
+        active_other: '{{count}} actives',
+        silent_one: '{{count}} silencieuse',
+        silent_other: '{{count}} silencieuses',
+        activeDefinition:
+          "Active : a reporté de l'usage ou lu un droit sur la période",
+        atLimit: 'À leur limite',
+        atLimitHelper_one: '{{count}} compteur à une limite',
+        atLimitHelper_other: '{{count}} compteurs à une limite',
+        nearLimitHelper_one: "{{count}} proche d'une limite",
+        nearLimitHelper_other: "{{count}} proches d'une limite",
+        licensesEnding: 'Licences qui se terminent',
+        licensesEndingHelper_one: '{{count}} sous 30 jours',
+        licensesEndingHelper_other: '{{count}} sous 30 jours',
+        licensesEndingHorizon: 'sous 180 jours',
+        invoiced: 'Facturé ce mois-ci',
+        invoices_one: '{{count}} facture',
+        invoices_other: '{{count}} factures',
+        paid_one: '{{count}} payée',
+        paid_other: '{{count}} payées',
+        overdue_one: '{{count}} en retard',
+        overdue_other: '{{count}} en retard',
+        subscriptions:
+          '{{active}} actifs · {{trial}} en essai · {{pastDue}} en impayé',
+        usageReports: "Reports d'usage",
+        refused_one: '{{count}} refusé',
+        refused_other: '{{count}} refusés',
+        flagEvaluations: 'Évaluations de flags',
+        atLeast: 'au moins : le publieur en perd sous charge',
+        flagsEnabled: '{{enabled}} flags activés sur {{total}}',
+        notEvaluated_one: '{{count}} jamais évalué',
+        notEvaluated_other: '{{count}} jamais évalués',
+        credentials: 'Identifiants',
+        tokens_one: '{{count}} token',
+        tokens_other: '{{count}} tokens',
+        keys_one: '{{count}} clé publiable',
+        keys_other: '{{count}} clés publiables',
+        tokensExpiring_one: '{{count}} expire sous 30 jours',
+        tokensExpiring_other: '{{count}} expirent sous 30 jours',
+        noExpiry_one: '{{count}} sans expiration',
+        noExpiry_other: '{{count}} sans expiration',
       },
-      charts: {
-        emptyState: 'Aucune donnee disponible pour ce graphique.',
-        licenseExpirationForecast: {
-          title: 'Projection des expirations de licence',
-          description:
-            'Fenetre d expiration projetee pour les instances actives',
-          buckets: {
-            zeroToSevenDays: '0-7 j',
-            eightToThirtyDays: '8-30 j',
-            thirtyOneToSixtyDays: '31-60 j',
-            sixtyOneToNinetyDays: '61-90 j',
-            overNinetyDays: '90+ j',
-          },
+      standing: {
+        atLimit: 'À la limite',
+        watch: 'À surveiller',
+        healthy: 'Saine',
+        silent: 'Silencieuse',
+      },
+      fleet: {
+        title: 'Vos clients',
+        description:
+          'Chaque instance, et où elle en est. Triées par ce qui vous demande en premier.',
+        customer: 'Client',
+        license: 'Licence',
+        standing: 'Situation',
+        usage: "L'usage qui compte",
+        lastActivity: 'Dernière activité',
+        noUsage: "Pas d'usage sur la période",
+        noMeter: 'Aucun droit mesuré reporté',
+        never: 'Jamais sur la période',
+        of: '{{used}} sur {{max}}',
+        unlimited: '{{used}} · illimité',
+        viewAll: 'Toutes les instances',
+        more_one: '{{count}} instance de plus',
+        more_other: '{{count}} instances de plus',
+        empty:
+          "Pas encore d'instance. Créez un client, puis une instance sous une licence, et ce tableau se remplit de ce que Kaiten enregistre.",
+      },
+      signals: {
+        growthTitle: 'Signaux de croissance',
+        growthDescription: "Les clients qui ont dépassé ce qu'ils ont acheté.",
+        riskTitle: 'Signaux de risque',
+        riskDescription:
+          'Les clients qui pourraient ne pas rester le trimestre prochain.',
+        empty: 'Rien à signaler sur la période.',
+        upgrade: '{{customer}} · {{entitlement}} sur {{license}}',
+        upgradeDetail: '{{used}} sur {{max}} · {{instance}}',
+        archived: '{{customer}} · {{license}} est archivée',
+        archivedDetail: 'Version {{version}} · {{default}} · {{instance}}',
+        silent: '{{customer}} · {{instance}} est silencieuse',
+        silentDetail: "Aucun report d'usage ni lecture de droit sur la période",
+        ending: '{{customer}} · la licence se termine {{when}}',
+        endingDetail: "{{license}} · {{instance}} · pas d'abonnement",
+        rules: {
+          atLimit: 'Règle : à une limite ferme',
+          nearLimit: "Règle : au-dessus du seuil d'alerte",
+          archived: 'Règle : sur une version archivée',
+          silent: 'Règle : aucune activité sur la période',
+          ending: 'Règle : licence qui se termine sans abonnement',
         },
-        topCustomersByInstances: {
-          title: 'Clients avec le plus d instances actives',
-          description: 'Empreintes client les plus importantes',
-        },
-        tokenSecurityPosture: {
-          title: 'Posture de securite des tokens',
-          description:
-            'Repartition actuelle des etats du cycle de vie des tokens',
-          emptyState: 'Aucun token de compte de service disponible',
-          singleState_one: 'Le seul token est {{state}}',
-          singleState_other: 'Les {{count}} tokens sont tous {{state}}',
-        },
-        instanceLifecycleTimeline: {
-          title: 'Chronologie du cycle de vie des instances',
-          description:
-            'Evenements mensuels de creation, demarrage et fin de licence',
-        },
-        releaseCadence: {
-          title: 'Cadence des releases',
-          description: 'Releases creees par mois',
-          emptyState: 'Aucune release disponible',
-        },
-        releaseCoverageByZone: {
-          title: 'Couverture des releases par zone',
-          description:
-            'Zones de deploiement rattachees aux versions de release',
-          emptyState: 'Aucune zone de deploiement disponible',
-          unassigned: 'Non assignee',
-          allUnassigned_one: "La seule zone n'a pas encore de release",
-          allUnassigned_other:
-            'Aucune des {{count}} zones ne fait encore tourner de release',
-        },
-        flagTargetingComplexity: {
-          title: 'Complexite du ciblage des flags',
-          description: 'Nombre de regles configurees par flag',
-        },
-        featureFlagsGovernance: {
-          title: 'Gouvernance des feature flags',
-          description: 'Repartition activation et distribution par type',
-          emptyState: 'Aucune feature flag disponible',
-          allEnabled_one: 'La seule feature flag est activee',
-          allEnabled_other: 'Les {{count}} feature flags sont toutes activees',
-          allDisabled_one: 'La seule feature flag est desactivee',
-          allDisabled_other:
-            'Les {{count}} feature flags sont toutes desactivees',
-        },
-        entitlementSaturationHeatmap: {
-          title: 'Heatmap de saturation des droits',
-          description:
-            "Charge d'usage par type de licence et bande de seuil, séparée par portée du compteur",
-          emptyState: 'Aucune donnee d usage de droit disponible',
-          licenseTypeAndScope: 'Type de licence et portée',
-          scopes: {
-            LIFETIME: 'Total à vie',
-            PERIODIC: 'Fenêtre en cours',
-          },
-          bands: {
-            under50: '<50%',
-            between50And80: '50-80%',
-            between80And100: '80-100%',
-            over100: '>100%',
-            unbounded: 'Sans limite',
-          },
-        },
+        open: 'Ouvrir',
+      },
+      licenseMix: {
+        title: 'Qui tourne sur quoi',
+        description:
+          'Instances par famille de licences et par version. Une famille sert sa version par défaut.',
+        default: 'par défaut',
+        archived: 'archivée',
+        draft: 'brouillon',
+        instances_one: '{{count}} instance',
+        instances_other: '{{count}} instances',
+        viewAll: 'Licences',
+        empty: 'Pas encore de licence.',
+      },
+      comingUp: {
+        title: 'À venir',
+        description:
+          'Les licences qui se terminent dans les 180 prochains jours.',
+        ends: 'se termine {{when}}',
+        noSubscription: "Pas d'abonnement",
+        renews: 'Se renouvelle',
+        trial: 'Essai',
+        pastDue: 'Impayé',
+        canceled: 'Résilié',
+        incomplete: 'Incomplet',
+        endsAtPeriodEnd: 'Se termine',
+        other: '{{status}}',
+        more_one: '{{count}} de plus sous 180 jours',
+        more_other: '{{count}} de plus sous 180 jours',
+        empty: 'Aucune licence ne se termine sous 180 jours.',
+      },
+      billing: {
+        title: 'Facturation',
+        description:
+          'Ce que Kaiten a composé depuis le début du mois, et les abonnements derrière.',
+        invoiced: '{{amount}} facturés',
+        invoices:
+          '{{count}} factures · {{paid}} payées · {{overdue}} en retard',
+        nothingInvoiced: 'Rien de facturé ce mois-ci.',
+        subscriptions: 'Abonnements',
+        viewAll: 'Factures',
+      },
+      usage: {
+        title: "Reports d'usage par jour",
+        description:
+          "Acceptés et refusés sur la période. Un report refusé dépasse la dotation : rien n'est écrit.",
+        accepted: 'Acceptés',
+        refused: 'Refusés',
+        byInstance: 'Par instance',
+        lastReport: 'Dernier report',
+        never: 'jamais',
+        silent: 'silencieuse',
+        more_one: '{{count}} instance de plus',
+        more_other: '{{count}} instances de plus',
+        empty:
+          "Aucun report d'usage sur la période. Envoyez-en un avec un SDK ou le quickstart, et le graphique le dessine.",
+      },
+      flags: {
+        title: 'Flags évalués',
+        description:
+          "Évaluations par flag sur la période, au moins : le publieur en perd sous charge. Un flag que personne n'évalue est un flag à retirer.",
+        never: 'jamais',
+        retire: 'À retirer ?',
+        disabled: 'désactivé',
+        viewAll: 'Feature flags',
+        empty: 'Pas encore de feature flag.',
+      },
+      zones: {
+        title: 'Ce qui tourne où',
+        description:
+          'Le dernier déploiement de chaque zone, depuis le journal des déploiements.',
+        zone: 'Zone',
+        release: 'Release',
+        deployed: 'Déployée',
+        instances: 'Instances',
+        latest: 'dernière',
+        behind_one: '{{count}} release de retard',
+        behind_other: '{{count}} releases de retard',
+        nothingDeployed: 'Rien de déployé',
+        by: 'par {{who}}',
+        viewAll: 'Releases',
+        empty: 'Pas encore de zone de déploiement.',
+      },
+      integrations: {
+        title: 'Intégrations',
+        description: 'Qui parle à Kaiten, et si cela fonctionne toujours.',
+        serviceAccounts: 'Comptes de service',
+        serviceAccountsDetail:
+          '{{accounts}} comptes · {{tokens}} tokens actifs · {{noExpiry}} sans expiration',
+        publishableKeys: 'Clés publiables',
+        lastUsed: 'utilisée {{when}}',
+        neverUsed: 'jamais utilisée',
+        connectors: 'Connecteurs',
+        activated: 'Activé',
+        off: 'Inactif',
+        expiring_one: '{{count}} token expire sous 30 jours',
+        expiring_other: '{{count}} tokens expirent sous 30 jours',
+        healthy: 'Sain',
+        viewAll: 'Intégrations',
+      },
+      changes: {
+        title: 'Changements récents',
+        customersDescription:
+          'Licences, exceptions, bons et abonnements. La piste technique est sous Intégration.',
+        integrationDescription:
+          'Instances, releases, flags et tokens. La piste commerciale est sous Clients.',
+        empty: 'Aucun changement enregistré pour le moment.',
+        unavailable: "La piste d'audit n'a pas pu être lue.",
+        system: 'Kaiten',
+        viewAll: "Piste d'audit",
+      },
+      empty: {
+        title: 'Rien ici pour le moment',
+        description:
+          "Créez un client et une instance, ou envoyez un premier report d'usage : le tableau de bord se remplit de ce que Kaiten enregistre.",
       },
     },
     Customers: {
@@ -1159,6 +1365,13 @@ export default {
                   'Facultatif. Elles sont attachées au démarrage de l’abonnement et facturées dès sa première facture. Si l’une ne peut pas l’être, l’abonnement ne démarre pas.',
                 maxQuantity_one: 'Jusqu’à {{count}} unité',
                 maxQuantity_other: 'Jusqu’à {{count}} unités',
+              },
+              UnavailableSelections: {
+                description:
+                  'Certains choix sont actuellement indisponibles. Ils n’ont pas été supprimés. Retirez-les pour vous abonner sans eux.',
+                clear: 'Retirer les choix indisponibles',
+                addon_one: '{{slug}} — {{count}} unité',
+                addon_other: '{{slug}} — {{count}} unités',
               },
               BillingEmail: {
                 title: '{{customer}} n’a pas d’e-mail de facturation',
@@ -5711,6 +5924,14 @@ export default {
           confirm: 'Archiver',
           success: 'Code promo archivé',
         },
+        delete: {
+          label: 'Supprimer',
+          title: 'Supprimer {{name}} ?',
+          description:
+            'Aucune instance n’a utilisé ce code promo. Il est supprimé avec son offre, et son code peut être donné à un autre code promo. Un code promo utilisé au moins une fois fait partie de l’historique et ne peut pas être supprimé : archivez-le plutôt.',
+          confirm: 'Supprimer',
+          success: 'Code promo supprimé',
+        },
       },
       Code: {
         label: 'Code promo',
@@ -6359,7 +6580,10 @@ export default {
         slug: 'Utilisez des lettres minuscules, des chiffres et des tirets.',
       },
       resources: {
+        addons: 'Add-ons',
+        billing: 'Facturation',
         components: 'Composants',
+        customer_sessions: 'Sessions client',
         customers: 'Clients',
         deployment_zones: 'Zones de déploiement',
         entitlements: 'Droits',
@@ -6367,12 +6591,16 @@ export default {
         instances: 'Instances',
         licenses: 'Licences',
         metadata_fields: 'Champs de métadonnées',
+        models: 'Modèles',
         notifications: 'Notifications',
         organizations: 'Organisations',
         profile: 'Profil',
+        publishable_keys: 'Clés publiables',
         releases: 'Versions',
         tokens: 'Jetons',
         users: 'Utilisateurs',
+        voucher_redemptions: 'Utilisations de codes promo',
+        vouchers: 'Codes promo',
         webhooks: 'Webhooks',
       },
       local: {
@@ -6390,6 +6618,44 @@ export default {
       groups: {
         organization: 'Organisation',
         browser: 'Ce navigateur',
+      },
+      Plan: {
+        title: 'Offre et consommation',
+        subtitle:
+          'L’offre Kaiten Cloud de votre organisation : ce qu’elle comprend, ce que vous consommez et comment vous payez.',
+        cardDescription:
+          'Consultez votre offre Kaiten Cloud et votre consommation, changez d’offre, gérez votre moyen de paiement et vos factures.',
+        openButton: 'Ouvrir l’offre et la consommation',
+        loading: 'Chargement de votre offre',
+        retry: 'Réessayer',
+        Change: {
+          title: 'Changer d’offre',
+          description:
+            'Passez à une autre offre Kaiten Cloud. Le montant dû s’affiche avant que vous confirmiez.',
+          back: 'Choisir une autre offre',
+        },
+        Problems: {
+          notEnabled: {
+            title: 'Indisponible pour cette organisation',
+            description:
+              'L’offre et la consommation ne sont pas disponibles pour votre organisation. Contactez-nous pour changer d’offre.',
+          },
+          notProvisioned: {
+            title: 'Votre organisation est en cours de création',
+            description:
+              'Kaiten Cloud n’a pas encore d’offre pour votre organisation. Réessayez dans quelques minutes.',
+          },
+          forbidden: {
+            title: 'Réservé aux administrateurs',
+            description:
+              'Seul un administrateur de l’organisation peut consulter et changer son offre.',
+          },
+          unavailable: {
+            title: 'Impossible de charger votre offre pour le moment',
+            description:
+              'Kaiten Cloud n’a pas répondu. Rien n’a changé sur votre offre. Réessayez.',
+          },
+        },
       },
       Notifications: {
         title: 'Notifications',
@@ -6830,9 +7096,9 @@ export default {
             'La facturation ne peut pas être ouverte avec les accès de cette session.',
         },
         FEATURE_UNAVAILABLE: {
-          title: 'Indisponible dans cette version',
+          title: 'Fonction de facturation indisponible',
           description:
-            'Cette partie de la facturation n’est pas fournie par la version de Kaiten que vous utilisez.',
+            'Cette fonctionnalité de facturation n’est pas disponible pour cette organisation sur le déploiement actuel.',
         },
         UNREACHABLE: {
           title: 'La facturation est injoignable',
@@ -7407,6 +7673,7 @@ export default {
         SYSTEM_ORGANIZATION_TOKEN_ISSUED: "Token d'organisation émis",
         VOUCHER_ARCHIVED: 'Code promo archivé',
         VOUCHER_CREATED: 'Code promo créé',
+        VOUCHER_DELETED: 'Code promo supprimé',
         VOUCHER_EXHAUSTED: 'Code promo épuisé',
         VOUCHER_EXPIRED: 'Code promo expiré',
         VOUCHER_PUBLISHED: 'Code promo publié',

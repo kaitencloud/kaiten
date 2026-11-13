@@ -3,6 +3,7 @@ export {
   useActionAccess,
   useCanPerform,
 } from './use-can-perform';
+export { useBillingFeatureAccess } from './use-billing-feature-access';
 export { useAlertFocus } from './use-alert-focus';
 export { useBillingActionForm } from './use-billing-action-form';
 export {

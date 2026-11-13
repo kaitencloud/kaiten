@@ -21,6 +21,10 @@ func (f fakeReader) ConfigValue(context.Context, uuid.UUID, string) (json.RawMes
 	return f.value, f.err
 }
 
+func (f fakeReader) LiveConfigValue(context.Context, uuid.UUID, string) (json.RawMessage, error) {
+	return f.value, f.err
+}
+
 func TestWindowMonths(t *testing.T) {
 	settings := Settings{RetentionMonths: 18}
 	cases := []struct {
@@ -42,7 +46,7 @@ func TestWindowMonths(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			months, source := windowMonths(t.Context(), tc.reader, settings, uuid.New())
+			months, source := windowMonths(t.Context(), tc.reader.LiveConfigValue, settings, uuid.New())
 			if months != tc.wantMonths || source != tc.wantSource {
 				t.Errorf("windowMonths() = %d, %s; want %d, %s", months, source, tc.wantMonths, tc.wantSource)
 			}

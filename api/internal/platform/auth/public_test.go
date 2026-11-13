@@ -10,9 +10,11 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"github.com/valyala/fasthttp"
 
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ratelimit"
 	"github.com/kaitencloud/kaiten/api/pkg/fiberapi"
 )
 
@@ -133,6 +135,73 @@ func fixtures() (*fakeKeys, *fakeSessions) {
 		organizationID: org, actor: uuid.New(), known: "kst_good",
 	}
 	return keys, sessions
+}
+
+func TestClientAddressNormalization(t *testing.T) {
+	for _, tt := range []struct {
+		name, header, want string
+	}{
+		{name: "missing"},
+		{name: "whitespace only", header: " \t "},
+		{name: "IPv4", header: "198.51.100.10", want: "198.51.100.10"},
+		{name: "padded IPv4", header: " \t198.51.100.10\t ", want: "198.51.100.10"},
+		{name: "padded IPv6", header: " \t2001:db8::10\t ", want: "2001:db8::10"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			app := fiber.New()
+			request := &fasthttp.RequestCtx{}
+			if tt.header != "" {
+				request.Request.Header.Set(ClientAddressHeader, tt.header)
+			}
+			ctx := app.AcquireCtx(request)
+			defer app.ReleaseCtx(ctx)
+
+			require.Equal(t, tt.want, clientAddress(ctx))
+		})
+	}
+}
+
+func TestClientAddressRetainsRateLimitIdentity(t *testing.T) {
+	const original, next = "198.51.100.10", "198.51.100.11"
+	for _, tt := range []struct {
+		name, padding string
+	}{
+		{name: "untrimmed"},
+		{name: "trimmed", padding: " \t"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			app := fiber.New()
+			request := &fasthttp.RequestCtx{}
+			request.Request.Header.Set(ClientAddressHeader, tt.padding+original+tt.padding)
+			ctx := app.AcquireCtx(request)
+			defer app.ReleaseCtx(ctx)
+			address := clientAddress(ctx)
+			require.Equal(t, original, address)
+
+			now := time.Date(2026, 11, 1, 12, 0, 0, 0, time.UTC)
+			limits := ratelimit.New[string](ratelimit.Every(1, time.Minute), 1)
+			_, ok := limits.Allow(address, now)
+			require.True(t, ok)
+
+			// Overwrite the same backing bytes to deterministically model request-buffer reuse.
+			header := request.Request.Header.Peek(ClientAddressHeader)
+			reused := tt.padding + next + tt.padding
+			require.Len(t, header, len(reused))
+			copy(header, reused)
+			require.Equal(t, next, clientAddress(ctx), "the request now carries the next address")
+
+			t.Run("retained address", func(t *testing.T) {
+				require.Equal(t, original, address, "the captured identity must own its bytes")
+			})
+			t.Run("retained rate-limit key", func(t *testing.T) {
+				wait, ok := limits.Allow(original, now)
+				require.False(t, ok, "the original address must keep its exhausted bucket")
+				require.Equal(t, time.Minute, wait)
+				_, ok = limits.Allow(clientAddress(ctx), now)
+				require.True(t, ok, "the next address must have its own bucket")
+			})
+		})
+	}
 }
 
 func TestPublicMiddlewarePublishableKey(t *testing.T) {

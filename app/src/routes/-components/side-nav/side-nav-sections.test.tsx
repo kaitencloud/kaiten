@@ -218,8 +218,8 @@ describe('useResolvedBillingRoutes', () => {
 describe('useResolvedCatalogItems', () => {
   const core = ['/catalog/licenses', '/catalog/entitlements'];
 
-  it('lists the licenses and the entitlements where the release ships none of the billing parts', () => {
-    expect(catalogPathsWith(billingCapabilitiesProfiles.stack())).toEqual(core);
+  it('keeps catalogue reads listed when independent feature grants are lost', () => {
+    expect(catalogPathsWith(billingCapabilitiesProfiles.stack())).toEqual([...core, '/catalog/addons', '/catalog/vouchers']);
   });
 
   it('lists the add-ons and the vouchers after them where the release ships them', () => {
@@ -276,7 +276,7 @@ describe('useResolvedCatalogItems', () => {
     });
   });
 
-  it('lists an entry per part of the release, not a whole section at once', () => {
+  it('keeps both catalogues listed even when only one feature grant is on', () => {
     const stack = billingCapabilitiesProfiles.stack();
 
     expect(
@@ -284,7 +284,7 @@ describe('useResolvedCatalogItems', () => {
         ...stack,
         features: { ...stack.features, vouchers: true },
       }),
-    ).toEqual([...core, '/catalog/vouchers']);
+    ).toEqual([...core, '/catalog/addons', '/catalog/vouchers']);
   });
 
   it.each(['DEPLOYMENT_DISABLED', 'NOT_ENTITLED'] as const)(

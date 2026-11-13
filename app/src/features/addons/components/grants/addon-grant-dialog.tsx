@@ -2,7 +2,11 @@ import { useId } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AddonEntitlement, Entitlement } from '@/api-client';
 import { Button } from '@/components/ui/button';
-import { ProblemAlert } from '@/domains/billing';
+import {
+  ProblemAlert,
+  useBillingFeatureAccess,
+  useLeaveRestrictedDialog,
+} from '@/domains/billing';
 import {
   StackedFormDialog,
   StackedFormDialogFooter,
@@ -85,6 +89,14 @@ export function AddonGrantDialog({
   ...props
 }: AddonGrantDialogProps) {
   const { t } = useTranslation();
+  const access = useBillingFeatureAccess(
+    grant ? 'addonGrants.update' : 'addonGrants.assign',
+    'addons',
+  );
+  useLeaveRestrictedDialog(access, props.onClose);
+  if (!access.allowed) {
+    return null;
+  }
 
   return (
     <StackedFormDialog

@@ -67,7 +67,7 @@ export const Unavailable: Story = {
     await expect(canvas.getByText(/KAITEN_BILLING_ENABLED/)).toBeVisible();
     await expect(canvas.getByText('Billing is not part of your plan')).toBeVisible();
     await expect(canvas.getByText('You do not have access to billing')).toBeVisible();
-    await expect(canvas.getByText('Not available in this version')).toBeVisible();
+    await expect(canvas.getByText('Billing feature unavailable')).toBeVisible();
     await expect(canvas.getByText('Billing could not be reached')).toBeVisible();
     // Asking again is offered only where it may help.
     await expect(canvas.getAllByRole('button', { name: 'Retry' })).toHaveLength(1);

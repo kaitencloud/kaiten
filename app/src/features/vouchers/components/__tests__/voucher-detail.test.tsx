@@ -4,9 +4,12 @@ import { HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Redemption, Voucher, VoucherDraft } from '@/api-client';
+import { getVoucherQueryKey } from '@/api-client/@tanstack/react-query.gen';
 import {
   handleArchiveVoucher,
+  handleDeleteVoucher,
   handleGetVoucher,
+  handleGetBillingCapabilities,
   handleListVoucherRedemptions,
   handlePublishVoucher,
   handleRevokeInstanceVoucher,
@@ -17,6 +20,7 @@ import {
   buildRedemption,
   buildVoucher,
 } from '../../../../../e2e/app/_support/fixtures';
+import { billingCapabilitiesProfiles } from '../../../../../e2e/app/_support/model/billing-capabilities';
 import { VoucherDetailPage, VoucherEditDialog } from '../index';
 import { renderScreen, serveReferences, sessionWith } from './voucher-test-support';
 
@@ -87,6 +91,25 @@ const renderPage = (id = 'voucher-welcome') =>
 const title = () => screen.findByRole('heading', { level: 1 });
 
 describe('the page of a voucher', () => {
+  it('keeps reads and archive after grant loss, without edit, boost creation or publication', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stackWithAddons() }));
+    const archive = vi.fn();
+    server.use(handleArchiveVoucher(() => {
+      archive();
+      return HttpResponse.json({ ...WELCOME, status: 'ARCHIVED' });
+    }));
+    renderPage();
+
+    expect(await title()).toHaveTextContent('Welcome spring');
+    expect(screen.getByTestId('voucher-code')).toHaveTextContent('WELCOME-SPRING-2027');
+    expect(screen.queryByRole('link', { name: 'Edit' })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Add a boost' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Publish' })).toBeNull();
+    await userEvent.click(await screen.findByRole('button', { name: 'Archive' }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Archive' }));
+    await waitFor(() => expect(archive).toHaveBeenCalledOnce());
+  });
+
   it('gives its code in the header, under the name, with a copy button', async () => {
     renderPage();
 
@@ -330,6 +353,85 @@ describe('publishing and archiving', () => {
 
     await waitFor(() => expect(calls).toBe(1));
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('the voucher is already archived'));
+  });
+});
+
+describe('deleting a voucher no instance redeemed', () => {
+  const FRESH: Voucher = { ...WELCOME, redemptionsCount: 0 };
+  const deleteButton = () => screen.queryByRole('button', { name: 'Delete' });
+  const confirmDelete = async () => {
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
+    expect(await screen.findByText('Delete Welcome spring?')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Delete', hidden: false }));
+  };
+
+  beforeEach(() => serveVoucher(FRESH, { redemptions: [] }));
+
+  it.each(['DRAFT', 'ACTIVE', 'EXPIRED', 'ARCHIVED'] as const)(
+    'offers it for a voucher %s that no instance redeemed',
+    async (status) => {
+      serveVoucher({ ...FRESH, status }, { redemptions: [] });
+      renderPage();
+
+      expect(await screen.findByRole('button', { name: 'Delete' })).toBeInTheDocument();
+    },
+  );
+
+  it('offers nothing for a voucher redeemed at least once', async () => {
+    serveVoucher(WELCOME);
+    renderPage();
+
+    // Archiving is offered: the scopes of the session are read.
+    expect(await screen.findByRole('button', { name: 'Archive' })).toBeInTheDocument();
+    expect(deleteButton()).not.toBeInTheDocument();
+  });
+
+  it('offers nothing to a session that may only read vouchers', async () => {
+    getAuthToken.mockResolvedValue(sessionWith(['read:vouchers', 'read:customers']));
+    renderPage();
+
+    await screen.findByTestId('voucher-redemptions-empty');
+    expect(deleteButton()).not.toBeInTheDocument();
+  });
+
+  it('asks first, deletes it, says so, goes back to the list and forgets it', async () => {
+    const deleted: string[] = [];
+    server.use(
+      handleDeleteVoucher(({ params }) => {
+        deleted.push(String(params.voucherId));
+
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const { client, unmount } = renderPage();
+    // Leaving the page unmounts it, as the router does.
+    navigate.mockImplementation(() => unmount());
+
+    await confirmDelete();
+
+    await waitFor(() => expect(deleted).toEqual(['voucher-welcome']));
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Voucher deleted'));
+    expect(navigate).toHaveBeenCalledWith({ to: '/catalog/vouchers' });
+    // Back would otherwise draw the deleted voucher from the cache.
+    await waitFor(() =>
+      expect(
+        client.getQueryCache().find({ queryKey: getVoucherQueryKey({ path: { voucherId: 'voucher-welcome' } }) }),
+      ).toBeUndefined(),
+    );
+  });
+
+  it('says what the API answers when it refuses, and stays on the page', async () => {
+    const detail = 'a checkout waiting for its payment already discounted this voucher';
+    server.use(
+      handleDeleteVoucher(() => refusal(409, { code: 'DeleteVoucher.Redeemed', detail })),
+    );
+    renderPage();
+
+    await confirmDelete();
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(detail));
+    expect(toast.success).not.toHaveBeenCalled();
+    expect(navigate).not.toHaveBeenCalled();
   });
 });
 

@@ -31,6 +31,18 @@ export type SerializedAuditTrailAppModel = {
   entries: AuditTrailSeedEntry[];
 };
 
+// What `changesOnly` leaves out, as ListOrganizationChanges does in the API.
+const SDK_BULK_EVENTS = new Set<string>([
+  'ENTITLEMENT_VALUE_GET',
+  'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
+  'ENTITLEMENT_USAGE_REPORT_REJECTED',
+  'FEATURE_FLAG_EVALUATED',
+  'INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER',
+  'INSTANCE_ENTITLEMENT_USAGE_WARNING_THRESHOLD_REACHED',
+  'INSTANCE_ENTITLEMENT_USAGE_REACHED',
+  'INSTANCE_ENTITLEMENT_CAP_EXCEEDED',
+]);
+
 // The limit the API applies when the query names none.
 const DEFAULT_LIMIT = 500;
 
@@ -74,10 +86,16 @@ export class AuditTrailAppModel {
   ): GetGlobalAuditTrailQuery {
     const limit =
       typeof variables?.limit === 'number' ? variables.limit : DEFAULT_LIMIT;
+    const changesOnly = variables?.changesOnly === true;
 
     return {
       organizationAuditTrails: {
-        items: this.newestFirst().slice(0, limit).map(toRow),
+        items: this.newestFirst()
+          .filter(
+            (entry) => !changesOnly || !SDK_BULK_EVENTS.has(entry.eventName),
+          )
+          .slice(0, limit)
+          .map(toRow),
       },
     };
   }

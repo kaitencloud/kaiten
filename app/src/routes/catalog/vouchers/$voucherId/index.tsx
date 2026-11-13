@@ -1,6 +1,7 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { z } from 'zod';
+import { BillingNotFound, requireBillingCapability } from '@/domains/billing';
 import {
   VoucherDetailPage,
   VoucherEditDialog,
@@ -15,7 +16,13 @@ const voucherDetailSearchSchema = z
 
 export const Route = createFileRoute('/catalog/vouchers/$voucherId/')({
   component: VoucherDetailRoute,
+  notFoundComponent: BillingNotFound,
   validateSearch: (search) => voucherDetailSearchSchema.parse(search),
+  beforeLoad: async ({ context, search }) => {
+    if (search.mode === 'configure') {
+      await requireBillingCapability(context.queryClient, 'vouchers');
+    }
+  },
 });
 
 function VoucherDetailRoute() {

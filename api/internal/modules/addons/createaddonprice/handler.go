@@ -56,7 +56,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, command NewAddo
 	if err != nil {
 		return nil, err
 	}
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}

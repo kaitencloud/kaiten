@@ -117,6 +117,11 @@ extend type Query {
   """
   organizationAuditTrails(
     eventName: String
+    """
+    Leave out the reads, evaluations and reports that make up the bulk of a busy
+    trail, for a page that wants the changes behind them. False when absent.
+    """
+    changesOnly: Boolean
     after: Time
     before: Time
     """Maximum number of entries to return (default 200, max 1000)"""

@@ -103,6 +103,19 @@ describe('resolveBillingAvailability', () => {
 });
 
 describe('hasBillingFeature and toBillingGate', () => {
+  it.each(['addons', 'vouchers'] as const)('leaves baseline reads open but makes an unknown %s check retryable', (feature) => {
+    const availability = resolveBillingAvailability({
+      ...enabled(),
+      featureCheckUnavailable: [feature],
+    }, null);
+
+    expect(hasBillingFeature(availability)).toBe(true);
+    expect(hasBillingFeature(availability, feature)).toBe(false);
+    expect(toBillingGate(availability)).toEqual({ available: true });
+    expect(toBillingGate(availability, feature)).toEqual({ available: false, reason: 'UNREACHABLE' });
+    expect(toBillingGate(availability, feature === 'addons' ? 'vouchers' : 'addons')).toEqual({ available: false, reason: 'FEATURE_UNAVAILABLE' });
+  });
+
   it('needs billing on, and the part shipped when one is asked for', () => {
     const shipped = resolveBillingAvailability(enabled({ addons: true }), null);
     const unshipped = resolveBillingAvailability(enabled(), null);

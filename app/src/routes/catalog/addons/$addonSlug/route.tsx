@@ -2,7 +2,11 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 import { createFileRoute, Outlet, useNavigate } from '@tanstack/react-router';
 import { Suspense } from 'react';
 import { z } from 'zod';
-import { getAddonTitle } from '@/domains/billing';
+import {
+  BillingNotFound,
+  getAddonTitle,
+  requireBillingCapability,
+} from '@/domains/billing';
 import {
   AddonDetailPage,
   AddonFormDialog,
@@ -18,8 +22,12 @@ const addonDetailSearchSchema = z
 
 export const Route = createFileRoute('/catalog/addons/$addonSlug')({
   component: AddonDetailRouteLayout,
+  notFoundComponent: BillingNotFound,
   validateSearch: (search) => addonDetailSearchSchema.parse(search),
-  beforeLoad: async ({ context, params: { addonSlug } }) => {
+  beforeLoad: async ({ context, params: { addonSlug }, search }) => {
+    if (search.mode === 'configure') {
+      await requireBillingCapability(context.queryClient, 'addons');
+    }
     const addon = await context.queryClient.ensureQueryData(
       addonQueryOptions(addonSlug),
     );

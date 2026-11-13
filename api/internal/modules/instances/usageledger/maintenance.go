@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.opentelemetry.io/otel"
@@ -249,7 +250,7 @@ func (m *Maintenance) dropExpired(ctx context.Context, conn *pgxpool.Conn, now t
 			continue
 		}
 		if err := dropPartition(ctx, conn, month, ddlLockID); err != nil {
-			if isLockTimeout(err) {
+			if sweep.IsLockTimeout(err) {
 				slog.WarnContext(ctx, "usage_ledger: partition drop timed out on its lock, retrying next pass", "partition", partitionName(month))
 				continue
 			}
@@ -281,7 +282,9 @@ func (m *Maintenance) purgeOrganizations(ctx context.Context, conn *pgxpool.Conn
 		}
 
 		readCtx, cancel := context.WithTimeout(ctx, retentionReadTimeout)
-		months, source := windowMonths(readCtx, m.reader, m.cfg.Settings, organizationID)
+		// Live, never remembered: a purge cannot be undone, so it must not act on
+		// the window of a licence that has since changed.
+		months, source := windowMonths(readCtx, m.reader.LiveConfigValue, m.cfg.Settings, organizationID)
 		cancel()
 		switch {
 		case source == sourceUnknown:
@@ -308,92 +311,40 @@ func (m *Maintenance) purgeOrganizations(ctx context.Context, conn *pgxpool.Conn
 	return errors.Join(errs...)
 }
 
-// purgeOrganization deletes the organization's rows older than cutoff in
-// short batches, each its own transaction, stopping at the first short batch
-// or after maxPurgeBatches.
+// purgeOrganization deletes the organization's rows older than cutoff.
 func (m *Maintenance) purgeOrganization(ctx context.Context, conn *pgxpool.Conn, organizationID uuid.UUID, cutoff time.Time) (int64, error) {
-	var total int64
-	for range maxPurgeBatches {
-		if ctx.Err() != nil {
-			return total, nil
-		}
-		deleted, err := purgeBatch(ctx, conn, organizationID, cutoff, m.cfg.PurgeBatchSize)
-		total += deleted
-		if err != nil {
-			if isLockTimeout(err) {
-				return total, nil // retried next pass
-			}
-			return total, err
-		}
-		if deleted < int64(m.cfg.PurgeBatchSize) {
-			break
-		}
-	}
-	return total, nil
-}
-
-func purgeBatch(ctx context.Context, conn *pgxpool.Conn, organizationID uuid.UUID, cutoff time.Time, batchSize int32) (int64, error) {
-	tx, err := conn.Begin(ctx)
-	if err != nil {
-		return 0, err
-	}
-	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-
-	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+purgeLockTimeout+`'`); err != nil {
-		return 0, err
-	}
-	deleted, err := db.New(tx).PurgeOrganizationUsageLedger(ctx, db.PurgeOrganizationUsageLedgerParams{
-		OrganizationID: organizationID,
-		Cutoff:         pgtype.Timestamp{Time: cutoff, Valid: true},
-		BatchSize:      batchSize,
+	return m.purgeBatches(ctx, conn, func(ctx context.Context, tx pgx.Tx) (int64, error) {
+		return db.New(tx).PurgeOrganizationUsageLedger(ctx, db.PurgeOrganizationUsageLedgerParams{
+			OrganizationID: organizationID,
+			Cutoff:         pgtype.Timestamp{Time: cutoff, Valid: true},
+			BatchSize:      m.cfg.PurgeBatchSize,
+		})
 	})
-	if err != nil {
-		return 0, err
-	}
-	return deleted, tx.Commit(ctx)
 }
 
 // purgeBlocked deletes the unprotected rows of a partition kept past the
-// ceiling, in the short batches of purgeOrganization: each its own
-// transaction under purgeLockTimeout, stopping at a short batch, a lock
-// timeout (retried next pass) or maxPurgeBatches.
+// ceiling.
 func (m *Maintenance) purgeBlocked(ctx context.Context, conn *pgxpool.Conn, month time.Time) (int64, error) {
-	var total int64
-	for range maxPurgeBatches {
-		if ctx.Err() != nil {
-			return total, nil
-		}
-		deleted, err := func() (int64, error) {
-			tx, err := conn.Begin(ctx)
-			if err != nil {
-				return 0, err
-			}
-			defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
-			if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+purgeLockTimeout+`'`); err != nil {
-				return 0, err
-			}
-			deleted, err := db.New(tx).PurgeBlockedUsageLedgerPartition(ctx, db.PurgeBlockedUsageLedgerPartitionParams{
-				RangeStart: pgtype.Timestamp{Time: month, Valid: true},
-				RangeEnd:   pgtype.Timestamp{Time: period.AddMonths(month, 1), Valid: true},
-				BatchSize:  m.cfg.PurgeBatchSize,
-			})
-			if err != nil {
-				return 0, err
-			}
-			return deleted, tx.Commit(ctx)
-		}()
-		total += deleted
-		if err != nil {
-			if isLockTimeout(err) {
-				return total, nil
-			}
-			return total, err
-		}
-		if deleted < int64(m.cfg.PurgeBatchSize) {
-			break
-		}
-	}
-	return total, nil
+	return m.purgeBatches(ctx, conn, func(ctx context.Context, tx pgx.Tx) (int64, error) {
+		return db.New(tx).PurgeBlockedUsageLedgerPartition(ctx, db.PurgeBlockedUsageLedgerPartitionParams{
+			RangeStart: pgtype.Timestamp{Time: month, Valid: true},
+			RangeEnd:   pgtype.Timestamp{Time: period.AddMonths(month, 1), Valid: true},
+			BatchSize:  m.cfg.PurgeBatchSize,
+		})
+	})
+}
+
+// purgeBatches runs one delete in short batches, each its own transaction under
+// purgeLockTimeout, stopping at a short batch, a lock timeout (retried next
+// pass) or maxPurgeBatches.
+func (m *Maintenance) purgeBatches(ctx context.Context, conn *pgxpool.Conn, del func(context.Context, pgx.Tx) (int64, error)) (int64, error) {
+	result, err := sweep.BatchedDelete{
+		BatchSize:   m.cfg.PurgeBatchSize,
+		MaxBatches:  maxPurgeBatches,
+		LockTimeout: purgeLockTimeout,
+		Delete:      del,
+	}.Run(ctx, conn)
+	return result.Deleted, err
 }
 
 // databaseNow is the usage clock, so partition months and retention cutoffs

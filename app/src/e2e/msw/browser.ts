@@ -14,6 +14,7 @@ type StartOptions = {
   warnUnhandledApiRequests?: boolean;
 };
 type MockWindow = Window & {
+  __KAITEN_MSW_UPDATE__?: (config: E2EMswConfig) => Promise<void>;
   __KAITEN_MSW_RUNNING__?: {
     resetHandlers: (...handlers: RequestHandler[]) => void;
   };
@@ -65,6 +66,13 @@ export async function startE2EMockServiceWorker(
   }
   writeStoredConfig(effectiveConfig);
   const handlers = [...mockHandlers, ...(strict ? [undeclaredApiRequest] : [])];
+  // Specs may change the mocked API while the page stays mounted (e.g. Retry).
+  // Reuse the same rebuild/reset path as an HMR restart, preserving other slots.
+  page.__KAITEN_MSW_UPDATE__ = (nextConfig) =>
+    startE2EMockServiceWorker(nextConfig, {
+      unmockedPlatform,
+      warnUnhandledApiRequests,
+    });
   if (running) {
     running.resetHandlers(...handlers);
     return;

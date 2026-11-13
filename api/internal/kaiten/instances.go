@@ -32,7 +32,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
 
-// Instances is the instances module's seventeen operations -- the largest namespace
+// Instances is the instances module's eighteen operations -- the largest namespace
 // here, because an instance is what everything else in the domain ends up attached
 // to: a customer's deployment, a license's grants, a deployment zone's release, and
 // the usage that meters all three.

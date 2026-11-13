@@ -1,6 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { z } from 'zod';
-import { ActionGate, BillingRouteError } from '@/domains/billing';
+import {
+  ActionGate,
+  BillingNotFound,
+  BillingRouteError,
+  requireBillingCapability,
+} from '@/domains/billing';
 import { loadVoucherWizard, VoucherWizardPage } from '@/features/vouchers';
 import i18n from '@/lib/i18n/config';
 
@@ -11,6 +16,7 @@ const newVoucherSearchSchema = z.object({ boostFor: z.string().optional() });
 
 export const Route = createFileRoute('/catalog/vouchers/new/')({
   component: NewVoucherRoute,
+  notFoundComponent: BillingNotFound,
   // The voucher a boost is made for is read here, and may be one that cannot be read.
   errorComponent: BillingRouteError,
   validateSearch: (search) => newVoucherSearchSchema.parse(search),
@@ -19,9 +25,10 @@ export const Route = createFileRoute('/catalog/vouchers/new/')({
   // boost is made for.
   loader: ({ context, deps }) =>
     loadVoucherWizard(context.queryClient, deps.boostFor),
-  beforeLoad: () => ({
-    getTitle: () => i18n.t('Pages.Vouchers.Wizard.title'),
-  }),
+  beforeLoad: async ({ context }) => {
+    await requireBillingCapability(context.queryClient, 'vouchers');
+    return { getTitle: () => i18n.t('Pages.Vouchers.Wizard.title') };
+  },
 });
 
 function NewVoucherRoute() {

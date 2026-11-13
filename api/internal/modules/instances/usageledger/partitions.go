@@ -11,13 +11,11 @@ package usageledger
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -176,13 +174,6 @@ func inLockedTx(ctx context.Context, conn database, lockID int64, statements ...
 		}
 	}
 	return tx.Commit(ctx)
-}
-
-// isLockTimeout reports whether err is a statement that gave up waiting for its
-// lock -- an expected outcome of maintenance under load, retried next pass.
-func isLockTimeout(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "55P03"
 }
 
 func cmpErr(first, next error) error {

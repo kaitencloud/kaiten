@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import {
   handleBillingProblem,
   ProblemAlert,
+  useBillingFeatureAccess,
   useCanPerform,
 } from '@/domains/billing';
 import { useAddonGrantMutations } from '../../hooks';
@@ -108,7 +109,10 @@ function RemoveGrantDialog({
 export function AddonGrantRowActions(props: AddonGrantRowActionsProps) {
   const { addonSlug, entitlement, grant } = props;
   const { t } = useTranslation();
-  const mayUpdate = useCanPerform('addonGrants.update');
+  const mayUpdate = useBillingFeatureAccess(
+    'addonGrants.update',
+    'addons',
+  ).allowed;
   const mayUnassign = useCanPerform('addonGrants.unassign');
   const [removing, setRemoving] = useState(false);
   const name = entitlement?.name ?? grant.entitlementSlug;

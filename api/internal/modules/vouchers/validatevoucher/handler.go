@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/telemetry"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ratelimit"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 const operation = "ValidateVoucher"
@@ -79,7 +80,7 @@ func NewUseCase(deps catalogue.Deps) *UseCase {
 // fails. The limit is per principal: the user or service account a token
 // authenticates.
 func (u *UseCase) Execute(ctx context.Context, check VoucherCheck) (*Validity, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.Writer(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -147,13 +148,23 @@ func (u *UseCase) Execute(ctx context.Context, check VoucherCheck) (*Validity, e
 // same queries, so neither the answer nor its timing tells an unknown code
 // from an exhausted, reserved or ineligible one.
 func (u *UseCase) Opaque(ctx context.Context, check OpaqueCheck) (*catalogue.Voucher, error) {
-	user, err := u.deps.Caller(ctx)
+	user, err := u.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	// A grant-refused check is still a public attempt. Bound it before
+	// licensing, just as redemption bounds its attempts before the code.
 	if err := u.limitSession(ctx, check.SessionID, check.CustomerID); err != nil {
 		return nil, err
+	}
+	if err := u.deps.Gate.RequireEntitlement(ctx, user.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
+		switch kaitenerrors.GetCode(err) {
+		case "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
+			return nil, nil
+		default:
+			return nil, err
+		}
 	}
 	q := u.deps.Queries(ctx)
 	customerID := check.CustomerID
@@ -235,6 +246,14 @@ func (u *UseCase) Visitor(ctx context.Context, check VisitorCheck) (*catalogue.V
 func (u *UseCase) VisitorWithinOperation(ctx context.Context, check VisitorCheck) (*catalogue.Voucher, error) {
 	ctx = u.deps.AIPolicy.ForOrganization(ctx, check.OrganizationID)
 
+	if err := u.deps.Gate.RequireEntitlement(ctx, check.OrganizationID, dogfooding.VouchersEntitlementSlug, "Vouchers"); err != nil {
+		switch kaitenerrors.GetCode(err) {
+		case "Vouchers.NotEntitled", "Vouchers.EntitlementCheckUnavailable":
+			return nil, nil
+		default:
+			return nil, err
+		}
+	}
 	q := u.deps.Queries(ctx)
 	subject := catalogue.Subject{CustomerID: nil, Instance: nil, Plan: nil, Visitor: &catalogue.Visitor{AddonIDs: check.AddonIDs}}
 	known := true

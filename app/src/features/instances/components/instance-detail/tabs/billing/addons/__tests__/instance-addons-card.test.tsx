@@ -149,10 +149,28 @@ const fewer = async () =>
   within(await stepper()).getByRole('button', { name: 'One unit fewer of Extra seats' });
 
 describe('where the card is drawn', () => {
-  it('is not drawn where the release has no add-ons, and asks nothing', async () => {
+  it('reads and retires held add-ons after grant loss, but blocks attachment and increases', async () => {
+    server.use(handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }));
+    const { requests } = serveHeld([heldSeats({ quantity: 2 })]);
+    renderCard();
+
+    expect(await screen.findByTestId('instance-addons')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Add an add-on' })).toBeNull();
+    expect(await more()).toBeDisabled();
+    expect(await fewer()).toBeEnabled();
+    await userEvent.click(await fewer());
+    await waitFor(() => expect(requests).toEqual([{ body: { quantity: 1 }, method: 'PATCH', slug: 'extra-seats-v1' }]));
+    expect(await more()).toBeDisabled();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Remove Extra seats' })).toBeEnabled());
+    await userEvent.click(screen.getByRole('button', { name: 'Remove Extra seats' }));
+    await userEvent.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(requests[1]).toEqual({ method: 'DELETE', slug: 'extra-seats-v1' }));
+  });
+
+  it('is not drawn where baseline billing is disabled, and asks nothing', async () => {
     const asked = vi.fn();
     server.use(
-      handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.stack() }),
+      handleGetBillingCapabilities({ body: billingCapabilitiesProfiles.disabled() }),
       handleListInstanceAddons(() => {
         asked();
 

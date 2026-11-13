@@ -8,25 +8,61 @@ unsigned internal tokens must never be accepted directly from untrusted clients.
 
 ## Bootstrap and assignments
 
-On an empty deployment, the first successful human sign-in wins a
-**deployment-wide** bootstrap election
-and becomes administrator **in the organization they signed into**. This preserves
-Core's existing organization boundary; it does not grant cross-organization
-Platform authority. A unique singleton row and its role grant commit in the same
-transaction as the user and membership. Concurrent sign-ins elect one winner;
-failed transactions, disabled members, machines and system identities cannot win.
-The marker survives deletion of the winner or organization and never reboots.
+The first eligible human JIT sign-in in **each organization** becomes its local
+administrator once. Arrival order decides: an invitee may arrive before the creator.
+No provider roles, owner selection or provider configuration are used. Additional
+administrators must be assigned through local role management. The permanent unique
+organization marker and its grant commit with the user and membership. Concurrent
+sign-ins elect one winner per organization across backend instances; different
+organizations elect independently. Existing uninitialized memberships can win too.
+Failed transactions, disabled members, machines and system identities cannot win.
+Explicit local assignments (including empty or disabled policies) prevent bootstrap.
+The marker survives deletion of the winner, assignments or organization, including
+recreation with the same UUID or any retained external-identity alias; it never
+reopens on demotion. Supported external-ID rebinds retain both old and new aliases
+permanently (A → B → C). Recreating an alias-bound tenant seals its new UUID before
+a further rebind can escape that history. Aliases never change historical ownership.
 
-The first authorization migration (`20261022000000`) backfills **every existing
-live human membership** as administrator once, excluding machines, system
-identities, deleted users and removed memberships. If any eligible membership
-exists it permanently claims the deployment latch. Repeated migration startup
-never regrants a demoted user. Empty deployments leave the latch unclaimed.
-This migration is amended in the unmerged authorization PR: databases that
-already applied an earlier version will not replay it automatically.
+Forward migration `20261101000000` preserves the old global latch and seals every
+organization with an existing assignment or (conservatively) custom-role definition.
+The migration blocks organization writes, then the legacy latch, then assignment
+writes (matching old bootstrap order), before any history snapshot, following
+supported writer lock order. Triggers are installed
+before copying history; pending old-backend/seeder writes are captured after commit.
+A BEFORE-assignment-insert trigger takes the organization lock before assignment
+tuple locks, then seals explicit management and demo-seeder grants in that same
+transaction. This serializes direct seeder grants with identity rebinds without
+inverting management's row-lock order. Marker-insert and organization-insert/rebind
+triggers record aliases atomically, including alias-only recreated tenants. New custom-role
+definitions alone do not consume bootstrap.
+Every local assignment initialization also fills the legacy global latch with its
+real user/org IDs if empty, in the same transaction, preserving an existing record
+exactly. This prevents still-Ready old pods from electing a second administrator
+during rollout. It also covers explicit/demo-seeder assignments and rolls back with
+them. The forward migration closes an empty legacy latch from retained assignments
+after copying per-org history, without relabeling explicit policies as new winners.
+The old latch is compatibility metadata only: the new election never reads
+it as a gate, so other organizations still initialize independently.
+The applied `20261022000000` migration is unchanged: released #71 backfilled every
+live human membership once, excluding machines, system identities, deleted users
+and removed memberships. Never replay it to repair access. A zero-assignment
+organization without retained initialization evidence can
+bootstrap on its next eligible JIT sign-in. If historical grants and their members
+were all physically removed before this migration, the old singleton cannot prove
+initialization of every other organization. Such missing history must be audited
+and sealed by an operator before rollout; this migration cannot reconstruct it.
+External-ID aliases discarded before this migration likewise cannot be recovered
+from the current organization row; only currently known identities are backfilled.
+Downgrading discards per-org history and is not an access-recovery mechanism.
 
-Later JIT users receive no resource permissions until assigned locally. Every
-active human can read their own `/api/me` profile and effective permissions.
+The election runs before a positive JIT identity-cache entry is written. Warm cache
+hits do not repeat grants; authorization/liveness still resolves freshly on every
+request. The organization lock and subsequent statements assume PostgreSQL's default
+READ COMMITTED isolation, as existing management writes do.
+
+Later JIT users in initialized organizations receive no resource permissions until
+assigned locally. Every active human can read their own `/api/me` profile and
+effective permissions.
 `administrator`, `viewer`, and `editor` are immutable built-in templates; custom
 roles group organization permissions under stable organization-owned slugs.
 Explicit permissions use Core's organization scope vocabulary. User
@@ -110,8 +146,8 @@ Management writes serialize on the organization, recheck the acting human grants
 inside the transaction and refuse disabling/demoting its last active administrator
 with `409 Users.LastAdministrator`. No global user delete is exposed on Core.
 The privileged Platform deletion APIs and direct database operators remain recovery
-overrides and can bypass this guard. Other organizations require explicit operator
-provisioning; there is no automatic second bootstrap or provider-admin fallback.
+overrides and can bypass this guard. Recovery after initialization requires explicit
+operator provisioning; there is no re-election or provider-admin fallback.
 
 ## Machine credentials and development
 

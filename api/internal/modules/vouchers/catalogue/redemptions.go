@@ -113,6 +113,7 @@ func RegisterWebhooks(api huma.API) {
 		declare(events.VoucherUpdated, (*Voucher)(nil), "onVoucherUpdated", "Voucher Updated", "Triggered when a voucher changes.", "vouchers"),
 		declare(events.VoucherPublished, (*Voucher)(nil), "onVoucherPublished", "Voucher Published", "Triggered when a draft voucher becomes redeemable.", "vouchers"),
 		declare(events.VoucherArchived, (*Voucher)(nil), "onVoucherArchived", "Voucher Archived", "Triggered when a voucher is archived.", "vouchers"),
+		declare(events.VoucherDeleted, (*Voucher)(nil), "onVoucherDeleted", "Voucher Deleted", "Triggered when a voucher no instance ever redeemed is deleted, with its last state.", "vouchers"),
 		declare(events.VoucherExhausted, (*ExhaustedEvent)(nil), "onVoucherExhausted", "Voucher Exhausted", "Triggered by the redemption that reaches maxRedemptions.", "vouchers"),
 		declare(events.VoucherExpired, (*ExpiredEvent)(nil), "onVoucherExpired", "Voucher Expired", "Triggered when an active voucher reaches its expiresAt and can no longer be redeemed.", "vouchers"),
 		declare(events.InstanceVoucherRedeemed, (*Redemption)(nil), "onInstanceVoucherRedeemed", "Instance Voucher Redeemed", "Triggered when an instance redeems a voucher.", "vouchers"),
