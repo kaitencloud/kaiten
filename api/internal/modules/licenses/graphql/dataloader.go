@@ -14,8 +14,9 @@ import (
 
 // Dataloader names
 const (
-	LicenseLoaderName       = "LicenseLoader"
-	LicenseFamilyLoaderName = "LicenseFamilyLoader"
+	LicenseLoaderName                     = "LicenseLoader"
+	LicenseFamilyLoaderName               = "LicenseFamilyLoader"
+	LicenseFamilyCurrentVersionLoaderName = "LicenseFamilyCurrentVersionLoader"
 )
 
 // RegisterDataloaders registers license dataloaders to the shared loaders
@@ -29,6 +30,10 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, polic
 	// separate resource.
 	loaders.Register(LicenseFamilyLoaderName, dataloaderLib.NewBatchedLoader(
 		newLicenseFamilyBatchFn(queries),
+	))
+	// LicenseFamily.currentVersion -- the version each family serves.
+	loaders.Register(LicenseFamilyCurrentVersionLoaderName, dataloaderLib.NewBatchedLoader(
+		newLicenseFamilyCurrentVersionBatchFn(queries),
 	))
 	// License.prices -- part of the licence read, as GET /licenses/{slug}/prices
 	// is of the licence it lists.
@@ -125,6 +130,44 @@ func newLicenseFamilyBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.U
 			}
 		}
 
+		return results
+	}
+}
+
+// newLicenseFamilyCurrentVersionBatchFn resolves the version each family
+// serves, in the one query that holds the rule
+// (GetCurrentLicenseVersionsByFamilyIDs): the family list, the family view
+// and this field cannot come to disagree about what "current" means. A family
+// with nothing PUBLISHED resolves to nil, not to an error.
+func newLicenseFamilyCurrentVersionBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, *db.License] {
+	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[*db.License] {
+		results := make([]*dataloaderLib.Result[*db.License], len(keys))
+		fail := func(err error) []*dataloaderLib.Result[*db.License] {
+			for i := range results {
+				results[i] = &dataloaderLib.Result[*db.License]{Error: err}
+			}
+			return results
+		}
+
+		organizationID, err := getOrganizationID(ctx)
+		if err != nil {
+			return fail(err)
+		}
+		versions, err := queries.GetCurrentLicenseVersionsByFamilyIDs(ctx, db.GetCurrentLicenseVersionsByFamilyIDsParams{
+			OrganizationID: organizationID,
+			FamilyIds:      keys,
+		})
+		if err != nil {
+			return fail(err)
+		}
+
+		current := make(map[uuid.UUID]*db.License, len(versions))
+		for i := range versions {
+			current[versions[i].FamilyID] = &versions[i]
+		}
+		for i, key := range keys {
+			results[i] = &dataloaderLib.Result[*db.License]{Data: current[key]}
+		}
 		return results
 	}
 }

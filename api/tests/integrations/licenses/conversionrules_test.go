@@ -297,3 +297,70 @@ func TestConversionRulePricesRemainMutableAcrossLicenseLifecycle(t *testing.T) {
 		require.Equal(t, 204, ruleRequest(t, "DELETE", target, nil).StatusCode)
 	}
 }
+
+// A rule names who created it and who last changed it, the way a licence
+// entitlement does: the user's id and display name, a service account's
+// included. REST and GraphQL read the same row.
+func TestConversionRuleAuthors(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	path := ruleFixture(t)
+	var creator string
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT name FROM "user" WHERE id=$1`, testDb.DefaultData.UserID).Scan(&creator))
+
+	created := createRule(t, path, ruleBody())
+	require.Equal(t, testDb.DefaultData.UserID, created.CreatedBy.ID)
+	require.Equal(t, creator, created.CreatedBy.Name)
+	require.Equal(t, created.CreatedBy, created.UpdatedBy)
+
+	// The stub authenticates every request as the default user, so the last
+	// change is attributed to a service account straight in the table.
+	var machine uuid.UUID
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(),
+		`INSERT INTO "user" (external_id,name,slug,type,organization_id) VALUES ('machine-pricing-bot','Pricing bot','pricing-bot','machine',$1) RETURNING id`,
+		testDb.DefaultData.OrganizationID).Scan(&machine))
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET updated_by_id=$1 WHERE id=$2`, machine, created.ID)
+	require.NoError(t, err)
+
+	read := fixture.AssertJSONResponse[schema.ConversionRule](t, ruleRequest(t, "GET", idpathFor(path, created.ID), nil), 200)
+	require.Equal(t, created.CreatedBy, read.CreatedBy)
+	require.Equal(t, machine, read.UpdatedBy.ID)
+	require.Equal(t, "Pricing bot", read.UpdatedBy.Name)
+	list := fixture.AssertJSONResponse[[]schema.ConversionRule](t, ruleRequest(t, "GET", path, nil), 200)
+	require.Len(t, list, 1)
+	require.Equal(t, read.UpdatedBy, list[0].UpdatedBy)
+
+	// A change through the API takes the caller again.
+	updated := fixture.AssertJSONResponse[schema.ConversionRule](t, ruleRequest(t, "PUT", idpathFor(path, created.ID), map[string]any{"rates": map[string]any{"perRequest": "2"}}), 200)
+	require.Equal(t, testDb.DefaultData.UserID, updated.UpdatedBy.ID)
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET updated_by_id=$1 WHERE id=$2`, machine, created.ID)
+	require.NoError(t, err)
+
+	answer := fixture.AssertJSONResponse[struct {
+		Data struct {
+			License struct {
+				ConversionRules []struct {
+					ID        uuid.UUID
+					UpdatedAt string
+					CreatedBy struct {
+						ID   uuid.UUID
+						Name string
+					}
+					UpdatedBy struct {
+						ID   uuid.UUID
+						Name string
+					}
+				}
+			}
+		}
+		Errors []any
+	}](t, ruleRequest(t, "POST", "/graphql", map[string]any{"query": `{ license(slug:"test-license-1") { conversionRules { id updatedAt createdBy { id name } updatedBy { id name } } } }`}), 200)
+	require.Empty(t, answer.Errors)
+	require.Len(t, answer.Data.License.ConversionRules, 1)
+	rule := answer.Data.License.ConversionRules[0]
+	require.Equal(t, created.ID, rule.ID)
+	require.NotEmpty(t, rule.UpdatedAt)
+	require.Equal(t, testDb.DefaultData.UserID, rule.CreatedBy.ID)
+	require.Equal(t, creator, rule.CreatedBy.Name)
+	require.Equal(t, machine, rule.UpdatedBy.ID)
+	require.Equal(t, "Pricing bot", rule.UpdatedBy.Name)
+}

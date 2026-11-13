@@ -2,14 +2,19 @@ package conversionrules
 
 import (
 	"encoding/json"
+	"math/big"
 	"reflect"
 	"testing"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 	"github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -54,4 +59,15 @@ func TestCreateWildcardSchemaIncludesNull(t *testing.T) {
 	body := huma.SchemaFromType(registry, reflect.TypeFor[CreateConversionRule]())
 	require.True(t, body.Properties["requestType"].Nullable)
 	require.Contains(t, body.Properties["requestType"].Enum, any(nil))
+}
+
+// Present names both authors from the joined user rows.
+func TestPresentNamesTheAuthors(t *testing.T) {
+	creator, updater := uuid.New(), uuid.New()
+	rule := Present(db.ListConversionRulesRow{
+		CreatedByID: creator, CreatedByName: "Ada", UpdatedByID: updater, UpdatedByName: "Pricing bot",
+		MinimumCreditsPerRequest: pgtype.Numeric{Int: big.NewInt(0), Valid: true},
+	})
+	require.Equal(t, shared.User{ID: creator, Name: "Ada"}, rule.CreatedBy)
+	require.Equal(t, shared.User{ID: updater, Name: "Pricing bot"}, rule.UpdatedBy)
 }

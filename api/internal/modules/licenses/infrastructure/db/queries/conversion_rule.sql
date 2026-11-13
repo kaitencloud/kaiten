@@ -12,13 +12,26 @@ WHERE organization_id = sqlc.arg(organization_id) AND slug = sqlc.arg(slug);
 
 -- name: ListConversionRules :many
 -- No grant join: grant-less rules remain visible after grant removal.
+-- The authors are joined the way license_entitlement reads its own: both ids
+-- are NOT NULL and RESTRICT, so the rows are always there, a service account's
+-- included.
 SELECT c.*, l.slug AS license_slug, e.slug AS entitlement_slug, m.slug AS model_slug,
  EXISTS (SELECT 1 FROM license_entitlement le
-   WHERE le.organization_id = c.organization_id AND le.license_id = c.license_id AND le.entitlement_id = c.entitlement_id) AS granted_by_license
+   WHERE le.organization_id = c.organization_id AND le.license_id = c.license_id AND le.entitlement_id = c.entitlement_id) AS granted_by_license,
+ -- An add-on reaches a licence through compatibility alone, declared per
+ -- add-on version against the licence's FAMILY: true when such a version
+ -- grants the pool, whatever its lifecycle state (an instance holding an
+ -- archived version keeps its grant).
+ EXISTS (SELECT 1 FROM addon_entitlement ae
+   JOIN addon_compatible_license acl ON acl.addon_id = ae.addon_id AND acl.organization_id = ae.organization_id
+   WHERE ae.organization_id = c.organization_id AND ae.entitlement_id = c.entitlement_id AND acl.license_family_id = l.family_id) AS granted_by_addons,
+ creator.name AS created_by_name, updater.name AS updated_by_name
 FROM credit_conversion_rule c
 JOIN license l ON l.id = c.license_id AND l.organization_id = c.organization_id
 JOIN entitlement e ON e.id = c.entitlement_id AND e.organization_id = c.organization_id
 LEFT JOIN model m ON m.id = c.model_id AND m.organization_id = c.organization_id
+JOIN "user" creator ON creator.id = c.created_by_id
+JOIN "user" updater ON updater.id = c.updated_by_id
 WHERE c.organization_id = sqlc.arg(organization_id)
  AND c.license_id = ANY(sqlc.arg(license_ids)::uuid[])
  AND (sqlc.narg(rule_id)::uuid IS NULL OR c.id = sqlc.narg(rule_id))

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
 )
@@ -73,7 +74,27 @@ type AiUsageValue struct {
 	RequestStatus *aicredit.RequestStatus `json:"requestStatus,omitempty" enum:"SUCCESS,PROVIDER_ERROR,CUSTOMER_ERROR,NOT_SENT"`
 	Usage         *AiUsage                `json:"usage,omitempty"`
 	TTLSeconds    *int64                  `json:"ttlSeconds,omitempty"`
+	// A pointer with omitempty: the request hash is over this struct's JSON, so
+	// a report that omits the field must keep marshalling as it did before.
+	VendorCost *string `json:"vendorCost,omitempty" pattern:"^[0-9]{1,12}(\\.[0-9]{1,12})?$" example:"0.0123" doc:"Commit only. What the provider charged for this request, in USD, as an exact decimal string. Recorded as evidence beside the cost computed from the model catalogue; it never changes the credits charged."`
 }
+
+// The warnings an AI report or an inference record may carry. The set is open:
+// clients must tolerate a value they do not know.
+const (
+	AiWarningModelDeprecated          = "MODEL_DEPRECATED"
+	AiWarningEstimateIncomplete       = "ESTIMATE_INCOMPLETE"
+	AiWarningReservationExpired       = "RESERVATION_EXPIRED"
+	AiWarningModelNotAuthorized       = "MODEL_NOT_AUTHORIZED"
+	AiWarningUnknownModel             = "UNKNOWN_MODEL"
+	AiWarningConversionInputMissing   = "CONVERSION_INPUT_MISSING"
+	AiWarningOverdrawn                = "OVERDRAWN"
+	AiWarningNoReservation            = "NO_RESERVATION"
+	AiWarningCounterPrecisionDegraded = "COUNTER_PRECISION_DEGRADED"
+	// Read side only: the inference is listed without a pricing snapshot
+	// because the stored one cannot be decoded.
+	AiWarningPricingSnapshotUnreadable = "PRICING_SNAPSHOT_UNREADABLE"
+)
 
 // Keep phase examples complete: reserve must not include commit-only fields.
 func (AiUsageValue) TransformSchema(_ huma.Registry, s *huma.Schema) *huma.Schema {
@@ -88,6 +109,14 @@ type AiCredits struct {
 	Reserved *string `json:"reserved,omitempty"`
 	Computed *string `json:"computed,omitempty"`
 	Charged  *string `json:"charged,omitempty"`
+	Refunded *string `json:"refunded,omitempty" doc:"The sum of the operation's refunds. Absent when it has none, and on a report's own answer."`
+}
+
+// AiUsageRule names the conversion rule a phase was priced with. The rates
+// themselves are in the inference record's pricing snapshot.
+type AiUsageRule struct {
+	ID          uuid.UUID            `json:"id" format:"uuid"`
+	Specificity aicredit.Specificity `json:"specificity" enum:"EXACT_TYPED,EXACT_ALL,ANY_TYPED,ANY_ALL" doc:"How the rule matched: its own model and request type, its own model for every request type, any model for its request type, or any model and request type."`
 }
 
 type AiUsageOutcome struct {
@@ -99,4 +128,7 @@ type AiUsageOutcome struct {
 	ExpiresAt     *time.Time `json:"expiresAt,omitempty"`
 	Authorized    *bool      `json:"authorized,omitempty"`
 	Warnings      []string   `json:"warnings" nullable:"false"`
+	// A pointer with omitempty: the answer of each phase is stored and replayed
+	// as it was, so one recorded before this member existed replays without it.
+	Rule *AiUsageRule `json:"rule,omitempty" doc:"The conversion rule that priced this phase. Absent when no rule applied, and on the replay of a phase answered before the member existed."`
 }

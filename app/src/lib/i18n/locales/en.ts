@@ -125,7 +125,24 @@ export default {
       ruleNotFound: 'This conversion rule no longer exists.',
       invalidRange: 'The start date must precede the end date.',
       invalidCursor: 'This history cursor is invalid. Reload the list.',
-      poolNotGranted: 'This AI credit pool is not granted to the instance.',
+      poolNotFound: 'This instance or AI credit pool was not found.',
+      refundInferenceNotFound:
+        'This inference was not found on this instance and credit pool.',
+      refundNotCommitted:
+        'Only a committed inference can be refunded. This one was never charged.',
+      refundNothingLeft:
+        'Nothing is left to refund: this inference was charged nothing, or its charge is already refunded in full.',
+      refundExceeds:
+        'The refund exceeds what this inference still has to give back.',
+      refundPoolNotGranted:
+        'This instance no longer holds this credit pool, so the refund cannot be counted.',
+      refundKeyReused:
+        'This refund key was already used for another refund or report. Retry the refund.',
+      refundKeyInvalid:
+        'The refund needs a valid idempotency key. Retry the refund.',
+      refundInvalidAmount:
+        'Enter a positive number of credits, with at most six decimals.',
+      refundInvalidReason: 'The reason must be 1 to 500 characters long.',
       transactionRequired: 'An AI operation identifier is required.',
       transactionInvalid: 'The AI operation identifier has an invalid format.',
       transactionReused:

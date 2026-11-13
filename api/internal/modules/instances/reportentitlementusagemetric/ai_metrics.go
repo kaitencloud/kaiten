@@ -21,6 +21,9 @@ var aiMetrics struct {
 	charged      metric.Float64Counter
 	unauthorized metric.Int64Counter
 	overdrawn    metric.Int64Counter
+	// precision counts the commits whose charge the float64 counter could not
+	// represent within half a quantum: the signal that a pool has outgrown it.
+	precision metric.Int64Counter
 }
 
 func recordAIReport(ctx context.Context, cmd *Command, response *schema.EntitlementUsage, err error) {
@@ -33,6 +36,7 @@ func recordAIReport(ctx context.Context, cmd *Command, response *schema.Entitlem
 		aiMetrics.charged, _ = meter.Float64Counter("ai_credits_charged_total")
 		aiMetrics.unauthorized, _ = meter.Int64Counter("ai_inference_unauthorized_total")
 		aiMetrics.overdrawn, _ = meter.Int64Counter("ai_overdrawn_commits_total")
+		aiMetrics.precision, _ = meter.Int64Counter("ai_counter_precision_degraded_total")
 	})
 	outcome := "accepted"
 	if err != nil {
@@ -77,6 +81,9 @@ func recordAIReport(ctx context.Context, cmd *Command, response *schema.Entitlem
 	for _, warning := range ai.Warnings {
 		if warning == "OVERDRAWN" && aiMetrics.overdrawn != nil {
 			aiMetrics.overdrawn.Add(ctx, 1)
+		}
+		if warning == schema.AiWarningCounterPrecisionDegraded && aiMetrics.precision != nil {
+			aiMetrics.precision.Add(ctx, 1)
 		}
 	}
 }

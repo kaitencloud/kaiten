@@ -2,11 +2,15 @@ package graphql
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/familyview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 )
@@ -47,4 +51,29 @@ func LicenseFamilyVersions(ctx context.Context, queries *db.Queries, familyID uu
 	}
 
 	return familyview.NewReader(queries).Versions(ctx, i.OrganizationID, familyID)
+}
+
+// LoadLicenseFamilyCurrentVersion is the version a family currently serves,
+// for the LicenseFamily.currentVersion field: nil when nothing is PUBLISHED.
+// Batched across every family of the response.
+func LoadLicenseFamilyCurrentVersion(ctx context.Context, familyID uuid.UUID) (*schema.License, error) {
+	loader, err := dataloader.GetLoader[uuid.UUID, *db.License](dataloader.LoadersFromContext(ctx), LicenseFamilyCurrentVersionLoaderName)
+	if err != nil {
+		return nil, err
+	}
+	current, err := loader.Load(ctx, familyID)()
+	if err != nil || current == nil {
+		return nil, err
+	}
+	return dbmap.ToLicense(current)
+}
+
+// VersionNumber is License.version as the number it is: the order of the
+// versions in their family.
+func VersionNumber(license *schema.License) (int, error) {
+	number, err := strconv.Atoi(license.Version)
+	if err != nil {
+		return 0, fmt.Errorf("license %s has a version that is not a number: %w", license.ID, err)
+	}
+	return number, nil
 }

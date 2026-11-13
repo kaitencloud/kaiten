@@ -42,6 +42,17 @@ retries replay the original response; the resulting usage is a numeric credit
 counter, not a new `ai_usage` read type. A `NOT_SENT` commit releases without a
 charge. Numeric append reports remain explicit credit adjustments/refunds.
 
+A commit may carry `vendorCost`, what the provider charged for the request in
+USD, as an exact decimal string (up to twelve integer digits and twelve
+decimals). It is evidence beside the charge and never changes the credits. A
+reserve refuses it, and so does a `NOT_SENT` commit: a request that was never
+sent cost nothing (422 `InvalidAiUsage`). It is part of the commit's body, so a
+retried commit must repeat it byte for byte or the retry is another body under
+the same `transactionId` (409 `TransactionIdReused`).
+
+The `ai` block of each answer names the rule that priced the phase, `rule: {id,
+specificity}`; it is absent when no rule applied.
+
 Rules select one complete rate vector, not field-by-field inheritance from less
 specific rules. The order is exact model/request, exact model/all requests, any
 model/exact request, then any model/all requests. Blank cache-read/cache-write
@@ -49,9 +60,48 @@ rates fall back to the selected rule's input rate; explicit zero is free.
 
 `grantedByLicense` describes only a direct licence allowance. Add-ons can grant a
 pool while that flag is false; such instances can still use the version's rules.
+`grantedByAddons` says whether that can happen: an add-on attaches to an
+instance, never to a licence, and what ties it to a licence is compatibility,
+declared per add-on version against a licence family
+(`addon_compatible_license`). The flag is true when an add-on version
+compatible with the licence's family grants the pool, whatever its lifecycle
+state, since an instance that holds an archived version keeps its grant. It is
+the same for every version of a family, and says nothing of what any instance
+holds. GraphQL lists those grants as `License.addonGrants(entitlementSlug)`,
+beside the licence's own in `License.entitlements`; like the add-on catalogue
+it needs billing to be enabled and `read:addons`, which the flag does not.
 Reservations are estimates, not locked quotes: rate/rule/model changes affect
-pending commits because current configuration is resolved at commit. Stored
-inference evidence is unchanged and does not contain immutable rate snapshots.
+pending commits because current configuration is resolved at commit.
+
+## What an inference record explains
+
+Rules are edited in place, so each `ai_inference` row keeps what explains its
+own charge after the rule, the model or the licence has changed:
+
+- `pricing` is the snapshot of the rule as it priced the phase: rule id,
+  specificity (`EXACT_TYPED`, `EXACT_ALL`, `ANY_TYPED`, `ANY_ALL`), the rates,
+  the minimum and maximum per request and the charge-on-error policy, in the
+  rule's own decimal strings. A reserve writes the one its estimate used and the
+  commit overwrites it with the one it charged with. It is NULL when no rule
+  applied: an unauthorized operation has no price to explain.
+- `license_id` is the licence version whose rules were considered, the one read
+  under the pair's lock. No foreign key: the record outlives the licence.
+- `warnings` are the warnings the phase that last wrote the row answered with,
+  in the order answered.
+- `report_seq` is the pair's report counter of the commit that charged: the link
+  to its `usage_ledger` row on `(instance, entitlement, report_seq)`. It is NULL
+  on reservations, releases and commits that charged nothing, which are not in
+  the journal.
+- `vendor_cost_reported` is the `vendorCost` of the commit.
+  `vendor_cost_computed` applies the model's catalogue costs to the reported
+  quantities, the per-request cost once, cache costs falling back to the input
+  cost. It is NULL when the model is not in the catalogue or has no cost at all,
+  when the request was never sent, and for a failed request (`PROVIDER_ERROR`,
+  `CUSTOMER_ERROR`) that reports no quantity the catalogue can cost: nothing, or
+  a duration alone, since the catalogue holds no per-second cost. NULL is
+  unknown, never free.
+
+Rows written before these columns existed have none of them, and empty warnings.
 
 ## Lifecycle and accounting
 
@@ -63,12 +113,108 @@ inference evidence is unchanged and does not contain immutable rate snapshots.
 - `NOT_SENT` commits release the reservation without charging, regardless of
   the charge-on-error rule. Expired reservations stop counting immediately;
   the elected minute sweep marks them EXPIRED without moving money.
+- A `NOT_SENT` commit for a `transactionId` that holds no operation answers 200
+  `RELEASED` with zero credits and the `NO_RESERVATION` warning, and closes the
+  id with a tombstone. An SDK releases on every failure path, including while
+  its reserve is still in flight: with the id left free, that reserve could land
+  after the release and hold credits nobody releases until its TTL. The
+  tombstone is one RELEASED row carrying the `transactionId`, both hashes and
+  the stored answer, the licence and `warnings = {NO_RESERVATION}`, with zero
+  credits and no pricing, vendor cost, `report_seq` or counter snapshot. Model
+  and request type are optional on that request and nothing is looked up: no
+  model, no rule, no unauthorized-use lookup, no `MODEL_USAGE_UNAUTHORIZED`
+  event, no usage event, no journal row. The columns the table forces hold
+  `model_ref` as sent or empty, `request_type` as sent or `COMPLETION` (the
+  column is NOT NULL and has no neutral value), and `authorized = true` with no
+  denial reason, so the row never counts as an unauthorized use. Afterwards the
+  id behaves like any closed operation: the same release replays, and a reserve,
+  a commit with usage or another body answers 409 `TransactionIdReused`. An
+  ungranted pair still answers 404 and leaves nothing.
+- Every phase that plans persists the window rollover it resolved, as a numeric
+  report does: a reserve, a refused reserve, a release and a commit that charges
+  nothing emit `PERIOD_ROLLED_OVER` and reset the counter. A replay returns
+  before planning and writes nothing.
 - Matching retries replay immutable phase response snapshots, with
   `Idempotent-Replayed: true`, before any writes. Conflicting bodies and reserves
   on closed/expired operation IDs return TransactionIdReused.
 - The existing report plan/apply path remains the sole counter writer. The AI
   operation stores charge/balance evidence in the same transaction as the
   counter and outbox. No prompt or provider response is stored.
+
+## Refunding an inference
+
+`POST /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/inferences/{transactionId}/refund`
+(`refundAiInference`, `write:instances`, the report's scope) gives back credits
+charged for one inference. Body: `{credits?, reason?}`; `credits` is a positive
+decimal string and defaults to everything left; `reason` is at most 500
+characters. `Idempotency-Key` is required.
+
+A refund is evidence correction, not a new kind of counter movement. The use
+case (`refundaiinference`) composes the report use case into its own
+transaction, so the report path stays the sole counter writer:
+
+1. It resolves the pair like the history reads do, takes the pair's advisory
+   lock, and answers a replay of its key from `ai_inference_refund` before
+   anything else.
+2. Under the lock it reads the inference the `transactionId` names (the newest
+   one, since an identifier older than the idempotency window can be used
+   again), requires `COMMITTED`, and computes what is left: `credits_charged`
+   minus the sum of the inference's refunds. Nothing left, or nothing ever
+   charged (an unauthorized operation, a release, a tombstone), is refused.
+3. It sends a negative `append` report for the amount under the same key, as
+   the journal row's `transactionId`, with the metadata `{"refundOf":
+   "<transactionId>"}`. The reason is not copied there: journal metadata must
+   hold no personal data. That report is an ordinary one: it takes the lock
+   again (re-entrant), dates itself, rolls the window over, writes the counter
+   and the `usage_ledger` row and emits `ENTITLEMENT_USAGE_REPORT_ACCEPTED`. No
+   event of its own is added.
+4. It appends the link: one `ai_inference_refund` row with the inference, the
+   amount, the reason, the key, the journal's `report_seq`, the report's instant
+   and the caller. `ai_inference` is never updated.
+
+What follows from the movement being a report:
+
+- **Window.** The refund lands in the window open when it is made. Once the
+  charge's window has closed, the closed window keeps what it counted (its
+  `PERIOD_ROLLED_OVER` already said so, and billing may have read it) and the
+  refund lowers the open window's counter.
+- **Below zero.** A negative report on a credit pool is never refused by the
+  limit and the counter is not floored: a refund larger than the open window's
+  consumption leaves it negative, which is headroom for that window.
+- **Grant.** A report needs the pool to be granted to the instance at its
+  instant, so a refund on a pool the instance no longer holds answers 409
+  `RefundAiInference.PoolNotGranted`. The record stays readable.
+- **Gate.** AI usage off answers 403 `AIUsage.Disabled`, as every AI use case
+  and every report on a credit pool does.
+- **Precision.** The counter moves by the amount as a float64, like a commit's
+  charge; the exact amount is the link's `credits` (`NUMERIC(38, 6)`).
+
+Idempotency follows the numeric report's `Idempotency-Key` header, format
+included, with two differences. The key is required, since a refund sent twice
+without one would refund twice. And it is remembered for as long as the refund
+is, not for `KAITEN_USAGE_IDEMPOTENCY_WINDOW`: the lookup is the unique key
+`(instance, entitlement, refund_key)` of the link table. The same key with the
+same inference, amount (compared as a number) and reason answers the original
+refund with `Idempotent-Replayed: true`; with anything else, or when a plain
+numeric report of the pool already took the key, 409
+`RefundAiInference.IdempotencyKeyReused`.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `RefundAiInference.ContextNotFound` | no such instance or credit pool in the organization |
+| 404 | `RefundAiInference.InferenceNotFound` | no inference under this `transactionId` on this pair |
+| 409 | `RefundAiInference.NotCommitted` | the inference is RESERVED, RELEASED or EXPIRED |
+| 409 | `RefundAiInference.NothingToRefund` | charged nothing, or already refunded in full |
+| 409 | `RefundAiInference.ExceedsRefundable` | `credits` above what is left (`errors[0].value`) |
+| 409 | `RefundAiInference.IdempotencyKeyReused` | the key holds another refund, another body, or a numeric report |
+| 409 | `RefundAiInference.PoolNotGranted` | the instance no longer holds the pool |
+| 422 | `RefundAiInference.IdempotencyKeyRequired`, `.InvalidIdempotencyKey` | no key, or not `[A-Za-z0-9._:-]{1,128}` |
+| 422 | `RefundAiInference.InvalidAmount`, `.InvalidReason` | zero credits; a reason out of bounds (the schema refuses the other shapes) |
+
+The history reads list each inference's refunds, oldest first, as `refunds:
+[{id, credits, reason, reportSeq, createdAt, createdBy}]` (always an array) and
+their sum as `credits.refunded` (absent when there is none). `credits.charged`
+does not change: what the inference costs net is charged minus refunded.
 
 ## Configuration
 
@@ -158,7 +304,37 @@ copy-source version; ordinary metadata edits preserve hidden relations.
 
 Both usage gauges include `reserved` on credit pools. Inference history uses
 keyset pagination and open-reservation reads filter expiry at query time.
-History reads emit no outbox events. AI outcomes appear only on AI report
+History reads emit no outbox events.
+
+- `GET /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage/inferences`
+  and `.../usage/reservations` read one pool. They need no current grant: the
+  record of a pool outlives its removal from the licence. They answer 404
+  `ListAiInferences.ContextNotFound` only when the instance or the credit pool
+  does not exist, and an empty page for a pool the instance never used.
+- `GET /usage/inferences` (`listOrganizationAiInferences`, `read:instances`)
+  lists the organization's operations across instances and pools, newest first
+  by report time, with `instanceSlug` and `entitlementSlug` on each row (absent
+  once deleted). A slug filter that names nothing in the organization returns
+  an empty page.
+- Both listings filter on `status`, `transactionId`, `authorized` (`true` or
+  `false`; a RESERVED operation matches neither), `modelSlug` (the catalogue
+  model the operation resolved to), `model` (the model as sent, matched exactly:
+  the only handle on a model the catalogue does not know) and `requestType`; the
+  organization listing adds `instanceSlug` and `entitlementSlug`. The range
+  defaults to the last 30 days and ends at the usage clock, the database's, the
+  current millisecond included; the limit defaults to 50 and stops at 500.
+- Each row carries `pricing`, `licenseId`, `licenseSlug` (absent once the licence
+  is deleted), `warnings` (always an array), `reportSeq` and `vendorCost
+  {reported, computed, currency}`.
+- Tombstones (RELEASED with `NO_RESERVATION`) are left out of both listings
+  unless the caller filters `status=RELEASED` or a `transactionId`.
+- A `pricing` document that cannot be decoded does not fail the page: the row is
+  listed without `pricing`, with the read-side warning
+  `PRICING_SNAPSHOT_UNREADABLE`, and the error is logged with the inference id.
+- Like every AI use case, the reads pass `aiusage.Policy` first: 403
+  `AIUsage.Disabled` while the organization's flag is off.
+
+AI outcomes appear only on AI report
 responses. Existing usage crossing webhooks do not carry the request-specific
 AI outcome. New events identify soft-maximum crossings and unauthorized usage;
 the latter is bounded to one per pair/model/request type/UTC day.
@@ -167,15 +343,21 @@ the latter is bounded to one per pair/model/request type/UTC day.
 
 Rate-vector pricing uses exact decimal arithmetic and half-up rounding to six
 places. Computed and charged evidence uses NUMERIC(38,6). The legacy authoritative
-usage counter is still float64. At very large balances, a small six-place charge
-may not be representable within half a quantum; the write transaction fails
-closed rather than recording inconsistent evidence. Applications needing that
+usage counter is still float64. At very large balances (about 1e10 credits in a
+window), a small six-place charge may not be representable within half a
+quantum. The commit is still applied: the inference happened and the provider
+was paid. The exact charge is in `credits_charged`, the answer and the row carry
+the warning `COUNTER_PRECISION_DEGRADED`, and
+`ai_counter_precision_degraded_total` counts it. Only a counter that is no
+longer a number (infinite or NaN) fails the commit. Applications needing that
 range must not treat this implementation as an arbitrary-precision balance.
 This limitation requires a future exact-counter migration, not a silent change
 in how usage reports or billing journals interpret existing values.
 
-The operation table is plain, not partitioned: billing's partition helper was
-not on main. No inference retention/purge policy is implemented in this slice.
+The operation table is plain, not partitioned, and no inference
+retention/purge policy is implemented in this slice. Billing's partition helper
+(`usageledger/partitions.go`) is on main now and is what a later change would
+reuse.
 The dedup horizon controls recognition, not deletion of historical evidence.
 
 ## Billing integration seams
@@ -193,8 +375,8 @@ source and provenance; numeric journal replay keeps billing's null source/proven
 
 Actual positive AI charges and numeric adjustments advance `report_seq` and
 append one billing usage journal row in the same transaction as the counter,
-operation and outbox. Reserve, release, zero-charge commits and phase replay
-write no debit journal row. The gate uses the effective entitlement at the single
+operation and outbox; the AI operation keeps that `report_seq`. Reserve, release,
+zero-charge commits and phase replay write no debit journal row. The gate uses the effective entitlement at the single
 post-lock report instant, including add-ons, vouchers and instance exceptions.
 The AI migration follows billing's latest migration; rolling back AI leaves
 billing's effective entitlement view and shared foreign-key targets intact.

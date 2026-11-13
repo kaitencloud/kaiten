@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
+	shared "github.com/kaitencloud/kaiten/api/internal/shared/user"
 )
 
 type ConversionRuleStatus string
@@ -39,8 +40,11 @@ type ConversionRule struct {
 	ChargeOnError            aicredit.ChargeOnError `json:"chargeOnError" enum:"NEVER,ALWAYS,PROVIDER_ERROR_ONLY"`
 	Status                   ConversionRuleStatus   `json:"status" enum:"ACTIVE,ARCHIVED"`
 	GrantedByLicense         bool                   `json:"grantedByLicense"`
+	GrantedByAddons          bool                   `json:"grantedByAddons" doc:"Whether an add-on version compatible with the licence's family grants the pool, whatever its lifecycle state: instances of the licence can then hold the pool without the licence granting it. It says nothing of what any instance holds."`
 	CreatedAt                time.Time              `json:"createdAt"`
+	CreatedBy                shared.User            `json:"createdBy" readOnly:"true" doc:"User who created this rule; a service account is a user"`
 	UpdatedAt                time.Time              `json:"updatedAt"`
+	UpdatedBy                shared.User            `json:"updatedBy" readOnly:"true" doc:"User who last changed this rule: its pricing, or its archival"`
 }
 
 type ConversionRuleUpdated struct {
