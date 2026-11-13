@@ -397,8 +397,9 @@ back recorded payment is not safe.
 ### Unmerged prototype databases
 
 This clean billing-based stack renumbers the AI migration to
-`20261024173426_ai_credits.sql`: the earlier prototype's
-`20261022230000_ai_credits.sql` collides with billing's audit-actor migration.
+`20261110000000_ai_credits.sql`, above every migration on `main`: the earlier
+prototype's `20261022230000_ai_credits.sql` collides with billing's audit-actor
+migration, and goose refuses a pending version below one already applied.
 Do not apply this stack automatically to a database that already ran the earlier
 unmerged AI prototype. Its migration history and existing AI tables need a
 reviewed upgrade path first; preserve that database and do not reset, migrate or
