@@ -222,3 +222,8 @@ Do not apply this stack automatically to a database that already ran the earlier
 unmerged AI prototype. Its migration history and existing AI tables need a
 reviewed upgrade path first; preserve that database and do not reset, migrate or
 reseed it as part of switching branches.
+
+The same holds for a database that applied this branch's own earlier
+`20261024173426_ai_credits.sql`: goose has that version recorded with no file
+behind it, and reads `20261110000000` as pending over tables that already exist.
+Such a database needs the same reviewed path, not an automatic migration.
