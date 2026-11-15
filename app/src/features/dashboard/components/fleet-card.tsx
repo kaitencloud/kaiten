@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/table';
 import { formatRelativeTimeToNow } from '@/lib/feed-time';
 import { cn } from '@/lib/utils';
+import { type ActivityWindows, windowPhrase } from '../logic/activity';
 import { instancePath } from '../logic/attention';
 import { formatQuantity, percentOf } from '../logic/format';
 import type { FleetRow } from '../logic/standing';
@@ -28,13 +29,14 @@ const ROWS = 8;
 type FleetCardProps = {
   rows: FleetRow[];
   locale: string;
+  windows: ActivityWindows;
 };
 
 /**
  * Every instance with where it stands, the ones that need a decision first.
  * The usage column names the meter that decides the standing, with its bar.
  */
-export function FleetCard({ rows, locale }: FleetCardProps) {
+export function FleetCard({ rows, locale, windows }: FleetCardProps) {
   const { t } = useTranslation();
   const shown = rows.slice(0, ROWS);
   const more = rows.length - shown.length;
@@ -91,13 +93,15 @@ export function FleetCard({ rows, locale }: FleetCardProps) {
                     <StandingBadge standing={row.standing} />
                   </TableCell>
                   <TableCell>
-                    <UsageCell row={row} />
+                    <UsageCell row={row} windows={windows} />
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {lastActivity(
                       row,
                       locale,
-                      t('Pages.Dashboard.fleet.never'),
+                      t('Pages.Dashboard.fleet.never', {
+                        window: windowPhrase(t, windows.both, windows.period),
+                      }),
                     )}
                   </TableCell>
                 </TableRow>
@@ -117,7 +121,13 @@ export function FleetCard({ rows, locale }: FleetCardProps) {
   );
 }
 
-function UsageCell({ row }: { row: FleetRow }) {
+function UsageCell({
+  row,
+  windows,
+}: {
+  row: FleetRow;
+  windows: ActivityWindows;
+}) {
   const { t } = useTranslation();
   const meter = row.headline;
   if (!meter) {
@@ -125,7 +135,9 @@ function UsageCell({ row }: { row: FleetRow }) {
       <span className="text-sm text-muted-foreground">
         {row.reports.accepted > 0
           ? t('Pages.Dashboard.fleet.noMeter')
-          : t('Pages.Dashboard.fleet.noUsage')}
+          : t('Pages.Dashboard.fleet.noUsage', {
+              window: windowPhrase(t, windows.usageHistory, windows.period),
+            })}
       </span>
     );
   }

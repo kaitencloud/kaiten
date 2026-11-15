@@ -12,6 +12,7 @@ import {
   CUSTOMERS_CHECKS,
   quietChecks,
 } from '../logic/attention';
+import { activeDefinition, activityWindows } from '../logic/activity';
 import { buildFleet, countStandings } from '../logic/standing';
 import { AttentionCard } from './attention-card';
 import { BillingCard } from './billing-card';
@@ -84,7 +85,7 @@ export function CustomersView({
           ? t('Pages.Dashboard.figures.silent', {
               count: summary.figures.instances.silentInRange,
             })
-          : t('Pages.Dashboard.figures.activeDefinition'),
+          : activeDefinition(t, activityWindows(summary)),
       ],
     },
     {
@@ -164,7 +165,11 @@ export function CustomersView({
         checkedAt={checkedAt}
       />
       <FiguresRow figures={figures} />
-      <FleetCard rows={fleet} locale={locale} />
+      <FleetCard
+        rows={fleet}
+        locale={locale}
+        windows={activityWindows(summary)}
+      />
       <SignalsCards summary={summary} />
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <LicenseMixCard mix={summary.licenses.mix} />

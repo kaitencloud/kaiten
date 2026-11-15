@@ -16,6 +16,11 @@ import {
   instancePath,
   licensesEndingAtRisk,
 } from '../logic/attention';
+import {
+  activityWindows,
+  silenceDetail,
+  windowPhrase,
+} from '../logic/activity';
 import { formatQuantity } from '../logic/format';
 
 type Signal = {
@@ -35,6 +40,7 @@ const TOP = 4;
  */
 export function SignalsCards({ summary }: { summary: DashboardSummary }) {
   const { t } = useTranslation();
+  const windows = activityWindows(summary);
   const a = summary.attention;
 
   const growth: Signal[] = [
@@ -108,8 +114,10 @@ export function SignalsCards({ summary }: { summary: DashboardSummary }) {
         customer: item.customerName,
         instance: item.instanceName,
       }),
-      detail: t('Pages.Dashboard.signals.silentDetail'),
-      rule: t('Pages.Dashboard.signals.rules.silent'),
+      detail: silenceDetail(t, windows),
+      rule: t('Pages.Dashboard.signals.rules.silent', {
+        window: windowPhrase(t, windows.both, windows.period),
+      }),
       to: instancePath(item.instanceSlug),
     })),
   ];

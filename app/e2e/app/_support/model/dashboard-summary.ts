@@ -67,6 +67,13 @@ export const meter = (seed: MeterSeed): DashboardMeter => {
   };
 };
 
+/** The start of the first of the last `days` calendar days, today last. */
+export const firstDay = (now: Date, days: number): string => {
+  const day = new Date(now.getTime() - (days - 1) * DAY);
+  day.setUTCHours(0, 0, 0, 0);
+  return day.toISOString();
+};
+
 const perDay = (
   now: Date,
   days: number,
@@ -363,6 +370,10 @@ export function buildDashboardSummary(
       from: new Date(now.getTime() - days * DAY).toISOString(),
       to: now.toISOString(),
       days,
+      usageHistoryFrom: firstDay(now, days),
+      usageHistoryDays: days,
+      auditTrailFrom: firstDay(now, days),
+      auditTrailDays: days,
     },
     attention: {
       limitsReached: { count: 2, items: [ninjaMenu, ninjaLocations] },

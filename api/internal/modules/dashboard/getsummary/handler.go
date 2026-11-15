@@ -4,15 +4,18 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
+	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	"github.com/kaitencloud/kaiten/api/internal/modules/dashboard/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usageledger"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 )
@@ -27,6 +30,10 @@ const (
 	soonDays = 30
 	// endingHorizonDays is how far the Licenses-ending list looks.
 	endingHorizonDays = 180
+	// retentionReadTimeout bounds each retention lookup on the request path, as
+	// the audit trail's own list reads bound theirs: a slow licensing service
+	// shows more of the period rather than holding up the page.
+	retentionReadTimeout = 2 * time.Second
 )
 
 // Deps lists exactly what this handler needs, instead of the full
@@ -34,6 +41,11 @@ const (
 type Deps struct {
 	UserProvider currentuser.Provider
 	Queries      *db.Queries
+	// AuditRetention and UsageRetention say how far back the organization keeps
+	// its audit trail and its usage history, the two records the activity
+	// figures are read from.
+	AuditRetention auditretention.Retention
+	UsageRetention usageledger.Retention
 }
 
 type UseCase struct {
@@ -61,9 +73,14 @@ func (u *UseCase) Execute(ctx context.Context, q Query) (*DashboardSummary, erro
 		query: q,
 	}
 	c.from = c.now.AddDate(0, 0, -q.Range.Days())
+	c.usageFrom, c.auditFrom = u.activityWindows(ctx, c.org, c.now, c.from)
 	c.summary = &DashboardSummary{
-		AsOf:       c.now,
-		Range:      DashboardRangeWindow{Range: q.Range, From: c.from, To: c.now, Days: q.Range.Days()},
+		AsOf: c.now,
+		Range: DashboardRangeWindow{
+			Range: q.Range, From: c.from, To: c.now, Days: q.Range.Days(),
+			UsageHistoryFrom: c.usageFrom, UsageHistoryDays: calendarDays(c.usageFrom, c.now),
+			AuditTrailFrom: c.auditFrom, AuditTrailDays: calendarDays(c.auditFrom, c.now),
+		},
 		Saturation: []DashboardMeter{},
 		Zones:      []DashboardZone{},
 	}
@@ -91,14 +108,79 @@ func (u *UseCase) Execute(ctx context.Context, q Query) (*DashboardSummary, erro
 	return c.summary, nil
 }
 
+// activityWindows is where each record of activity is read from: the usage
+// history, for the accepted reports, and the audit trail, for refused reports,
+// entitlement reads and flag evaluations. Each is the period's start, or the
+// start of what the organization keeps of that record, whichever is later:
+// both are deleted past their retention, so a window that reaches further back
+// would read the deleted part as silence. Each record keeps its own start, so
+// a short audit trail does not hide the accepted reports a longer usage
+// history still holds.
+//
+// Both starts move to the next day boundary: the activity is counted by whole
+// calendar days, the days the chart draws, so that its total and the figures
+// count the same reports, and no window reaches before what is kept.
+//
+// The two lookups run together, each bounded like the trail's own list reads;
+// a retention that cannot be read in time restricts nothing.
+func (u *UseCase) activityWindows(ctx context.Context, org uuid.UUID, now, from time.Time) (usage, audit time.Time) {
+	usage, audit = from, from
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		// Clamp is the later of from and the trail's start, and bounds its own
+		// lookup.
+		audit = *u.deps.AuditRetention.Clamp(ctx, org, now, &from)
+	}()
+	go func() {
+		defer wg.Done()
+		readCtx, cancel := context.WithTimeout(ctx, retentionReadTimeout)
+		defer cancel()
+		if start := u.deps.UsageRetention.Start(readCtx, org, now); start != nil && start.After(from) {
+			usage = *start
+		}
+	}()
+	wg.Wait()
+	return nextDayBoundary(usage), nextDayBoundary(audit)
+}
+
+// nextDayBoundary is t when it starts a day, and the start of the next day
+// otherwise.
+func nextDayBoundary(t time.Time) time.Time {
+	if day := startOfDay(t); !day.Equal(t) {
+		return day.AddDate(0, 0, 1)
+	}
+	return t
+}
+
+// calendarDays counts the calendar days from the day of start to the day of
+// now, both included.
+func calendarDays(start, now time.Time) int {
+	return int(startOfDay(now).Sub(startOfDay(start)).Hours()/24) + 1
+}
+
+// later is the later of two instants.
+func later(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
 // computation carries one summary while its blocks are filled.
 type computation struct {
-	q       *db.Queries
-	org     uuid.UUID
-	now     time.Time
-	from    time.Time
-	query   Query
-	summary *DashboardSummary
+	q    *db.Queries
+	org  uuid.UUID
+	now  time.Time
+	from time.Time
+	// usageFrom and auditFrom are where the usage history and the audit trail
+	// are read from: the period's first whole day, or later where a retention
+	// cuts it.
+	usageFrom time.Time
+	auditFrom time.Time
+	query     Query
+	summary   *DashboardSummary
 	// headline is the meter that decides each instance's standing, by slug,
 	// over every meter of the organization: a meter at its limit before one
 	// above its threshold, the higher ratio first.
@@ -342,14 +424,17 @@ func standingOf(item DashboardInstanceReports) string {
 }
 
 func (c *computation) usageReports(ctx context.Context) error {
+	// The chart, and the totals it sums to, cover the days both records keep:
+	// a day the trail no longer holds would draw as no refusal.
+	chartFrom := later(c.usageFrom, c.auditFrom)
 	accepted, err := c.q.DashboardAcceptedReportsPerDay(ctx, db.DashboardAcceptedReportsPerDayParams{
-		OrganizationID: c.org, Since: ts(c.from),
+		OrganizationID: c.org, Since: ts(chartFrom),
 	})
 	if err != nil {
 		return err
 	}
 	rejected, err := c.q.DashboardRejectedReportsPerDay(ctx, db.DashboardRejectedReportsPerDayParams{
-		OrganizationID: c.org, Since: tz(c.from),
+		OrganizationID: c.org, Since: tz(chartFrom),
 	})
 	if err != nil {
 		return err
@@ -359,9 +444,8 @@ func (c *computation) usageReports(ctx context.Context) error {
 	// quiet days too.
 	byDay := map[string]*DashboardDayReports{}
 	days := []DashboardDayReports{}
-	// One bucket a calendar day, as many as the period has days, today last.
-	first := startOfDay(c.now).AddDate(0, 0, 1-c.summary.Range.Days)
-	for day := first; !day.After(c.now); day = day.AddDate(0, 0, 1) {
+	// One bucket a calendar day from chartFrom, a day boundary, today last.
+	for day := chartFrom; !day.After(c.now); day = day.AddDate(0, 0, 1) {
 		days = append(days, DashboardDayReports{Day: day})
 	}
 	for i := range days {
@@ -383,9 +467,12 @@ func (c *computation) usageReports(ctx context.Context) error {
 
 	rows, err := c.q.DashboardReportsByInstance(ctx, db.DashboardReportsByInstanceParams{
 		OrganizationID: c.org,
-		Since:          ts(c.from),
-		SinceTz:        tz(c.from),
-		LastDay:        tz(c.now.Add(-24 * time.Hour)),
+		// Each record from its own start: the accepted reports and the last
+		// one from the usage history, the refusals and the last read from the
+		// trail.
+		Since:   ts(c.usageFrom),
+		SinceTz: tz(c.auditFrom),
+		LastDay: tz(c.now.Add(-24 * time.Hour)),
 	})
 	if err != nil {
 		return err
@@ -459,7 +546,7 @@ func (c *computation) featureFlags(ctx context.Context) error {
 		return nil
 	}
 	rows, err := c.q.DashboardFlagEvaluations(ctx, db.DashboardFlagEvaluationsParams{
-		OrganizationID: c.org, Since: tz(c.from),
+		OrganizationID: c.org, Since: tz(c.auditFrom),
 	})
 	if err != nil {
 		return err
