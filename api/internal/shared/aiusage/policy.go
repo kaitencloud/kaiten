@@ -1,5 +1,8 @@
 // Package aiusage carries one operation's trusted platform feature-flag decision.
-// It grants neither scopes nor entitlements and does not gate financial evidence.
+// It grants neither scopes nor entitlements and does not gate financial evidence:
+// the flag admits new AI activity (catalogue, grants, reservations, reads), while
+// a commit, a numeric adjustment of a pool and deleting an instance, a customer
+// or an organization are never refused by it.
 package aiusage
 
 import (
@@ -20,8 +23,10 @@ type FlagReader interface {
 	BooleanValue(context.Context, uuid.UUID, string) (bool, error)
 }
 
-// Policy holds no rollout value or positive cache. Its zero value is closed,
-// including when handed a context resolved by another, configured policy.
+// Policy holds no rollout value and no cache of its own: it asks Flags once per
+// operation. In the server Flags is a CachedFlags, so that question is answered
+// from memory for one TTL per organization. Its zero value is closed, including
+// when handed a context resolved by another, configured policy.
 type Policy struct {
 	Flags FlagReader
 }
@@ -35,9 +40,10 @@ type (
 )
 
 // Resolve starts a NEW operation. Never reuse an inherited decision here: an
-// exact replay, a second facade call or a new GraphQL operation must re-evaluate
-// the live flag. Owning use cases call this after identity and before their
-// transaction; helpers only consume the resulting private snapshot.
+// exact replay, a second facade call or a new GraphQL operation must ask Flags
+// again, so a revocation is seen as soon as the reader's TTL allows and never
+// later because of a snapshot. Owning use cases call this after identity and
+// before their transaction; helpers only consume the resulting private snapshot.
 func (p Policy) Resolve(ctx context.Context, organizationID uuid.UUID) context.Context {
 	snapshot := decision{organizationID: organizationID}
 	if p.Flags != nil && organizationID != uuid.Nil && ctx.Err() == nil {
@@ -75,7 +81,9 @@ func (p Policy) Enabled(ctx context.Context) bool {
 	return true
 }
 
-// RequireEnabled must precede operational replay, planning and mutation. A
+// RequireEnabled must precede operational replay, planning and mutation of what
+// the flag admits. It is not for evidence: do not put it in front of a commit,
+// a numeric report, or the delete of an instance, customer or organization. A
 // refusal is never a pricing result or permission for unmetered usage.
 func (p Policy) RequireEnabled(ctx context.Context) error {
 	if !p.Enabled(ctx) {

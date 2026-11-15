@@ -27,7 +27,8 @@ type flagRepository interface {
 }
 
 // Reader's source is trusted driver wiring, never an operation's target tenant.
-// It has no positive-result cache: every operation reads the current flag.
+// It holds no cache of its own and reads the current flag on every call; the
+// server wraps it in aiusage.CachedFlags, which bounds how often that happens.
 type Reader struct {
 	repository flagRepository
 	source     uuid.UUID

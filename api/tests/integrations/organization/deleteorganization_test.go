@@ -88,6 +88,50 @@ func TestDeleteOrganization(t *testing.T) {
 		require.Equal(t, 1, countRows(t, `SELECT count(*) FROM feature_flags WHERE id = $1`, otherFlagID))
 	})
 
+	// The default test server has no platform flag source: AI is off for
+	// every organization, and offboarding one must not depend on that.
+	t.Run("WhenOrganizationHasAIRowsAndTheRolloutFlagIsOff_StillDeletes", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+		orgID := createOrganization(t)
+		authorID := createUser(t)
+		createMembership(t, orgID, authorID)
+		// The whole AI graph: a pool, a model, a rule that references the model
+		// with ON DELETE RESTRICT, and an open reservation. Everything cascades
+		// from the organization, so the rule must go before or with its model.
+		licenseID := createLicense(t, orgID)
+		var entitlementID, modelID uuid.UUID
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `
+			INSERT INTO entitlement (organization_id, name, slug, type, aggregation_method)
+			VALUES ($1, 'Offboarded credits', 'offboarded-credits', 'NUMBER_AI_CREDIT', 'SUM') RETURNING id
+		`, orgID).Scan(&entitlementID))
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `
+			INSERT INTO model (organization_id, name, slug, vendor, modality, created_by_id, updated_by_id)
+			VALUES ($1, 'Offboarded', 'offboarded-model', 'synthetic', 'TEXT', $2, $2) RETURNING id
+		`, orgID, authorID).Scan(&modelID))
+		_, err := testDb.DbPool.Exec(t.Context(), `
+			INSERT INTO credit_conversion_rule (organization_id, license_id, entitlement_id, model_id, rate_per_output_token, created_by_id, updated_by_id)
+			VALUES ($1, $2, $3, $4, 1, $5, $5)
+		`, orgID, licenseID, entitlementID, modelID, authorID)
+		require.NoError(t, err)
+		_, err = testDb.DbPool.Exec(t.Context(), `
+			INSERT INTO ai_inference (organization_id, instance_id, entitlement_id, transaction_id, status, reported_at, expires_at, model_ref, model_id, request_type, credits_reserved, request_hash)
+			VALUES ($1, gen_random_uuid(), $2, 'left-open', 'RESERVED', now() AT TIME ZONE 'UTC', (now() AT TIME ZONE 'UTC') + interval '10 minutes', 'offboarded-model', $3, 'COMPLETION', 1, decode(repeat('00', 32), 'hex'))
+		`, orgID, entitlementID, modelID)
+		require.NoError(t, err)
+
+		req := httptest.NewRequest("DELETE", "/api/platform/organizations/"+orgID.String(), nil)
+		resp, err := testServer.PlatformApp.Test(req, fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, resp.Body)
+
+		require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+		require.Equal(t, 0, countRows(t, `SELECT count(*) FROM organization WHERE id = $1`, orgID))
+		for _, table := range []string{"model", "credit_conversion_rule", "ai_inference", "entitlement"} {
+			require.Equal(t, 0, countRows(t, `SELECT count(*) FROM `+table+` WHERE organization_id = $1`, orgID), table)
+		}
+	})
+
 	t.Run("WhenOrganizationDoesNotExist_Returns404", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 

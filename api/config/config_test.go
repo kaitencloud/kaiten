@@ -503,10 +503,13 @@ func TestAIUsageConfiguration(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 10*time.Minute, cfg.AIUsage.ReservationTTL)
 		require.Equal(t, time.Hour, cfg.AIUsage.ReservationMaxTTL)
+		require.Equal(t, 30*time.Second, cfg.AIUsage.FlagCacheTTL)
 	})
 	for _, tc := range []struct{ name, variable, value string }{
 		{"zero ttl", "KAITEN_AI_RESERVATION_DEFAULT_TTL", "0s"},
 		{"ttl above max", "KAITEN_AI_RESERVATION_DEFAULT_TTL", "2h"},
+		{"negative flag cache", "KAITEN_AI_FLAG_CACHE_TTL", "-1s"},
+		{"flag cache above one hour", "KAITEN_AI_FLAG_CACHE_TTL", "61m"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			minimum(t)

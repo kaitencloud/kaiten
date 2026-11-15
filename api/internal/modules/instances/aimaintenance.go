@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/metric"
 
@@ -15,8 +16,9 @@ import (
 )
 
 // startAIMaintenance closes expired reservations without moving money. Workers
-// stay registered while AI is off: each sweep/gauge resolves a fresh per-org
-// platform flag, so live enablement and revocation need no replica restart.
+// stay registered while AI is off. The expiry sweep never asks the flag: a hold
+// that exists is closed on time whatever the rollout says, since commits are
+// accepted while off. Only the open-holds gauge resolves the per-org flag.
 func startAIMaintenance(svc services.Container) {
 	if !svc.BackgroundWorkers || svc.Pool == nil || svc.PlatformFlags == nil {
 		return
@@ -47,22 +49,47 @@ func startAIMaintenance(svc services.Container) {
 	// The flag reader uses its own pool connection. Elect on a dedicated
 	// connection, as billing does, so a one-connection pool cannot self-deadlock.
 	job := sweep.NewPoolPass("ai-credit-maintenance", svc.Pool, 20261019000000, sweep.Config{InitialDelay: time.Minute, Interval: time.Minute}, func(ctx context.Context) error {
-		return enabledAIOrganizations(ctx, svc.Pool, policy, func(ctx context.Context, org uuid.UUID) error {
-			// Only this admitted organization's bookkeeping, never a global expiry
-			// after one tenant enabled the flag. Disabled tenants retain their data.
-			result, err := svc.Pool.Exec(ctx, `WITH expired AS (
- SELECT id FROM ai_inference WHERE organization_id=$1 AND status='RESERVED'
- AND expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
- ORDER BY expires_at LIMIT 1000 FOR UPDATE SKIP LOCKED
-) UPDATE ai_inference SET status='EXPIRED' WHERE organization_id=$1 AND id IN (SELECT id FROM expired)`, org)
-			if err == nil && expiredMetric != nil {
-				expiredMetric.Add(ctx, result.RowsAffected())
-			}
-			return err
-		})
+		expired, err := ExpireAIReservations(ctx, svc.Pool)
+		if expiredMetric != nil {
+			expiredMetric.Add(ctx, expired)
+		}
+		return err
 	})
 	svc.WorkerRegistry.OnStop(job.Stop)
 	job.Start(context.Background())
+}
+
+const (
+	aiExpiryBatch      = 1000
+	aiExpiryMaxBatches = 50
+)
+
+type aiReservationStore interface {
+	Exec(context.Context, string, ...any) (pgconn.CommandTag, error)
+}
+
+// ExpireAIReservations marks overdue holds EXPIRED, oldest first, for every
+// organization at once and whatever its rollout flag says: expiry changes a
+// status, never a balance, and no row is removed. It walks the partial index
+// on expires_at in bounded batches, so a pass costs what is overdue, not the
+// number of organizations. It returns how many holds it closed, also on error.
+func ExpireAIReservations(ctx context.Context, store aiReservationStore) (int64, error) {
+	var expired int64
+	for range aiExpiryMaxBatches {
+		result, err := store.Exec(ctx, `WITH overdue AS (
+ SELECT organization_id, id FROM ai_inference WHERE status='RESERVED'
+ AND expires_at <= (clock_timestamp() AT TIME ZONE 'UTC')
+ ORDER BY expires_at LIMIT $1 FOR UPDATE SKIP LOCKED
+) UPDATE ai_inference a SET status='EXPIRED' FROM overdue o WHERE a.organization_id=o.organization_id AND a.id=o.id`, aiExpiryBatch)
+		if err != nil {
+			return expired, err
+		}
+		expired += result.RowsAffected()
+		if result.RowsAffected() < aiExpiryBatch {
+			break
+		}
+	}
+	return expired, nil
 }
 
 type organizationReader interface {

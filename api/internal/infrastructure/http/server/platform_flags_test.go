@@ -3,12 +3,15 @@ package server
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/config"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/platformflags"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
 )
@@ -55,4 +58,23 @@ func TestPartialRemoteSourceCannotFallBackOrReadCredentials(t *testing.T) {
 		require.Nil(t, s.deps.PlatformFlags)
 		require.Nil(t, s.flagReporter)
 	}
+}
+
+func TestSelectedSourceIsCachedAndADriverReaderIsNot(t *testing.T) {
+	t.Parallel()
+	// A local source with a database handle is the one the server selects itself.
+	local := func(ttl time.Duration) *Server {
+		return &Server{cfg: config.Config{CoreConfig: config.CoreConfig{Metered: config.Metered{OrganizationID: uuid.NewString()}, AIUsage: config.AIUsage{FlagCacheTTL: ttl}}}, deps: Dependencies{DB: &pgxpool.Pool{}}}
+	}
+	s := local(30 * time.Second)
+	require.NoError(t, s.setupPlatformFlags(t.Context()))
+	require.IsType(t, &aiusage.CachedFlags{}, s.deps.PlatformFlags)
+
+	s = local(0)
+	require.NoError(t, s.setupPlatformFlags(t.Context()))
+	require.IsType(t, &platformflags.Reader{}, s.deps.PlatformFlags, "a zero TTL keeps every operation on the source")
+
+	s = &Server{cfg: config.Config{CoreConfig: config.CoreConfig{AIUsage: config.AIUsage{FlagCacheTTL: 30 * time.Second}}}, deps: Dependencies{PlatformFlags: aitest.Flags(true)}}
+	require.NoError(t, s.setupPlatformFlags(t.Context()))
+	require.IsType(t, aitest.Flags(true), s.deps.PlatformFlags, "a reader handed in by the driver is used as given")
 }

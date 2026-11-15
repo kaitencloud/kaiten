@@ -62,15 +62,13 @@ func TestOrdinaryMetadataFailuresKeepAttemptAccountingOffAndOn(t *testing.T) {
 
 func TestClassifiedOrdinaryLoadAndClockFailuresKeepDeferredAttempt(t *testing.T) {
 	for _, scenario := range []struct {
-		name, kind      string
-		lookup, outcome error
+		name, kind string
+		lookup     error
 	}{
-		{"missing target", "", pgx.ErrNoRows, apierrors.NotFound("missing", "missing")},
-		{"ungranted number", "NUMBER", nil, apierrors.NotFound("ungranted", "ungranted")},
-		{"unsupported boolean", "BOOLEAN", nil, apierrors.Validation("unsupported", "unsupported")},
-		{"unsupported config", "CONFIG", nil, apierrors.Validation("unsupported", "unsupported")},
-		{"LockPair error", "NUMBER", nil, errors.New("lock failed")},
-		{"clock error", "NUMBER", nil, errors.New("clock failed")},
+		{"missing target", "", pgx.ErrNoRows},
+		{"number", "NUMBER", nil},
+		{"unsupported boolean", "BOOLEAN", nil},
+		{"unsupported config", "CONFIG", nil},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
 			reporter := &rolloutReporter{}
@@ -79,8 +77,8 @@ func TestClassifiedOrdinaryLoadAndClockFailuresKeepDeferredAttempt(t *testing.T)
 			require.NoError(t, err)
 			require.True(t, eligible, "arm before metadata/LockPair/current-grant validation")
 			require.Zero(t, reporter.writes, "classification does not submit under a pair lock")
-			u.finishOrdinaryAttempt(uuid.New(), scenario.outcome)
-			require.Equal(t, 1, reporter.writes)
+			u.finishOrdinaryAttempt(uuid.New())
+			require.Equal(t, 1, reporter.writes, "whatever the report's outcome")
 		})
 	}
 }
@@ -92,12 +90,6 @@ func TestKnownAIAndUnknownClassificationNeverBecomeOrdinaryAttempts(t *testing.T
 		_, err := u.Execute(t.Context(), "instance", "pool", &Command{Metadata: map[string]any{"unsupported": make(chan int)}})
 		require.Error(t, err)
 		require.Zero(t, reporter.writes)
-		if classifier.kind != "" {
-			require.Equal(t, "AIUsage.Disabled", apierrors.GetCode(err))
-		}
+		require.NotEqual(t, "AIUsage.Disabled", apierrors.GetCode(err), "a numeric report on a pool is evidence: the flag does not refuse it")
 	}
-	reporter := &rolloutReporter{}
-	u := NewUseCase(Deps{UsageReporter: reporter})
-	u.finishOrdinaryAttempt(uuid.New(), apierrors.Forbidden("AIUsage.Disabled", "disabled after LockPair"))
-	require.Zero(t, reporter.writes, "the authoritative locked-type refusal cancels even an earlier ordinary classification")
 }
