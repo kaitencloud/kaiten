@@ -319,6 +319,28 @@ WHERE c.organization_id = sqlc.arg(organization_id)
 ORDER BY lf.slug;
 
 
+-- name: ListAddonGrantsByLicenseFamilies :many
+-- What add-ons can grant on the versions of the given licence families: every
+-- entitlement of every add-on version that declares the family compatible.
+-- Compatibility is the only relation between an add-on and a licence, and it
+-- is per add-on VERSION and licence FAMILY (addon_compatible_license), so the
+-- answer is the same for every version of a family. Every lifecycle state is
+-- returned: a DRAFT or an ARCHIVED version an instance holds still grants.
+SELECT c.license_family_id,
+       a.id AS addon_id, a.slug AS addon_slug, af.slug AS addon_family_slug, a.name AS addon_name,
+       a.version AS addon_version, a.lifecycle_state, a.is_default, a.max_quantity,
+       e.slug AS entitlement_slug, e.type AS entitlement_type,
+       ae.value, ae.limit_cap_exceeded_overage_percent, ae.override_behavior
+FROM addon_compatible_license c
+JOIN addon a ON a.id = c.addon_id AND a.organization_id = c.organization_id
+JOIN addon_family af ON af.id = a.family_id AND af.organization_id = a.organization_id
+JOIN addon_entitlement ae ON ae.addon_id = a.id AND ae.organization_id = a.organization_id
+JOIN entitlement e ON e.id = ae.entitlement_id AND e.organization_id = ae.organization_id
+WHERE c.organization_id = sqlc.arg(organization_id)
+  AND c.license_family_id = ANY (sqlc.arg(license_family_ids)::uuid[])
+ORDER BY c.license_family_id, e.slug, af.slug, a.version DESC;
+
+
 -- name: GetLicenseFamilyIDBySlug :one
 SELECT id
 FROM license_family

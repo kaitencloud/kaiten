@@ -1,11 +1,11 @@
-export * from './query-keys';
-export { RuleForm, ruleFormSchema } from './rule-form';
-export { RatePreset, TypicalPreview } from './rule-pricing';
-export * from './pricing-preview';
 export { AiTextField, AiSelectField, AiDecimalField } from './ai-fields';
-export { AiSection, AiLoading, AiQueryError } from './ai-section';
+export { AiLoading, AiQueryError } from './ai-section';
 export { modelsQueryOptions, invalidateAiQueries } from './ai-query-options';
-export { ConversionRuleSummary } from './conversion-rule-summary';
+export {
+  addModelExternalId,
+  archiveModel,
+  suggestModelFor,
+} from './model-writes';
 export { useAiAccess } from './use-ai-access';
 export { AiAvailability } from './ai-availability';
 export {
@@ -30,3 +30,127 @@ export {
   assertAiRequestAllowed,
   revokeAiAccess,
 } from './ai-request-guard';
+
+// The pricing engine: the arithmetic and the rule resolution of the server's
+// `aicredit` package, mirrored for what the console shows before a call is made.
+export {
+  AI_REQUEST_TYPES,
+  buildRateCardCell,
+  compareDecimals,
+  COST_PER_CREDIT_PLACES,
+  costPerCredit,
+  CREDIT_PLACES,
+  DEFAULT_REFERENCE_CALLS,
+  denialReasonFor,
+  findModelByRef,
+  isChargeable,
+  isOwnRule,
+  margin,
+  MARGIN_PLACES,
+  modelShowsRequestType,
+  parseDecimal,
+  percentToFactor,
+  previewCalls,
+  priceUsage,
+  PRICING_DIMENSIONS,
+  RATE_KEY_OF,
+  RATE_PLACES,
+  ratesFromVendorCost,
+  reconstructReceipt,
+  readDecimalInput,
+  refundableCredits,
+  refundAmountIssue,
+  normalizeRefundAmount,
+  requestTypesForModality,
+  resolveLadder,
+  resolveRule,
+  roundDecimal,
+  steerOnCost,
+  sameDecimal,
+  scaleRates,
+  SPECIFICITIES,
+  specificityOf,
+  subtractDecimals,
+  toDecimalString,
+  validateReferenceCall,
+  vendorCost,
+  vendorCostDrift,
+  wildcardCoverage,
+  type AiInferenceWithSnapshot,
+  type AiRequestStatus,
+  type AiRequestType,
+  type ChargeOnError,
+  type Decimal,
+  type DenialReason,
+  type LadderLevel,
+  type LadderLevelState,
+  type LadderResolution,
+  type ModelModality,
+  type ModelStatus,
+  type PreviewCallKind,
+  type Priced,
+  type PriceError,
+  type PriceLine,
+  type PriceOutcome,
+  type PricingDimension,
+  type PricingModel,
+  type PricingRule,
+  type PricingSnapshot,
+  type PricingTerms,
+  type PricingWarning,
+  type RateCardCell,
+  type RateCardCellInput,
+  type RateCardCellState,
+  type RateKey,
+  type ReceiptInput,
+  type ReceiptReconstruction,
+  type ReceiptUnavailableReason,
+  type ReferenceCallIssue,
+  type RefundAmountIssue,
+  type Specificity,
+  type VendorCostLine,
+  type VendorCostResult,
+} from './pricing';
+
+// The rate-card read and what the pool and model screens derive from it.
+export {
+  AddonGrantDetails,
+  addonGrantLabel,
+  AddonGrantPopover,
+  addonNamesOf,
+  aiAddonGrantsQueryOptions,
+  aiRateCardQueryKey,
+  aiRateCardQueryOptions,
+  poolGrantOf,
+  rateCardCellOf,
+  referenceRequestType,
+  summarisePoolPricing,
+  useAddonGrants,
+  WILDCARD_CELL_MODEL,
+  wildcardImpactOf,
+  type AddonGrant,
+  type AddonGrantsAnswer,
+  type AddonGrantsState,
+  type AddonGrantsTarget,
+  type RateCardGrant,
+  type RateCardLicense,
+  type RateCardRule,
+  type ModelCostPerCredit,
+  type PoolGrant,
+  type PoolVersionSummary,
+  type WildcardImpactRow,
+} from './rate-card';
+
+// What the AI screens keep in this browser until the API stores it.
+export {
+  isUsableCreditValue,
+  poolSettingsId,
+  PRICING_SETTINGS_STORAGE_KEY,
+  pricingSettingsCollection,
+  referenceCallOf,
+  referenceSettingsId,
+  setLocalCreditValue,
+  setLocalReferenceCall,
+  useLocalCreditValue,
+  type PricingSettingsRecord,
+} from './pricing-local-settings';

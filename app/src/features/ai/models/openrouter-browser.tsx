@@ -4,19 +4,25 @@ import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { Model } from '@/api-client';
 import {
+  AiLoading,
+  AiQueryError,
   useAiNavigationContext,
   useAiAccess,
   assertAiRequestAllowed,
 } from '@/domains/ai-credits';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AiLoading, AiQueryError } from '../ai-section';
 import {
   fetchOpenRouterCatalogue,
   openRouterSlug,
   type OpenRouterEntry,
 } from './openrouter-catalogue';
-import { openRouterErrorMessage, perMillionDisplay } from './openrouter-ui';
+import {
+  isOpenRouterUnreachable,
+  openRouterErrorMessage,
+  perMillionDisplay,
+} from './openrouter-ui';
+import { OpenRouterUnreachable } from './openrouter-unreachable';
 
 export function SourceEntryDetails({ entry }: { entry: OpenRouterEntry }) {
   const { t } = useTranslation();
@@ -83,6 +89,8 @@ export function OpenRouterBrowser({
   );
   if (!access.available) return null;
   if (query.isPending) return <AiLoading label={t('AI.OpenRouter.loading')} />;
+  if (query.isError && isOpenRouterUnreachable(query.error))
+    return <OpenRouterUnreachable onRetry={() => query.refetch()} />;
   if (query.isError)
     return (
       <AiQueryError
@@ -135,7 +143,7 @@ export function OpenRouterBrowser({
                     nativeButton={false}
                     render={
                       <Link
-                        to="/catalog/models/$modelSlug/source"
+                        to="/ai/models/$modelSlug/source"
                         params={{ modelSlug: existing.slug }}
                         search={context}
                       />

@@ -79,6 +79,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 		}
 	}()
 	var eff *Effect
+	var reportedAt time.Time
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		st, err := h.load(ctx, user.OrganizationID, instanceSlug, entitlementSlug)
 		if err != nil {
@@ -89,6 +90,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 			return err
 		}
 
+		reportedAt = st.Now
 		st.Properties = properties
 		st.TransactionID = command.TransactionID
 		if err := h.loadAI(ctx, st, command, instanceSlug); err != nil {
@@ -146,6 +148,9 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 		return nil, eff.Refusal
 	}
 	result = &Result{Usage: eff.Response}
+	if eff.ReportSeq != nil {
+		result.ReportSeq, result.ReportedAt = eff.ReportSeq, &reportedAt
+	}
 	if tooLarge {
 		h.metadataDropped.Add(ctx, 1, metric.WithAttributes(attribute.String("reason", metadataDroppedTooLarge)))
 		result.MetadataDropped = metadataDroppedTooLarge

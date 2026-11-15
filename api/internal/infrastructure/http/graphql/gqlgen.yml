@@ -133,6 +133,12 @@ models:
         resolver: true
       saleUnitFactor:
         resolver: true
+  LicenseAddonGrant:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql.LicenseAddonGrant
+  AddonOverrideBehavior:
+    model:
+      - github.com/99designs/gqlgen/graphql.String
   AddonPage:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql.AddonPage
@@ -163,6 +169,10 @@ models:
       family:
         resolver: true
       prices:
+        resolver: true
+      versionNumber:
+        resolver: true
+      addonGrants:
         resolver: true
   LicensePrice:
     model:
@@ -222,6 +232,10 @@ models:
   LicenseFamily:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamily
+    fields:
+      # Read only when a query selects it, batched across the response.
+      currentVersion:
+        resolver: true
   LicenseFamilyView:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.LicenseFamilyView

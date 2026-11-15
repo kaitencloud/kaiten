@@ -36,7 +36,7 @@ const useEntitlementActiveTab = (entitlementSlug: string) => {
   return getActiveTabFromPathname({
     defaultTab: 'overview',
     matchers: [
-      { suffix: '/calculation', value: 'calculation' },
+      { suffix: '/pricing', value: 'pricing' },
       { suffix: '/usage', value: 'usage' },
     ],
     pathname,
@@ -100,7 +100,7 @@ function EntitlementDetailHeader({
               />
             </Page.Title>
             {entitlement.type === 'NUMBER_AI_CREDIT' ? (
-              <Badge variant="secondary">{t('AI.Calculation.typeLabel')}</Badge>
+              <Badge variant="secondary">{t('AI.Pool.typeLabel')}</Badge>
             ) : null}
           </Page.TitleRow>
           <Page.Subtitle>
@@ -121,7 +121,7 @@ const getEntitlementTabs = (
   t: ReturnType<typeof useTranslation>['t'],
   entitlement: Entitlement,
   licenseSlug?: string,
-  mayCalculateAi = false,
+  mayPriceAi = false,
 ) => {
   return [
     {
@@ -131,14 +131,15 @@ const getEntitlementTabs = (
       value: 'overview',
       search: { licenseSlug },
     },
-    ...(mayCalculateAi && entitlement.type === 'NUMBER_AI_CREDIT'
+    // A credit pool's Pricing tab summarises the rate card per version.
+    ...(mayPriceAi && entitlement.type === 'NUMBER_AI_CREDIT'
       ? [
           {
-            label: t('AI.Calculation.title'),
+            label: t('AI.Pool.pricingTab'),
             params: { entitlementSlug },
-            to: '/catalog/entitlements/$entitlementSlug/calculation',
-            value: 'calculation',
-            search: { licenseSlug },
+            to: '/catalog/entitlements/$entitlementSlug/pricing',
+            value: 'pricing',
+            search: { licenseSlug, version: licenseSlug },
           },
         ]
       : []),
@@ -173,7 +174,7 @@ function EntitlementDetailLayout({
     <DetailEntityLayout>
       <DetailEntityLayout.Top>
         <EntitlementDetailHeader entitlement={entitlement} />
-        {activeTab !== 'calculation' && (
+        {activeTab !== 'pricing' && (
           <EntitlementDetailStats
             isLoading={isLoading}
             isUsageLoading={isUsageLoading}

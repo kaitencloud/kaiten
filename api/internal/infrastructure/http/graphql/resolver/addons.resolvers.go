@@ -13,6 +13,7 @@ import (
 	addonsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/addons/graphql"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
+	schema1 "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 )
 
 // Prices is the resolver for the prices field.
@@ -45,6 +46,14 @@ func (r *instanceResolver) Addons(ctx context.Context, obj *schema.Instance) ([]
 		return nil, err
 	}
 	return addonsGraphql.LoadInstanceAddons(ctx, obj.ID)
+}
+
+// AddonGrants is the resolver for the addonGrants field.
+func (r *licenseResolver) AddonGrants(ctx context.Context, obj *schema1.License, entitlementSlug *string) ([]addonsGraphql.LicenseAddonGrant, error) {
+	if err := requireBilling(ctx); err != nil {
+		return nil, err
+	}
+	return addonsGraphql.LoadLicenseAddonGrants(ctx, obj.FamilyID, entitlementSlug)
 }
 
 // Addons is the resolver for the addons field.

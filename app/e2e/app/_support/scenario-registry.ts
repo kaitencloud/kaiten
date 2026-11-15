@@ -2,6 +2,7 @@
  * Canonical browser-free inventory of scenario factories and explicit variants.
  * Consumers execute factories; model constructors validate their API seeds.
  */
+import { aiScenarioChecks } from '../ai/ai.scenarios';
 import {
   createAddonsBillingModel,
   createAddonsInstancesModel,
@@ -133,6 +134,7 @@ import {
 export type ScenarioCheck = readonly [name: string, factory: () => unknown];
 
 export const e2eScenarioChecks: readonly ScenarioCheck[] = [
+  ...aiScenarioChecks,
   ['addons/createAddonsBillingModel', createAddonsBillingModel],
   ['addons/createAddonsInstancesModel', createAddonsInstancesModel],
   ['addons/createAddonsLicensesModel', createAddonsLicensesModel],

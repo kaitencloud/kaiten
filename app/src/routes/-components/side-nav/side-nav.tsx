@@ -20,6 +20,7 @@ import {
   SideNavBillingRoutes,
   SideNavFooterRoutes,
   SideNavPrimaryRoutes,
+  useResolvedAiItems,
   useResolvedCatalogItems,
   useResolvedIntegrationsItems,
 } from './side-nav-sections';
@@ -33,6 +34,9 @@ export function SideNav() {
   const catalogItems = useResolvedCatalogItems();
   const isCatalogActive = isRouteActive(pathname, '/catalog');
   const catalogState = useSideNavMenuState(isCatalogActive);
+  const aiItems = useResolvedAiItems();
+  const isAiActive = isRouteActive(pathname, '/ai');
+  const aiState = useSideNavMenuState(isAiActive);
   const integrationsItems = useResolvedIntegrationsItems();
   const isIntegrationsActive = isRouteActive(pathname, '/integrations');
   const integrationsState = useSideNavMenuState(isIntegrationsActive);
@@ -59,6 +63,19 @@ export function SideNav() {
                   title={t('Pages.Catalog.title')}
                 />
               </SidebarMenuItem>
+              {aiItems.length > 0 ? (
+                <SidebarMenuItem>
+                  <SideNavCollapsibleMenu
+                    Icon={dataModelIcons.ai}
+                    isActive={isAiActive}
+                    isCollapsed={isCollapsed}
+                    items={aiItems}
+                    pathname={pathname}
+                    state={aiState}
+                    title={t('AI.Nav.title')}
+                  />
+                </SidebarMenuItem>
+              ) : null}
               <SideNavBillingRoutes pathname={pathname} />
               <SidebarMenuItem>
                 <SideNavCollapsibleMenu

@@ -16,6 +16,8 @@ import { Route as InvoicesRouteRouteImport } from './routes/invoices/route'
 import { Route as ReleasesRouteRouteImport } from './routes/releases/route'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as AiIndexRouteImport } from './routes/ai/index'
+import { Route as AiModelsRouteRouteImport } from './routes/ai/models/route'
 import { Route as AuditTrailIndexRouteImport } from './routes/audit-trail/index'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as CatalogAddonsRouteRouteImport } from './routes/catalog/addons/route'
@@ -50,7 +52,9 @@ import { Route as SettingsNotificationsRouteImport } from './routes/settings/not
 import { Route as SettingsPlanRouteImport } from './routes/settings/plan'
 import { Route as AiMatrixIndexRouteImport } from './routes/ai/matrix/index'
 import { Route as AiModelsIndexRouteImport } from './routes/ai/models/index'
+import { Route as AiModelsImportRouteImport } from './routes/ai/models/import'
 import { Route as AiModelsNewRouteImport } from './routes/ai/models/new'
+import { Route as AiPricingIndexRouteImport } from './routes/ai/pricing/index'
 import { Route as CatalogAddonsIndexRouteImport } from './routes/catalog/addons/index'
 import { Route as CatalogAddonsAddonSlugRouteRouteImport } from './routes/catalog/addons/$addonSlug/route'
 import { Route as CatalogEntitlementsIndexRouteImport } from './routes/catalog/entitlements/index'
@@ -88,6 +92,7 @@ import { Route as ReleasesDeploymentZoneIndexRouteImport } from './routes/releas
 import { Route as ReleasesDeploymentZonesZoneSlugRouteRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/route'
 import { Route as ReleasesNewIndexRouteImport } from './routes/releases/new/index'
 import { Route as AiModelsModelSlugEditRouteImport } from './routes/ai/models/$modelSlug/edit'
+import { Route as AiModelsModelSlugSourceRouteImport } from './routes/ai/models/$modelSlug/source'
 import { Route as CatalogAddonsAddonSlugIndexRouteImport } from './routes/catalog/addons/$addonSlug/index'
 import { Route as CatalogAddonsAddonSlugCompatibilityRouteImport } from './routes/catalog/addons/$addonSlug/compatibility'
 import { Route as CatalogAddonsAddonSlugEntitlementsRouteImport } from './routes/catalog/addons/$addonSlug/entitlements'
@@ -97,6 +102,7 @@ import { Route as CatalogEntitlementsEntitlementSlugIndexRouteImport } from './r
 import { Route as CatalogEntitlementsEntitlementSlugCalculationRouteImport } from './routes/catalog/entitlements/$entitlementSlug/calculation'
 import { Route as CatalogEntitlementsEntitlementSlugCustomersRouteImport } from './routes/catalog/entitlements/$entitlementSlug/customers'
 import { Route as CatalogEntitlementsEntitlementSlugLicensesRouteImport } from './routes/catalog/entitlements/$entitlementSlug/licenses'
+import { Route as CatalogEntitlementsEntitlementSlugPricingRouteImport } from './routes/catalog/entitlements/$entitlementSlug/pricing'
 import { Route as CatalogEntitlementsEntitlementSlugUsageRouteImport } from './routes/catalog/entitlements/$entitlementSlug/usage'
 import { Route as CatalogEntitlementsNewIndexRouteImport } from './routes/catalog/entitlements/new/index'
 import { Route as CatalogLicensesLicenseSlugIndexRouteImport } from './routes/catalog/licenses/$licenseSlug/index'
@@ -176,6 +182,16 @@ const SignUpRoute = SignUpRouteImport.update({
   id: '/sign-up',
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AiIndexRoute = AiIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AiRouteRoute,
+} as any)
+const AiModelsRouteRoute = AiModelsRouteRouteImport.update({
+  id: '/models',
+  path: '/models',
+  getParentRoute: () => AiRouteRoute,
 } as any)
 const AuditTrailIndexRoute = AuditTrailIndexRouteImport.update({
   id: '/audit-trail/',
@@ -354,13 +370,23 @@ const AiMatrixIndexRoute = AiMatrixIndexRouteImport.update({
   getParentRoute: () => AiRouteRoute,
 } as any)
 const AiModelsIndexRoute = AiModelsIndexRouteImport.update({
-  id: '/models/',
-  path: '/models/',
-  getParentRoute: () => AiRouteRoute,
+  id: '/',
+  path: '/',
+  getParentRoute: () => AiModelsRouteRoute,
+} as any)
+const AiModelsImportRoute = AiModelsImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => AiModelsRouteRoute,
 } as any)
 const AiModelsNewRoute = AiModelsNewRouteImport.update({
-  id: '/models/new',
-  path: '/models/new',
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AiModelsRouteRoute,
+} as any)
+const AiPricingIndexRoute = AiPricingIndexRouteImport.update({
+  id: '/pricing/',
+  path: '/pricing/',
   getParentRoute: () => AiRouteRoute,
 } as any)
 const CatalogAddonsIndexRoute = CatalogAddonsIndexRouteImport.update({
@@ -569,9 +595,14 @@ const ReleasesNewIndexRoute = ReleasesNewIndexRouteImport.update({
   getParentRoute: () => ReleasesRouteRoute,
 } as any)
 const AiModelsModelSlugEditRoute = AiModelsModelSlugEditRouteImport.update({
-  id: '/models/$modelSlug/edit',
-  path: '/models/$modelSlug/edit',
-  getParentRoute: () => AiRouteRoute,
+  id: '/$modelSlug/edit',
+  path: '/$modelSlug/edit',
+  getParentRoute: () => AiModelsRouteRoute,
+} as any)
+const AiModelsModelSlugSourceRoute = AiModelsModelSlugSourceRouteImport.update({
+  id: '/$modelSlug/source',
+  path: '/$modelSlug/source',
+  getParentRoute: () => AiModelsRouteRoute,
 } as any)
 const CatalogAddonsAddonSlugIndexRoute =
   CatalogAddonsAddonSlugIndexRouteImport.update({
@@ -624,6 +655,12 @@ const CatalogEntitlementsEntitlementSlugLicensesRoute =
   CatalogEntitlementsEntitlementSlugLicensesRouteImport.update({
     id: '/licenses',
     path: '/licenses',
+    getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
+  } as any)
+const CatalogEntitlementsEntitlementSlugPricingRoute =
+  CatalogEntitlementsEntitlementSlugPricingRouteImport.update({
+    id: '/pricing',
+    path: '/pricing',
     getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
   } as any)
 const CatalogEntitlementsEntitlementSlugUsageRoute =
@@ -902,6 +939,7 @@ export interface FileRoutesByFullPath {
   '/releases': typeof ReleasesRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/ai/models': typeof AiModelsRouteRouteWithChildren
   '/catalog/addons': typeof CatalogAddonsRouteRouteWithChildren
   '/catalog/entitlements': typeof CatalogEntitlementsRouteRouteWithChildren
   '/catalog/models': typeof CatalogModelsRouteRouteWithChildren
@@ -924,6 +962,7 @@ export interface FileRoutesByFullPath {
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/plan': typeof SettingsPlanRoute
+  '/ai/': typeof AiIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
   '/catalog/': typeof CatalogIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -940,6 +979,7 @@ export interface FileRoutesByFullPath {
   '/catalog/vouchers/$voucherId': typeof CatalogVouchersVoucherIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
+  '/ai/models/import': typeof AiModelsImportRoute
   '/ai/models/new': typeof AiModelsNewRoute
   '/catalog/models/import': typeof CatalogModelsImportRoute
   '/catalog/models/new': typeof CatalogModelsNewRoute
@@ -955,6 +995,7 @@ export interface FileRoutesByFullPath {
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
   '/ai/matrix/': typeof AiMatrixIndexRoute
   '/ai/models/': typeof AiModelsIndexRoute
+  '/ai/pricing/': typeof AiPricingIndexRoute
   '/catalog/addons/': typeof CatalogAddonsIndexRoute
   '/catalog/entitlements/': typeof CatalogEntitlementsIndexRoute
   '/catalog/licenses/': typeof CatalogLicensesIndexRoute
@@ -976,12 +1017,14 @@ export interface FileRoutesByFullPath {
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
   '/ai/models/$modelSlug/edit': typeof AiModelsModelSlugEditRoute
+  '/ai/models/$modelSlug/source': typeof AiModelsModelSlugSourceRoute
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
   '/catalog/entitlements/$entitlementSlug/calculation': typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  '/catalog/entitlements/$entitlementSlug/pricing': typeof CatalogEntitlementsEntitlementSlugPricingRoute
   '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
   '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
   '/catalog/models/$modelSlug/edit': typeof CatalogModelsModelSlugEditRoute
@@ -1030,7 +1073,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/ai': typeof AiRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
@@ -1042,6 +1084,7 @@ export interface FileRoutesByTo {
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/plan': typeof SettingsPlanRoute
+  '/ai': typeof AiIndexRoute
   '/audit-trail': typeof AuditTrailIndexRoute
   '/catalog': typeof CatalogIndexRoute
   '/customers': typeof CustomersIndexRoute
@@ -1052,6 +1095,7 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsIndexRoute
   '/releases': typeof ReleasesIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/ai/models/import': typeof AiModelsImportRoute
   '/ai/models/new': typeof AiModelsNewRoute
   '/catalog/models/import': typeof CatalogModelsImportRoute
   '/catalog/models/new': typeof CatalogModelsNewRoute
@@ -1067,6 +1111,7 @@ export interface FileRoutesByTo {
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
   '/ai/matrix': typeof AiMatrixIndexRoute
   '/ai/models': typeof AiModelsIndexRoute
+  '/ai/pricing': typeof AiPricingIndexRoute
   '/catalog/addons': typeof CatalogAddonsIndexRoute
   '/catalog/entitlements': typeof CatalogEntitlementsIndexRoute
   '/catalog/licenses': typeof CatalogLicensesIndexRoute
@@ -1087,12 +1132,14 @@ export interface FileRoutesByTo {
   '/releases/new': typeof ReleasesNewIndexRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
   '/ai/models/$modelSlug/edit': typeof AiModelsModelSlugEditRoute
+  '/ai/models/$modelSlug/source': typeof AiModelsModelSlugSourceRoute
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
   '/catalog/entitlements/$entitlementSlug/calculation': typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  '/catalog/entitlements/$entitlementSlug/pricing': typeof CatalogEntitlementsEntitlementSlugPricingRoute
   '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
   '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
   '/catalog/models/$modelSlug/edit': typeof CatalogModelsModelSlugEditRoute
@@ -1148,6 +1195,7 @@ export interface FileRoutesById {
   '/releases': typeof ReleasesRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/ai/models': typeof AiModelsRouteRouteWithChildren
   '/catalog/addons': typeof CatalogAddonsRouteRouteWithChildren
   '/catalog/entitlements': typeof CatalogEntitlementsRouteRouteWithChildren
   '/catalog/models': typeof CatalogModelsRouteRouteWithChildren
@@ -1170,6 +1218,7 @@ export interface FileRoutesById {
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
   '/settings/plan': typeof SettingsPlanRoute
+  '/ai/': typeof AiIndexRoute
   '/audit-trail/': typeof AuditTrailIndexRoute
   '/catalog/': typeof CatalogIndexRoute
   '/customers/': typeof CustomersIndexRoute
@@ -1186,6 +1235,7 @@ export interface FileRoutesById {
   '/catalog/vouchers/$voucherId': typeof CatalogVouchersVoucherIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones_/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
+  '/ai/models/import': typeof AiModelsImportRoute
   '/ai/models/new': typeof AiModelsNewRoute
   '/catalog/models/import': typeof CatalogModelsImportRoute
   '/catalog/models/new': typeof CatalogModelsNewRoute
@@ -1201,6 +1251,7 @@ export interface FileRoutesById {
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
   '/ai/matrix/': typeof AiMatrixIndexRoute
   '/ai/models/': typeof AiModelsIndexRoute
+  '/ai/pricing/': typeof AiPricingIndexRoute
   '/catalog/addons/': typeof CatalogAddonsIndexRoute
   '/catalog/entitlements/': typeof CatalogEntitlementsIndexRoute
   '/catalog/licenses/': typeof CatalogLicensesIndexRoute
@@ -1222,12 +1273,14 @@ export interface FileRoutesById {
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
   '/ai/models/$modelSlug/edit': typeof AiModelsModelSlugEditRoute
+  '/ai/models/$modelSlug/source': typeof AiModelsModelSlugSourceRoute
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
   '/catalog/entitlements/$entitlementSlug/calculation': typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  '/catalog/entitlements/$entitlementSlug/pricing': typeof CatalogEntitlementsEntitlementSlugPricingRoute
   '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
   '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
   '/catalog/models/$modelSlug/edit': typeof CatalogModelsModelSlugEditRoute
@@ -1284,6 +1337,7 @@ export interface FileRouteTypes {
     | '/releases'
     | '/sign-in'
     | '/sign-up'
+    | '/ai/models'
     | '/catalog/addons'
     | '/catalog/entitlements'
     | '/catalog/models'
@@ -1306,6 +1360,7 @@ export interface FileRouteTypes {
     | '/settings/metadata'
     | '/settings/notifications'
     | '/settings/plan'
+    | '/ai/'
     | '/audit-trail/'
     | '/catalog/'
     | '/customers/'
@@ -1322,6 +1377,7 @@ export interface FileRouteTypes {
     | '/catalog/vouchers/$voucherId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones/$zoneSlug'
+    | '/ai/models/import'
     | '/ai/models/new'
     | '/catalog/models/import'
     | '/catalog/models/new'
@@ -1337,6 +1393,7 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug/deployment-zones'
     | '/ai/matrix/'
     | '/ai/models/'
+    | '/ai/pricing/'
     | '/catalog/addons/'
     | '/catalog/entitlements/'
     | '/catalog/licenses/'
@@ -1358,12 +1415,14 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/entitlements'
     | '/ai/models/$modelSlug/edit'
+    | '/ai/models/$modelSlug/source'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
     | '/catalog/entitlements/$entitlementSlug/calculation'
     | '/catalog/entitlements/$entitlementSlug/customers'
     | '/catalog/entitlements/$entitlementSlug/licenses'
+    | '/catalog/entitlements/$entitlementSlug/pricing'
     | '/catalog/entitlements/$entitlementSlug/usage'
     | '/catalog/licenses/$licenseSlug/prices'
     | '/catalog/models/$modelSlug/edit'
@@ -1412,7 +1471,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/ai'
     | '/sign-in'
     | '/sign-up'
     | '/releases/components'
@@ -1424,6 +1482,7 @@ export interface FileRouteTypes {
     | '/settings/metadata'
     | '/settings/notifications'
     | '/settings/plan'
+    | '/ai'
     | '/audit-trail'
     | '/catalog'
     | '/customers'
@@ -1434,6 +1493,7 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/releases'
     | '/settings'
+    | '/ai/models/import'
     | '/ai/models/new'
     | '/catalog/models/import'
     | '/catalog/models/new'
@@ -1449,6 +1509,7 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug/deployment-zones'
     | '/ai/matrix'
     | '/ai/models'
+    | '/ai/pricing'
     | '/catalog/addons'
     | '/catalog/entitlements'
     | '/catalog/licenses'
@@ -1469,12 +1530,14 @@ export interface FileRouteTypes {
     | '/releases/new'
     | '/customers/instances/$instanceSlug/entitlements'
     | '/ai/models/$modelSlug/edit'
+    | '/ai/models/$modelSlug/source'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
     | '/catalog/entitlements/$entitlementSlug/calculation'
     | '/catalog/entitlements/$entitlementSlug/customers'
     | '/catalog/entitlements/$entitlementSlug/licenses'
+    | '/catalog/entitlements/$entitlementSlug/pricing'
     | '/catalog/entitlements/$entitlementSlug/usage'
     | '/catalog/licenses/$licenseSlug/prices'
     | '/catalog/models/$modelSlug/edit'
@@ -1529,6 +1592,7 @@ export interface FileRouteTypes {
     | '/releases'
     | '/sign-in'
     | '/sign-up'
+    | '/ai/models'
     | '/catalog/addons'
     | '/catalog/entitlements'
     | '/catalog/models'
@@ -1551,6 +1615,7 @@ export interface FileRouteTypes {
     | '/settings/metadata'
     | '/settings/notifications'
     | '/settings/plan'
+    | '/ai/'
     | '/audit-trail/'
     | '/catalog/'
     | '/customers/'
@@ -1567,6 +1632,7 @@ export interface FileRouteTypes {
     | '/catalog/vouchers/$voucherId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones_/$zoneSlug'
+    | '/ai/models/import'
     | '/ai/models/new'
     | '/catalog/models/import'
     | '/catalog/models/new'
@@ -1582,6 +1648,7 @@ export interface FileRouteTypes {
     | '/releases/$releaseSlug/deployment-zones'
     | '/ai/matrix/'
     | '/ai/models/'
+    | '/ai/pricing/'
     | '/catalog/addons/'
     | '/catalog/entitlements/'
     | '/catalog/licenses/'
@@ -1603,12 +1670,14 @@ export interface FileRouteTypes {
     | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/entitlements'
     | '/ai/models/$modelSlug/edit'
+    | '/ai/models/$modelSlug/source'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
     | '/catalog/entitlements/$entitlementSlug/calculation'
     | '/catalog/entitlements/$entitlementSlug/customers'
     | '/catalog/entitlements/$entitlementSlug/licenses'
+    | '/catalog/entitlements/$entitlementSlug/pricing'
     | '/catalog/entitlements/$entitlementSlug/usage'
     | '/catalog/licenses/$licenseSlug/prices'
     | '/catalog/models/$modelSlug/edit'
@@ -1744,6 +1813,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/sign-up'
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/ai/': {
+      id: '/ai/'
+      path: '/'
+      fullPath: '/ai/'
+      preLoaderRoute: typeof AiIndexRouteImport
+      parentRoute: typeof AiRouteRoute
+    }
+    '/ai/models': {
+      id: '/ai/models'
+      path: '/models'
+      fullPath: '/ai/models'
+      preLoaderRoute: typeof AiModelsRouteRouteImport
+      parentRoute: typeof AiRouteRoute
     }
     '/audit-trail/': {
       id: '/audit-trail/'
@@ -1978,16 +2061,30 @@ declare module '@tanstack/react-router' {
     }
     '/ai/models/': {
       id: '/ai/models/'
-      path: '/models'
+      path: '/'
       fullPath: '/ai/models/'
       preLoaderRoute: typeof AiModelsIndexRouteImport
-      parentRoute: typeof AiRouteRoute
+      parentRoute: typeof AiModelsRouteRoute
+    }
+    '/ai/models/import': {
+      id: '/ai/models/import'
+      path: '/import'
+      fullPath: '/ai/models/import'
+      preLoaderRoute: typeof AiModelsImportRouteImport
+      parentRoute: typeof AiModelsRouteRoute
     }
     '/ai/models/new': {
       id: '/ai/models/new'
-      path: '/models/new'
+      path: '/new'
       fullPath: '/ai/models/new'
       preLoaderRoute: typeof AiModelsNewRouteImport
+      parentRoute: typeof AiModelsRouteRoute
+    }
+    '/ai/pricing/': {
+      id: '/ai/pricing/'
+      path: '/pricing'
+      fullPath: '/ai/pricing/'
+      preLoaderRoute: typeof AiPricingIndexRouteImport
       parentRoute: typeof AiRouteRoute
     }
     '/catalog/addons/': {
@@ -2244,10 +2341,17 @@ declare module '@tanstack/react-router' {
     }
     '/ai/models/$modelSlug/edit': {
       id: '/ai/models/$modelSlug/edit'
-      path: '/models/$modelSlug/edit'
+      path: '/$modelSlug/edit'
       fullPath: '/ai/models/$modelSlug/edit'
       preLoaderRoute: typeof AiModelsModelSlugEditRouteImport
-      parentRoute: typeof AiRouteRoute
+      parentRoute: typeof AiModelsRouteRoute
+    }
+    '/ai/models/$modelSlug/source': {
+      id: '/ai/models/$modelSlug/source'
+      path: '/$modelSlug/source'
+      fullPath: '/ai/models/$modelSlug/source'
+      preLoaderRoute: typeof AiModelsModelSlugSourceRouteImport
+      parentRoute: typeof AiModelsRouteRoute
     }
     '/catalog/addons/$addonSlug/': {
       id: '/catalog/addons/$addonSlug/'
@@ -2310,6 +2414,13 @@ declare module '@tanstack/react-router' {
       path: '/licenses'
       fullPath: '/catalog/entitlements/$entitlementSlug/licenses'
       preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugLicensesRouteImport
+      parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
+    }
+    '/catalog/entitlements/$entitlementSlug/pricing': {
+      id: '/catalog/entitlements/$entitlementSlug/pricing'
+      path: '/pricing'
+      fullPath: '/catalog/entitlements/$entitlementSlug/pricing'
+      preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugPricingRouteImport
       parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
     }
     '/catalog/entitlements/$entitlementSlug/usage': {
@@ -2623,18 +2734,38 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AiRouteRouteChildren {
+interface AiModelsRouteRouteChildren {
+  AiModelsImportRoute: typeof AiModelsImportRoute
   AiModelsNewRoute: typeof AiModelsNewRoute
-  AiMatrixIndexRoute: typeof AiMatrixIndexRoute
   AiModelsIndexRoute: typeof AiModelsIndexRoute
   AiModelsModelSlugEditRoute: typeof AiModelsModelSlugEditRoute
+  AiModelsModelSlugSourceRoute: typeof AiModelsModelSlugSourceRoute
+}
+
+const AiModelsRouteRouteChildren: AiModelsRouteRouteChildren = {
+  AiModelsImportRoute: AiModelsImportRoute,
+  AiModelsNewRoute: AiModelsNewRoute,
+  AiModelsIndexRoute: AiModelsIndexRoute,
+  AiModelsModelSlugEditRoute: AiModelsModelSlugEditRoute,
+  AiModelsModelSlugSourceRoute: AiModelsModelSlugSourceRoute,
+}
+
+const AiModelsRouteRouteWithChildren = AiModelsRouteRoute._addFileChildren(
+  AiModelsRouteRouteChildren,
+)
+
+interface AiRouteRouteChildren {
+  AiModelsRouteRoute: typeof AiModelsRouteRouteWithChildren
+  AiIndexRoute: typeof AiIndexRoute
+  AiMatrixIndexRoute: typeof AiMatrixIndexRoute
+  AiPricingIndexRoute: typeof AiPricingIndexRoute
 }
 
 const AiRouteRouteChildren: AiRouteRouteChildren = {
-  AiModelsNewRoute: AiModelsNewRoute,
+  AiModelsRouteRoute: AiModelsRouteRouteWithChildren,
+  AiIndexRoute: AiIndexRoute,
   AiMatrixIndexRoute: AiMatrixIndexRoute,
-  AiModelsIndexRoute: AiModelsIndexRoute,
-  AiModelsModelSlugEditRoute: AiModelsModelSlugEditRoute,
+  AiPricingIndexRoute: AiPricingIndexRoute,
 }
 
 const AiRouteRouteWithChildren =
@@ -2972,6 +3103,7 @@ interface CatalogEntitlementsEntitlementSlugRouteRouteChildren {
   CatalogEntitlementsEntitlementSlugCalculationRoute: typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   CatalogEntitlementsEntitlementSlugCustomersRoute: typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   CatalogEntitlementsEntitlementSlugLicensesRoute: typeof CatalogEntitlementsEntitlementSlugLicensesRoute
+  CatalogEntitlementsEntitlementSlugPricingRoute: typeof CatalogEntitlementsEntitlementSlugPricingRoute
   CatalogEntitlementsEntitlementSlugUsageRoute: typeof CatalogEntitlementsEntitlementSlugUsageRoute
   CatalogEntitlementsEntitlementSlugIndexRoute: typeof CatalogEntitlementsEntitlementSlugIndexRoute
 }
@@ -2984,6 +3116,8 @@ const CatalogEntitlementsEntitlementSlugRouteRouteChildren: CatalogEntitlementsE
       CatalogEntitlementsEntitlementSlugCustomersRoute,
     CatalogEntitlementsEntitlementSlugLicensesRoute:
       CatalogEntitlementsEntitlementSlugLicensesRoute,
+    CatalogEntitlementsEntitlementSlugPricingRoute:
+      CatalogEntitlementsEntitlementSlugPricingRoute,
     CatalogEntitlementsEntitlementSlugUsageRoute:
       CatalogEntitlementsEntitlementSlugUsageRoute,
     CatalogEntitlementsEntitlementSlugIndexRoute:

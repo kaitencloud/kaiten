@@ -1,5 +1,6 @@
 import { Gauge, type LucideIcon, ScrollText, Settings } from 'lucide-react';
 import type { BillingAction, BillingFeatureKey } from '@/domains/billing';
+import type { ApiOperationId } from '@/lib/api/operation-scopes.gen';
 import { dataModelIcons } from '@/lib/data-model-icons';
 
 export type SideNavRouteDefinition = {
@@ -156,6 +157,34 @@ export const catalogSubRoutes: SideNavSubRouteDefinition[] = [
       capability: {},
     },
     path: '/catalog/vouchers',
+  },
+];
+
+/** An entry of the AI section: listed only to a session that may call each of its operations. */
+export type SideNavAiSubRouteDefinition = {
+  labelKey: string;
+  path: string;
+  /**
+   * The operations the screen reads, through `useAiAccess().allows`: AI credits on
+   * (the capability and the platform flag) and the scopes of the session for
+   * each. Hidden while either is read, as an entry that appears a moment later is
+   * better than one that vanishes. The entry's route guards itself as well.
+   */
+  operations: readonly ApiOperationId[];
+};
+
+// The AI section: how the models are priced in credits, and the models. An entry
+// is listed with the API it needs; screens whose API does not exist yet have none.
+export const aiSubRoutes: SideNavAiSubRouteDefinition[] = [
+  {
+    labelKey: 'AI.Nav.pricing',
+    operations: ['listConversionRules', 'listModels'],
+    path: '/ai/pricing',
+  },
+  {
+    labelKey: 'AI.Models.title',
+    operations: ['listModels'],
+    path: '/ai/models',
   },
 ];
 

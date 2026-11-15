@@ -2,7 +2,11 @@ import { useAiAccess } from '@/domains/ai-credits';
 import { SourceEntryDetails } from './openrouter-browser';
 import { WildcardImpact } from './model-wildcard-impact';
 import {
+  AiDecimalField,
+  AiSelectField,
+  AiTextField,
   FormDetails,
+  invalidateAiQueries,
   useAiNavigationContext,
   modelsQueryOptions,
 } from '@/domains/ai-credits';
@@ -23,8 +27,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Page } from '@/functionals/page';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
-import { AiDecimalField, AiSelectField, AiTextField } from '../ai-fields';
-import { invalidateAiQueries } from '../queries/ai-query-options';
 import {
   associateOpenRouterSource,
   modelToOpenRouterWritable,
@@ -141,7 +143,7 @@ export function ModelForm({
         }
         await invalidateAiQueries(client);
         toast.success(t('AI.saved'));
-        await navigate({ to: '/catalog/models', search: context });
+        await navigate({ to: '/ai/models', search: context });
       } catch (error) {
         const message = openRouterErrorMessage(error, t);
         setSaveError(message);
@@ -169,7 +171,7 @@ export function ModelForm({
               nativeButton={false}
               render={
                 <Link
-                  to="/catalog/models/$modelSlug/source"
+                  to="/ai/models/$modelSlug/source"
                   params={{ modelSlug: model.slug }}
                   search={context}
                 />
@@ -266,7 +268,9 @@ export function ModelForm({
             <p className="mt-2">{t('AI.Models.lifecycle')}</p>
           </details>
           {!model ? (
-            <WildcardImpact />
+            <form.Subscribe selector={(state) => state.values.modality}>
+              {(modality) => <WildcardImpact modality={modality} />}
+            </form.Subscribe>
           ) : (
             <form.Subscribe selector={(state) => state.values.status}>
               {(status) =>
@@ -309,7 +313,7 @@ export function ModelForm({
               <Button
                 nativeButton={false}
                 variant="outline"
-                render={<Link to="/catalog/models" search={context} />}
+                render={<Link to="/ai/models" search={context} />}
               >
                 {t('Common.cancel')}
               </Button>

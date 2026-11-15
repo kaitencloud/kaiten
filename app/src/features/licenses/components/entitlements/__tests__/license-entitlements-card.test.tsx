@@ -10,7 +10,7 @@ vi.mock('@/domains/ai-credits/use-ai-access', () => ({ useAiAccess: () => ({ ava
 beforeEach(() => { rollout.available = false; });
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ params, search, onClick, children }: { params: { entitlementSlug: string }; search: { licenseSlug: string }; onClick: React.MouseEventHandler; children: ReactNode }) => <a href={`/catalog/entitlements/${params.entitlementSlug}/calculation?licenseSlug=${search.licenseSlug}`} onClick={onClick}>{children}</a>,
+  Link: ({ params, search, onClick, children }: { params: { entitlementSlug: string }; search: { version: string }; onClick: React.MouseEventHandler; children: ReactNode }) => <a href={`/catalog/entitlements/${params.entitlementSlug}/pricing?version=${search.version}`} onClick={onClick}>{children}</a>,
 }));
 
 vi.mock('../add-entitlement-dialog', () => ({
@@ -47,7 +47,7 @@ vi.mock('react-i18next', () => {
         'Pages.Entitlements.EntitlementTypes.BOOLEAN': 'Boolean',
         'Pages.Entitlements.EntitlementTypes.NUMBER': 'Number',
         'Pages.Entitlements.EntitlementTypes.NUMBER_AI_CREDIT': 'AI credits',
-        'AI.Calculation.configure': 'Configure calculation',
+        'AI.Pool.setPrices': 'Set prices',
         'Pages.Entitlements.EntitlementTypes.CONFIG': 'Config',
         'Pages.Licenses.Entitlements.Columns.actions': 'Actions',
         'Pages.Licenses.Entitlements.Columns.entitlement': 'Entitlement',
@@ -864,12 +864,12 @@ it('labels AI credits from the catalogue without changing the numeric editor, an
   const props = { entitlements: definitions, rows: [rows[0]], onClickEntitlement, onAddEntitlement: vi.fn(), onDeleteEntitlement: vi.fn(), onUpdateEntitlementGrant: vi.fn() };
   const view = render(<LicenseEntitlementsCard {...props} licenseSlug="pro-v2" />);
   expect(screen.getByText('AI credits')).toBeInTheDocument();
-  const link = screen.getByRole('link', { name: 'Configure calculation' });
-  expect(link).toHaveAttribute('href', '/catalog/entitlements/seats/calculation?licenseSlug=pro-v2');
+  const link = screen.getByRole('link', { name: 'Set prices' });
+  expect(link).toHaveAttribute('href', '/catalog/entitlements/seats/pricing?version=pro-v2');
   fireEvent.click(link);
   expect(onClickEntitlement).not.toHaveBeenCalled();
   view.rerender(<LicenseEntitlementsCard {...props} />);
-  expect(screen.queryByRole('link', { name: 'Configure calculation' })).not.toBeInTheDocument();
+  expect(screen.queryByRole('link', { name: 'Set prices' })).not.toBeInTheDocument();
   expect(screen.getByRole('button', { name: '10' })).toBeInTheDocument();
 });
 

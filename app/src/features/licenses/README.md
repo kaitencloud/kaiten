@@ -180,14 +180,14 @@ Behind `ai-credits`, the new-version form can copy the base version's active
 conversion rules. It creates the draft, attaches grants, copies rules with one
 result per item, and only then publishes. A failed rule copy leaves a draft for
 review; it does not expose a partially priced newest published version. Copying
-retains nullable model/request wildcards and invalidates the AI read identities.
+retains nullable model/request wildcards and invalidates the AI rate-card read.
 
 
-## AI grant calculation entry
+## AI grant pricing entry
 
 Persisted licence Overview cards pass the exact `licenseSlug` to their entitlement
 card. AI-credit rows are identified/labeled from catalogue definitions while the
-editable grant discriminator stays NUMBER. Configure calculation opens the fixed
-entitlement's Calculation tab with this exact version, without triggering the
-row's Overview navigation. Unsaved create/version forms omit that context and
+editable grant discriminator stays NUMBER. "Set prices" opens the pool's Pricing
+tab on this exact version (`/catalog/entitlements/$entitlementSlug/pricing?version=`),
+without triggering the row's Overview navigation. Unsaved create/version forms omit that context and
 never expose a configuration link. Grant editing and backend ownership are unchanged.

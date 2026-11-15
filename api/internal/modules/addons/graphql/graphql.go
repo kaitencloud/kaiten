@@ -24,6 +24,7 @@ const InstanceAddonsLoaderName = "InstanceAddonsLoader"
 func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, policy aiusage.Policy) {
 	loaders.Register(InstanceAddonsLoaderName, dataloaderLib.NewBatchedLoader(newInstanceAddonsBatchFn(queries)))
 	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(newAddonPricesBatchFn(queries, policy)))
+	loaders.Register(LicenseAddonGrantsLoaderName, dataloaderLib.NewBatchedLoader(newLicenseAddonGrantsBatchFn(queries, policy)))
 }
 
 func newInstanceAddonsBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []catalogue.InstanceAddon] {

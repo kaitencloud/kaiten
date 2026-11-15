@@ -12,6 +12,7 @@ import {
   NO_BILLING_FEATURES,
 } from '../../../../e2e/app/_support/model/billing-capabilities';
 import {
+  useResolvedAiItems,
   useResolvedBillingRoutes,
   useResolvedCatalogItems,
   useResolvedIntegrationsItems,
@@ -300,27 +301,43 @@ describe('useResolvedCatalogItems', () => {
   });
 });
 
-describe('Models catalogue entry', () => {
+describe('AI section', () => {
   function paths(flag: boolean | undefined, scopes: GrantedScopes | 'unread', capability = flag) {
     const client = new QueryClient({ defaultOptions: { queries: { enabled: false } } });
     if (flag !== undefined) setAiAccessInputsForTest(client, { capability: capability === true, flag });
     if (scopes !== 'unread') client.setQueryData(grantedScopesQueryKey, scopes);
     const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
-    return renderHook(() => useResolvedCatalogItems(), { wrapper }).result.current.map((item) => item.path);
+    return renderHook(() => useResolvedAiItems(), { wrapper }).result.current.map((item) => item.path);
   }
-  it('places Models in Catalog when available with read permission', () => {
-    expect(paths(true, ['read:models'])).toEqual(['/catalog/licenses', '/catalog/entitlements', '/catalog/models']);
-    expect(paths(true, null)).toContain('/catalog/models');
+
+  it('lists Pricing and Models when AI credits are on and the session may read them', () => {
+    expect(paths(true, ['read:models', 'read:licenses'])).toEqual(['/ai/pricing', '/ai/models']);
+    expect(paths(true, null)).toEqual(['/ai/pricing', '/ai/models']);
   });
+
+  it('lists only the entries whose operations the scopes cover', () => {
+    expect(paths(true, ['read:models'])).toEqual(['/ai/models']);
+  });
+
   it.each([[false, false], [false, true], [true, false], [true, true]])(
-    'requires capability=%s AND platform flag=%s for Models discovery', (capability, flag) => {
-      expect(paths(flag, ['read:models'], capability).includes('/catalog/models')).toBe(capability && flag);
+    'requires capability=%s AND platform flag=%s', (capability, flag) => {
+      expect(paths(flag, null, capability).length > 0).toBe(capability && flag);
     },
   );
-  it('hides Models until availability and permissions allow the read', () => {
-    expect(paths(false, null)).not.toContain('/catalog/models');
-    expect(paths(undefined, null)).not.toContain('/catalog/models');
-    expect(paths(true, ['read:entitlements'])).not.toContain('/catalog/models');
-    expect(paths(true, 'unread')).not.toContain('/catalog/models');
+
+  it('lists nothing until availability and permissions are read', () => {
+    expect(paths(false, null)).toEqual([]);
+    expect(paths(undefined, null)).toEqual([]);
+    expect(paths(true, ['read:entitlements'])).toEqual([]);
+    expect(paths(true, 'unread')).toEqual([]);
+  });
+
+  it('no longer lists Models in the Catalog', () => {
+    const client = new QueryClient({ defaultOptions: { queries: { enabled: false } } });
+    setAiAccessInputsForTest(client, { capability: true, flag: true });
+    client.setQueryData(grantedScopesQueryKey, null);
+    const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={client}>{children}</QueryClientProvider>;
+    const catalog = renderHook(() => useResolvedCatalogItems(), { wrapper }).result.current.map((item) => item.path);
+    expect(catalog).not.toContain('/catalog/models');
   });
 });

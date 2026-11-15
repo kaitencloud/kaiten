@@ -1,0 +1,43 @@
+/**
+ * The pricing engine as the rate card and its panel use it. Every number on these
+ * screens comes out of it: no component adds, multiplies or rounds. This file
+ * lists what the feature takes from the domain's engine, in one place.
+ */
+export {
+  AI_REQUEST_TYPES,
+  DEFAULT_REFERENCE_CALLS,
+  PRICING_DIMENSIONS,
+  RATE_KEY_OF,
+  SPECIFICITIES,
+  buildRateCardCell,
+  compareDecimals,
+  costPerCredit,
+  isOwnRule,
+  margin,
+  modelShowsRequestType,
+  parseDecimal,
+  previewCalls,
+  priceUsage,
+  readDecimalInput,
+  resolveLadder,
+  specificityOf,
+  steerOnCost,
+  validateReferenceCall,
+  vendorCost,
+  wildcardCoverage,
+  type AiRequestType,
+  type LadderLevel,
+  type PreviewCallKind,
+  type PriceLine,
+  type PriceOutcome,
+  type Priced,
+  type PricingDimension,
+  type PricingModel,
+  type PricingRule,
+  type PricingTerms,
+  type RateCardCell,
+  type RateKey,
+  type ReferenceCallIssue,
+  type Specificity,
+  type VendorCostResult,
+} from '@/domains/ai-credits';

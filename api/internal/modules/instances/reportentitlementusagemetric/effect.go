@@ -21,6 +21,8 @@ type Effect struct {
 	Behavior      Behavior
 	Counter       *usage.Counter
 	Events        []Event
+	// ReportSeq is the journal row apply wrote for an accepted report.
+	ReportSeq *int64
 	// Response is the 200 body. Nil when Refusal is set.
 	Response *schema.EntitlementUsage
 	// Refusal is returned to the caller after the transaction commits, so a

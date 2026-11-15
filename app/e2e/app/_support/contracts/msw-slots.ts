@@ -1,3 +1,4 @@
+import type { SerializedAiAppModel } from '../model/ai-app-model';
 import type { SerializedAuditTrailAppModel } from '../model/audit-trail-app-model';
 import type { SerializedBillingAppModel } from '../model/billing-app-model';
 import type { SerializedConnectorAppModel } from '../model/connector-app-model';
@@ -13,6 +14,7 @@ import type { ServiceAccount } from '@/api-client';
 
 /** Transport-neutral serialized state installed before app navigation. */
 export type E2EMswConfig = {
+  ai?: SerializedAiAppModel;
   auditTrail?: SerializedAuditTrailAppModel;
   billing?: SerializedBillingAppModel;
   connectors?: SerializedConnectorAppModel;

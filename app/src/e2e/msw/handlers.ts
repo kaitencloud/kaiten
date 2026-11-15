@@ -1,5 +1,6 @@
 import { HttpResponse, http } from 'msw/http';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
+import { AiAppModel } from '../../../e2e/app/_support/model/ai-app-model';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
 import { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
 import { ConnectorAppModel } from '../../../e2e/app/_support/model/connector-app-model';
@@ -14,6 +15,7 @@ import { NO_PLATFORM_FLAGS } from '../../../e2e/app/_support/model/platform-flag
 import type { LicenseCatalogue } from '../../../e2e/app/_support/model/graphql-operations';
 import { createPreviewWorld } from '../../../e2e/app/_support/model/license-preview-world';
 import { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
+import { aiHandlers } from './ai-handlers';
 import { auditTrailHandlers } from './audit-trail-handlers';
 import { billingHandlers } from './billing-handlers';
 import { connectorHandlers } from './connector-handlers';
@@ -26,6 +28,7 @@ import { withFallbacksLast } from './handler-factory';
 import { instanceHandlers } from './instance-handlers';
 import { licenseHandlers } from './license-handlers';
 import { notificationHandlers } from './notification-handlers';
+import { openRouterHandlers } from './openrouter-handlers';
 import type { persistSlot } from './persistence';
 import { releaseManagementHandlers } from './release-management-handlers';
 import {
@@ -44,6 +47,9 @@ export function createMockHandlers(
   persist: typeof persistSlot = () => {},
   strict = false,
 ) {
+  const ai = effectiveConfig.ai
+    ? AiAppModel.fromSerialized(effectiveConfig.ai)
+    : null;
   const auditTrail = effectiveConfig.auditTrail
     ? AuditTrailAppModel.fromSerialized(effectiveConfig.auditTrail)
     : null;
@@ -146,6 +152,24 @@ export function createMockHandlers(
         headers: { 'Cache-Control': 'no-store' },
       }),
     ),
+    ...(ai
+      ? [
+          ...aiHandlers(ai, () => persist('ai', ai.serializeForMsw()), {
+            // The pool's usage is the instances': a refund lowers its counter.
+            onRefund: instances
+              ? ({ credits, entitlementSlug, instanceSlug }) => {
+                  instances.refundAiCredits(
+                    instanceSlug,
+                    entitlementSlug,
+                    credits,
+                  );
+                  persist('instances', instances.serializeForMsw());
+                }
+              : undefined,
+          }),
+          ...openRouterHandlers(),
+        ]
+      : []),
     ...(auditTrail ? auditTrailHandlers(auditTrail) : []),
     ...(billing
       ? billingHandlers(

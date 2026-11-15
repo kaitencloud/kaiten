@@ -1,17 +1,15 @@
-import { createFileRoute } from '@tanstack/react-router';
-import {
-  AiNavigationProvider,
-  aiNavigationSearchSchema,
-} from '@/domains/ai-credits';
-import { MatrixPage } from '@/features/ai';
+import { createFileRoute, redirect } from '@tanstack/react-router';
+import { aiNavigationSearchSchema } from '@/domains/ai-credits';
+
+// The conversion matrix became the rate card: an old link opens the same pool and
+// version there.
 export const Route = createFileRoute('/ai/matrix/')({
   validateSearch: (search) => aiNavigationSearchSchema.parse(search),
-  component: MatrixRoute,
+  beforeLoad: ({ search }) => {
+    throw redirect({
+      to: '/ai/pricing',
+      search: { pool: search.entitlementSlug, version: search.licenseSlug },
+      replace: true,
+    });
+  },
 });
-function MatrixRoute() {
-  return (
-    <AiNavigationProvider context={Route.useSearch()}>
-      <MatrixPage />
-    </AiNavigationProvider>
-  );
-}

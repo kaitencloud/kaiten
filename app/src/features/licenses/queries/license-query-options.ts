@@ -1,10 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 import { queryOptions } from '@tanstack/react-query';
 import { getInstances, getLicenses } from '@/api-client';
-import {
-  aiMatrixQueryKey,
-  aiWildcardImpactQueryKey,
-} from '@/domains/ai-credits';
+import { aiRateCardQueryKey } from '@/domains/ai-credits';
 import {
   getLicenseEntitlementsQueryKey,
   getLicenseFamilyQueryKey,
@@ -85,8 +82,7 @@ export const licensesWithInstancesQueryOptions = queryOptions({
 export async function invalidateLicenseLists(queryClient: QueryClient) {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: getLicensesQueryKey() }),
-    queryClient.invalidateQueries({ queryKey: aiMatrixQueryKey }),
-    queryClient.invalidateQueries({ queryKey: aiWildcardImpactQueryKey }),
+    queryClient.invalidateQueries({ queryKey: aiRateCardQueryKey }),
     queryClient.invalidateQueries({
       queryKey: licensesWithInstancesBaseQueryKey,
     }),
@@ -127,8 +123,7 @@ export async function invalidateLicenseQueries(
 ) {
   const invalidations: Array<Promise<void>> = [
     queryClient.invalidateQueries({ queryKey: getLicensesQueryKey() }),
-    queryClient.invalidateQueries({ queryKey: aiMatrixQueryKey }),
-    queryClient.invalidateQueries({ queryKey: aiWildcardImpactQueryKey }),
+    queryClient.invalidateQueries({ queryKey: aiRateCardQueryKey }),
     queryClient.invalidateQueries({
       queryKey: licensesWithInstancesBaseQueryKey,
     }),

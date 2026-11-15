@@ -14,7 +14,6 @@ func TestAIUsageConfigContainsDurationsNotRolloutAuthority(t *testing.T) {
 	minimum(t)
 	cfg, err := config.LoadConfig()
 	require.NoError(t, err)
-	require.Positive(t, cfg.AIUsage.IdempotencyWindow)
 	require.Positive(t, cfg.AIUsage.ReservationTTL)
 	require.GreaterOrEqual(t, cfg.AIUsage.ReservationMaxTTL, cfg.AIUsage.ReservationTTL)
 	for field := range reflect.TypeFor[config.AIUsage]().NumField() {

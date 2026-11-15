@@ -28,3 +28,34 @@ export {
   buildUpcomingInvoice,
   PRO_MONTHLY_PRICE,
 } from './build-subscription';
+export {
+  AI_GRANTS,
+  AI_POOL,
+  AI_RULE_EDITOR,
+  EMPTY_POOL,
+  PARTNER_POOL,
+  aiRuleId,
+  buildAiGrants,
+  buildAiModels,
+  buildAiPools,
+  buildAiRules,
+} from './build-ai-catalogue';
+export {
+  type AiAddonGrant,
+  type AiAddonGrantSeed,
+  buildAiAddonGrants,
+} from './build-ai-addon-grants';
+export {
+  buildLargeAiGrants,
+  buildLargeAiModels,
+  buildLargeAiRules,
+  buildLargeAiVersions,
+} from './build-ai-large-catalogue';
+export {
+  AI_SUPPORT_USER,
+  AI_USAGE,
+  type AiInferenceRecord,
+  aiPricingSnapshot,
+  buildAiEntitlementUsages,
+  buildAiInferences,
+} from './build-ai-usage';

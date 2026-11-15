@@ -42,6 +42,15 @@ type LicenseFamily {
   trialEndWithoutPaymentMethod: TrialEndWithoutPaymentMethod!
   """How many days before a trial's end trial_will_end fires (1 to 30)."""
   trialReminderDays: Int!
+  """
+  The version this family currently serves: its default version, or its
+  highest-numbered PUBLISHED version. Null when every version is a draft or has
+  been archived. The same resolution as LicenseFamilyView.currentVersion, read
+  here so that a list of licenses can label each family (a family has no name
+  of its own: it is shown under its current version's) without one
+  licenseFamily query per family.
+  """
+  currentVersion: License
 }
 
 """How a licence or add-on version is sold."""
@@ -120,6 +129,11 @@ type License {
   description: String!
   type: LicenseType!
   version: String!
+  """
+  version as a number: the order of the versions in their family, 1 being the
+  first. Assigned by the server and never reused within a family.
+  """
+  versionNumber: Int!
   versionName: String
   isDefault: Boolean!
 

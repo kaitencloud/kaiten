@@ -34,10 +34,10 @@ it('allows immutable reports/export while live AI targets and nested meters rema
   await expect(request(new Request('http://api.test/api/licenses/pro/prices', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ meteredEntitlementSlug: 'credits' }) }), { meteredEntitlementSlug: 'credits' })).rejects.toThrow();
   dispose();
 });
-it('rejects stale true and cancels in-flight AI requests/query data after denial, not a fresh background check', async () => {
+it('admits on a stale true and cancels in-flight AI requests/query data after denial, not a fresh background check', async () => {
   const { client, request, dispose } = install(); const options = aiAccessQueryOptions();
   client.setQueryData(options.queryKey, { enabled: true, expiresAt: performance.now() - 1 }, { updatedAt: Date.now() - AI_ACCESS_FRESHNESS_MS - 1 });
-  await expect(request(new Request('http://api.test/api/models'))).rejects.toThrow();
+  await expect(request(new Request('http://api.test/api/models'))).resolves.toBeInstanceOf(Request);
   client.setQueryData(options.queryKey, { enabled: true, expiresAt: performance.now() + AI_ACCESS_FRESHNESS_MS });
   client.setQueryData([{ _id: 'listModels' }], { items: ['sensitive AI state'] });
   const admitted = await request(new Request('http://api.test/api/models'));
@@ -54,15 +54,15 @@ it('closes immediately when the local feature flag refresh invalidates its query
   expect(client.getQueryData(aiAccessQueryOptions().queryKey)).toMatchObject({ enabled: false }); dispose();
 });
 
-it('expires and aborts already-admitted requests even when no new cache event arrives', async () => {
+it('expires without aborting already-admitted requests or revoking the grant', async () => {
   vi.useFakeTimers();
   const { client, request, dispose } = install();
   client.setQueryData(aiAccessQueryOptions().queryKey, { enabled: true, expiresAt: performance.now() + 50 });
   const admitted = await request(new Request('http://api.test/api/models'));
   expect(admitted.signal.aborted).toBe(false);
   await vi.advanceTimersByTimeAsync(51);
-  expect(admitted.signal.aborted).toBe(true);
-  expect(client.getQueryData(aiAccessQueryOptions().queryKey)).toMatchObject({ enabled: false });
+  expect(admitted.signal.aborted).toBe(false);
+  expect(client.getQueryData(aiAccessQueryOptions().queryKey)).toMatchObject({ enabled: true });
   dispose(); vi.useRealTimers();
 });
 

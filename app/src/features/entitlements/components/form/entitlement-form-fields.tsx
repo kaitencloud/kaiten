@@ -189,7 +189,9 @@ export function EntitlementTypeFields({
                 'Pages.Entitlements.Mutation.Form.Placeholders.type',
               )}
               description={t(
-                'Pages.Entitlements.Mutation.Form.Descriptions.type',
+                aiEnabled
+                  ? 'AI.Pool.typeHelp'
+                  : 'Pages.Entitlements.Mutation.Form.Descriptions.type',
               )}
               options={typeOptions}
               getOptionValue={getSelectOptionValue}

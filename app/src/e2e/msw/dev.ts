@@ -1,6 +1,7 @@
 import type { StripeStanding } from '../../../e2e/app/_support/model/billing-capabilities';
 import { startE2EMockServiceWorker } from './browser';
 import { createDevMockConfig } from './dev-world';
+import type { AiBilling, AiCatalogue, AiStanding } from './dev-world/ai';
 
 const STRIPE_STANDINGS: readonly StripeStanding[] = [
   'available',
@@ -22,6 +23,23 @@ const readStripeStanding = (): StripeStanding => {
   return STRIPE_STANDINGS.find((standing) => standing === asked) ?? 'connected';
 };
 
+/** Whether AI credits start on: on, unless the address says `?ai=off`. */
+const readAiStanding = (): AiStanding =>
+  new URLSearchParams(window.location.search).get('ai') === 'off'
+    ? 'off'
+    : 'on';
+
+const asked = (name: string) =>
+  new URLSearchParams(window.location.search).get(name);
+
+/** The AI catalogue: the default one, unless the address says `?catalogue=large`. */
+const readAiCatalogue = (): AiCatalogue =>
+  asked('catalogue') === 'large' ? 'large' : 'default';
+
+/** Add-on grants readable, unless the address says `?addonGrants=billing-off`. */
+const readAiBilling = (): AiBilling =>
+  asked('addonGrants') === 'billing-off' ? 'off' : 'on';
+
 /**
  * The console without a backend (`pnpm run dev:mock`, VITE_MOCK_API=true): the
  * API answered by Mock Service Worker in the page, every area seeded from one
@@ -32,7 +50,12 @@ const readStripeStanding = (): StripeStanding => {
  */
 export async function startDevMocks() {
   await startE2EMockServiceWorker(
-    createDevMockConfig({ stripe: readStripeStanding() }),
+    createDevMockConfig({
+      ai: readAiStanding(),
+      aiBilling: readAiBilling(),
+      aiCatalogue: readAiCatalogue(),
+      stripe: readStripeStanding(),
+    }),
     { warnUnhandledApiRequests: true },
   );
 }

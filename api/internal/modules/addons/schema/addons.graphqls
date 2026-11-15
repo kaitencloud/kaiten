@@ -91,6 +91,74 @@ type AddonPrice {
   deprecatedAt: Time
 }
 
+"""How a NUMBER grant of an add-on combines with the licence's own."""
+enum AddonOverrideBehavior {
+  ADD
+  OVERRIDE
+  MAX
+}
+
+"""
+An entitlement an add-on version grants, on a licence it fits: one way an
+instance of that licence can come to hold the entitlement without the licence
+granting it.
+
+An add-on attaches to an instance, never to a licence. What ties it to a
+licence is compatibility, declared per add-on version against a licence
+FAMILY: the grants are therefore the same for every version of a family.
+Nothing here says an instance holds the add-on; Instance.addons does.
+"""
+type LicenseAddonGrant {
+  entitlementSlug: String!
+  entitlementType: String!
+  addonId: UUID!
+  """The add-on version: what an attachment names."""
+  addonSlug: String!
+  addonFamilySlug: String!
+  addonName: String!
+  """The version number in its add-on family."""
+  addonVersion: Int!
+  """
+  DRAFT: attachable to an instance with no live subscription only. PUBLISHED:
+  attachable. ARCHIVED: no new attachment, the instances that hold it keep it
+  and its grant.
+  """
+  lifecycleState: AddonLifecycleState!
+  """The version its add-on family resolves to. Only a PUBLISHED version."""
+  isDefault: Boolean!
+  """The most one instance may hold; null when unbounded."""
+  maxQuantity: Int
+  """
+  The grant per unit of quantity, shaped like a licence grant:
+  {type:"number",value:N}, {type:"boolean",value:B}, {type:"object",value:{...}}.
+  """
+  value: Map!
+  """True when the value is the unlimited sentinel."""
+  unlimited: Boolean!
+  """
+  The overage the add-on allows; null inherits the licence grant's (0 for an
+  entitlement only add-ons grant).
+  """
+  limitCapExceededOveragePercent: Int
+  """
+  How a number grant combines with the licence's: ADD sums value x quantity,
+  OVERRIDE replaces it with the latest attached add-on's, MAX keeps the larger.
+  A boolean always ORs, a config always overrides.
+  """
+  overrideBehavior: AddonOverrideBehavior!
+}
+
+extend type License {
+  """
+  What add-ons can grant on this licence: every entitlement of every add-on
+  version compatible with the licence's family, optionally one entitlement.
+  The licence's own grants are License.entitlements. Like the REST add-on
+  catalogue, it needs billing to be enabled for the organization, and
+  read:addons.
+  """
+  addonGrants(entitlementSlug: String): [LicenseAddonGrant!]!
+}
+
 """
 A cursor-paginated page of add-on versions.
 """
