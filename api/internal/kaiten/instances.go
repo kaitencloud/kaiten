@@ -19,8 +19,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listorganizationaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/refundaiinference"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
@@ -234,6 +236,28 @@ func (i Instances) ListAIReservations(ctx context.Context, cl caller.Organizatio
 		return instanceschema.AiReservations{}, err
 	}
 	return i.uc.AIReservations.Execute(bindOrganization(ctx, cl), instance, pool)
+}
+
+// ListOrganizationAIInferences reads one page of the organization's AI
+// operations across instances and credit pools. The filter is the use case's
+// own type, passed through like the per-pool read's.
+func (i Instances) ListOrganizationAIInferences(ctx context.Context, cl caller.OrganizationCaller, filter aihistory.OrganizationFilter) (instanceschema.OrganizationAiInferencePage, error) {
+	if err := cl.Require(listorganizationaiinferences.RequiredScope); err != nil {
+		return instanceschema.OrganizationAiInferencePage{}, err
+	}
+	return i.uc.AIOrganizationInferences.Execute(bindOrganization(ctx, cl), filter)
+}
+
+// RefundAIInference gives back credits charged for one AI inference: a
+// negative report on the pool, linked to the inference it corrects.
+func (i Instances) RefundAIInference(
+	ctx context.Context, cl caller.OrganizationCaller,
+	instanceSlug, entitlementSlug, transactionID string, command refundaiinference.Command,
+) (*refundaiinference.Result, error) {
+	if err := cl.Require(refundaiinference.RequiredScope); err != nil {
+		return nil, err
+	}
+	return i.uc.RefundAIInference.Execute(bindOrganization(ctx, cl), instanceSlug, entitlementSlug, transactionID, command)
 }
 
 // ListUsageReports reads one page of a pair's usage history: the reports the

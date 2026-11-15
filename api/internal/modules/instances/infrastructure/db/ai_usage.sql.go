@@ -51,8 +51,10 @@ input_tokens = $7, cache_read_input_tokens = $8, cache_write_input_tokens = $9,
 output_tokens = $10, units = $11, unit_type = $12, duration_ms = $13,
 credit_conversion_rule_id = $14, authorized = $15, denial_reason = $16,
 credits_computed = $17, credits_charged = $18, value_before = $19, value_after = $20,
-window_start = $21, commit_hash = $22
-WHERE id = $23 AND organization_id = $24 AND status IN ('RESERVED','EXPIRED')
+window_start = $21, commit_hash = $22, report_seq = $23,
+pricing = $24::jsonb, license_id = $25, warnings = $26::text[],
+vendor_cost_reported = $27, vendor_cost_computed = $28
+WHERE id = $29 AND organization_id = $30 AND status IN ('RESERVED','EXPIRED')
 `
 
 type CommitAIOperationParams struct {
@@ -78,6 +80,12 @@ type CommitAIOperationParams struct {
 	ValueAfter             *float64          `json:"value_after"`
 	WindowStart            pgtype.Timestamp  `json:"window_start"`
 	CommitHash             []byte            `json:"commit_hash"`
+	ReportSeq              *int64            `json:"report_seq"`
+	Pricing                []byte            `json:"pricing"`
+	LicenseID              *uuid.UUID        `json:"license_id"`
+	Warnings               []string          `json:"warnings"`
+	VendorCostReported     pgtype.Numeric    `json:"vendor_cost_reported"`
+	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
 	ID                     uuid.UUID         `json:"id"`
 	OrganizationID         uuid.UUID         `json:"organization_id"`
 }
@@ -106,6 +114,12 @@ func (q *Queries) CommitAIOperation(ctx context.Context, arg CommitAIOperationPa
 		arg.ValueAfter,
 		arg.WindowStart,
 		arg.CommitHash,
+		arg.ReportSeq,
+		arg.Pricing,
+		arg.LicenseID,
+		arg.Warnings,
+		arg.VendorCostReported,
+		arg.VendorCostComputed,
 		arg.ID,
 		arg.OrganizationID,
 	)
@@ -144,7 +158,8 @@ func (q *Queries) ExpireAIReservations(ctx context.Context) ([]uuid.UUID, error)
 }
 
 const getAIModel = `-- name: GetAIModel :one
-SELECT m.id, m.status FROM model m
+SELECT m.id, m.status, m.vendor_cost_per_request, m.vendor_cost_per_input_token, m.vendor_cost_per_cached_input_token,
+m.vendor_cost_per_cache_write_token, m.vendor_cost_per_output_token, m.vendor_cost_per_unit FROM model m
 WHERE m.organization_id = $1
 AND (m.slug = $2 OR EXISTS (SELECT 1 FROM model_external_id e WHERE e.organization_id = m.organization_id AND e.model_id = m.id AND e.external_id = $2))
 ORDER BY (m.slug = $2) DESC LIMIT 1
@@ -156,19 +171,36 @@ type GetAIModelParams struct {
 }
 
 type GetAIModelRow struct {
-	ID     uuid.UUID   `json:"id"`
-	Status ModelStatus `json:"status"`
+	ID                            uuid.UUID      `json:"id"`
+	Status                        ModelStatus    `json:"status"`
+	VendorCostPerRequest          pgtype.Numeric `json:"vendor_cost_per_request"`
+	VendorCostPerInputToken       pgtype.Numeric `json:"vendor_cost_per_input_token"`
+	VendorCostPerCachedInputToken pgtype.Numeric `json:"vendor_cost_per_cached_input_token"`
+	VendorCostPerCacheWriteToken  pgtype.Numeric `json:"vendor_cost_per_cache_write_token"`
+	VendorCostPerOutputToken      pgtype.Numeric `json:"vendor_cost_per_output_token"`
+	VendorCostPerUnit             pgtype.Numeric `json:"vendor_cost_per_unit"`
 }
 
+// The vendor costs come with the model: a commit computes what the request
+// cost the provider from them, without a second read of the catalogue.
 func (q *Queries) GetAIModel(ctx context.Context, arg GetAIModelParams) (GetAIModelRow, error) {
 	row := q.db.QueryRow(ctx, getAIModel, arg.OrganizationID, arg.ModelRef)
 	var i GetAIModelRow
-	err := row.Scan(&i.ID, &i.Status)
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.VendorCostPerRequest,
+		&i.VendorCostPerInputToken,
+		&i.VendorCostPerCachedInputToken,
+		&i.VendorCostPerCacheWriteToken,
+		&i.VendorCostPerOutputToken,
+		&i.VendorCostPerUnit,
+	)
 	return i, err
 }
 
 const getAIOperation = `-- name: GetAIOperation :one
-SELECT id, organization_id, instance_id, entitlement_id, transaction_id, status, reported_at, committed_at, expires_at, model_ref, model_id, request_type, request_status, input_tokens, cache_read_input_tokens, cache_write_input_tokens, output_tokens, units, unit_type, duration_ms, credit_conversion_rule_id, authorized, denial_reason, credits_reserved, credits_computed, credits_charged, value_before, value_after, window_start, request_hash, commit_hash, reserve_response, commit_response FROM ai_inference WHERE organization_id = $1
+SELECT id, organization_id, instance_id, entitlement_id, transaction_id, status, reported_at, committed_at, expires_at, model_ref, model_id, request_type, request_status, input_tokens, cache_read_input_tokens, cache_write_input_tokens, output_tokens, units, unit_type, duration_ms, credit_conversion_rule_id, authorized, denial_reason, credits_reserved, credits_computed, credits_charged, value_before, value_after, window_start, request_hash, commit_hash, reserve_response, commit_response, pricing, license_id, warnings, report_seq, vendor_cost_reported, vendor_cost_computed FROM ai_inference WHERE organization_id = $1
 AND instance_id = $2 AND entitlement_id = $3
 AND transaction_id = $4 AND reported_at >= $5::timestamp
 ORDER BY reported_at DESC, id DESC LIMIT 1
@@ -225,6 +257,12 @@ func (q *Queries) GetAIOperation(ctx context.Context, arg GetAIOperationParams) 
 		&i.CommitHash,
 		&i.ReserveResponse,
 		&i.CommitResponse,
+		&i.Pricing,
+		&i.LicenseID,
+		&i.Warnings,
+		&i.ReportSeq,
+		&i.VendorCostReported,
+		&i.VendorCostComputed,
 	)
 	return i, err
 }
@@ -312,12 +350,14 @@ INSERT INTO ai_inference (id, organization_id, instance_id, entitlement_id, tran
 reported_at, committed_at, expires_at, model_ref, model_id, request_type, request_status,
 input_tokens, cache_read_input_tokens, cache_write_input_tokens, output_tokens, units, unit_type, duration_ms,
 credit_conversion_rule_id, authorized, denial_reason, credits_reserved, credits_computed, credits_charged,
-value_before, value_after, window_start, request_hash, commit_hash)
+value_before, value_after, window_start, request_hash, commit_hash, report_seq,
+pricing, license_id, warnings, vendor_cost_reported, vendor_cost_computed)
 VALUES ($1, $2, $3, $4, $5, $6,
 $7, $8, $9, $10, $11, $12, $13,
 $14, $15, $16, $17, $18, $19, $20,
 $21, $22, $23, $24, $25, $26,
-$27, $28, $29, $30, $31)
+$27, $28, $29, $30, $31, $32,
+$33::jsonb, $34, $35::text[], $36, $37)
 `
 
 type InsertAIOperationParams struct {
@@ -352,8 +392,17 @@ type InsertAIOperationParams struct {
 	WindowStart            pgtype.Timestamp  `json:"window_start"`
 	RequestHash            []byte            `json:"request_hash"`
 	CommitHash             []byte            `json:"commit_hash"`
+	ReportSeq              *int64            `json:"report_seq"`
+	Pricing                []byte            `json:"pricing"`
+	LicenseID              *uuid.UUID        `json:"license_id"`
+	Warnings               []string          `json:"warnings"`
+	VendorCostReported     pgtype.Numeric    `json:"vendor_cost_reported"`
+	VendorCostComputed     pgtype.Numeric    `json:"vendor_cost_computed"`
 }
 
+// pricing, license_id and warnings explain the row on its own: the rule as it
+// priced the phase, the licence version whose rules were considered, and the
+// warnings the phase answered with. A commit overwrites what its reserve wrote.
 func (q *Queries) InsertAIOperation(ctx context.Context, arg InsertAIOperationParams) error {
 	_, err := q.db.Exec(ctx, insertAIOperation,
 		arg.ID,
@@ -387,266 +436,14 @@ func (q *Queries) InsertAIOperation(ctx context.Context, arg InsertAIOperationPa
 		arg.WindowStart,
 		arg.RequestHash,
 		arg.CommitHash,
+		arg.ReportSeq,
+		arg.Pricing,
+		arg.LicenseID,
+		arg.Warnings,
+		arg.VendorCostReported,
+		arg.VendorCostComputed,
 	)
 	return err
-}
-
-const listAIInferences = `-- name: ListAIInferences :many
-SELECT a.id, a.organization_id, a.instance_id, a.entitlement_id, a.transaction_id, a.status, a.reported_at, a.committed_at, a.expires_at, a.model_ref, a.model_id, a.request_type, a.request_status, a.input_tokens, a.cache_read_input_tokens, a.cache_write_input_tokens, a.output_tokens, a.units, a.unit_type, a.duration_ms, a.credit_conversion_rule_id, a.authorized, a.denial_reason, a.credits_reserved, a.credits_computed, a.credits_charged, a.value_before, a.value_after, a.window_start, a.request_hash, a.commit_hash, a.reserve_response, a.commit_response, m.slug AS model_slug FROM ai_inference a
-LEFT JOIN model m ON m.id=a.model_id AND m.organization_id=a.organization_id
-WHERE a.organization_id=$1 AND a.instance_id=$2 AND a.entitlement_id=$3
-AND a.reported_at >= $4::timestamp AND a.reported_at < $5::timestamp
-AND ($6::ai_inference_status IS NULL OR a.status=$6)
-AND ($7::text IS NULL OR a.transaction_id=$7)
-AND ($8::timestamp IS NULL OR (a.reported_at,a.id)<($8::timestamp,$9::uuid))
-ORDER BY a.reported_at DESC,a.id DESC LIMIT $10
-`
-
-type ListAIInferencesParams struct {
-	OrganizationID uuid.UUID          `json:"organization_id"`
-	InstanceID     uuid.UUID          `json:"instance_id"`
-	EntitlementID  uuid.UUID          `json:"entitlement_id"`
-	FromAt         pgtype.Timestamp   `json:"from_at"`
-	ToAt           pgtype.Timestamp   `json:"to_at"`
-	Status         *AiInferenceStatus `json:"status"`
-	TransactionID  *string            `json:"transaction_id"`
-	CursorAt       pgtype.Timestamp   `json:"cursor_at"`
-	CursorID       *uuid.UUID         `json:"cursor_id"`
-	LimitPlusOne   int32              `json:"limit_plus_one"`
-}
-
-type ListAIInferencesRow struct {
-	ID                     uuid.UUID         `json:"id"`
-	OrganizationID         uuid.UUID         `json:"organization_id"`
-	InstanceID             uuid.UUID         `json:"instance_id"`
-	EntitlementID          uuid.UUID         `json:"entitlement_id"`
-	TransactionID          string            `json:"transaction_id"`
-	Status                 AiInferenceStatus `json:"status"`
-	ReportedAt             pgtype.Timestamp  `json:"reported_at"`
-	CommittedAt            pgtype.Timestamp  `json:"committed_at"`
-	ExpiresAt              pgtype.Timestamp  `json:"expires_at"`
-	ModelRef               string            `json:"model_ref"`
-	ModelID                *uuid.UUID        `json:"model_id"`
-	RequestType            AiRequestType     `json:"request_type"`
-	RequestStatus          *AiRequestStatus  `json:"request_status"`
-	InputTokens            *int64            `json:"input_tokens"`
-	CacheReadInputTokens   *int64            `json:"cache_read_input_tokens"`
-	CacheWriteInputTokens  *int64            `json:"cache_write_input_tokens"`
-	OutputTokens           *int64            `json:"output_tokens"`
-	Units                  pgtype.Numeric    `json:"units"`
-	UnitType               *string           `json:"unit_type"`
-	DurationMs             *int64            `json:"duration_ms"`
-	CreditConversionRuleID *uuid.UUID        `json:"credit_conversion_rule_id"`
-	Authorized             *bool             `json:"authorized"`
-	DenialReason           *string           `json:"denial_reason"`
-	CreditsReserved        pgtype.Numeric    `json:"credits_reserved"`
-	CreditsComputed        pgtype.Numeric    `json:"credits_computed"`
-	CreditsCharged         pgtype.Numeric    `json:"credits_charged"`
-	ValueBefore            *float64          `json:"value_before"`
-	ValueAfter             *float64          `json:"value_after"`
-	WindowStart            pgtype.Timestamp  `json:"window_start"`
-	RequestHash            []byte            `json:"request_hash"`
-	CommitHash             []byte            `json:"commit_hash"`
-	ReserveResponse        []byte            `json:"reserve_response"`
-	CommitResponse         []byte            `json:"commit_response"`
-	ModelSlug              *string           `json:"model_slug"`
-}
-
-func (q *Queries) ListAIInferences(ctx context.Context, arg ListAIInferencesParams) ([]ListAIInferencesRow, error) {
-	rows, err := q.db.Query(ctx, listAIInferences,
-		arg.OrganizationID,
-		arg.InstanceID,
-		arg.EntitlementID,
-		arg.FromAt,
-		arg.ToAt,
-		arg.Status,
-		arg.TransactionID,
-		arg.CursorAt,
-		arg.CursorID,
-		arg.LimitPlusOne,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListAIInferencesRow
-	for rows.Next() {
-		var i ListAIInferencesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.InstanceID,
-			&i.EntitlementID,
-			&i.TransactionID,
-			&i.Status,
-			&i.ReportedAt,
-			&i.CommittedAt,
-			&i.ExpiresAt,
-			&i.ModelRef,
-			&i.ModelID,
-			&i.RequestType,
-			&i.RequestStatus,
-			&i.InputTokens,
-			&i.CacheReadInputTokens,
-			&i.CacheWriteInputTokens,
-			&i.OutputTokens,
-			&i.Units,
-			&i.UnitType,
-			&i.DurationMs,
-			&i.CreditConversionRuleID,
-			&i.Authorized,
-			&i.DenialReason,
-			&i.CreditsReserved,
-			&i.CreditsComputed,
-			&i.CreditsCharged,
-			&i.ValueBefore,
-			&i.ValueAfter,
-			&i.WindowStart,
-			&i.RequestHash,
-			&i.CommitHash,
-			&i.ReserveResponse,
-			&i.CommitResponse,
-			&i.ModelSlug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAIReservations = `-- name: ListAIReservations :many
-SELECT a.id, a.organization_id, a.instance_id, a.entitlement_id, a.transaction_id, a.status, a.reported_at, a.committed_at, a.expires_at, a.model_ref, a.model_id, a.request_type, a.request_status, a.input_tokens, a.cache_read_input_tokens, a.cache_write_input_tokens, a.output_tokens, a.units, a.unit_type, a.duration_ms, a.credit_conversion_rule_id, a.authorized, a.denial_reason, a.credits_reserved, a.credits_computed, a.credits_charged, a.value_before, a.value_after, a.window_start, a.request_hash, a.commit_hash, a.reserve_response, a.commit_response, m.slug AS model_slug FROM ai_inference a
-LEFT JOIN model m ON m.id=a.model_id AND m.organization_id=a.organization_id
-WHERE a.organization_id=$1 AND a.instance_id=$2 AND a.entitlement_id=$3
-AND a.status='RESERVED' AND a.expires_at>(clock_timestamp() AT TIME ZONE 'UTC')
-ORDER BY a.reported_at DESC,a.id DESC
-`
-
-type ListAIReservationsParams struct {
-	OrganizationID uuid.UUID `json:"organization_id"`
-	InstanceID     uuid.UUID `json:"instance_id"`
-	EntitlementID  uuid.UUID `json:"entitlement_id"`
-}
-
-type ListAIReservationsRow struct {
-	ID                     uuid.UUID         `json:"id"`
-	OrganizationID         uuid.UUID         `json:"organization_id"`
-	InstanceID             uuid.UUID         `json:"instance_id"`
-	EntitlementID          uuid.UUID         `json:"entitlement_id"`
-	TransactionID          string            `json:"transaction_id"`
-	Status                 AiInferenceStatus `json:"status"`
-	ReportedAt             pgtype.Timestamp  `json:"reported_at"`
-	CommittedAt            pgtype.Timestamp  `json:"committed_at"`
-	ExpiresAt              pgtype.Timestamp  `json:"expires_at"`
-	ModelRef               string            `json:"model_ref"`
-	ModelID                *uuid.UUID        `json:"model_id"`
-	RequestType            AiRequestType     `json:"request_type"`
-	RequestStatus          *AiRequestStatus  `json:"request_status"`
-	InputTokens            *int64            `json:"input_tokens"`
-	CacheReadInputTokens   *int64            `json:"cache_read_input_tokens"`
-	CacheWriteInputTokens  *int64            `json:"cache_write_input_tokens"`
-	OutputTokens           *int64            `json:"output_tokens"`
-	Units                  pgtype.Numeric    `json:"units"`
-	UnitType               *string           `json:"unit_type"`
-	DurationMs             *int64            `json:"duration_ms"`
-	CreditConversionRuleID *uuid.UUID        `json:"credit_conversion_rule_id"`
-	Authorized             *bool             `json:"authorized"`
-	DenialReason           *string           `json:"denial_reason"`
-	CreditsReserved        pgtype.Numeric    `json:"credits_reserved"`
-	CreditsComputed        pgtype.Numeric    `json:"credits_computed"`
-	CreditsCharged         pgtype.Numeric    `json:"credits_charged"`
-	ValueBefore            *float64          `json:"value_before"`
-	ValueAfter             *float64          `json:"value_after"`
-	WindowStart            pgtype.Timestamp  `json:"window_start"`
-	RequestHash            []byte            `json:"request_hash"`
-	CommitHash             []byte            `json:"commit_hash"`
-	ReserveResponse        []byte            `json:"reserve_response"`
-	CommitResponse         []byte            `json:"commit_response"`
-	ModelSlug              *string           `json:"model_slug"`
-}
-
-func (q *Queries) ListAIReservations(ctx context.Context, arg ListAIReservationsParams) ([]ListAIReservationsRow, error) {
-	rows, err := q.db.Query(ctx, listAIReservations, arg.OrganizationID, arg.InstanceID, arg.EntitlementID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListAIReservationsRow
-	for rows.Next() {
-		var i ListAIReservationsRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.OrganizationID,
-			&i.InstanceID,
-			&i.EntitlementID,
-			&i.TransactionID,
-			&i.Status,
-			&i.ReportedAt,
-			&i.CommittedAt,
-			&i.ExpiresAt,
-			&i.ModelRef,
-			&i.ModelID,
-			&i.RequestType,
-			&i.RequestStatus,
-			&i.InputTokens,
-			&i.CacheReadInputTokens,
-			&i.CacheWriteInputTokens,
-			&i.OutputTokens,
-			&i.Units,
-			&i.UnitType,
-			&i.DurationMs,
-			&i.CreditConversionRuleID,
-			&i.Authorized,
-			&i.DenialReason,
-			&i.CreditsReserved,
-			&i.CreditsComputed,
-			&i.CreditsCharged,
-			&i.ValueBefore,
-			&i.ValueAfter,
-			&i.WindowStart,
-			&i.RequestHash,
-			&i.CommitHash,
-			&i.ReserveResponse,
-			&i.CommitResponse,
-			&i.ModelSlug,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const resolveAIReadPair = `-- name: ResolveAIReadPair :one
-SELECT i.id AS instance_id,e.id AS entitlement_id FROM instance i
-JOIN entitlement e ON e.organization_id=i.organization_id AND e.slug=$1
-JOIN instance_effective_entitlement iee ON iee.organization_id=i.organization_id AND iee.instance_id=i.id AND iee.entitlement_id=e.id
-WHERE i.organization_id=$2 AND i.slug=$3 AND e.type='NUMBER_AI_CREDIT'
-`
-
-type ResolveAIReadPairParams struct {
-	EntitlementSlug string    `json:"entitlement_slug"`
-	OrganizationID  uuid.UUID `json:"organization_id"`
-	InstanceSlug    string    `json:"instance_slug"`
-}
-
-type ResolveAIReadPairRow struct {
-	InstanceID    uuid.UUID `json:"instance_id"`
-	EntitlementID uuid.UUID `json:"entitlement_id"`
-}
-
-func (q *Queries) ResolveAIReadPair(ctx context.Context, arg ResolveAIReadPairParams) (ResolveAIReadPairRow, error) {
-	row := q.db.QueryRow(ctx, resolveAIReadPair, arg.EntitlementSlug, arg.OrganizationID, arg.InstanceSlug)
-	var i ResolveAIReadPairRow
-	err := row.Scan(&i.InstanceID, &i.EntitlementID)
-	return i, err
 }
 
 const storeAIPhaseResponse = `-- name: StoreAIPhaseResponse :execrows

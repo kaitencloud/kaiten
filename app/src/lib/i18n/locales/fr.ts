@@ -138,8 +138,24 @@ export default {
       invalidRange: 'La date de début doit précéder la date de fin.',
       invalidCursor:
         'Ce curseur d’historique est invalide. Rechargez la liste.',
-      poolNotGranted:
-        'Ce quota de crédits IA n’est pas accordé à cette instance.',
+      poolNotFound: 'Cette instance ou ce quota de crédits IA est introuvable.',
+      refundInferenceNotFound:
+        'Cette inférence est introuvable sur cette instance et ce quota de crédits.',
+      refundNotCommitted:
+        'Seule une inférence validée peut être remboursée. Celle-ci n’a jamais été facturée.',
+      refundNothingLeft:
+        'Il ne reste rien à rembourser : cette inférence n’a rien coûté, ou son montant est déjà remboursé en totalité.',
+      refundExceeds:
+        'Le remboursement dépasse ce qu’il reste à rembourser sur cette inférence.',
+      refundPoolNotGranted:
+        'Cette instance ne dispose plus de ce quota de crédits : le remboursement ne peut pas être compté.',
+      refundKeyReused:
+        'Cette clé de remboursement a déjà servi à un autre remboursement ou rapport. Relancez le remboursement.',
+      refundKeyInvalid:
+        'Le remboursement nécessite une clé d’idempotence valide. Relancez le remboursement.',
+      refundInvalidAmount:
+        'Saisissez un nombre de crédits positif, avec six décimales au plus.',
+      refundInvalidReason: 'Le motif doit compter de 1 à 500 caractères.',
       transactionRequired: 'Un identifiant d’opération IA est requis.',
       transactionInvalid:
         'Le format de l’identifiant d’opération IA est invalide.',

@@ -88,7 +88,20 @@ const awaitsBilling = "billing: the SDK models it in its billing release"
 // contract (V32-03 a).
 const awaitsExceptions = "entitlement exceptions: the SDK models them after the contract"
 
+// awaitsAIHistory is the reason of the organization-level inference listing:
+// same audience as listAiInferences, which the pinned SDK already generates,
+// but this operation joined the contract after that pin.
+const awaitsAIHistory = "AI history: the SDK regenerates its typed client after the contract"
+
+// awaitsAIRefund is the reason of the refund of an inference: a write a
+// customer's own back office makes, like the usage report it composes, which
+// joined the contract after the SDK pin.
+const awaitsAIRefund = "AI refund: the SDK regenerates its typed client after the contract"
+
 var awaitingSDKOperations = map[string]string{
+	"listOrganizationAiInferences": awaitsAIHistory,
+	"refundAiInference":            awaitsAIRefund,
+
 	// The AI companion SDK pin predates the billing usage-history services.
 	// Keep these as explicit billing-release debt until that SDK maps them.
 	"listUsageReports":               awaitsBilling,

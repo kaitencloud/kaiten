@@ -63,6 +63,13 @@ type Result struct {
 	// MetadataDropped is the Kaiten-Metadata-Dropped value when the report's
 	// metadata was not stored, "" otherwise. A replay never carries it.
 	MetadataDropped string
+	// ReportSeq is the journal row this report was accepted under, and
+	// ReportedAt the instant it was dated by. Both are nil when the report
+	// wrote no journal row: a replay, a reserve, a commit that charged nothing.
+	// A use case that composes a report into its own transaction (a refund)
+	// links what it records to that row.
+	ReportSeq  *int64
+	ReportedAt *time.Time
 }
 
 const usageReportMeter = "kaiten.usage.report"

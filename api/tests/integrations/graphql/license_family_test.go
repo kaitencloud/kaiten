@@ -98,6 +98,90 @@ func TestGraphQL_LicenseFamily(t *testing.T) {
 			"the family survives the instance -> license traversal")
 		assert.Equal(t, license.Slug, payload.Instance.License.Family.Slug)
 	})
+
+	// What a list of licenses needs to label and order a family's versions
+	// without one licenseFamily query per family: the version the family
+	// serves (a family has no name of its own) and each version's number.
+	t.Run("NamesTheCurrentVersionAndNumbersTheVersions", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+		first := newLicense(t, "Family Label")
+		second := newLicenseVersion(t, "Family Label v2", first.Slug)
+		other := newLicense(t, "Other Product")
+
+		const query = `{ licenses { items { slug versionNumber family { slug currentVersion { slug name versionNumber } } } } }`
+		type item struct {
+			Slug          string `json:"slug"`
+			VersionNumber int    `json:"versionNumber"`
+			Family        struct {
+				Slug           string `json:"slug"`
+				CurrentVersion *struct {
+					Slug          string `json:"slug"`
+					Name          string `json:"name"`
+					VersionNumber int    `json:"versionNumber"`
+				} `json:"currentVersion"`
+			} `json:"family"`
+		}
+		read := func() map[string]item {
+			resp := executeGraphQL(t, query, nil)
+			require.Empty(t, resp.Errors, "GraphQL errors: %v", resp.Errors)
+			var payload struct {
+				Licenses struct {
+					Items []item `json:"items"`
+				} `json:"licenses"`
+			}
+			require.NoError(t, json.Unmarshal(resp.Data, &payload))
+			items := make(map[string]item, len(payload.Licenses.Items))
+			for _, i := range payload.Licenses.Items {
+				items[i.Slug] = i
+			}
+			return items
+		}
+
+		// The rule is the family view's: the same query resolves both.
+		view := executeGraphQL(t, `query ($slug: String!) { licenseFamily(slug: $slug) { currentVersion { slug } } }`,
+			map[string]interface{}{"slug": first.Slug})
+		require.Empty(t, view.Errors)
+		var resolved struct {
+			LicenseFamily struct {
+				CurrentVersion struct {
+					Slug string `json:"slug"`
+				} `json:"currentVersion"`
+			} `json:"licenseFamily"`
+		}
+		require.NoError(t, json.Unmarshal(view.Data, &resolved))
+
+		items := read()
+		require.Len(t, items, 3)
+		assert.Equal(t, 1, items[first.Slug].VersionNumber)
+		assert.Equal(t, 2, items[second.Slug].VersionNumber)
+		for _, slug := range []string{first.Slug, second.Slug} {
+			current := items[slug].Family.CurrentVersion
+			require.NotNil(t, current, "both versions name the version their family serves")
+			assert.Equal(t, resolved.LicenseFamily.CurrentVersion.Slug, current.Slug)
+			assert.Equal(t, second.Slug, current.Slug, "the highest-numbered PUBLISHED version, with no default set")
+			assert.Equal(t, "Family Label v2", current.Name)
+			assert.Equal(t, 2, current.VersionNumber)
+		}
+		require.NotNil(t, items[other.Slug].Family.CurrentVersion)
+		assert.Equal(t, other.Slug, items[other.Slug].Family.CurrentVersion.Slug, "each family resolves its own")
+
+		// A default version wins over a higher number.
+		_, err := testServer.Dependencies.DB.Exec(t.Context(),
+			`UPDATE license SET is_default = true WHERE slug = $1 AND organization_id = $2`, first.Slug, testDb.DefaultData.OrganizationID)
+		require.NoError(t, err)
+		assert.Equal(t, first.Slug, read()[second.Slug].Family.CurrentVersion.Slug)
+
+		// Nothing PUBLISHED: the family is still there, with no current version.
+		_, err = testServer.Dependencies.DB.Exec(t.Context(),
+			`UPDATE license SET is_default = false, lifecycle_state = 'DRAFT' WHERE family_id = $1 AND organization_id = $2`,
+			first.FamilyID, testDb.DefaultData.OrganizationID)
+		require.NoError(t, err)
+		items = read()
+		assert.Nil(t, items[first.Slug].Family.CurrentVersion)
+		assert.Equal(t, first.Slug, items[first.Slug].Family.Slug)
+		assert.NotNil(t, items[other.Slug].Family.CurrentVersion)
+	})
 }
 
 // newLicenseVersion adds a version to an existing family, which is what

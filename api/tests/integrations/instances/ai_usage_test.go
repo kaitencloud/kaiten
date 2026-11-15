@@ -1,13 +1,17 @@
 package instances_test
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
@@ -17,6 +21,7 @@ import (
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	instancedb "github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
@@ -377,6 +382,167 @@ func TestAIReleasedOperationIsSettledAndReplaysOnlyIdenticalNotSent(t *testing.T
 	require.Zero(t, usageRows)
 }
 
+// An SDK releases on every failure path, including a call whose reserve never
+// reached Kaiten -- or has not reached it yet. That release closes the
+// transactionId with a tombstone: a RELEASED row that carries the identity,
+// the licence and the NO_RESERVATION warning, and is evidence of nothing else.
+func TestAIReleaseWithoutReservationLeavesATombstone(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 10)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE entitlement SET reset_period='MONTH',reset_anchor='CALENDAR' WHERE id=$1`, pool.ID)
+	require.NoError(t, err)
+	window, err := period.Current(time.Now().UTC(), period.Month, period.Calendar, time.Time{})
+	require.NoError(t, err)
+	oldStart := window.Start.AddDate(0, -1, 0)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "held", 4)), http.StatusOK)
+	// A stale window: the tombstone persists its rollover like every phase.
+	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
+	counter := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID)
+	}
+	operations := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID)
+	}
+	eventNames := func() map[string]int {
+		names := map[string]int{}
+		for _, event := range recordedEvents(t) {
+			names[event.Name]++
+		}
+		return names
+	}
+	seqBefore, journalBefore, eventsBefore := counterReportSeq(t, instance.ID, pool.ID), ledgerRows(t, instance.ID, pool.ID), eventNames()
+
+	// Neither model nor requestType: there is nothing to price.
+	release := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved", "requestStatus": "NOT_SENT"}
+	response := aiReport(t, instance.Slug, pool.Slug, release)
+	require.Empty(t, response.Header.Get("Idempotent-Replayed"))
+	released := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, response, http.StatusOK)
+	require.Equal(t, "RELEASED", released.AI.Status)
+	require.Equal(t, "commit", released.AI.Phase)
+	require.Equal(t, "0", *released.AI.Credits.Computed)
+	require.Equal(t, "0", *released.AI.Credits.Charged)
+	require.Nil(t, released.AI.Credits.Reserved)
+	require.Nil(t, released.AI.Authorized, "no model was evaluated")
+	require.Nil(t, released.AI.Rule)
+	require.Equal(t, []string{instanceschema.AiWarningNoReservation}, released.AI.Warnings)
+	require.Equal(t, "4", *released.Reserved, "another operation's reservation is untouched")
+	require.Equal(t, "6", *released.AI.Remaining)
+	require.Zero(t, released.Value.Number.Value)
+
+	// One row, with exactly these columns.
+	var tombstone struct {
+		count                                                  int
+		status, modelRef, requestType, requestStatus, warnings string
+		authorized, hashes, neutral                            bool
+		computed, charged                                      string
+		licenseID                                              uuid.UUID
+	}
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) OVER (), status::text, model_ref, request_type::text, request_status::text, warnings::text,
+		authorized, request_hash = commit_hash AND octet_length(request_hash) = 32,
+		model_id IS NULL AND credit_conversion_rule_id IS NULL AND denial_reason IS NULL AND pricing IS NULL AND report_seq IS NULL
+		 AND vendor_cost_reported IS NULL AND vendor_cost_computed IS NULL AND credits_reserved IS NULL AND value_before IS NULL AND value_after IS NULL
+		 AND expires_at IS NULL AND committed_at = reported_at AND reserve_response IS NULL AND commit_response IS NOT NULL
+		 AND input_tokens IS NULL AND output_tokens IS NULL AND units IS NULL AND duration_ms IS NULL,
+		credits_computed::text, credits_charged::text, license_id
+		FROM ai_inference WHERE entitlement_id=$1 AND transaction_id='never-reserved'`, pool.ID).Scan(
+		&tombstone.count, &tombstone.status, &tombstone.modelRef, &tombstone.requestType, &tombstone.requestStatus, &tombstone.warnings,
+		&tombstone.authorized, &tombstone.hashes, &tombstone.neutral, &tombstone.computed, &tombstone.charged, &tombstone.licenseID))
+	require.Equal(t, 1, tombstone.count)
+	require.Equal(t, "RELEASED", tombstone.status)
+	require.Empty(t, tombstone.modelRef, "no model was sent")
+	require.Equal(t, "COMPLETION", tombstone.requestType, "the column is NOT NULL: the placeholder of a tombstone that named none")
+	require.Equal(t, "NOT_SENT", tombstone.requestStatus)
+	require.Equal(t, "{NO_RESERVATION}", tombstone.warnings)
+	require.True(t, tombstone.authorized, "nothing was refused: a tombstone is not an unauthorized use")
+	require.True(t, tombstone.hashes)
+	require.True(t, tombstone.neutral)
+	require.Equal(t, "0.000000", tombstone.computed)
+	require.Equal(t, "0.000000", tombstone.charged)
+	require.Equal(t, instance.LicenseID, tombstone.licenseID)
+
+	// Nothing was counted: no journal row, no sequence number, no usage event
+	// and no unauthorized-model event. The stale window alone was rolled over.
+	require.Equal(t, seqBefore, counterReportSeq(t, instance.ID, pool.ID))
+	require.Equal(t, journalBefore, ledgerRows(t, instance.ID, pool.ID))
+	eventsAfter := eventNames()
+	require.Equal(t, eventsBefore["INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER"]+1, eventsAfter["INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER"])
+	delete(eventsAfter, "INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER")
+	delete(eventsBefore, "INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER")
+	require.Equal(t, eventsBefore, eventsAfter)
+
+	// The same release again is a replay: the stored answer, nothing written.
+	counterBefore, operationsBefore, settledEvents := counter(), operations(), eventNames()
+	replay := aiReport(t, instance.Slug, pool.Slug, release)
+	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
+	require.Equal(t, released, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
+
+	// The race the tombstone closes: the reserve that was still in flight
+	// lands after the release. It is refused like on any closed operation,
+	// and holds nothing.
+	late := aiUsageBody("reserve", "never-reserved", 3)
+	problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, late), http.StatusConflict)
+	require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
+	// A commit with usage under the id, and a release with another body, are
+	// another body under a settled transactionId, as on any RELEASED operation.
+	commit := aiUsageBody("commit", "never-reserved", 2)
+	commit["model"], commit["requestType"] = "lifecycle-model", "COMPLETION"
+	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusConflict)
+	require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
+	other := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved", "requestStatus": "NOT_SENT", "model": "lifecycle-model", "requestType": "COMPLETION"}
+	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, other), http.StatusConflict)
+	require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
+	require.Equal(t, counterBefore, counter())
+	require.Equal(t, operationsBefore, operations(), "no RESERVED row, and the tombstone untouched")
+	require.Equal(t, settledEvents, eventNames(), "a replay and three conflicts emit nothing")
+	gauge := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiRead(t, instance.Slug, pool.Slug, ""), http.StatusOK)
+	require.Equal(t, "4", *gauge.Reserved)
+
+	// A model the catalogue does not know is kept as sent and never looked
+	// up: no unauthorized use is recorded for it, today or later.
+	withModel := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "never-reserved-either", "requestStatus": "NOT_SENT", "model": "missing-model", "requestType": "EMBEDDING"}
+	named := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, withModel), http.StatusOK)
+	require.Equal(t, []string{instanceschema.AiWarningNoReservation}, named.AI.Warnings)
+	require.Nil(t, named.AI.Authorized)
+	var modelRef, requestType string
+	var authorized, unresolved bool
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT model_ref, request_type::text, authorized, model_id IS NULL AND denial_reason IS NULL FROM ai_inference WHERE entitlement_id=$1 AND transaction_id='never-reserved-either'`, pool.ID).Scan(&modelRef, &requestType, &authorized, &unresolved))
+	require.Equal(t, "missing-model", modelRef)
+	require.Equal(t, "EMBEDDING", requestType)
+	require.True(t, authorized)
+	require.True(t, unresolved)
+	require.Zero(t, eventNames()["INSTANCE_AI_MODEL_USAGE_UNAUTHORIZED"])
+
+	// Tombstones are markers, not operations: both listings leave them out
+	// unless RELEASED rows or one transactionId are asked for.
+	require.Equal(t, []string{"held"}, transactionIDs(historyPage(t, instance.Slug, pool.Slug, url.Values{}).Items))
+	require.Empty(t, historyPage(t, instance.Slug, pool.Slug, url.Values{"model": {"missing-model"}}).Items)
+	require.ElementsMatch(t, []string{"never-reserved", "never-reserved-either"}, transactionIDs(historyPage(t, instance.Slug, pool.Slug, url.Values{"status": {"RELEASED"}}).Items))
+	byID := historyPage(t, instance.Slug, pool.Slug, url.Values{"transactionId": {"never-reserved"}})
+	require.Equal(t, []string{"never-reserved"}, transactionIDs(byID.Items))
+	require.Equal(t, "RELEASED", byID.Items[0].Status)
+	require.Equal(t, []string{instanceschema.AiWarningNoReservation}, byID.Items[0].Warnings)
+	require.Nil(t, byID.Items[0].Pricing)
+	require.Nil(t, byID.Items[0].VendorCost)
+	require.Nil(t, byID.Items[0].ReportSeq)
+	require.Equal(t, instance.LicenseSlug, *byID.Items[0].LicenseSlug)
+	require.Equal(t, []string{"held"}, organizationTransactionIDs(organizationPage(t, nil, url.Values{}).Items))
+	require.ElementsMatch(t, []string{"never-reserved", "never-reserved-either"}, organizationTransactionIDs(organizationPage(t, nil, url.Values{"status": {"RELEASED"}}).Items))
+	require.Equal(t, []string{"never-reserved-either"}, organizationTransactionIDs(organizationPage(t, nil, url.Values{"transactionId": {"never-reserved-either"}}).Items))
+	// A release that did close a reservation is an ordinary RELEASED row.
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "held", "requestStatus": "NOT_SENT"}), http.StatusOK)
+	require.Equal(t, []string{"held"}, transactionIDs(historyPage(t, instance.Slug, pool.Slug, url.Values{}).Items))
+
+	// A pair nothing grants still answers 404 and leaves no tombstone, and a
+	// pool that is not a credit pool still refuses AI usage.
+	ungranted := newEntitlementWithPolicy(t, entitlementschema.NumberAICredit, 0)
+	problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, ungranted.Slug, release), http.StatusNotFound)
+	require.Equal(t, "ReportEntitlementUsageMetric.ContextNotFound", problem.Code)
+	var orphans int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM ai_inference WHERE entitlement_id=$1`, ungranted.ID).Scan(&orphans))
+	require.Zero(t, orphans)
+}
+
 func TestAIStaleWindowReplayWritesNoCounterOperationOrOutbox(t *testing.T) {
 	useAIForThisTest(t)
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
@@ -482,14 +648,15 @@ func TestAIReservationAcrossRolloverChargesNewWindow(t *testing.T) {
 	window, err := period.Current(time.Now().UTC(), period.Month, period.Calendar, time.Time{})
 	require.NoError(t, err)
 	oldStart := window.Start.AddDate(0, -1, 0)
-	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
-	beforeCounter := getUsageRow(t, instance.ID, pool.ID)
 	beforeEvents := recordedEvents(t)
 	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "rollover", 5)), http.StatusOK)
+	require.Equal(t, beforeEvents, recordedEvents(t))
+	// The reservation was taken in the previous window: its counter is seeded
+	// after the reserve, because a reserve now persists the rollover it
+	// resolves (TestAIRolloverPersistedOnEveryPhase).
+	seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
 	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE ai_inference SET reported_at=$2 WHERE entitlement_id=$1`, pool.ID, window.Start.Add(-time.Second))
 	require.NoError(t, err)
-	require.Equal(t, beforeCounter, getUsageRow(t, instance.ID, pool.ID))
-	require.Equal(t, beforeEvents, recordedEvents(t))
 	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "rollover", 9)), http.StatusOK)
 	require.Equal(t, 9.0, charged.Value.Number.Value, "commit uses the new window, not old consumption plus charge")
 	require.Equal(t, int32(1), charged.Value.Number.EventCount)
@@ -505,6 +672,65 @@ func TestAIReservationAcrossRolloverChargesNewWindow(t *testing.T) {
 	require.Zero(t, before)
 	require.Equal(t, 9.0, after)
 	require.True(t, windowStart.Equal(*charged.CurrentPeriodStart))
+}
+
+// A reserve, a refused reserve and a commit that charges nothing are reports
+// like any other: each persists the rollover it resolved, once, and the next
+// charged commit finds the window already open.
+func TestAIRolloverPersistedOnEveryPhase(t *testing.T) {
+	useAIForThisTest(t)
+	unknown := func(phase, id string) map[string]any {
+		value := aiUsageBody(phase, id, 2)
+		value["model"], value["requestType"] = "missing-model", "COMPLETION"
+		return value
+	}
+	for _, scenario := range []struct {
+		name   string
+		first  map[string]any
+		status int
+		events int
+	}{
+		{"reserve", aiUsageBody("reserve", "first", 2), http.StatusOK, 1},
+		{"refused reserve", unknown("reserve", "first"), http.StatusUnprocessableEntity, 2},
+		{"zero-charge commit", unknown("commit", "first"), http.StatusOK, 2},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+			instance, pool := newAIUsagePair(t, 100)
+			_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE entitlement SET reset_period='MONTH',reset_anchor='CALENDAR' WHERE id=$1`, pool.ID)
+			require.NoError(t, err)
+			window, err := period.Current(time.Now().UTC(), period.Month, period.Calendar, time.Time{})
+			require.NoError(t, err)
+			oldStart := window.Start.AddDate(0, -1, 0)
+			seedUsageRow(t, instance.Slug, pool.Slug, 9, 3, &oldStart)
+			beforeEvents := recordedEvents(t)
+			response := aiReport(t, instance.Slug, pool.Slug, scenario.first)
+			require.Equal(t, scenario.status, response.StatusCode)
+			// The rollover, plus the phase's own event: REJECTED for the
+			// refusal, MODEL_USAGE_UNAUTHORIZED for the unknown model.
+			require.Len(t, recordedEvents(t), len(beforeEvents)+scenario.events)
+			closures := rolloverEvents(t)
+			require.Len(t, closures, 1, "rollover emitted once, by the first report of the window")
+			require.Equal(t, 9.0, closures[0].Value)
+			require.True(t, closures[0].ClosedPeriodStart.Equal(oldStart))
+			row := getUsageRow(t, instance.ID, pool.ID)
+			require.True(t, row.PeriodStart.Time.Equal(window.Start), "period_start = %v, want %v", row.PeriodStart.Time, window.Start)
+			counter, err := entitlementvalue.ParseNumberUsageValue(row.Value)
+			require.NoError(t, err)
+			require.Zero(t, counter.Value)
+			require.Zero(t, counter.EventCount)
+			var journal int
+			require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&journal))
+			require.Zero(t, journal, "a rollover alone is not a journal entry")
+
+			commit := aiUsageBody("commit", "charged", 4)
+			commit["model"], commit["requestType"] = "lifecycle-model", "COMPLETION"
+			charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusOK)
+			require.Equal(t, 4.0, charged.Value.Number.Value)
+			require.Equal(t, int32(1), charged.Value.Number.EventCount)
+			require.Len(t, rolloverEvents(t), 1, "and not again by the commit that charges")
+		})
+	}
 }
 
 func TestAIPhaseReplayIdentityAndHorizon(t *testing.T) {
@@ -644,6 +870,416 @@ func TestAISoftMaximumAndUnlimitedGate(t *testing.T) {
 		require.Equal(t, 2000.0, charged.Value.Number.Value)
 		require.NotContains(t, charged.AI.Warnings, "OVERDRAWN")
 	})
+}
+
+// The counter is a float64: past about 1e10 it cannot hold a micro-credit
+// charge within half a quantum. The commit is recorded all the same, with the
+// exact charge on the row and in the journal, and says the counter drifted.
+func TestAICommitOnASaturatedCounterIsRecordedWithAPrecisionWarning(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, -1)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_output_token=0.000001 WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	seedUsageRow(t, instance.Slug, pool.Slug, 10000000000, 1, nil)
+	commit := aiUsageBody("commit", "saturated", 1)
+	commit["model"], commit["requestType"] = "lifecycle-model", "COMPLETION"
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusOK)
+	require.Equal(t, "COMMITTED", charged.AI.Status)
+	require.Equal(t, "0.000001", *charged.AI.Credits.Charged)
+	require.Contains(t, charged.AI.Warnings, instanceschema.AiWarningCounterPrecisionDegraded)
+	var exact string
+	var before, after float64
+	var warnings []string
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT credits_charged::text,value_before,value_after,warnings FROM ai_inference WHERE entitlement_id=$1`, pool.ID).Scan(&exact, &before, &after, &warnings))
+	require.Contains(t, warnings, instanceschema.AiWarningCounterPrecisionDegraded)
+	require.Equal(t, "0.000001", exact, "the NUMERIC charge is exact whatever the counter could hold")
+	require.Greater(t, math.Abs((after-before)-0.000001), 0.0000005, "the scenario is the one I1 cannot hold in")
+	var journal int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&journal))
+	require.Equal(t, 1, journal)
+	replay := aiReport(t, instance.Slug, pool.Slug, commit)
+	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
+	require.Equal(t, charged, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
+}
+
+// A charged commit is one journal entry; the inference keeps its sequence
+// number. What moved nothing has none.
+func TestAIChargedCommitKeepsTheJournalSequence(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	bare := aiUsageBody("commit", "bare", 2)
+	bare["model"], bare["requestType"] = "lifecycle-model", "COMPLETION"
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, bare), http.StatusOK)
+	// A numeric report in between takes a sequence number of its own.
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, reportUsage(t, instance.Slug, pool.Slug, 1, "append"), http.StatusOK)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "reserved", 3)), http.StatusOK)
+	sequence := func(id string) *int64 {
+		var seq *int64
+		require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT report_seq FROM ai_inference WHERE entitlement_id=$1 AND transaction_id=$2`, pool.ID, id).Scan(&seq))
+		return seq
+	}
+	require.Nil(t, sequence("reserved"), "a reservation counted nothing")
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "reserved", 4)), http.StatusOK)
+	unknown := aiUsageBody("commit", "uncharged", 5)
+	unknown["model"], unknown["requestType"] = "missing-model", "COMPLETION"
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, unknown), http.StatusOK)
+	released := aiUsageBody("reserve", "released", 1)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, released), http.StatusOK)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "released", "requestStatus": "NOT_SENT"}), http.StatusOK)
+	require.Nil(t, sequence("uncharged"), "a commit that charged nothing is not in the journal")
+	require.Nil(t, sequence("released"))
+
+	// Each charged inference joins exactly its own journal row, on the pair
+	// and the sequence number: same amount, same counter.
+	rows, err := testServer.Dependencies.DB.Query(t.Context(), `SELECT a.transaction_id, a.report_seq, a.credits_charged::float8, l.reported_value::float8, a.value_before, l.value_before::float8, a.value_after, l.value_after::float8
+		FROM ai_inference a JOIN usage_ledger l ON l.instance_id=a.instance_id AND l.entitlement_id=a.entitlement_id AND l.report_seq=a.report_seq
+		WHERE a.entitlement_id=$1 ORDER BY a.report_seq`, pool.ID)
+	require.NoError(t, err)
+	defer rows.Close()
+	var ids []string
+	var seqs []int64
+	for rows.Next() {
+		var id string
+		var seq int64
+		var charged, reported, before, journalBefore, after, journalAfter float64
+		require.NoError(t, rows.Scan(&id, &seq, &charged, &reported, &before, &journalBefore, &after, &journalAfter))
+		require.Equal(t, charged, reported, id)
+		require.Equal(t, before, journalBefore, id)
+		require.Equal(t, after, journalAfter, id)
+		require.InDelta(t, charged, after-before, 0.0000005, "I1: %s", id)
+		ids, seqs = append(ids, id), append(seqs, seq)
+	}
+	require.NoError(t, rows.Err())
+	require.Equal(t, []string{"bare", "reserved"}, ids)
+	require.Equal(t, []int64{1, 3}, seqs, "the numeric report took sequence 2")
+	var journal int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM usage_ledger WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID).Scan(&journal))
+	require.Equal(t, 3, journal)
+}
+
+// aiExplain is what an ai_inference row says about itself.
+type aiExplain struct {
+	pricing   *instanceschema.AiInferencePricing
+	licenseID *uuid.UUID
+	warnings  []string
+	snapshot  string
+}
+
+func readAIExplain(t *testing.T, poolID uuid.UUID, transactionID string) aiExplain {
+	t.Helper()
+	var raw []byte
+	var explain aiExplain
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT pricing,license_id,warnings,jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text)::text FROM ai_inference a WHERE entitlement_id=$1 AND transaction_id=$2`, poolID, transactionID).Scan(&raw, &explain.licenseID, &explain.warnings, &explain.snapshot))
+	if raw != nil {
+		// The stored document is the read type itself: what the history decodes.
+		explain.pricing = &instanceschema.AiInferencePricing{}
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		require.NoError(t, decoder.Decode(explain.pricing))
+	}
+	return explain
+}
+
+// The row explains its own charge: the rule as it priced the operation, the
+// licence version, and the warnings answered. Editing the rule afterwards
+// changes none of it.
+func TestAICommitSnapshotsTheRuleThatPricedIt(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 5)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_input_token=0.25,rate_per_cached_input_token=0.0125,minimum_credits_per_request=0.5,maximum_credits_per_request=40 WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	var ruleID uuid.UUID
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT id FROM credit_conversion_rule WHERE entitlement_id=$1`, pool.ID).Scan(&ruleID))
+	maximum := "40"
+	want := instanceschema.AiInferencePricing{
+		RuleID: ruleID, Specificity: aicredit.ExactAll,
+		Rates:                    instanceschema.AiInferenceRates{PerInputToken: ptr.To("0.25"), PerCachedInputToken: ptr.To("0.0125"), PerOutputToken: ptr.To("1")},
+		MinimumCreditsPerRequest: "0.5", MaximumCreditsPerRequest: &maximum, ChargeOnError: aicredit.Always,
+	}
+
+	reserved := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "explained", 2)), http.StatusOK)
+	atReserve := readAIExplain(t, pool.ID, "explained")
+	require.Equal(t, &want, atReserve.pricing, "the reserve snapshots the rule its estimate was priced with")
+	require.Equal(t, instance.LicenseID, *atReserve.licenseID)
+	require.Equal(t, reserved.AI.Warnings, atReserve.warnings)
+	require.Empty(t, atReserve.warnings)
+
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "explained", 7)), http.StatusOK)
+	require.Equal(t, "7", *charged.AI.Credits.Charged)
+	require.Contains(t, charged.AI.Warnings, instanceschema.AiWarningOverdrawn)
+	committed := readAIExplain(t, pool.ID, "explained")
+	require.Equal(t, &want, committed.pricing)
+	require.Equal(t, instance.LicenseID, *committed.licenseID)
+	require.Equal(t, charged.AI.Warnings, committed.warnings, "the row carries the warnings the commit answered with")
+
+	// The rule is edited in place (AC-13), then archived. The record still
+	// shows the rates it was charged at, and a replay rewrites nothing.
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_output_token=99,rate_per_input_token=NULL,maximum_credits_per_request=NULL,charge_on_error='NEVER' WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	beforeEvents := recordedEvents(t)
+	// xmin changes on any write, an identical one included.
+	operationRow := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) FROM ai_inference a WHERE entitlement_id=$1 AND transaction_id='explained'`, pool.ID)
+	}
+	counterRow := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(e),'xmin',e.xmin::text) FROM entitlement_usage e WHERE instance_id=$1 AND entitlement_id=$2`, instance.ID, pool.ID)
+	}
+	operationBefore, counterBefore := operationRow(), counterRow()
+	replay := aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "explained", 7))
+	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
+	require.Equal(t, charged, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
+	require.Equal(t, operationBefore, operationRow(), "the replay did not write the operation")
+	require.Equal(t, counterBefore, counterRow(), "the replay did not write the counter")
+	require.Equal(t, committed, readAIExplain(t, pool.ID, "explained"), "the snapshot is the old rule")
+	require.Equal(t, beforeEvents, recordedEvents(t))
+
+	// The next call is priced, and snapshotted, with the rule as it now is.
+	next := aiUsageBody("commit", "repriced", 1)
+	next["model"], next["requestType"] = "lifecycle-model", "COMPLETION"
+	repriced := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, next), http.StatusOK)
+	require.Equal(t, "99", *repriced.AI.Credits.Charged)
+	require.Equal(t, &instanceschema.AiInferencePricing{
+		RuleID: ruleID, Specificity: aicredit.ExactAll,
+		Rates:                    instanceschema.AiInferenceRates{PerCachedInputToken: ptr.To("0.0125"), PerOutputToken: ptr.To("99")},
+		MinimumCreditsPerRequest: "0.5", ChargeOnError: aicredit.Never,
+	}, readAIExplain(t, pool.ID, "repriced").pricing)
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET status='ARCHIVED' WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	require.Equal(t, committed, readAIExplain(t, pool.ID, "explained"))
+}
+
+// A reservation does not lock the rates: the commit prices with the rule of
+// its own instant and overwrites the reserve's snapshot -- with nothing when
+// no rule applies any more.
+func TestAICommitOverwritesTheReserveSnapshot(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	for _, id := range []string{"repriced", "unpriced"} {
+		commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", id, 2)), http.StatusOK)
+		require.Equal(t, "1", *readAIExplain(t, pool.ID, id).pricing.Rates.PerOutputToken)
+	}
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET rate_per_output_token=3 WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "repriced", 2)), http.StatusOK)
+	require.Equal(t, "6", *charged.AI.Credits.Charged)
+	require.Equal(t, "3", *readAIExplain(t, pool.ID, "repriced").pricing.Rates.PerOutputToken)
+
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET status='ARCHIVED' WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	denied := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "unpriced", 2)), http.StatusOK)
+	require.False(t, *denied.AI.Authorized)
+	unpriced := readAIExplain(t, pool.ID, "unpriced")
+	require.Nil(t, unpriced.pricing, "no rule priced the commit: the reserve's snapshot does not survive it")
+	require.Equal(t, instance.LicenseID, *unpriced.licenseID)
+	require.Equal(t, denied.AI.Warnings, unpriced.warnings)
+	require.Equal(t, []string{instanceschema.AiWarningModelNotAuthorized}, unpriced.warnings)
+}
+
+// An unauthorized operation has no price to explain, but still says which
+// licence refused it and what it was answered.
+func TestAIUnauthorizedCommitRecordsLicenceAndWarningsWithoutPricing(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE model SET status='DEPRECATED' WHERE slug='lifecycle-model'`)
+	require.NoError(t, err)
+	unknown := aiUsageBody("commit", "unknown", 2)
+	unknown["model"], unknown["requestType"] = "missing-model", "COMPLETION"
+	denied := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, unknown), http.StatusOK)
+	row := readAIExplain(t, pool.ID, "unknown")
+	require.Nil(t, row.pricing)
+	require.Equal(t, instance.LicenseID, *row.licenseID)
+	require.Equal(t, []string{instanceschema.AiWarningUnknownModel}, row.warnings)
+	require.Equal(t, denied.AI.Warnings, row.warnings)
+
+	// Several warnings are kept in the order they were answered.
+	deprecated := aiUsageBody("commit", "deprecated", 2)
+	deprecated["model"], deprecated["requestType"] = "lifecycle-model", "COMPLETION"
+	delete(deprecated, "usage")
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, deprecated), http.StatusOK)
+	require.Equal(t, []string{instanceschema.AiWarningModelDeprecated, instanceschema.AiWarningConversionInputMissing}, charged.AI.Warnings)
+	require.Equal(t, charged.AI.Warnings, readAIExplain(t, pool.ID, "deprecated").warnings)
+}
+
+// readAIVendorCost returns the two vendor costs of an operation as the
+// database prints them, "" for NULL.
+func readAIVendorCost(t *testing.T, poolID uuid.UUID, transactionID string) (reported, computed string) {
+	t.Helper()
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT COALESCE(vendor_cost_reported::text,''),COALESCE(vendor_cost_computed::text,'') FROM ai_inference WHERE entitlement_id=$1 AND transaction_id=$2`, poolID, transactionID).Scan(&reported, &computed))
+	return reported, computed
+}
+
+// What a request cost the provider is recorded beside what it was charged:
+// as the caller reports it on the commit, and as the catalogue's costs
+// compute it. Neither changes the charge.
+func TestAICommitRecordsReportedAndComputedVendorCost(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, -1)
+	_, err := testServer.Dependencies.DB.Exec(t.Context(), `UPDATE model SET vendor_cost_per_input_token=0.000003,vendor_cost_per_output_token=0.000015,vendor_cost_per_request=0.001,vendor_cost_per_unit=0.04 WHERE slug='lifecycle-model'`)
+	require.NoError(t, err)
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `INSERT INTO model (organization_id,name,slug,vendor,modality,created_by_id,updated_by_id) VALUES ($1,'Costless','costless-model','synthetic','TEXT',$2,$2)`, testDb.DefaultData.OrganizationID, testDb.DefaultData.UserID)
+	require.NoError(t, err)
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `INSERT INTO credit_conversion_rule (organization_id,license_id,entitlement_id,rate_per_output_token,created_by_id,updated_by_id) VALUES ($1,$2,$3,1,$4,$4)`, testDb.DefaultData.OrganizationID, instance.LicenseID, pool.ID, testDb.DefaultData.UserID)
+	require.NoError(t, err)
+	commit := func(id, model, status string, usage map[string]any, vendorCost any) instanceschema.EntitlementUsage {
+		value := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": id, "model": model, "requestType": "COMPLETION", "requestStatus": status}
+		if usage != nil {
+			value["usage"] = usage
+		}
+		if vendorCost != nil {
+			value["vendorCost"] = vendorCost
+		}
+		return commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, value), http.StatusOK)
+	}
+	tokens := map[string]any{"inputTokens": 1000, "cacheReadInputTokens": 2000, "outputTokens": 500, "units": "2.5", "unitType": "image"}
+
+	// Reported and computed. A cache read is costed at the input cost, the
+	// model having no cached-input cost of its own:
+	// 0.001 + 1000*0.000003 + 2000*0.000003 + 500*0.000015 + 2.5*0.04.
+	both := commit("both", "lifecycle-model", "SUCCESS", tokens, "0.0123")
+	reported, computed := readAIVendorCost(t, pool.ID, "both")
+	require.Equal(t, "0.012300000000", reported)
+	require.Equal(t, "0.117500000000", computed)
+
+	// The charge is the rule's alone: the same usage without a vendor cost.
+	without := commit("computed-only", "lifecycle-model", "SUCCESS", tokens, nil)
+	require.Equal(t, *both.AI.Credits.Charged, *without.AI.Credits.Charged)
+	require.Equal(t, "500", *both.AI.Credits.Charged)
+	reported, computed = readAIVendorCost(t, pool.ID, "computed-only")
+	require.Empty(t, reported)
+	require.Equal(t, "0.117500000000", computed)
+
+	// Absent: nothing reported, and a model the catalogue gives no cost.
+	commit("absent", "costless-model", "SUCCESS", tokens, nil)
+	reported, computed = readAIVendorCost(t, pool.ID, "absent")
+	require.Empty(t, reported)
+	require.Empty(t, computed, "no cost at all is unknown, not free")
+
+	// A model that is not in the catalogue has no cost to compute from.
+	commit("unknown", "missing-model", "SUCCESS", tokens, "1.5")
+	reported, computed = readAIVendorCost(t, pool.ID, "unknown")
+	require.Equal(t, "1.500000000000", reported)
+	require.Empty(t, computed)
+
+	// A failed request is costed from the quantities it reports, and not at
+	// all without any; the rule here never charges an error.
+	_, err = testServer.Dependencies.DB.Exec(t.Context(), `UPDATE credit_conversion_rule SET charge_on_error='NEVER' WHERE entitlement_id=$1`, pool.ID)
+	require.NoError(t, err)
+	failed := commit("provider-error", "lifecycle-model", "PROVIDER_ERROR", map[string]any{"inputTokens": 1000}, nil)
+	require.Equal(t, "0", *failed.AI.Credits.Charged)
+	_, computed = readAIVendorCost(t, pool.ID, "provider-error")
+	require.Equal(t, "0.004000000000", computed)
+	commit("customer-error", "lifecycle-model", "CUSTOMER_ERROR", map[string]any{"outputTokens": 100}, nil)
+	_, computed = readAIVendorCost(t, pool.ID, "customer-error")
+	require.Equal(t, "0.002500000000", computed)
+	commit("error-without-usage", "lifecycle-model", "PROVIDER_ERROR", nil, nil)
+	_, computed = readAIVendorCost(t, pool.ID, "error-without-usage")
+	require.Empty(t, computed)
+	// A duration is not a quantity the catalogue can cost.
+	commit("error-with-duration", "lifecycle-model", "PROVIDER_ERROR", map[string]any{"durationMs": 60000}, nil)
+	_, computed = readAIVendorCost(t, pool.ID, "error-with-duration")
+	require.Empty(t, computed)
+
+	// A request that was never sent cost nothing to compute, reserved or not.
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "released", 5)), http.StatusOK)
+	reported, computed = readAIVendorCost(t, pool.ID, "released")
+	require.Empty(t, reported)
+	require.Empty(t, computed, "a reservation has cost the provider nothing yet")
+	release := aiUsageBody("commit", "released", 5)
+	release["requestStatus"] = "NOT_SENT"
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, release), http.StatusOK)
+	_, computed = readAIVendorCost(t, pool.ID, "released")
+	require.Empty(t, computed)
+}
+
+// A request that was never sent has no vendor cost: a release that reports
+// one is refused, whether it closes a reservation or none, and writes nothing.
+// The same release without it is accepted as before.
+func TestAIReleaseRefusesAVendorCost(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("reserve", "held", 5)), http.StatusOK)
+	rows := func() string {
+		return commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_agg(jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) ORDER BY a.id) FROM ai_inference a WHERE entitlement_id=$1`, pool.ID)
+	}
+	before, beforeEvents := rows(), recordedEvents(t)
+	for _, id := range []string{"held", "never-reserved"} {
+		release := map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": id, "requestStatus": "NOT_SENT", "vendorCost": "0.01"}
+		problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, release), http.StatusUnprocessableEntity)
+		require.Equal(t, "ReportEntitlementUsageMetric.InvalidAiUsage", problem.Code)
+	}
+	require.Equal(t, before, rows())
+	require.Equal(t, beforeEvents, recordedEvents(t))
+
+	released := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, map[string]any{"type": "ai_usage", "phase": "commit", "transactionId": "held", "requestStatus": "NOT_SENT"}), http.StatusOK)
+	require.Equal(t, "RELEASED", released.AI.Status)
+	reported, computed := readAIVendorCost(t, pool.ID, "held")
+	require.Empty(t, reported)
+	require.Empty(t, computed)
+}
+
+// vendorCost belongs to the commit. A reserve refuses it, so it is never part
+// of a reservation's identity; on the commit it is part of the body, and a
+// retry must repeat it.
+func TestAIVendorCostIsCommitOnlyAndPartOfTheCommitIdentity(t *testing.T) {
+	useAIForThisTest(t)
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instance, pool := newAIUsagePair(t, 100)
+	reserve := aiUsageBody("reserve", "costed", 2)
+	reserve["vendorCost"] = "0.01"
+	beforeEvents := recordedEvents(t)
+	problem := commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, reserve), http.StatusUnprocessableEntity)
+	require.Equal(t, "ReportEntitlementUsageMetric.InvalidAiUsage", problem.Code)
+	var operations int
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM ai_inference WHERE entitlement_id=$1`, pool.ID).Scan(&operations))
+	require.Zero(t, operations)
+	require.Equal(t, beforeEvents, recordedEvents(t))
+	for _, malformed := range []any{"-1", "1e3", "0.0000000000001", "1234567890123", "", 0.5} {
+		commit := aiUsageBody("commit", "malformed", 2)
+		commit["model"], commit["requestType"], commit["vendorCost"] = "lifecycle-model", "COMPLETION", malformed
+		response := aiReport(t, instance.Slug, pool.Slug, commit)
+		require.Equal(t, http.StatusUnprocessableEntity, response.StatusCode, "vendorCost=%v", malformed)
+	}
+	require.NoError(t, testServer.Dependencies.DB.QueryRow(t.Context(), `SELECT count(*) FROM ai_inference WHERE entitlement_id=$1`, pool.ID).Scan(&operations))
+	require.Zero(t, operations)
+
+	// The same reservation is closed by a commit with a vendor cost...
+	delete(reserve, "vendorCost")
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, reserve), http.StatusOK)
+	commit := aiUsageBody("commit", "costed", 3)
+	commit["vendorCost"] = "0.01"
+	charged := commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, commit), http.StatusOK)
+	require.Equal(t, "3", *charged.AI.Credits.Charged)
+	reported, _ := readAIVendorCost(t, pool.ID, "costed")
+	require.Equal(t, "0.010000000000", reported)
+	rowBefore := commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) FROM ai_inference a WHERE entitlement_id=$1 AND transaction_id='costed'`, pool.ID)
+	// ...its retry repeats the cost and is a replay...
+	replay := aiReport(t, instance.Slug, pool.Slug, commit)
+	require.Equal(t, "true", replay.Header.Get("Idempotent-Replayed"))
+	require.Equal(t, charged, commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, replay, http.StatusOK))
+	// ...and the same commit without it, or with another, is another body.
+	for _, other := range []any{nil, "0.02", "0.010"} {
+		different := aiUsageBody("commit", "costed", 3)
+		if other != nil {
+			different["vendorCost"] = other
+		}
+		problem = commonfixture.AssertJSONResponse[apierrors.Problem](t, aiReport(t, instance.Slug, pool.Slug, different), http.StatusConflict)
+		require.Equal(t, "ReportEntitlementUsageMetric.TransactionIdReused", problem.Code)
+	}
+	require.Equal(t, rowBefore, commonfixture.RowSnapshot(t, testServer.Dependencies.DB, `SELECT jsonb_build_object('row',to_jsonb(a),'xmin',a.xmin::text) FROM ai_inference a WHERE entitlement_id=$1 AND transaction_id='costed'`, pool.ID))
+
+	// ...or by a commit without one: the reservation is the same either way.
+	reserve["transactionId"] = "uncosted"
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, reserve), http.StatusOK)
+	commonfixture.AssertJSONResponse[instanceschema.EntitlementUsage](t, aiReport(t, instance.Slug, pool.Slug, aiUsageBody("commit", "uncosted", 3)), http.StatusOK)
+	reported, _ = readAIVendorCost(t, pool.ID, "uncosted")
+	require.Empty(t, reported)
 }
 
 func TestAIWireRejectsMissingMalformedIDsAndInvalidPhases(t *testing.T) {

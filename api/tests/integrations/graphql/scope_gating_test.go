@@ -379,16 +379,17 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			licenses(limit: 5) {
 				items {
 					slug
-					family { slug }
+					family { slug currentVersion { slug versionNumber } }
 					instances { slug }
 					prices { id }
+					addonGrants { addonSlug value }
 					entitlements {
 						entitlementSlug value unlimited
 						entitlement { slug entitlementGroups { slug } }
 					}
 				}
 			}
-			license(slug: $license) { slug conversionRules { entitlementSlug rates { perRequest } } }
+			license(slug: $license) { slug conversionRules { entitlementSlug rates { perRequest } createdBy { name } updatedBy { name } } }
 			licenseFamily(slug: $license) { slug currentVersion { slug } versions { slug } }
 			entitlements(limit: 5) { items { slug entitlementGroups { slug } } }
 		}`,

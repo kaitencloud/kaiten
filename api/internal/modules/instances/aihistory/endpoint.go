@@ -8,7 +8,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 
 	kaitenhuma "github.com/kaitencloud/kaiten/api/internal/infrastructure/http/huma"
-	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
@@ -26,8 +25,12 @@ type InferenceRequest struct {
 	EntitlementSlug string    `path:"entitlementSlug"`
 	From            time.Time `query:"from"`
 	To              time.Time `query:"to"`
-	Status          string    `query:"status" enum:"RESERVED,COMMITTED,RELEASED,EXPIRED"`
-	TransactionID   string    `query:"transactionId"`
+	Status          string    `query:"status" enum:"RESERVED,COMMITTED,RELEASED,EXPIRED" doc:"Only the operations in this status. A release that closed no reservation (RELEASED with the NO_RESERVATION warning) is listed only when status is RELEASED or transactionId is given."`
+	TransactionID   string    `query:"transactionId" maxLength:"128" doc:"Only the operation reported under this identifier, a release that closed no reservation included."`
+	Authorized      string    `query:"authorized" enum:"true,false" doc:"Only the operations the commit authorized (true) or refused (false). An operation still RESERVED matches neither."`
+	ModelSlug       string    `query:"modelSlug" maxLength:"255" doc:"Only the operations that resolved to this catalogue model."`
+	Model           string    `query:"model" maxLength:"255" doc:"Only the operations whose model, as sent, is exactly this one. Finds models the catalogue does not know."`
+	RequestType     string    `query:"requestType" enum:"COMPLETION,EMBEDDING,IMAGE_GENERATION,AUDIO,VIDEO"`
 	Cursor          string    `query:"cursor"`
 	Limit           int32     `query:"limit" minimum:"1" maximum:"500"`
 }
@@ -46,17 +49,7 @@ func RegisterEndpoints(api huma.API, app Port) {
 		if err != nil {
 			return nil, err
 		}
-		filter := Filter{From: req.From, To: req.To, Limit: req.Limit}
-		if req.Status != "" {
-			s := db.AiInferenceStatus(req.Status)
-			filter.Status = &s
-		}
-		if req.TransactionID != "" {
-			filter.TransactionID = &req.TransactionID
-		}
-		if req.Cursor != "" {
-			filter.Cursor = &req.Cursor
-		}
+		filter := FilterOf(FilterQuery{From: req.From, To: req.To, Status: req.Status, TransactionID: req.TransactionID, Authorized: req.Authorized, ModelSlug: req.ModelSlug, Model: req.Model, RequestType: req.RequestType, Cursor: req.Cursor, Limit: req.Limit})
 		page, err := app.ListAIInferences(ctx, cl, req.InstanceSlug, req.EntitlementSlug, filter)
 		if err != nil {
 			return nil, err

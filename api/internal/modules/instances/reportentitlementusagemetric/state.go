@@ -25,6 +25,7 @@ type State struct {
 	AIHash              []byte
 	Replay              *schema.EntitlementUsage
 	AIModel             *aicredit.Model
+	AIModelCosts        *aicredit.Costs
 	AIModelRef          string
 	AIRequestType       aicredit.RequestType
 	AIRules             []aicredit.Rule

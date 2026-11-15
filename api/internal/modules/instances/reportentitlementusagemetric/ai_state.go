@@ -22,6 +22,8 @@ import (
 var (
 	transactionPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 	unitsPattern       = regexp.MustCompile(`^[0-9]{1,12}(\.[0-9]{1,6})?$`)
+	// What ai_inference.vendor_cost_reported holds: NUMERIC(24, 12).
+	vendorCostPattern = regexp.MustCompile(`^[0-9]{1,12}(\.[0-9]{1,12})?$`)
 )
 
 const (
@@ -63,6 +65,12 @@ func validateAI(cmd *Command, maxTTL time.Duration) error {
 		if v.TTLSeconds != nil && (*v.TTLSeconds < 1 || *v.TTLSeconds > int64(maxTTL/time.Second)) {
 			return invalid("ttlSeconds is out of range")
 		}
+		// The provider has not been called yet: there is no cost to report.
+		// Refused rather than ignored, so the reserve's request hash never
+		// covers a member the reserve does not use.
+		if v.VendorCost != nil {
+			return invalid("reserve refuses vendorCost")
+		}
 	} else {
 		if v.RequestStatus == nil || v.TTLSeconds != nil {
 			return invalid("commit requires requestStatus and refuses ttlSeconds")
@@ -72,6 +80,14 @@ func validateAI(cmd *Command, maxTTL time.Duration) error {
 		default:
 			return invalid("invalid requestStatus")
 		}
+		// A request that was never sent cost the provider nothing: a cost on
+		// a release is a client error, not evidence to keep.
+		if *v.RequestStatus == aicredit.NotSent && v.VendorCost != nil {
+			return invalid("a NOT_SENT commit refuses vendorCost")
+		}
+	}
+	if v.VendorCost != nil && !vendorCostPattern.MatchString(*v.VendorCost) {
+		return invalid("invalid vendorCost")
 	}
 	if v.Usage != nil {
 		u := v.Usage
@@ -108,6 +124,13 @@ func decimalOf(n pgtype.Numeric) *decimal.Decimal {
 	return &d
 }
 
+// releasesNothing reports a NOT_SENT commit for a transactionId that holds no
+// operation inside the idempotency horizon: a release of what was never
+// reserved, recorded as a tombstone (see releaseWithoutReservation).
+func releasesNothing(st *State, v *schema.AiUsageValue) bool {
+	return st.Operation == nil && v.Phase == "commit" && v.RequestStatus != nil && *v.RequestStatus == aicredit.NotSent
+}
+
 func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceSlug string) error {
 	q := h.queryRepo.q(ctx)
 	st.ReservationTTL = h.deps.ReservationTTL
@@ -129,6 +152,11 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 	if err != nil {
 		return err
 	}
+	// The hash is over the whole value of the phase, vendorCost included: it
+	// is absent from a reserve (refused there), so a commit with or without it
+	// closes the same reservation; and a retried commit must send the same
+	// vendorCost as the first, or it is another body under the same
+	// transactionId (409 TransactionIdReused), like any other member.
 	hash := sha256.Sum256(encoded)
 	st.AIHash = hash[:]
 	op, err := q.GetAIOperation(ctx, db.GetAIOperationParams{OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID, TransactionID: v.TransactionID, Since: timestamp(st.Now.Add(-h.deps.IdempotencyWindow))})
@@ -168,6 +196,19 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 	if err := h.queryRepo.LoadLimits(ctx, st.Pair, instanceSlug, st.Pair.EntitlementSlug, st.OrganizationID); err != nil {
 		return err
 	}
+	// Releasing what was never reserved prices nothing: no model, rule or
+	// unauthorized-use lookup is made, and model and requestType stay
+	// optional. What the caller did send is kept on the tombstone as sent. It
+	// comes after LoadLimits, so a pair nothing grants still answers 404.
+	if releasesNothing(st, v) {
+		if v.Model != nil {
+			st.AIModelRef = *v.Model
+		}
+		if v.RequestType != nil {
+			st.AIRequestType = *v.RequestType
+		}
+		return nil
+	}
 	modelRef, requestType := "", aicredit.RequestType("")
 	if st.Operation != nil {
 		modelRef = st.Operation.ModelRef
@@ -189,6 +230,7 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 	}
 	if err == nil {
 		st.AIModel = &aicredit.Model{ID: m.ID, Status: aicredit.ModelStatus(m.Status)}
+		st.AIModelCosts = &aicredit.Costs{Request: decimalOf(m.VendorCostPerRequest), InputToken: decimalOf(m.VendorCostPerInputToken), CachedInputToken: decimalOf(m.VendorCostPerCachedInputToken), CacheWriteToken: decimalOf(m.VendorCostPerCacheWriteToken), OutputToken: decimalOf(m.VendorCostPerOutputToken), Unit: decimalOf(m.VendorCostPerUnit)}
 	}
 	rows, err := q.GetAIRules(ctx, db.GetAIRulesParams{OrganizationID: st.OrganizationID, LicenseID: st.Pair.LicenseID, EntitlementID: st.Pair.EntitlementID})
 	if err != nil {
@@ -202,7 +244,28 @@ func (h *UseCase) loadAI(ctx context.Context, st *State, cmd *Command, instanceS
 		}
 		st.AIRules = append(st.AIRules, aicredit.Rule{ID: r.ID, ModelID: r.ModelID, RequestType: request, Active: true, Minimum: *decimalOf(r.MinimumCreditsPerRequest), Maximum: decimalOf(r.MaximumCreditsPerRequest), ChargeOnError: aicredit.ChargeOnError(r.ChargeOnError), Rates: aicredit.Rates{Request: decimalOf(r.RatePerRequest), InputToken: decimalOf(r.RatePerInputToken), CachedInputToken: decimalOf(r.RatePerCachedInputToken), CacheWriteToken: decimalOf(r.RatePerCacheWriteToken), OutputToken: decimalOf(r.RatePerOutputToken), Unit: decimalOf(r.RatePerUnit), Second: decimalOf(r.RatePerSecond)}})
 	}
+	return loadUnauthorizedAlready(ctx, q, st, v.Phase)
+}
+
+// unauthorizedReader is the one query loadUnauthorizedAlready may issue.
+type unauthorizedReader interface {
+	AIUnauthorizedRecordedToday(ctx context.Context, arg db.AIUnauthorizedRecordedTodayParams) (bool, error)
+}
+
+// loadUnauthorizedAlready answers whether MODEL_USAGE_UNAUTHORIZED was already
+// due today for this model and request type, which deduplicates the event to
+// one a day. Only a commit that resolves no rule emits it, so only that
+// commit asks: an authorized report, and every reserve, issues no lookup.
+// The lookup reads idx_ai_inference_unauthorized, under the pair's lock.
+func loadUnauthorizedAlready(ctx context.Context, q unauthorizedReader, st *State, phase string) error {
+	if phase != "commit" {
+		return nil
+	}
+	if rule, _ := aicredit.Resolve(st.AIRules, st.AIModel, st.AIRequestType); rule != nil {
+		return nil
+	}
 	day := time.Date(st.Now.Year(), st.Now.Month(), st.Now.Day(), 0, 0, 0, 0, time.UTC)
-	st.UnauthorizedAlready, err = q.AIUnauthorizedRecordedToday(ctx, db.AIUnauthorizedRecordedTodayParams{OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID, ModelRef: modelRef, RequestType: db.AiRequestType(requestType), DayStart: timestamp(day), DayEnd: timestamp(day.AddDate(0, 0, 1))})
+	already, err := q.AIUnauthorizedRecordedToday(ctx, db.AIUnauthorizedRecordedTodayParams{OrganizationID: st.OrganizationID, InstanceID: st.Pair.InstanceID, EntitlementID: st.Pair.EntitlementID, ModelRef: st.AIModelRef, RequestType: db.AiRequestType(st.AIRequestType), DayStart: timestamp(day), DayEnd: timestamp(day.AddDate(0, 0, 1))})
+	st.UnauthorizedAlready = already
 	return err
 }

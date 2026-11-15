@@ -26,8 +26,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listorganizationaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/refundaiinference"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/reportentitlementusagemetric"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateintegrations"
@@ -39,6 +41,7 @@ import (
 type UseCases struct {
 	AIInferences                 listaiinferences.UseCase
 	AIReservations               listaireservations.UseCase
+	AIOrganizationInferences     *listorganizationaiinferences.UseCase
 	CreateIntegration            *createintegrations.UseCase
 	CreateInstance               *createinstance.UseCase
 	DeleteIntegration            *deleteintegrations.UseCase
@@ -50,6 +53,7 @@ type UseCases struct {
 	UpdateInstance               *updateinstance.UseCase
 	UpdateIntegration            *updateintegrations.UseCase
 	ReportEntitlementUsageMetric *reportentitlementusagemetric.UseCase
+	RefundAIInference            *refundaiinference.UseCase
 	GetEntitlementUsageMetrics   *getentitlementusagemetrics.UseCase
 	GetEntitlementsUsageMetrics  *getentitlementsusagemetrics.UseCase
 	GetAuditTrails               *getaudittrails.UseCase
@@ -81,6 +85,11 @@ func NewUseCases(svc services.Container) *UseCases {
 		BillableUsage:  billableusage.New(svc.Pool, svc.Uof, retention),
 		AIInferences:   listaiinferences.UseCase{Reader: aihistory.Reader{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, User: svc.UserProvider, Queries: queries}},
 		AIReservations: listaireservations.UseCase{Reader: aihistory.Reader{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, User: svc.UserProvider, Queries: queries}},
+		AIOrganizationInferences: listorganizationaiinferences.NewUseCase(listorganizationaiinferences.Deps{
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
+		}),
 		CreateIntegration: createintegrations.NewUseCase(createintegrations.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
@@ -171,6 +180,15 @@ func NewUseCases(svc services.Container) *UseCases {
 			Retention:    retention,
 		}),
 	}
+
+	// A refund's counter movement is a report: it is handed the report use
+	// case itself, the one writer of a counter.
+	useCases.RefundAIInference = refundaiinference.NewUseCase(refundaiinference.Deps{
+		AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+		UserProvider: svc.UserProvider,
+		Uof:          svc.Uof,
+		Reporter:     useCases.ReportEntitlementUsageMetric,
+	})
 
 	// Built with a pool so every replica can ensure partitions before it serves;
 	// the daily pass only runs where background work does, like the other sweeps.

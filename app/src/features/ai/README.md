@@ -36,8 +36,8 @@ Instance AI usage lives in the instances feature, with status, date range and
 transaction filters supported by the read API. Adaptive two-to-six-decimal credit summaries are paired
 with the complete stored inference record. Limits and soft maxima use the effective
 usage gauge, including billing add-on/boost policy; an add-on-only pool needs no
-licence grant lookup. Lean V1 records do not carry pricing
-snapshots or persisted warnings, so the console does not invent them. Reservations
+licence grant lookup. The API records a pricing snapshot, the licence, warnings
+and vendor costs on each inference; this screen does not show them yet. Reservations
 are read-only; no provider request or usage-report write is made by the UI.
 
 

@@ -12,6 +12,7 @@ import (
 	"github.com/vektah/gqlparser/v2/gqlerror"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/generated"
+	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listaddonentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listaddonprices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listaddons"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/listinstanceaddons"
@@ -104,6 +105,7 @@ var typeScopes = map[string]string{
 	"InstanceBillingSummary": getinstancebilling.RequiredScope,
 	"InstancePage":           getinstances.RequiredScope,
 	"License":                getlicense.RequiredScope,
+	"LicenseAddonGrant":      listaddonentitlements.RequiredScope,
 	"LicenseEntitlement":     getlicenseentitlements.RequiredScope,
 	"LicenseFamily":          getlicensefamily.RequiredScope,
 	"LicenseFamilyView":      getlicensefamily.RequiredScope,
