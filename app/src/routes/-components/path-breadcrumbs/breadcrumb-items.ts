@@ -101,13 +101,35 @@ export function getBreadcrumbItems(
     }
   });
 
-  return crumbs.map(({ href, segment, isParam, isLink, title }) => ({
+  const items = crumbs.map(({ href, segment, isParam, isLink, title }) => ({
     href,
     isLink,
     // An untitled `$param` shows the URL's value as is: capitalized, a slug
     // would pass for a name.
     label: title ?? (isParam ? segment : getSegmentLabel(segment, t)),
   }));
+
+  // A route that answered "not found" without a word (an area that is switched
+  // off, a tab the session may not see) has no page to name: the trail stops
+  // above it and says so, rather than spelling out of the URL the name of a
+  // page that does not exist for this session ("AI › Pricing").
+  const hidden = matches.find(
+    (match) => match.status === 'notFound' && !explainsItself(match),
+  );
+  if (hidden) {
+    const depth = splitPath(hidden.pathname).length;
+
+    return [
+      ...items.slice(0, Math.max(0, depth - 1)),
+      {
+        href: `/${splitPath(hidden.pathname).join('/')}`,
+        isLink: false,
+        label: t('Errors.notFound'),
+      },
+    ];
+  }
+
+  return items;
 }
 
 // A route that explains its own not-found throws `notFound({ data })` and shows

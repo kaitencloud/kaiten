@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query';
 import { describe, expect, it } from 'vite-plus/test';
 import { getLicensesQueryKey } from '@/api-client/@tanstack/react-query.gen';
+import { aiRateCardQueryKey } from '@/domains/ai-credits';
 import {
   catalogPricesBaseQueryKey,
   licensesWithPricesBaseQueryKey,
@@ -24,6 +25,9 @@ describe('invalidateLicenseLists', () => {
       licensesWithPricesBaseQueryKey,
       // The versions the price picker of a voucher names, with the state each is in.
       catalogPricesBaseQueryKey,
+      // The AI rate card reads every version with what it grants: a version that
+      // changes is a column that changes.
+      aiRateCardQueryKey,
     ];
     for (const key of lists) {
       client.setQueryData(key, { seeded: true });

@@ -1,19 +1,24 @@
+// Each AI namespace below that is not written inline lives in a fragment under
+// ./ai/, one per work lot, so that a lot edits its own fragment and never this
+// file. The fragments are plain objects, so the i18n checks read them as usual.
+import aiAccessEn from './ai/access.en';
+import aiModelsEn from './ai/models.en';
+import aiNavEn from './ai/nav.en';
+import aiPanelEn from './ai/panel.en';
+import aiPoolEn from './ai/pool.en';
+import aiPricingEn from './ai/pricing.en';
+import aiReceiptEn from './ai/receipt.en';
+import aiUsageEn from './ai/usage.en';
+
 export default {
   AI: {
     Minimal: {
-      usePreset: 'Use preset…',
       modelDetails: 'Details & vendor pricing',
       affectedVersions: 'Affected versions',
       impactUnavailable: 'Affected versions require license read access.',
       vendorUnits:
         'USD per named unit · blank = unknown. Not customer credit rates.',
       lifecycleHelp: 'About model status',
-      creditUnits: 'Credits per named unit · exact decimals.',
-      blankRates:
-        'Blank = unpriced; 0 = free. Blank cache rates inherit input. One rate is required.',
-      additionalRates: 'Additional rates',
-      matchingHelp: 'How rules match',
-      exampleDetails: 'Synthetic example details',
       sumFixed: 'Sum · fixed',
       thresholdHelp: '0 or blank = off. Unlimited grants do not warn.',
       unitsDetails: 'Units & sale units',
@@ -137,7 +142,7 @@ export default {
       refundPoolNotGranted:
         'This instance no longer holds this credit pool, so the refund cannot be counted.',
       refundKeyReused:
-        'This refund key was already used for another refund or report. Retry the refund.',
+        'This refund key was already used for another refund or report: an earlier refund probably went through. Check the refunds of the charge before refunding again.',
       refundKeyInvalid:
         'The refund needs a valid idempotency key. Retry the refund.',
       refundInvalidAmount:
@@ -158,7 +163,6 @@ export default {
     },
     nameRequired: 'Name is required',
     vendorRequired: 'Vendor is required',
-    title: 'AI credits',
     credits: 'Credits',
     name: 'Name',
     slug: 'Slug',
@@ -166,17 +170,12 @@ export default {
     modality: 'Modality',
     status: 'Status',
     description: 'Description',
-    model: 'Model',
-    pool: 'Credit pool',
-    requestType: 'Request type',
     any: 'All request types',
     anyModel: 'Any model',
     saved: 'Saved successfully',
     sumRequired:
       'AI credit pools always sum consumption and refunds. Aggregation is fixed to SUM.',
     warningThreshold: 'Warning threshold (%)',
-    warningThresholdHelp:
-      'Percentage of the included limit that triggers a usage warning. Leave blank or enter 0 to disable. Unlimited grants do not emit threshold warnings.',
     wildcardWarning:
       'Wildcard rules price every non-archived catalogue model, including models created in the future. The versions and pools below may authorize this new model immediately.',
     noRate:
@@ -230,205 +229,14 @@ export default {
       EXACT_ALL: 'Exact model · any request type',
       EXACT_TYPED: 'Exact model · exact request type',
     },
-    Models: {
-      identity: 'Identity',
-      identityHelp: 'Name and stable identifier used by your integrations.',
-      availability: 'Availability',
-      provider: 'Provider details',
-      providerHelp:
-        'The supplier and identifiers used to match provider models.',
-      slugHelp: 'Use lowercase letters, numbers and hyphens.',
-      slugLocked: 'The identifier cannot change after creation.',
-      modalityLocked: 'The modality cannot change after creation.',
-      costsOptional: 'Vendor costs (USD) · optional',
-      costsHelp:
-        'Supplier costs in USD per unit below, not customer credit rates. Credit conversion is configured in the matrix. Blank costs are unknown.',
-      costRateHelp: 'USD per named unit.',
-      description:
-        'Models your licenses can authorize through credit conversion rules.',
-      search: 'Search models',
-      searchPlaceholder: 'Name, identifier, provider, modality or status',
-      count: '{{count}} of {{total}} models',
-      empty: 'No models yet. Create a model to configure credit pricing.',
-      noMatches:
-        'No models match this search. Try another name, provider or status.',
-      loading: 'Loading model catalogue…',
-      title: 'Models',
-      create: 'Create model',
-      edit: 'Edit model',
-      externalIds: 'Provider identifiers (one per line)',
-      costs: 'Vendor costs (USD)',
-      modelImpact:
-        'Model status is shared across entitlements. Changes also affect pending commits; reservations do not lock model eligibility or pricing.',
-      lifecycle:
-        'Active accepts new rules. Deprecated keeps existing rules but rejects new ones. Archived authorizes no usage, including through wildcards. Status changes are reversible.',
-    },
-    Matrix: {
-      description:
-        'Conversion rates charge customer credit pools, separately from supplier costs in USD.',
-      context:
-        'Each row is a license version; each column is a model. Any-model rules also cover future non-archived models.',
-      noRule: 'No rule in this cell. Other matching rules may still apply.',
-      archiveTitle: 'Archive this rule?',
-      scope: 'Rule scope',
-      identityLocked:
-        'Pool, model and request type are fixed after creation. Change the rates below or create a separate rule.',
-      ratesTitle: 'Credit rates',
-      ratesHelp:
-        'Credits charged per named unit. Keep decimal values exact; no conversion to USD is applied.',
-      rateHelp: 'Blank is unpriced; explicit 0 is free.',
-      cacheRateHelp: 'Blank inherits the input-token rate; explicit 0 is free.',
-      guards: 'Limits and error policy',
-      previewCredits: 'Customer credits for this example',
-      presetHelp:
-        'A preset replaces every rate: selected dimensions become 1 and all others are cleared. Review before replacing.',
-      replaceRates: 'Replace rates',
-      replaceWarning:
-        'Replace all current rates with “{{preset}}”? Selected dimensions become 1; all other dimensions are cleared.',
-      loading: 'Loading version and model conversion rules…',
-      loadingFamilies: 'Loading license families…',
-      loadingEditor: 'Loading rule editor and credit pools…',
-      emptyFamilies:
-        'No license families yet. Conversion rules belong to license versions.',
-      title: 'Conversion matrix',
-      family: 'License family',
-      version: 'Version / lifecycle',
-      create: 'Add rule',
-      edit: 'Edit rule',
-      archive: 'Archive',
-      archiveWarning:
-        'Archiving changes the rules selected at commit, including pending requests. Reservations do not lock pricing. Stored inference records stay unchanged.',
-      notGranted:
-        'No direct allowance from this version. Attached add-ons may grant this entitlement.',
-      preview: 'Typical successful call',
-      typicalUsage:
-        'Synthetic example: 1,000 input + 200 cached + 100 cache-write + 500 output tokens, one unit, one second.',
-      previewOnly:
-        'Illustrative only; the server applies the final policy, limits and rounding.',
-      costUnknown: 'Not available (select a model with vendor costs)',
-      preset: 'Rate vector preset',
-      ladder: 'This rule’s specificity',
-      precedence:
-        'One complete rule wins: exact model/request → exact model → matching request type → any model.',
-      wholeRule:
-        'Missing rates do not merge with less specific rules. Only blank cache-read/cache-write rates inherit this rule’s input-token rate.',
-      pendingChanges:
-        'Rates and model status are evaluated at commit, including requests already reserved. Reservations are estimates, not locked quotes.',
-      noPerRequestCap: 'No per-request cap',
-      cachedFallback:
-        'Blank cached/cache-write rates inherit the input-token rate; explicit 0 makes those tokens free. Presets replace rates, not API conversion types.',
-      minimum: 'Minimum credits per request',
-      maximum: 'Maximum credits per request (blank = no cap)',
-      chargeOnError: 'Charge on error',
-    },
-    Calculation: {
-      typeLabel: 'AI credits · Calculated entitlement',
-      poolReadDenied:
-        'Your session cannot select a credit pool. Open calculation from an entitlement, or request entitlement read access.',
-      modelsReadDenied:
-        'Your session cannot read the model catalogue. Contact an administrator for model read access.',
-      matrixReadDenied:
-        'Your session cannot read this comparison. It requires model and license reads, plus entitlement reads when opened with a pool context.',
-      modelDenied:
-        'Your session cannot edit models. Contact an administrator for model write access.',
-      title: 'Calculation',
-      back: 'Back to entitlement',
-      compare: 'Compare versions',
-      configure: 'Configure calculation',
-      loadingAccess: 'Checking calculation availability…',
-      unavailable:
-        'Calculation configuration is currently unavailable. The feature may not be enabled, or its availability could not be evaluated. Your entitlement and usage remain available.',
-      denied:
-        'Your session cannot read calculation configuration. Contact an administrator for license read access.',
-      readOnly:
-        'Rules are read-only. Editing requires license write access and model read access.',
-      unknownRule:
-        'This rule is not available for the selected entitlement and version.',
-      loadingVersions: 'Loading license versions…',
-      description:
-        'This entitlement owns the credit pool. Each license version owns its calculation rules, including pools granted only by attached add-ons.',
-      version: 'License version',
-      chooseVersion: 'Choose a license version to view its calculation rules.',
-      notCalculated: 'This entitlement does not use AI credit calculation.',
-    },
-    Usage: {
-      title: 'AI usage',
-      allStatuses: 'All statuses',
-      description:
-        'Available credits, open reservations and the requests that used them.',
-      available: 'Available to reserve',
-      allowanceDetails: 'Allowance details',
-      window: 'Reporting window (UTC)',
-      allowance:
-        '{{limit}} included credits. The maximum above includes any permitted overage.',
-      effectivePolicy:
-        'Allowance reflects the effective licence and any add-ons or boosts.',
-      meterLabel: 'Consumed and reserved credits',
-      meterValue:
-        '{{consumed}} consumed and {{reserved}} reserved out of {{maximum}} credits',
-      noReservations: 'No open reservations.',
-      noInferences:
-        'No usage reports yet. Committed and released requests will appear here.',
-      noMatches:
-        'No inferences match these filters. Clear the filters to see all loaded usage.',
-      loadingReservations: 'Loading reservations…',
-      loadingInferences: 'Loading inferences…',
-      loaded: 'Loaded: {{count}}',
-      filters: 'Filter inferences',
-      clearFilters: 'Clear filters',
-      viewRecord: 'View record',
-      inspectRecord: 'View inference {{id}}',
-      recordDescription:
-        'Exact usage, credits and identifiers stored for this request.',
-      details: 'Details',
-      computedAmount: '{{amount}} computed',
-      states: {
-        RESERVED: 'Reserved',
-        COMMITTED: 'Committed',
-        RELEASED: 'Released',
-        EXPIRED: 'Expired',
-      },
-      outcomes: {
-        SUCCESS: 'Success',
-        PROVIDER_ERROR: 'Provider error',
-        CUSTOMER_ERROR: 'Customer error',
-        NOT_SENT: 'Not sent',
-      },
-      denials: {
-        UNKNOWN_MODEL: 'Unknown model',
-        MODEL_ARCHIVED: 'Archived model',
-        NO_RULE: 'No conversion rule',
-      },
-      requestTypes: {
-        COMPLETION: 'Completion',
-        EMBEDDING: 'Embedding',
-        IMAGE_GENERATION: 'Image generation',
-        AUDIO: 'Audio',
-        VIDEO: 'Video',
-      },
-      record: 'Immutable record',
-      time: 'Reported at',
-      requestStatus: 'Request status',
-      authorization: 'Authorization',
-      unauthorized: 'Unauthorized',
-      authorized: 'Authorized',
-      computed: 'Computed',
-      charged: 'Charged',
-      reserved: 'Reserved',
-      expires: 'Expires at',
-      consumed: 'Consumed',
-      limit: 'Limit',
-      maximum: 'Maximum allowed',
-      unlimited: 'Unlimited',
-      lifetime: 'Lifetime window',
-      reservations: 'Open, unexpired reservations',
-      feed: 'Inference feed',
-      transaction: 'Transaction ID',
-      from: 'From',
-      to: 'To',
-      more: 'Load older inferences',
-      noPools: 'This instance has no AI credit pools.',
-    },
+    Models: aiModelsEn,
+    Usage: aiUsageEn,
+    Access: aiAccessEn,
+    Nav: aiNavEn,
+    Pricing: aiPricingEn,
+    Panel: aiPanelEn,
+    Receipt: aiReceiptEn,
+    Pool: aiPoolEn,
   },
   Common: {
     stepOf: 'Step {{current}} of {{total}}',

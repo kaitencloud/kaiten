@@ -33,13 +33,13 @@ export function LicenseEntitlementIdentityCell({
         definition?.type === 'NUMBER_AI_CREDIT' &&
         definition.slug ? (
           <Link
-            to="/catalog/entitlements/$entitlementSlug/calculation"
+            to="/catalog/entitlements/$entitlementSlug/pricing"
             params={{ entitlementSlug: definition.slug }}
-            search={{ licenseSlug }}
+            search={{ version: licenseSlug }}
             onClick={(event) => event.stopPropagation()}
             className="text-sm text-primary-subtle-foreground underline underline-offset-4"
           >
-            {t('AI.Calculation.configure')}
+            {t('AI.Pool.setPrices')}
           </Link>
         ) : null}
       </div>

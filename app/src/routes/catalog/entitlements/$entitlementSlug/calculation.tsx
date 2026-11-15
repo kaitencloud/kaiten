@@ -1,37 +1,24 @@
-import { requireAiAccess } from '@/domains/ai-credits';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import { z } from 'zod';
-import { EntitlementDetailCalculationTab } from '@/features/entitlements';
-import i18n from '@/lib/i18n/config';
+import { requireAiAccess } from '@/domains/ai-credits';
 
+// The Calculation tab became the Pricing tab: old links keep working, the
+// licence version they named becomes the one the Pricing tab highlights.
 const calculationSearchSchema = z.object({
-  licenseSlug: z.string().optional(),
-  rule: z.string().optional(),
+  licenseSlug: z.string().trim().min(1).optional().catch(undefined),
 });
+
 export const Route = createFileRoute(
   '/catalog/entitlements/$entitlementSlug/calculation',
 )({
   validateSearch: (search) => calculationSearchSchema.parse(search),
-  beforeLoad: async ({ context }) => {
+  beforeLoad: async ({ context, params, search }) => {
     await requireAiAccess(context.queryClient);
-    return { getTitle: () => i18n.t('AI.Calculation.title') };
+    throw redirect({
+      to: '/catalog/entitlements/$entitlementSlug/pricing',
+      params,
+      search: { version: search.licenseSlug },
+      replace: true,
+    });
   },
-  component: CalculationRoute,
 });
-function CalculationRoute() {
-  const params = Route.useParams();
-  const search = Route.useSearch();
-  const navigate = useNavigate();
-  return (
-    <EntitlementDetailCalculationTab
-      {...search}
-      onSelectionChange={(selection) => {
-        void navigate({
-          to: '/catalog/entitlements/$entitlementSlug/calculation',
-          params,
-          search: selection,
-        });
-      }}
-    />
-  );
-}

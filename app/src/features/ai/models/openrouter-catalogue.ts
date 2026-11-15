@@ -44,7 +44,9 @@ export type OpenRouterErrorCode =
   | 'localChanged'
   | 'modelRecreated'
   | 'priceNotAvailable'
-  | 'modelFieldNotAvailable';
+  | 'modelFieldNotAvailable'
+  /** The browser could not reach openrouter.ai: CSP, offline, air gap or timeout. */
+  | 'unreachable';
 export class OpenRouterError extends Error {
   constructor(public readonly code: OpenRouterErrorCode) {
     super(code);
@@ -224,13 +226,22 @@ export async function fetchOpenRouterCatalogue(
   if (signal?.aborted) abort();
   const timer = setTimeout(() => controller.abort(), 20000);
   try {
-    const response = await fetch(OPENROUTER_CATALOGUE_URL, {
-      credentials: 'omit',
-      referrerPolicy: 'no-referrer',
-      cache: 'no-store',
-      redirect: 'error',
-      signal: controller.signal,
-    });
+    let response: Response;
+    try {
+      response = await fetch(OPENROUTER_CATALOGUE_URL, {
+        credentials: 'omit',
+        referrerPolicy: 'no-referrer',
+        cache: 'no-store',
+        redirect: 'error',
+        signal: controller.signal,
+      });
+    } catch (error) {
+      // The caller cancelled: not a failure to report.
+      if (signal?.aborted) throw error;
+      // A Content Security Policy, no network or the timeout all reject here,
+      // and the browser does not say which.
+      throw new OpenRouterError('unreachable');
+    }
     if (
       !response.ok ||
       !response.headers
@@ -264,8 +275,12 @@ export async function fetchOpenRouterCatalogue(
         throw new OpenRouterError('invalidCatalogue');
       }
       return parseOpenRouterCatalogue(payload);
+    } catch (error) {
+      if (error instanceof OpenRouterError || signal?.aborted) throw error;
+      // The connection dropped or timed out while the body was streaming.
+      throw new OpenRouterError('unreachable');
     } finally {
-      await reader.cancel();
+      await reader.cancel().catch(() => undefined);
       reader.releaseLock();
     }
   } finally {

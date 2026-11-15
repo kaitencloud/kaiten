@@ -1,7 +1,18 @@
+// Each AI namespace below that is not written inline lives in a fragment under
+// ./ai/, one per work lot, so that a lot edits its own fragment and never this
+// file. The fragments are plain objects, so the i18n checks read them as usual.
+import aiAccessFr from './ai/access.fr';
+import aiModelsFr from './ai/models.fr';
+import aiNavFr from './ai/nav.fr';
+import aiPanelFr from './ai/panel.fr';
+import aiPoolFr from './ai/pool.fr';
+import aiPricingFr from './ai/pricing.fr';
+import aiReceiptFr from './ai/receipt.fr';
+import aiUsageFr from './ai/usage.fr';
+
 export default {
   AI: {
     Minimal: {
-      usePreset: 'Utiliser un préréglage…',
       modelDetails: 'Détails et tarifs fournisseur',
       affectedVersions: 'Versions concernées',
       impactUnavailable:
@@ -9,12 +20,6 @@ export default {
       vendorUnits:
         'USD par unité indiquée · vide = inconnu. Hors tarifs en crédits client.',
       lifecycleHelp: 'À propos du statut',
-      creditUnits: 'Crédits par unité indiquée · décimales exactes.',
-      blankRates:
-        'Vide = non tarifé ; 0 = gratuit. Le cache vide hérite du tarif d’entrée. Un tarif est requis.',
-      additionalRates: 'Tarifs supplémentaires',
-      matchingHelp: 'Correspondance des règles',
-      exampleDetails: 'Détails de l’exemple fictif',
       sumFixed: 'Somme · fixe',
       thresholdHelp:
         '0 ou vide = désactivé. Pas d’alerte pour les droits illimités.',
@@ -138,19 +143,20 @@ export default {
       invalidRange: 'La date de début doit précéder la date de fin.',
       invalidCursor:
         'Ce curseur d’historique est invalide. Rechargez la liste.',
-      poolNotFound: 'Cette instance ou ce quota de crédits IA est introuvable.',
+      poolNotFound:
+        'Cette instance ou cette réserve de crédits IA est introuvable.',
       refundInferenceNotFound:
-        'Cette inférence est introuvable sur cette instance et ce quota de crédits.',
+        'Cette inférence est introuvable sur cette instance et cette réserve de crédits.',
       refundNotCommitted:
-        'Seule une inférence validée peut être remboursée. Celle-ci n’a jamais été facturée.',
+        'Seule une inférence engagée peut être remboursée. Celle-ci n’a jamais été facturée.',
       refundNothingLeft:
         'Il ne reste rien à rembourser : cette inférence n’a rien coûté, ou son montant est déjà remboursé en totalité.',
       refundExceeds:
         'Le remboursement dépasse ce qu’il reste à rembourser sur cette inférence.',
       refundPoolNotGranted:
-        'Cette instance ne dispose plus de ce quota de crédits : le remboursement ne peut pas être compté.',
+        'Cette instance ne détient plus cette réserve de crédits : le remboursement ne peut pas être compté.',
       refundKeyReused:
-        'Cette clé de remboursement a déjà servi à un autre remboursement ou rapport. Relancez le remboursement.',
+        'Cette clé de remboursement a déjà servi à un autre remboursement ou rapport : un remboursement précédent a probablement été appliqué. Vérifiez les remboursements de la facturation avant de rembourser à nouveau.',
       refundKeyInvalid:
         'Le remboursement nécessite une clé d’idempotence valide. Relancez le remboursement.',
       refundInvalidAmount:
@@ -172,7 +178,6 @@ export default {
     },
     nameRequired: 'Le nom est requis',
     vendorRequired: 'Le fournisseur est requis',
-    title: 'Crédits IA',
     credits: 'Crédits',
     name: 'Nom',
     slug: 'Slug',
@@ -180,17 +185,12 @@ export default {
     modality: 'Modalité',
     status: 'État',
     description: 'Description',
-    model: 'Modèle',
-    pool: 'Pool de crédits',
-    requestType: 'Type de requête',
     any: 'Tous les types de requête',
     anyModel: 'Tout modèle',
     saved: 'Enregistrement effectué',
     sumRequired:
       'Les pools IA additionnent toujours les consommations et remboursements. L’agrégation est fixée à SUM.',
     warningThreshold: 'Seuil d’avertissement (%)',
-    warningThresholdHelp:
-      'Pourcentage de la limite incluse déclenchant un avertissement. Laisser vide ou saisir 0 pour désactiver. Les droits illimités n’émettent pas d’avertissement de seuil.',
     wildcardWarning:
       'Les règles génériques tarifent tous les modèles non archivés du catalogue, y compris ceux créés à l’avenir. Les versions et pools ci-dessous peuvent autoriser ce nouveau modèle immédiatement.',
     noRate:
@@ -243,207 +243,14 @@ export default {
       EXACT_ALL: 'Modèle exact · tout type de requête',
       EXACT_TYPED: 'Modèle exact · type de requête exact',
     },
-    Models: {
-      identity: 'Identité',
-      identityHelp: 'Nom et identifiant stable utilisés par vos intégrations.',
-      availability: 'Disponibilité',
-      provider: 'Détails fournisseur',
-      providerHelp:
-        'Fournisseur et identifiants permettant de reconnaître ses modèles.',
-      slugHelp: 'Utilisez des lettres minuscules, chiffres et tirets.',
-      slugLocked: 'L’identifiant ne peut plus changer après la création.',
-      modalityLocked: 'La modalité ne peut plus changer après la création.',
-      costsOptional: 'Coûts fournisseur (USD) · facultatif',
-      costsHelp:
-        'Coûts fournisseur en USD par unité ci-dessous, et non tarifs en crédits client. La conversion se configure dans la matrice. Un coût vide est inconnu.',
-      costRateHelp: 'USD par unité indiquée.',
-      description:
-        'Modèles que vos licences peuvent autoriser via les règles de conversion des crédits.',
-      search: 'Rechercher des modèles',
-      searchPlaceholder: 'Nom, identifiant, fournisseur, modalité ou état',
-      count: '{{count}} modèles sur {{total}}',
-      empty: 'Aucun modèle. Créez-en un pour configurer les tarifs en crédits.',
-      noMatches:
-        'Aucun modèle ne correspond. Essayez un autre nom, fournisseur ou état.',
-      loading: 'Chargement du catalogue de modèles…',
-      title: 'Modèles',
-      create: 'Créer un modèle',
-      edit: 'Modifier le modèle',
-      externalIds: 'Identifiants fournisseur (un par ligne)',
-      costs: 'Coûts fournisseur (USD)',
-      modelImpact:
-        'L’état du modèle est partagé entre les droits. Les changements affectent les validations en cours ; une réservation ne fige ni l’éligibilité ni le tarif.',
-      lifecycle:
-        'Actif accepte de nouvelles règles. Déprécié conserve les règles existantes mais refuse les nouvelles. Archivé n’autorise aucun usage, même générique. L’état est réversible.',
-    },
-    Matrix: {
-      description:
-        'Les tarifs débitent les pools de crédits client, indépendamment des coûts fournisseur en USD.',
-      context:
-        'Chaque ligne est une version de licence ; chaque colonne est un modèle. Les règles génériques couvrent aussi les futurs modèles non archivés.',
-      noRule:
-        'Aucune règle dans cette cellule. D’autres règles correspondantes peuvent s’appliquer.',
-      archiveTitle: 'Archiver cette règle ?',
-      scope: 'Périmètre de la règle',
-      identityLocked:
-        'Pool, modèle et type de requête sont fixes après création. Modifiez les tarifs ou créez une autre règle.',
-      ratesTitle: 'Tarifs en crédits',
-      ratesHelp:
-        'Crédits facturés par unité indiquée. Les décimales sont conservées exactement ; aucune conversion en USD.',
-      rateHelp: 'Vide : non tarifé ; 0 explicite : gratuit.',
-      cacheRateHelp: 'Vide : hérite du tarif d’entrée ; 0 explicite : gratuit.',
-      guards: 'Limites et politique d’erreur',
-      previewCredits: 'Crédits client pour cet exemple',
-      presetHelp:
-        'Un préréglage remplace tous les tarifs : dimensions sélectionnées à 1, les autres vidées. Vérifiez avant de remplacer.',
-      replaceRates: 'Remplacer les tarifs',
-      replaceWarning:
-        'Remplacer tous les tarifs par « {{preset}} » ? Les dimensions sélectionnées passent à 1 ; les autres sont vidées.',
-      loading: 'Chargement des règles par version et modèle…',
-      loadingFamilies: 'Chargement des familles de licences…',
-      loadingEditor: 'Chargement de l’éditeur et des pools de crédits…',
-      emptyFamilies:
-        'Aucune famille de licences. Les règles de conversion appartiennent aux versions de licence.',
-      title: 'Matrice de conversion',
-      family: 'Famille de licence',
-      version: 'Version / cycle de vie',
-      create: 'Ajouter une règle',
-      edit: 'Modifier la règle',
-      archive: 'Archiver',
-      archiveWarning:
-        'L’archivage change les règles choisies à la validation, y compris pour les requêtes en cours. Une réservation ne fige pas le tarif. Les inférences enregistrées restent inchangées.',
-      notGranted:
-        'Aucune enveloppe directe pour cette version. Une extension attachée peut accorder ce droit.',
-      preview: 'Appel réussi typique',
-      typicalUsage:
-        'Exemple synthétique : 1 000 tokens en entrée + 200 lus du cache + 100 écrits en cache + 500 en sortie, une unité, une seconde.',
-      previewOnly:
-        'Illustration uniquement ; le serveur applique la politique, les limites et l’arrondi définitifs.',
-      costUnknown: 'Indisponible (choisir un modèle avec coûts fournisseur)',
-      preset: 'Préréglage des tarifs',
-      ladder: 'Spécificité de cette règle',
-      precedence:
-        'Une règle complète gagne : modèle/requête exacts → modèle exact → type de requête → tout modèle.',
-      wholeRule:
-        'Les tarifs manquants ne fusionnent pas avec les règles moins précises. Seuls les tarifs cache/écriture vides héritent du tarif d’entrée de cette règle.',
-      pendingChanges:
-        'Tarifs et état du modèle sont évalués à la validation, même pour les requêtes réservées. Une réservation est une estimation, pas un devis figé.',
-      noPerRequestCap: 'Aucun plafond par requête',
-      cachedFallback:
-        'Les tarifs cache/écriture vides héritent du tarif d’entrée ; un 0 explicite rend ces tokens gratuits. Les préréglages remplacent les tarifs, pas les types API.',
-      minimum: 'Minimum de crédits par requête',
-      maximum: 'Maximum de crédits par requête (vide = sans plafond)',
-      chargeOnError: 'Facturation en cas d’erreur',
-    },
-    Calculation: {
-      typeLabel: 'Crédits IA · Droit calculé',
-      poolReadDenied:
-        'Votre session ne peut pas sélectionner une réserve de crédits. Ouvrez le calcul depuis un droit, ou demandez un accès en lecture aux droits.',
-      modelsReadDenied:
-        'Votre session ne peut pas lire le catalogue de modèles. Contactez un administrateur pour obtenir un accès en lecture aux modèles.',
-      matrixReadDenied:
-        'Votre session ne peut pas lire cette comparaison. Elle nécessite la lecture des modèles et licences, ainsi que des droits lorsqu’une réserve est présélectionnée.',
-      modelDenied:
-        'Votre session ne peut pas modifier les modèles. Contactez un administrateur pour obtenir un accès en écriture aux modèles.',
-      title: 'Calcul',
-      back: 'Retour au droit',
-      compare: 'Comparer les versions',
-      configure: 'Configurer le calcul',
-      loadingAccess: 'Vérification de la disponibilité du calcul…',
-      unavailable:
-        'La configuration du calcul est actuellement indisponible. La fonctionnalité peut ne pas être activée, ou sa disponibilité n’a pas pu être évaluée. Votre droit et son utilisation restent accessibles.',
-      denied:
-        'Votre session ne peut pas lire la configuration du calcul. Contactez un administrateur pour obtenir un accès en lecture aux licences.',
-      readOnly:
-        'Les règles sont en lecture seule. Leur modification nécessite un accès en écriture aux licences et en lecture aux modèles.',
-      unknownRule:
-        'Cette règle n’est pas disponible pour le droit et la version sélectionnés.',
-      loadingVersions: 'Chargement des versions de licence…',
-      description:
-        'Ce droit définit la réserve de crédits. Chaque version de licence définit ses règles de calcul, y compris pour les réserves accordées uniquement par des extensions associées.',
-      version: 'Version de licence',
-      chooseVersion:
-        'Choisissez une version de licence pour afficher ses règles de calcul.',
-      notCalculated: 'Ce droit n’utilise pas le calcul de crédits IA.',
-    },
-    Usage: {
-      title: 'Usage IA',
-      allStatuses: 'Tous les statuts',
-      description:
-        'Crédits disponibles, réservations ouvertes et requêtes qui les ont consommés.',
-      available: 'Disponibles à réserver',
-      allowanceDetails: 'Détails de l’enveloppe',
-      window: 'Période de consommation (UTC)',
-      allowance:
-        '{{limit}} crédits inclus. Le maximum ci-dessus inclut le dépassement autorisé.',
-      effectivePolicy:
-        'L’enveloppe tient compte de la licence effective, des extensions et des boosts.',
-      meterLabel: 'Crédits consommés et réservés',
-      meterValue:
-        '{{consumed}} consommés et {{reserved}} réservés sur {{maximum}} crédits',
-      noReservations: 'Aucune réservation ouverte.',
-      noInferences:
-        'Aucun rapport d’usage pour le moment. Les requêtes engagées et libérées apparaîtront ici.',
-      noMatches:
-        'Aucune inférence ne correspond aux filtres. Effacez-les pour voir tous les usages chargés.',
-      loadingReservations: 'Chargement des réservations…',
-      loadingInferences: 'Chargement des inférences…',
-      loaded: 'Chargées : {{count}}',
-      filters: 'Filtrer les inférences',
-      clearFilters: 'Effacer les filtres',
-      viewRecord: 'Voir le détail',
-      inspectRecord: 'Voir l’inférence {{id}}',
-      recordDescription:
-        'Usage, crédits et identifiants exacts enregistrés pour cette requête.',
-      details: 'Détails',
-      computedAmount: '{{amount}} calculés',
-      states: {
-        RESERVED: 'Réservée',
-        COMMITTED: 'Engagée',
-        RELEASED: 'Libérée',
-        EXPIRED: 'Expirée',
-      },
-      outcomes: {
-        SUCCESS: 'Réussite',
-        PROVIDER_ERROR: 'Erreur fournisseur',
-        CUSTOMER_ERROR: 'Erreur client',
-        NOT_SENT: 'Non envoyée',
-      },
-      denials: {
-        UNKNOWN_MODEL: 'Modèle inconnu',
-        MODEL_ARCHIVED: 'Modèle archivé',
-        NO_RULE: 'Aucune règle de conversion',
-      },
-      requestTypes: {
-        COMPLETION: 'Complétion',
-        EMBEDDING: 'Embedding',
-        IMAGE_GENERATION: 'Génération d’image',
-        AUDIO: 'Audio',
-        VIDEO: 'Vidéo',
-      },
-      record: 'Enregistrement immuable',
-      time: 'Date du rapport',
-      requestStatus: 'État de la requête',
-      authorization: 'Autorisation',
-      unauthorized: 'Non autorisé',
-      authorized: 'Autorisé',
-      computed: 'Calculés',
-      charged: 'Facturés',
-      reserved: 'Réservés',
-      expires: 'Expiration',
-      consumed: 'Consommés',
-      limit: 'Limite',
-      maximum: 'Maximum autorisé',
-      unlimited: 'Illimité',
-      lifetime: 'Fenêtre à vie',
-      reservations: 'Réservations ouvertes non expirées',
-      feed: 'Flux des inférences',
-      transaction: 'ID de transaction',
-      from: 'Depuis',
-      to: 'Jusqu’à',
-      more: 'Charger les inférences précédentes',
-      noPools: 'Cette instance n’a aucun pool de crédits IA.',
-    },
+    Models: aiModelsFr,
+    Usage: aiUsageFr,
+    Access: aiAccessFr,
+    Nav: aiNavFr,
+    Pricing: aiPricingFr,
+    Panel: aiPanelFr,
+    Receipt: aiReceiptFr,
+    Pool: aiPoolFr,
   },
   Common: {
     stepOf: 'Étape {{current}} sur {{total}}',

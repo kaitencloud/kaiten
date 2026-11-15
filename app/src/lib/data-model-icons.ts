@@ -16,6 +16,7 @@ import {
   Rocket,
   Server,
   ShoppingCart,
+  Sparkles,
   SquareLibrary,
   Tag,
   Ticket,
@@ -28,8 +29,11 @@ import {
 // dollar sign, so that these do not read as one invoice. An invoice itself is the
 // receipt with its lines of text. `catalog` is an area too: the section that holds
 // licenses, add-ons, entitlements and vouchers, drawn as the shelf they stand on.
+// `ai` is the area of AI credits (the pricing of the models and the models
+// themselves), which holds several entities and so borrows none of their icons.
 export const dataModelIcons = {
   catalog: SquareLibrary,
+  ai: Sparkles,
   model: BrainCircuit,
   customer: Users,
   instance: Server,

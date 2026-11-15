@@ -195,6 +195,10 @@ export const graphqlOperationHandler = (
                 error,
                 `Unexpected GraphQL mock error in "${operationName}"`,
               ),
+              // A field the API refuses names its code, as a REST refusal does.
+              ...(error instanceof BillingProblem && error.code
+                ? { extensions: { code: error.code } }
+                : {}),
             },
           ],
         },

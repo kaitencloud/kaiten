@@ -27,18 +27,19 @@ it('omits pending access and starts no AI child reads', () => {
   capability.mockImplementation(() => new Promise(() => {})); evaluate.mockResolvedValue(true);
   const { entered } = renderAvailability(); expect(entered).not.toHaveBeenCalled(); expect(screen.queryByRole('status')).not.toBeInTheDocument();
 });
-it.each(['capability', 'flag'])('fails closed on %s errors even with stale true data', async (failed) => {
+it.each(['capability', 'flag'])('keeps a grant held this session through %s outages, which are not refusals', async (failed) => {
   const client = new QueryClient(); client.setQueryData(aiAccessQueryOptions().queryKey, { enabled: true, expiresAt: performance.now() - 1 }, { updatedAt: Date.now() - AI_ACCESS_FRESHNESS_MS - 1 });
   capability.mockResolvedValue(true); evaluate.mockResolvedValue(true); (failed === 'capability' ? capability : evaluate).mockRejectedValue(new Error('fixture outage'));
   const { entered } = renderAvailability(client);
-  await waitFor(() => expect(client.getQueryData(aiAccessQueryOptions().queryKey)).toMatchObject({ enabled: false })); expect(entered).not.toHaveBeenCalled();
+  await waitFor(() => expect(client.getQueryState(aiAccessQueryOptions().queryKey)?.status).toBe('error')); expect(client.getQueryData(aiAccessQueryOptions().queryKey)).toMatchObject({ enabled: true }); expect(entered).toHaveBeenCalled();
 });
-it('closes on invalidation and true to false, never retaining an invalidated positive', async () => {
+it('keeps rendering while an invalidated positive refreshes, and closes on true to false', async () => {
   capability.mockResolvedValue(true); evaluate.mockResolvedValue(true); const { client } = renderAvailability(); await screen.findByText('AI operation mounted');
   let finish!: (value: boolean) => void; capability.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
   await act(async () => { void client.invalidateQueries({ queryKey: aiAccessQueryOptions().queryKey }); });
-  await waitFor(() => expect(screen.queryByText('AI operation mounted')).not.toBeInTheDocument());
+  expect(screen.getByText('AI operation mounted')).toBeInTheDocument();
   await act(async () => { finish(false); }); await waitFor(() => expect(client.getQueryData(aiAccessQueryOptions().queryKey)).toMatchObject({ enabled: false }));
+  await waitFor(() => expect(screen.queryByText('AI operation mounted')).not.toBeInTheDocument());
 });
 it('route guards recheck instead of trusting even a fresh cached true', async () => {
   const client = new QueryClient(); client.setQueryData(aiAccessQueryOptions().queryKey, { enabled: true, expiresAt: performance.now() + AI_ACCESS_FRESHNESS_MS }); capability.mockResolvedValue(false); evaluate.mockResolvedValue(true);

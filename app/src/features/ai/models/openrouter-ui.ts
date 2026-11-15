@@ -5,7 +5,13 @@ import {
   normalizeOpenRouterDecimal,
 } from './openrouter-catalogue';
 
+export function isOpenRouterUnreachable(error: unknown): boolean {
+  return error instanceof OpenRouterError && error.code === 'unreachable';
+}
+
 export function openRouterErrorMessage(error: unknown, t: TFunction): string {
+  if (isOpenRouterUnreachable(error))
+    return t('AI.Models.openRouterUnreachable');
   return error instanceof OpenRouterError
     ? t(`AI.OpenRouter.errors.${error.code}`)
     : getApiErrorMessage(error);

@@ -38,8 +38,11 @@ export function aiAccessQueryOptions() {
       const observe = async (read: Promise<boolean> | boolean) => {
         try {
           return (await read) === true ? performance.now() : deny();
-        } catch {
-          return deny();
+        } catch (error) {
+          // A refusal is a negative; an outage only fails the refresh, so a
+          // grant already held this session stays, while a first access stays closed.
+          if (isExplicitAiDenial(error)) return deny();
+          throw error;
         }
       };
       const success = Promise.all([
@@ -56,9 +59,10 @@ export function aiAccessQueryOptions() {
         // Completion of a slow aggregate must not renew an older observation.
         const expiresAt =
           Math.min(capabilityAt, flagAt) + AI_ACCESS_FRESHNESS_MS;
-        return expiresAt > performance.now()
-          ? { enabled: true, expiresAt }
-          : deniedAiAccess;
+        if (expiresAt > performance.now()) return { enabled: true, expiresAt };
+        // Too old to renew anything: keep an earlier grant as it was, never extend it.
+        const held = client.getQueryData<AiAccessSnapshot>(queryKey);
+        return held?.enabled === true ? held : deniedAiAccess;
       });
       return Promise.race([refusal, success]);
     },
@@ -89,19 +93,36 @@ export async function requireAiAccess(queryClient: QueryClient) {
   }
 }
 
-export function hasCurrentAiAccess(queryClient: QueryClient) {
+/**
+ * Whether this session holds a grant, current or not: the last answer was
+ * positive and nothing has refused it since. Rendering and requests rely on it so
+ * that an expired snapshot (a background tab, a slow or failing refresh) never
+ * tears a screen down; only an explicit negative does. Routes still require
+ * {@link readCurrentAiAccess}.
+ */
+export function hasAiAccessGrant(queryClient: QueryClient) {
   const identity = aiIdentityKey();
-  const state = queryClient.getQueryState<AiAccessSnapshot>([
-    ...aiAccessQueryKey,
-    identity,
-  ]);
   return (
     identity !== null &&
-    state?.status === 'success' &&
-    !state.isInvalidated &&
-    state.data?.enabled === true &&
-    Number.isFinite(state.data.expiresAt) &&
-    state.data.expiresAt > performance.now()
+    queryClient.getQueryData<AiAccessSnapshot>([...aiAccessQueryKey, identity])
+      ?.enabled === true
+  );
+}
+
+/** A refusal from the API (403, `AIUsage.Disabled`), as opposed to an outage. */
+export function isExplicitAiDenial(error: unknown) {
+  const failure = error as {
+    status?: number;
+    code?: string;
+    response?: { status?: number };
+    data?: { code?: string };
+  } | null;
+  const status = failure?.status ?? failure?.response?.status;
+  return (
+    status === 401 ||
+    status === 403 ||
+    failure?.code === 'AIUsage.Disabled' ||
+    failure?.data?.code === 'AIUsage.Disabled'
   );
 }
 

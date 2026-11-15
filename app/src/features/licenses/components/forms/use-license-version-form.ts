@@ -1,7 +1,4 @@
-import {
-  aiMatrixQueryKey,
-  aiWildcardImpactQueryKey,
-} from '@/domains/ai-credits';
+import { aiRateCardQueryKey } from '@/domains/ai-credits';
 import { readCurrentAiAccess, useAiAccess } from '@/domains/ai-credits';
 import { copyConversionRules } from '../../hooks/copy-conversion-rules';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
@@ -160,14 +157,9 @@ function useSubmitLicenseVersion({
                     if (results.some((result) => result.error))
                       throw new Error(t('AI.copyPartial'));
                   } finally {
-                    await Promise.all([
-                      queryClient.invalidateQueries({
-                        queryKey: aiMatrixQueryKey,
-                      }),
-                      queryClient.invalidateQueries({
-                        queryKey: aiWildcardImpactQueryKey,
-                      }),
-                    ]);
+                    await queryClient.invalidateQueries({
+                      queryKey: aiRateCardQueryKey,
+                    });
                   }
                 }
               : undefined,

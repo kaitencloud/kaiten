@@ -1,27 +1,6 @@
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { getApiErrorMessage } from '@/lib/errors';
-
-export function AiSection({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <fieldset className="min-w-0 space-y-4">
-      <legend className="px-1 text-base font-semibold">{title}</legend>
-      {description ? (
-        <p className="text-sm text-muted-foreground">{description}</p>
-      ) : null}
-      {children}
-    </fieldset>
-  );
-}
 
 export function AiLoading({ label }: { label: string }) {
   return (

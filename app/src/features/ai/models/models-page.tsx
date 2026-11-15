@@ -1,125 +1,52 @@
-import { useAiNavigationContext, useAiAccess } from '@/domains/ai-credits';
-import { useId, useState } from 'react';
-import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import {
+  AiLoading,
+  AiQueryError,
+  aiRateCardQueryOptions,
+  modelsQueryOptions,
+  useAiAccess,
+  useAiNavigationContext,
+} from '@/domains/ai-credits';
+import { useCallback, useId, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 import type { Model } from '@/api-client';
-import { deleteModelMutation } from '@/api-client/@tanstack/react-query.gen';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { DeleteConfirmationDialog } from '@/components/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Page } from '@/functionals/page';
 import { TableCard, type ColumnDef } from '@/functionals/table';
-import { getApiErrorMessage } from '@/lib/errors';
 import { dataModelIcons } from '@/lib/data-model-icons';
 import {
-  modelsQueryOptions,
-  invalidateAiQueries,
-} from '../queries/ai-query-options';
-import { AiLoading, AiQueryError } from '../ai-section';
+  ModelActions,
+  ModelIdentity,
+  ModelProvider,
+  ModelRulesCount,
+  ModelStatus,
+  ModelVendorCost,
+} from './model-cells';
+import {
+  filterModels,
+  MODEL_STATUS_FILTERS,
+  type ModelStatusFilter,
+  ruleCountsByModel,
+} from './model-list-model';
 
-function ModelActions({ model }: { model: Model }) {
-  const context = useAiNavigationContext();
-  const access = useAiAccess();
+function ModelCard({
+  model,
+  rulesCount,
+}: {
+  model: Model;
+  rulesCount: number | undefined;
+}) {
   const { t } = useTranslation();
-  const client = useQueryClient();
-  const remove = useMutation(deleteModelMutation());
-  async function handleDelete() {
-    try {
-      await remove.mutateAsync({ path: { modelSlug: model.slug } });
-      await invalidateAiQueries(client);
-    } catch (error) {
-      toast.error(getApiErrorMessage(error));
-    }
-  }
-  if (!access.allows('getModel')) return null;
-  return (
-    <div className="flex flex-wrap gap-2">
-      <Button
-        variant="outline"
-        size="sm"
-        nativeButton={false}
-        render={
-          <Link
-            to="/catalog/models/$modelSlug/source"
-            params={{ modelSlug: model.slug }}
-            search={context}
-          />
-        }
-      >
-        {t('AI.OpenRouter.sourcePricing')}
-      </Button>
-      <Button
-        disabled={!access.allows('updateModel')}
-        nativeButton={false}
-        variant="outline"
-        size="sm"
-        className="min-h-11 sm:min-h-8"
-        render={
-          <Link
-            search={context}
-            to="/catalog/models/$modelSlug/edit"
-            params={{ modelSlug: model.slug }}
-          />
-        }
-      >
-        {t('Common.edit')}
-      </Button>
-      <DeleteConfirmationDialog
-        trigger={
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="min-h-11 text-destructive-subtle-foreground sm:min-h-8"
-            disabled={remove.isPending || !access.allows('deleteModel')}
-          >
-            {t('Common.delete')}
-          </Button>
-        }
-        title={t('Common.confirmDeleteTitle')}
-        description={t('Common.confirmDeleteDescription', { name: model.name })}
-        cancelLabel={t('Common.cancel')}
-        confirmLabel={t('Common.confirm')}
-        confirmDisabled={remove.isPending}
-        onConfirm={handleDelete}
-      />
-    </div>
-  );
-}
-
-function ModelIdentity({ model }: { model: Model }) {
-  return (
-    <div className="min-w-0 space-y-1">
-      <p className="font-medium wrap-anywhere">{model.name}</p>
-      <p className="text-xs text-muted-foreground wrap-anywhere">
-        {model.slug}
-      </p>
-    </div>
-  );
-}
-function ModelProvider({ model }: { model: Model }) {
-  const { t } = useTranslation();
-  return (
-    <div className="space-y-1">
-      <p>{model.vendor}</p>
-      <p className="text-xs text-muted-foreground">
-        {t(`AI.enums.${model.modality}`)}
-      </p>
-    </div>
-  );
-}
-function ModelStatus({ model }: { model: Model }) {
-  const { t } = useTranslation();
-  return (
-    <span className="inline-flex rounded border bg-muted px-2 py-1 text-xs whitespace-nowrap">
-      {t(`AI.enums.${model.status}`)}
-    </span>
-  );
-}
-function ModelCard({ model }: { model: Model }) {
   return (
     <li className="space-y-4 rounded-lg border bg-card p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -127,8 +54,69 @@ function ModelCard({ model }: { model: Model }) {
         <ModelStatus model={model} />
       </div>
       <ModelProvider model={model} />
-      <ModelActions model={model} />
+      <dl className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <dt className="text-xs text-muted-foreground">
+            {t('AI.Models.vendorCost')}
+          </dt>
+          <dd>
+            <ModelVendorCost model={model} />
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">
+            {t('AI.Models.rules')}
+          </dt>
+          <dd>
+            <ModelRulesCount count={rulesCount} model={model} />
+          </dd>
+        </div>
+      </dl>
+      <ModelActions model={model} rulesCount={rulesCount} />
     </li>
+  );
+}
+
+/** The status filter: every status, or one. */
+function StatusFilter({
+  value,
+  onChange,
+}: {
+  value: ModelStatusFilter;
+  onChange: (status: ModelStatusFilter) => void;
+}) {
+  const { t } = useTranslation();
+  const id = useId();
+  const items = MODEL_STATUS_FILTERS.map((status) => ({
+    value: status,
+    label:
+      status === 'all' ? t('AI.Models.allStatuses') : t(`AI.enums.${status}`),
+  }));
+
+  return (
+    <div className="w-full space-y-2 sm:w-48">
+      <Label htmlFor={id}>{t('AI.status')}</Label>
+      <Select
+        items={items}
+        value={value}
+        onValueChange={(next) =>
+          next !== null && onChange(next as ModelStatusFilter)
+        }
+      >
+        <SelectTrigger id={id} className="min-h-11 w-full sm:min-h-9">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>{items.map(renderStatus)}</SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function renderStatus(item: { value: string; label: string }) {
+  return (
+    <SelectItem key={item.value} value={item.value}>
+      {item.label}
+    </SelectItem>
   );
 }
 
@@ -140,43 +128,81 @@ export function ModelsPage() {
     ...modelsQueryOptions,
     enabled: access.allows('listModels'),
   });
+  // The rules that name each model come from the rate card, read where the
+  // session may read it: the count is a dash, not a zero, where it may not.
+  const rateCard = useQuery({
+    ...aiRateCardQueryOptions,
+    enabled:
+      access.allows('getLicenses') && access.allows('listConversionRules'),
+  });
+  const ruleCounts = useMemo(
+    () => (rateCard.data ? ruleCountsByModel(rateCard.data) : null),
+    [rateCard.data],
+  );
+  const rulesOf = useCallback(
+    (model: Model) =>
+      ruleCounts ? (ruleCounts.get(model.slug) ?? 0) : undefined,
+    [ruleCounts],
+  );
   const [search, setSearch] = useState('');
+  const [status, setStatus] = useState<ModelStatusFilter>('all');
   const searchId = useId();
   const ModelIcon = dataModelIcons.model;
-  const needle = search.trim().toLocaleLowerCase();
-  const models = (query.data?.items ?? []).filter((model) =>
-    [
-      model.name,
-      model.slug,
-      model.vendor,
+  const filtered = search.trim() !== '' || status !== 'all';
+  const models = filterModels(query.data?.items ?? [], {
+    labels: (model) => [
       t(`AI.enums.${model.modality}`),
       t(`AI.enums.${model.status}`),
-    ].some((value) => value.toLocaleLowerCase().includes(needle)),
+    ],
+    search,
+    status,
+  });
+  const columns: ColumnDef<Model>[] = useMemo(
+    () => [
+      {
+        id: 'identity',
+        header: t('AI.Models.identity'),
+        cell: ({ row }) => <ModelIdentity model={row.original} />,
+      },
+      {
+        id: 'provider',
+        header: t('AI.Models.provider'),
+        cell: ({ row }) => <ModelProvider model={row.original} />,
+      },
+      {
+        id: 'status',
+        header: t('AI.status'),
+        cell: ({ row }) => <ModelStatus model={row.original} />,
+      },
+      {
+        id: 'vendorCost',
+        header: t('AI.Models.vendorCost'),
+        cell: ({ row }) => <ModelVendorCost model={row.original} />,
+      },
+      {
+        id: 'rules',
+        header: t('AI.Models.rules'),
+        cell: ({ row }) => (
+          <ModelRulesCount count={rulesOf(row.original)} model={row.original} />
+        ),
+      },
+      {
+        id: 'actions',
+        header: t('Common.actions'),
+        cell: ({ row }) => (
+          <ModelActions
+            model={row.original}
+            rulesCount={rulesOf(row.original)}
+          />
+        ),
+      },
+    ],
+    [t, rulesOf],
   );
-  const columns: ColumnDef<Model>[] = [
-    {
-      id: 'identity',
-      header: t('AI.Models.identity'),
-      cell: ({ row }) => <ModelIdentity model={row.original} />,
-    },
-    {
-      id: 'provider',
-      header: t('AI.Models.provider'),
-      cell: ({ row }) => <ModelProvider model={row.original} />,
-    },
-    {
-      id: 'status',
-      header: t('AI.status'),
-      cell: ({ row }) => <ModelStatus model={row.original} />,
-    },
-    {
-      id: 'actions',
-      header: t('Common.actions'),
-      cell: ({ row }) => <ModelActions model={row.original} />,
-    },
-  ];
   function renderModel(model: Model) {
-    return <ModelCard key={model.slug} model={model} />;
+    return (
+      <ModelCard key={model.slug} model={model} rulesCount={rulesOf(model)} />
+    );
   }
   if (!access.available) return null;
   return (
@@ -190,15 +216,23 @@ export function ModelsPage() {
           <Button
             nativeButton={false}
             variant="outline"
-            render={<Link to="/ai/matrix" search={context} />}
+            render={
+              <Link
+                to="/ai/pricing"
+                search={{
+                  pool: context.entitlementSlug,
+                  version: context.licenseSlug,
+                }}
+              />
+            }
           >
-            {t('AI.Matrix.title')}
+            {t('AI.Nav.pricing')}
           </Button>
           <Button
             disabled={!access.allows('createModel')}
             variant="outline"
             nativeButton={false}
-            render={<Link to="/catalog/models/new" search={context} />}
+            render={<Link to="/ai/models/new" search={context} />}
           >
             {t('AI.Models.create')}
           </Button>
@@ -207,7 +241,7 @@ export function ModelsPage() {
               !access.allows('createModel') || !access.allows('listModels')
             }
             nativeButton={false}
-            render={<Link to="/catalog/models/import" search={context} />}
+            render={<Link to="/ai/models/import" search={context} />}
           >
             {t('AI.OpenRouter.importTitle')}
           </Button>
@@ -217,16 +251,19 @@ export function ModelsPage() {
         <p className="text-sm text-muted-foreground">
           {t('AI.Models.description')}
         </p>
-        <div className="max-w-md space-y-2">
-          <Label htmlFor={searchId}>{t('AI.Models.search')}</Label>
-          <Input
-            id={searchId}
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder={t('AI.Models.searchPlaceholder')}
-            className="min-h-11 sm:min-h-9"
-          />
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="w-full max-w-md space-y-2">
+            <Label htmlFor={searchId}>{t('AI.Models.search')}</Label>
+            <Input
+              id={searchId}
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder={t('AI.Models.searchPlaceholder')}
+              className="min-h-11 sm:min-h-9"
+            />
+          </div>
+          <StatusFilter value={status} onChange={setStatus} />
         </div>
         {query.isPending ? (
           <AiLoading label={t('AI.Models.loading')} />
@@ -246,7 +283,7 @@ export function ModelsPage() {
                   data={models}
                   columns={columns}
                   emptyMessage={t(
-                    needle ? 'AI.Models.noMatches' : 'AI.Models.empty',
+                    filtered ? 'AI.Models.noMatches' : 'AI.Models.empty',
                   )}
                 />
               </TableCard>
@@ -259,7 +296,7 @@ export function ModelsPage() {
                 models.map(renderModel)
               ) : (
                 <li className="rounded-lg border p-4 text-sm">
-                  {t(needle ? 'AI.Models.noMatches' : 'AI.Models.empty')}
+                  {t(filtered ? 'AI.Models.noMatches' : 'AI.Models.empty')}
                 </li>
               )}
             </ul>

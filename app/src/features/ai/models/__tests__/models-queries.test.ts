@@ -1,10 +1,8 @@
-import { QueryClient } from '@tanstack/react-query';
-import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { expect, it } from 'vite-plus/test';
 import { HttpResponse } from 'msw/http';
-import { handleListModels, handleGetLicenses, handleListConversionRules } from '@/api-client/msw.gen';
+import { handleListModels } from '@/api-client/msw.gen';
 import { server } from '@/__tests__/msw-server';
-import { modelsQueryOptions, wildcardQueryOptions } from '../../queries/ai-query-options';
+import { modelsQueryOptions } from '@/domains/ai-credits';
 import { modelFormSchema } from '../model-form.schema';
 
 it('walks model cursors using the generated list identity', async () => {
@@ -13,16 +11,6 @@ it('walks model cursors using the generated list identity', async () => {
     return HttpResponse.json(cursor ? { items: [{ slug: 'second' }], hasMore: false } : { items: [{ slug: 'first' }], hasMore: true, nextCursor: 'next' });
   }));
   expect((await modelsQueryOptions.queryFn({ signal: new AbortController().signal })).items.map((item) => item.slug)).toEqual(['first', 'second']);
-});
-it('lists exact wildcard impact across versions without excluding ungranted pools', async () => {
-  server.use(handleGetLicenses(() => HttpResponse.json({ items: [{ slug: 'version-one' }, { slug: 'version-two' }], hasMore: false })), handleListConversionRules(() => HttpResponse.json([
-    { modelSlug: null, entitlementSlug: 'credits', grantedByLicense: false },
-    { modelSlug: 'exact', entitlementSlug: 'excluded' },
-  ])));
-  const client = new QueryClient();
-  setAiAccessInputsForTest(client, { capability: true, flag: true });
-  const rows = await wildcardQueryOptions.queryFn!({ signal: new AbortController().signal, client } as never);
-  expect(rows).toEqual([{ licenseSlug: 'version-one', entitlementSlug: 'credits' }, { licenseSlug: 'version-two', entitlementSlug: 'credits' }]);
 });
 it('inherits generated model constraints and accepts optional disjoint cache costs', () => {
   const value = { name: 'Synthetic', slug: 'synthetic', vendor: 'Local fixture', modality: 'TEXT', status: 'ACTIVE', vendorCosts: { currency: 'USD', perCachedInputToken: '0', perCacheWriteToken: '0.000001' } };

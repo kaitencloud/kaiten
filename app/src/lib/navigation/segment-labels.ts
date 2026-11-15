@@ -4,13 +4,13 @@ import type { TFunction } from 'i18next';
 // the tabs and the page headers already give those places.
 const SEGMENT_LABEL_KEYS: Record<string, string> = {
   addons: 'Pages.Addons.title',
+  ai: 'AI.Nav.title',
   'attach-addon':
     'Pages.Customers.Instances.Detail.Billing.Addons.Attach.title',
   'audit-trail': 'Pages.AuditTrail.title',
   billing: 'Pages.Billing.title',
   cancel: 'Pages.Customers.Instances.Detail.Billing.Cancel.title',
   catalog: 'Pages.Catalog.title',
-  calculation: 'AI.Calculation.title',
   compatibility: 'Pages.Addons.Compatibility.title',
   components: 'Pages.Releases.Components.title',
   connectors: 'Pages.Integrations.Connectors.title',
@@ -34,6 +34,7 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
   notifications: 'Pages.Notifications.title',
   'plan-change': 'Pages.Customers.Instances.Detail.Billing.PlanChange.title',
   prices: 'Pages.Licenses.Prices.title',
+  pricing: 'AI.Nav.pricing',
   'publishable-keys': 'Pages.Integrations.PublishableKeys.title',
   'redeem-voucher':
     'Pages.Customers.Instances.Detail.Billing.Vouchers.Redeem.breadcrumb',
@@ -49,14 +50,15 @@ const SEGMENT_LABEL_KEYS: Record<string, string> = {
 // The side nav's sections, by path: whatever lies under one of them, the
 // section's own page exists. The entries of the catalog are sections of their
 // own, so that the way back from a license that does not exist is the licenses,
-// not the catalog.
+// not the catalog. The AI area is not listed: it exists only while AI credits
+// are on for the organisation, so its own pages can be the missing ones, and a
+// way back to them would lead to the same page.
 const SECTIONS = new Set([
   'audit-trail',
   'catalog',
   'catalog/addons',
   'catalog/entitlements',
   'catalog/licenses',
-  'catalog/models',
   'catalog/vouchers',
   'customers',
   'dashboard',

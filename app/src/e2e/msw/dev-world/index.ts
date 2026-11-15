@@ -29,6 +29,17 @@ import {
   createLicenses,
 } from './catalog';
 import { createAddons } from './addons';
+import {
+  aiPlatform,
+  type AiBilling,
+  type AiCatalogue,
+  type AiStanding,
+  createAiGrants,
+  createAiModel,
+  createAiPools,
+  createAiUsages,
+  withAiUsages,
+} from './ai';
 import { createBillingCapabilities, createBillingInvoices } from './billing';
 import {
   createBillingBlocks,
@@ -68,18 +79,24 @@ const STREAM_DEMO_INTERVAL_MS = 45_000;
  */
 export const createDevWorld = () => {
   const customers = createCustomers();
-  const entitlements = createEntitlements();
+  const aiPools = createAiPools();
+  const entitlements = [...createEntitlements(), ...aiPools];
   const licenses = createLicenses();
-  const licenseEntitlements = createLicenseEntitlements(licenses, entitlements);
+  const aiGrants = createAiGrants(licenses, aiPools);
+  const licenseEntitlements = [
+    ...createLicenseEntitlements(licenses, entitlements),
+    ...aiGrants,
+  ];
   const instances = createInstances(customers, licenses);
 
   return {
     ...createReleaseTrain(),
     customers,
-    entitlementUsagesByInstance: createEntitlementUsages(
-      instances,
-      licenseEntitlements,
-      entitlements,
+    aiGrants,
+    aiPools,
+    entitlementUsagesByInstance: withAiUsages(
+      createEntitlementUsages(instances, licenseEntitlements, entitlements),
+      createAiUsages(instances, aiGrants),
     ),
     entitlements,
     featureFlags: createFeatureFlags(),
@@ -148,11 +165,21 @@ const deployedInstances = ({
  * so a link from one area to another leads to a record the other one knows.
  * Each model still keeps its own copy: what a page changes stays in the model
  * of its area, and another area keeps showing the record as it was seeded.
- * The platform flags stay off, as on a self-hosted deployment.
+ * The platform flags stay off, as on a self-hosted deployment, except AI
+ * credits (`ai-credits`), on unless the console is started with `?ai=off`.
  */
 export function createDevMockConfig({
+  ai = 'on',
+  aiBilling = 'on',
+  aiCatalogue = 'default',
   stripe = 'connected',
 }: {
+  /** Whether what add-ons can grant on a licence is readable, or refused as with billing off. */
+  aiBilling?: AiBilling;
+  /** The size of the AI catalogue. */
+  aiCatalogue?: AiCatalogue;
+  /** Whether AI credits are on: the capability and the platform flag together. */
+  ai?: AiStanding;
   /** Where the Stripe connector stands: connected to a test account unless the console is started with another. */
   stripe?: StripeStanding;
 } = {}): E2EMswConfig {
@@ -231,6 +258,14 @@ export function createDevMockConfig({
   }
 
   return {
+    ai: createAiModel({
+      billing: aiBilling,
+      catalogue: aiCatalogue,
+      grants: world.aiGrants,
+      licenses: world.licenses,
+      pools: world.aiPools,
+    }).serializeForMsw(),
+    ...aiPlatform(ai),
     auditTrail: new AuditTrailAppModel(
       createAuditTrail(world),
     ).serializeForMsw(),

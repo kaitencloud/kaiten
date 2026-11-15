@@ -1,22 +1,70 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
 import type { ModelWritable } from '@/api-client';
 import {
+  AiLoading,
+  AiQueryError,
   modelsQueryOptions,
   useAiAccess,
   useAiNavigationContext,
 } from '@/domains/ai-credits';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Page } from '@/functionals/page';
-import { AiLoading, AiQueryError } from '../ai-section';
 import { ModelForm, MODEL_MODALITIES } from './model-form';
 import { OpenRouterBrowser, SourceEntryDetails } from './openrouter-browser';
 import {
   createOpenRouterImportDraft,
   type OpenRouterEntry,
 } from './openrouter-catalogue';
+
+type Modality = ModelWritable['modality'];
+
+function ModalityPicker({
+  value,
+  onChange,
+}: {
+  value: Modality | undefined;
+  onChange: (value: Modality | undefined) => void;
+}) {
+  const { t } = useTranslation();
+  const id = useId();
+  const items = MODEL_MODALITIES.map((modality) => ({
+    value: modality,
+    label: t(`AI.enums.${modality}`),
+  }));
+  function renderItem(item: (typeof items)[number]) {
+    return (
+      <SelectItem key={item.value} value={item.value}>
+        {item.label}
+      </SelectItem>
+    );
+  }
+  return (
+    <div className="grid max-w-xs grid-cols-1 gap-2">
+      <Label htmlFor={id}>{t('AI.OpenRouter.chooseModality')}</Label>
+      <Select
+        items={items}
+        value={value ?? null}
+        onValueChange={(next) => onChange(next ?? undefined)}
+      >
+        <SelectTrigger id={id} className="min-h-11 sm:min-h-9">
+          <SelectValue placeholder={t('AI.OpenRouter.chooseModality')} />
+        </SelectTrigger>
+        <SelectContent>{items.map(renderItem)}</SelectContent>
+      </Select>
+    </div>
+  );
+}
 
 export function ModelImportPage() {
   const access = useAiAccess();
@@ -34,7 +82,7 @@ export function ModelImportPage() {
   if (access.isPending || (mayRead && query.isPending))
     return <AiLoading label={t('AI.Models.loading')} />;
   if (!mayRead || !access.allows('createModel'))
-    return <p role="status">{t('AI.Calculation.modelDenied')}</p>;
+    return <p role="status">{t('AI.Access.modelDenied')}</p>;
   if (query.isError)
     return <AiQueryError error={query.error} onRetry={() => query.refetch()} />;
   const source =
@@ -52,26 +100,7 @@ export function ModelImportPage() {
       {!source ? <SourceEntryDetails entry={selected.entry} /> : null}
       {!source ? (
         <div className="space-y-3">
-          <label className="block text-sm font-medium">
-            {t('AI.OpenRouter.chooseModality')}
-            <select
-              className="mt-2 block min-h-11 rounded-md border bg-card px-3"
-              value={manualModality ?? ''}
-              onChange={(event) =>
-                setManualModality(
-                  (event.target.value as ModelWritable['modality']) ||
-                    undefined,
-                )
-              }
-            >
-              <option value="">{t('AI.OpenRouter.chooseModality')}</option>
-              {MODEL_MODALITIES.map((value) => (
-                <option key={value} value={value}>
-                  {t(`AI.enums.${value}`)}
-                </option>
-              ))}
-            </select>
-          </label>
+          <ModalityPicker value={manualModality} onChange={setManualModality} />
           <Button
             type="button"
             variant="outline"
@@ -100,14 +129,14 @@ export function ModelImportPage() {
           <Button
             variant="outline"
             nativeButton={false}
-            render={<Link to="/catalog/models/new" search={context} />}
+            render={<Link to="/ai/models/new" search={context} />}
           >
             {t('AI.OpenRouter.manualCreate')}
           </Button>
           <Button
             variant="outline"
             nativeButton={false}
-            render={<Link to="/catalog/models" search={context} />}
+            render={<Link to="/ai/models" search={context} />}
           >
             {t('Common.cancel')}
           </Button>
