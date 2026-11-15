@@ -7,6 +7,8 @@ import { EntitlementForm } from '../entitlement-form';
 
 // Mock external dependencies only
 const mockNavigate = vi.fn();
+const rollout = vi.hoisted(() => ({ available: false }));
+vi.mock('@/domains/ai-credits/use-ai-access', () => ({ useAiAccess: () => ({ available: rollout.available, isPending: false, allows: () => rollout.available }) }));
 
 // The Subscribe mock reads this, so a test can drive the branches that key off
 // aggregationMethod and resetPeriod.
@@ -223,7 +225,8 @@ vi.mock('@/hooks/form', () => ({
   }),
 }));
 
-vi.mock('@/functionals/stacked-form-dialog', () => ({
+vi.mock('@/functionals/stacked-form-dialog', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/functionals/stacked-form-dialog')>()),
   StackedFormDialogCard: ({
     children,
     footer,
@@ -263,6 +266,7 @@ const createWrapper = () => {
 
 describe('EntitlementForm', () => {
   beforeEach(() => {
+    rollout.available = false;
     vi.clearAllMocks();
     formState.values = { ...defaultFormValues };
   });
@@ -276,6 +280,15 @@ describe('EntitlementForm', () => {
       expect(screen.getByTestId('field-description')).toBeInTheDocument();
       expect(screen.getByTestId('field-groupSlugs')).toBeInTheDocument();
       expect(screen.getByText('Créer')).toBeInTheDocument();
+    });
+
+    it('keeps ordinary identity and unit fields visible without AI disclosures', () => {
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+      expect(screen.getByTestId('field-description')).toBeVisible();
+      expect(screen.getByTestId('field-groupSlugs')).toBeVisible();
+      expect(screen.getByTestId('field-description').closest('details')).toBeNull();
+      expect(screen.getByTestId('field-unitSingular').closest('details')).toBeNull();
+      expect(screen.queryByTestId('field-warningThresholdPercent')).not.toBeInTheDocument();
     });
 
     it('renders all form fields', () => {
@@ -349,6 +362,16 @@ describe('EntitlementForm', () => {
       expect(screen.getByText('Mettre à jour')).toBeInTheDocument();
       expect(screen.queryByTestId('field-type')).not.toBeInTheDocument();
       expect(screen.queryByText('Common.next')).not.toBeInTheDocument();
+    });
+
+    it('keeps the meter configuration step for an AI credit entitlement', () => {
+      rollout.available = true;
+      const pool = { id: 'ai-pool', name: 'AI pool', slug: 'ai-pool', type: 'NUMBER_AI_CREDIT', aggregationMethod: 'SUM' } as Entitlement;
+      formState.values.type = 'NUMBER_AI_CREDIT';
+      render(<EntitlementForm layout="dialog" entitlement={pool} />, { wrapper: createWrapper() });
+      expect(screen.getByText(/AI.Minimal.sumFixed/)).toBeInTheDocument();
+      expect(screen.getByTestId('field-warningThresholdPercent')).toBeInTheDocument();
+      expect(screen.getByTestId('field-unitSingular').closest('details')).not.toBeNull();
     });
 
     it('keeps the type step when editing a NUMBER entitlement', () => {

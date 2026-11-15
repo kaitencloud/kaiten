@@ -1,3 +1,4 @@
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook } from '@testing-library/react';
 import { HttpResponse } from 'msw/http';
@@ -126,6 +127,7 @@ describe('the form that edits an entitlement', () => {
   });
 
   it('sends the units of an AI credit entitlement along with an edit that does not touch them', async () => {
+    setAiAccessInputsForTest(queryClient, { capability: true, flag: true });
     const credits = {
       ...opened,
       aggregationMethod: 'SUM',

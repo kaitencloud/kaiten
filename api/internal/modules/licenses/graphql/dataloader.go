@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Dataloader names
@@ -19,7 +20,8 @@ const (
 
 // RegisterDataloaders registers license dataloaders to the shared loaders
 // container.
-func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
+func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, policy aiusage.Policy) {
+	loaders.Register(LicenseConversionRulesLoaderName, dataloaderLib.NewBatchedLoader(newConversionRulesBatchFn(queries, policy)))
 	loaders.Register(LicenseLoaderName, dataloaderLib.NewBatchedLoader(
 		newLicenseBatchFn(queries),
 	))
@@ -30,10 +32,10 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
 	))
 	// License.prices -- part of the licence read, as GET /licenses/{slug}/prices
 	// is of the licence it lists.
-	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(newLicensePricesBatchFn(queries)))
+	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(newLicensePricesBatchFn(queries, policy)))
 	// License.entitlements -- what GET /licenses/{slug}/entitlements returns.
 	loaders.Register(LicenseEntitlementsLoaderName, dataloaderLib.NewBatchedLoader(
-		newLicenseEntitlementsBatchFn(queries),
+		newLicenseEntitlementsBatchFn(queries, policy),
 	))
 }
 

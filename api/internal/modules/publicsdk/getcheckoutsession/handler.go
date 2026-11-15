@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/createcheckoutsession"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/sessions"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -29,6 +30,7 @@ type Payments interface {
 
 // Deps is what the read needs.
 type Deps struct {
+	AIPolicy   aiusage.Policy
 	Uof        *uow.UnitOfWork
 	Activation createcheckoutsession.Activation
 	Payments   Payments
@@ -42,6 +44,7 @@ func NewUseCase(deps Deps) *UseCase { return &UseCase{deps: deps} }
 // so a missing row is one the retention removed since: the same 401 as an
 // unknown token.
 func (u *UseCase) Execute(ctx context.Context, organizationID, sessionID uuid.UUID) (*checkout.CheckoutSession, error) {
+	ctx = u.deps.AIPolicy.Resolve(ctx, organizationID)
 	row, err := Load(ctx, db.New(u.deps.Uof.DBTX(ctx)), u.deps.Payments, organizationID, sessionID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, kaitenerrors.Unauthorized("PublicAuth.InvalidCredential", "invalid credential")
@@ -125,7 +128,7 @@ func Read(ctx context.Context, activation createcheckoutsession.Activation, paym
 		out.DueToday = *selection.DueToday
 	case selection.TrialEndsAt == nil && row.DueTodayMinor > 0:
 		none := int32(0)
-		preview, err := activation.PreviewActivation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{
+		preview, err := activation.PreviewActivationWithinOperation(ctx, row.OrganizationID, subscribeinstance.PreviewCommand{
 			BasePriceID: row.LicensePriceID, AddOns: addOns, TrialDays: &none,
 		})
 		if err != nil {

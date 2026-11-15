@@ -32,6 +32,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, addonSlug string, q
 	// Read permission before taking a transaction/row lock. A refusal matters
 	// only if the locked current quantity makes this write an increase.
 	increasePermission := u.deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var attached catalogue.InstanceAddon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -40,6 +41,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, addonSlug string, q
 			return err
 		}
 		if err := requireIncrease(write.Attachment.Quantity, quantity, increasePermission); err != nil {
+			return err
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, write.Attachment.AddonID, u.deps.AIPolicy); err != nil {
 			return err
 		}
 		if err := catalogue.RefuseIncomplete(ctx, q, user.OrganizationID, write.Instance.ID, operation); err != nil {

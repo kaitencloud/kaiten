@@ -34,8 +34,9 @@ func KnownEntitlements(ctx context.Context, entitlements catalogue.Port, orgID u
 	known := make([]featureflag.KnownEntitlement, 0, len(declared))
 	for _, entitlement := range declared {
 		known = append(known, featureflag.KnownEntitlement{
-			Slug: entitlement.Slug,
-			Type: entitlementType(entitlement.Type),
+			DeclaredType: string(entitlement.Type),
+			Slug:         entitlement.Slug,
+			Type:         entitlementType(entitlement.Type),
 		})
 	}
 

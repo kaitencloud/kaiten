@@ -262,6 +262,11 @@ FROM primary_instance pi
        -- instance's entitlement value reads them.
        LEFT JOIN instance_effective_entitlement iee
          ON iee.instance_id = pi.id AND iee.organization_id = sqlc.arg(organization_id)
+        AND (NOT sqlc.arg(hide_ai)::boolean OR EXISTS (
+          SELECT 1 FROM entitlement classified
+          WHERE classified.id = iee.entitlement_id AND classified.organization_id = iee.organization_id
+            AND classified.type <> 'NUMBER_AI_CREDIT'
+        ))
        LEFT JOIN entitlement e
          ON e.id = iee.entitlement_id AND e.organization_id = sqlc.arg(organization_id)
        LEFT JOIN entitlement_usage eu
@@ -306,6 +311,11 @@ FROM primary_instance pi
        -- instance's entitlement value reads them.
        LEFT JOIN instance_effective_entitlement iee
          ON iee.instance_id = pi.id AND iee.organization_id = sqlc.arg(organization_id)
+        AND (NOT sqlc.arg(hide_ai)::boolean OR EXISTS (
+          SELECT 1 FROM entitlement classified
+          WHERE classified.id = iee.entitlement_id AND classified.organization_id = iee.organization_id
+            AND classified.type <> 'NUMBER_AI_CREDIT'
+        ))
        LEFT JOIN entitlement e
          ON e.id = iee.entitlement_id AND e.organization_id = sqlc.arg(organization_id)
        LEFT JOIN entitlement_usage eu

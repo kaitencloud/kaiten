@@ -151,6 +151,12 @@ type Reporter struct {
 	ready         chan struct{}
 	closed        chan struct{}
 	watchDone     chan struct{}
+	// flagSourceReady is independent of the retained metering client: a failed
+	// credential read must not leave that client authorizing platform flags.
+	flagSourceReady bool
+	// A private, stable provider domain binds every rotated client to this
+	// reporter. Another reporter's credentials must never replace its authority.
+	ofDomain string
 }
 
 // NewReporter creates a rotating reporter and starts its watcher immediately.
@@ -175,6 +181,7 @@ func NewReporter(ctx context.Context, cfg Config, tokenFile string) (*Reporter, 
 		cfg:         cfg,
 		kaitenOrgID: kaitenOrgID,
 		tokenFile:   tokenFile,
+		ofDomain:    openFeatureDomainPrefix + "-" + uuid.NewString(),
 		startedAt:   time.Now(),
 		ready:       make(chan struct{}),
 		closed:      make(chan struct{}),
@@ -247,6 +254,11 @@ func (r *Reporter) reload() {
 	}
 
 	serviceToken, err := secretfile.Read(r.tokenFile)
+	if err != nil || serviceToken == "" {
+		r.mu.Lock()
+		r.flagSourceReady = false
+		r.mu.Unlock()
+	}
 	if err != nil {
 		// A missing file is the expected state and stays silent: the credential
 		// is minted by a later step and this loop is what waits for it.
@@ -268,14 +280,17 @@ func (r *Reporter) reload() {
 		return
 	}
 
-	r.mu.RLock()
+	r.mu.Lock()
 	isUnchanged := serviceToken == r.lastToken
-	r.mu.RUnlock()
+	// A readable unchanged token recovers flag authority after a transient
+	// source failure; a rotation is unready until its new client is installed.
+	r.flagSourceReady = isUnchanged && r.client != nil
+	r.mu.Unlock()
 	if isUnchanged {
 		return
 	}
 
-	client, err := newClient(r.cfg, serviceToken)
+	client, err := newClient(r.cfg, serviceToken, r.ofDomain)
 	if err != nil {
 		slog.Error("dogfooding: initialize rotated reporter", "error", err)
 		return
@@ -284,6 +299,7 @@ func (r *Reporter) reload() {
 	r.mu.Lock()
 	r.client = client
 	r.lastToken = serviceToken
+	r.flagSourceReady = true
 	r.mu.Unlock()
 	r.readyOnce.Do(func() {
 		close(r.ready)

@@ -12,6 +12,7 @@ schema:
   - "../../../modules/instances/schema/*.graphqls"
   - "../../../modules/licenses/schema/*.graphqls"
   - "../../../modules/metadatafields/schema/*.graphqls"
+  - "../../../modules/models/schema/*.graphqls"
   - "../../../modules/releases/schema/*.graphqls"
 
 exec:
@@ -30,6 +31,16 @@ resolver:
 
 # Map GraphQL types and scalars to existing domain model types (reuse existing Go schemas)
 models:
+  ConversionRule:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.ConversionRule
+  ConversionRates:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.ConversionRates
+  ConversionRuleStatus:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.ConversionRuleStatus
+  AiRequestType:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit.RequestType
+  ChargeOnErrorPolicy:
+    model: github.com/kaitencloud/kaiten/api/internal/modules/instances/usage/aicredit.ChargeOnError
   ID:
     model:
       - github.com/99designs/gqlgen/graphql.ID
@@ -42,6 +53,16 @@ models:
   Map:
     model:
       - github.com/99designs/gqlgen/graphql.Map
+
+  Model:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/models/schema.Model
+  ModelStatus:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/models/schema.Status
+  ModelModality:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/models/schema.Modality
 
   # Reuse existing domain models from each module
   AuditTrail:
@@ -135,6 +156,8 @@ models:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema.License
     fields:
+      conversionRules:
+        resolver: true
       entitlements:
         resolver: true
       family:

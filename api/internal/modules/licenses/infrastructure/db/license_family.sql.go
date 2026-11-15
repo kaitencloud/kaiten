@@ -478,6 +478,35 @@ func (q *Queries) IsFallbackOfAnotherFamily(ctx context.Context, arg IsFallbackO
 	return is_fallback, err
 }
 
+const licenseFamilyHasAI = `-- name: LicenseFamilyHasAI :one
+SELECT EXISTS (
+ SELECT 1 FROM license l JOIN license_family f ON f.id = l.family_id AND f.organization_id = l.organization_id
+ WHERE l.organization_id = $1
+   AND ($2::uuid IS NULL OR f.id = $2::uuid)
+   AND ($3::text IS NULL OR f.slug = $3::text)
+   AND (
+    EXISTS (SELECT 1 FROM license_entitlement g JOIN entitlement e ON e.id = g.entitlement_id AND e.organization_id = g.organization_id WHERE g.license_id = l.id AND g.organization_id = l.organization_id AND e.type = 'NUMBER_AI_CREDIT')
+    OR EXISTS (SELECT 1 FROM license_price p JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id WHERE p.license_id = l.id AND p.organization_id = l.organization_id AND e.type = 'NUMBER_AI_CREDIT')
+    OR EXISTS (SELECT 1 FROM credit_conversion_rule r WHERE r.license_id = l.id AND r.organization_id = l.organization_id)
+   )
+)::boolean
+`
+
+type LicenseFamilyHasAIParams struct {
+	OrganizationID uuid.UUID  `json:"organization_id"`
+	FamilyID       *uuid.UUID `json:"family_id"`
+	FamilySlug     *string    `json:"family_slug"`
+}
+
+// New-version creation supplies a family, not a copy-source version. Refuse an
+// AI-bearing family while off rather than silently copying a visible subset.
+func (q *Queries) LicenseFamilyHasAI(ctx context.Context, arg LicenseFamilyHasAIParams) (bool, error) {
+	row := q.db.QueryRow(ctx, licenseFamilyHasAI, arg.OrganizationID, arg.FamilyID, arg.FamilySlug)
+	var column_1 bool
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const listLicenseFamiliesByCursor = `-- name: ListLicenseFamiliesByCursor :many
 SELECT f.id, f.organization_id, f.slug, f.last_version, f.created_at, f.updated_at, f.is_public, f.fallback_license_family_id, f.trial_end_without_payment_method, f.trial_reminder_days,
        (SELECT count(*) FROM license l WHERE l.family_id = f.id)::integer AS version_count

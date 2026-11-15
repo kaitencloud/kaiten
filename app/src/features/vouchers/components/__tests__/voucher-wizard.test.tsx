@@ -250,14 +250,14 @@ describe('the offer of a boost', () => {
     expect(await screen.findByLabelText(/^Number of billing periods/)).toBeInTheDocument();
   });
 
-  it('offers every entitlement type', async () => {
+  it('offers ordinary entitlement types while AI is off', async () => {
     await toBoost();
 
     await userEvent.click(await screen.findByRole('button', { name: /Add a change/ }));
     await userEvent.click(await screen.findByRole('button', { name: /Choose an entitlement/ }));
 
     expect(await screen.findByRole('option', { name: 'Tokens' })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: 'AI credits' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'AI credits' })).not.toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'SSO' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Theme' })).toBeInTheDocument();
   });

@@ -127,6 +127,7 @@ WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.license_id = sqlc.arg(license_id)
   AND (sqlc.narg(status)::price_status IS NULL OR p.status = sqlc.narg(status)::price_status)
   AND (sqlc.narg(billing_model)::billing_model IS NULL OR p.billing_model = sqlc.narg(billing_model)::billing_model)
+AND (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
 ORDER BY p.display_order, p.id;
 
 
@@ -158,6 +159,7 @@ FROM license_price p
 LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
 WHERE p.organization_id = sqlc.arg(organization_id)
   AND p.license_id = ANY (sqlc.arg(license_ids)::uuid[])
+AND (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
 ORDER BY p.display_order, p.id;
 
 

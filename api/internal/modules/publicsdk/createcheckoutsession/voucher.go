@@ -15,7 +15,7 @@ import (
 // customer and no instance (§11.4, V32-01): the vouchers module's own check,
 // through a port this module owns.
 type Vouchers interface {
-	Visitor(ctx context.Context, check validatevoucher.VisitorCheck) (*catalogue.Voucher, error)
+	VisitorWithinOperation(ctx context.Context, check validatevoucher.VisitorCheck) (*catalogue.Voucher, error)
 }
 
 // SelectedVoucher checks code for the selection, at the start and again at
@@ -33,7 +33,7 @@ func SelectedVoucher(ctx context.Context, vouchers Vouchers, operation string, o
 	for i, addon := range addOns {
 		addonIDs[i] = addon.AddonID
 	}
-	voucher, err := vouchers.Visitor(ctx, validatevoucher.VisitorCheck{
+	voucher, err := vouchers.VisitorWithinOperation(ctx, validatevoucher.VisitorCheck{
 		OrganizationID: organizationID, Code: code, LicensePriceID: priceID, AddonIDs: addonIDs,
 	})
 	if err != nil {

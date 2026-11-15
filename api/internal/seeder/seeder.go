@@ -25,6 +25,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/releases"
 	"github.com/kaitencloud/kaiten/api/internal/platform/caller"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
 )
 
@@ -41,6 +42,9 @@ type Profile interface {
 // SeederContext provides access to all modules' use cases and direct database queries.
 // It encapsulates the dependencies needed by seed profiles.
 type SeederContext struct {
+	AIPolicy aiusage.Policy
+	// PlatformFlags is the selected trusted source, shared with every org graph.
+	PlatformFlags services.PlatformFlags
 	// Module use cases
 	Components      *components.UseCases
 	Customers       *customers.UseCases
@@ -112,7 +116,8 @@ func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContex
 		// workers it starts no billing job, and whether the deployment serving
 		// the data bills is that deployment's own KAITEN_BILLING_ENABLED. Seeding
 		// takes no other configuration.
-		Config: config.CoreConfig{Billing: config.Billing{Enabled: true}},
+		Config:        config.CoreConfig{Billing: config.Billing{Enabled: true}},
+		PlatformFlags: sc.PlatformFlags,
 		UserProvider: &currentuser.StaticUserProvider{
 			UserID:         userID,
 			OrganizationID: orgID,
@@ -144,6 +149,8 @@ func (sc *SeederContext) WithOrganization(orgID, userID uuid.UUID) *SeederContex
 	m := app.Modules()
 
 	return &SeederContext{
+		AIPolicy:        aiusage.Policy{Flags: sc.PlatformFlags},
+		PlatformFlags:   sc.PlatformFlags,
 		Addons:          app.Addons(),
 		Vouchers:        app.Vouchers(),
 		Caller:          caller.Static(userID, orgID, scope.AllScopes()),

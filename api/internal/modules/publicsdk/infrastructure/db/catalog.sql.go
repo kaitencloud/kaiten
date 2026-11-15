@@ -64,13 +64,15 @@ SELECT ae.addon_id,
        ae.limit_cap_exceeded_overage_percent
 FROM addon_entitlement ae
 JOIN entitlement e ON e.id = ae.entitlement_id AND e.organization_id = ae.organization_id
-WHERE ae.organization_id = $1
-  AND ae.addon_id = ANY ($2::uuid[])
+WHERE (NOT $1::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND ae.organization_id = $2
+  AND ae.addon_id = ANY ($3::uuid[])
   AND e.user_facing
 ORDER BY ae.addon_id, e.display_order, e.slug
 `
 
 type ListPublicAddonEntitlementsParams struct {
+	HideAi         bool        `json:"hide_ai"`
 	OrganizationID uuid.UUID   `json:"organization_id"`
 	AddonIds       []uuid.UUID `json:"addon_ids"`
 }
@@ -86,7 +88,7 @@ type ListPublicAddonEntitlementsRow struct {
 }
 
 func (q *Queries) ListPublicAddonEntitlements(ctx context.Context, arg ListPublicAddonEntitlementsParams) ([]ListPublicAddonEntitlementsRow, error) {
-	rows, err := q.db.Query(ctx, listPublicAddonEntitlements, arg.OrganizationID, arg.AddonIds)
+	rows, err := q.db.Query(ctx, listPublicAddonEntitlements, arg.HideAi, arg.OrganizationID, arg.AddonIds)
 	if err != nil {
 		return nil, err
 	}
@@ -130,13 +132,15 @@ SELECT p.addon_id,
        p.is_default
 FROM addon_price p
 LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
-WHERE p.organization_id = $1
-  AND p.addon_id = ANY ($2::uuid[])
+WHERE (NOT $1::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND p.organization_id = $2
+  AND p.addon_id = ANY ($3::uuid[])
   AND p.status = 'ACTIVE'
 ORDER BY p.addon_id, p.display_order, p.id
 `
 
 type ListPublicAddonPricesParams struct {
+	HideAi         bool        `json:"hide_ai"`
 	OrganizationID uuid.UUID   `json:"organization_id"`
 	AddonIds       []uuid.UUID `json:"addon_ids"`
 }
@@ -159,7 +163,7 @@ type ListPublicAddonPricesRow struct {
 }
 
 func (q *Queries) ListPublicAddonPrices(ctx context.Context, arg ListPublicAddonPricesParams) ([]ListPublicAddonPricesRow, error) {
-	rows, err := q.db.Query(ctx, listPublicAddonPrices, arg.OrganizationID, arg.AddonIds)
+	rows, err := q.db.Query(ctx, listPublicAddonPrices, arg.HideAi, arg.OrganizationID, arg.AddonIds)
 	if err != nil {
 		return nil, err
 	}
@@ -266,13 +270,15 @@ SELECT le.license_id,
        e.display_order
 FROM license_entitlement le
 JOIN entitlement e ON e.id = le.entitlement_id AND e.organization_id = le.organization_id
-WHERE le.organization_id = $1
-  AND le.license_id = ANY ($2::uuid[])
+WHERE (NOT $1::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND le.organization_id = $2
+  AND le.license_id = ANY ($3::uuid[])
   AND e.user_facing
 ORDER BY le.license_id, e.display_order, e.slug
 `
 
 type ListPublicPlanEntitlementsParams struct {
+	HideAi         bool        `json:"hide_ai"`
 	OrganizationID uuid.UUID   `json:"organization_id"`
 	LicenseIds     []uuid.UUID `json:"license_ids"`
 }
@@ -297,7 +303,7 @@ type ListPublicPlanEntitlementsRow struct {
 // The user-facing grants of the given versions. A grant whose entitlement is
 // not user_facing is internal to the vendor and never leaves through here.
 func (q *Queries) ListPublicPlanEntitlements(ctx context.Context, arg ListPublicPlanEntitlementsParams) ([]ListPublicPlanEntitlementsRow, error) {
-	rows, err := q.db.Query(ctx, listPublicPlanEntitlements, arg.OrganizationID, arg.LicenseIds)
+	rows, err := q.db.Query(ctx, listPublicPlanEntitlements, arg.HideAi, arg.OrganizationID, arg.LicenseIds)
 	if err != nil {
 		return nil, err
 	}
@@ -348,13 +354,15 @@ SELECT p.license_id,
        p.is_default
 FROM license_price p
 LEFT JOIN entitlement e ON e.id = p.meters_entitlement_id AND e.organization_id = p.organization_id
-WHERE p.organization_id = $1
-  AND p.license_id = ANY ($2::uuid[])
+WHERE (NOT $1::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND p.organization_id = $2
+  AND p.license_id = ANY ($3::uuid[])
   AND p.status = 'ACTIVE'
 ORDER BY p.license_id, p.display_order, p.id
 `
 
 type ListPublicPlanPricesParams struct {
+	HideAi         bool        `json:"hide_ai"`
 	OrganizationID uuid.UUID   `json:"organization_id"`
 	LicenseIds     []uuid.UUID `json:"license_ids"`
 }
@@ -378,7 +386,7 @@ type ListPublicPlanPricesRow struct {
 
 // ACTIVE prices of the given versions, in display order. Decimals as text.
 func (q *Queries) ListPublicPlanPrices(ctx context.Context, arg ListPublicPlanPricesParams) ([]ListPublicPlanPricesRow, error) {
-	rows, err := q.db.Query(ctx, listPublicPlanPrices, arg.OrganizationID, arg.LicenseIds)
+	rows, err := q.db.Query(ctx, listPublicPlanPrices, arg.HideAi, arg.OrganizationID, arg.LicenseIds)
 	if err != nil {
 		return nil, err
 	}

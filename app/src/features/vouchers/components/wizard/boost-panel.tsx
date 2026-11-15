@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useStore } from '@tanstack/react-form';
 import { Plus, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
@@ -34,26 +35,41 @@ export const BoostPanel = withForm({
   props: {} as BoostPanelProps,
   render: function BoostPanelRender({ entitlements, form, licenses }) {
     const { t } = useTranslation();
+    const access = useAiAccess();
     const grants = useStore(form.store, (state) => state.values.grants);
     const applicableLicenseIds = useStore(
       form.store,
       (state) => state.values.applicableLicenseIds,
     );
+    const visibleGrants = grants
+      .map((grant, index) => ({ grant, index }))
+      .filter(
+        ({ grant }) =>
+          !grant.entitlementSlug ||
+          access.available ||
+          entitlements.data?.items.some(
+            (item) =>
+              item.slug === grant.entitlementSlug &&
+              !isAiEntitlement(item.type),
+          ),
+      );
     const licenseGrants = useBoostLicenseGrants({
       applicableLicenseIds,
-      enabled: grants.some(({ modifierType }) => modifierType === 'SET'),
+      enabled: visibleGrants.some(({ grant }) => grant.modifierType === 'SET'),
       licenses,
     });
     const names = useMemo(
       () =>
         Object.fromEntries(
           (entitlements.data?.items ?? []).flatMap((entitlement) =>
-            entitlement.slug && isBoostable(entitlement)
+            entitlement.slug &&
+            isBoostable(entitlement) &&
+            (access.available || !isAiEntitlement(entitlement.type))
               ? [[entitlement.slug, entitlement.name]]
               : [],
           ),
         ) as Record<string, string>,
-      [entitlements.data],
+      [entitlements.data, access.available],
     );
     const slugs = useMemo(() => Object.keys(names), [names]);
 
@@ -76,7 +92,7 @@ export const BoostPanel = withForm({
           >
             {() => (
               <div className="space-y-3">
-                {grants.map((grant, index) => (
+                {visibleGrants.map(({ grant, index }) => (
                   <div
                     className="space-y-3 rounded-md border p-3"
                     data-testid="voucher-grant-row"

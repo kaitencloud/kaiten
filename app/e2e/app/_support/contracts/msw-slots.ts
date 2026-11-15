@@ -23,6 +23,7 @@ export type E2EMswConfig = {
   // Mocking a backend and opening its platform gate are independent decisions.
   // An absent slot answers with no flags in E2E; dev may opt into passthrough.
   flagEvaluations?: Record<string, boolean>;
+  aiCapability?: { enabled: boolean };
   instances?: SerializedInstanceAppModel;
   licenses?: SerializedLicenseAppModel;
   notifications?: SerializedNotificationAppModel;
@@ -40,7 +41,7 @@ export type E2EMswConfig = {
 export type MswSlotKey = keyof E2EMswConfig;
 export type ModelSlotKey = Exclude<
   MswSlotKey,
-  'flagEvaluations' | 'integrationStubs'
+  'flagEvaluations' | 'aiCapability' | 'integrationStubs'
 >;
 export type SerializableModel<K extends ModelSlotKey> = {
   serializeForMsw(): NonNullable<E2EMswConfig[K]>;

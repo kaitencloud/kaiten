@@ -8,6 +8,7 @@ import { formatNumber } from '@/lib/format-date';
 import type { Entitlement, LicenseEntitlement } from '@/api-client';
 
 export type EditableLicenseEntitlement = {
+  catalogueEntitlementType?: Entitlement['type'] | null;
   configValue?: Record<string, unknown>;
   enabled: boolean | null;
   entitlementIcon?: string | null;
@@ -25,10 +26,7 @@ export type EditableLicenseEntitlement = {
 // NUMBER_AI_CREDIT is a NUMBER-family type on the API side: same numeric
 // value, same cap, same overage rules. The grant editor therefore treats it
 // exactly like NUMBER.
-type CatalogueEntitlementType =
-  | Entitlement['type']
-  | LicenseEntitlement['entitlementType']
-  | null;
+type CatalogueEntitlementType = LicenseEntitlement['entitlementType'] | null;
 
 export const isNumericEntitlementType = (
   type: CatalogueEntitlementType,
@@ -93,6 +91,8 @@ export const resolveLicenseEntitlements = (
       entitlementId:
         getDynamicEntitlementId(entitlement) ?? fallbackEntitlementId ?? null,
       entitlementName: entitlement.entitlementName,
+      catalogueEntitlementType:
+        entitlement.entitlementType ?? fallbackEntitlementType ?? null,
       entitlementType: toEditableEntitlementType(
         entitlement.entitlementType ?? fallbackEntitlementType,
       ),

@@ -31,9 +31,8 @@ export type InstanceEntitlementRow = {
   entitlementName: string;
   entitlementSlug: string | null;
   entitlementType: 'NUMBER' | 'BOOLEAN' | 'CONFIG';
-  // What the catalogue calls this entitlement, which the grant alone cannot
-  // say: its own type has no AI-credit variant. For the label only --
-  // enforcement follows entitlementType, where the AI-credit family is NUMBER.
+  // Keep the catalogue's original type for labels; numeric-family grants are
+  // normalized to NUMBER in entitlementType for usage, status and history.
   catalogueEntitlementType?: NonNullable<Entitlement['type']> | null;
   value: number;
   // Bounds of the usage window this value belongs to; both absent for a
@@ -170,18 +169,19 @@ export const buildEntitlementsRows = (
         null,
       entitlementName: entitlement.entitlementName || unknownEntitlementLabel,
       entitlementSlug: entitlement.entitlementSlug ?? null,
-      entitlementType:
-        entitlement.entitlementType === 'NUMBER'
-          ? 'NUMBER'
-          : entitlement.entitlementType === 'CONFIG'
-            ? 'CONFIG'
-            : 'BOOLEAN',
+      entitlementType: ['NUMBER', 'NUMBER_AI_CREDIT'].includes(
+        entitlement.entitlementType ?? '',
+      )
+        ? 'NUMBER'
+        : entitlement.entitlementType === 'CONFIG'
+          ? 'CONFIG'
+          : 'BOOLEAN',
       catalogueEntitlementType:
         (entitlement.entitlementSlug
           ? catalogueTypeBySlug.get(entitlement.entitlementSlug)
           : undefined) ??
         catalogueTypeByName.get(entitlement.entitlementName) ??
-        null,
+        (entitlement.entitlementType === 'NUMBER_AI_CREDIT' ? 'NUMBER_AI_CREDIT' : null),
       value:
         usage?.value?.type === 'number' ? (usage.value.value as number) : 0,
       currentPeriodStart: usage?.currentPeriodStart ?? null,

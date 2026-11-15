@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getEntitlementSlug } from '@/domains/billing';
@@ -14,13 +15,26 @@ import {
  * are the ones a new grant can be given for: it grants one entitlement once.
  */
 export function useAddonGrants(addonSlug: string) {
+  const access = useAiAccess();
   const { data: addon } = useSuspenseQuery(addonQueryOptions(addonSlug));
   const { data: grantList } = useSuspenseQuery(
     addonGrantsQueryOptions(addonSlug),
   );
   const { data: catalogue } = useSuspenseQuery(entitlementsQueryOptions);
-  const grants = useMemo(() => grantList ?? [], [grantList]);
-  const entitlements = useMemo(() => catalogue?.items ?? [], [catalogue]);
+  const grants = useMemo(
+    () =>
+      (grantList ?? []).filter(
+        (grant) => access.available || !isAiEntitlement(grant.entitlementType),
+      ),
+    [grantList, access.available],
+  );
+  const entitlements = useMemo(
+    () =>
+      (catalogue?.items ?? []).filter(
+        (item) => access.available || !isAiEntitlement(item.type),
+      ),
+    [catalogue, access.available],
+  );
   const entitlementBySlug = useMemo(
     () =>
       new Map(

@@ -39,6 +39,13 @@ func loaderCases() []loaderCase {
 	id := uuid.New()
 
 	return []loaderCase{
+		{name: licensesGraphql.LicenseConversionRulesLoaderName, load: func(ctx context.Context) error {
+			_, err := licensesGraphql.LoadConversionRules(ctx, id, nil)
+			return err
+		}, lookup: func(ctx context.Context) error {
+			_, err := licensesGraphql.GetLicenseConversionRulesLoader(ctx)
+			return err
+		}},
 		{
 			name: customersGraphql.CustomerLoaderName,
 			load: func(ctx context.Context) error {

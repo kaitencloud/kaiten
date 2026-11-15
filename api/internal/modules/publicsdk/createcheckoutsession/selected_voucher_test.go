@@ -15,7 +15,7 @@ import (
 
 type refusingVoucherPort struct{ err error }
 
-func (p refusingVoucherPort) Visitor(context.Context, validatevoucher.VisitorCheck) (*catalogue.Voucher, error) {
+func (p refusingVoucherPort) VisitorWithinOperation(context.Context, validatevoucher.VisitorCheck) (*catalogue.Voucher, error) {
 	return nil, p.err
 }
 

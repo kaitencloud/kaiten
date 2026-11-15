@@ -30,10 +30,14 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, familySlug string) err
 	if err != nil {
 		return err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	return u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
 		locked, err := catalogue.Lock(ctx, q, user.OrganizationID, addonSlug, operation+".AddonNotFound")
 		if err != nil {
+			return err
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, locked.Row.ID, u.deps.AIPolicy); err != nil {
 			return err
 		}
 		familyID, err := q.GetLicenseFamilyIDBySlug(ctx, db.GetLicenseFamilyIDBySlugParams{OrganizationID: user.OrganizationID, Slug: familySlug})

@@ -32,6 +32,7 @@ export const entitlementRecovery = defineFormRecovery<EntitlementFormValues>({
     type: [
       'type',
       'aggregationMethod',
+      'warningThresholdPercent',
       'unitSingular',
       'unitPlural',
       'saleUnitSingular',
@@ -56,6 +57,7 @@ export const entitlementRecovery = defineFormRecovery<EntitlementFormValues>({
     aggregationMethod: {
       key: 'Pages.Entitlements.Mutation.Form.Labels.aggregationMethod',
     },
+    warningThresholdPercent: { key: 'AI.warningThreshold' },
     unitSingular: {
       key: 'Pages.Entitlements.Mutation.Form.Labels.unitSingular',
     },

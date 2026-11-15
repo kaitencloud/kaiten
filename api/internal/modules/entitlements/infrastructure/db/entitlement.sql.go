@@ -384,16 +384,18 @@ SELECT e.id,
        e.created_at,
        e.updated_at
 FROM entitlement e
-WHERE e.organization_id = $1
+WHERE (NOT $1::boolean OR e.type <> 'NUMBER_AI_CREDIT')
+ AND e.organization_id = $2
   AND (
-    $2::timestamp IS NULL
-    OR (e.created_at, e.id) < ($2::timestamp, $3::uuid)
+    $3::timestamp IS NULL
+    OR (e.created_at, e.id) < ($3::timestamp, $4::uuid)
   )
 ORDER BY e.created_at DESC, e.id DESC
-LIMIT $4
+LIMIT $5
 `
 
 type GetEntitlementsByCursorParams struct {
+	HideAi          bool             `json:"hide_ai"`
 	OrganizationID  uuid.UUID        `json:"organization_id"`
 	CursorCreatedAt pgtype.Timestamp `json:"cursor_created_at"`
 	CursorID        *uuid.UUID       `json:"cursor_id"`
@@ -407,6 +409,7 @@ type GetEntitlementsByCursorParams struct {
 // pass NULL for both cursor_created_at and cursor_id.
 func (q *Queries) GetEntitlementsByCursor(ctx context.Context, arg GetEntitlementsByCursorParams) ([]Entitlement, error) {
 	rows, err := q.db.Query(ctx, getEntitlementsByCursor,
+		arg.HideAi,
 		arg.OrganizationID,
 		arg.CursorCreatedAt,
 		arg.CursorID,

@@ -1,13 +1,17 @@
+import {
+  GroupsControl,
+  UserFacingField,
+  DisplayOrderField,
+} from './entitlement-presentation-fields';
+import { FormDetails } from '@/domains/ai-credits';
+import { useAiAccess } from '@/domains/ai-credits';
 import { IconPicker } from '@/components/ui/icon-picker';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
-import { useFormFieldContext } from '@/components/form/form-context';
 import { NumberInput } from '@/components/ui/number-input';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
-import { EntitlementGroupSelector } from '../groups/entitlement-group-selector';
 import { EntitlementResetPeriodFields } from './entitlement-reset-period-fields';
 import { EntitlementSlugField } from './entitlement-slug-field';
 import { EntitlementUnitFields } from './entitlement-unit-fields';
@@ -146,102 +150,6 @@ export function EntitlementIdentityFields({
   );
 }
 
-// The groups selector of the form, named by the label of its field and described by its help
-// and its error, as the controls of the other fields are.
-function GroupsControl({
-  onChange,
-  value,
-}: {
-  onChange: (groupSlugs: string[]) => void;
-  value: string[];
-}) {
-  const { errors, formDescriptionId, formItemId, formLabelId, formMessageId } =
-    useFormFieldContext();
-  const hasError = Boolean(errors?.length);
-
-  return (
-    <EntitlementGroupSelector
-      aria-describedby={
-        hasError ? `${formDescriptionId} ${formMessageId}` : formDescriptionId
-      }
-      aria-invalid={hasError}
-      aria-labelledby={formLabelId}
-      id={formItemId}
-      onChange={onChange}
-      value={value}
-    />
-  );
-}
-
-type IdentityExtraFieldProps = {
-  form: any;
-};
-
-function UserFacingField({ form }: IdentityExtraFieldProps) {
-  const { t } = useTranslation();
-
-  return (
-    <form.AppField name="userFacing">
-      {() => (
-        <FormField<boolean | undefined>
-          label={t('Pages.Entitlements.Mutation.Form.Labels.userFacing')}
-          description={t(
-            'Pages.Entitlements.Mutation.Form.Descriptions.userFacing',
-          )}
-        >
-          {(field) => (
-            <Switch
-              aria-label={t(
-                'Pages.Entitlements.Mutation.Form.Labels.userFacing',
-              )}
-              checked={field.value ?? false}
-              onCheckedChange={(checked) => {
-                field.handleChange(checked);
-                field.handleBlur();
-              }}
-            />
-          )}
-        </FormField>
-      )}
-    </form.AppField>
-  );
-}
-
-function DisplayOrderField({ form }: IdentityExtraFieldProps) {
-  const { t } = useTranslation();
-
-  return (
-    <form.AppField name="displayOrder">
-      {() => (
-        <FormField<number | undefined>
-          label={t('Pages.Entitlements.Mutation.Form.Labels.displayOrder')}
-          description={t(
-            'Pages.Entitlements.Mutation.Form.Descriptions.displayOrder',
-          )}
-        >
-          {(field) => (
-            <FormControl>
-              <NumberInput
-                value={Number.isFinite(field.value) ? field.value : 0}
-                min={0}
-                step={1}
-                placeholder={t(
-                  'Pages.Entitlements.Mutation.Form.Placeholders.displayOrder',
-                )}
-                // A cleared input reports null; treat a blank order as 0 so the
-                // form value never becomes NaN and submission stays unblocked.
-                onValueChange={(value) => field.handleChange(value ?? 0)}
-                onBlur={field.handleBlur}
-                aria-invalid={field.hasError}
-              />
-            </FormControl>
-          )}
-        </FormField>
-      )}
-    </form.AppField>
-  );
-}
-
 type EntitlementTypeFieldsProps = {
   className?: string;
   entitlement?: Entitlement;
@@ -254,55 +162,134 @@ export function EntitlementTypeFields({
   form,
 }: EntitlementTypeFieldsProps) {
   const { t } = useTranslation();
+  const access = useAiAccess();
+  const aiEnabled = access.allows(
+    entitlement ? 'updateEntitlement' : 'createEntitlement',
+  );
+  const typeOptions = aiEnabled
+    ? [
+        ...entitlementTypeOptions,
+        { label: t('AI.credits'), value: 'NUMBER_AI_CREDIT' },
+      ]
+    : entitlementTypeOptions;
 
   return (
     <div className={cn(className)}>
-      <form.AppField name="type">
-        {(field: any) => (
-          <field.SelectField
-            label={t('Pages.Entitlements.Mutation.Form.Labels.type')}
-            required
-            placeholder={t(
-              'Pages.Entitlements.Mutation.Form.Placeholders.type',
-            )}
-            description={t(
-              'Pages.Entitlements.Mutation.Form.Descriptions.type',
-            )}
-            options={entitlementTypeOptions}
-            getOptionValue={getSelectOptionValue}
-            getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
-            disabled={Boolean(entitlement)}
-          />
-        )}
-      </form.AppField>
+      {aiEnabled && entitlement?.type === 'NUMBER_AI_CREDIT' ? (
+        <p className="text-sm font-medium">
+          {t('AI.credits')} · {t('AI.Minimal.sumFixed')}
+        </p>
+      ) : (
+        <form.AppField name="type">
+          {(field: any) => (
+            <field.SelectField
+              label={t('Pages.Entitlements.Mutation.Form.Labels.type')}
+              required
+              placeholder={t(
+                'Pages.Entitlements.Mutation.Form.Placeholders.type',
+              )}
+              description={t(
+                'Pages.Entitlements.Mutation.Form.Descriptions.type',
+              )}
+              options={typeOptions}
+              getOptionValue={getSelectOptionValue}
+              getOptionLabel={(option: unknown) =>
+                t(getSelectOptionLabel(option))
+              }
+              disabled={Boolean(entitlement)}
+            />
+          )}
+        </form.AppField>
+      )}
       <form.Subscribe selector={(state: any) => state.values.type}>
         {(type: string) =>
-          type === 'NUMBER' ? (
+          type === 'NUMBER' || (aiEnabled && type === 'NUMBER_AI_CREDIT') ? (
             <>
-              <form.AppField name="aggregationMethod">
-                {(field: any) => (
-                  <field.SelectField
-                    label={t(
-                      'Pages.Entitlements.Mutation.Form.Labels.aggregationMethod',
-                    )}
-                    placeholder={t(
-                      'Pages.Entitlements.Mutation.Form.Placeholders.aggregationMethod',
-                    )}
-                    description={t(
-                      'Pages.Entitlements.Mutation.Form.Descriptions.aggregationMethod',
-                    )}
-                    options={aggregationMethodOptions}
-                    getOptionValue={getSelectOptionValue}
-                    getOptionLabel={(option: unknown) => t(getSelectOptionLabel(option))}
-                    disabled={Boolean(entitlement)}
-                  />
-                )}
-              </form.AppField>
+              {type === 'NUMBER_AI_CREDIT' ? (
+                !entitlement ? (
+                  <p className="text-sm text-muted-foreground">
+                    {t('AI.Minimal.sumFixed')}
+                  </p>
+                ) : null
+              ) : (
+                <form.AppField name="aggregationMethod">
+                  {(field: any) => (
+                    <field.SelectField
+                      label={t(
+                        'Pages.Entitlements.Mutation.Form.Labels.aggregationMethod',
+                      )}
+                      placeholder={t(
+                        'Pages.Entitlements.Mutation.Form.Placeholders.aggregationMethod',
+                      )}
+                      description={t(
+                        'Pages.Entitlements.Mutation.Form.Descriptions.aggregationMethod',
+                      )}
+                      options={aggregationMethodOptions}
+                      getOptionValue={getSelectOptionValue}
+                      getOptionLabel={(option: unknown) =>
+                        t(getSelectOptionLabel(option))
+                      }
+                      disabled={Boolean(entitlement)}
+                    />
+                  )}
+                </form.AppField>
+              )}
+              {type === 'NUMBER_AI_CREDIT' ? (
+                <form.AppField name="warningThresholdPercent">
+                  {() => (
+                    <FormField<number | undefined>
+                      label={t('AI.warningThreshold')}
+                      description={t('AI.Minimal.thresholdHelp')}
+                    >
+                      {(field) => (
+                        <FormControl>
+                          <NumberInput
+                            value={field.value ?? null}
+                            min={0}
+                            max={100}
+                            step={1}
+                            onValueChange={(value) =>
+                              field.handleChange(value ?? undefined)
+                            }
+                            onBlur={field.handleBlur}
+                            aria-invalid={field.hasError}
+                          />
+                        </FormControl>
+                      )}
+                    </FormField>
+                  )}
+                </form.AppField>
+              ) : null}
               <EntitlementResetPeriodFields
                 entitlement={entitlement}
                 form={form}
               />
-              <EntitlementUnitFields form={form} />
+              {type === 'NUMBER_AI_CREDIT' ? (
+                <form.Subscribe
+                  selector={(state: any) => [
+                    state.values.unitPlural,
+                    state.values.saleUnitFactor,
+                  ]}
+                >
+                  {([unit, factor]: any[]) => (
+                    <FormDetails
+                      form={form}
+                      names={[
+                        'unitSingular',
+                        'unitPlural',
+                        'saleUnitSingular',
+                        'saleUnitPlural',
+                        'saleUnitFactor',
+                      ]}
+                      title={`${t('AI.Minimal.unitsDetails')}${unit ? ` · ${unit}` : ''}${factor != null ? ` · ×${factor}` : ''}`}
+                    >
+                      <EntitlementUnitFields form={form} />
+                    </FormDetails>
+                  )}
+                </form.Subscribe>
+              ) : (
+                <EntitlementUnitFields form={form} />
+              )}
             </>
           ) : null
         }

@@ -12,6 +12,8 @@ import { getDefaultBasePrice } from '../utils/subscribe-instance.utils';
 import { useSubscribeInstance } from './use-subscribe-instance';
 
 type UseSubscribeInstanceFormOptions = {
+  /** Recheck only known AI-bearing codes; an ordinary coupon never requires validation. */
+  assertVoucherAllowed?: (code: string) => void;
   /** The add-ons the form offers: it checks the units of each against the most its version allows. */
   addons?: readonly Pick<Addon, 'maxQuantity' | 'slug'>[];
   /** When the subscription this one replaces was canceled: billing cannot start before it. */
@@ -37,6 +39,7 @@ type UseSubscribeInstanceFormOptions = {
  */
 export function useSubscribeInstanceForm({
   addons = [],
+  assertVoucherAllowed,
   canceledAt,
   defaultTrialDays = 0,
   instanceSlug,
@@ -64,6 +67,7 @@ export function useSubscribeInstanceForm({
       sending.current = true;
       setFailure(null);
       try {
+        assertVoucherAllowed?.(value.voucherCode.trim());
         onSubscribed(
           await subscribe.mutateAsync({
             body: subscribeValuesToBody(value, {

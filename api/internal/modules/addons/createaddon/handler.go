@@ -66,6 +66,16 @@ func (u *UseCase) Execute(ctx context.Context, command NewAddon) (*catalogue.Add
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if !u.deps.AIPolicy.Enabled(ctx) && (command.FamilyID != nil || command.FamilySlug != nil) {
+		hasAI, err := u.deps.Queries(ctx).AddonFamilyHasAI(ctx, db.AddonFamilyHasAIParams{OrganizationID: user.OrganizationID, FamilyID: command.FamilyID, FamilySlug: command.FamilySlug})
+		if err != nil {
+			return nil, err
+		}
+		if hasAI {
+			return nil, u.deps.AIPolicy.RequireEnabled(ctx)
+		}
+	}
 	var created catalogue.Addon
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)

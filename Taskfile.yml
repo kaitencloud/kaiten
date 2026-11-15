@@ -200,6 +200,37 @@ tasks:
         vars: { ACCOUNT_ONESHOTS: "seed-accounts tokens" }
       - "{{.COMPOSE}} run --rm --no-deps --no-build --pull never seed-data"
 
+  seed:ai:
+    desc: "Explicit LOCAL AI flag convergence, then optional demo data; never called by dev/startup"
+    preconditions:
+      - sh: test -z "${KAITEN_METERED_API_URL:-}" && test -z "${KAITEN_METERED_TOKEN_FILE:-}" && test "${KAITEN_METERED_ENABLED:-false}" = false
+        msg: "seed:ai is local-only: remote platform source/reporting must not be configured"
+    cmds:
+      - task: ready
+        vars: { ACCOUNT_ONESHOTS: "seed-accounts tokens" }
+      - '{{.COMPOSE}} run --rm --no-deps --no-build --pull never -e KAITEN_METERED_ENABLED=false -e KAITEN_METERED_ORGANIZATION_EXTERNAL_ID=org_dogfooding -e KAITEN_METERED_ORGANIZATION_ID seed-data --profile local-ai --profile demo'
+
+  seed:ai:flag:
+    desc: "Explicit LOCAL AI flag convergence only; no demo data or credential issuance"
+    preconditions:
+      - sh: test -z "${KAITEN_METERED_API_URL:-}" && test -z "${KAITEN_METERED_TOKEN_FILE:-}" && test "${KAITEN_METERED_ENABLED:-false}" = false
+        msg: "seed:ai:flag is local-only: remote platform source/reporting must not be configured"
+    cmds:
+      - task: ready
+      - '{{.COMPOSE}} run --rm --no-deps --no-build --pull never -e KAITEN_METERED_ENABLED=false -e KAITEN_METERED_ORGANIZATION_EXTERNAL_ID=org_dogfooding -e KAITEN_METERED_ORGANIZATION_ID seed-data --profile local-ai'
+
+  credentials:flags:
+    desc: "Explicitly prepare Dogfooding's browser-visible flags-read token; preserve existing file"
+    cmds:
+      - task: ready
+      - '{{.COMPOSE}} run --rm --no-deps --no-build --pull never -e KAITEN_PLATFORM_FLAGS_TOKEN_FILE=/credentials/platform-flags-token -e PLATFORM_FLAGS_ORGANIZATION_EXTERNAL_ID=org_dogfooding bootstrap flags-ensure'
+
+  credentials:flags:rotate:
+    desc: "Explicit recovery: replace the local flags-read token (never a dev/startup dependency)"
+    cmds:
+      - task: ready
+      - '{{.COMPOSE}} run --rm --no-deps --no-build --pull never -e KAITEN_PLATFORM_FLAGS_TOKEN_FILE=/credentials/platform-flags-token -e PLATFORM_FLAGS_ORGANIZATION_EXTERNAL_ID=org_dogfooding bootstrap flags-rotate'
+
   up:
     desc: "Prepared backend and local accounts, no demo reseed"
     cmds:

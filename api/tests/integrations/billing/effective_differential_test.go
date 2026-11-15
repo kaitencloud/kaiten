@@ -18,8 +18,11 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
+	"github.com/kaitencloud/kaiten/api/config"
 	oracle "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/effective"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage/aitest"
+	"github.com/kaitencloud/kaiten/api/tests"
 )
 
 // S03-044 (XC-06): the SQL view instance_effective_entitlement and its Go
@@ -38,6 +41,10 @@ import (
 // KAITEN_EFFECTIVE_SEEDS sets how many seeds run (20 by default, about 2,000
 // comparisons); KAITEN_EFFECTIVE_SEED replays one. A mismatch names its seed.
 func TestEffectiveViewEqualsTheOracle(t *testing.T) {
+	previous := testServer
+	enabled := tests.NewTestServer(testDb, tests.TestServerOptions{ConfigOverride: func(cfg *config.Config) { cfg.Billing.Enabled = true }, PlatformFlags: aitest.Flags(true)})
+	testServer = enabled
+	t.Cleanup(func() { testServer = previous; require.NoError(t, enabled.Close()) })
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	seeds := 20
 	if n, err := strconv.Atoi(os.Getenv("KAITEN_EFFECTIVE_SEEDS")); err == nil && n > 0 {

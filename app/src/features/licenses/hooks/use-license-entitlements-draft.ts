@@ -30,6 +30,7 @@ const toDraftEntitlement = (
     entitlementId: entitlement.id,
     entitlementName: entitlement.name,
     entitlementType,
+    catalogueEntitlementType: entitlement.type,
     limitCapExceededOveragePercent:
       entitlementType === 'NUMBER'
         ? resolveLimitCapExceededOveragePercent(

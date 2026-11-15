@@ -56,6 +56,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/updateinstancebilling"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/voidinvoice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/writeoffinvoice"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Ports is what billing reads from other modules, implemented by them.
@@ -124,6 +125,7 @@ type UseCases struct {
 
 func NewUseCases(svc services.Container, from Ports) *UseCases {
 	deps := access.Deps{
+		AIPolicy:        aiusage.Policy{Flags: svc.PlatformFlags},
 		UserProvider:    svc.UserProvider,
 		Uof:             svc.Uof,
 		Gate:            gate.NewCached(svc.Config.Billing.Enabled, svc.ConnectorEntitlements, svc.Config.Billing.EntitlementCacheTTL),

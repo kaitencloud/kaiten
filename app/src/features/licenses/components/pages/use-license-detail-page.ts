@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import {
   type QueryClient,
   useMutation,
@@ -150,6 +151,7 @@ export function useLicenseGrants({
   onFrozen,
 }: LicenseGrantsOptions) {
   const { t } = useTranslation();
+  const access = useAiAccess();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { entitlements, entitlementSlugById, resolvedEntitlements } =
@@ -160,8 +162,17 @@ export function useLicenseGrants({
     updateEntitlementMutation,
   } = useLicenseDetailMutations({ licenseSlug, onFrozen, queryClient, t });
 
+  function mayChangeTarget(id: string) {
+    const type =
+      resolvedEntitlements.find((row) => row.entitlementId === id)
+        ?.catalogueEntitlementType ??
+      entitlements.find((item) => item.id === id)?.type;
+    return access.available || !isAiEntitlement(type);
+  }
   const onAddEntitlement = useCallback(
     (payload: AddEntitlementPayload) => {
+      if (!mayChangeTarget(payload.entitlementId))
+        return Promise.reject(new Error('AIUsage.Disabled'));
       const entitlementSlug = entitlementSlugById.get(payload.entitlementId);
       if (!entitlementSlug) {
         toast.error(t('Pages.Licenses.Detail.Toasts.addEntitlementError'));
@@ -185,7 +196,15 @@ export function useLicenseGrants({
         path: { licenseSlug },
       });
     },
-    [addEntitlementMutation, entitlementSlugById, licenseSlug, t],
+    [
+      access.available,
+      resolvedEntitlements,
+      entitlements,
+      addEntitlementMutation,
+      entitlementSlugById,
+      licenseSlug,
+      t,
+    ],
   );
 
   const onUpdateEntitlementGrant = useCallback(
@@ -193,8 +212,10 @@ export function useLicenseGrants({
       entitlementId: string,
       threshold: number,
       limitCapExceededOveragePercent: number,
-    ) =>
-      updateEntitlementMutation.mutateAsync({
+    ) => {
+      if (!mayChangeTarget(entitlementId))
+        return Promise.reject(new Error('AIUsage.Disabled'));
+      return updateEntitlementMutation.mutateAsync({
         body: buildUpdateLicenseEntitlementBody(
           threshold,
           limitCapExceededOveragePercent,
@@ -204,8 +225,16 @@ export function useLicenseGrants({
             entitlementSlugById.get(entitlementId) ?? entitlementId,
           licenseSlug,
         },
-      }),
-    [entitlementSlugById, licenseSlug, updateEntitlementMutation],
+      });
+    },
+    [
+      access.available,
+      resolvedEntitlements,
+      entitlements,
+      entitlementSlugById,
+      licenseSlug,
+      updateEntitlementMutation,
+    ],
   );
 
   const onClickEntitlement = useCallback(
@@ -219,6 +248,7 @@ export function useLicenseGrants({
   // on it, so it does not hand a refusal back to a caller that has no use for it.
   const onDeleteEntitlement = useCallback(
     (entitlementId: string) => {
+      if (!mayChangeTarget(entitlementId)) return;
       deleteEntitlementMutation.mutate({
         path: {
           entitlementSlug:
@@ -227,7 +257,14 @@ export function useLicenseGrants({
         },
       });
     },
-    [deleteEntitlementMutation, entitlementSlugById, licenseSlug],
+    [
+      access.available,
+      resolvedEntitlements,
+      entitlements,
+      deleteEntitlementMutation,
+      entitlementSlugById,
+      licenseSlug,
+    ],
   );
 
   return {

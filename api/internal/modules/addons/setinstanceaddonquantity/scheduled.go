@@ -34,6 +34,19 @@ func (u *UseCase) SetForCustomer(ctx context.Context, instanceSlug, addonSlug st
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	return u.SetForCustomerWithinOperation(ctx, instanceSlug, addonSlug, quantity)
+}
+
+// SetForCustomerWithinOperation composes a parent operation using its already-resolved
+// platform decision. It performs no provider evaluation while a transaction is held.
+func (u *UseCase) SetForCustomerWithinOperation(ctx context.Context, instanceSlug, addonSlug string, quantity int32) (*CustomerChange, error) {
+	user, err := u.deps.Caller(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	ctx = u.deps.AIPolicy.ForOrganization(ctx, user.OrganizationID)
 	// Read permission before taking a transaction/row lock. A refusal matters
 	// only if the locked current quantity makes this write an increase.
 	increasePermission := u.deps.Gate.RequireCapability(ctx, user.OrganizationID, dogfooding.AddonsEntitlementSlug, "Addons")
@@ -45,6 +58,9 @@ func (u *UseCase) SetForCustomer(ctx context.Context, instanceSlug, addonSlug st
 			return err
 		}
 		if err := requireIncrease(write.Attachment.Quantity, quantity, increasePermission); err != nil {
+			return err
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, write.Attachment.AddonID, u.deps.AIPolicy); err != nil {
 			return err
 		}
 		if err := catalogue.RefuseIncomplete(ctx, q, user.OrganizationID, write.Instance.ID, operation); err != nil {

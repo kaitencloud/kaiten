@@ -1,4 +1,6 @@
 import { Button } from '@/components/ui/button';
+import { useQuery } from '@tanstack/react-query';
+import { listUsageReportsOptions } from '@/api-client/@tanstack/react-query.gen';
 import { Navigate, useNavigate, useRouter } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -41,7 +43,8 @@ export const InstanceDetailEntitlementsTab = ({
   const router = useRouter();
   const navigate = useNavigate();
   const EntitlementIcon = dataModelIcons.entitlement;
-  const { entitlementsRows, instance } = useInstanceDetail();
+  const { entitlementsRows, canonicalEntitlementsRows, instance } =
+    useInstanceDetail();
   const instanceSlug = instance.slug ?? instance.id;
   const [groupFilter, setGroupFilter] = useState('all');
   // The history is read with the scope of the instances, which the page itself
@@ -51,7 +54,36 @@ export const InstanceDetailEntitlementsTab = ({
     locale,
     canViewHistory ? { history: { instanceSlug } } : undefined,
   );
-  const historyRow = findHistoryRow(entitlementsRows, historyParam);
+  const historyRow = findHistoryRow(
+    canonicalEntitlementsRows ?? entitlementsRows,
+    historyParam,
+  );
+  // Financial journal links may name hidden or deleted live resources. Do not fetch
+  // operational AI definitions to recover a label: the journal authorizes the read.
+  const liveTarget = (canonicalEntitlementsRows ?? entitlementsRows).find(
+    (row) => row.entitlementSlug === historyParam,
+  );
+  const needsEvidence =
+    canViewHistory && Boolean(historyParam) && !liveTarget;
+  const evidence = useQuery({
+    ...listUsageReportsOptions({
+      path: { instanceSlug, entitlementSlug: historyParam ?? '' },
+      // Resolve the journal independently of the selected period. The API
+      // resolves the tenant-scoped pair before filtering (unknown pairs are 404).
+      query: { limit: 1 },
+    }),
+    enabled: needsEvidence,
+    retry: false,
+  });
+  // A successful financial read proves the pair even when this period is empty.
+  const hasEvidence = evidence.isSuccess;
+  const evidencePending = needsEvidence && evidence.isPending;
+  const evidenceSlug =
+    canViewHistory &&
+    historyParam &&
+    (historyRow || (needsEvidence && hasEvidence))
+      ? historyParam
+      : undefined;
 
   const getEntitlementPath = (entitlement: InstanceEntitlementRow) =>
     entitlement.entitlementSlug
@@ -134,10 +166,10 @@ export const InstanceDetailEntitlementsTab = ({
       </TableCard>
 
       <ExceptionsCard />
-      {historyRow?.entitlementSlug ? (
+      {evidenceSlug ? (
         <UsageHistoryDrawer
-          entitlementName={historyRow.entitlementName}
-          entitlementSlug={historyRow.entitlementSlug}
+          entitlementName={historyRow?.entitlementName ?? evidenceSlug}
+          entitlementSlug={evidenceSlug}
           instanceName={instance.name}
           instanceSlug={instanceSlug}
           // The drawer drops with it the period it was read for.
@@ -165,7 +197,7 @@ export const InstanceDetailEntitlementsTab = ({
           range={historyRange}
         />
       ) : null}
-      {historyParam !== undefined && !historyRow ? (
+      {historyParam !== undefined && !evidenceSlug && !evidencePending ? (
         // A link to a history that is not one (a flag, an entitlement the instance
         // does not have): the page opens as it is, with no drawer.
         <Navigate

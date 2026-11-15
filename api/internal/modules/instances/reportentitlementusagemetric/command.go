@@ -1,16 +1,23 @@
 package reportentitlementusagemetric
 
-type Behavior string
+import (
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
+)
+
+// Behavior is how a numeric report treats the stored counter.
+type Behavior = usage.Behavior
 
 const (
-	BehaviorAppend Behavior = "append"
-	BehaviorSet    Behavior = "set"
+	BehaviorAppend = usage.Append
+	BehaviorSet    = usage.Set
 )
 
 type Command struct {
-	Value    float64        `json:"value"`
-	Behavior Behavior       `json:"behavior"`
-	Metadata map[string]any `json:"metadata,omitempty"`
+	AI       *schema.AiUsageValue `json:"ai,omitempty"`
+	Value    float64              `json:"value"`
+	Behavior Behavior             `json:"behavior"`
+	Metadata map[string]any       `json:"metadata,omitempty"`
 	// TransactionID is the client's idempotency key, nil when the report
 	// carries none. The endpoint has checked its format.
 	TransactionID *string `json:"transactionId,omitempty"`

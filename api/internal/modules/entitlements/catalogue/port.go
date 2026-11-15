@@ -13,6 +13,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Entitlement is one declared entitlement: the slug a rule reads it under,
@@ -27,17 +28,23 @@ type Port interface {
 }
 
 type port struct {
+	policy  aiusage.Policy
 	queries *db.Queries
 }
 
 // New builds a Port bound to the given pool. Reads never need to join a
 // caller's transaction, so this binds to the pool directly rather than
 // taking a uow.DBTX.
-func New(pool *pgxpool.Pool) Port {
-	return &port{queries: db.New(pool)}
+func New(pool *pgxpool.Pool, policies ...aiusage.Policy) Port {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
+	return &port{policy: policy, queries: db.New(pool)}
 }
 
 func (p *port) List(ctx context.Context, organizationID uuid.UUID) ([]Entitlement, error) {
+	ctx = p.policy.ForOrganization(ctx, organizationID)
 	rows, err := p.queries.GetEntitlements(ctx, organizationID)
 	if err != nil {
 		return nil, err
@@ -45,6 +52,9 @@ func (p *port) List(ctx context.Context, organizationID uuid.UUID) ([]Entitlemen
 
 	entitlements := make([]Entitlement, 0, len(rows))
 	for _, row := range rows {
+		if p.policy.RequireType(ctx, string(row.Type)) != nil {
+			continue
+		}
 		entitlements = append(entitlements, Entitlement{Slug: row.Slug, Type: schema.Type(row.Type)})
 	}
 

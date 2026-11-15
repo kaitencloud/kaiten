@@ -90,7 +90,8 @@ describe('AddEntitlementDialog', () => {
 
     expect(thresholdInput()).toBeEnabled();
     expect(unlimitedSwitch()).not.toBeChecked();
-    expect(overageInput()).toBeInTheDocument();
+    expect(overageInput()).toBeVisible();
+    expect(overageInput()?.closest('details')).toBeNull();
   });
 
   // Nothing caps an unlimited grant, so there is no allowance to set and no

@@ -64,8 +64,8 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
 /**
  * Builds the complete replacement PUT for the form and for inline rename, icon and
  * group edits. Echoes immutable resetPeriod/resetAnchor: omission would attempt
- * removal. Echoes the early-warning threshold too, which no screen edits: the API
- * stores 0 (the warning off) for a numeric entitlement sent without one. Only a
+ * removal. Echoes the early-warning threshold unless the edit overrides it: the
+ * API stores 0 (the warning off) for a numeric entitlement sent without one. Only a
  * numeric entitlement echoes it: the API returns 0 for every type but refuses any
  * threshold on the others, so a boolean or a config entitlement sends none.
  */
@@ -101,8 +101,9 @@ export const entitlementToUpdateBody = (
     ...overrides,
   };
 
-  if (body.type !== 'NUMBER') {
-    body.aggregationMethod = undefined;
+  if (!isNumberFamily(body.type)) {
+    delete body.aggregationMethod;
+    delete body.warningThresholdPercent;
   }
 
   conditionUnitFields(body);

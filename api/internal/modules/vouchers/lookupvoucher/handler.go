@@ -17,10 +17,15 @@ func (u *UseCase) Execute(ctx context.Context, code string) (*catalogue.Voucher,
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	voucher, err := catalogue.One(ctx, u.deps.Queries(ctx), user.OrganizationID, nil, &code, true,
 		kaitenerrors.NotFound("LookupVoucher.NotFound", "no voucher has this code"))
 	if err != nil {
 		return nil, err
 	}
-	return &voucher, nil
+	visible, err := catalogue.VisibleVoucher(ctx, u.deps.Queries(ctx), user.OrganizationID, u.deps.AIPolicy, voucher)
+	if err != nil {
+		return nil, err
+	}
+	return &visible, nil
 }

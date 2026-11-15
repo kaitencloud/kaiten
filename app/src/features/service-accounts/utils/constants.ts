@@ -47,6 +47,7 @@ const RESOURCE_GROUPS: Record<
   customers: 'customers',
   instances: 'customers',
   licenses: 'licensing',
+  models: 'licensing',
   entitlements: 'licensing',
   addons: 'licensing',
   feature_flags: 'featureFlags',

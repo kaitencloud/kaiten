@@ -55,7 +55,8 @@ SELECT e.id,
        e.created_at,
        e.updated_at
 FROM entitlement e
-WHERE e.organization_id = sqlc.arg(organization_id)
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type <> 'NUMBER_AI_CREDIT')
+ AND e.organization_id = sqlc.arg(organization_id)
   AND (
     sqlc.narg(cursor_created_at)::timestamp IS NULL
     OR (e.created_at, e.id) < (sqlc.narg(cursor_created_at)::timestamp, sqlc.narg(cursor_id)::uuid)

@@ -1,3 +1,4 @@
+import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getEntitlementSlug } from '@/domains/billing';
@@ -19,6 +20,7 @@ import {
  * route before this renders, so none suspends.
  */
 export function useLicensePricing(licenseSlug: string) {
+  const access = useAiAccess();
   const { data: license } = useSuspenseQuery(licenseQueryOptions(licenseSlug));
   const { data: priceList } = useSuspenseQuery(
     licensePricesQueryOptions(licenseSlug),
@@ -27,8 +29,28 @@ export function useLicensePricing(licenseSlug: string) {
   const { data: grantList } = useSuspenseQuery(
     licenseEntitlementsQueryOptions(licenseSlug),
   );
-  const prices = useMemo(() => priceList ?? [], [priceList]);
-  const entitlements = useMemo(() => catalogue?.items ?? [], [catalogue]);
+  const prices = useMemo(
+    () =>
+      (priceList ?? []).filter((price) => {
+        const slug = price.metered?.entitlementSlug;
+        return (
+          access.available ||
+          !slug ||
+          catalogue?.items.some(
+            (item) =>
+              getEntitlementSlug(item) === slug && !isAiEntitlement(item.type),
+          )
+        );
+      }),
+    [priceList, catalogue, access.available],
+  );
+  const entitlements = useMemo(
+    () =>
+      (catalogue?.items ?? []).filter(
+        (item) => access.available || !isAiEntitlement(item.type),
+      ),
+    [catalogue, access.available],
+  );
   const grants = useMemo(() => grantList?.items ?? [], [grantList]);
 
   const entitlementBySlug = useMemo(

@@ -9,13 +9,16 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	UsageReporter services.UsageReporter
 	Uof           *uow.UnitOfWork
@@ -30,7 +33,7 @@ type UseCase struct {
 func NewUseCase(deps Deps) *UseCase {
 	return &UseCase{
 		deps:   deps,
-		repo:   NewCommandRepository(deps.Uof),
+		repo:   NewCommandRepository(deps.Uof, deps.AIPolicy),
 		outbox: outbox.NewScopedRepository(deps.Uof),
 	}
 }
@@ -38,6 +41,10 @@ func NewUseCase(deps Deps) *UseCase {
 func (h *UseCase) Execute(ctx context.Context, licenseSlug string, command *Command) error {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
+		return err
+	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := licenseview.RequireOperational(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, command.EntitlementSlug); err != nil {
 		return err
 	}
 
@@ -54,6 +61,9 @@ func (h *UseCase) Execute(ctx context.Context, licenseSlug string, command *Comm
 
 func (h *UseCase) persist(ctx context.Context, licenseSlug string, command *Command, userID, organizationID uuid.UUID) error {
 	return h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if err := licenseview.RequireOperationalLocked(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, organizationID, command.EntitlementSlug); err != nil {
+			return err
+		}
 		// h.repo resolves the DBTX active for ctx on each call -- both this
 		// module's own Queries and entitlements' licenseview.Port -- so it
 		// joins this same transaction without checking out a second pool

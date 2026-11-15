@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
@@ -32,6 +33,7 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	var deprecated *prices.Price
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
@@ -46,6 +48,11 @@ func (u *UseCase) Execute(ctx context.Context, licenseSlug string, priceID uuid.
 		}
 		if stored == nil {
 			return kaitenerrors.NotFoundf(operation+".NotFound", "price %s not found on license %q", priceID, licenseSlug)
+		}
+		if stored.Metered != nil {
+			if err := licenseview.RequireOperational(ctx, u.deps.Uof.DBTX(ctx), u.deps.AIPolicy, user.OrganizationID, stored.Metered.EntitlementSlug); err != nil {
+				return err
+			}
 		}
 		target, err := queries.PriceIsPlanChangeTarget(ctx, db.PriceIsPlanChangeTargetParams{OrganizationID: user.OrganizationID, PriceID: &priceID})
 		if err != nil {

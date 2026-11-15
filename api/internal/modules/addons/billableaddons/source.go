@@ -106,7 +106,7 @@ func (s *Source) BillableAttachments(ctx context.Context, organizationID, instan
 		addonIDs = append(addonIDs, row.AddonID)
 	}
 	active := db.PriceStatusACTIVE
-	priceRows, err := q.ListAddonPrices(ctx, db.ListAddonPricesParams{OrganizationID: organizationID, AddonIds: addonIDs, Status: &active})
+	priceRows, err := q.ListAddonPrices(ctx, db.ListAddonPricesParams{OrganizationID: organizationID, AddonIds: addonIDs, Status: &active, HideAi: false})
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (s *Source) PreviewAddon(ctx context.Context, organizationID uuid.UUID, slu
 		return nil, err
 	}
 	active := db.PriceStatusACTIVE
-	priceRows, err := q.ListAddonPrices(ctx, db.ListAddonPricesParams{OrganizationID: organizationID, AddonIds: []uuid.UUID{addon.ID}, Status: &active})
+	priceRows, err := q.ListAddonPrices(ctx, db.ListAddonPricesParams{OrganizationID: organizationID, AddonIds: []uuid.UUID{addon.ID}, Status: &active, HideAi: false})
 	if err != nil {
 		return nil, err
 	}

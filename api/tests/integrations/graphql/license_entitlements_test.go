@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlementgroup"
 	entitlementsschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 )
 
@@ -41,17 +42,22 @@ func newPresentedEntitlement(t *testing.T, slug string, displayOrder int32) *ent
 	return entitlement
 }
 
-func associateNumberEntitlement(t *testing.T, licenseSlug, entitlementSlug string, threshold int32) {
+func associateNumberEntitlement(t *testing.T, licenseSlug, entitlementSlug string, threshold int32, policies ...aiusage.Policy) {
 	t.Helper()
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
+	ctx := policy.Resolve(t.Context(), testDb.DefaultData.OrganizationID)
 	repo := associateentitlementwithlicense.NewCommandRepository(
-		uow.NewUnitOfWork(testServer.Dependencies.DB),
+		uow.NewUnitOfWork(testServer.Dependencies.DB), policy,
 	)
 	request := associateentitlementwithlicense.Command{
 		EntitlementSlug: entitlementSlug,
 		Value:           map[string]any{"type": "number", "value": threshold},
 	}
 	_, err := repo.AssociateEntitlementToLicense(
-		t.Context(), licenseSlug, &request,
+		ctx, licenseSlug, &request,
 		testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID,
 	)
 	require.NoError(t, err)

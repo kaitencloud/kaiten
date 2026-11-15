@@ -16,6 +16,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
 	licencesschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/tests"
 )
@@ -109,8 +110,13 @@ func newEntitlementWithType(t *testing.T, entitlementType entitlementsschema.Typ
 }
 
 // newLicenseEntitlementWithThreshold associates a NUMBER type entitlement with a license
-func newLicenseEntitlementWithThreshold(t *testing.T, licenseSlug, entitlementSlug string, threshold int32) {
-	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB))
+func newLicenseEntitlementWithThreshold(t *testing.T, licenseSlug, entitlementSlug string, threshold int32, policies ...aiusage.Policy) {
+	policy := aiusage.Policy{}
+	if len(policies) > 0 {
+		policy = policies[0]
+	}
+	ctx := policy.Resolve(t.Context(), testDb.DefaultData.OrganizationID)
+	repo := associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB), policy)
 	request := associateentitlementwithlicense.Command{
 		EntitlementSlug: entitlementSlug,
 		Value: map[string]any{
@@ -118,7 +124,7 @@ func newLicenseEntitlementWithThreshold(t *testing.T, licenseSlug, entitlementSl
 			"value": threshold,
 		},
 	}
-	_, err := repo.AssociateEntitlementToLicense(t.Context(), licenseSlug, &request, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
+	_, err := repo.AssociateEntitlementToLicense(ctx, licenseSlug, &request, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
 	require.NoError(t, err)
 }
 

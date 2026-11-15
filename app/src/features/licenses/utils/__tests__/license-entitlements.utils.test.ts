@@ -136,6 +136,8 @@ describe('license-entitlements utils', () => {
 
       expect(result).toEqual([
         {
+          catalogueEntitlementType: 'BOOLEAN',
+          configValue: undefined,
           enabled: true,
           entitlementIcon: null,
           entitlementId: 'ent-sso',
@@ -170,6 +172,8 @@ describe('license-entitlements utils', () => {
 
       expect(result).toEqual([
         {
+          catalogueEntitlementType: 'NUMBER',
+          configValue: undefined,
           enabled: null,
           entitlementIcon: null,
           entitlementId: 'ent-api',
@@ -246,6 +250,8 @@ describe('license-entitlements utils', () => {
 
       expect(result).toEqual([
         {
+          catalogueEntitlementType: 'NUMBER_AI_CREDIT',
+          configValue: undefined,
           enabled: null,
           entitlementIcon: null,
           entitlementId: 'ent-ai',

@@ -1,3 +1,4 @@
+import { useAiAccess } from '@/domains/ai-credits';
 import {
   Card,
   CardContent,
@@ -149,6 +150,10 @@ export function LicenseVersionFieldsCard({
   syncDraftEntitlementsFromBase,
   t,
 }: LicenseVersionFieldsCardProps) {
+  const access = useAiAccess();
+  const aiEnabled =
+    access.allows('listConversionRules') &&
+    access.allows('createConversionRule');
   const unknownVersionLabel = t('Pages.Licenses.List.unknownVersion');
 
   return (
@@ -270,6 +275,16 @@ export function LicenseVersionFieldsCard({
         </div>
         <div className="md:col-span-2">
           <CreateAsDraftField form={form} t={t} />
+          {aiEnabled ? (
+            <form.AppField name="copyAiRules">
+              {(field: any) => (
+                <field.CheckboxField
+                  label={t('AI.copyRules')}
+                  description={t('AI.copyDescription')}
+                />
+              )}
+            </form.AppField>
+          ) : null}
         </div>
         <CopyPricesField form={form} t={t} />
       </CardContent>

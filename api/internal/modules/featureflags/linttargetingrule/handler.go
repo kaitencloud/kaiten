@@ -7,6 +7,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/common"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
@@ -14,6 +15,7 @@ import (
 // port — the same one create and update lint against, which is the whole
 // reason this check cannot run in the browser.
 type Deps struct {
+	AIPolicy             aiusage.Policy
 	UserProvider         currentuser.Provider
 	EntitlementCatalogue catalogue.Port
 }
@@ -38,6 +40,7 @@ func (h *UseCase) Execute(ctx context.Context, rule string) ([]featureflag.Targe
 	if err != nil {
 		return nil, err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
 	known := common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)
 

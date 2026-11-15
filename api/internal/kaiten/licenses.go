@@ -7,19 +7,23 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/billing/rating"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archiveconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/archivelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deletelicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/deprecatelicenseprice"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseentitlements"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicensefamily"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenseprice"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/getlicenses"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listconversionrules"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicensefamilies"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/listlicenseprices"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/previewlicenseinvoice"
@@ -27,6 +31,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/publishlicense"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/unarchivelicense"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updateconversionrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicenseentitlement"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/updatelicensefamily"
@@ -299,4 +304,39 @@ func (l Licenses) UpdateFamily(
 	}
 
 	return l.uc.UpdateLicenseFamily.Execute(bindOrganization(ctx, cl), familySlug, cmd)
+}
+
+func (l Licenses) CreateConversionRule(ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, cmd *createconversionrule.Command) (*licenseschema.ConversionRule, error) {
+	if err := cl.Require(createconversionrule.RequiredScope); err != nil {
+		return nil, err
+	}
+	return l.uc.CreateConversionRule.Execute(bindOrganization(ctx, cl), licenseSlug, cmd)
+}
+
+func (l Licenses) UpdateConversionRule(ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, ruleID uuid.UUID, cmd *updateconversionrule.Command) (*licenseschema.ConversionRule, error) {
+	if err := cl.Require(updateconversionrule.RequiredScope); err != nil {
+		return nil, err
+	}
+	return l.uc.UpdateConversionRule.Execute(bindOrganization(ctx, cl), licenseSlug, ruleID, cmd)
+}
+
+func (l Licenses) GetConversionRule(ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, ruleID uuid.UUID) (*licenseschema.ConversionRule, error) {
+	if err := cl.Require(getconversionrule.RequiredScope); err != nil {
+		return nil, err
+	}
+	return l.uc.GetConversionRule.Execute(bindOrganization(ctx, cl), licenseSlug, ruleID)
+}
+
+func (l Licenses) ArchiveConversionRule(ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, ruleID uuid.UUID) error {
+	if err := cl.Require(archiveconversionrule.RequiredScope); err != nil {
+		return err
+	}
+	return l.uc.ArchiveConversionRule.Execute(bindOrganization(ctx, cl), licenseSlug, ruleID)
+}
+
+func (l Licenses) ListConversionRules(ctx context.Context, cl caller.OrganizationCaller, licenseSlug string, filter listconversionrules.Filter) ([]*licenseschema.ConversionRule, error) {
+	if err := cl.Require(listconversionrules.RequiredScope); err != nil {
+		return nil, err
+	}
+	return l.uc.ListConversionRules.Execute(bindOrganization(ctx, cl), licenseSlug, filter)
 }

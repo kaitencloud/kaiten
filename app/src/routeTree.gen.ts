@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AiRouteRouteImport } from './routes/ai/route'
 import { Route as CustomersRouteRouteImport } from './routes/customers/route'
 import { Route as InvoicesRouteRouteImport } from './routes/invoices/route'
 import { Route as ReleasesRouteRouteImport } from './routes/releases/route'
@@ -19,6 +20,7 @@ import { Route as AuditTrailIndexRouteImport } from './routes/audit-trail/index'
 import { Route as CatalogIndexRouteImport } from './routes/catalog/index'
 import { Route as CatalogAddonsRouteRouteImport } from './routes/catalog/addons/route'
 import { Route as CatalogEntitlementsRouteRouteImport } from './routes/catalog/entitlements/route'
+import { Route as CatalogModelsRouteRouteImport } from './routes/catalog/models/route'
 import { Route as CatalogVouchersRouteRouteImport } from './routes/catalog/vouchers/route'
 import { Route as CustomersIndexRouteImport } from './routes/customers/index'
 import { Route as CustomersCustomerSlugRouteRouteImport } from './routes/customers/$customerSlug/route'
@@ -46,12 +48,18 @@ import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
 import { Route as SettingsPlanRouteImport } from './routes/settings/plan'
+import { Route as AiMatrixIndexRouteImport } from './routes/ai/matrix/index'
+import { Route as AiModelsIndexRouteImport } from './routes/ai/models/index'
+import { Route as AiModelsNewRouteImport } from './routes/ai/models/new'
 import { Route as CatalogAddonsIndexRouteImport } from './routes/catalog/addons/index'
 import { Route as CatalogAddonsAddonSlugRouteRouteImport } from './routes/catalog/addons/$addonSlug/route'
 import { Route as CatalogEntitlementsIndexRouteImport } from './routes/catalog/entitlements/index'
 import { Route as CatalogEntitlementsEntitlementSlugRouteRouteImport } from './routes/catalog/entitlements/$entitlementSlug/route'
 import { Route as CatalogLicensesIndexRouteImport } from './routes/catalog/licenses/index'
 import { Route as CatalogLicensesLicenseSlugRouteRouteImport } from './routes/catalog/licenses/$licenseSlug/route'
+import { Route as CatalogModelsIndexRouteImport } from './routes/catalog/models/index'
+import { Route as CatalogModelsImportRouteImport } from './routes/catalog/models/import'
+import { Route as CatalogModelsNewRouteImport } from './routes/catalog/models/new'
 import { Route as CatalogVouchersIndexRouteImport } from './routes/catalog/vouchers/index'
 import { Route as CatalogVouchersVoucherIdRouteRouteImport } from './routes/catalog/vouchers/$voucherId/route'
 import { Route as CustomersCustomerSlugIndexRouteImport } from './routes/customers/$customerSlug/index'
@@ -79,12 +87,14 @@ import { Route as ReleasesReleaseSlugDeploymentZonesRouteImport } from './routes
 import { Route as ReleasesDeploymentZoneIndexRouteImport } from './routes/releases/deployment-zone/index'
 import { Route as ReleasesDeploymentZonesZoneSlugRouteRouteImport } from './routes/releases/deployment-zones_/$zoneSlug/route'
 import { Route as ReleasesNewIndexRouteImport } from './routes/releases/new/index'
+import { Route as AiModelsModelSlugEditRouteImport } from './routes/ai/models/$modelSlug/edit'
 import { Route as CatalogAddonsAddonSlugIndexRouteImport } from './routes/catalog/addons/$addonSlug/index'
 import { Route as CatalogAddonsAddonSlugCompatibilityRouteImport } from './routes/catalog/addons/$addonSlug/compatibility'
 import { Route as CatalogAddonsAddonSlugEntitlementsRouteImport } from './routes/catalog/addons/$addonSlug/entitlements'
 import { Route as CatalogAddonsAddonSlugPricesRouteImport } from './routes/catalog/addons/$addonSlug/prices'
 import { Route as CatalogAddonsNewIndexRouteImport } from './routes/catalog/addons/new/index'
 import { Route as CatalogEntitlementsEntitlementSlugIndexRouteImport } from './routes/catalog/entitlements/$entitlementSlug/index'
+import { Route as CatalogEntitlementsEntitlementSlugCalculationRouteImport } from './routes/catalog/entitlements/$entitlementSlug/calculation'
 import { Route as CatalogEntitlementsEntitlementSlugCustomersRouteImport } from './routes/catalog/entitlements/$entitlementSlug/customers'
 import { Route as CatalogEntitlementsEntitlementSlugLicensesRouteImport } from './routes/catalog/entitlements/$entitlementSlug/licenses'
 import { Route as CatalogEntitlementsEntitlementSlugUsageRouteImport } from './routes/catalog/entitlements/$entitlementSlug/usage'
@@ -93,10 +103,13 @@ import { Route as CatalogLicensesLicenseSlugIndexRouteImport } from './routes/ca
 import { Route as CatalogLicensesLicenseSlugPricesRouteImport } from './routes/catalog/licenses/$licenseSlug/prices'
 import { Route as CatalogLicensesNewIndexRouteImport } from './routes/catalog/licenses/new/index'
 import { Route as CatalogLicensesVersionsIndexRouteImport } from './routes/catalog/licenses/versions/index'
+import { Route as CatalogModelsModelSlugEditRouteImport } from './routes/catalog/models/$modelSlug/edit'
+import { Route as CatalogModelsModelSlugSourceRouteImport } from './routes/catalog/models/$modelSlug/source'
 import { Route as CatalogVouchersVoucherIdIndexRouteImport } from './routes/catalog/vouchers/$voucherId/index'
 import { Route as CatalogVouchersVoucherIdEditRouteImport } from './routes/catalog/vouchers/$voucherId/edit'
 import { Route as CatalogVouchersNewIndexRouteImport } from './routes/catalog/vouchers/new/index'
 import { Route as CustomersInstancesInstanceSlugIndexRouteImport } from './routes/customers/instances/$instanceSlug/index'
+import { Route as CustomersInstancesInstanceSlugAiUsageRouteImport } from './routes/customers/instances/$instanceSlug/ai-usage'
 import { Route as CustomersInstancesInstanceSlugAuditTrailRouteImport } from './routes/customers/instances/$instanceSlug/audit-trail'
 import { Route as CustomersInstancesInstanceSlugBillingRouteRouteImport } from './routes/customers/instances/$instanceSlug/billing/route'
 import { Route as CustomersInstancesInstanceSlugEditRouteImport } from './routes/customers/instances/$instanceSlug/edit'
@@ -132,6 +145,11 @@ import { Route as CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionI
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AiRouteRoute = AiRouteRouteImport.update({
+  id: '/ai',
+  path: '/ai',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersRouteRoute = CustomersRouteRouteImport.update({
@@ -180,6 +198,11 @@ const CatalogEntitlementsRouteRoute =
     path: '/catalog/entitlements',
     getParentRoute: () => rootRouteImport,
   } as any)
+const CatalogModelsRouteRoute = CatalogModelsRouteRouteImport.update({
+  id: '/catalog/models',
+  path: '/catalog/models',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CatalogVouchersRouteRoute = CatalogVouchersRouteRouteImport.update({
   id: '/catalog/vouchers',
   path: '/catalog/vouchers',
@@ -325,6 +348,21 @@ const SettingsPlanRoute = SettingsPlanRouteImport.update({
   path: '/settings/plan',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AiMatrixIndexRoute = AiMatrixIndexRouteImport.update({
+  id: '/matrix/',
+  path: '/matrix/',
+  getParentRoute: () => AiRouteRoute,
+} as any)
+const AiModelsIndexRoute = AiModelsIndexRouteImport.update({
+  id: '/models/',
+  path: '/models/',
+  getParentRoute: () => AiRouteRoute,
+} as any)
+const AiModelsNewRoute = AiModelsNewRouteImport.update({
+  id: '/models/new',
+  path: '/models/new',
+  getParentRoute: () => AiRouteRoute,
+} as any)
 const CatalogAddonsIndexRoute = CatalogAddonsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -359,6 +397,21 @@ const CatalogLicensesLicenseSlugRouteRoute =
     path: '/catalog/licenses/$licenseSlug',
     getParentRoute: () => rootRouteImport,
   } as any)
+const CatalogModelsIndexRoute = CatalogModelsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CatalogModelsRouteRoute,
+} as any)
+const CatalogModelsImportRoute = CatalogModelsImportRouteImport.update({
+  id: '/import',
+  path: '/import',
+  getParentRoute: () => CatalogModelsRouteRoute,
+} as any)
+const CatalogModelsNewRoute = CatalogModelsNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => CatalogModelsRouteRoute,
+} as any)
 const CatalogVouchersIndexRoute = CatalogVouchersIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -515,6 +568,11 @@ const ReleasesNewIndexRoute = ReleasesNewIndexRouteImport.update({
   path: '/new/',
   getParentRoute: () => ReleasesRouteRoute,
 } as any)
+const AiModelsModelSlugEditRoute = AiModelsModelSlugEditRouteImport.update({
+  id: '/models/$modelSlug/edit',
+  path: '/models/$modelSlug/edit',
+  getParentRoute: () => AiRouteRoute,
+} as any)
 const CatalogAddonsAddonSlugIndexRoute =
   CatalogAddonsAddonSlugIndexRouteImport.update({
     id: '/',
@@ -548,6 +606,12 @@ const CatalogEntitlementsEntitlementSlugIndexRoute =
   CatalogEntitlementsEntitlementSlugIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
+  } as any)
+const CatalogEntitlementsEntitlementSlugCalculationRoute =
+  CatalogEntitlementsEntitlementSlugCalculationRouteImport.update({
+    id: '/calculation',
+    path: '/calculation',
     getParentRoute: () => CatalogEntitlementsEntitlementSlugRouteRoute,
   } as any)
 const CatalogEntitlementsEntitlementSlugCustomersRoute =
@@ -597,6 +661,18 @@ const CatalogLicensesVersionsIndexRoute =
     path: '/catalog/licenses/versions/',
     getParentRoute: () => rootRouteImport,
   } as any)
+const CatalogModelsModelSlugEditRoute =
+  CatalogModelsModelSlugEditRouteImport.update({
+    id: '/$modelSlug/edit',
+    path: '/$modelSlug/edit',
+    getParentRoute: () => CatalogModelsRouteRoute,
+  } as any)
+const CatalogModelsModelSlugSourceRoute =
+  CatalogModelsModelSlugSourceRouteImport.update({
+    id: '/$modelSlug/source',
+    path: '/$modelSlug/source',
+    getParentRoute: () => CatalogModelsRouteRoute,
+  } as any)
 const CatalogVouchersVoucherIdIndexRoute =
   CatalogVouchersVoucherIdIndexRouteImport.update({
     id: '/',
@@ -618,6 +694,12 @@ const CustomersInstancesInstanceSlugIndexRoute =
   CustomersInstancesInstanceSlugIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => CustomersInstancesInstanceSlugRouteRoute,
+  } as any)
+const CustomersInstancesInstanceSlugAiUsageRoute =
+  CustomersInstancesInstanceSlugAiUsageRouteImport.update({
+    id: '/ai-usage',
+    path: '/ai-usage',
     getParentRoute: () => CustomersInstancesInstanceSlugRouteRoute,
   } as any)
 const CustomersInstancesInstanceSlugAuditTrailRoute =
@@ -814,6 +896,7 @@ const CustomersInstancesInstanceSlugEntitlementsExceptionsExceptionIdRevokeRoute
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/ai': typeof AiRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/invoices': typeof InvoicesRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
@@ -821,6 +904,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/catalog/addons': typeof CatalogAddonsRouteRouteWithChildren
   '/catalog/entitlements': typeof CatalogEntitlementsRouteRouteWithChildren
+  '/catalog/models': typeof CatalogModelsRouteRouteWithChildren
   '/catalog/vouchers': typeof CatalogVouchersRouteRouteWithChildren
   '/customers/$customerSlug': typeof CustomersCustomerSlugRouteRouteWithChildren
   '/customers/instances': typeof CustomersInstancesRouteRouteWithChildren
@@ -856,6 +940,9 @@ export interface FileRoutesByFullPath {
   '/catalog/vouchers/$voucherId': typeof CatalogVouchersVoucherIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
+  '/ai/models/new': typeof AiModelsNewRoute
+  '/catalog/models/import': typeof CatalogModelsImportRoute
+  '/catalog/models/new': typeof CatalogModelsNewRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
   '/customers/$customerSlug/overview': typeof CustomersCustomerSlugOverviewRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
@@ -866,9 +953,12 @@ export interface FileRoutesByFullPath {
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/ai/matrix/': typeof AiMatrixIndexRoute
+  '/ai/models/': typeof AiModelsIndexRoute
   '/catalog/addons/': typeof CatalogAddonsIndexRoute
   '/catalog/entitlements/': typeof CatalogEntitlementsIndexRoute
   '/catalog/licenses/': typeof CatalogLicensesIndexRoute
+  '/catalog/models/': typeof CatalogModelsIndexRoute
   '/catalog/vouchers/': typeof CatalogVouchersIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
@@ -885,14 +975,19 @@ export interface FileRoutesByFullPath {
   '/releases/new/': typeof ReleasesNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
+  '/ai/models/$modelSlug/edit': typeof AiModelsModelSlugEditRoute
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
+  '/catalog/entitlements/$entitlementSlug/calculation': typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
   '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
   '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
+  '/catalog/models/$modelSlug/edit': typeof CatalogModelsModelSlugEditRoute
+  '/catalog/models/$modelSlug/source': typeof CatalogModelsModelSlugSourceRoute
   '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
+  '/customers/instances/$instanceSlug/ai-usage': typeof CustomersInstancesInstanceSlugAiUsageRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
@@ -935,6 +1030,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/ai': typeof AiRouteRouteWithChildren
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/releases/components': typeof ReleasesComponentsRouteRouteWithChildren
@@ -956,6 +1052,9 @@ export interface FileRoutesByTo {
   '/notifications': typeof NotificationsIndexRoute
   '/releases': typeof ReleasesIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/ai/models/new': typeof AiModelsNewRoute
+  '/catalog/models/import': typeof CatalogModelsImportRoute
+  '/catalog/models/new': typeof CatalogModelsNewRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
   '/customers/$customerSlug/overview': typeof CustomersCustomerSlugOverviewRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
@@ -966,9 +1065,12 @@ export interface FileRoutesByTo {
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/ai/matrix': typeof AiMatrixIndexRoute
+  '/ai/models': typeof AiModelsIndexRoute
   '/catalog/addons': typeof CatalogAddonsIndexRoute
   '/catalog/entitlements': typeof CatalogEntitlementsIndexRoute
   '/catalog/licenses': typeof CatalogLicensesIndexRoute
+  '/catalog/models': typeof CatalogModelsIndexRoute
   '/catalog/vouchers': typeof CatalogVouchersIndexRoute
   '/customers/$customerSlug': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances': typeof CustomersInstancesIndexRoute
@@ -984,14 +1086,19 @@ export interface FileRoutesByTo {
   '/releases/deployment-zone': typeof ReleasesDeploymentZoneIndexRoute
   '/releases/new': typeof ReleasesNewIndexRoute
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
+  '/ai/models/$modelSlug/edit': typeof AiModelsModelSlugEditRoute
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
+  '/catalog/entitlements/$entitlementSlug/calculation': typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
   '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
   '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
+  '/catalog/models/$modelSlug/edit': typeof CatalogModelsModelSlugEditRoute
+  '/catalog/models/$modelSlug/source': typeof CatalogModelsModelSlugSourceRoute
   '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
+  '/customers/instances/$instanceSlug/ai-usage': typeof CustomersInstancesInstanceSlugAiUsageRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
@@ -1035,6 +1142,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/ai': typeof AiRouteRouteWithChildren
   '/customers': typeof CustomersRouteRouteWithChildren
   '/invoices': typeof InvoicesRouteRouteWithChildren
   '/releases': typeof ReleasesRouteRouteWithChildren
@@ -1042,6 +1150,7 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/catalog/addons': typeof CatalogAddonsRouteRouteWithChildren
   '/catalog/entitlements': typeof CatalogEntitlementsRouteRouteWithChildren
+  '/catalog/models': typeof CatalogModelsRouteRouteWithChildren
   '/catalog/vouchers': typeof CatalogVouchersRouteRouteWithChildren
   '/customers/$customerSlug': typeof CustomersCustomerSlugRouteRouteWithChildren
   '/customers/instances': typeof CustomersInstancesRouteRouteWithChildren
@@ -1077,6 +1186,9 @@ export interface FileRoutesById {
   '/catalog/vouchers/$voucherId': typeof CatalogVouchersVoucherIdRouteRouteWithChildren
   '/customers/instances/$instanceSlug': typeof CustomersInstancesInstanceSlugRouteRouteWithChildren
   '/releases/deployment-zones_/$zoneSlug': typeof ReleasesDeploymentZonesZoneSlugRouteRouteWithChildren
+  '/ai/models/new': typeof AiModelsNewRoute
+  '/catalog/models/import': typeof CatalogModelsImportRoute
+  '/catalog/models/new': typeof CatalogModelsNewRoute
   '/customers/$customerSlug/edit': typeof CustomersCustomerSlugEditRoute
   '/customers/$customerSlug/overview': typeof CustomersCustomerSlugOverviewRoute
   '/feature-flags/$featureFlagSlug/audit-trail': typeof FeatureFlagsFeatureFlagSlugAuditTrailRoute
@@ -1087,9 +1199,12 @@ export interface FileRoutesById {
   '/integrations/webhooks/history': typeof IntegrationsWebhooksHistoryRoute
   '/releases/$releaseSlug/deploy': typeof ReleasesReleaseSlugDeployRoute
   '/releases/$releaseSlug/deployment-zones': typeof ReleasesReleaseSlugDeploymentZonesRoute
+  '/ai/matrix/': typeof AiMatrixIndexRoute
+  '/ai/models/': typeof AiModelsIndexRoute
   '/catalog/addons/': typeof CatalogAddonsIndexRoute
   '/catalog/entitlements/': typeof CatalogEntitlementsIndexRoute
   '/catalog/licenses/': typeof CatalogLicensesIndexRoute
+  '/catalog/models/': typeof CatalogModelsIndexRoute
   '/catalog/vouchers/': typeof CatalogVouchersIndexRoute
   '/customers/$customerSlug/': typeof CustomersCustomerSlugIndexRoute
   '/customers/instances/': typeof CustomersInstancesIndexRoute
@@ -1106,14 +1221,19 @@ export interface FileRoutesById {
   '/releases/new/': typeof ReleasesNewIndexRoute
   '/customers/instances/$instanceSlug/billing': typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   '/customers/instances/$instanceSlug/entitlements': typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
+  '/ai/models/$modelSlug/edit': typeof AiModelsModelSlugEditRoute
   '/catalog/addons/$addonSlug/compatibility': typeof CatalogAddonsAddonSlugCompatibilityRoute
   '/catalog/addons/$addonSlug/entitlements': typeof CatalogAddonsAddonSlugEntitlementsRoute
   '/catalog/addons/$addonSlug/prices': typeof CatalogAddonsAddonSlugPricesRoute
+  '/catalog/entitlements/$entitlementSlug/calculation': typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   '/catalog/entitlements/$entitlementSlug/customers': typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   '/catalog/entitlements/$entitlementSlug/licenses': typeof CatalogEntitlementsEntitlementSlugLicensesRoute
   '/catalog/entitlements/$entitlementSlug/usage': typeof CatalogEntitlementsEntitlementSlugUsageRoute
   '/catalog/licenses/$licenseSlug/prices': typeof CatalogLicensesLicenseSlugPricesRoute
+  '/catalog/models/$modelSlug/edit': typeof CatalogModelsModelSlugEditRoute
+  '/catalog/models/$modelSlug/source': typeof CatalogModelsModelSlugSourceRoute
   '/catalog/vouchers/$voucherId/edit': typeof CatalogVouchersVoucherIdEditRoute
+  '/customers/instances/$instanceSlug/ai-usage': typeof CustomersInstancesInstanceSlugAiUsageRoute
   '/customers/instances/$instanceSlug/audit-trail': typeof CustomersInstancesInstanceSlugAuditTrailRoute
   '/customers/instances/$instanceSlug/edit': typeof CustomersInstancesInstanceSlugEditRoute
   '/integrations/publishable-keys/$keyId/edit': typeof IntegrationsPublishableKeysKeyIdEditRoute
@@ -1158,6 +1278,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/ai'
     | '/customers'
     | '/invoices'
     | '/releases'
@@ -1165,6 +1286,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/catalog/addons'
     | '/catalog/entitlements'
+    | '/catalog/models'
     | '/catalog/vouchers'
     | '/customers/$customerSlug'
     | '/customers/instances'
@@ -1200,6 +1322,9 @@ export interface FileRouteTypes {
     | '/catalog/vouchers/$voucherId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones/$zoneSlug'
+    | '/ai/models/new'
+    | '/catalog/models/import'
+    | '/catalog/models/new'
     | '/customers/$customerSlug/edit'
     | '/customers/$customerSlug/overview'
     | '/feature-flags/$featureFlagSlug/audit-trail'
@@ -1210,9 +1335,12 @@ export interface FileRouteTypes {
     | '/integrations/webhooks/history'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/ai/matrix/'
+    | '/ai/models/'
     | '/catalog/addons/'
     | '/catalog/entitlements/'
     | '/catalog/licenses/'
+    | '/catalog/models/'
     | '/catalog/vouchers/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
@@ -1229,14 +1357,19 @@ export interface FileRouteTypes {
     | '/releases/new/'
     | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/entitlements'
+    | '/ai/models/$modelSlug/edit'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
+    | '/catalog/entitlements/$entitlementSlug/calculation'
     | '/catalog/entitlements/$entitlementSlug/customers'
     | '/catalog/entitlements/$entitlementSlug/licenses'
     | '/catalog/entitlements/$entitlementSlug/usage'
     | '/catalog/licenses/$licenseSlug/prices'
+    | '/catalog/models/$modelSlug/edit'
+    | '/catalog/models/$modelSlug/source'
     | '/catalog/vouchers/$voucherId/edit'
+    | '/customers/instances/$instanceSlug/ai-usage'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/integrations/publishable-keys/$keyId/edit'
@@ -1279,6 +1412,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/ai'
     | '/sign-in'
     | '/sign-up'
     | '/releases/components'
@@ -1300,6 +1434,9 @@ export interface FileRouteTypes {
     | '/notifications'
     | '/releases'
     | '/settings'
+    | '/ai/models/new'
+    | '/catalog/models/import'
+    | '/catalog/models/new'
     | '/customers/$customerSlug/edit'
     | '/customers/$customerSlug/overview'
     | '/feature-flags/$featureFlagSlug/audit-trail'
@@ -1310,9 +1447,12 @@ export interface FileRouteTypes {
     | '/integrations/webhooks/history'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/ai/matrix'
+    | '/ai/models'
     | '/catalog/addons'
     | '/catalog/entitlements'
     | '/catalog/licenses'
+    | '/catalog/models'
     | '/catalog/vouchers'
     | '/customers/$customerSlug'
     | '/customers/instances'
@@ -1328,14 +1468,19 @@ export interface FileRouteTypes {
     | '/releases/deployment-zone'
     | '/releases/new'
     | '/customers/instances/$instanceSlug/entitlements'
+    | '/ai/models/$modelSlug/edit'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
+    | '/catalog/entitlements/$entitlementSlug/calculation'
     | '/catalog/entitlements/$entitlementSlug/customers'
     | '/catalog/entitlements/$entitlementSlug/licenses'
     | '/catalog/entitlements/$entitlementSlug/usage'
     | '/catalog/licenses/$licenseSlug/prices'
+    | '/catalog/models/$modelSlug/edit'
+    | '/catalog/models/$modelSlug/source'
     | '/catalog/vouchers/$voucherId/edit'
+    | '/customers/instances/$instanceSlug/ai-usage'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/integrations/publishable-keys/$keyId/edit'
@@ -1378,6 +1523,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/ai'
     | '/customers'
     | '/invoices'
     | '/releases'
@@ -1385,6 +1531,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/catalog/addons'
     | '/catalog/entitlements'
+    | '/catalog/models'
     | '/catalog/vouchers'
     | '/customers/$customerSlug'
     | '/customers/instances'
@@ -1420,6 +1567,9 @@ export interface FileRouteTypes {
     | '/catalog/vouchers/$voucherId'
     | '/customers/instances/$instanceSlug'
     | '/releases/deployment-zones_/$zoneSlug'
+    | '/ai/models/new'
+    | '/catalog/models/import'
+    | '/catalog/models/new'
     | '/customers/$customerSlug/edit'
     | '/customers/$customerSlug/overview'
     | '/feature-flags/$featureFlagSlug/audit-trail'
@@ -1430,9 +1580,12 @@ export interface FileRouteTypes {
     | '/integrations/webhooks/history'
     | '/releases/$releaseSlug/deploy'
     | '/releases/$releaseSlug/deployment-zones'
+    | '/ai/matrix/'
+    | '/ai/models/'
     | '/catalog/addons/'
     | '/catalog/entitlements/'
     | '/catalog/licenses/'
+    | '/catalog/models/'
     | '/catalog/vouchers/'
     | '/customers/$customerSlug/'
     | '/customers/instances/'
@@ -1449,14 +1602,19 @@ export interface FileRouteTypes {
     | '/releases/new/'
     | '/customers/instances/$instanceSlug/billing'
     | '/customers/instances/$instanceSlug/entitlements'
+    | '/ai/models/$modelSlug/edit'
     | '/catalog/addons/$addonSlug/compatibility'
     | '/catalog/addons/$addonSlug/entitlements'
     | '/catalog/addons/$addonSlug/prices'
+    | '/catalog/entitlements/$entitlementSlug/calculation'
     | '/catalog/entitlements/$entitlementSlug/customers'
     | '/catalog/entitlements/$entitlementSlug/licenses'
     | '/catalog/entitlements/$entitlementSlug/usage'
     | '/catalog/licenses/$licenseSlug/prices'
+    | '/catalog/models/$modelSlug/edit'
+    | '/catalog/models/$modelSlug/source'
     | '/catalog/vouchers/$voucherId/edit'
+    | '/customers/instances/$instanceSlug/ai-usage'
     | '/customers/instances/$instanceSlug/audit-trail'
     | '/customers/instances/$instanceSlug/edit'
     | '/integrations/publishable-keys/$keyId/edit'
@@ -1500,6 +1658,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AiRouteRoute: typeof AiRouteRouteWithChildren
   CustomersRouteRoute: typeof CustomersRouteRouteWithChildren
   InvoicesRouteRoute: typeof InvoicesRouteRouteWithChildren
   ReleasesRouteRoute: typeof ReleasesRouteRouteWithChildren
@@ -1507,6 +1666,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   CatalogAddonsRouteRoute: typeof CatalogAddonsRouteRouteWithChildren
   CatalogEntitlementsRouteRoute: typeof CatalogEntitlementsRouteRouteWithChildren
+  CatalogModelsRouteRoute: typeof CatalogModelsRouteRouteWithChildren
   CatalogVouchersRouteRoute: typeof CatalogVouchersRouteRouteWithChildren
   FeatureFlagsFeatureFlagSlugRouteRoute: typeof FeatureFlagsFeatureFlagSlugRouteRouteWithChildren
   IntegrationsConnectorsRouteRoute: typeof IntegrationsConnectorsRouteRouteWithChildren
@@ -1541,6 +1701,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/ai': {
+      id: '/ai'
+      path: '/ai'
+      fullPath: '/ai'
+      preLoaderRoute: typeof AiRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -1604,6 +1771,13 @@ declare module '@tanstack/react-router' {
       path: '/catalog/entitlements'
       fullPath: '/catalog/entitlements'
       preLoaderRoute: typeof CatalogEntitlementsRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/catalog/models': {
+      id: '/catalog/models'
+      path: '/catalog/models'
+      fullPath: '/catalog/models'
+      preLoaderRoute: typeof CatalogModelsRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/catalog/vouchers': {
@@ -1795,6 +1969,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsPlanRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ai/matrix/': {
+      id: '/ai/matrix/'
+      path: '/matrix'
+      fullPath: '/ai/matrix/'
+      preLoaderRoute: typeof AiMatrixIndexRouteImport
+      parentRoute: typeof AiRouteRoute
+    }
+    '/ai/models/': {
+      id: '/ai/models/'
+      path: '/models'
+      fullPath: '/ai/models/'
+      preLoaderRoute: typeof AiModelsIndexRouteImport
+      parentRoute: typeof AiRouteRoute
+    }
+    '/ai/models/new': {
+      id: '/ai/models/new'
+      path: '/models/new'
+      fullPath: '/ai/models/new'
+      preLoaderRoute: typeof AiModelsNewRouteImport
+      parentRoute: typeof AiRouteRoute
+    }
     '/catalog/addons/': {
       id: '/catalog/addons/'
       path: '/'
@@ -1836,6 +2031,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/catalog/licenses/$licenseSlug'
       preLoaderRoute: typeof CatalogLicensesLicenseSlugRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/catalog/models/': {
+      id: '/catalog/models/'
+      path: '/'
+      fullPath: '/catalog/models/'
+      preLoaderRoute: typeof CatalogModelsIndexRouteImport
+      parentRoute: typeof CatalogModelsRouteRoute
+    }
+    '/catalog/models/import': {
+      id: '/catalog/models/import'
+      path: '/import'
+      fullPath: '/catalog/models/import'
+      preLoaderRoute: typeof CatalogModelsImportRouteImport
+      parentRoute: typeof CatalogModelsRouteRoute
+    }
+    '/catalog/models/new': {
+      id: '/catalog/models/new'
+      path: '/new'
+      fullPath: '/catalog/models/new'
+      preLoaderRoute: typeof CatalogModelsNewRouteImport
+      parentRoute: typeof CatalogModelsRouteRoute
     }
     '/catalog/vouchers/': {
       id: '/catalog/vouchers/'
@@ -2026,6 +2242,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReleasesNewIndexRouteImport
       parentRoute: typeof ReleasesRouteRoute
     }
+    '/ai/models/$modelSlug/edit': {
+      id: '/ai/models/$modelSlug/edit'
+      path: '/models/$modelSlug/edit'
+      fullPath: '/ai/models/$modelSlug/edit'
+      preLoaderRoute: typeof AiModelsModelSlugEditRouteImport
+      parentRoute: typeof AiRouteRoute
+    }
     '/catalog/addons/$addonSlug/': {
       id: '/catalog/addons/$addonSlug/'
       path: '/'
@@ -2066,6 +2289,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/catalog/entitlements/$entitlementSlug/'
       preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugIndexRouteImport
+      parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
+    }
+    '/catalog/entitlements/$entitlementSlug/calculation': {
+      id: '/catalog/entitlements/$entitlementSlug/calculation'
+      path: '/calculation'
+      fullPath: '/catalog/entitlements/$entitlementSlug/calculation'
+      preLoaderRoute: typeof CatalogEntitlementsEntitlementSlugCalculationRouteImport
       parentRoute: typeof CatalogEntitlementsEntitlementSlugRouteRoute
     }
     '/catalog/entitlements/$entitlementSlug/customers': {
@@ -2124,6 +2354,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CatalogLicensesVersionsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/catalog/models/$modelSlug/edit': {
+      id: '/catalog/models/$modelSlug/edit'
+      path: '/$modelSlug/edit'
+      fullPath: '/catalog/models/$modelSlug/edit'
+      preLoaderRoute: typeof CatalogModelsModelSlugEditRouteImport
+      parentRoute: typeof CatalogModelsRouteRoute
+    }
+    '/catalog/models/$modelSlug/source': {
+      id: '/catalog/models/$modelSlug/source'
+      path: '/$modelSlug/source'
+      fullPath: '/catalog/models/$modelSlug/source'
+      preLoaderRoute: typeof CatalogModelsModelSlugSourceRouteImport
+      parentRoute: typeof CatalogModelsRouteRoute
+    }
     '/catalog/vouchers/$voucherId/': {
       id: '/catalog/vouchers/$voucherId/'
       path: '/'
@@ -2150,6 +2394,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/customers/instances/$instanceSlug/'
       preLoaderRoute: typeof CustomersInstancesInstanceSlugIndexRouteImport
+      parentRoute: typeof CustomersInstancesInstanceSlugRouteRoute
+    }
+    '/customers/instances/$instanceSlug/ai-usage': {
+      id: '/customers/instances/$instanceSlug/ai-usage'
+      path: '/ai-usage'
+      fullPath: '/customers/instances/$instanceSlug/ai-usage'
+      preLoaderRoute: typeof CustomersInstancesInstanceSlugAiUsageRouteImport
       parentRoute: typeof CustomersInstancesInstanceSlugRouteRoute
     }
     '/customers/instances/$instanceSlug/audit-trail': {
@@ -2372,6 +2623,23 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AiRouteRouteChildren {
+  AiModelsNewRoute: typeof AiModelsNewRoute
+  AiMatrixIndexRoute: typeof AiMatrixIndexRoute
+  AiModelsIndexRoute: typeof AiModelsIndexRoute
+  AiModelsModelSlugEditRoute: typeof AiModelsModelSlugEditRoute
+}
+
+const AiRouteRouteChildren: AiRouteRouteChildren = {
+  AiModelsNewRoute: AiModelsNewRoute,
+  AiMatrixIndexRoute: AiMatrixIndexRoute,
+  AiModelsIndexRoute: AiModelsIndexRoute,
+  AiModelsModelSlugEditRoute: AiModelsModelSlugEditRoute,
+}
+
+const AiRouteRouteWithChildren =
+  AiRouteRoute._addFileChildren(AiRouteRouteChildren)
+
 interface CustomersCustomerSlugRouteRouteChildren {
   CustomersCustomerSlugEditRoute: typeof CustomersCustomerSlugEditRoute
   CustomersCustomerSlugOverviewRoute: typeof CustomersCustomerSlugOverviewRoute
@@ -2447,6 +2715,7 @@ const CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren =
 interface CustomersInstancesInstanceSlugRouteRouteChildren {
   CustomersInstancesInstanceSlugBillingRouteRoute: typeof CustomersInstancesInstanceSlugBillingRouteRouteWithChildren
   CustomersInstancesInstanceSlugEntitlementsRouteRoute: typeof CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren
+  CustomersInstancesInstanceSlugAiUsageRoute: typeof CustomersInstancesInstanceSlugAiUsageRoute
   CustomersInstancesInstanceSlugAuditTrailRoute: typeof CustomersInstancesInstanceSlugAuditTrailRoute
   CustomersInstancesInstanceSlugEditRoute: typeof CustomersInstancesInstanceSlugEditRoute
   CustomersInstancesInstanceSlugIndexRoute: typeof CustomersInstancesInstanceSlugIndexRoute
@@ -2458,6 +2727,8 @@ const CustomersInstancesInstanceSlugRouteRouteChildren: CustomersInstancesInstan
       CustomersInstancesInstanceSlugBillingRouteRouteWithChildren,
     CustomersInstancesInstanceSlugEntitlementsRouteRoute:
       CustomersInstancesInstanceSlugEntitlementsRouteRouteWithChildren,
+    CustomersInstancesInstanceSlugAiUsageRoute:
+      CustomersInstancesInstanceSlugAiUsageRoute,
     CustomersInstancesInstanceSlugAuditTrailRoute:
       CustomersInstancesInstanceSlugAuditTrailRoute,
     CustomersInstancesInstanceSlugEditRoute:
@@ -2698,6 +2969,7 @@ const CatalogAddonsRouteRouteWithChildren =
   CatalogAddonsRouteRoute._addFileChildren(CatalogAddonsRouteRouteChildren)
 
 interface CatalogEntitlementsEntitlementSlugRouteRouteChildren {
+  CatalogEntitlementsEntitlementSlugCalculationRoute: typeof CatalogEntitlementsEntitlementSlugCalculationRoute
   CatalogEntitlementsEntitlementSlugCustomersRoute: typeof CatalogEntitlementsEntitlementSlugCustomersRoute
   CatalogEntitlementsEntitlementSlugLicensesRoute: typeof CatalogEntitlementsEntitlementSlugLicensesRoute
   CatalogEntitlementsEntitlementSlugUsageRoute: typeof CatalogEntitlementsEntitlementSlugUsageRoute
@@ -2706,6 +2978,8 @@ interface CatalogEntitlementsEntitlementSlugRouteRouteChildren {
 
 const CatalogEntitlementsEntitlementSlugRouteRouteChildren: CatalogEntitlementsEntitlementSlugRouteRouteChildren =
   {
+    CatalogEntitlementsEntitlementSlugCalculationRoute:
+      CatalogEntitlementsEntitlementSlugCalculationRoute,
     CatalogEntitlementsEntitlementSlugCustomersRoute:
       CatalogEntitlementsEntitlementSlugCustomersRoute,
     CatalogEntitlementsEntitlementSlugLicensesRoute:
@@ -2739,6 +3013,25 @@ const CatalogEntitlementsRouteRouteWithChildren =
   CatalogEntitlementsRouteRoute._addFileChildren(
     CatalogEntitlementsRouteRouteChildren,
   )
+
+interface CatalogModelsRouteRouteChildren {
+  CatalogModelsImportRoute: typeof CatalogModelsImportRoute
+  CatalogModelsNewRoute: typeof CatalogModelsNewRoute
+  CatalogModelsIndexRoute: typeof CatalogModelsIndexRoute
+  CatalogModelsModelSlugEditRoute: typeof CatalogModelsModelSlugEditRoute
+  CatalogModelsModelSlugSourceRoute: typeof CatalogModelsModelSlugSourceRoute
+}
+
+const CatalogModelsRouteRouteChildren: CatalogModelsRouteRouteChildren = {
+  CatalogModelsImportRoute: CatalogModelsImportRoute,
+  CatalogModelsNewRoute: CatalogModelsNewRoute,
+  CatalogModelsIndexRoute: CatalogModelsIndexRoute,
+  CatalogModelsModelSlugEditRoute: CatalogModelsModelSlugEditRoute,
+  CatalogModelsModelSlugSourceRoute: CatalogModelsModelSlugSourceRoute,
+}
+
+const CatalogModelsRouteRouteWithChildren =
+  CatalogModelsRouteRoute._addFileChildren(CatalogModelsRouteRouteChildren)
 
 interface CatalogVouchersVoucherIdRouteRouteChildren {
   CatalogVouchersVoucherIdEditRoute: typeof CatalogVouchersVoucherIdEditRoute
@@ -2893,6 +3186,7 @@ const CatalogLicensesLicenseSlugRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AiRouteRoute: AiRouteRouteWithChildren,
   CustomersRouteRoute: CustomersRouteRouteWithChildren,
   InvoicesRouteRoute: InvoicesRouteRouteWithChildren,
   ReleasesRouteRoute: ReleasesRouteRouteWithChildren,
@@ -2900,6 +3194,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   CatalogAddonsRouteRoute: CatalogAddonsRouteRouteWithChildren,
   CatalogEntitlementsRouteRoute: CatalogEntitlementsRouteRouteWithChildren,
+  CatalogModelsRouteRoute: CatalogModelsRouteRouteWithChildren,
   CatalogVouchersRouteRoute: CatalogVouchersRouteRouteWithChildren,
   FeatureFlagsFeatureFlagSlugRouteRoute:
     FeatureFlagsFeatureFlagSlugRouteRouteWithChildren,

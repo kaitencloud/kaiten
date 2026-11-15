@@ -549,7 +549,7 @@ WITH primary_instance AS (
   FROM instance i
          JOIN customer c ON c.id = i.customer_id AND c.organization_id = i.organization_id
   WHERE c.organization_id = $1
-    AND c.slug = $2
+    AND c.slug = $3
   -- id breaks a created_at tie, so the choice never depends on row order.
   ORDER BY i.created_at, i.id
   LIMIT 1
@@ -578,6 +578,11 @@ FROM primary_instance pi
        -- instance's entitlement value reads them.
        LEFT JOIN instance_effective_entitlement iee
          ON iee.instance_id = pi.id AND iee.organization_id = $1
+        AND (NOT $2::boolean OR EXISTS (
+          SELECT 1 FROM entitlement classified
+          WHERE classified.id = iee.entitlement_id AND classified.organization_id = iee.organization_id
+            AND classified.type <> 'NUMBER_AI_CREDIT'
+        ))
        LEFT JOIN entitlement e
          ON e.id = iee.entitlement_id AND e.organization_id = $1
        LEFT JOIN entitlement_usage eu
@@ -589,6 +594,7 @@ ORDER BY e.slug
 
 type GetTargetingFactsByCustomerSlugParams struct {
 	OrganizationID uuid.UUID `json:"organization_id"`
+	HideAi         bool      `json:"hide_ai"`
 	CustomerSlug   string    `json:"customer_slug"`
 }
 
@@ -644,7 +650,7 @@ type GetTargetingFactsByCustomerSlugRow struct {
 // caller resolves the current window lazily as every gauge read does (§6.1
 // rule 2, V31-57): a counter whose window has ended reads as the new one's.
 func (q *Queries) GetTargetingFactsByCustomerSlug(ctx context.Context, arg GetTargetingFactsByCustomerSlugParams) ([]GetTargetingFactsByCustomerSlugRow, error) {
-	rows, err := q.db.Query(ctx, getTargetingFactsByCustomerSlug, arg.OrganizationID, arg.CustomerSlug)
+	rows, err := q.db.Query(ctx, getTargetingFactsByCustomerSlug, arg.OrganizationID, arg.HideAi, arg.CustomerSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -684,7 +690,7 @@ WITH primary_instance AS (
   SELECT i.id, i.license_id, i.start_license_date
   FROM instance i
   WHERE i.organization_id = $1
-    AND i.id = $2
+    AND i.id = $3
 )
 SELECT pi.id            AS instance_id,
        l.slug           AS license_slug,
@@ -710,6 +716,11 @@ FROM primary_instance pi
        -- instance's entitlement value reads them.
        LEFT JOIN instance_effective_entitlement iee
          ON iee.instance_id = pi.id AND iee.organization_id = $1
+        AND (NOT $2::boolean OR EXISTS (
+          SELECT 1 FROM entitlement classified
+          WHERE classified.id = iee.entitlement_id AND classified.organization_id = iee.organization_id
+            AND classified.type <> 'NUMBER_AI_CREDIT'
+        ))
        LEFT JOIN entitlement e
          ON e.id = iee.entitlement_id AND e.organization_id = $1
        LEFT JOIN entitlement_usage eu
@@ -721,6 +732,7 @@ ORDER BY e.slug
 
 type GetTargetingFactsByInstanceParams struct {
 	OrganizationID uuid.UUID `json:"organization_id"`
+	HideAi         bool      `json:"hide_ai"`
 	InstanceID     uuid.UUID `json:"instance_id"`
 }
 
@@ -747,7 +759,7 @@ type GetTargetingFactsByInstanceRow struct {
 // GetTargetingFactsByCustomerSlug, for that instance instead of the
 // customer's oldest.
 func (q *Queries) GetTargetingFactsByInstance(ctx context.Context, arg GetTargetingFactsByInstanceParams) ([]GetTargetingFactsByInstanceRow, error) {
-	rows, err := q.db.Query(ctx, getTargetingFactsByInstance, arg.OrganizationID, arg.InstanceID)
+	rows, err := q.db.Query(ctx, getTargetingFactsByInstance, arg.OrganizationID, arg.HideAi, arg.InstanceID)
 	if err != nil {
 		return nil, err
 	}

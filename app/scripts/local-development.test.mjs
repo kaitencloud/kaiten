@@ -35,6 +35,32 @@ test('frontend mode is explicit and does not inherit provider secrets', () => {
   assert.throws(() => configuration(['--api-url', 'https://production.example']));
 });
 
+test('frontend platform flag wiring reads only the selected real stack token', async () => {
+  const { writeFileSync } = await import('node:fs');
+  const credentials = mkdtempSync(resolve(tmpdir(), 'local-flags-fixture-'));
+  const flagsFile = resolve(credentials, 'platform-flags-token');
+  const args = ['--mode', 'real', '--credentials', credentials, '--api-url', 'http://127.0.0.1:6060/api'];
+  const inherited = { VITE_KAITEN_PLATFORM_API_URL: 'https://unselected.example/api', VITE_KAITEN_PLATFORM_FLAGS_TOKEN: 'do-not-inherit' };
+  try {
+    const absent = configuration(args, inherited);
+    assert.equal(absent.env.VITE_KAITEN_PLATFORM_API_URL, '');
+    assert.equal(absent.env.VITE_KAITEN_PLATFORM_FLAGS_TOKEN, '');
+    writeFileSync(flagsFile, 'synthetic-read-only-token\n', { mode: 0o600 });
+    const real = configuration(args, inherited);
+    assert.equal(real.env.VITE_KAITEN_PLATFORM_API_URL, 'http://127.0.0.1:6060/api');
+    assert.equal(real.env.VITE_KAITEN_PLATFORM_FLAGS_TOKEN, 'synthetic-read-only-token');
+    const mock = configuration(['--mode', 'mock', '--credentials', credentials], inherited);
+    assert.equal(mock.env.VITE_KAITEN_PLATFORM_API_URL, '');
+    assert.equal(mock.env.VITE_KAITEN_PLATFORM_FLAGS_TOKEN, '');
+    writeFileSync(flagsFile, '');
+    assert.throws(() => configuration(args, inherited), /empty or malformed/);
+    writeFileSync(flagsFile, 'synthetic invalid token');
+    assert.throws(() => configuration(args, inherited), /empty or malformed/);
+    const check = configuration([...args, '--check'], inherited);
+    assert.equal(check.env.VITE_KAITEN_PLATFORM_FLAGS_TOKEN, '');
+  } finally { rmSync(credentials, { recursive: true, force: true }); }
+});
+
 test('capture retains private failure summary and closes only its own browser', async () => {
   const parent = mkdtempSync(resolve(tmpdir(), 'local-capture-fixture-'));
   let closed = 0;

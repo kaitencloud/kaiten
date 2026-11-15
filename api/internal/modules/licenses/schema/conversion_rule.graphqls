@@ -1,0 +1,45 @@
+enum ConversionRuleStatus {
+ ACTIVE
+ ARCHIVED
+}
+enum AiRequestType {
+ COMPLETION
+ EMBEDDING
+ IMAGE_GENERATION
+ AUDIO
+ VIDEO
+}
+enum ChargeOnErrorPolicy {
+ NEVER
+ ALWAYS
+ PROVIDER_ERROR_ONLY
+}
+type ConversionRates {
+ perRequest: String
+ perInputToken: String
+ perCachedInputToken: String
+ perCacheWriteToken: String
+ perOutputToken: String
+ perUnit: String
+ perSecond: String
+}
+"""An immutable license/pool/model/request identity with mutable exact pricing."""
+type ConversionRule {
+ id: UUID!
+ licenseSlug: String!
+ entitlementSlug: String!
+ modelSlug: String
+ requestType: AiRequestType
+ rates: ConversionRates!
+ minimumCreditsPerRequest: String!
+ maximumCreditsPerRequest: String
+ chargeOnError: ChargeOnErrorPolicy!
+ status: ConversionRuleStatus!
+ grantedByLicense: Boolean!
+ createdAt: Time!
+ updatedAt: Time!
+}
+extend type License {
+ """All rules when status is omitted; an explicit status filters that relation."""
+ conversionRules(status: ConversionRuleStatus): [ConversionRule!]!
+}

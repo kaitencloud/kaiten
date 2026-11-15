@@ -9,15 +9,18 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	entitlementEvents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 }
@@ -41,15 +44,40 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+
+	if command.Type != nil {
+		if err := h.deps.AIPolicy.RequireType(ctx, string(*command.Type)); err != nil {
+			return err
+		}
+	}
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if err := licenseview.RequireOperationalLocked(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, slug); err != nil {
+			return err
+		}
 		currentEntitlement, err := h.repo.GetEntitlement(ctx, slug, user.OrganizationID)
 		if err != nil {
 			return err
 		}
 
+		if currentEntitlement.Type != nil {
+			if err := h.deps.AIPolicy.RequireType(ctx, string(*currentEntitlement.Type)); err != nil {
+				return err
+			}
+		}
+
 		if command.Type != nil && currentEntitlement.Type != nil && *command.Type != *currentEntitlement.Type {
 			return kaitenerrors.Validation("UpdateEntitlement.ImmutableType", "type is immutable and cannot be changed after creation")
+		}
+		if currentEntitlement.Type != nil {
+			aggregation := currentEntitlement.AggregationMethod
+			if command.AggregationMethod != nil {
+				aggregation = command.AggregationMethod
+			}
+			if err := schema.ValidateAICreditAggregation(*currentEntitlement.Type, aggregation); err != nil {
+				return kaitenerrors.UnprocessableEntity("UpdateEntitlement.AiCreditPoolRequiresSum", err.Error())
+			}
 		}
 		if command.AggregationMethod != nil {
 			if currentEntitlement.AggregationMethod == nil || *command.AggregationMethod != *currentEntitlement.AggregationMethod {

@@ -13,13 +13,16 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	entitlementEvents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
+	AIPolicy      aiusage.Policy
 	UserProvider  currentuser.Provider
 	Uof           *uow.UnitOfWork
 	UsageReporter services.UsageReporter
@@ -44,8 +47,15 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 	if err != nil {
 		return err
 	}
+	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
+	if err := licenseview.RequireOperational(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, slug); err != nil {
+		return err
+	}
 
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		if err := licenseview.RequireOperationalLocked(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, slug); err != nil {
+			return err
+		}
 		deletedEntitlement, err := h.repo.DeleteEntitlement(ctx, user.OrganizationID, slug)
 		if err != nil {
 			return err

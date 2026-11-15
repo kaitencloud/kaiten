@@ -36,6 +36,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, instanceVouc
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	var revoked catalogue.Redemption
 	err = u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
@@ -51,6 +52,9 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, instanceVouc
 			return kaitenerrors.NotFoundf(operation+".NotFound", "redemption %s not found", instanceVoucherID)
 		}
 		if err != nil {
+			return err
+		}
+		if err := catalogue.RequireOperational(ctx, q, user.OrganizationID, locked.VoucherID, u.deps.AIPolicy); err != nil {
 			return err
 		}
 		if locked.Status != db.InstanceVoucherStatusACTIVE {

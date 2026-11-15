@@ -1,8 +1,17 @@
+import type { ReactNode } from 'react';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vite-plus/test';
+import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { EditableLicenseEntitlement } from '../../../utils';
 import { LicenseEntitlementsCard } from '../license-entitlements-card';
+
+const rollout = vi.hoisted(() => ({ available: false }));
+vi.mock('@/domains/ai-credits/use-ai-access', () => ({ useAiAccess: () => ({ available: rollout.available, isPending: false, allows: () => rollout.available }) }));
+beforeEach(() => { rollout.available = false; });
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ params, search, onClick, children }: { params: { entitlementSlug: string }; search: { licenseSlug: string }; onClick: React.MouseEventHandler; children: ReactNode }) => <a href={`/catalog/entitlements/${params.entitlementSlug}/calculation?licenseSlug=${search.licenseSlug}`} onClick={onClick}>{children}</a>,
+}));
 
 vi.mock('../add-entitlement-dialog', () => ({
   AddEntitlementDialog: () => null,
@@ -37,6 +46,8 @@ vi.mock('react-i18next', () => {
         'Common.rowsPerPage': 'Rows per page',
         'Pages.Entitlements.EntitlementTypes.BOOLEAN': 'Boolean',
         'Pages.Entitlements.EntitlementTypes.NUMBER': 'Number',
+        'Pages.Entitlements.EntitlementTypes.NUMBER_AI_CREDIT': 'AI credits',
+        'AI.Calculation.configure': 'Configure calculation',
         'Pages.Entitlements.EntitlementTypes.CONFIG': 'Config',
         'Pages.Licenses.Entitlements.Columns.actions': 'Actions',
         'Pages.Licenses.Entitlements.Columns.entitlement': 'Entitlement',
@@ -844,4 +855,32 @@ describe('LicenseEntitlementsCard', () => {
     expect(screen.getByRole('button', { name: 'Next' })).toBeInTheDocument();
     expect(screen.getByText('Rows per page')).toBeInTheDocument();
   });
+});
+
+it('labels AI credits from the catalogue without changing the numeric editor, and links only persisted versions', () => {
+  rollout.available = true;
+  const definitions = [{ ...entitlements[0], type: 'NUMBER_AI_CREDIT' }];
+  const onClickEntitlement = vi.fn();
+  const props = { entitlements: definitions, rows: [rows[0]], onClickEntitlement, onAddEntitlement: vi.fn(), onDeleteEntitlement: vi.fn(), onUpdateEntitlementGrant: vi.fn() };
+  const view = render(<LicenseEntitlementsCard {...props} licenseSlug="pro-v2" />);
+  expect(screen.getByText('AI credits')).toBeInTheDocument();
+  const link = screen.getByRole('link', { name: 'Configure calculation' });
+  expect(link).toHaveAttribute('href', '/catalog/entitlements/seats/calculation?licenseSlug=pro-v2');
+  fireEvent.click(link);
+  expect(onClickEntitlement).not.toHaveBeenCalled();
+  view.rerender(<LicenseEntitlementsCard {...props} />);
+  expect(screen.queryByRole('link', { name: 'Configure calculation' })).not.toBeInTheDocument();
+  expect(screen.getByRole('button', { name: '10' })).toBeInTheDocument();
+});
+
+it('hides AI grants without changing the canonical array or calling removal, then restores them when both gates reopen', () => {
+  const definitions = [{ ...entitlements[0], type: 'NUMBER_AI_CREDIT' }];
+  const canonical = [{ ...rows[0], catalogueEntitlementType: 'NUMBER_AI_CREDIT' as const }];
+  const remove = vi.fn();
+  const view = render(<LicenseEntitlementsCard entitlements={definitions} rows={canonical} onAddEntitlement={vi.fn()} onDeleteEntitlement={remove} onUpdateEntitlementGrant={vi.fn()} />);
+  expect(screen.queryByText(canonical[0].entitlementName)).not.toBeInTheDocument();
+  expect(remove).not.toHaveBeenCalled(); expect(canonical).toHaveLength(1);
+  rollout.available = true;
+  view.rerender(<LicenseEntitlementsCard entitlements={definitions} rows={canonical} onAddEntitlement={vi.fn()} onDeleteEntitlement={remove} onUpdateEntitlementGrant={vi.fn()} />);
+  expect(screen.getByText(canonical[0].entitlementName)).toBeInTheDocument(); expect(remove).not.toHaveBeenCalled();
 });

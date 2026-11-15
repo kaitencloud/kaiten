@@ -1,3 +1,8 @@
+import { expectAiCapabilityAfterNavigation } from '../_support/assertions/ai-capability';
+import {
+  installAiCapability,
+  installFlagEvaluations,
+} from '../_support/mocks/install-app-mocks';
 import { expect, expectToast, test } from '../_support/app-test';
 import { recordGraphQL, recordWrites } from '../_support/assertions/requests';
 import { VoucherDetailDriver } from '../_support/drivers/voucher-detail.driver';
@@ -211,6 +216,30 @@ test.describe('the offer of a boost', () => {
 
     await wizard.addChange().click();
     // V32-03(b): BOOLEAN and CONFIG can be boosted with SET only.
+    expect((await wizard.offeredEntitlements(0)).sort()).toEqual([
+      'Advanced Analytics',
+      'Branding',
+      'Seats',
+      'Storage',
+      'Tokens',
+    ]);
+    for (const entitlement of ['Advanced Analytics', 'Branding']) {
+      await wizard.chooseEntitlement(0, entitlement);
+      await wizard.modifier(0).click();
+      await expect(page.getByRole('option')).toHaveText(['Set to']);
+      await page.keyboard.press('Escape');
+    }
+  });
+
+  test('offers AI credits only when server availability and platform rollout are explicitly enabled', async ({
+    page,
+  }) => {
+    await installAiCapability(page, true);
+    await installFlagEvaluations(page, { 'ai-credits': true });
+    const wizard = new VoucherWizardDriver(page);
+    await expectAiCapabilityAfterNavigation(page, () => wizard.goto());
+    await wizard.startAs('Boost', 'AI credits opt-in');
+    await wizard.addChange().click();
     expect((await wizard.offeredEntitlements(0)).sort()).toEqual([
       'AI credits',
       'Advanced Analytics',

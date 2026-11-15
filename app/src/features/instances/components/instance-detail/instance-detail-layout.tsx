@@ -67,7 +67,7 @@ export const InstanceDetailLayout = ({
             </Page.Icon>
             <Page.Heading>
               <Page.TitleRow>
-                <Page.Title>
+                <Page.Title className={activeTab === 'ai-usage' ? 'text-2xl font-semibold' : undefined}>
                   <EditableTitle
                     value={instance.name}
                     onSave={handleRename}
@@ -156,12 +156,14 @@ export const InstanceDetailLayout = ({
             </div>
           </Page.Actions>
         </Page.Header>
-        <InstanceDetailQuickStats
-          daysLeft={daysLeft}
-          endLicenseDate={instance.endLicenseDate}
-          entitlementsMetrics={entitlementsMetrics}
-          urgencyTextClassName={urgencyTextClassName}
-        />
+        {activeTab !== 'ai-usage' && (
+          <InstanceDetailQuickStats
+            daysLeft={daysLeft}
+            endLicenseDate={instance.endLicenseDate}
+            entitlementsMetrics={entitlementsMetrics}
+            urgencyTextClassName={urgencyTextClassName}
+          />
+        )}
       </DetailEntityLayout.Top>
       <DetailEntityLayout.Body>
         <DetailEntityLayout.Tabs activeTab={activeTab} items={items} />

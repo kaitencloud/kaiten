@@ -17,6 +17,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string) ([]catalogue.Ad
 	if err != nil {
 		return nil, err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	q := u.deps.Queries(ctx)
 	addon, err := catalogue.Get(ctx, q, user.OrganizationID, addonSlug, "ListAddonEntitlements.AddonNotFound")
 	if err != nil {
@@ -26,9 +27,11 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string) ([]catalogue.Ad
 	if err != nil {
 		return nil, err
 	}
-	grants := make([]catalogue.AddonEntitlement, len(rows))
-	for i, row := range rows {
-		grants[i] = catalogue.ToGrant(row)
+	grants := make([]catalogue.AddonEntitlement, 0, len(rows))
+	for _, row := range rows {
+		if u.deps.AIPolicy.RequireType(ctx, string(row.EntitlementType)) == nil {
+			grants = append(grants, catalogue.ToGrant(row))
+		}
 	}
 	return grants, nil
 }

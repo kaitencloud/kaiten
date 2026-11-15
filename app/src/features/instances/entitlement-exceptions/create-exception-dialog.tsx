@@ -23,7 +23,11 @@ export function CreateExceptionDialog({ onClose }: { onClose: () => void }) {
   const instanceSlug = instance.slug ?? instance.id;
   const access = useGrantedScopes();
   const formId = useId();
-  const { form, failure, conflictId } = useExceptionForm(instanceSlug, onClose);
+  const { form, failure, conflictId } = useExceptionForm(
+    instanceSlug,
+    onClose,
+    entitlements,
+  );
   const current = useQuery(
     getEntitlementsUsageMetricsOptions({ path: { instanceSlug } }),
   );

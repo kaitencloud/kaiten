@@ -223,3 +223,8 @@ func (r *QueryRepository) LoadLimits(ctx context.Context, result *UsageContext, 
 	}
 	return nil
 }
+
+func (r *QueryRepository) EntitlementType(ctx context.Context, organizationID uuid.UUID, slug string) (string, error) {
+	kind, err := r.q(ctx).GetUsageTargetType(ctx, db.GetUsageTargetTypeParams{OrganizationID: organizationID, Slug: slug})
+	return string(kind), err
+}

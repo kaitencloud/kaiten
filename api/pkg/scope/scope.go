@@ -11,6 +11,7 @@ type Module string
 
 // Valid modules - add new modules here
 const (
+	Models          Module = "models"
 	FeatureFlags    Module = "feature_flags"
 	Instances       Module = "instances"
 	Licenses        Module = "licenses"
@@ -88,6 +89,7 @@ const (
 
 // allModules is the single source of truth for valid modules
 var allModules = []Module{
+	Models,
 	FeatureFlags,
 	Instances,
 	Licenses,

@@ -4,6 +4,8 @@ const {
   envMock,
   getAuthTokenMock,
   getBooleanValueMock,
+  getBooleanDetailsMock,
+  providerStatus,
   setProviderAndWaitMock,
   getStoredDevTokenMock,
 } = vi.hoisted(() => ({
@@ -15,6 +17,8 @@ const {
     getAuthTokenMock: vi.fn(async () => 'token' as string | undefined),
     getStoredDevTokenMock: vi.fn<() => string | null>(() => null),
     getBooleanValueMock: vi.fn(() => true),
+    getBooleanDetailsMock: vi.fn(() => ({ value: true, reason: 'TARGETING_MATCH', errorCode: undefined as string | undefined })),
+    providerStatus: { value: 'READY' },
     setProviderAndWaitMock: vi.fn(
       async (_provider: unknown, _context: unknown) => undefined,
     ),
@@ -34,7 +38,7 @@ vi.mock('@openfeature/ofrep-web-provider', () => ({
 
 vi.mock('@openfeature/web-sdk', () => ({
   OpenFeature: {
-    getClient: () => ({ getBooleanValue: getBooleanValueMock }),
+    getClient: () => ({ getBooleanValue: getBooleanValueMock, getBooleanDetails: getBooleanDetailsMock, get providerStatus() { return providerStatus.value; } }),
     setProviderAndWait: setProviderAndWaitMock,
   },
 }));
@@ -56,6 +60,8 @@ beforeEach(() => {
   vi.stubEnv('VITE_E2E_BYPASS_AUTH', 'false');
   vi.stubEnv('DEV', true);
   getStoredDevTokenMock.mockReset().mockReturnValue(null);
+  getBooleanDetailsMock.mockReset().mockReturnValue({ value: true, reason: 'TARGETING_MATCH', errorCode: undefined });
+  providerStatus.value = 'READY';
 });
 afterEach(() => {
   (window as unknown as { Clerk?: unknown }).Clerk = originalClerk;
@@ -99,6 +105,55 @@ describe('platform flags against the local API', () => {
     getBooleanValueMock.mockClear().mockReturnValue(true);
     getAuthTokenMock.mockClear().mockResolvedValue('token');
     signIn('user-1');
+  });
+
+  it.each(['false', 'true'])('never evaluates customer AI flags in real local dev (local auth %s)', async (localAuth) => {
+    vi.stubEnv('VITE_LOCAL_AUTH', localAuth);
+    getStoredDevTokenMock.mockReturnValue('dev-token');
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
+    expect(setProviderAndWaitMock).not.toHaveBeenCalled();
+    expect(getBooleanDetailsMock).not.toHaveBeenCalled();
+  });
+
+  describe('AI flags against the explicitly mocked API', () => {
+    beforeEach(() => { vi.stubEnv('VITE_E2E_BYPASS_AUTH', 'true'); });
+  it('evaluates AI credits through a separate fresh platform provider', async () => {
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(true);
+    expect(getBooleanDetailsMock).toHaveBeenCalledWith('ai-credits', false);
+  });
+
+  it.each(['ERROR', 'STALE', 'RECONCILING', 'NOT_READY'])('fails closed on provider status %s even with a true value', async (status) => {
+    providerStatus.value = status;
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
+  });
+  it.each(['CACHED', 'STALE', 'ERROR', 'DISABLED', 'UNKNOWN'])('rejects non-current AI evaluation reason %s', async (reason) => {
+    getBooleanDetailsMock.mockReturnValue({ value: true, reason, errorCode: undefined });
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
+  });
+  it('refreshes the AI provider on every check without changing the demo evaluator', async () => {
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    await aiCreditsFlagQueryOptions.queryFn?.({} as never);
+    await aiCreditsFlagQueryOptions.queryFn?.({} as never);
+    expect(setProviderAndWaitMock).toHaveBeenCalledTimes(2);
+    expect(setProviderAndWaitMock).toHaveBeenLastCalledWith('kaiten-ai-rollout', expect.anything(), { targetingKey: 'user-1' });
+    expect(getBooleanValueMock).not.toHaveBeenCalled();
+  });
+  it('keeps AI credits off when the provider cannot initialize', async () => {
+    setProviderAndWaitMock.mockRejectedValueOnce(new Error('fixture outage'));
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
+  });
+
+    it.each(['PLATFORM_API_URL', 'PLATFORM_FLAGS_TOKEN'] as const)('does not fall back when only %s is configured', async (field) => {
+      envMock[field] = field === 'PLATFORM_API_URL' ? 'https://platform.test/api' : 'reader-token';
+      const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+      expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
+      expect(setProviderAndWaitMock).not.toHaveBeenCalled();
+    });
   });
 
   it('returns the evaluated flag once the provider is registered', async () => {
@@ -297,6 +352,25 @@ describe('platform flags against the platform flag service', () => {
     getBooleanValueMock.mockClear().mockReturnValue(true);
     getAuthTokenMock.mockClear().mockResolvedValue('session-token');
     signIn('user-1', 'org_3JKpp4TPWQDLjnrcUCDnwL73jE4');
+  });
+
+  it.each(['STATIC', 'DEFAULT', 'TARGETING_MATCH', 'SPLIT'])('accepts current successful AI resolution %s from the trusted source', async (reason) => {
+    getBooleanDetailsMock.mockReturnValue({ value: true, reason, errorCode: undefined });
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(true);
+    expect(setProviderAndWaitMock).toHaveBeenCalledWith('kaiten-ai-rollout', expect.anything(), {
+      targetingKey: '87052d9c-88de-5900-80fe-f8a05abda186',
+      organizationId: '87052d9c-88de-5900-80fe-f8a05abda186',
+      kaiten: { instanceSlug: '87052d9c-88de-5900-80fe-f8a05abda186' },
+    });
+    const provider = setProviderAndWaitMock.mock.lastCall?.[1] as { options: ProviderOptions };
+    expect(await provider.options.headersFactory()).toEqual([['Authorization', 'Bearer reader-token']]);
+  });
+
+  it('does not accept a true default on provider failure', async () => {
+    getBooleanDetailsMock.mockReturnValue({ value: true, reason: 'DEFAULT', errorCode: 'FLAG_NOT_FOUND' });
+    const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+    expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
   });
 
   it('evaluates for the organization, in the shape the service enriches', async () => {

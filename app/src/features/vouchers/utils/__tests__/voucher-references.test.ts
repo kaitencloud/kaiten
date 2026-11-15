@@ -88,6 +88,7 @@ describe('the names of what a voucher refers to', () => {
       addons: {},
       customers: {},
       entitlements: {},
+      entitlementTypes: {},
       licenses: {},
       prices: {},
     });

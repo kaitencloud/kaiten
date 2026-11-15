@@ -7,6 +7,8 @@ export type AddEntitlementPayload = AddDraftEntitlementPayload & {
 };
 
 export type LicenseEntitlementsCardProps = {
+  /** Exact persisted version; omitted by unsaved creation forms. */
+  licenseSlug?: string;
   addButtonLabel?: string;
   description?: string;
   emptyMessage?: string;

@@ -15,7 +15,7 @@ import (
 // Entitlements is the resolver for the entitlements field.
 func (r *queryResolver) Entitlements(ctx context.Context, limit *int, cursor *string) (*schema.EntitlementPage, error) {
 	l := pageLimit(limit)
-	page, err := entitlementsGraphql.GetEntitlements(ctx, r.EntitlementsQueries, l, cursor)
+	page, err := entitlementsGraphql.GetEntitlements(ctx, r.EntitlementsQueries, r.AIPolicy, l, cursor)
 	if err != nil {
 		return nil, err
 	}

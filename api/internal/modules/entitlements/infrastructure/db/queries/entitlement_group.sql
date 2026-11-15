@@ -149,5 +149,15 @@ LEFT JOIN entitlement_usage eu ON eu.entitlement_id = e.id AND eu.instance_id = 
 LEFT JOIN instance_effective_entitlement iee ON iee.entitlement_id = e.id AND iee.instance_id = i.id
 -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 LEFT JOIN instance_billing ib ON ib.instance_id = i.id AND ib.organization_id = i.organization_id
-WHERE eg.slug = sqlc.arg(group_slug)
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type <> 'NUMBER_AI_CREDIT')
+ AND eg.slug = sqlc.arg(group_slug)
   AND eg.organization_id = sqlc.arg(organization_id);
+
+-- name: EntitlementGroupHasAI :one
+SELECT EXISTS (
+ SELECT 1 FROM entitlement_group g
+ JOIN entitlement_group_membership m ON m.entitlement_group_id = g.id AND m.organization_id = g.organization_id
+ JOIN entitlement e ON e.id = m.entitlement_id AND e.organization_id = g.organization_id
+ WHERE g.organization_id = sqlc.arg(organization_id) AND g.slug = sqlc.arg(slug)
+   AND e.type = 'NUMBER_AI_CREDIT'
+)::boolean;

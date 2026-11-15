@@ -1,0 +1,35 @@
+enum ModelModality {
+  TEXT
+  IMAGE
+  AUDIO
+  VIDEO
+  EMBEDDING
+  MULTIMODAL
+}
+
+enum ModelStatus {
+  ACTIVE
+  DEPRECATED
+  ARCHIVED
+}
+
+"""
+An organization-scoped model catalogue entry. Vendor costs are intentionally
+REST-only under read:models. Deprecated models keep existing pricing; archived
+models remain in the catalogue but authorize no usage.
+"""
+type Model {
+  id: UUID!
+  name: String!
+  slug: String!
+  vendor: String!
+  modality: ModelModality!
+  status: ModelStatus!
+  externalIds: [String!]!
+  metadata: Map
+}
+
+extend type Query {
+  """All catalogue models in the current organization, optionally filtered by status."""
+  models(status: ModelStatus): [Model!]!
+}

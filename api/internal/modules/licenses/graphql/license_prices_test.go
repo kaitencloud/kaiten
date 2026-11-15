@@ -19,6 +19,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // fakeDBTX is a minimal db.DBTX fake: the prices are only ever read with Query. It
@@ -109,7 +110,7 @@ func contextWithLoaders(t *testing.T, fake *fakeDBTX, organizationID uuid.UUID, 
 
 	loaders := dataloader.NewLoaders()
 	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(
-		newLicensePricesBatchFn(db.New(fake)),
+		newLicensePricesBatchFn(db.New(fake), aiusage.Policy{}),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](batch),
 		dataloaderLib.WithWait[uuid.UUID, []prices.Price](time.Second),
 	))
@@ -194,7 +195,7 @@ func TestLicensePricesNeedAnIdentity(t *testing.T) {
 	fake := &fakeDBTX{}
 	loaders := dataloader.NewLoaders()
 	loaders.Register(LicensePricesLoaderName, dataloaderLib.NewBatchedLoader(
-		newLicensePricesBatchFn(db.New(fake)),
+		newLicensePricesBatchFn(db.New(fake), aiusage.Policy{}),
 		dataloaderLib.WithBatchCapacity[uuid.UUID, []prices.Price](1),
 	))
 

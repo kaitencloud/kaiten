@@ -11,11 +11,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
 // Deps is what every price use case needs.
 type Deps struct {
+	AIPolicy     aiusage.Policy
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 	// Gate keeps the priced catalogue behind the billing switch.

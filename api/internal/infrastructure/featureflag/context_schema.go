@@ -44,6 +44,7 @@ const (
 // below it. Recursive by nature: the context is a tree, and a customer-declared
 // namespace will nest as deeply as the customer nests it.
 type TargetingContextNode struct {
+	EntitlementType string `json:"entitlementType,omitempty" doc:"Original catalogue type on a known entitlement entry only, not a metadata or CONFIG key"`
 	// Values is the shape shared by every entry of a map, when there is one.
 	// `__kaiten.instance.metadata` is free-form, so each entry is dyn.
 	Values *TargetingContextNode `json:"values,omitempty" doc:"Shape shared by every entry, for a map"`
@@ -118,7 +119,9 @@ func entitlementsNode(knownEntitlements []KnownEntitlement) TargetingContextNode
 	entries := make([]TargetingContextNode, 0, len(knownEntitlements))
 	for _, known := range knownEntitlements {
 		slugs = append(slugs, known.Slug)
-		entries = append(entries, entitlementNode(known))
+		node := entitlementNode(known)
+		node.EntitlementType = known.DeclaredType
+		entries = append(entries, node)
 	}
 
 	return TargetingContextNode{

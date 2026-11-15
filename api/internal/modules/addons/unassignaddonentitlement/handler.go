@@ -27,6 +27,7 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, entitlementSlug string
 	if err != nil {
 		return err
 	}
+	ctx = u.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 	return u.deps.Uof.Transact(ctx, func(ctx context.Context) error {
 		q := u.deps.Queries(ctx)
 		locked, err := catalogue.Lock(ctx, q, user.OrganizationID, addonSlug, operation+".NotFound")
@@ -35,6 +36,9 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug, entitlementSlug string
 		}
 		existing, err := catalogue.LockedGrant(ctx, q, user.OrganizationID, locked.Row.ID, entitlementSlug, operation+".NotFound")
 		if err != nil {
+			return err
+		}
+		if err := u.deps.AIPolicy.RequireType(ctx, string(existing.EntitlementType)); err != nil {
 			return err
 		}
 		if err := catalogue.RefuseBilled(ctx, q, operation, user.OrganizationID, locked.Row.ID); err != nil {

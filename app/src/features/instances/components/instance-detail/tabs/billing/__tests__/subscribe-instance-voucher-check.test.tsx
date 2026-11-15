@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { delay, HttpResponse } from 'msw';
 import type { AnchorHTMLAttributes } from 'react';
@@ -14,6 +14,7 @@ import type {
 import {
   handleGetBillingCapabilities,
   handleGetBillingSettings,
+  handleGetInstanceBilling,
   handleListAddonCompatibility,
   handleListAddons,
   handleListInstanceAddons,
@@ -29,6 +30,7 @@ import {
   sessionToken,
   useBillingTexts,
 } from '@/test-fixtures/billing-test-support';
+import { setAiAccessInputsForTest } from '@/test-fixtures/ai-access';
 import { buildPrice } from '../../../../../../../../e2e/app/_support/fixtures/build-pricing';
 import { buildSubscription } from '../../../../../../../../e2e/app/_support/fixtures/build-subscription';
 import { billingCapabilitiesProfiles } from '../../../../../../../../e2e/app/_support/model/billing-capabilities';
@@ -415,5 +417,62 @@ describe('checking the code before the subscription is sent', () => {
       'Il peut être utilisé avec cet abonnement, sur le prix choisi.',
     );
     await testI18n.changeLanguage('en');
+  });
+});
+
+
+describe('known AI subscription vouchers', () => {
+  const pool = { name: 'AI pool', slug: 'ai-pool', type: 'NUMBER_AI_CREDIT' };
+  const mixed = { ...STORAGE_BOOST, voucherType: 'COMPOSITE' as const, grants: [...STORAGE_BOOST.grants, { entitlementSlug: 'ai-pool', modifierType: 'ADD' as const, modifierValue: '100' }], priceDiscountType: 'PERCENTAGE' as const, priceDiscountValue: '20' };
+  it('refuses a validated mixed AI code before admitting its verdict or sending the subscription off', async () => {
+    detail.current.entitlements = [pool];
+    serveCheck(() => valid(mixed));
+    const bodies = serveSubscribe();
+    const { client } = renderDialog();
+    await act(async () => setAiAccessInputsForTest(client, { capability: true, flag: false }));
+    await userEvent.type(await codeField(), 'mixed-code');
+    await userEvent.click(await checkButton());
+    await screen.findByRole('alert');
+    expect(screen.queryByTestId('redeem-verdict-valid')).not.toBeInTheDocument();
+    await userEvent.click(await subscribe());
+    await waitFor(() => expect(screen.getAllByRole('alert').length).toBeGreaterThan(0));
+    expect(bodies).toEqual([]);
+  });
+  it('hides retained AI grants and refuses submission after validation loses availability, then restores with both true', async () => {
+    detail.current.entitlements = [pool, { name: 'Storage', slug: 'storage-gb', type: 'NUMBER' }];
+    server.use(handleGetInstanceBilling(() => refusal(404, { code: 'GetInstanceBilling.NotFound', detail: 'not subscribed' })));
+    serveCheck(() => valid(mixed));
+    const bodies = serveSubscribe();
+    const { client } = renderDialog();
+    await act(async () => setAiAccessInputsForTest(client, { capability: true, flag: true }));
+    await userEvent.type(await codeField(), 'mixed-code');
+    await userEvent.click(await checkButton());
+    expect(await screen.findByTestId('redeem-verdict-valid')).toHaveTextContent('AI pool + 100');
+    await act(async () => setAiAccessInputsForTest(client, { capability: true, flag: false }));
+    await waitFor(() => expect(screen.getByTestId('redeem-verdict-valid')).not.toHaveTextContent('AI pool'));
+    expect(screen.getByTestId('redeem-verdict-valid')).toHaveTextContent('Storage + 50');
+    expect(screen.getByTestId('redeem-verdict-valid')).toHaveTextContent('20%');
+    await userEvent.click(await subscribe());
+    await screen.findByText('AIUsage.Disabled');
+    expect(bodies).toEqual([]);
+    await userEvent.clear(await codeField());
+    await userEvent.type(await codeField(), 'MiXeD_code');
+    await userEvent.click(await subscribe());
+    await screen.findByText('AIUsage.Disabled');
+    expect(bodies).toEqual([]);
+    await act(async () => setAiAccessInputsForTest(client, { capability: true, flag: true }));
+    await userEvent.click(await subscribe());
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0].voucherCode).toBe('MiXeD_code');
+  });
+  it('does not require validation for an opaque ordinary price coupon', async () => {
+    const checked = serveCheck(() => valid(WELCOME));
+    const bodies = serveSubscribe();
+    renderDialog();
+    await userEvent.type(await codeField(), 'ordinary-unchecked-coupon');
+    await userEvent.click(await subscribe());
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(checked).toEqual([]);
+    expect(bodies[0].voucherCode).toBe('ordinary-unchecked-coupon');
   });
 });

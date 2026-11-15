@@ -13,6 +13,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/addons/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // InstanceAddonsLoaderName loads Instance.addons.
@@ -20,9 +21,9 @@ const InstanceAddonsLoaderName = "InstanceAddonsLoader"
 
 // RegisterDataloaders registers the add-ons module's loaders. Neither is
 // metered: REST does not bill a read of the add-on catalogue either.
-func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries) {
+func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, policy aiusage.Policy) {
 	loaders.Register(InstanceAddonsLoaderName, dataloaderLib.NewBatchedLoader(newInstanceAddonsBatchFn(queries)))
-	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(newAddonPricesBatchFn(queries)))
+	loaders.Register(AddonPricesLoaderName, dataloaderLib.NewBatchedLoader(newAddonPricesBatchFn(queries, policy)))
 }
 
 func newInstanceAddonsBatchFn(queries *db.Queries) dataloaderLib.BatchFunc[uuid.UUID, []catalogue.InstanceAddon] {

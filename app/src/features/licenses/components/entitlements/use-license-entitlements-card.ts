@@ -150,6 +150,10 @@ export function useLicenseEntitlementsCard({
     t,
   });
 
+  useEffect(() => {
+    if (selectedEntitlementId && !selectedEntitlement) resetAddDialogState();
+  }, [selectedEntitlementId, selectedEntitlement, resetAddDialogState]);
+
   // A row can disappear under an open editor: the version form's Reset, a
   // re-sync from another base version, or a deletion. Nothing would close the
   // edit otherwise, and the cell would reopen in edit mode if the row came

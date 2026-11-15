@@ -1,5 +1,6 @@
 import {
   Boxes,
+  BrainCircuit,
   Braces,
   Coins,
   FileText,
@@ -29,6 +30,7 @@ import {
 // licenses, add-ons, entitlements and vouchers, drawn as the shelf they stand on.
 export const dataModelIcons = {
   catalog: SquareLibrary,
+  model: BrainCircuit,
   customer: Users,
   instance: Server,
   entitlement: Boxes,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sort"
 
 	"github.com/google/uuid"
@@ -12,11 +13,15 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/platform/platformidentity"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 type RunOptions struct {
-	OrganizationIDs []uuid.UUID
-	UsageReporter   services.UsageReporter
+	PlatformFlags services.PlatformFlags
+	// PlatformOrganizationID protects the trusted source from targeted demo cleanup.
+	PlatformOrganizationID uuid.UUID
+	OrganizationIDs        []uuid.UUID
+	UsageReporter          services.UsageReporter
 }
 
 type TargetOrganization struct {
@@ -46,7 +51,12 @@ func converges(profile Profile) bool {
 
 func Run(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, opts RunOptions) error {
 	if len(opts.OrganizationIDs) > 0 {
-		return runForOrganizations(ctx, pool, profiles, opts.OrganizationIDs, opts.UsageReporter)
+		// This must precede every target read/cleanup: deleting platform flags
+		// and then recreating demo data would rewrite our own rollout authority.
+		if err := validateTargetOrganizations(opts.OrganizationIDs, opts.PlatformOrganizationID); err != nil {
+			return err
+		}
+		return runForOrganizations(ctx, pool, profiles, opts.OrganizationIDs, opts.UsageReporter, opts.PlatformFlags)
 	}
 
 	if err := EnsureTrackerTable(ctx, pool); err != nil {
@@ -54,6 +64,8 @@ func Run(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, opts RunOp
 	}
 
 	sc := NewSeederContext(pool, opts.UsageReporter)
+	sc.PlatformFlags = opts.PlatformFlags
+	sc.AIPolicy = aiusage.Policy{Flags: opts.PlatformFlags}
 	for _, profile := range profiles {
 		alreadyRun, err := HasRun(ctx, pool, profile.Name())
 		if err != nil {
@@ -82,7 +94,14 @@ func Run(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, opts RunOp
 	return nil
 }
 
-func runForOrganizations(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, organizationIDs []uuid.UUID, usageReporter services.UsageReporter) error {
+func validateTargetOrganizations(organizationIDs []uuid.UUID, platformID uuid.UUID) error {
+	if platformID != uuid.Nil && slices.Contains(organizationIDs, platformID) {
+		return fmt.Errorf("organization-scoped demo seeding cannot clean up the trusted platform source organization %s", platformID)
+	}
+	return nil
+}
+
+func runForOrganizations(ctx context.Context, pool *pgxpool.Pool, profiles []Profile, organizationIDs []uuid.UUID, usageReporter services.UsageReporter, flags services.PlatformFlags) error {
 	scopedProfiles := make([]OrganizationScopedProfile, 0, len(profiles))
 	for _, profile := range profiles {
 		scopedProfile, ok := profile.(OrganizationScopedProfile)
@@ -102,6 +121,8 @@ func runForOrganizations(ctx context.Context, pool *pgxpool.Pool, profiles []Pro
 	}
 
 	sc := NewSeederContext(pool, usageReporter)
+	sc.PlatformFlags = flags
+	sc.AIPolicy = aiusage.Policy{Flags: flags}
 	for _, profile := range scopedProfiles {
 		slog.Info("▶️  Seeding profile for existing organizations...", "profile", profile.Name(), "organizations", organizationIDs)
 		if err := profile.SeedOrganizations(ctx, sc, targetOrganizations); err != nil {
