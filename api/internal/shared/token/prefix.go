@@ -25,7 +25,7 @@ const (
 	PrefixPlatform = "ksm_"
 
 	// PrefixPublishableKey marks a publishable key: the credential a vendor's web
-	// page sends, in X-Kaiten-Publishable-Key and never as a bearer token, to read
+	// page sends, in Kaiten-Publishable-Key and never as a bearer token, to read
 	// its public catalogue. It is not a secret. It diverges from the k-family at
 	// character 0, and it is the documented exception to their equal length,
 	// because the public @kaitencloud/client already fixes "pk_".

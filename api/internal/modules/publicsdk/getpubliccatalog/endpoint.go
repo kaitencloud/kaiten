@@ -38,7 +38,7 @@ func RegisterEndpoint(api huma.API, app Reader) {
 		Summary:     "Get the public catalogue",
 		Description: "What a pricing page shows: for each licence family the organization made public, its default version " +
 			"with its ACTIVE prices and user-facing entitlements, and the same for public add-on families. " +
-			"Read with a publishable key (X-Kaiten-Publishable-Key); the organization is the key's. " +
+			"Read with a publishable key (Kaiten-Publishable-Key); the organization is the key's. " +
 			"Amounts are in minor units; never sum metered prices into a headline. Cacheable for 60 seconds.",
 		Tags:   []string{"public"},
 		Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusTooManyRequests, http.StatusInternalServerError, http.StatusServiceUnavailable},
@@ -55,6 +55,6 @@ func RegisterEndpoint(api huma.API, app Reader) {
 		if err != nil {
 			return nil, err
 		}
-		return &Response{CacheControl: "public, max-age=60", Vary: "X-Kaiten-Publishable-Key, Origin", Body: catalog}, nil
+		return &Response{CacheControl: "public, max-age=60", Vary: "Kaiten-Publishable-Key, X-Kaiten-Publishable-Key, Origin", Body: catalog}, nil
 	})
 }

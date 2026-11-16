@@ -70,7 +70,7 @@ func startAnonymous(t *testing.T, s storefrontPlan, email string) tier2.Checkout
 	t.Helper()
 	return commonfixture.AssertJSONResponse[tier2.CheckoutSessionStart](t, anonymousCall(t, "POST", "/api/public/checkout-sessions", map[string]any{
 		"turnstileToken": "token", "priceId": s.monthly.ID, "email": email, "returnUrl": returnURL,
-	}, map[string]string{"X-Kaiten-Publishable-Key": s.key}), fiber.StatusCreated)
+	}, map[string]string{"Kaiten-Publishable-Key": s.key}), fiber.StatusCreated)
 }
 
 func confirmAnonymous(t *testing.T, opened tier2.CheckoutSessionStart) tier2.CheckoutConfirmation {

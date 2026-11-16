@@ -223,6 +223,18 @@ func TestPublicMiddlewarePublishableKey(t *testing.T) {
 		require.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 
+	t.Run("the deprecated X- name still authenticates, for released SDKs", func(t *testing.T) {
+		resp := do(t, app, catalogPath, map[string]string{LegacyPublishableKeyHeader: "pk_good", "Origin": "https://www.example.com"})
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("the current name wins over the deprecated one", func(t *testing.T) {
+		resp := do(t, app, catalogPath, map[string]string{PublishableKeyHeader: "pk_unknown", LegacyPublishableKeyHeader: "pk_good"})
+		require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		resp = do(t, app, catalogPath, map[string]string{PublishableKeyHeader: "pk_good", LegacyPublishableKeyHeader: "pk_unknown"})
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
 	t.Run("unknown, missing and wrong-family keys get one answer", func(t *testing.T) {
 		for _, key := range []string{"pk_unknown", "", "ksh_abc", "sk_live_abc"} {
 			resp := do(t, app, catalogPath, map[string]string{PublishableKeyHeader: key})
@@ -268,6 +280,7 @@ func TestPublicMiddlewareCustomerSession(t *testing.T) {
 			{"Authorization": "Bearer eyJhbGciOi.jwt.x"},
 			{PublishableKeyHeader: "pk_good"},
 			{PublishableKeyHeader: "pk_good", "Authorization": "Bearer kst_good"},
+			{LegacyPublishableKeyHeader: "pk_good"},
 		} {
 			resp := do(t, app, sessionPath, headers)
 			require.Equal(t, http.StatusForbidden, resp.StatusCode, headers)
@@ -340,6 +353,7 @@ func TestPublicMiddlewareCheckoutSession(t *testing.T) {
 			{"Authorization": "Bearer kst_good"},
 			{"Authorization": "Bearer ksh_x"},
 			{PublishableKeyHeader: "pk_good"},
+			{LegacyPublishableKeyHeader: "pk_good"},
 		} {
 			resp := do(t, app, own, headers)
 			require.Equal(t, http.StatusForbidden, resp.StatusCode)

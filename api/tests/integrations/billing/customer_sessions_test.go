@@ -113,7 +113,7 @@ func TestCustomerSessions(t *testing.T) {
 
 		// A publishable key on a session route.
 		req = httptest.NewRequest(http.MethodGet, invoicesPath, nil)
-		req.Header.Set("X-Kaiten-Publishable-Key", key.Key)
+		req.Header.Set("Kaiten-Publishable-Key", key.Key)
 		resp, err = testServer.App.Test(req, fiber.TestConfig{})
 		require.NoError(t, err)
 		require.Equal(t, principalWrongKind, sessionProblem(t, resp, fiber.StatusForbidden))

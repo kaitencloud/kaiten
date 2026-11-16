@@ -47,7 +47,7 @@ test.describe('the list of publishable keys', () => {
 
     await keys.goto();
 
-    await expect(keys.intro()).toContainText('X-Kaiten-Publishable-Key');
+    await expect(keys.intro()).toContainText('Kaiten-Publishable-Key');
     await expect(keys.intro()).toContainText('GET /public/catalog');
     await expect(
       keys.intro().getByRole('link', { name: 'Licenses', exact: true }),

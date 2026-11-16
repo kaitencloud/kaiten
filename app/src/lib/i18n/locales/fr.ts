@@ -4141,7 +4141,7 @@ export default {
           'Les clés qu’une page web utilise pour lire votre catalogue public et, si vous l’autorisez, démarrer des checkouts anonymes',
         Intro: {
           purpose:
-            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête X-Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret. Elle ne lit rien d’autre, et ne démarre de checkouts anonymes que si vous l’y autorisez.',
+            'Une clé publiable permet à une page web de lire votre catalogue public : elle envoie la clé dans l’en-tête Kaiten-Publishable-Key vers GET /public/catalog. Ce n’est pas un secret. Elle ne lit rien d’autre, et ne démarre de checkouts anonymes que si vous l’y autorisez.',
           listing:
             'Ce que le catalogue liste est décidé par l’interrupteur « Catalogue public » de chaque licence et de chaque add-on :',
           licenses: 'Licences',

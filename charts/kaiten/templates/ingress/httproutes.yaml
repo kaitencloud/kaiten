@@ -54,7 +54,7 @@ spec:
 ---
 # ---- API: the public SDK surface (pk_, kst_) — CORS only, no authentication here ----
 # A vendor's web page reads its public catalogue with a publishable key in
-# X-Kaiten-Publishable-Key; its customer checks out on /api/public/session with
+# Kaiten-Publishable-Key; its customer checks out on /api/public/session with
 # a customer session (Authorization: Bearer kst_...). No jwt and no extAuth on
 # this route: the API verifies both itself, by digest, and refuses any other
 # credential class on these paths -- so a ksh_ sent here is answered 403 by the

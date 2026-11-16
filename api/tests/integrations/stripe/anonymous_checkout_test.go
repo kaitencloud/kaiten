@@ -61,7 +61,7 @@ func TestAnonymousCheckoutTrialWithoutCard(t *testing.T) {
 
 	opened := commonfixture.AssertJSONResponse[tier2.CheckoutSessionStart](t, anonymousCall(t, "POST", "/api/public/checkout-sessions", map[string]any{
 		"turnstileToken": "token", "priceId": monthly.ID, "email": "founder@startup.test", "returnUrl": returnURL,
-	}, map[string]string{"X-Kaiten-Publishable-Key": key.Key}), fiber.StatusCreated)
+	}, map[string]string{"Kaiten-Publishable-Key": key.Key}), fiber.StatusCreated)
 	require.EqualValues(t, 0, opened.DueToday.Total, "during a trial nothing is due")
 	require.NotNil(t, opened.TrialEndsAt)
 	require.False(t, opened.RequiresPaymentMethod)

@@ -23,8 +23,25 @@ import (
 
 // PublishableKeyHeader carries a publishable key. Never Authorization: a pk_ is
 // not a bearer credential, and keeping it out of that header keeps it out of
-// every code path that treats one as such.
-const PublishableKeyHeader = "X-Kaiten-Publishable-Key"
+// every code path that treats one as such. No X- prefix (RFC 6648).
+const PublishableKeyHeader = "Kaiten-Publishable-Key"
+
+// LegacyPublishableKeyHeader is the deprecated name of PublishableKeyHeader,
+// from before the X- prefix was dropped. SDKs released with it
+// (@kaitencloud/client <= 1.2.0, sdk-go <= v0.4.0, sdk-python <= v1.1.0) still
+// send it, so it is still read, after the current name, and still listed in
+// CORS and Vary. The OpenAPI scheme declares only the current name. Remove it
+// once those versions are out of support.
+const LegacyPublishableKeyHeader = "X-Kaiten-Publishable-Key"
+
+// publishableKey is the publishable key a request carries, under the current
+// header name or, failing that, the legacy one.
+func publishableKey(ctx fiber.Ctx) string {
+	if key := ctx.Get(PublishableKeyHeader); key != "" {
+		return key
+	}
+	return ctx.Get(LegacyPublishableKeyHeader)
+}
 
 // SessionPathPrefix is the part of the public surface a customer session
 // authenticates; the rest of /api/public takes a publishable key, except one
@@ -190,7 +207,7 @@ func (p *PublicMiddleware) publishable(ctx fiber.Ctx) error {
 		return wrongCredentialClass()
 	}
 
-	plainKey := strings.TrimSpace(ctx.Get(PublishableKeyHeader))
+	plainKey := strings.TrimSpace(publishableKey(ctx))
 	if !strings.HasPrefix(plainKey, token.PrefixPublishableKey) {
 		return invalidPublicCredential()
 	}
@@ -239,7 +256,7 @@ func clientAddress(ctx fiber.Ctx) string {
 // resolved, unexpired and unrevoked; a browser Origin must be one of its
 // organization's publishable keys' origins; the session's rate is enforced.
 func (p *PublicMiddleware) session(ctx fiber.Ctx) error {
-	if ctx.Get(PublishableKeyHeader) != "" {
+	if publishableKey(ctx) != "" {
 		return wrongCredentialClass()
 	}
 	header := ctx.Get(fiber.HeaderAuthorization)
@@ -291,7 +308,7 @@ func (p *PublicMiddleware) session(ctx fiber.Ctx) error {
 // answer is no existence oracle (INV-36, §14.1 rule 3); a browser Origin must
 // be one the starting key allows; the session's rate is enforced.
 func (p *PublicMiddleware) checkoutSession(ctx fiber.Ctx, pathSessionID string) error {
-	if ctx.Get(PublishableKeyHeader) != "" {
+	if publishableKey(ctx) != "" {
 		return wrongCredentialClass()
 	}
 	plainToken, ok := strings.CutPrefix(ctx.Get(fiber.HeaderAuthorization), "Bearer ")

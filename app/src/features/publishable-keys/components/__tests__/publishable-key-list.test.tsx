@@ -98,7 +98,7 @@ describe('the list of publishable keys', () => {
     page();
 
     const intro = await screen.findByTestId('publishable-keys-intro');
-    expect(intro).toHaveTextContent(/X-Kaiten-Publishable-Key/);
+    expect(intro).toHaveTextContent(/Kaiten-Publishable-Key/);
     expect(intro).toHaveTextContent(/GET \/public\/catalog/);
     expect(
       await within(intro).findByRole('link', { name: 'Licenses' }),

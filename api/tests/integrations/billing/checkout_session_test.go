@@ -70,7 +70,7 @@ func startCheckout(t *testing.T, key string, body map[string]any) *http.Response
 func startCheckoutFrom(t *testing.T, address, key string, body map[string]any) *http.Response {
 	t.Helper()
 	req := commonfixture.NewJSONRequest(t, "POST", checkoutSessionsPath, body)
-	req.Header.Set("X-Kaiten-Publishable-Key", key)
+	req.Header.Set("Kaiten-Publishable-Key", key)
 	req.Header.Set("Origin", storefront)
 	req.Header.Set("X-Envoy-External-Address", address)
 	resp, err := testServer.App.Test(req, fiber.TestConfig{Timeout: 30 * time.Second})
@@ -206,7 +206,7 @@ func TestCheckoutSessionStart(t *testing.T) {
 	require.Equal(t, fiber.StatusUnauthorized, readCheckout(t, uuid.NewString(), *opened.Token).StatusCode, "another session's id")
 	require.Equal(t, fiber.StatusUnauthorized, readCheckout(t, id, "ksc_unknown").StatusCode)
 	req := commonfixture.NewJSONRequest(t, "GET", checkoutSessionsPath+"/"+id, nil)
-	req.Header.Set("X-Kaiten-Publishable-Key", key.Key)
+	req.Header.Set("Kaiten-Publishable-Key", key.Key)
 	wrong, err := testServer.App.Test(req, fiber.TestConfig{Timeout: 30 * time.Second})
 	require.NoError(t, err)
 	require.Equal(t, fiber.StatusForbidden, wrong.StatusCode, "a publishable key is the wrong class here")
