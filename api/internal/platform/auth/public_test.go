@@ -223,6 +223,18 @@ func TestPublicMiddlewarePublishableKey(t *testing.T) {
 		require.Equal(t, http.StatusForbidden, resp.StatusCode)
 	})
 
+	t.Run("the deprecated X- name still authenticates, for released SDKs", func(t *testing.T) {
+		resp := do(t, app, catalogPath, map[string]string{LegacyPublishableKeyHeader: "pk_good", "Origin": "https://www.example.com"})
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("the current name wins over the deprecated one", func(t *testing.T) {
+		resp := do(t, app, catalogPath, map[string]string{PublishableKeyHeader: "pk_unknown", LegacyPublishableKeyHeader: "pk_good"})
+		require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		resp = do(t, app, catalogPath, map[string]string{PublishableKeyHeader: "pk_good", LegacyPublishableKeyHeader: "pk_unknown"})
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
 	t.Run("unknown, missing and wrong-family keys get one answer", func(t *testing.T) {
 		for _, key := range []string{"pk_unknown", "", "ksh_abc", "sk_live_abc"} {
 			resp := do(t, app, catalogPath, map[string]string{PublishableKeyHeader: key})
@@ -268,6 +280,7 @@ func TestPublicMiddlewareCustomerSession(t *testing.T) {
 			{"Authorization": "Bearer eyJhbGciOi.jwt.x"},
 			{PublishableKeyHeader: "pk_good"},
 			{PublishableKeyHeader: "pk_good", "Authorization": "Bearer kst_good"},
+			{LegacyPublishableKeyHeader: "pk_good"},
 		} {
 			resp := do(t, app, sessionPath, headers)
 			require.Equal(t, http.StatusForbidden, resp.StatusCode, headers)
@@ -340,6 +353,7 @@ func TestPublicMiddlewareCheckoutSession(t *testing.T) {
 			{"Authorization": "Bearer kst_good"},
 			{"Authorization": "Bearer ksh_x"},
 			{PublishableKeyHeader: "pk_good"},
+			{LegacyPublishableKeyHeader: "pk_good"},
 		} {
 			resp := do(t, app, own, headers)
 			require.Equal(t, http.StatusForbidden, resp.StatusCode)
@@ -364,4 +378,39 @@ func TestPublicMiddlewareCheckoutSession(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusForbidden, resp.StatusCode, "a ksc_ is no credential for the start")
 	})
+}
+
+// publishableKey is called on headers fasthttp has parsed, which strips the
+// whitespace around a value; the helper trims as well, so that a blank current
+// header never hides a key under the deprecated name, whoever built the request.
+func TestPublishableKeyHeaderResolution(t *testing.T) {
+	for _, tt := range []struct {
+		name            string
+		current, legacy string
+		wantKey         string
+		wantLegacy      bool
+	}{
+		{name: "current only", current: "pk_a", wantKey: "pk_a"},
+		{name: "legacy only", legacy: "pk_b", wantKey: "pk_b", wantLegacy: true},
+		{name: "current wins", current: "pk_a", legacy: "pk_b", wantKey: "pk_a"},
+		{name: "blank current falls back", current: " \t", legacy: " pk_b ", wantKey: "pk_b", wantLegacy: true},
+		{name: "neither", current: " ", legacy: " "},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			app := fiber.New()
+			request := &fasthttp.RequestCtx{}
+			if tt.current != "" {
+				request.Request.Header.Set(PublishableKeyHeader, tt.current)
+			}
+			if tt.legacy != "" {
+				request.Request.Header.Set(LegacyPublishableKeyHeader, tt.legacy)
+			}
+			ctx := app.AcquireCtx(request)
+			defer app.ReleaseCtx(ctx)
+
+			key, legacy := publishableKey(ctx)
+			require.Equal(t, tt.wantKey, key)
+			require.Equal(t, tt.wantLegacy, legacy)
+		})
+	}
 }

@@ -158,7 +158,7 @@ func TestAnonymousCheckoutFollowsStripeCurrencies(t *testing.T) {
 		t.Helper()
 		resp := anonymousCall(t, "POST", "/api/public/checkout-sessions", map[string]any{
 			"turnstileToken": "token", "priceId": price.ID, "email": "visitor@example.com", "returnUrl": returnURL, "dryRun": true,
-		}, map[string]string{"X-Kaiten-Publishable-Key": s.key})
+		}, map[string]string{"Kaiten-Publishable-Key": s.key})
 		require.Equal(t, status, resp.StatusCode)
 		return resp
 	}

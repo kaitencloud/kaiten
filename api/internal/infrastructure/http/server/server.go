@@ -798,7 +798,7 @@ func IsPublicAPIPath(path string) bool {
 // shared cache (§14.8). The successes set their own.
 func uncacheable(c fiber.Ctx) {
 	c.Set(fiber.HeaderCacheControl, "no-store")
-	c.Vary(fiber.HeaderOrigin, fiber.HeaderAuthorization, "X-Kaiten-Publishable-Key")
+	c.Vary(fiber.HeaderOrigin, fiber.HeaderAuthorization, auth.PublishableKeyHeader, auth.LegacyPublishableKeyHeader)
 }
 
 // IsPublicSDKPath reports whether path is on the public SDK surface, which a

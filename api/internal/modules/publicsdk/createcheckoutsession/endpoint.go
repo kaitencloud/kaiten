@@ -59,6 +59,6 @@ func RegisterEndpoint(api huma.API, app Starter) {
 		if start.Status == checkout.StartPreview {
 			status = http.StatusOK
 		}
-		return &Response{Status: status, CacheControl: "no-store", Vary: "Origin, X-Kaiten-Publishable-Key", Body: start}, nil
+		return &Response{Status: status, CacheControl: "no-store", Vary: "Origin, Kaiten-Publishable-Key, X-Kaiten-Publishable-Key", Body: start}, nil
 	})
 }

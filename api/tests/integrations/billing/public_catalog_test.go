@@ -23,7 +23,7 @@ func publicGet(t *testing.T, server *tests.TestServer, path, key, origin string)
 	t.Helper()
 	req := httptest.NewRequest(http.MethodGet, path, nil)
 	if key != "" {
-		req.Header.Set("X-Kaiten-Publishable-Key", key)
+		req.Header.Set("Kaiten-Publishable-Key", key)
 	}
 	if origin != "" {
 		req.Header.Set("Origin", origin)
@@ -120,7 +120,7 @@ func TestPublicCatalog(t *testing.T) {
 	t.Run("the key reads its organization's public catalogue", func(t *testing.T) {
 		resp := publicGet(t, testServer, "/api/public/catalog", key.Key, "https://www.example.com")
 		require.Equal(t, "public, max-age=60", resp.Header.Get("Cache-Control"))
-		require.Equal(t, "X-Kaiten-Publishable-Key, Origin", resp.Header.Get("Vary"))
+		require.Equal(t, "Kaiten-Publishable-Key, X-Kaiten-Publishable-Key, Origin", resp.Header.Get("Vary"))
 		catalog := commonfixture.AssertJSONResponse[getpubliccatalog.PublicCatalog](t, resp, fiber.StatusOK)
 
 		require.Len(t, catalog.Plans, 1, "the private family is not listed")
@@ -169,7 +169,7 @@ func TestPublicCatalog(t *testing.T) {
 
 	t.Run("an Authorization header is the wrong credential class", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/public/catalog", nil)
-		req.Header.Set("X-Kaiten-Publishable-Key", key.Key)
+		req.Header.Set("Kaiten-Publishable-Key", key.Key)
 		req.Header.Set("Authorization", "Bearer ksh_whatever")
 		resp, err := testServer.App.Test(req, fiber.TestConfig{})
 		require.NoError(t, err)

@@ -20,7 +20,7 @@ const BearerAuth = "bearerAuth"
 const PlatformAuth = "platformAuth"
 
 // PublishableKeyAuth is the public SDK surface's scheme: a publishable key
-// (pk_) in the X-Kaiten-Publishable-Key header. A third scheme rather than a
+// (pk_) in the Kaiten-Publishable-Key header. A third scheme rather than a
 // variant of bearerAuth, for the reason PlatformAuth is one: a generated client
 // cannot send the wrong credential class to the wrong surface by accident.
 const PublishableKeyAuth = "publishableKey"
@@ -98,11 +98,12 @@ var platformScheme = &huma.SecurityScheme{
 var publishableKeyScheme = &huma.SecurityScheme{
 	Type: "apiKey",
 	In:   "header",
-	Name: "X-Kaiten-Publishable-Key",
+	Name: "Kaiten-Publishable-Key",
 	Description: "A Kaiten publishable key (`pk_...`). Not a secret: it ships in web pages, " +
 		"and authorizes reading the organization's public catalogue and nothing else. " +
 		"A browser request must come from one of the key's allowed origins. " +
-		"Never send it as `Authorization`; a request carrying `Authorization` is refused.",
+		"Never send it as `Authorization`; a request carrying `Authorization` is refused. " +
+		"The former header name, `X-Kaiten-Publishable-Key`, is still accepted but deprecated.",
 }
 
 // customerSessionScheme describes how a vendor's customer authenticates to the

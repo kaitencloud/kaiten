@@ -4077,7 +4077,7 @@ export default {
           'The keys a web page uses to read your public catalog and, if you allow it, to start anonymous checkouts',
         Intro: {
           purpose:
-            'A publishable key lets a web page read your public catalog: it sends the key in the X-Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret. It reads nothing else, and starts anonymous checkouts only if you allow it to.',
+            'A publishable key lets a web page read your public catalog: it sends the key in the Kaiten-Publishable-Key header to GET /public/catalog. It is not a secret. It reads nothing else, and starts anonymous checkouts only if you allow it to.',
           listing:
             'What the catalog lists is decided by the Public catalog switch of each license and add-on:',
           licenses: 'Licenses',

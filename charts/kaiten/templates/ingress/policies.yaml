@@ -56,7 +56,7 @@ spec:
   cors:
     allowOrigins: ["*"]
     allowMethods: [GET, POST, PUT, OPTIONS]
-    allowHeaders: [Content-Type, Authorization, X-Kaiten-Publishable-Key]
+    allowHeaders: [Content-Type, Authorization, Kaiten-Publishable-Key, X-Kaiten-Publishable-Key]
     # The SDK waits as long as Retry-After says (§13.1).
     exposeHeaders: [Retry-After]
     allowCredentials: false

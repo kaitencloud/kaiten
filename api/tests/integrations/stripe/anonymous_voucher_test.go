@@ -34,7 +34,7 @@ func TestAnonymousCheckoutAppliesAVoucher(t *testing.T) {
 		t.Helper()
 		resp := anonymousCall(t, "POST", "/api/public/checkout-sessions", map[string]any{
 			"turnstileToken": "token", "priceId": s.monthly.ID, "email": "founder@startup.test", "returnUrl": returnURL, "voucherCode": code,
-		}, map[string]string{"X-Kaiten-Publishable-Key": s.key})
+		}, map[string]string{"Kaiten-Publishable-Key": s.key})
 		if resp.StatusCode != fiber.StatusCreated {
 			problem := commonfixture.AssertJSONResponse[map[string]any](t, resp, fiber.StatusUnprocessableEntity)
 			require.Equal(t, "CreateCheckoutSession.VoucherInvalid", problem["code"], code)
@@ -106,7 +106,7 @@ func TestAnonymousCheckoutRechecksTheVoucher(t *testing.T) {
 	})
 	opened := commonfixture.AssertJSONResponse[tier2.CheckoutSessionStart](t, anonymousCall(t, "POST", "/api/public/checkout-sessions", map[string]any{
 		"turnstileToken": "token", "priceId": s.monthly.ID, "email": "founder@startup.test", "returnUrl": returnURL, "voucherCode": "LAUNCH-ONCE-1",
-	}, map[string]string{"X-Kaiten-Publishable-Key": s.key}), fiber.StatusCreated)
+	}, map[string]string{"Kaiten-Publishable-Key": s.key}), fiber.StatusCreated)
 	commonfixture.AssertJSONResponse[catalogue.Voucher](t, call(t, "POST", "/api/vouchers/"+voucher.ID.String()+"/archive", nil), fiber.StatusOK)
 
 	refused := commonfixture.AssertJSONResponse[map[string]any](t, anonymousCall(t, "POST",

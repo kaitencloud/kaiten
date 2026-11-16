@@ -91,7 +91,7 @@ static_resources:
                       routes:
                         # ---- /api/public — the public SDK surface (pk_, kst_) ----
                         # A vendor's web page reads its public catalogue here
-                        # with a publishable key in X-Kaiten-Publishable-Key, and
+                        # with a publishable key in Kaiten-Publishable-Key, and
                         # its customer checks out on /api/public/session with a
                         # customer session as Authorization: Bearer kst_...
                         # Neither jwt_authn nor ext_authz runs: the API verifies
@@ -117,7 +117,7 @@ static_resources:
                               allow_origin_string_match:
                                 - safe_regex: { regex: ".*" }
                               allow_methods: "GET, POST, PUT, OPTIONS"
-                              allow_headers: "content-type,authorization,x-kaiten-publishable-key"
+                              allow_headers: "content-type,authorization,kaiten-publishable-key,x-kaiten-publishable-key"
                               # The SDK waits as long as Retry-After says (§13.1).
                               expose_headers: "retry-after"
                               max_age: "600"

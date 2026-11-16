@@ -18791,9 +18791,9 @@ components:
       scheme: bearer
       type: http
     publishableKey:
-      description: "A Kaiten publishable key (`pk_...`). Not a secret: it ships in web pages, and authorizes reading the organization's public catalogue and nothing else. A browser request must come from one of the key's allowed origins. Never send it as `Authorization`; a request carrying `Authorization` is refused."
+      description: "A Kaiten publishable key (`pk_...`). Not a secret: it ships in web pages, and authorizes reading the organization's public catalogue and nothing else. A browser request must come from one of the key's allowed origins. Never send it as `Authorization`; a request carrying `Authorization` is refused. The former header name, `X-Kaiten-Publishable-Key`, is still accepted but deprecated."
       in: header
-      name: X-Kaiten-Publishable-Key
+      name: Kaiten-Publishable-Key
       type: apiKey
 info:
   contact:
@@ -32989,7 +32989,7 @@ paths:
         - OpenFeature
   /public/catalog:
     get:
-      description: "What a pricing page shows: for each licence family the organization made public, its default version with its ACTIVE prices and user-facing entitlements, and the same for public add-on families. Read with a publishable key (X-Kaiten-Publishable-Key); the organization is the key's. Amounts are in minor units; never sum metered prices into a headline. Cacheable for 60 seconds."
+      description: "What a pricing page shows: for each licence family the organization made public, its default version with its ACTIVE prices and user-facing entitlements, and the same for public add-on families. Read with a publishable key (Kaiten-Publishable-Key); the organization is the key's. Amounts are in minor units; never sum metered prices into a headline. Cacheable for 60 seconds."
       operationId: getPublicCatalog
       parameters:
         - description: Only this licence family
