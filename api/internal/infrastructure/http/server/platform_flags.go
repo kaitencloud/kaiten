@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
@@ -32,11 +33,16 @@ func (s *Server) setupPlatformFlags(ctx context.Context) error {
 }
 
 func (s *Server) selectPlatformFlags(ctx context.Context) error {
-	source, err := s.cfg.Metered.ResolvePlatformOrgID()
+	source, err := s.cfg.ResolvePlatformFlagSourceOrgID()
 	if err != nil {
 		return fmt.Errorf("resolve platform flag organization: %w", err)
 	}
 	if source == uuid.Nil {
+		// Said once, at startup, because the alternative is a deployment whose
+		// AI surface answers 403 AIUsage.Disabled with nothing anywhere to say
+		// that no catalogue was ever asked.
+		slog.InfoContext(ctx, "no platform flag source configured: every platform flag reads as off",
+			"set_one_of", "platform_flags.organization_id, platform_flags.organization_external_id, metered.organization_id, metered.organization_external_id")
 		return nil // no trusted source: closed, including platform self-evaluation
 	}
 	remote := strings.TrimSpace(s.cfg.Metered.APIURL) != "" || strings.TrimSpace(s.cfg.Metered.TokenFile) != ""

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
+	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
 )
 
 type repositoryFunc func(context.Context, string, uuid.UUID) (*schema.FeatureFlag, error)
@@ -136,4 +137,96 @@ func TestReaderCancelledEvaluationNeverAllows(t *testing.T) {
 	value, err := r.BooleanValue(ctx, uuid.New(), "ai-credits")
 	require.False(t, value)
 	require.ErrorIs(t, err, context.Canceled)
+}
+
+// instancesFunc is the owning module's read port, faked: a rollout evaluation
+// only ever resolves one instance by slug.
+type instancesFunc func(context.Context, uuid.UUID, string) (*instancetargetingfacts.Instance, error)
+
+func (f instancesFunc) GetOneBySlug(ctx context.Context, organizationID uuid.UUID, slug string) (*instancetargetingfacts.Instance, error) {
+	return f(ctx, organizationID, slug)
+}
+
+func (f instancesFunc) GetByIDs(context.Context, uuid.UUID, []uuid.UUID) ([]instancetargetingfacts.Instance, error) {
+	return nil, errors.New("a rollout evaluation resolves one instance, by slug")
+}
+
+func ruleFlag(rule string) *schema.FeatureFlag {
+	flag := rolloutFlag(uuid.Nil)
+	flag.Targetings = schema.Targetings{schema.NewBasicTargeting("Preview", rule, "on")}
+	return flag
+}
+
+const metadataRule = "has(__kaiten.instance.metadata.aiCredits) && __kaiten.instance.metadata.aiCredits == true"
+
+func TestReaderReadsTheTrackedInstanceOfTheEvaluatedOrganization(t *testing.T) {
+	source, target := uuid.New(), uuid.New()
+	var askedOrganization uuid.UUID
+	var askedSlug string
+	r := &Reader{
+		source: source,
+		repository: repositoryFunc(func(context.Context, string, uuid.UUID) (*schema.FeatureFlag, error) {
+			return ruleFlag(metadataRule), nil
+		}),
+		instances: instancesFunc(func(_ context.Context, organizationID uuid.UUID, slug string) (*instancetargetingfacts.Instance, error) {
+			askedOrganization, askedSlug = organizationID, slug
+			return &instancetargetingfacts.Instance{Metadata: []byte(`{"aiCredits":true,"demo":true}`)}, nil
+		}),
+	}
+
+	value, err := r.BooleanValue(t.Context(), target, "ai-credits")
+
+	require.NoError(t, err)
+	require.True(t, value, "a rule on the tracked instance's metadata decides the rollout")
+	require.Equal(t, source, askedOrganization, "the tracked instance lives in the platform catalogue, not the evaluated organization")
+	require.Equal(t, target.String(), askedSlug, "and is slugged with the evaluated organization's id")
+}
+
+func TestReaderIsOffWhenTheMetadataKeyIsAbsent(t *testing.T) {
+	r := &Reader{
+		source: uuid.New(),
+		repository: repositoryFunc(func(context.Context, string, uuid.UUID) (*schema.FeatureFlag, error) {
+			return ruleFlag(metadataRule), nil
+		}),
+		instances: instancesFunc(func(context.Context, uuid.UUID, string) (*instancetargetingfacts.Instance, error) {
+			return &instancetargetingfacts.Instance{Metadata: []byte(`{"demo":true}`)}, nil
+		}),
+	}
+
+	value, err := r.BooleanValue(t.Context(), uuid.New(), "ai-credits")
+
+	require.NoError(t, err, "the guarded rule does not break on an instance that was never let in")
+	require.False(t, value)
+}
+
+func TestReaderRefusesARuleReadingGatedFacts(t *testing.T) {
+	r := &Reader{
+		source: uuid.New(),
+		repository: repositoryFunc(func(context.Context, string, uuid.UUID) (*schema.FeatureFlag, error) {
+			return ruleFlag("__kaiten.entitlements['ai-credits'].unlimited == true"), nil
+		}),
+		instances: instancesFunc(func(context.Context, uuid.UUID, string) (*instancetargetingfacts.Instance, error) {
+			return &instancetargetingfacts.Instance{Metadata: []byte(`{"aiCredits":true}`)}, nil
+		}),
+	}
+
+	value, err := r.BooleanValue(t.Context(), uuid.New(), "ai-credits")
+
+	require.Error(t, err, "entitlement facts are gated by this very flag, so a rule reading them is refused, not half-answered")
+	require.False(t, value)
+}
+
+func TestReaderEvaluatesWithoutFactPorts(t *testing.T) {
+	target := uuid.New()
+	r := &Reader{
+		source: uuid.New(),
+		repository: repositoryFunc(func(context.Context, string, uuid.UUID) (*schema.FeatureFlag, error) {
+			return rolloutFlag(target), nil
+		}),
+	}
+
+	value, err := r.BooleanValue(t.Context(), target, "ai-credits")
+
+	require.NoError(t, err, "a rule on the organization id needs no lookup at all")
+	require.True(t, value)
 }

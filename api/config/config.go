@@ -60,11 +60,14 @@ type Config struct {
 // worker moving between layers does not drag fields across the boundary. Ports,
 // OTel, log and GraphQL settings describe a server and stay on Config.
 type CoreConfig struct {
-	AIUsage    AIUsage `mapstructure:"ai_usage"`
-	Retention  Retention
-	Metered    Metered
-	Connectors Connectors
-	Usage      Usage
+	AIUsage   AIUsage `mapstructure:"ai_usage"`
+	Retention Retention
+	Metered   Metered
+	// The tag is not redundant: without it mapstructure would look for the key
+	// "platformflags".
+	PlatformFlags PlatformFlags `mapstructure:"platform_flags"`
+	Connectors    Connectors
+	Usage         Usage
 	// The tag is not redundant: without it mapstructure would look for the key
 	// "usageledger".
 	UsageLedger UsageLedger `mapstructure:"usage_ledger"`
@@ -348,6 +351,27 @@ type Metered struct {
 	CheckSelfEntitlements bool `mapstructure:"check_self_entitlements"`
 }
 
+// PlatformFlags names the organization whose feature-flag catalogue this
+// deployment trusts for platform rollouts, such as ai-credits.
+//
+// It answers a different question from Metered's platform organization --
+// "whose flags do I read" rather than "which organization do I not meter" --
+// and a fleet needs the first without the second: it reads the vendor's
+// rollout flags while metering every tenant it holds. Naming the vendor under
+// metered to get the flags also exempts an organization from metering, which
+// is why this section exists.
+//
+// Both fields empty falls back to Metered, so a deployment configured before
+// this section reads its flags exactly where it did.
+type PlatformFlags struct {
+	// OrganizationExternalID identifies the catalogue's owner by its external
+	// id; the UUID is derived from it the way Metered derives the platform
+	// organization, so the same vendor resolves to the same organization.
+	OrganizationExternalID string `mapstructure:"organization_external_id"`
+	// OrganizationID overrides the derived UUID. Empty means "derive it".
+	OrganizationID string `mapstructure:"organization_id"`
+}
+
 // Usage tunes the usage report path.
 type Usage struct {
 	// RolloverMaxClosures caps how many usage windows a single report may
@@ -446,6 +470,8 @@ var settings = []struct {
 	{"metered.api_url", "KAITEN_METERED_API_URL", nil, false},
 	{"metered.token_file", "KAITEN_METERED_TOKEN_FILE", nil, false},
 	{"metered.check_self_entitlements", "KAITEN_METERED_CHECK_SELF_ENTITLEMENTS", false, false},
+	{"platform_flags.organization_external_id", "KAITEN_PLATFORM_FLAGS_ORGANIZATION_EXTERNAL_ID", nil, false},
+	{"platform_flags.organization_id", "KAITEN_PLATFORM_FLAGS_ORGANIZATION_ID", nil, false},
 	{"connectors.vault_base_path", "VAULT_CONNECTORS_BASE_PATH", "kaiten/connectors", false},
 	{"usage.rollover_max_closures", "KAITEN_USAGE_ROLLOVER_MAX_CLOSURES", 100000, false},
 	{"usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},
@@ -738,6 +764,28 @@ func fieldPaths() map[string]struct{ key, envVar string } {
 
 // ResolvePlatformOrgID returns the internal UUID of the platform organization,
 // or uuid.Nil when this deployment has none.
+// ResolvePlatformFlagSourceOrgID is the organization whose flag catalogue this
+// deployment reads for platform rollouts: platform_flags when it names one,
+// else Metered's platform organization, which is where every deployment
+// configured before platform_flags existed names it.
+//
+// uuid.Nil means no trusted source. Platform flags then read as off, including
+// for this deployment's own organization: a rollout is never opened by the
+// absence of configuration.
+func (c CoreConfig) ResolvePlatformFlagSourceOrgID() (uuid.UUID, error) {
+	if pinned := strings.TrimSpace(c.PlatformFlags.OrganizationID); pinned != "" {
+		parsed, err := uuid.Parse(pinned)
+		if err != nil {
+			return uuid.Nil, fmt.Errorf("KAITEN_PLATFORM_FLAGS_ORGANIZATION_ID %q is not a UUID: %w", pinned, err)
+		}
+		return parsed, nil
+	}
+	if external := strings.TrimSpace(c.PlatformFlags.OrganizationExternalID); external != "" {
+		return externalid.DeriveOrganizationID(external), nil
+	}
+	return c.Metered.ResolvePlatformOrgID()
+}
+
 func (m Metered) ResolvePlatformOrgID() (uuid.UUID, error) {
 	if pinned := strings.TrimSpace(m.OrganizationID); pinned != "" {
 		parsed, err := uuid.Parse(pinned)
