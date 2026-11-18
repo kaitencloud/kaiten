@@ -5,6 +5,7 @@ import env from '@/env';
 import {
   BYPASS_AUTH,
   type FlagSource,
+  MOCKED_API,
   localSource,
   platformSource,
   resolveSource,
@@ -198,9 +199,12 @@ export const aiCreditsFlagQueryOptions = queryOptions({
   queryKey: [...featureFlagsQueryKey, AI_CREDITS_FLAG],
   queryFn: async () => {
     // Only trusted platform wiring or an explicit MSW bypass can supply AI flags.
+    // A bypass build that names part of a platform is neither, unless the mocks
+    // answer its whole API: its platform URL is then the mocked Kaiten Cloud's.
     const source = usesPlatform()
       ? await platformSource()
-      : BYPASS_AUTH && !env.PLATFORM_API_URL && !env.PLATFORM_FLAGS_TOKEN
+      : BYPASS_AUTH &&
+          (MOCKED_API || (!env.PLATFORM_API_URL && !env.PLATFORM_FLAGS_TOKEN))
         ? await localSource()
         : null;
     if (!source) return false;

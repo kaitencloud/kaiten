@@ -12,6 +12,7 @@ import { FeatureFlagAppModel } from '../../../../e2e/app/_support/model/feature-
 import { InstanceAppModel } from '../../../../e2e/app/_support/model/instance-app-model';
 import { LicenseAppModel } from '../../../../e2e/app/_support/model/license-app-model';
 import { NotificationAppModel } from '../../../../e2e/app/_support/model/notification-app-model';
+import { PlanAppModel } from '../../../../e2e/app/_support/model/plan-app-model';
 import {
   type ReleaseManagementAppInstance,
   ReleaseManagementAppModel,
@@ -166,12 +167,16 @@ const deployedInstances = ({
  * Each model still keeps its own copy: what a page changes stays in the model
  * of its area, and another area keeps showing the record as it was seeded.
  * The platform flags stay off, as on a self-hosted deployment, except AI
- * credits (`ai-credits`), on unless the console is started with `?ai=off`.
+ * credits (`ai-credits`), on unless the console is started with `?ai=off`, and
+ * the Plan & usage page (`plan-billing`), on where the build names the Kaiten
+ * Cloud the mocks stand for: the organization is on Cloud Starter there
+ * (`PlanAppModel`), and Kaiten Cloud sells it Cloud Growth.
  */
 export function createDevMockConfig({
   ai = 'on',
   aiBilling = 'on',
   aiCatalogue = 'default',
+  plan = 'on',
   stripe = 'connected',
 }: {
   /** Whether what add-ons can grant on a licence is readable, or refused as with billing off. */
@@ -180,6 +185,8 @@ export function createDevMockConfig({
   aiCatalogue?: AiCatalogue;
   /** Whether AI credits are on: the capability and the platform flag together. */
   ai?: AiStanding;
+  /** Whether the organization has the Plan & usage page: the `plan-billing` flag. */
+  plan?: 'on' | 'off';
   /** Where the Stripe connector stands: connected to a test account unless the console is started with another. */
   stripe?: StripeStanding;
 } = {}): E2EMswConfig {
@@ -257,6 +264,8 @@ export function createDevMockConfig({
     );
   }
 
+  const aiFlags = aiPlatform(ai);
+
   return {
     ai: createAiModel({
       billing: aiBilling,
@@ -265,7 +274,11 @@ export function createDevMockConfig({
       licenses: world.licenses,
       pools: world.aiPools,
     }).serializeForMsw(),
-    ...aiPlatform(ai),
+    aiCapability: aiFlags.aiCapability,
+    flagEvaluations: {
+      ...aiFlags.flagEvaluations,
+      'plan-billing': plan === 'on',
+    },
     auditTrail: new AuditTrailAppModel(
       createAuditTrail(world),
     ).serializeForMsw(),
@@ -336,6 +349,7 @@ export function createDevMockConfig({
       streamDemoIntervalMs: STREAM_DEMO_INTERVAL_MS,
       streamDemoTemplates: NOTIFICATION_STREAM_TEMPLATES,
     }).serializeForMsw(),
+    plan: new PlanAppModel().serializeForMsw(),
     releaseManagement: new ReleaseManagementAppModel({
       components: world.components,
       deployments: world.deployments,

@@ -48,9 +48,9 @@ catalog:
   vite-plus: 1.0.0
   '@openfeature/ofrep-web-provider': ^0.4.3
   '@openfeature/web-sdk': ^1.10.0
-  '@kaitencloud/client': 1.2.0
-  '@kaitencloud/react': 1.0.1
-  '@kaitencloud/react-ui': 1.0.1
+  '@kaitencloud/client': 2.0.0
+  '@kaitencloud/react': 2.0.0
+  '@kaitencloud/react-ui': 2.0.0
 
 # packages/api-codegen cannot use the default catalog's TypeScript: openapi-ts
 # drives the TypeScript compiler JS API (ts.SyntaxKind ...), which the Go-based
@@ -125,6 +125,9 @@ minimumReleaseAgeExclude:
   - oxc-parser@0.150.0
   - vite-plus@1.0.0
   - lucide-react@1.46.0
+  - '@kaitencloud/client@2.0.0'
+  - '@kaitencloud/react@2.0.0'
+  - '@kaitencloud/react-ui@2.0.0'
 peerDependencyRules:
   allowAny:
     - vite

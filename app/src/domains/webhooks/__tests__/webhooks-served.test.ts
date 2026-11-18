@@ -99,6 +99,16 @@ describe('getWebhooksServed', () => {
       expect(getMock).toHaveBeenCalledTimes(1);
     });
 
+    // `dev:mock` and the app suite name the Kaiten Cloud their mocks stand for, for
+    // the Plan & usage page's SDK: that says nothing of a saas-api.
+    it.each(['VITE_E2E_MSW', 'VITE_MOCK_API'])('does not ask a build whose whole API is mocked for naming a platform (%s)', async (switchName) => {
+      vi.stubEnv(switchName, 'true');
+      vi.stubEnv('VITE_KAITEN_WEBHOOKS', 'false');
+
+      await expect(getWebhooksServed()).resolves.toBe(false);
+      expect(getMock).not.toHaveBeenCalled();
+    });
+
     it('asks Kaiten Cloud, which names its platform', async () => {
       getMock.mockResolvedValue({ data: [] });
 

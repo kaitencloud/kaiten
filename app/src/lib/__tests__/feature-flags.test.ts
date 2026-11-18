@@ -154,6 +154,17 @@ describe('platform flags against the local API', () => {
       expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(false);
       expect(setProviderAndWaitMock).not.toHaveBeenCalled();
     });
+
+    // `dev:mock` and the app suite name the Kaiten Cloud their mocks stand for, for
+    // the Plan & usage page's SDK: the mocks answer the flags too.
+    it.each(['VITE_E2E_MSW', 'VITE_MOCK_API'])('falls back beside a platform URL in a build whose whole API is mocked (%s)', async (switchName) => {
+      vi.stubEnv(switchName, 'true');
+      envMock.PLATFORM_API_URL = 'https://kaiten-cloud.test/api';
+      const { aiCreditsFlagQueryOptions } = await import('../feature-flags');
+      expect(await aiCreditsFlagQueryOptions.queryFn?.({} as never)).toBe(true);
+      const [, provider] = setProviderAndWaitMock.mock.lastCall as unknown as [string, { options: ProviderOptions }];
+      expect(provider.options.baseUrl).toBe('http://api.test/api');
+    });
   });
 
   it('returns the evaluated flag once the provider is registered', async () => {

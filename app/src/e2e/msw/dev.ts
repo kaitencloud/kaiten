@@ -1,3 +1,4 @@
+import env from '@/env';
 import type { StripeStanding } from '../../../e2e/app/_support/model/billing-capabilities';
 import { startE2EMockServiceWorker } from './browser';
 import { createDevMockConfig } from './dev-world';
@@ -54,6 +55,9 @@ export async function startDevMocks() {
       ai: readAiStanding(),
       aiBilling: readAiBilling(),
       aiCatalogue: readAiCatalogue(),
+      // Plan & usage is Kaiten Cloud's: `dev:mock` names the Kaiten Cloud its
+      // mocks stand for, a mocked console that names none has no such page.
+      plan: env.PLATFORM_API_URL ? 'on' : 'off',
       stripe: readStripeStanding(),
     }),
     { warnUnhandledApiRequests: true },

@@ -1,4 +1,5 @@
 import { HttpResponse, http } from 'msw/http';
+import env from '@/env';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
 import { AiAppModel } from '../../../e2e/app/_support/model/ai-app-model';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
@@ -11,6 +12,7 @@ import { FeatureFlagAppModel } from '../../../e2e/app/_support/model/feature-fla
 import { InstanceAppModel } from '../../../e2e/app/_support/model/instance-app-model';
 import { LicenseAppModel } from '../../../e2e/app/_support/model/license-app-model';
 import { NotificationAppModel } from '../../../e2e/app/_support/model/notification-app-model';
+import { PlanAppModel } from '../../../e2e/app/_support/model/plan-app-model';
 import { NO_PLATFORM_FLAGS } from '../../../e2e/app/_support/model/platform-flags';
 import type { LicenseCatalogue } from '../../../e2e/app/_support/model/graphql-operations';
 import { createPreviewWorld } from '../../../e2e/app/_support/model/license-preview-world';
@@ -30,6 +32,7 @@ import { licenseHandlers } from './license-handlers';
 import { notificationHandlers } from './notification-handlers';
 import { openRouterHandlers } from './openrouter-handlers';
 import type { persistSlot } from './persistence';
+import { type MockedKaitenCloud, planHandlers } from './plan-handlers';
 import { releaseManagementHandlers } from './release-management-handlers';
 import {
   integrationStubHandlers,
@@ -46,6 +49,12 @@ export function createMockHandlers(
   unmockedPlatform: 'off' | 'passthrough' = 'off',
   persist: typeof persistSlot = () => {},
   strict = false,
+  // Where the Kaiten Cloud of the Plan & usage page answers, and the key it knows:
+  // the build's own platform settings, which `dev:mock` and the app suite name.
+  kaitenCloud: MockedKaitenCloud = {
+    apiUrl: env.PLATFORM_API_URL,
+    publishableKey: env.PLATFORM_PUBLISHABLE_KEY,
+  },
 ) {
   const ai = effectiveConfig.ai
     ? AiAppModel.fromSerialized(effectiveConfig.ai)
@@ -79,6 +88,9 @@ export function createMockHandlers(
     : null;
   const notifications = effectiveConfig.notifications
     ? NotificationAppModel.fromSerialized(effectiveConfig.notifications)
+    : null;
+  const plan = effectiveConfig.plan
+    ? PlanAppModel.fromSerialized(effectiveConfig.plan)
     : null;
   const releaseManagement = effectiveConfig.releaseManagement
     ? ReleaseManagementAppModel.fromSerialized(
@@ -227,6 +239,13 @@ export function createMockHandlers(
     ...(notifications
       ? notificationHandlers(notifications, () =>
           persist('notifications', notifications.serializeForMsw()),
+        )
+      : []),
+    ...(plan
+      ? planHandlers(
+          plan,
+          () => persist('plan', plan.serializeForMsw()),
+          kaitenCloud,
         )
       : []),
     ...(releaseManagement

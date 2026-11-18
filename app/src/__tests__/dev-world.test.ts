@@ -51,6 +51,7 @@ describe('dev world', () => {
       'instances',
       'licenses',
       'notifications',
+      'plan',
       'releaseManagement',
     ]);
   });
@@ -732,6 +733,30 @@ describe('dev world, where the kept usage begins', () => {
   });
 });
 
+describe('dev world, the organization’s own plan', () => {
+  const plan = slot(config.plan);
+
+  it('opens Plan & usage where the build names the Kaiten Cloud of the mocks, and not elsewhere', () => {
+    expect(config.flagEvaluations).toMatchObject({ 'plan-billing': true });
+    expect(createDevMockConfig({ plan: 'off' }).flagEvaluations).toMatchObject({
+      'plan-billing': false,
+    });
+  });
+
+  it('puts the organization on a plan of the catalogue, with another on sale', () => {
+    const onSale = plan.catalog.plans.map(({ licenseSlug }) => licenseSlug);
+
+    expect(onSale).toContain(plan.portal.instance?.licenseSlug);
+    expect(onSale.length).toBeGreaterThan(1);
+    expect(
+      plan.catalog.plans
+        .flatMap(({ prices }) => prices)
+        .map(({ id }) => id),
+    ).toContain(plan.portal.subscription?.basePrice.id);
+    expect(plan.portal.capabilities.checkout).toBe(true);
+  });
+});
+
 describe('dev world, AI credits', () => {
   const ai = slot(config.ai);
   const licenseSlugs = new Set(
@@ -740,10 +765,10 @@ describe('dev world, AI credits', () => {
 
   it('turns AI credits on, and off with ?ai=off', () => {
     expect(config.aiCapability).toEqual({ enabled: true });
-    expect(config.flagEvaluations).toEqual({ 'ai-credits': true });
+    expect(config.flagEvaluations).toMatchObject({ 'ai-credits': true });
     const off = createDevMockConfig({ ai: 'off' });
     expect(off.aiCapability).toEqual({ enabled: false });
-    expect(off.flagEvaluations).toEqual({ 'ai-credits': false });
+    expect(off.flagEvaluations).toMatchObject({ 'ai-credits': false });
   });
 
   it('prices only versions and pools the other areas serve', () => {

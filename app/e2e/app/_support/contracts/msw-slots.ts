@@ -9,6 +9,7 @@ import type { SerializedFeatureFlagAppModel } from '../model/feature-flag-app-mo
 import type { SerializedInstanceAppModel } from '../model/instance-app-model';
 import type { SerializedLicenseAppModel } from '../model/license-app-model';
 import type { SerializedNotificationAppModel } from '../model/notification-app-model';
+import type { SerializedPlanAppModel } from '../model/plan-app-model';
 import type { SerializedReleaseManagementAppModel } from '../model/release-management-app-model';
 import type { ServiceAccount } from '@/api-client';
 
@@ -29,6 +30,9 @@ export type E2EMswConfig = {
   instances?: SerializedInstanceAppModel;
   licenses?: SerializedLicenseAppModel;
   notifications?: SerializedNotificationAppModel;
+  // The organization's own Kaiten Cloud plan, behind the Plan & usage page: the
+  // session saas-api mints, and what Kaiten Cloud's public surface answers it.
+  plan?: SerializedPlanAppModel;
   releaseManagement?: SerializedReleaseManagementAppModel;
   // Webhooks are served by Kaiten Cloud's saas-api alone: with neither webhooks
   // stub, the webhooks routes answer 404 in E2E, as a self-hosted deployment's

@@ -43,15 +43,19 @@ export default defineConfig({
     })) : []),
   ],
   webServer: {
-    // The KbK pair is pinned EMPTY, not left out: an inline value outranks a
-    // shell export or a .env file. One that names a KbK would send the platform
-    // flags there, for an organization this auth-bypassed build never signs
+    // The KbK's flags token is pinned EMPTY, not left out: an inline value
+    // outranks a shell export or a .env file. A token would send the platform
+    // flags to the KbK, for an organization this auth-bypassed build never signs
     // into: nothing would be evaluated, and every flag would read as off
-    // whatever a spec installs.
+    // whatever a spec installs. The platform URL and the publishable key name the
+    // Kaiten Cloud the mocks stand for (`.test` resolves nowhere), whose public
+    // surface the Plan & usage page reads through the SDK; the `plan` slot
+    // answers it (`src/e2e/msw/plan-handlers.ts`).
     command: [
       'VITE_API_URL=/api VITE_LOCAL_AUTH=false VITE_E2E_BYPASS_AUTH=true VITE_E2E_MSW=true',
       'VITE_MOCK_API=false VITE_MOCK_NOTIFICATIONS=false VITE_KAITEN_WEBHOOKS=true',
-      'VITE_KAITEN_PLATFORM_API_URL= VITE_KAITEN_PLATFORM_FLAGS_TOKEN=',
+      'VITE_KAITEN_PLATFORM_API_URL=https://kaiten-cloud.test/api VITE_KAITEN_PLATFORM_FLAGS_TOKEN=',
+      'VITE_KAITEN_PLATFORM_PUBLISHABLE_KEY=pk_mockKaitenCloudConsolePlanAndUsageCatalogue',
       'vp dev --host 127.0.0.1 --port 3100',
     ].join(' '),
     url: 'http://127.0.0.1:3100',

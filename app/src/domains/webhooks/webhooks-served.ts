@@ -14,14 +14,21 @@ import { isForbiddenError, isNotFoundError } from '@/lib/errors';
  *   `VITE_KAITEN_WEBHOOKS=true` says that a saas-api answers behind it (the
  *   Playwright app suite sets it; `dev:mock` and a dev server over the
  *   open-source stack do not).
+ * - A build whose whole API Mock Service Worker answers (the app suite,
+ *   `dev:mock`) names a platform only for the Plan & usage page's SDK, which the
+ *   mocks answer too: only `VITE_KAITEN_WEBHOOKS` says a saas-api answers there.
  *
  * `VITE_KAITEN_WEBHOOKS` is read from `import.meta.env` here rather than through
  * `@/env`: it is a build switch for dev and e2e builds, not a deployment setting
- * that a container fills in at start-up.
+ * that a container fills in at start-up. So are the switches of the mocks.
  */
 export function webhooksCanBeServed(): boolean {
+  const mockedApi =
+    import.meta.env.VITE_E2E_MSW === 'true' ||
+    import.meta.env.VITE_MOCK_API === 'true';
+
   return (
-    Boolean(env.PLATFORM_API_URL) ||
+    (Boolean(env.PLATFORM_API_URL) && !mockedApi) ||
     import.meta.env.VITE_KAITEN_WEBHOOKS === 'true'
   );
 }
