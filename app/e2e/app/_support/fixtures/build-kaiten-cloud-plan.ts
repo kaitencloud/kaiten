@@ -55,22 +55,45 @@ export const STARTER_MONTHLY = flatFee(kaitenCloudId(1, 1), 0, 'MONTHLY', 0);
 export const GROWTH_MONTHLY = flatFee(kaitenCloudId(1, 2), 7900, 'MONTHLY', 0);
 export const GROWTH_ANNUAL = flatFee(kaitenCloudId(1, 3), 79000, 'ANNUAL', 1);
 
+/** What a numeric grant reads when nothing caps it: the sentinel Kaiten stores for "no limit". */
+const UNLIMITED = -1;
+
+/**
+ * The calendar month the mocks stand in, which a counter that resets monthly is read over
+ * (Kaiten resets those on each UTC calendar month). It is the month of the subscription.
+ */
+const USAGE_WINDOW = {
+  end: '2026-12-01T00:00:00Z',
+  start: '2026-11-01T00:00:00Z',
+} as const;
+
 type Grant = {
   name: string;
   slug: string;
   type: 'BOOLEAN' | 'NUMBER';
   unitPlural: string | null;
   unitSingular: string | null;
-  /** What each plan grants of it; a plan that does not grant it leaves it out. */
+  /**
+   * What each plan grants of it; a plan that does not grant it leaves it out. A number
+   * that is `UNLIMITED` caps nothing.
+   */
   values: { starter?: number | boolean; growth: number | boolean };
   /** What the organization uses of it now, for a number. */
   used?: number;
+  /** A counter that resets on each calendar month, and so is read over the current one. */
+  monthly?: boolean;
 };
 
-/** What Kaiten Cloud's plans grant, in display order, and what the organization uses. */
+/**
+ * What Kaiten Cloud's plans grant, in display order, and what the organization uses. The
+ * names, slugs and units are those of Kaiten's own entitlement catalogue (saas-api's
+ * `kbkbootstrap`): customers are a commercial axis that differs between plans, and so are
+ * the webhook events published in a calendar month; instances and console users are
+ * unlimited on every plan, which the portal tells by what is used and no cap.
+ */
 const GRANTS: Grant[] = [
   {
-    name: 'Customers',
+    name: 'Managed customers',
     slug: 'customers',
     type: 'NUMBER',
     unitPlural: 'customers',
@@ -85,16 +108,26 @@ const GRANTS: Grant[] = [
     unitPlural: 'instances',
     unitSingular: 'instance',
     used: 14,
-    values: { growth: 500, starter: 50 },
+    values: { growth: UNLIMITED, starter: UNLIMITED },
   },
   {
-    name: 'Webhook endpoints',
-    slug: 'webhook-endpoints',
+    monthly: true,
+    name: 'Webhook events',
+    slug: 'webhooks',
     type: 'NUMBER',
-    unitPlural: 'endpoints',
-    unitSingular: 'endpoint',
-    used: 1,
-    values: { growth: 5, starter: 1 },
+    unitPlural: 'events',
+    unitSingular: 'event',
+    used: 870,
+    values: { growth: 100_000, starter: 1_000 },
+  },
+  {
+    name: 'Console users',
+    slug: 'seats',
+    type: 'NUMBER',
+    unitPlural: 'users',
+    unitSingular: 'user',
+    used: 4,
+    values: { growth: UNLIMITED, starter: UNLIMITED },
   },
   {
     name: 'Vouchers',
@@ -122,12 +155,16 @@ const granted = (tier: Tier) =>
     return value === undefined ? [] : [{ displayOrder, grant, value }];
   });
 
+/** The overage policy of a number: -1 when nothing caps it, 0 for a hard limit. */
+const overagePercent = (value: number) => (value === UNLIMITED ? -1 : 0);
+
 const planEntitlements = (tier: Tier): PublicPlanEntitlement[] =>
   granted(tier).map(({ displayOrder, grant, value }) => ({
     description: null,
     displayOrder,
     icon: null,
-    limitCapExceededOveragePercent: grant.type === 'NUMBER' ? 0 : null,
+    limitCapExceededOveragePercent:
+      typeof value === 'number' ? overagePercent(value) : null,
     name: grant.name,
     saleUnitFactor: null,
     saleUnitPlural: null,
@@ -136,7 +173,7 @@ const planEntitlements = (tier: Tier): PublicPlanEntitlement[] =>
     type: grant.type,
     unitPlural: grant.unitPlural,
     unitSingular: grant.unitSingular,
-    unlimited: false,
+    unlimited: value === UNLIMITED,
     value,
   }));
 
@@ -247,22 +284,23 @@ export function buildKaitenCloudEntitlements(
       };
     }
     const used = grant.used ?? 0;
+    const unlimited = value === UNLIMITED;
     return {
-      currentPeriodEnd: null,
-      currentPeriodStart: null,
+      currentPeriodEnd: grant.monthly ? USAGE_WINDOW.end : null,
+      currentPeriodStart: grant.monthly ? USAGE_WINDOW.start : null,
       currentValue: used,
-      limitCapExceededOveragePercent: 0,
+      limitCapExceededOveragePercent: overagePercent(value),
       limitValue: { type: 'number', value },
-      maximumAllowedUsage: value,
+      maximumAllowedUsage: unlimited ? null : value,
       name: grant.name,
-      percentageUsed: value === 0 ? null : (used / value) * 100,
+      percentageUsed: unlimited || value === 0 ? null : (used / value) * 100,
       provenance: {
         addons: [],
         boosts: [],
         exception: null,
         license: {
           licenseEntitlementId,
-          limitCapExceededOveragePercent: 0,
+          limitCapExceededOveragePercent: overagePercent(value),
           value: { type: 'number', value },
         },
         number: null,
@@ -270,7 +308,7 @@ export function buildKaitenCloudEntitlements(
       slug: grant.slug,
       source: 'license',
       type: 'NUMBER',
-      unlimited: false,
+      unlimited,
     };
   });
 }
