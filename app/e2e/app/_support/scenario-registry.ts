@@ -124,6 +124,12 @@ import {
   createTwoFlatFeesModel,
 } from '../licenses/licenses.scenarios';
 import {
+  createGrowthPlanModel,
+  createPlanModel,
+  createPlanSessionRefusedModel,
+  createPlanUnavailableOnceModel,
+} from '../plan/plan.scenarios';
+import {
   createComponentsCatalogModel,
   createDeploymentFlowModel,
   createDeploymentZoneEditModel,
@@ -367,6 +373,13 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createEmptyPublishableKeysBillingModel,
   ],
   ['licenses/createLicenseCatalogModel', createLicenseCatalogModel],
+  ['plan/createPlanModel', createPlanModel],
+  ['plan/createGrowthPlanModel', createGrowthPlanModel],
+  [
+    "plan/createPlanSessionRefusedModel('notEnabled')",
+    () => createPlanSessionRefusedModel('notEnabled'),
+  ],
+  ['plan/createPlanUnavailableOnceModel', createPlanUnavailableOnceModel],
   ['licenses/createPublicPaidCatalogModel', createPublicPaidCatalogModel],
   [
     'release-management/createReleaseManagementReadModel',
