@@ -36,6 +36,25 @@ test.describe('the plan of the organization', () => {
     await expect(plan.invoices().last()).toContainText('Activation');
   });
 
+  test('keeps the gap of the page between the portal and the plan change', async ({
+    page,
+  }) => {
+    const plan = new PlanPageDriver(page);
+    await installPlanAppMocks(page, createPlanModel());
+    await plan.goto();
+    await expect(plan.plans()).toContainText('Cloud Growth');
+
+    const portal = await plan.portal().boundingBox();
+    const change = await plan.change().boundingBox();
+    expect(portal).not.toBeNull();
+    expect(change).not.toBeNull();
+    // The SDK resets the margins of its own elements outside any cascade layer, so a
+    // margin of Tailwind's on the portal is lost: the gap is the wrapper's, 2rem.
+    expect(
+      (change?.y ?? 0) - ((portal?.y ?? 0) + (portal?.height ?? 0)),
+    ).toBeCloseTo(32, 0);
+  });
+
   test('mints one session, which the SDK sends to Kaiten Cloud, and reads the plans with the key', async ({
     page,
   }) => {

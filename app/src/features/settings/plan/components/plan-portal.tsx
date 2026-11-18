@@ -41,7 +41,10 @@ export function PlanPortal({
       sessionClient={sessionClient}
     >
       <KaitenStyleRoot>
-        <div className="space-y-8">
+        {/* A gap, not `space-y-*`: the SDK's stylesheet resets the margins of its
+            own elements outside any cascade layer, so it beats Tailwind's
+            utilities and would put the plan change flush under the portal. */}
+        <div className="flex flex-col gap-8">
           <CustomerPortal />
           <PlanChangeSection
             onSelectPlan={onSelectPlan}
