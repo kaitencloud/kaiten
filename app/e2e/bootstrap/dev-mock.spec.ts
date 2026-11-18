@@ -451,3 +451,42 @@ test('dev:mock serves the settings of a family and an entitlement on the billing
 
   expect(errors).toEqual([]);
 });
+
+test('dev:mock answers every request of Plan & usage: the session, the portal, the plans and the checkout on Kaiten Cloud', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  const kaitenCloud: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://kaiten-cloud.test/api/'))
+      kaitenCloud.push(new URL(request.url()).pathname);
+  });
+
+  // The settings offer the page: dev:mock names the Kaiten Cloud its mocks stand for.
+  await page.goto('/settings');
+  await page.getByRole('link', { name: 'Open plan & usage' }).click();
+  await expect(page.locator('[data-slot="current-plan-price"]')).toHaveText(
+    '$0.00/month',
+  );
+  await page.getByRole('button', { name: 'Select plan' }).click();
+  await expect(page).toHaveURL(/\?plan=kaiten-growth-v1$/);
+  await expect(
+    page.locator('[data-slot="checkout-flow"]').getByRole('status'),
+  ).toHaveText('$79.00');
+
+  expect(new Set(kaitenCloud)).toEqual(
+    new Set([
+      '/api/public/catalog',
+      '/api/public/session/checkout',
+      '/api/public/session/invoices',
+      '/api/public/session/portal',
+    ]),
+  );
+  expect(errors).toEqual([]);
+});

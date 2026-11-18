@@ -126,6 +126,17 @@ over ten vendors and four Enterprise versions (the two added versions exist in t
 and `?addonGrants=billing-off` with the add-on grants refused as where billing is off. `src/__tests__/ai-mocks.test.ts` reads these
 answers off the wire.
 
+The Plan & usage page is the `plan` slot (`PlanAppModel`, served by `plan-handlers.ts`): saas-api's
+`POST /plan/session` on the console's API, written by hand since `openapi.yaml` does not describe it,
+and, at the address the build names as its platform (`PLATFORM_API_URL`, which `dev:mock` and the
+app suite set to `https://kaiten-cloud.test/api`), the routes of Kaiten Cloud's public surface the
+SDK reads in customer-session mode: the portal, the invoices and the checkout for the session that
+was minted, and the catalogue for the build's publishable key and no other. They are the generated
+handlers of the contract, bound to that address, so the SDK's requests to the console's own `/api`
+stay undeclared. A checkout refuses as the API does, with its codes, and its subscribe changes the
+portal and the invoices. `createMockHandlers` takes the platform's address and key as an argument,
+for the tests that run in Node. `src/__tests__/plan-mocks.test.ts` reads these answers off the wire.
+
 Stripe's connector is served by `connector-handlers.ts` over the operations of Attio's, told apart
 by the name in the path (`ConnectorAppModel`: the key is write-only and redacted, a save
 activates the connector after the checks the API makes in its order, the Vault, the plan, the

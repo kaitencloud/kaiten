@@ -16,6 +16,16 @@ import { getStoredDevToken } from './local-auth';
 
 /** Vite folds this at build time, so it is not a runtime bypass in a real build. */
 export const BYPASS_AUTH = import.meta.env.VITE_E2E_BYPASS_AUTH === 'true';
+/**
+ * A build whose whole API Mock Service Worker answers in the page: the app suite
+ * (`VITE_E2E_MSW`) and `pnpm run dev:mock` (`VITE_MOCK_API`). Folded at build time,
+ * like the bypass. Such a build names a platform (`PLATFORM_API_URL`) only for the
+ * Plan & usage page's SDK, which the same mocks answer: it says nothing there of a
+ * platform flag service.
+ */
+export const MOCKED_API =
+  import.meta.env.VITE_E2E_MSW === 'true' ||
+  import.meta.env.VITE_MOCK_API === 'true';
 const LOCAL_AUTH = import.meta.env.VITE_LOCAL_AUTH === 'true';
 
 type ClerkWindow = Window & {
