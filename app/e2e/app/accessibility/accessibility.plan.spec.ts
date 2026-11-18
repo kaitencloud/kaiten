@@ -13,9 +13,9 @@ import {
 } from '../plan/plan.scenarios';
 
 // The Plan & usage page as a person who cannot use a mouse or a screen meets it: no
-// violation on the portal and the plans, on the checkout of the plan chosen, or on the
-// card of a refused session, in either theme. Most of it is drawn by Kaiten's React SDK,
-// inside the console's page.
+// violation on the portal, its usage and the plans, on the checkout of the plan chosen,
+// or on the card of a refused session, in either theme. Most of it is drawn by Kaiten's
+// React SDK, inside the console's page.
 
 async function expectAccessibleInBothThemes(page: Page) {
   await settle(page);
@@ -33,6 +33,7 @@ test.describe('accessibility of the Plan & usage page', () => {
     await installPlanAppMocks(page, createPlanModel());
     await plan.goto();
     await expect(plan.invoices()).toHaveCount(3);
+    await expect(plan.usageRow('Webhook events')).toBeVisible();
     await expect(plan.plans()).toContainText('Cloud Growth');
 
     await expectAccessibleInBothThemes(page);

@@ -3,6 +3,7 @@ import { PlanPageDriver } from '../_support/drivers/plan.driver';
 import type { PlanSessionRefusal } from '../_support/model/plan-app-model';
 import { installPlanAppMocks } from '../_support/mocks/install-plan-app-mocks';
 import {
+  createPlanModel,
   createPlanSessionRefusedModel,
   createPlanUnavailableOnceModel,
 } from './plan.scenarios';
@@ -10,7 +11,8 @@ import {
 // When saas-api mints no session, the page says why in a card of its own, and nothing of
 // the SDK is drawn. Only what can change by itself is offered again: an organization
 // still being set up, and Kaiten Cloud out of reach; a flag or a role does not change on
-// a retry.
+// a retry. When Kaiten Cloud takes the session but does not serve its portal, the SDK says
+// so once for the whole of it: the plan, its usage and its payment are one read.
 
 const REFUSALS: Array<{
   description: string;
@@ -87,5 +89,37 @@ test.describe('a session saas-api refuses', () => {
     await expect(plan.problem()).toHaveCount(0);
     await expect(plan.currentPlanPrice()).toHaveText('$0.00/month');
     expect(minted).toHaveLength(2);
+  });
+});
+
+test.describe('a portal Kaiten Cloud does not serve', () => {
+  test('says so once, whatever the parts of the page that read it, and shows the plan on "Try again"', async ({
+    page,
+  }) => {
+    const plan = new PlanPageDriver(page);
+    const model = createPlanModel();
+    // A refusal, not an outage: the SDK repeats a read that failed on a 5xx before it says so,
+    // and asks again of a refusal only after minutes, so the card stays until it is pressed.
+    model.armProblem('getSessionPortal', {
+      detail: 'the portal is not served here',
+      status: 404,
+    });
+    await installPlanAppMocks(page, model);
+    await plan.goto();
+
+    // The plan and what it includes, its usage and how it is paid are three parts of the
+    // page that read the one portal: a read that failed is one card, not three.
+    const main = page.getByRole('main');
+    await expect(main.getByRole('alert')).toHaveCount(1);
+    await expect(plan.usage()).toHaveCount(0);
+    await expect(plan.currentPlanPrice()).toHaveCount(0);
+    await expect(plan.heading()).toBeVisible();
+
+    await main.getByRole('button', { name: 'Try again' }).click();
+
+    await expect(main.getByRole('alert')).toHaveCount(0);
+    await expect(plan.currentPlanPrice()).toHaveText('$0.00/month');
+    await expect(plan.usageRow('Managed customers')).toBeVisible();
+    await expect(plan.invoices()).toHaveCount(3);
   });
 });

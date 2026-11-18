@@ -10,8 +10,8 @@ import { installPlanAppMocks } from '../_support/mocks/install-plan-app-mocks';
 import { createPlanModel } from '../plan/plan.scenarios';
 
 // The Plan & usage page on the narrowest phone the billing screens are checked at: the
-// SDK's portal, its plans and its checkout keep the width of the screen, with what is
-// due and the button that subscribes within reach.
+// SDK's portal, its usage, its plans and its checkout keep the width of the screen, with
+// what is due and the button that subscribes within reach.
 
 const WIDTH = 375;
 
@@ -28,11 +28,16 @@ test.describe('the Plan & usage page, on the narrowest phone', () => {
     const plan = new PlanPageDriver(page);
     await plan.goto();
     await expect(plan.invoices()).toHaveCount(3);
+    await expect(plan.usageRow('Webhook events')).toBeVisible();
     await expect(plan.plans()).toContainText('Cloud Growth');
     await settle(page);
 
     await expectNoHorizontalScroll(page, WIDTH);
     await expectOnScreen(page, plan.currentPlanPrice());
+    // The usage block keeps the width of the screen, down to the row with the longest
+    // line: a month's window, from one instant to the next.
+    await expectOnScreen(page, plan.usage());
+    await expectOnScreen(page, plan.usageRow('Webhook events'));
   });
 
   test('keeps it on the checkout, with what is due and Subscribe within reach', async ({

@@ -27,10 +27,12 @@ test.describe('the plan of the organization, read in French', () => {
         'L’offre Kaiten Cloud de votre organisation : ce qu’elle comprend, ce que vous consommez et comment vous payez.',
       ),
     ).toBeVisible();
-    await expect(plan.portal()).toContainText('Offre actuelle');
+    await expect(plan.currentPlan('Offre actuelle')).toBeVisible();
     await expect(plan.currentPlanPrice()).toHaveText('0,00 $US/mois');
-    await expect(plan.portal()).toContainText('Renouvellement le 1 déc. 2026');
-    await expect(plan.portal()).toContainText('Moyen de paiement');
+    await expect(plan.currentPlan('Offre actuelle')).toContainText(
+      'Renouvellement le 1 déc. 2026',
+    );
+    await expect(plan.paymentMethod('Moyen de paiement')).toBeVisible();
     await expect(plan.invoices().first()).toContainText(
       '1 nov. 2026 – 1 déc. 2026',
     );
@@ -39,6 +41,33 @@ test.describe('the plan of the organization, read in French', () => {
       'Passez à une autre offre Kaiten Cloud. Le montant dû s’affiche avant que vous confirmiez.',
     );
     await expect(change).toContainText('Cloud Growth');
+  });
+
+  test('what the plan has used, with the pack’s words for what nothing caps', async ({
+    page,
+  }) => {
+    const plan = new PlanPageDriver(page);
+    await installPlanAppMocks(page, createPlanModel());
+    await plan.goto();
+
+    // What Kaiten names stays as it came; the words around it are the pack's.
+    await expect(
+      plan.usage().getByRole('heading', { level: 2, name: 'Cloud Starter' }),
+    ).toBeVisible();
+    await expect(
+      plan.usage().getByRole('list', { name: 'Usage' }),
+    ).toBeVisible();
+    await expect(plan.usageRow('Instances')).toContainText('14 / Illimité');
+    await expect(plan.usageRow('Console users')).toContainText('4 / Illimité');
+    await expect(plan.usageRow('Managed customers')).toContainText(
+      'Depuis toujours',
+    );
+    await expect(plan.usageRow('Webhook events')).toContainText(
+      'Sur cette période',
+    );
+    await expect(
+      plan.usageRow('Managed customers').getByRole('progressbar'),
+    ).toBeVisible();
   });
 
   test('the checkout of the plan chosen', async ({ page }) => {
