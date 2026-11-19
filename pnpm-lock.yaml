@@ -175,8 +175,8 @@ catalogs:
       specifier: 2.0.0
       version: 2.0.0
     '@kaitencloud/react-ui':
-      specifier: 2.0.0
-      version: 2.0.0
+      specifier: 2.1.0
+      version: 2.1.0
     '@openfeature/ofrep-web-provider':
       specifier: ^0.4.3
       version: 0.4.3
@@ -302,7 +302,7 @@ importers:
         version: 2.0.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@kaitencloud/react-ui':
         specifier: 'catalog:'
-        version: 2.0.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        version: 2.1.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@kaitencloud/theme':
         specifier: workspace:*
         version: link:../packages/theme
@@ -1774,8 +1774,8 @@ packages:
     resolution: {integrity: sha512-6uJzgJ/Z5V/wo7JifJFLwyqZTKaNHEbJ4C+t/h8Tk95dSv9EKZc4cO/Mfj5WpO2onqyT8KaRs/8TKPUrzg1zKQ==}
     engines: {node: '>=22.12.0'}
 
-  '@kaitencloud/react-ui@2.0.0':
-    resolution: {integrity: sha512-cyc99Y1jVEqCnPyMjbxLLOoTl0G0apDgEEXDHZ1pNVJK0RgEAf+J2ENyMG8H9em6Wjg83tg3EAFpEDdjEFJhgg==}
+  '@kaitencloud/react-ui@2.1.0':
+    resolution: {integrity: sha512-9q5/vSL+KMivbRx18rV3454kXwv9kDJ3gaV/hqgcsipP4iC+iXhUN4Ty6rJsNh0znfVjQnP887a25mEDE8uQzA==}
     engines: {node: '>=22.12.0'}
     peerDependencies:
       react: '>=18'
@@ -9950,7 +9950,7 @@ snapshots:
 
   '@kaitencloud/client@2.0.0': {}
 
-  '@kaitencloud/react-ui@2.0.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
+  '@kaitencloud/react-ui@2.1.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)':
     dependencies:
       '@base-ui/react': 1.8.0(@date-fns/tz@1.5.0)(@types/react@19.3.0)(date-fns@4.4.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       '@kaitencloud/react': 2.0.0(react-dom@19.3.0(react@19.3.0))(react@19.3.0)

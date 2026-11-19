@@ -50,7 +50,7 @@ catalog:
   '@openfeature/web-sdk': ^1.10.0
   '@kaitencloud/client': 2.0.0
   '@kaitencloud/react': 2.0.0
-  '@kaitencloud/react-ui': 2.0.0
+  '@kaitencloud/react-ui': 2.1.0
 
 # packages/api-codegen cannot use the default catalog's TypeScript: openapi-ts
 # drives the TypeScript compiler JS API (ts.SyntaxKind ...), which the Go-based
@@ -127,7 +127,7 @@ minimumReleaseAgeExclude:
   - lucide-react@1.46.0
   - '@kaitencloud/client@2.0.0'
   - '@kaitencloud/react@2.0.0'
-  - '@kaitencloud/react-ui@2.0.0'
+  - '@kaitencloud/react-ui@2.1.0'
 peerDependencyRules:
   allowAny:
     - vite
