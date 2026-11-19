@@ -147,6 +147,55 @@ describe('Kaiten Cloud’s public surface, as the session reads it', () => {
     expect(rest.items.map(({ kind }) => kind)).toEqual(['ACTIVATION']);
   });
 
+  it('reports each numeric quota as Kaiten does: a cap and its share, no cap at all, a month’s window', async () => {
+    const { token } = await mint();
+
+    const portal = await contract<SessionPortal>(
+      zGetSessionPortalResponse,
+      await cloud('/public/session/portal', asSession(token)),
+    );
+    const quota = (slug: string) =>
+      portal.entitlements.find((entitlement) => entitlement.slug === slug);
+
+    // Something caps it: it counts for life, and says how much of the cap is used.
+    expect(quota('customers')).toMatchObject({
+      currentPeriodEnd: null,
+      currentPeriodStart: null,
+      currentValue: 9,
+      limitCapExceededOveragePercent: 0,
+      limitValue: { type: 'number', value: 25 },
+      maximumAllowedUsage: 25,
+      percentageUsed: 36,
+      unlimited: false,
+    });
+    // It resets each month: it counts within the month it is read over.
+    expect(quota('webhooks')).toMatchObject({
+      currentPeriodEnd: '2026-12-01T00:00:00Z',
+      currentPeriodStart: '2026-11-01T00:00:00Z',
+      currentValue: 870,
+      limitValue: { type: 'number', value: 1000 },
+      percentageUsed: 87,
+      unlimited: false,
+    });
+    // Nothing caps it: the sentinel is the limit, there is no ceiling and no share, and
+    // what is used is all there is to say.
+    for (const [slug, used] of [
+      ['instances', 14],
+      ['seats', 4],
+    ] as const) {
+      expect(quota(slug)).toMatchObject({
+        currentValue: used,
+        limitCapExceededOveragePercent: -1,
+        limitValue: { type: 'number', value: -1 },
+        maximumAllowedUsage: null,
+        percentageUsed: null,
+        unlimited: true,
+      });
+    }
+    // A capability is read, not counted.
+    expect(quota('vouchers')).toBeUndefined();
+  });
+
   it('refuses any other credential as the API does', async () => {
     const { token } = await mint();
 
@@ -209,6 +258,23 @@ describe('Kaiten Cloud’s public catalogue, as the console’s key reads it', (
       checkout: true,
     });
     expect(growth.plans.map(({ name }) => name)).toEqual(['Cloud Growth']);
+    // What a plan grants is Kaiten's own catalogue of entitlements: a cap for the commercial
+    // axes, the sentinel for what every plan leaves unlimited.
+    const grant = (slug: string) =>
+      catalog.plans[0]?.entitlements.find((each) => each.slug === slug);
+    expect(grant('customers')).toMatchObject({
+      limitCapExceededOveragePercent: 0,
+      unitPlural: 'customers',
+      unlimited: false,
+      value: 25,
+    });
+    expect(grant('instances')).toMatchObject({
+      limitCapExceededOveragePercent: -1,
+      unitPlural: 'instances',
+      unlimited: true,
+      value: -1,
+    });
+    expect(grant('vouchers')).toBeUndefined();
   });
 
   it('refuses another key, no key and a bearer', async () => {
@@ -316,6 +382,15 @@ describe('a checkout of the session', () => {
     });
     expect(portal.capabilities.checkout).toBe(false);
     expect(portal.upcomingInvoice?.total).toBe(7900);
+    // The usage is the organization's own and stays; the limits are the new plan's.
+    const quota = (slug: string) =>
+      portal.entitlements.find((entitlement) => entitlement.slug === slug);
+    expect(quota('customers')).toMatchObject({
+      currentValue: 9,
+      limitValue: { type: 'number', value: 250 },
+    });
+    expect(quota('instances')).toMatchObject({ currentValue: 14, unlimited: true });
+    expect(quota('vouchers')?.limitValue).toEqual({ type: 'boolean', value: true });
     expect(invoices.items[0]?.id).toBe(subscribed.activationInvoice?.id);
     expect(
       await problem(

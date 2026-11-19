@@ -115,6 +115,12 @@ test.describe('changing the plan of the organization', () => {
     await expect(plan.currentPlanPrice()).toHaveText('$79.00/month');
     await expect(plan.invoices()).toHaveCount(4);
     await expect(plan.invoices().first()).toContainText('$79.00');
+    // The usage reads the portal the subscribe changed: what is used, on Growth's limits.
+    await expect(
+      plan.usage().getByRole('heading', { level: 2, name: 'Cloud Growth' }),
+    ).toBeVisible();
+    await expect(plan.usageRow('Managed customers')).toContainText('9 / 250');
+    await expect(plan.usageRow('Instances')).toContainText('14 / Unlimited');
     await expect(plan.plans()).toContainText('Cloud Starter');
     await expect(plan.plans()).not.toContainText('Cloud Growth');
     expect(checkouts.at(-1)?.body).toEqual({

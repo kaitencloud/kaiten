@@ -474,6 +474,10 @@ test('dev:mock answers every request of Plan & usage: the session, the portal, t
   await expect(page.locator('[data-slot="current-plan-price"]')).toHaveText(
     '$0.00/month',
   );
+  // What the plan has used, the quotas nothing caps included.
+  await expect(page.locator('[data-slot="license-usage-quota"]')).toHaveCount(
+    4,
+  );
   await page.getByRole('button', { name: 'Select plan' }).click();
   await expect(page).toHaveURL(/\?plan=kaiten-growth-v1$/);
   await expect(
