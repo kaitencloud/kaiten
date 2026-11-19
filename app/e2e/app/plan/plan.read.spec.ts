@@ -1,4 +1,4 @@
-import type { Locator } from '@playwright/test';
+import type { Locator, Request, Response } from '@playwright/test';
 import { expect, recordWrites, test } from '../_support/app-test';
 import { PlanPageDriver } from '../_support/drivers/plan.driver';
 import { installPlanAppMocks } from '../_support/mocks/install-plan-app-mocks';
@@ -135,17 +135,23 @@ test.describe('the plan of the organization', () => {
     const plan = new PlanPageDriver(page);
     await installPlanAppMocks(page, createPlanModel());
     const minted = recordWrites(page, /^\/api\/plan\/session$/);
-    const session = page.waitForResponse(/\/api\/plan\/session$/);
-    const portalRead = page.waitForRequest(
-      `${KAITEN_CLOUD}/public/session/portal`,
-    );
-    const catalogRead = page.waitForRequest((request) =>
-      request.url().startsWith(`${KAITEN_CLOUD}/public/catalog`),
-    );
-    const portalReads: string[] = [];
+    // Recorded, not awaited: a wait armed before the navigation would have to see the
+    // page load, draw and mint within one action timeout, and a navigation of the dev
+    // server on a CI runner takes most of that alone. The page drawn below is the wait.
+    const sessions: Response[] = [];
+    const portalReads: Request[] = [];
+    const catalogReads: Request[] = [];
+    page.on('response', (response) => {
+      if (new URL(response.url()).pathname === '/api/plan/session') {
+        sessions.push(response);
+      }
+    });
     page.on('request', (request) => {
       if (request.url() === `${KAITEN_CLOUD}/public/session/portal`) {
-        portalReads.push(request.url());
+        portalReads.push(request);
+      }
+      if (request.url().startsWith(`${KAITEN_CLOUD}/public/catalog`)) {
+        catalogReads.push(request);
       }
     });
     await plan.goto();
@@ -153,15 +159,19 @@ test.describe('the plan of the organization', () => {
     await expect(plan.usageRow('Managed customers')).toBeVisible();
     await expect(plan.plans()).toContainText('Cloud Growth');
 
-    const { token } = (await (await session).json()) as { token: string };
-    expect(token).toMatch(/^kst_/);
-    expect((await portalRead).headers().authorization).toBe(`Bearer ${token}`);
-    const catalog = (await catalogRead).headers();
-    expect(catalog['kaiten-publishable-key']).toMatch(/^pk_/);
-    expect(catalog.authorization).toBeUndefined();
     expect(minted).toHaveLength(1);
+    expect(sessions).toHaveLength(1);
+    const { token } = (await sessions[0].json()) as { token: string };
+    expect(token).toMatch(/^kst_/);
     // The plan, its usage and its card read the one portal the provider holds.
     expect(portalReads).toHaveLength(1);
+    expect(portalReads[0].headers().authorization).toBe(`Bearer ${token}`);
+    expect(catalogReads).not.toHaveLength(0);
+    for (const catalogRead of catalogReads) {
+      const catalog = catalogRead.headers();
+      expect(catalog['kaiten-publishable-key']).toMatch(/^pk_/);
+      expect(catalog.authorization).toBeUndefined();
+    }
   });
 
   test('is offered from the settings, where the organization has it', async ({
