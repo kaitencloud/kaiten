@@ -519,3 +519,57 @@ func TestAIUsageConfiguration(t *testing.T) {
 		})
 	}
 }
+
+func TestResolvePlatformFlagSourceOrgID(t *testing.T) {
+	t.Run("names the catalogue without exempting anybody from metering", func(t *testing.T) {
+		pinned := uuid.New()
+		cfg := config.CoreConfig{
+			PlatformFlags: config.PlatformFlags{OrganizationID: pinned.String()},
+			Metered:       config.Metered{Enabled: true},
+		}
+
+		source, err := cfg.ResolvePlatformFlagSourceOrgID()
+		require.NoError(t, err)
+		require.Equal(t, pinned, source)
+
+		exempt, err := cfg.Metered.ResolvePlatformOrgID()
+		require.NoError(t, err)
+		require.Equal(t, uuid.Nil, exempt,
+			"a fleet reads the vendor's rollout flags and still meters every tenant it holds")
+	})
+
+	t.Run("derives the organization from an external id", func(t *testing.T) {
+		cfg := config.CoreConfig{PlatformFlags: config.PlatformFlags{OrganizationExternalID: "org_dogfooding"}}
+
+		source, err := cfg.ResolvePlatformFlagSourceOrgID()
+
+		require.NoError(t, err)
+		require.Equal(t, externalid.DeriveOrganizationID("org_dogfooding"), source)
+		require.Equal(t, seedkit.DevData.DogfoodingOrgID, source,
+			"the same organization the seeder creates and metered derives")
+	})
+
+	t.Run("falls back to metered", func(t *testing.T) {
+		cfg := config.CoreConfig{Metered: config.Metered{OrganizationExternalID: "org_dogfooding"}}
+
+		source, err := cfg.ResolvePlatformFlagSourceOrgID()
+
+		require.NoError(t, err)
+		require.Equal(t, seedkit.DevData.DogfoodingOrgID, source)
+	})
+
+	t.Run("nothing configured leaves every platform flag off", func(t *testing.T) {
+		source, err := config.CoreConfig{}.ResolvePlatformFlagSourceOrgID()
+
+		require.NoError(t, err)
+		require.Equal(t, uuid.Nil, source)
+	})
+
+	t.Run("refuses a pinned id that is not a UUID", func(t *testing.T) {
+		cfg := config.CoreConfig{PlatformFlags: config.PlatformFlags{OrganizationID: "kbk"}}
+
+		_, err := cfg.ResolvePlatformFlagSourceOrgID()
+
+		require.ErrorContains(t, err, "KAITEN_PLATFORM_FLAGS_ORGANIZATION_ID")
+	})
+}

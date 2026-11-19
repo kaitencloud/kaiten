@@ -114,6 +114,20 @@ metered:
   # KAITEN_METERED_ORGANIZATION_ID — pins the derived UUID. Leave empty:
   # deriving is what every deployment should do.
   organization_id: ""
+
+# Where this deployment reads the platform rollout flags, such as ai-credits.
+# A different question from metered's platform organization -- whose flags do I
+# read, rather than which organization do I not meter -- and a fleet needs the
+# first without the second: it reads the vendor's flags while metering every
+# tenant it holds. Both empty falls back to metered, so a deployment configured
+# before this section reads its flags where it always did. Nothing configured
+# anywhere leaves every platform flag off.
+platform_flags:
+  # KAITEN_PLATFORM_FLAGS_ORGANIZATION_EXTERNAL_ID — the catalogue's owner, by
+  # external id; the UUID is derived from it the same way as above.
+  organization_external_id: ""
+  # KAITEN_PLATFORM_FLAGS_ORGANIZATION_ID — pins the derived UUID.
+  organization_id: ""
   # Required whenever enabled is true, and it must not be this deployment's own
   # address: a Kaiten that meters itself meters its own tenants against its own
   # entitlements.
