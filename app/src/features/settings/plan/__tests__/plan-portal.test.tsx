@@ -44,6 +44,34 @@ const rowOf = (usage: HTMLElement, name: string) =>
     .getByText(name)
     .closest('[data-slot="license-usage-quota"]') as HTMLElement;
 
+// The SDK writes figures and dates in the runtime's locale, not the console's, so the test
+// writes what it expects the same way: it reads the same on a machine set to any locale.
+const figures = (used: number, limit: number) =>
+  `${used.toLocaleString()} / ${limit.toLocaleString()}`;
+
+/**
+ * A text as Testing Library reads the page's: each run of white space as one space. Some
+ * locales group digits with a no-break space, which the page's text loses and an accessible
+ * name keeps.
+ */
+const asRead = (text: string) => text.replace(/\s+/g, ' ');
+
+/** The day of a window bound, as the SDK's date of it starts: in UTC, where Kaiten sets it. */
+const day = (bound: string) =>
+  asRead(
+    new Intl.DateTimeFormat(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    }).format(new Date(bound)),
+  );
+
+const inOrder = (...parts: string[]) =>
+  new RegExp(
+    parts.map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*'),
+  );
+
 // The portal of the organization's plan is the SDK's, but what it has used is not the
 // portal's meters: they draw the quotas something caps and leave the unlimited ones out, and
 // Kaiten's own plans leave most of what they grant unlimited. The page draws the SDK's usage
@@ -74,11 +102,15 @@ describe('PlanPageContent, with a session', () => {
     ).toHaveAttribute('data-usage-state', 'healthy');
     // It resets each month: the window it counts over is said, and 87% is a look away.
     const webhooks = rowOf(usage, 'Webhook events');
-    expect(within(webhooks).getByText('870 / 1,000')).toBeInTheDocument();
-    expect(webhooks).toHaveTextContent(/Nov 1, 2026.*Dec 1, 2026/);
+    expect(
+      within(webhooks).getByText(asRead(figures(870, 1000))),
+    ).toBeInTheDocument();
+    expect(webhooks).toHaveTextContent(
+      inOrder(day('2026-11-01T00:00:00Z'), day('2026-12-01T00:00:00Z')),
+    );
     expect(
       within(webhooks).getByRole('progressbar', {
-        name: 'Webhook events: 870 / 1,000',
+        name: `Webhook events: ${figures(870, 1000)}`,
       }),
     ).toHaveAttribute('data-usage-state', 'near_limit');
     // Nothing caps it: what is used out of "Unlimited", and nothing to fill.
