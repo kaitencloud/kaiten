@@ -840,6 +840,55 @@ describe('LicenseEntitlementsCard', () => {
     expect(onClickEntitlement).not.toHaveBeenCalled();
   });
 
+  it('shows whether each entitlement is user facing and switches it without opening the row', async () => {
+    const user = userEvent.setup();
+    const onClickEntitlement = vi.fn();
+    const setUserFacing = vi.fn();
+    const definitions = [
+      { ...entitlements[0], userFacing: true },
+      entitlements[1],
+    ];
+    const props = {
+      entitlements: definitions,
+      rows,
+      onClickEntitlement,
+      onAddEntitlement: vi.fn(),
+      onDeleteEntitlement: vi.fn(),
+      onUpdateEntitlementGrant: vi.fn(),
+    };
+    const view = render(
+      <LicenseEntitlementsCard
+        {...props}
+        userFacing={{ allowed: true, isPending: false, setUserFacing }}
+      />,
+    );
+
+    // The flag is the catalogue's: "API calls", which it does not hold, has no switch.
+    const [seats, canExport, ...others] = screen.getAllByRole('switch');
+    expect(others).toHaveLength(0);
+    expect(seats).toBeChecked();
+    expect(canExport).not.toBeChecked();
+
+    await user.click(canExport);
+    expect(setUserFacing).toHaveBeenCalledExactlyOnceWith(definitions[1], true);
+    expect(onClickEntitlement).not.toHaveBeenCalled();
+
+    // A change on its way, or a session that may not make one: shown, not offered.
+    for (const control of [
+      { allowed: true, isPending: true, setUserFacing },
+      { allowed: false, isPending: false, setUserFacing },
+    ]) {
+      view.rerender(<LicenseEntitlementsCard {...props} userFacing={control} />);
+      await user.click(screen.getAllByRole('switch')[0]);
+    }
+    expect(setUserFacing).toHaveBeenCalledTimes(1);
+    expect(onClickEntitlement).not.toHaveBeenCalled();
+
+    // The creation forms hand no control in: the column is not there.
+    view.rerender(<LicenseEntitlementsCard {...props} />);
+    expect(screen.queryByRole('switch')).not.toBeInTheDocument();
+  });
+
   it('shows pagination controls with many rows and the rows-per-page selector', () => {
     render(
       <LicenseEntitlementsCard

@@ -2896,6 +2896,7 @@ export default {
           type: 'Type',
           threshold: 'Seuil / limite',
           overagePercent: 'Tolérance de dépassement',
+          userFacing: 'Visible côté client',
           actions: 'Actions',
         },
         Dialog: {
@@ -2922,6 +2923,10 @@ export default {
         cancelButton: 'Annuler',
         thresholdPlaceholder: 'ex. 1000 ou Illimité',
         inlineEditHint: 'Entrée pour enregistrer · Échap pour annuler',
+        userFacingSwitch:
+          'Afficher {{name}} dans les composants destinés aux clients',
+        userFacingHint:
+          'Affiché dans les composants destinés aux clients (pages de plans et tarifs). Ce réglage est celui du droit : il vaut pour toutes les licences qui l’accordent.',
         overageNeedsLimit:
           "Définissez d'abord une limite : un droit illimité n'a rien à dépasser.",
         allAttachedHint:
