@@ -76,13 +76,19 @@ it. A handler that writes `command.Metadata` directly defeats the merge, and an
 archived key silently disappears from the resource on the next `PUT` that omits
 it.
 
-Four handlers follow the contract today:
+Five handlers follow the contract today:
 
 - `createdeploymentzone` and `updatedeploymentzone` (`DEPLOYMENT_ZONE`, strict)
-- `createinstance` and `updateinstance` (`INSTANCE`, tolerant)
+- `createinstance`, `updateinstance` and `patchinstance` (`INSTANCE`, tolerant),
+  all three through `schema.ValidateMetadata` in the instances module
 
 The update handlers serve `PUT /api/deployment-zones/{deploymentZoneSlug}` and
 `PUT /api/instances/{instanceSlug}`, which replace the whole resource.
+`PATCH /api/instances/{instanceSlug}` merges a `metadata` object into the stored
+one at the first level (a key set to `null` is removed, absent keys are kept)
+and validates the merged result, with the stored metadata as `currentMetadata`.
+An archived key set to `null` is therefore re-injected, exactly as a `PUT` that
+omits it.
 
 ### Adding a resource type
 

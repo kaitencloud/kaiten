@@ -72,7 +72,7 @@ func NewLister(pool *pgxpool.Pool) MetadataFieldsLister {
 // merged back into it, and persisting the input map instead drops them
 // permanently -- the one thing nothing in the type system prevents. The
 // metadata_validation_test.go suites under tests/integrations pin it for the
-// four handlers that exist; a new metadata-writing resource has to bring its
+// handlers that exist; a new metadata-writing resource has to bring its
 // own case.
 //
 // strict selects the unknown-key policy (additionalProperties). The calling

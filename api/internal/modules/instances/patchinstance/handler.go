@@ -2,6 +2,7 @@ package patchinstance
 
 import (
 	"context"
+	"reflect"
 
 	"github.com/google/uuid"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/patchutil"
 )
@@ -30,8 +32,9 @@ type InstanceLifecycleStageChanged struct {
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
 type Deps struct {
-	UserProvider currentuser.Provider
-	Uof          *uow.UnitOfWork
+	UserProvider         currentuser.Provider
+	Uof                  *uow.UnitOfWork
+	MetadataFieldsLister validator.MetadataFieldsLister
 }
 
 type UseCase struct {
@@ -55,6 +58,11 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 	}
 
 	return h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		// Locked before the read: a metadata merge is read-modify-write, and
+		// two concurrent PATCHes naming different keys must both survive.
+		if err := h.repo.LockInstance(ctx, slug, user.OrganizationID); err != nil {
+			return err
+		}
 		current, err := h.repo.GetInstance(ctx, slug, user.OrganizationID)
 		if err != nil {
 			return err
@@ -70,11 +78,20 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 			return err
 		}
 
+		afterMetadata, err := h.applyMetadata(ctx, command, current, slug, user)
+		if err != nil {
+			return err
+		}
+
 		// Connectors (e.g. the Attio worker) only consume the generic updated
-		// event, so any effective patch must also surface as INSTANCE_UPDATED.
-		updated := afterLifecycle
-		if updated == nil {
-			updated = afterStatus
+		// event, so any effective patch must also surface as INSTANCE_UPDATED,
+		// carrying the instance as the last applied change left it.
+		var updated *schema.Instance
+		for _, after := range []*schema.Instance{afterMetadata, afterLifecycle, afterStatus} {
+			if after != nil {
+				updated = after
+				break
+			}
 		}
 		if updated == nil {
 			return nil
@@ -166,4 +183,32 @@ func (h *UseCase) applyLifecycleStage(
 	}
 
 	return updated, nil
+}
+
+// applyMetadata merges the patch into the stored metadata and validates the
+// result as PUT does. It has no event of its own: INSTANCE_UPDATED, which
+// Execute emits for any effective change, is the metadata change's event.
+func (h *UseCase) applyMetadata(
+	ctx context.Context,
+	command *Command,
+	current *schema.Instance,
+	slug string,
+	user *currentuser.User,
+) (*schema.Instance, error) {
+	if len(command.Metadata) == 0 {
+		return nil, nil
+	}
+
+	merged, err := schema.ValidateMetadata(
+		ctx, h.deps.MetadataFieldsLister, user.OrganizationID,
+		mergeMetadata(current.Metadata, command.Metadata), current.Metadata,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if reflect.DeepEqual(merged, current.Metadata) {
+		return nil, nil
+	}
+
+	return h.repo.UpdateInstanceMetadata(ctx, merged, slug, user.ID, user.OrganizationID)
 }

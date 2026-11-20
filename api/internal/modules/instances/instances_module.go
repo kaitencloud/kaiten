@@ -119,8 +119,9 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		PatchInstance: patchinstance.NewUseCase(patchinstance.Deps{
-			UserProvider: svc.UserProvider,
-			Uof:          svc.Uof,
+			UserProvider:         svc.UserProvider,
+			Uof:                  svc.Uof,
+			MetadataFieldsLister: validator.NewLister(svc.Pool),
 		}),
 		UpdateInstance: updateinstance.NewUseCase(updateinstance.Deps{
 			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},

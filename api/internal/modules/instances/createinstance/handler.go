@@ -13,7 +13,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
-	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
@@ -68,15 +67,9 @@ func (h *UseCase) Execute(ctx context.Context, command *Command) (*schema.Instan
 	if err := operationalaccess.RequireLicense(ctx, h.deps.Uof.DBTX(ctx), h.deps.AIPolicy, user.OrganizationID, command.LicenseID); err != nil {
 		return nil, err
 	}
-	// Validate metadata against the org's declared schema for INSTANCE.
-	// INSTANCE is tolerant (additionalProperties: true). See the module
-	// README in metadatafields/ for the convention.
-	resolvedMetadata, err := validator.ValidateMetadataForResource(
-		ctx, h.deps.MetadataFieldsLister, user.OrganizationID,
-		metadatafieldsdb.MetadataFieldResourceTypeINSTANCE,
-		false,                 // tolerant: instance metadata is auto-reported by the SaaS
-		command.Metadata, nil, // create → no prior metadata
-	)
+	// Validate metadata against the org's declared schema for INSTANCE
+	// (create: no prior metadata).
+	resolvedMetadata, err := schema.ValidateMetadata(ctx, h.deps.MetadataFieldsLister, user.OrganizationID, command.Metadata, nil)
 	if err != nil {
 		return nil, err
 	}
