@@ -7,7 +7,6 @@ import (
 	"reflect"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
@@ -55,13 +54,18 @@ type MetadataFieldsLister interface {
 }
 
 // NewLister builds the MetadataFieldsLister ValidateMetadataForResource
-// needs, bound to pool. This is the metadatafields module's public
+// needs, bound to conn. This is the metadatafields module's public
 // constructor for callers outside the module (e.g. deploymentzones,
 // instances) -- they call this instead of importing this module's own
 // generated db package directly, keeping that package's types private to
 // the module.
-func NewLister(pool *pgxpool.Pool) MetadataFieldsLister {
-	return db.New(pool)
+//
+// conn is the pool, or uow.Ambient() for a caller that validates inside a
+// transaction: a pool-bound lister then takes a second connection while the
+// caller holds its own, which the pool cannot give once every connection is
+// held by a caller in the same position.
+func NewLister(conn db.DBTX) MetadataFieldsLister {
+	return db.New(conn)
 }
 
 // ValidateMetadataForResource validates a resource's metadata payload against

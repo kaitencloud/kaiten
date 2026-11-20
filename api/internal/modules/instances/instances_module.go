@@ -118,16 +118,20 @@ func NewUseCases(svc services.Container) *UseCases {
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
+		// PATCH and PUT validate metadata inside their transaction, so their
+		// lister follows it rather than taking a second connection: PATCH
+		// holds the instance's row lock by then, and the writers queued
+		// behind that lock each hold a connection of the pool.
 		PatchInstance: patchinstance.NewUseCase(patchinstance.Deps{
 			UserProvider:         svc.UserProvider,
 			Uof:                  svc.Uof,
-			MetadataFieldsLister: validator.NewLister(svc.Pool),
+			MetadataFieldsLister: validator.NewLister(svc.Uof.Ambient()),
 		}),
 		UpdateInstance: updateinstance.NewUseCase(updateinstance.Deps{
 			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:         svc.UserProvider,
 			Uof:                  svc.Uof,
-			MetadataFieldsLister: validator.NewLister(svc.Pool),
+			MetadataFieldsLister: validator.NewLister(svc.Uof.Ambient()),
 		}),
 		UpdateIntegration: updateintegrations.NewUseCase(updateintegrations.Deps{
 			UserProvider: svc.UserProvider,

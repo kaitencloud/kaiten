@@ -143,7 +143,11 @@ func TestPatchInstanceMetadata(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 		instance := newInstances(t, 1)[0]
 
-		const writers = 8
+		// More writers than the pool has connections: every one of them holds
+		// its transaction's connection while it waits for the row, so a PATCH
+		// that needed a second connection under the lock would never get it,
+		// and this test would time out instead of failing on a lost key.
+		writers := int(testServer.Dependencies.DB.Config().MaxConns) + 4
 		var wg sync.WaitGroup
 		statuses := make([]int, writers)
 		for i := range writers {
