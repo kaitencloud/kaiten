@@ -77,7 +77,7 @@ app/src/features/service-accounts/
 Nothing in the feature lists them by hand:
 
 1. `api/pkg/scope` declares every module. `scope.OrganizationScopes()` is read and write on each module an organization credential can hold, which is all of them except `users` and `memberships`, enforced only by the Platform API.
-2. The Core OpenAPI document publishes that list on its `bearerAuth` scheme, as `x-kaiten-scopes`. A module can be enforced by a service in front of the API rather than by one of its operations (`webhooks` today); the list includes it. The contract tests in `api/internal/infrastructure/http/server/openapi_contract_test.go` check that every Core operation's scope is on the list and that every listed module is enforced somewhere, by an operation or by a service recorded in the test.
+2. The Core OpenAPI document publishes that list on its `bearerAuth` scheme, as `x-kaiten-scopes`. A module can be enforced by a service in front of the API rather than by one of its operations (`webhooks` and `beta_features` today); the list includes it. The contract tests in `api/internal/infrastructure/http/server/openapi_contract_test.go` check that every Core operation's scope is on the list and that every listed module is enforced somewhere, by an operation or by a service recorded in the test.
 3. `packages/api-codegen/generate-scopes.js` turns the list into `app/src/lib/api/scopes.gen.ts` when `pnpm run generate` runs in `app/`.
 4. `app/src/features/service-accounts/utils/constants.ts` builds `AVAILABLE_RESOURCES` from it.
 
@@ -85,7 +85,7 @@ The table cannot miss a scope: a token is minted only with scopes `pkg/scope` ac
 
 - a group, in `RESOURCE_GROUPS` (`app/src/features/service-accounts/utils/constants.ts`), a `Record` over the generated type, so the type check fails until one is chosen;
 - a label and a description in `app/src/lib/i18n/locales/en.ts` and `fr.ts`, under `Pages.Integrations.ServiceAccounts.Scopes.Resources`, which `app/src/features/service-accounts/utils/__tests__/constants.test.ts` requires. The same test requires a label for each group and a label and description for each preset.
-- for the scope of a feature not every organization is served, a check in the picker. Webhooks is the one (`WEBHOOKS_SCOPE_RESOURCE` in `app/src/features/service-accounts/utils/constants.ts`): served by saas-api on Kaiten Cloud alone, and only to an organization whose licence carries them, the picker offers it only where `useWebhooksServed()` (`@/domains/webhooks`) says they are. On a self-hosted deployment there are no webhooks to call.
+- for the scope of a feature not every organization is served, a check in the picker. Webhooks is the one (`WEBHOOKS_SCOPE_RESOURCE` in `app/src/features/service-accounts/utils/constants.ts`): served by saas-api on Kaiten Cloud alone, and only to an organization whose licence carries them, the picker offers it only where `useWebhooksServed()` (`@/domains/webhooks`) says they are. On a self-hosted deployment there are no webhooks to call. `beta_features` has no such check: the console has no signal yet for whether the hosted setting it gates is served, so the picker offers it everywhere, like any other organization scope.
 
 ## Tests
 

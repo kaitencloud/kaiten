@@ -18737,6 +18737,7 @@ components:
       type: http
       x-kaiten-scopes:
         - read:addons
+        - read:beta_features
         - read:billing
         - read:components
         - read:customer_sessions
@@ -18759,6 +18760,7 @@ components:
         - read:vouchers
         - read:webhooks
         - write:addons
+        - write:beta_features
         - write:billing
         - write:components
         - write:customer_sessions

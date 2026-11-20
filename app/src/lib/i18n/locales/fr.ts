@@ -4776,6 +4776,11 @@ export default {
               label: 'Webhooks',
               description: 'Accès aux abonnements webhooks sortants',
             },
+            betaFeatures: {
+              label: 'Fonctionnalités bêta',
+              description:
+                "Activer ou désactiver les fonctionnalités bêta de l'organisation",
+            },
           },
         },
         Token: {
@@ -6600,6 +6605,7 @@ export default {
       },
       resources: {
         addons: 'Add-ons',
+        beta_features: 'Fonctionnalités bêta',
         billing: 'Facturation',
         components: 'Composants',
         customer_sessions: 'Sessions client',

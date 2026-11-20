@@ -65,6 +65,7 @@ const RESOURCE_GROUPS: Record<
   // A person's feed for a user's JWT; a service account's own, for its token.
   notifications: 'organization',
   webhooks: 'organization',
+  beta_features: 'organization',
 };
 
 // The scope of a feature not every organization is served (domains/webhooks):

@@ -172,9 +172,10 @@ func TestOrganizationScopes(t *testing.T) {
 		}
 	}
 
-	// Enforced by the outbound webhooks service rather than by a Core operation, which is exactly why
-	// the list cannot be read off the Core document's operations.
-	for _, want := range []string{Read(Webhooks), Write(Webhooks)} {
+	// Enforced by a hosted service (the outbound webhooks service, the beta-features setting) rather
+	// than by a Core operation, which is exactly why the list cannot be read off the Core document's
+	// operations.
+	for _, want := range []string{Read(Webhooks), Write(Webhooks), Read(BetaFeatures), Write(BetaFeatures)} {
 		if !slices.Contains(scopes, want) {
 			t.Errorf("OrganizationScopes() is missing %q", want)
 		}
