@@ -7,4 +7,8 @@ import "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 type Command struct {
 	Status         *schema.InstanceStatus
 	LifecycleStage *string
+	// Metadata is a first-level merge patch: each key is set, a nil value
+	// removes the key, and keys absent from it are kept. Nil or empty
+	// changes nothing.
+	Metadata map[string]any
 }

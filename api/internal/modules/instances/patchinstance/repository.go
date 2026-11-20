@@ -47,6 +47,42 @@ func (r *CommandRepository) GetInstance(ctx context.Context, slug string, organi
 	return getOneInstanceRowToSchema(i)
 }
 
+// LockInstance locks the instance row until the transaction ends, so the
+// metadata read next is still what is stored when the merge is written.
+func (r *CommandRepository) LockInstance(ctx context.Context, slug string, organizationID uuid.UUID) error {
+	_, err := r.q(ctx).LockInstance(ctx, db.LockInstanceParams{OrganizationID: organizationID, Slug: slug})
+	if isNoRows(err) {
+		return kaitenerrors.NotFound("PatchInstance.NotFound", fmt.Sprintf("Instance with slug %q not found", slug))
+	}
+	return err
+}
+
+func (r *CommandRepository) UpdateInstanceMetadata(ctx context.Context, metadata map[string]any, slug string, userID uuid.UUID, organizationID uuid.UUID) (*schema.Instance, error) {
+	metadataBytes, err := schema.MarshalJSONObject(metadata)
+	if err != nil {
+		return nil, err
+	}
+	i, err := r.q(ctx).UpdateInstanceMetadata(ctx, db.UpdateInstanceMetadataParams{
+		Metadata:       metadataBytes,
+		OrganizationID: organizationID,
+		UserID:         userID,
+		Slug:           slug,
+	})
+	if err != nil {
+		if isNoRows(err) {
+			return nil, kaitenerrors.NotFound("PatchInstance.NotFound", fmt.Sprintf("Instance with slug %q not found", slug))
+		}
+		return nil, err
+	}
+
+	return rowToSchema(
+		i.ID, i.Slug, schema.InstanceStatus(i.Status), i.LifecycleStage, i.CreatedByID, i.CreatedByName, i.CreatedAt.Time,
+		i.UpdatedByID, i.UpdatedByName, i.UpdatedAt.Time, i.Name, i.Description,
+		i.CustomerID, i.CustomerSlug, i.LicenseID, i.LicenseSlug, i.DeploymentZoneID, i.DeploymentZoneSlug,
+		i.StartLicenseDate.Time, i.EndLicenseDate.Time, i.Metadata,
+	)
+}
+
 func (r *CommandRepository) UpdateInstanceStatus(ctx context.Context, status schema.InstanceStatus, slug string, userID uuid.UUID, organizationID uuid.UUID) (*schema.Instance, error) {
 	i, err := r.q(ctx).UpdateInstanceStatus(ctx, db.UpdateInstanceStatusParams{
 		Status:         db.InstanceStatus(status),

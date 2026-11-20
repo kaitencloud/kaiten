@@ -38,6 +38,7 @@ type Request struct {
 type PatchInstanceBody struct {
 	Status         *schema.InstanceStatus `json:"status,omitempty" doc:"Operational status of the instance" enum:"HEALTHY,DEGRADED,INCIDENT,MAINTENANCE" example:"INCIDENT"`
 	LifecycleStage *string                `json:"lifecycleStage,omitempty" doc:"Commercial lifecycle stage (free-form; suggested: TRIAL, ACTIVE, AT_RISK, CHURNED). When omitted, the current stage is preserved; clearing it back to unset is not supported." minLength:"1" example:"AT_RISK"`
+	Metadata       map[string]any         `json:"metadata,omitempty" doc:"Metadata keys to change, merged into the stored metadata at the first level: each key present is set, its value replacing the stored one whole (lists and objects included); a key whose value is null is removed; keys absent from the object are kept. The merged result is validated against the organization's declared instance metadata fields, as on PUT. When omitted, metadata is unchanged."`
 }
 
 func RegisterEndpoint(api huma.API, app Patcher) {
@@ -46,7 +47,7 @@ func RegisterEndpoint(api huma.API, app Patcher) {
 		Method:        http.MethodPatch,
 		Path:          "/instances/{instanceSlug}",
 		Summary:       "Patch an instance",
-		Description:   "Partially update an instance. Currently supports the operational status and the commercial lifecycle stage.",
+		Description:   "Partially update an instance: its operational status, its commercial lifecycle stage, and individual metadata keys. Unlike PUT, a metadata change needs no read of the instance first, and does not overwrite keys it does not name.",
 		Tags:          []string{"instances"},
 		DefaultStatus: http.StatusNoContent,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusUnprocessableEntity, http.StatusInternalServerError},
@@ -59,6 +60,7 @@ func RegisterEndpoint(api huma.API, app Patcher) {
 		command := &Command{
 			Status:         input.Body.Status,
 			LifecycleStage: input.Body.LifecycleStage,
+			Metadata:       input.Body.Metadata,
 		}
 		if err := app.Patch(ctx, cl, input.InstanceSlug, command); err != nil {
 			return nil, err

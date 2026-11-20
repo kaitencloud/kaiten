@@ -230,6 +230,36 @@ FROM updated
   LEFT JOIN "deployment_zone" dz ON updated.deployment_zone_id = dz.id;
 
 
+-- name: UpdateInstanceMetadata :one
+-- The whole metadata object, already merged and validated by the caller,
+-- which read it under LockInstance in the same transaction.
+WITH updated AS (
+  UPDATE instance i
+  SET updated_by_id = uo.user_id,
+      updated_at = now(),
+      metadata = sqlc.arg(metadata)::jsonb
+  FROM user_on_organization uo
+  WHERE uo.organization_id = sqlc.arg(organization_id)
+         AND uo.user_id = sqlc.arg(user_id)
+         AND uo.deleted_at IS NULL
+         AND i.organization_id = uo.organization_id
+         AND i.slug = sqlc.arg(slug)
+  RETURNING i.*
+)
+SELECT updated.*,
+       creator.name AS created_by_name,
+       updater.name AS updated_by_name,
+       l.slug AS license_slug,
+       c.slug AS customer_slug,
+       dz.slug AS deployment_zone_slug
+FROM updated
+  INNER JOIN "user" creator ON updated.created_by_id = creator.id
+  INNER JOIN "user" updater ON updated.updated_by_id = updater.id
+  LEFT JOIN "license" l ON updated.license_id = l.id
+  LEFT JOIN "customer" c ON updated.customer_id = c.id
+  LEFT JOIN "deployment_zone" dz ON updated.deployment_zone_id = dz.id;
+
+
 -- name: DeleteInstance :one
 -- Real, hard delete: the instance row and everything FK-cascaded from it
 -- (entitlement_usage, instance_integrations, feature_audit_trail's
@@ -426,9 +456,11 @@ WHERE i.organization_id = sqlc.arg(organization_id)
   AND i.slug = sqlc.arg(slug);
 
 
--- name: LockInstanceForDelete :one
--- The instance a delete names, locked first: a subscribe that starts
--- meanwhile waits, then finds it gone.
+-- name: LockInstance :one
+-- The instance a write names, locked for the rest of the transaction: a
+-- subscribe that starts while a delete holds it waits, then finds it gone,
+-- and a PATCH reads the metadata it merges into with no other writer between
+-- that read and its own write.
 SELECT i.id
 FROM instance i
 WHERE i.organization_id = sqlc.arg(organization_id)
