@@ -6,10 +6,12 @@ import { AddEntitlementDialog } from './add-entitlement-dialog';
 import type { LicenseEntitlementsCardProps } from './license-entitlements-card.types';
 import { useEntitlementColumns } from './license-entitlements-card-columns';
 import { LicenseEntitlementsHeader } from './license-entitlements-card-header';
+import { useUserFacingColumn } from './license-entitlement-user-facing-column';
 import { useLicenseEntitlementsCard } from './use-license-entitlements-card';
 
 export type {
   AddEntitlementPayload,
+  EntitlementUserFacingControl,
   LicenseEntitlementsCardProps,
 } from './license-entitlements-card.types';
 
@@ -26,6 +28,7 @@ export function LicenseEntitlementsCard({
   readOnly = false,
   resetAction,
   rows: canonicalRows,
+  userFacing,
 }: LicenseEntitlementsCardProps) {
   const access = useAiAccess();
   // A projection only. The owning draft/save hooks retain every canonical grant.
@@ -108,7 +111,7 @@ export function LicenseEntitlementsCard({
     [entitlementSlugById, onClickEntitlement],
   );
 
-  const columns = useEntitlementColumns({
+  const grantColumns = useEntitlementColumns({
     licenseSlug,
     mayConfigureAi:
       access.allows('getLicenses') && access.allows('listConversionRules'),
@@ -126,6 +129,19 @@ export function LicenseEntitlementsCard({
     setEditingValue,
     store,
   });
+  const userFacingColumn = useUserFacingColumn(entitlements, userFacing);
+  // Before the actions, which a reader's table does not have.
+  const columns = useMemo(() => {
+    if (!userFacingColumn) return grantColumns;
+    const actionsAt = grantColumns.findIndex(({ id }) => id === 'actions');
+    const at = actionsAt < 0 ? grantColumns.length : actionsAt;
+
+    return [
+      ...grantColumns.slice(0, at),
+      userFacingColumn,
+      ...grantColumns.slice(at),
+    ];
+  }, [grantColumns, userFacingColumn]);
 
   return (
     <TableCard>

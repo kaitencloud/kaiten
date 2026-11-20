@@ -6,6 +6,17 @@ export type AddEntitlementPayload = AddDraftEntitlementPayload & {
   entitlementType?: NonNullable<Entitlement['type']>;
 };
 
+/**
+ * The entitlement's own "user facing" flag, where a page lets it be changed from
+ * the grants: the write belongs to the entitlements, so the route hands it in.
+ */
+export type EntitlementUserFacingControl = {
+  /** Whether the session may change the flag; it is shown either way. */
+  allowed: boolean;
+  isPending: boolean;
+  setUserFacing: (entitlement: Entitlement, userFacing: boolean) => void;
+};
+
 export type LicenseEntitlementsCardProps = {
   /** Exact persisted version; omitted by unsaved creation forms. */
   licenseSlug?: string;
@@ -31,6 +42,8 @@ export type LicenseEntitlementsCardProps = {
     onReset: () => void;
   };
   rows: EditableLicenseEntitlement[];
+  /** Adds the User facing column and its switch. Omitted by the creation forms. */
+  userFacing?: EntitlementUserFacingControl;
 };
 
 export type LicenseEntitlementsCardResetAction = NonNullable<
