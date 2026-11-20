@@ -4700,6 +4700,10 @@ export default {
               label: 'Webhooks',
               description: 'Access to outbound webhook subscriptions',
             },
+            betaFeatures: {
+              label: 'Beta features',
+              description: "Turn the organization's beta features on or off",
+            },
           },
         },
         Token: {
@@ -6499,6 +6503,7 @@ export default {
       },
       resources: {
         addons: 'Add-ons',
+        beta_features: 'Beta features',
         billing: 'Billing',
         components: 'Components',
         customer_sessions: 'Customer sessions',

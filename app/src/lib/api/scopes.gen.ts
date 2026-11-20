@@ -10,6 +10,7 @@
 
 export const API_SCOPE_RESOURCES = [
   'addons',
+  'beta_features',
   'billing',
   'components',
   'customer_sessions',
@@ -41,6 +42,7 @@ export type ApiScopePermission = (typeof API_SCOPE_PERMISSIONS)[number];
 
 export const API_SCOPES = [
   'read:addons',
+  'read:beta_features',
   'read:billing',
   'read:components',
   'read:customer_sessions',
@@ -63,6 +65,7 @@ export const API_SCOPES = [
   'read:vouchers',
   'read:webhooks',
   'write:addons',
+  'write:beta_features',
   'write:billing',
   'write:components',
   'write:customer_sessions',
