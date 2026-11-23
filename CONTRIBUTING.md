@@ -237,6 +237,11 @@ The types are `feat`, `fix`, `docs`, `chore`, `refactor`, `test`, `ci`, `build`,
 The check runs as a `commit-msg` hook once you have run `pre-commit install`
 (`pre-commit install --hook-type commit-msg` installs that hook alone).
 
+A pull request's title follows the same format: a squash merge makes it the commit
+on `main`, and release notes are drafted from those commits. The `PR title` check
+(`.github/workflows/pr-title.yml`) validates it, and for a single-commit pull request
+also checks that the commit message matches it.
+
 Sign off each commit: `git commit -s` appends the `Signed-off-by` trailer that
 the [Developer Certificate of Origin](#developer-certificate-of-origin) asks for.
 

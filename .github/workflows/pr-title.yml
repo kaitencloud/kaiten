@@ -1,0 +1,47 @@
+name: PR title
+
+# The title of a pull request becomes the commit on main: a squash merge uses it as
+# the commit message, and a single-commit pull request must agree with it, since
+# GitHub then uses that commit's message instead. Release notes are drafted from
+# those commits, grouped by their Conventional Commits type (`feat`, `fix`, ...), so
+# the title has to follow the same convention as every commit (CONTRIBUTING.md,
+# "Commit messages"). commitlint checks commits locally; this is the check that a
+# title edited on GitHub cannot skip.
+#
+# pull_request_target, like dco.yml, so the check runs as it is on main. It is safe
+# for the same reason: nothing here checks out or runs the pull request's code.
+on:
+  pull_request_target:
+    branches: ["main"]
+    types: [opened, edited, synchronize, reopened]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  title:
+    name: PR title
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # The types are those of commitlint's config-conventional, which
+      # commitlint.config.cjs extends.
+      - name: Title follows Conventional Commits
+        uses: amannn/action-semantic-pull-request@2252a14e810aa9b85c2d560bd7070c802206ecf6 # v6.1.2
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            chore
+            refactor
+            test
+            ci
+            build
+            perf
+            style
+            revert
+          validateSingleCommit: true
+          validateSingleCommitMatchesPrTitle: true
