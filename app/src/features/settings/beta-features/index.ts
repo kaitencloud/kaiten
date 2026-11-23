@@ -1,0 +1,1 @@
+export { BetaFeaturesPageContent } from './components';

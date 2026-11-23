@@ -41,6 +41,7 @@ describe('dev world', () => {
       'ai',
       'aiCapability',
       'auditTrail',
+      'betaFeatures',
       'billing',
       'connectors',
       'customers',

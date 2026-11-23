@@ -137,6 +137,14 @@ stay undeclared. A checkout refuses as the API does, with its codes, and its sub
 portal and the invoices. `createMockHandlers` takes the platform's address and key as an argument,
 for the tests that run in Node. `src/__tests__/plan-mocks.test.ts` reads these answers off the wire.
 
+The Beta features page is the `betaFeatures` slot (`BetaFeaturesAppModel`, served by
+`beta-features-handlers.ts`): the platform flags of its betas, each with its `stage` (and the
+`betaVariant` of a string flag) in its metadata, answered in the same bulk OFREP evaluation as the
+`flagEvaluations` slot, which its handler stands in for when it is installed; and saas-api's
+`PUT /api/beta-features/{flagSlug}`, written by hand since `openapi.yaml` does not describe it. The
+toggle checks `write:beta_features` from the token, then refuses with saas-api's codes, and a toggle
+it accepts changes what the next evaluation answers. `dev:mock` installs it with no beta open.
+
 Stripe's connector is served by `connector-handlers.ts` over the operations of Attio's, told apart
 by the name in the path (`ConnectorAppModel`: the key is write-only and redacted, a save
 activates the connector after the checks the API makes in its order, the Vault, the plan, the

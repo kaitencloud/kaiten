@@ -17,6 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { Page } from '@/functionals/page';
 import { ExportDataCard } from '../data-export';
 import { ApplicationSettingsSection } from './application-settings-section';
+import { BetaFeaturesSettingsLinkCard } from './beta-features-settings-link-card';
 import { BillingSettingsLinkCard } from './billing-settings-link-card';
 import { PlanSettingsLinkCard } from './plan-settings-link-card';
 import { SettingsLinkCard } from './settings-link-card';
@@ -106,6 +107,8 @@ function OrganizationSettingsSection() {
       />
 
       <BillingSettingsLinkCard />
+
+      <BetaFeaturesSettingsLinkCard />
 
       <ExportDataCard />
     </section>

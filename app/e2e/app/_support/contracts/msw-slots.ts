@@ -1,5 +1,6 @@
 import type { SerializedAiAppModel } from '../model/ai-app-model';
 import type { SerializedAuditTrailAppModel } from '../model/audit-trail-app-model';
+import type { SerializedBetaFeaturesAppModel } from '../model/beta-features-app-model';
 import type { SerializedBillingAppModel } from '../model/billing-app-model';
 import type { SerializedConnectorAppModel } from '../model/connector-app-model';
 import type { SerializedCustomerAppModel } from '../model/customer-app-model';
@@ -17,6 +18,9 @@ import type { ServiceAccount } from '@/api-client';
 export type E2EMswConfig = {
   ai?: SerializedAiAppModel;
   auditTrail?: SerializedAuditTrailAppModel;
+  // The betas of the Beta features page: their flags, with their stage, and the
+  // toggle saas-api serves. Its flags are answered beside `flagEvaluations`.
+  betaFeatures?: SerializedBetaFeaturesAppModel;
   billing?: SerializedBillingAppModel;
   connectors?: SerializedConnectorAppModel;
   customers?: SerializedCustomerAppModel;
