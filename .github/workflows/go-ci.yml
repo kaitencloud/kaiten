@@ -8,6 +8,10 @@ on:
       # The console's GraphQL documents: the API holds a copy of each and pins
       # what it costs, and a test fails when the two part ways.
       - 'app/src/**/*.queries.ts'
+      # The committed OpenAPI documents, generated from api/: a hand edit to
+      # either one has to meet the codegen job, which regenerates both.
+      - 'app/openapi.yaml'
+      - 'app/platform-openapi.yaml'
       # This workflow itself: a change to how the API is built, linted or tested
       # (the Go version, the linter's) has to be proved by a run of it.
       - '.github/workflows/go-ci.yml'
@@ -232,11 +236,24 @@ jobs:
       - name: Regenerate GraphQL execution layer
         run: go generate ./...
 
+      # Same commands as `task generate:oas`, minus its untracked api/openapi.yaml
+      # copy. The committed documents are the contract: release-openapi.yml
+      # publishes app/openapi.yaml as it is, and sdk-go generates its platform
+      # package from app/platform-openapi.yaml. A document that no longer matches
+      # the handlers would publish an API the server does not serve. The
+      # generator starts the server with a fixed config and reads no
+      # environment, so this output is the output every developer gets.
+      - name: Regenerate the OpenAPI documents
+        run: |
+          set -eu
+          go run cmd/docs/main.go openapi > ../app/openapi.yaml
+          go run cmd/docs/main.go platform-openapi > ../app/platform-openapi.yaml
+
       - name: Fail if the generated tree is stale
         run: |
           git add --intent-to-add --all
           if ! git diff --exit-code; then
-            echo "::error::Generated code is out of date — run 'task generate:sqlc' and 'task generate:gqlgen', then commit the result."
+            echo "::error::Generated code is out of date — run 'task generate:sqlc', 'task generate:gqlgen' and 'task generate:oas', then commit the result."
             exit 1
           fi
 
