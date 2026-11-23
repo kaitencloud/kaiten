@@ -1192,7 +1192,7 @@ var featureFlags = []schema.FeatureFlag{
 		Type:        "boolean",
 		Enabled:     true,
 		EventName:   betaFlagSlug + ".evaluated",
-		Description: ptr.To("Forecasts tomorrow's orders from the last weeks. In public beta."),
+		Description: ptr.To("Forecasts tomorrow's orders from the last weeks."),
 		Metadata:    map[string]any{"stage": "public_beta"},
 		Variants: []schema.Variant{
 			{Name: "on", Value: true, Description: "Order forecast is visible"},
