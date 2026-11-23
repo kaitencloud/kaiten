@@ -357,22 +357,39 @@ gh run list --repo kaitencloud/kaiten     # watch them
 ```
 
 That builds and publishes the api, seeder, admin-tools and app images and
-the Helm charts. It also creates the tag's GitHub Release
-(`.github/workflows/release-notes.yml`), with a body worked out from what shipped
-since the previous release: the pull requests by type, the API contract changes, new
-migrations, chart values, and which artifacts changed or were only rebuilt. A
-pre-release tag gets a draft. `scripts/release-notes/facts.sh <tag>` prints the same
-facts locally. Pre-release suffixes work (`26.08.3-rc.1`), because the pattern
+the Helm charts. Pre-release suffixes work (`26.08.3-rc.1`), because the pattern
 ends in `[0-9]*` and matches anything after the patch digit.
 
-Some artifacts are not on that tag: they publish on a merge to `main` that touches
-their sources, as the `on:` block of each `release-*.yml` workflow says. Two examples:
+Every tag also gets its GitHub Release (`.github/workflows/release-notes.yml`),
+with a body worked out from what shipped since the previous release: the pull
+requests by type, the API contract changes, new migrations, chart values, and which
+artifacts changed or were only rebuilt. A pre-release tag gets a draft.
+`scripts/release-notes/facts.sh <tag>` prints the same facts locally.
 
-- `@kaitencloud/openapi`, on every merge that touches `app/openapi.yaml`, because
-  the contract checks read the spec continuously and would otherwise be a release
-  behind the API they check.
+A stable tag (`26.08.3`, no suffix) also publishes the API contract,
+`app/openapi.yaml` with its README, LICENSE and NOTICE
+(`.github/workflows/release-contract.yml`):
+
+- to `ghcr.io/kaitencloud/contract`, an OCI artifact under the contract's own
+  semver and tagged with the release. Pull it with no credential:
+  `oras pull ghcr.io/kaitencloud/contract:26.08.3`, or `:<semver>`. oasdiff decides
+  the semver from what changed since the previous one
+  (`scripts/contract/next-version.sh`), and a release whose contract did not change
+  adds its tag to the existing version;
+- to npm, as `@kaitencloud/openapi`, with the same version and files.
+
+A pre-release publishes no contract: its API can still change before the stable
+tag, and a contract version is never taken back.
+
+Some artifacts are not on the tag: they publish on a merge to `main` that touches
+their sources, as the `on:` block of each `release-*.yml` workflow says:
+
+- `ghcr.io/kaitencloud/contract:next`, the contract `main` would release.
+- `@kaitencloud/graphql-schema` (`.github/workflows/release-graphql-schema.yml`).
 - `@kaitencloud/theme`, on a merge that carries a version npm does not have yet
   (`.github/workflows/release-theme.yml`).
+- The images, tagged `latest`, and the charts, versioned `0.0.0-latest`. They are
+  builds of `main` for development: nothing should pin them. Deploy a release tag.
 
 ## Security issues
 

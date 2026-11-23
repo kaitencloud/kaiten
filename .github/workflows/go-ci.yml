@@ -237,8 +237,8 @@ jobs:
         run: go generate ./...
 
       # Same commands as `task generate:oas`, minus its untracked api/openapi.yaml
-      # copy. The committed documents are the contract: release-openapi.yml
-      # publishes app/openapi.yaml as it is, and sdk-go generates its platform
+      # copy. The committed documents are the contract: release-contract.yml
+      # publishes app/openapi.yaml at each stable tag, and sdk-go generates its platform
       # package from app/platform-openapi.yaml. A document that no longer matches
       # the handlers would publish an API the server does not serve. The
       # generator starts the server with a fixed config and reads no

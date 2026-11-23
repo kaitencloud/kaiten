@@ -50,11 +50,11 @@ the downstream SDKs — document every error response.
 
 4. **Regenerate the contract** — `task generate:oas`
    - Adding statuses changes `app/openapi.yaml`. ⚠️ This changes the **public
-     contract**: `sdk-js` and `sdk-go` consume it. Once the change is merged,
-     `release-openapi` publishes `@kaitencloud/openapi` and pings `sdk-js`, whose
-     `contract-sync` workflow opens the pull request that resyncs its snapshot and
-     regenerates both REST clients, with a changeset. `sdk-go` has no drift gate:
-     regenerate it with `task generate:sdk-go`.
+     contract**: `sdk-js` and `sdk-go` consume it. The next stable release tag
+     publishes it (`release-contract.yml`), to `ghcr.io/kaitencloud/contract` and as
+     `@kaitencloud/openapi`, under the semver oasdiff decides: adding an error
+     status a client did not expect can make it a major. `sdk-go` has no drift
+     gate: regenerate it with `task generate:sdk-go`.
 
 ## Part B — frontend: complete the error translations
 

@@ -70,10 +70,10 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
-      # The release workflows' pin, so the contract changes listed here are the ones that
-      # decided the contract's version.
+      # The release workflows' pin, read from the one file they all read, so the contract
+      # changes listed here are the ones that decided the contract's version.
       - name: Install oasdiff
-        run: go install github.com/oasdiff/oasdiff@v1.31.0
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
 
       - name: Work out the facts
         env:

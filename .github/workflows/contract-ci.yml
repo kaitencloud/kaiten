@@ -1,9 +1,10 @@
 name: Contract CI
 
-# The rule that versions the API contract, tested before it decides a release.
+# The scripts that version and publish the API contract, tested before they
+# decide a release.
 #
 # scripts/contract/next-version.sh turns oasdiff's verdict into the contract's next
-# semver, and release-openapi.yml publishes under whatever number it prints. A
+# semver, and release-contract.yml publishes under whatever number it prints. A
 # wrong number cannot be taken back: npm never reuses a version, and a consumer
 # pinned to `^4` that receives a breaking 4.2.0 finds out by breaking. So the
 # script's tests run on every change to it, with the oasdiff release the
@@ -15,8 +16,9 @@ on:
     paths:
       - 'scripts/contract/**'
       - 'scripts/tests/test-contract-next-version.sh'
+      - 'scripts/tests/test-contract-release.sh'
       - '.github/workflows/contract-ci.yml'
-      - '.github/workflows/release-openapi.yml'
+      - '.github/workflows/release-contract.yml'
 
 concurrency:
   group: contract-ci-${{ github.event.pull_request.number }}
@@ -57,3 +59,40 @@ jobs:
         run: |
           yq --version
           scripts/tests/test-contract-next-version.sh
+
+  release:
+    name: Contract release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # A throwaway registry: the test pushes, tags and re-runs releases against
+    # it, over plain HTTP, and it disappears with the job.
+    services:
+      registry:
+        image: registry:2
+        ports:
+          - 5000:5000
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      - name: Install oasdiff
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
+
+      # The release's pin.
+      - name: Set up ORAS
+        uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63 # v2.0.3
+        with:
+          version: "1.3.6"
+
+      - name: Test release.sh
+        env:
+          REGISTRY: localhost:5000
+        run: scripts/tests/test-contract-release.sh
