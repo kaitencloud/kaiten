@@ -839,9 +839,7 @@ func (p *Profile) seedCustomersAndInstances(
 				DeploymentZoneID: &zoneID,
 				StartLicenseDate: startLicenseDate,
 				EndLicenseDate:   startLicenseDate.AddDate(1, 0, 0),
-				Metadata: map[string]any{
-					"environment": inst.Environment,
-				},
+				Metadata:         inst.MetadataPayload(),
 			})
 			if err != nil {
 				return nil, fmt.Errorf("instance %q: %w", instanceName, err)

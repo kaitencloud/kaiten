@@ -69,18 +69,18 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	require.Equal(t, 3, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM deployment_zone WHERE organization_id = $1`, orgID))
 	require.Equal(t, 2, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM release WHERE organization_id = $1`, orgID))
 	require.Equal(t, 7, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM component WHERE organization_id = $1`, orgID))
-	require.Equal(t, 7, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM feature_flags WHERE organization_id = $1`, orgID))
+	require.Equal(t, 8, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM feature_flags WHERE organization_id = $1`, orgID))
 	require.Equal(t, 5, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM deployment d JOIN deployment_zone z ON z.id = d.deployment_zone_id WHERE z.organization_id = $1`, orgID))
 	// The seed writes no audit entries of its own: the trail is what the use
 	// cases publish, recorded by the event pipeline, which this test does not
-	// run. A hundred and sixty-one events is the trail a running stack ends
-	// up with: ninety-seven for the catalogue, fleet and flags, thirty-four for
+	// run. A hundred and sixty-two events is the trail a running stack ends
+	// up with: ninety-eight for the catalogue, fleet and flags, thirty-four for
 	// the billing catalogue (twelve license prices; two add-ons with four
 	// prices, two grants, three compatibilities and one listing; five
 	// vouchers, each created and published), and thirty for the AI
 	// model/pool/grants/rules and eighteen reports.
 	require.Zero(t, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM audit_trail WHERE organization_id = $1`, orgID))
-	require.Equal(t, 161, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
+	require.Equal(t, 162, countRows(t, ctx, testDB, `SELECT COUNT(*) FROM outbox_events WHERE organization_id = $1`, orgID))
 
 	// The billing catalogue brain's console captures show: how each version is
 	// sold and its number of prices, every family listed with Standard and
@@ -403,6 +403,24 @@ func TestDemoProfileSeedsTheSushiShopBaseline(t *testing.T) {
 	require.Equal(t, []string{"sakura-dedicated"}, stringColumn(t, ctx, testDB, `
 		SELECT slug FROM deployment_zone
 		WHERE organization_id = $1 AND (metadata->>'dedicated')::boolean
+	`, orgID))
+
+	// The beta run on order-forecast: three instance metadata fields, and
+	// the three instances enrolled in it, each in its own state. No other
+	// instance carries a beta list.
+	require.Equal(t, []string{"betaAccess", "betaOptIn", "betaOptOut"}, stringColumn(t, ctx, testDB, `
+		SELECT key FROM metadata_field
+		WHERE organization_id = $1 AND resource_type = 'INSTANCE' AND key LIKE 'beta%'
+		ORDER BY key
+	`, orgID))
+	require.Equal(t, []string{
+		`demo-restaurant-prod {"betaAccess": ["order-forecast"], "betaOptOut": ["order-forecast"]}`,
+		`ninja-osaka-prod {"betaOptIn": ["order-forecast"]}`,
+		`sakura-tokyo-prod {"betaAccess": ["order-forecast"]}`,
+	}, stringColumn(t, ctx, testDB, `
+		SELECT slug || ' ' || (metadata - 'environment')::text FROM instance
+		WHERE organization_id = $1 AND metadata - 'environment' <> '{}'::jsonb
+		ORDER BY slug
 	`, orgID))
 
 	// Locally the owner the seed resolves is Splinter, the dataset's primary

@@ -71,5 +71,5 @@ func TestOrdinaryDemoDoesNotWritePlatformRolloutOrAIData(t *testing.T) {
 	require.Zero(t, countRows(t, ctx, testDB, `SELECT count(*) FROM feature_flags WHERE slug='ai-credits' AND organization_id=$1`, tenantID.String()))
 	require.Zero(t, countRows(t, ctx, testDB, `SELECT count(*) FROM model WHERE organization_id=$1`, tenantID.String()))
 	require.Equal(t, 6, countRows(t, ctx, testDB, `SELECT count(*) FROM entitlement WHERE organization_id=$1`, tenantID.String()))
-	require.Equal(t, 7, countRows(t, ctx, testDB, `SELECT count(*) FROM feature_flags WHERE organization_id=$1`, tenantID.String()))
+	require.Equal(t, 8, countRows(t, ctx, testDB, `SELECT count(*) FROM feature_flags WHERE organization_id=$1`, tenantID.String()))
 }
