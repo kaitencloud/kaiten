@@ -128,7 +128,7 @@ func (h *UseCase) persistRelease(ctx context.Context, orgID, userID uuid.UUID, c
 	var release *schema.Release
 
 	err := h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		createdRelease, err := h.repo.CreateRelease(ctx, command.Version, slug, command.Description, orgID, userID)
+		createdRelease, err := h.repo.CreateRelease(ctx, command.Version, slug, command.Description, command.ReleaseNote, orgID, userID)
 		if err != nil {
 			return err
 		}

@@ -51,6 +51,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 			Version:      request.Body.Version,
 			Slug:         slug,
 			Description:  request.Body.Description,
+			ReleaseNote:  request.Body.ReleaseNote,
 			ComponentIDs: request.Body.ComponentIDs,
 		}
 

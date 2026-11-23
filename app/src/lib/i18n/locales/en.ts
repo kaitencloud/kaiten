@@ -3000,6 +3000,10 @@ export default {
             },
             empty: 'This release has no components.',
           },
+          releaseNote: {
+            title: 'Release notes',
+            description: 'Written with the release when it was created.',
+          },
         },
         DeploymentZones: {
           title: 'Linked Deployment Zones',

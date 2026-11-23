@@ -199,6 +199,7 @@ func newRelease(t *testing.T, version string) *releaseschema.Release {
 		version,
 		releaseSlug,
 		nil,
+		nil,
 		testDb.DefaultData.OrganizationID,
 		testDb.DefaultData.UserID,
 	)
@@ -236,6 +237,7 @@ func newReleaseWithComponents(t *testing.T, version string, componentNames []str
 		t.Context(),
 		version,
 		releaseSlug,
+		nil,
 		nil,
 		testDb.DefaultData.OrganizationID,
 		testDb.DefaultData.UserID,

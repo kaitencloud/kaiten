@@ -13,6 +13,7 @@ import { DetailCard } from '@/functionals/detail-card';
 import { formatDetailDateTime, getAuditDisplayName } from '@/lib/detail';
 import { ReleaseComponentsCard } from './release-detail-components-card';
 import { useReleaseDetailContext } from './release-detail-context';
+import { ReleaseNoteCard } from './release-detail-release-note-card';
 import type { ZoneTypeCount } from '../../utils';
 
 type ReleaseDetailTranslation = ReturnType<typeof useTranslation>['t'];
@@ -256,6 +257,7 @@ export function ReleaseDetailOverviewTab() {
         t={t}
         zoneTypeCounts={zoneTypeCounts}
       />
+      <ReleaseNoteCard releaseNote={release.releaseNote} />
       <ReleaseComponentsCard components={release.components ?? []} />
     </div>
   );

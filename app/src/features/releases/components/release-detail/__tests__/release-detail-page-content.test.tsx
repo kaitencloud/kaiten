@@ -443,4 +443,63 @@ describe('ReleaseDetailPageContent', () => {
       screen.getByText('This release has no components.'),
     ).toBeInTheDocument();
   });
+
+  it('renders the release notes through the safe markdown renderer', () => {
+    render(
+      <ReleaseDetailPageContent
+        release={{
+          ...release,
+          releaseNote: [
+            '## Highlights',
+            '',
+            '- Faster start-up',
+            '',
+            'Read the [guide](https://example.com/guide), not [this](javascript:alert(1)).',
+            '',
+            '<img src=x onerror="alert(1)"> ![pixel](https://example.com/pixel.png)',
+          ].join('\n'),
+        }}
+        releaseSlug="release-1-0-0"
+      >
+        <ReleaseDetailOverviewTab />
+      </ReleaseDetailPageContent>,
+    );
+
+    const notesCard = asHTMLElement(
+      screen.getByText('Release notes').closest('[data-slot="card"]'),
+    );
+
+    expect(
+      within(notesCard).getByRole('heading', { name: 'Highlights' }),
+    ).toBeInTheDocument();
+    expect(within(notesCard).getByText('Faster start-up')).toBeInTheDocument();
+    expect(
+      within(notesCard).getByRole('link', { name: 'guide' }),
+    ).toHaveAttribute('href', 'https://example.com/guide');
+    expect(within(notesCard).getAllByRole('link')).toHaveLength(1);
+    expect(notesCard.querySelector('img')).toBeNull();
+    expect(notesCard).toHaveTextContent('<img src=x onerror="alert(1)">');
+  });
+
+  it('draws no release notes section for a release without notes', () => {
+    renderDetail();
+
+    expect(screen.queryByText('Release notes')).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="safe-markdown"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('draws no release notes section for notes that are only whitespace', () => {
+    render(
+      <ReleaseDetailPageContent
+        release={{ ...release, releaseNote: '  \n ' }}
+        releaseSlug="release-1-0-0"
+      >
+        <ReleaseDetailOverviewTab />
+      </ReleaseDetailPageContent>,
+    );
+
+    expect(screen.queryByText('Release notes')).not.toBeInTheDocument();
+  });
 });

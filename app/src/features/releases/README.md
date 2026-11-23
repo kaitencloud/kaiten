@@ -45,7 +45,7 @@ In `release-form/`, `create-stepper.tsx` holds the stepper and its Back, Next an
 | --- | --- |
 | `/releases` | `releaseManagementOverviewQueryOptions`: GraphQL `GetReleaseManagementOverview`, exported by `@/domains/release-management`. It returns each release with its components, the zones it ever reached and its instances. |
 | `/releases/deployments` | `releaseManagementOverviewQueryOptions`, like `/releases`: only the overview holds the zones a release ever reached, which the status needs. |
-| detail | `releaseQueryOptions(releaseSlug)` (REST `GET /releases/{releaseSlug}`) in the route, then the overview and the deployment zones in `ReleaseDetailProvider`. The zones only stand in for a release the overview does not hold yet. |
+| detail | `releaseQueryOptions(releaseSlug)` (REST `GET /releases/{releaseSlug}`) in the route, then the overview and the deployment zones in `ReleaseDetailProvider`. The zones only stand in for a release the overview does not hold yet. This read is the only one that carries the release notes (`releaseNote`): `GET /releases` leaves them out to keep a page small, and the GraphQL `Release` type does not declare them. |
 | form | the overview, for the base releases, and `allComponentsOptions()` (REST `GET /components`, every page), for the catalog. |
 
 `allReleasesOptions`, `allDeploymentZonesOptions` and `allComponentsOptions` are in `app/src/lib/api/all-pages-query-options.ts`. They keep the query key of the generated first-page options, so one invalidation reaches every screen.
@@ -91,13 +91,16 @@ The one exception is a release the overview does not hold yet, such as a release
 
 The component dialogs save at once: a component created in the form stays in the catalog if the release is never created. The API updates a component in place when no release ships it, and creates a new version when a release does; the form then uses the component the API returns in place of the one that was edited. When a release ships the component, the API only accepts an update that changes its name or version. Otherwise it answers 400 and the dialog shows the error in a toast, so editing only the description of such a component fails.
 
+The form does not set release notes: a client sets `releaseNote` through the API when it creates the release, and the detail page shows it.
+
 Create Release is enabled when the whole form is valid and has changed, and the tooltip on the disabled button says what is missing. The submitted components are those of the base release, minus the removed ones, with each edited one replaced by its new version, plus those chosen in the form. On success a toast reads "Release created successfully" and the console opens the new release, or the list when the release has no slug. On failure an error toast carries the API message and the form stays as it is.
 
 ### Detail
 
 - The header shows the version, the status badge, the description ("No description provided." when empty), a Deploy button that opens `/releases/$releaseSlug/deploy`, and a Delete button that asks for confirmation. A release is immutable, so there is no edit action and no "updated" date.
 - Three cards: Deployment zones and Production zones (the zones that run the release), and Last deployment update (the most recent update among those zones, or "Never").
-- **Overview** tab: General Information (version, slug, id, status, description, creation date and author), Deployment Footprint (the number of zones, one row per zone type, and the first five zones, each linking to `/releases/deployment-zones/$zoneSlug`) and Components (name, version and description of what the release ships).
+- **Overview** tab: General Information (version, slug, id, status, description, creation date and author), Deployment Footprint (the number of zones, one row per zone type, and the first five zones, each linking to `/releases/deployment-zones/$zoneSlug`), Release notes and Components (name, version and description of what the release ships).
+- Release notes (`ReleaseNoteCard`) show the release's `releaseNote`, markdown of up to 62,000 characters, through `SafeMarkdown` from [`@/functionals/markdown`](../../functionals/markdown/README.md): no raw HTML, no images, and no link but `http:`, `https:` and `mailto:`. A release without notes, or with notes that are only whitespace, draws no card.
 - **Deployment Zones** tab: the zones that run the release, each linking to the zone. With none, the tab offers "Deploy to a zone".
 - The API refuses to delete a release that has been deployed to a zone, even one that a newer release has replaced since (409); the console then shows only the toast "Failed to delete release". A successful deletion shows "Release deleted successfully" and navigates to `/releases/deployments`.
 
@@ -105,7 +108,7 @@ Create Release is enabled when the whole form is valid and has changed, and the 
 
 - `app/src/features/releases/components/release-form/__tests__/release-form.test.tsx`: the stepper, the base step and the step that is skipped, the blockers tooltip, the base picker and badge, the components step and Cancel.
 - `app/src/features/releases/components/release-form/__tests__/release-form-components-columns.test.ts`: the rows of the components step.
-- `app/src/features/releases/components/release-detail/__tests__/release-detail-page-content.test.tsx`: the detail metrics and status from the overview and their fallback to the REST zones, a superseded release, and the components card.
+- `app/src/features/releases/components/release-detail/__tests__/release-detail-page-content.test.tsx`: the detail metrics and status from the overview and their fallback to the REST zones, a superseded release, the components card, and the release notes card (rendered safely, absent without notes). The renderer's own rules are tested in `app/src/functionals/markdown/__tests__/`.
 - `app/src/features/releases/components/__tests__/release-status-surfaces.test.tsx`: `/releases` and `/releases/deployments` over the same overview, which must show the same status for each release, a superseded one included, and the same counts in the cards.
 - `app/src/features/releases/hooks/__tests__/use-release-form.test.ts`, `app/src/features/releases/schemas/__tests__/release.schema.test.ts` and `app/src/features/releases/utils/__tests__/release-detail-helpers.test.ts`.
 - The status rules are tested in the domain: `app/src/domains/release-management/logic/__tests__/`. The other screens that show a status are tested where they live: `features/components` (the releases dialog), `features/deployment-zones` (the releases dialog of a zone) and `features/instances` (the release card). Each of those three is also tested in French against the real locale bundle.
@@ -132,7 +135,7 @@ import {
 } from '@/features/releases';
 ```
 
-The feature imports no other feature. It shares code through `@/domains/release-management` (the overview query, status rules, types, `ComponentFormDialog` and workspace shell). Detail pages compose Top, Body, Tabs and Content from `DetailEntityLayout`:
+The feature imports no other feature. It shares code through `@/domains/release-management` (the overview query, status rules, types, `ComponentFormDialog` and workspace shell), and renders the release notes with `@/functionals/markdown`. Detail pages compose Top, Body, Tabs and Content from `DetailEntityLayout`:
 
 ```tsx
 // app/src/features/releases/components/releases-page-content.tsx

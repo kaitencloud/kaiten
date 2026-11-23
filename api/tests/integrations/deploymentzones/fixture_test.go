@@ -70,6 +70,7 @@ func createReleases(t *testing.T, count int) []*releasesschema.Release {
 			"rl_"+strconv.Itoa(i),
 			"rl-"+strconv.Itoa(i),
 			ptr.To("rl_description_dummy"),
+			nil,
 			testDb.DefaultData.OrganizationID,
 			testDb.DefaultData.UserID,
 		)

@@ -54,11 +54,12 @@ func (r *CommandRepository) components(ctx context.Context) releaselink.Port {
 	return releaselink.New(r.uof.DBTX(ctx))
 }
 
-func (r *CommandRepository) CreateRelease(ctx context.Context, version string, slug string, description *string, organizationID uuid.UUID, userID uuid.UUID) (*schema.Release, error) {
+func (r *CommandRepository) CreateRelease(ctx context.Context, version string, slug string, description *string, releaseNote *string, organizationID uuid.UUID, userID uuid.UUID) (*schema.Release, error) {
 	release := db.CreateReleaseParams{
 		Version:        version,
 		Slug:           slug,
 		Description:    description,
+		ReleaseNote:    releaseNote,
 		OrganizationID: organizationID,
 		UserID:         userID,
 	}
@@ -92,6 +93,7 @@ func (r *CommandRepository) CreateRelease(ctx context.Context, version string, s
 		Version:     rl.Version,
 		Slug:        rl.Slug,
 		Description: rl.Description,
+		ReleaseNote: rl.ReleaseNote,
 		CreatedBy:   shared.User{ID: rl.CreatedByID, Name: rl.CreatedByName},
 		CreatedAt:   rl.CreatedAt.Time,
 	}, nil
