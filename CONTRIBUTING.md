@@ -72,8 +72,8 @@ the pull request template and the `pr-check` skill point here.
   `migrate up` on every long-lived database. Rebase and renumber if another
   migration lands first. `scripts/check-migration-order.sh` is the CI guard.
 
-  CI regenerates the sqlc and gqlgen output (`codegen` job of `go-ci.yml`) and fails
-  when it differs from what you committed. If you changed Go dependencies, run
+  CI regenerates the sqlc and gqlgen output and both OpenAPI documents (`codegen`
+  job of `go-ci.yml`), and fails when any of them differs from what you committed. If you changed Go dependencies, run
   `task vuln:api` as well.
 
 - **Design tokens (`packages/theme`).** From `packages/theme`, run the four checks of
