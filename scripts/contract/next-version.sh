@@ -40,8 +40,10 @@
 # severity-levels.txt, next to this script, reclassifies oasdiff checks by id: see its header.
 # SEVERITY_LEVELS names another file, for the tests.
 #
-# Needs oasdiff and yq (mikefarah's, v4), on PATH or named by OASDIFF and YQ. The workflows pin
-# oasdiff: an unpinned one silently changes what the numbers mean.
+# Needs oasdiff and yq (mikefarah's, v4), on PATH or named by OASDIFF and YQ. The workflows install
+# the oasdiff that oasdiff-version, next to this script, names: an unpinned one silently changes
+# what the numbers mean, and one file keeps every workflow on the same one. Bump it there, and
+# nowhere else.
 
 set -euo pipefail
 

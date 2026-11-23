@@ -45,9 +45,10 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
-      # The release workflows' pin: the tests prove the numbers those runs produce.
+      # The release workflows' pin, read from the one file every install reads:
+      # the tests prove the numbers those runs produce.
       - name: Install oasdiff
-        run: go install github.com/oasdiff/oasdiff@v1.31.0
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
 
       # yq comes with the runner image. The script only uses it to blank
       # info.version on both sides of a comparison, so its version does not move

@@ -95,7 +95,7 @@ jobs:
       # Pinned, like every other tool here. oasdiff decides what the version is,
       # so an unpinned one silently changes the meaning of the numbers.
       - name: Install oasdiff
-        run: go install github.com/oasdiff/oasdiff@v1.31.0
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
 
       - name: Decide the next contract version
         id: version
