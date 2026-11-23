@@ -6580,6 +6580,83 @@ export default {
           },
         },
       },
+      BetaFeatures: {
+        title: 'Beta features',
+        subtitle:
+          'Features Kaiten is still testing that your organization can turn on or off for itself.',
+        cardDescription:
+          'See the betas open to your organization and turn each one on or off.',
+        openButton: 'Open beta features',
+        loading: 'Loading beta features',
+        appliesWithinMinute:
+          'A change applies to your whole organization within a minute.',
+        offDeletesNothing:
+          'Turning a beta off deletes nothing: turn it back on and you find everything as it was.',
+        noDescription: 'No description for this beta yet.',
+        readOnly:
+          'Read-only: changing a beta needs the write:beta_features scope.',
+        saving: 'Saving…',
+        retry: 'Try again',
+        dismiss: 'Dismiss',
+        stages: {
+          publicBeta: {
+            label: 'Public beta',
+            hint: 'Off until your organization turns it on.',
+          },
+          openBeta: {
+            label: 'Open beta',
+            hint: 'On for every organization until yours turns it off.',
+          },
+        },
+        Empty: {
+          title: 'No beta is open to your organization',
+          description:
+            'When Kaiten opens a beta your organization can try, it is listed here.',
+        },
+        LoadError: {
+          title: 'The betas cannot be loaded right now',
+          description:
+            'Your organization’s feature flags could not be read. Try again.',
+        },
+        Problems: {
+          invalidBody: {
+            title: '{{title}} was not changed',
+            description:
+              'The request was refused as malformed. Reload the page and try again.',
+          },
+          missingScope: {
+            title: '{{title}} was not changed',
+            description:
+              'Changing a beta needs the write:beta_features scope, which your session does not hold.',
+          },
+          notToggleable: {
+            title: '{{title}} is no longer open',
+            description:
+              'Kaiten closed this beta to changes from your organization. The list was read again.',
+          },
+          notProvisioned: {
+            title: 'Your organization is still being set up',
+            description:
+              'Kaiten Cloud has no record of your organization yet. Try again in a few minutes.',
+          },
+          notAccepted: {
+            title: '{{title}} was not changed',
+            description:
+              'Kaiten has not opened this beta to this setting yet. Nothing has changed.',
+          },
+          unavailable: {
+            title: '{{title}} was not changed',
+            description:
+              'Kaiten Cloud did not answer. Nothing has changed. Try again.',
+          },
+          unexpected: {
+            title: '{{title}} was not changed',
+            description: 'Something went wrong. Nothing has changed.',
+          },
+        },
+        // One entry per beta, keyed by its flag slug: { title, description }.
+        betas: {},
+      },
       Notifications: {
         title: 'Notifications',
         subtitle: 'Choose which events you want to be notified about.',

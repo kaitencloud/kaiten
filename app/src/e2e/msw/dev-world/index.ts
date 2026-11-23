@@ -13,6 +13,7 @@ import { InstanceAppModel } from '../../../../e2e/app/_support/model/instance-ap
 import { LicenseAppModel } from '../../../../e2e/app/_support/model/license-app-model';
 import { NotificationAppModel } from '../../../../e2e/app/_support/model/notification-app-model';
 import { PlanAppModel } from '../../../../e2e/app/_support/model/plan-app-model';
+import { BetaFeaturesAppModel } from '../../../../e2e/app/_support/model/beta-features-app-model';
 import {
   type ReleaseManagementAppInstance,
   ReleaseManagementAppModel,
@@ -170,12 +171,14 @@ const deployedInstances = ({
  * credits (`ai-credits`), on unless the console is started with `?ai=off`, and
  * the Plan & usage page (`plan-billing`), on where the build names the Kaiten
  * Cloud the mocks stand for: the organization is on Cloud Starter there
- * (`PlanAppModel`), and Kaiten Cloud sells it Cloud Growth.
+ * (`PlanAppModel`), and Kaiten Cloud sells it Cloud Growth. The Beta features
+ * page (`beta-features`) is on there too, with no beta open, as today.
  */
 export function createDevMockConfig({
   ai = 'on',
   aiBilling = 'on',
   aiCatalogue = 'default',
+  betaFeatures = 'on',
   plan = 'on',
   stripe = 'connected',
 }: {
@@ -185,6 +188,8 @@ export function createDevMockConfig({
   aiCatalogue?: AiCatalogue;
   /** Whether AI credits are on: the capability and the platform flag together. */
   ai?: AiStanding;
+  /** Whether the organization has the Beta features page: the `beta-features` flag. */
+  betaFeatures?: 'on' | 'off';
   /** Whether the organization has the Plan & usage page: the `plan-billing` flag. */
   plan?: 'on' | 'off';
   /** Where the Stripe connector stands: connected to a test account unless the console is started with another. */
@@ -278,7 +283,9 @@ export function createDevMockConfig({
     flagEvaluations: {
       ...aiFlags.flagEvaluations,
       'plan-billing': plan === 'on',
+      'beta-features': betaFeatures === 'on',
     },
+    betaFeatures: new BetaFeaturesAppModel().serializeForMsw(),
     auditTrail: new AuditTrailAppModel(
       createAuditTrail(world),
     ).serializeForMsw(),

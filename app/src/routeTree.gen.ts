@@ -46,6 +46,7 @@ import { Route as ReleasesDeploymentZonesRouteRouteImport } from './routes/relea
 import { Route as ReleasesDeploymentsRouteRouteImport } from './routes/releases/deployments/route'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as SettingsAccessRouteImport } from './routes/settings/access'
+import { Route as SettingsBetaFeaturesRouteImport } from './routes/settings/beta-features'
 import { Route as SettingsBillingRouteImport } from './routes/settings/billing'
 import { Route as SettingsMetadataRouteImport } from './routes/settings/metadata'
 import { Route as SettingsNotificationsRouteImport } from './routes/settings/notifications'
@@ -342,6 +343,11 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
 const SettingsAccessRoute = SettingsAccessRouteImport.update({
   id: '/settings/access',
   path: '/settings/access',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsBetaFeaturesRoute = SettingsBetaFeaturesRouteImport.update({
+  id: '/settings/beta-features',
+  path: '/settings/beta-features',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsBillingRoute = SettingsBillingRouteImport.update({
@@ -958,6 +964,7 @@ export interface FileRoutesByFullPath {
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
   '/customers/checkout-sessions': typeof CustomersCheckoutSessionsRoute
   '/settings/access': typeof SettingsAccessRoute
+  '/settings/beta-features': typeof SettingsBetaFeaturesRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -1080,6 +1087,7 @@ export interface FileRoutesByTo {
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
   '/customers/checkout-sessions': typeof CustomersCheckoutSessionsRoute
   '/settings/access': typeof SettingsAccessRoute
+  '/settings/beta-features': typeof SettingsBetaFeaturesRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -1214,6 +1222,7 @@ export interface FileRoutesById {
   '/releases/deployments': typeof ReleasesDeploymentsRouteRouteWithChildren
   '/customers/checkout-sessions': typeof CustomersCheckoutSessionsRoute
   '/settings/access': typeof SettingsAccessRoute
+  '/settings/beta-features': typeof SettingsBetaFeaturesRoute
   '/settings/billing': typeof SettingsBillingRoute
   '/settings/metadata': typeof SettingsMetadataRoute
   '/settings/notifications': typeof SettingsNotificationsRoute
@@ -1356,6 +1365,7 @@ export interface FileRouteTypes {
     | '/releases/deployments'
     | '/customers/checkout-sessions'
     | '/settings/access'
+    | '/settings/beta-features'
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
@@ -1478,6 +1488,7 @@ export interface FileRouteTypes {
     | '/releases/deployments'
     | '/customers/checkout-sessions'
     | '/settings/access'
+    | '/settings/beta-features'
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
@@ -1611,6 +1622,7 @@ export interface FileRouteTypes {
     | '/releases/deployments'
     | '/customers/checkout-sessions'
     | '/settings/access'
+    | '/settings/beta-features'
     | '/settings/billing'
     | '/settings/metadata'
     | '/settings/notifications'
@@ -1743,6 +1755,7 @@ export interface RootRouteChildren {
   IntegrationsServiceAccountsRouteRoute: typeof IntegrationsServiceAccountsRouteRouteWithChildren
   IntegrationsWebhooksRouteRoute: typeof IntegrationsWebhooksRouteRouteWithChildren
   SettingsAccessRoute: typeof SettingsAccessRoute
+  SettingsBetaFeaturesRoute: typeof SettingsBetaFeaturesRoute
   SettingsBillingRoute: typeof SettingsBillingRoute
   SettingsMetadataRoute: typeof SettingsMetadataRoute
   SettingsNotificationsRoute: typeof SettingsNotificationsRoute
@@ -2022,6 +2035,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/access'
       fullPath: '/settings/access'
       preLoaderRoute: typeof SettingsAccessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings/beta-features': {
+      id: '/settings/beta-features'
+      path: '/settings/beta-features'
+      fullPath: '/settings/beta-features'
+      preLoaderRoute: typeof SettingsBetaFeaturesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/billing': {
@@ -3340,6 +3360,7 @@ const rootRouteChildren: RootRouteChildren = {
     IntegrationsServiceAccountsRouteRouteWithChildren,
   IntegrationsWebhooksRouteRoute: IntegrationsWebhooksRouteRouteWithChildren,
   SettingsAccessRoute: SettingsAccessRoute,
+  SettingsBetaFeaturesRoute: SettingsBetaFeaturesRoute,
   SettingsBillingRoute: SettingsBillingRoute,
   SettingsMetadataRoute: SettingsMetadataRoute,
   SettingsNotificationsRoute: SettingsNotificationsRoute,

@@ -6682,6 +6682,83 @@ export default {
           },
         },
       },
+      BetaFeatures: {
+        title: 'Fonctionnalités en bêta',
+        subtitle:
+          'Les fonctionnalités que Kaiten teste encore et que votre organisation peut activer ou désactiver elle-même.',
+        cardDescription:
+          'Voyez les bêtas ouvertes à votre organisation et activez ou désactivez chacune.',
+        openButton: 'Ouvrir les fonctionnalités en bêta',
+        loading: 'Chargement des fonctionnalités en bêta',
+        appliesWithinMinute:
+          'Un changement s’applique à toute votre organisation en moins d’une minute.',
+        offDeletesNothing:
+          'Désactiver une bêta ne supprime rien : réactivez-la et vous retrouvez tout tel quel.',
+        noDescription: 'Pas encore de description pour cette bêta.',
+        readOnly:
+          'Lecture seule : modifier une bêta demande le scope write:beta_features.',
+        saving: 'Enregistrement…',
+        retry: 'Réessayer',
+        dismiss: 'Fermer',
+        stages: {
+          publicBeta: {
+            label: 'Bêta publique',
+            hint: 'Désactivée tant que votre organisation ne l’active pas.',
+          },
+          openBeta: {
+            label: 'Bêta ouverte',
+            hint: 'Activée pour toutes les organisations tant que la vôtre ne la désactive pas.',
+          },
+        },
+        Empty: {
+          title: 'Aucune bêta n’est ouverte à votre organisation',
+          description:
+            'Quand Kaiten ouvre une bêta que votre organisation peut essayer, elle apparaît ici.',
+        },
+        LoadError: {
+          title: 'Les bêtas ne peuvent pas être chargées pour le moment',
+          description:
+            'Les feature flags de votre organisation n’ont pas pu être lus. Réessayez.',
+        },
+        Problems: {
+          invalidBody: {
+            title: '{{title}} n’a pas été modifiée',
+            description:
+              'La requête a été refusée comme mal formée. Rechargez la page et réessayez.',
+          },
+          missingScope: {
+            title: '{{title}} n’a pas été modifiée',
+            description:
+              'Modifier une bêta demande le scope write:beta_features, que votre session n’a pas.',
+          },
+          notToggleable: {
+            title: '{{title}} n’est plus ouverte',
+            description:
+              'Kaiten a fermé cette bêta aux changements de votre organisation. La liste a été relue.',
+          },
+          notProvisioned: {
+            title: 'Votre organisation est encore en cours de création',
+            description:
+              'Kaiten Cloud n’a pas encore de trace de votre organisation. Réessayez dans quelques minutes.',
+          },
+          notAccepted: {
+            title: '{{title}} n’a pas été modifiée',
+            description:
+              'Kaiten n’a pas encore ouvert cette bêta à ce réglage. Rien n’a changé.',
+          },
+          unavailable: {
+            title: '{{title}} n’a pas été modifiée',
+            description:
+              'Kaiten Cloud n’a pas répondu. Rien n’a changé. Réessayez.',
+          },
+          unexpected: {
+            title: '{{title}} n’a pas été modifiée',
+            description: 'Une erreur est survenue. Rien n’a changé.',
+          },
+        },
+        // Une entrée par bêta, indexée par le slug de son flag : { title, description }.
+        betas: {},
+      },
       Notifications: {
         title: 'Notifications',
         subtitle:

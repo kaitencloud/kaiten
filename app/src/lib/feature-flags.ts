@@ -38,6 +38,11 @@ import {
  * - `plan-billing` (`PLAN_BILLING_FLAG`): the Plan & usage page, for
  *   organizations whose tracked instance carries metadata `planBilling=true`
  *   (every organization bought on kaiten.sh).
+ * - `beta-features` (`BETA_FEATURES_FLAG`): the Beta features page, where Kaiten
+ *   Cloud serves the endpoint that turns a beta on or off. Not a beta itself.
+ *
+ * A flag may also be a beta: its metadata names a `stage`, and `betaVariant`
+ * for a flag that is not a boolean. `readPlatformFlags` hands them over.
  *
  * Outbound webhooks are not one of them: an organization has them when its
  * Kaiten licence grants it webhook events (any number but 0), which saas-api
@@ -49,12 +54,39 @@ import {
 export const DEMO_SANDBOX_FLAG = 'demo-sandbox';
 export const PLAN_BILLING_FLAG = 'plan-billing';
 export const AI_CREDITS_FLAG = 'ai-credits';
+export const BETA_FEATURES_FLAG = 'beta-features';
 
 /** Every platform flag this app reads. */
 type PlatformFlag =
   | typeof DEMO_SANDBOX_FLAG
   | typeof PLAN_BILLING_FLAG
-  | typeof AI_CREDITS_FLAG;
+  | typeof AI_CREDITS_FLAG
+  | typeof BETA_FEATURES_FLAG;
+
+/** The type a flag is declared with, which decides the getter that reads it. */
+export type PlatformFlagType = 'boolean' | 'string' | 'number' | 'object';
+
+/** Each flag's type: a wrong getter answers its default and `TYPE_MISMATCH`. */
+export const PLATFORM_FLAG_TYPES: Readonly<
+  Record<PlatformFlag, PlatformFlagType>
+> = {
+  [DEMO_SANDBOX_FLAG]: 'boolean',
+  [PLAN_BILLING_FLAG]: 'boolean',
+  [AI_CREDITS_FLAG]: 'boolean',
+  [BETA_FEATURES_FLAG]: 'boolean',
+};
+
+/** One platform flag as the provider evaluated it for this organization. */
+export type PlatformFlagEvaluation = {
+  flag: string;
+  type: PlatformFlagType;
+  value: unknown;
+  variant: string | undefined;
+  /** The flag's metadata, as the evaluation carries it (`stage`, `betaVariant`). */
+  metadata: Readonly<Record<string, string | number | boolean>>;
+  /** Set when the provider could not evaluate the flag as declared. */
+  errorCode: string | undefined;
+};
 
 let providerReady: Promise<void> | null = null;
 let providerSubject: string | null = null;
@@ -137,10 +169,23 @@ export function subscribeFeatureFlagRefresh(
 
   return queryClient.getMutationCache().subscribe((event) => {
     if (event.type === 'updated' && event.mutation.state.status === 'success') {
-      providerReady = null;
-      void queryClient.invalidateQueries({ queryKey: featureFlagsQueryKey });
+      void refreshPlatformFlags(queryClient);
     }
   });
+}
+
+/**
+ * Drops both caches of the flags, the SDK's and React Query's, so that every
+ * gate reads them again in one bulk evaluation (see
+ * `subscribeFeatureFlagRefresh`). For a write the console knows changes what
+ * the platform flag service answers this organization, such as turning a beta
+ * on: the subscription above does not run against that service.
+ *
+ * Resolves once the queries in use have read again.
+ */
+export function refreshPlatformFlags(queryClient: QueryClient): Promise<void> {
+  providerReady = null;
+  return queryClient.invalidateQueries({ queryKey: featureFlagsQueryKey });
 }
 
 /**
@@ -192,6 +237,61 @@ export const demoSandboxFlagQueryOptions =
  */
 export const planBillingFlagQueryOptions =
   platformFlagQueryOptions(PLAN_BILLING_FLAG);
+
+/**
+ * Whether this organization has the Beta features page: on the platform flag
+ * service, `beta-features` targets the organizations Kaiten Cloud serves the
+ * page's endpoint to. Off everywhere else, self-hosted included.
+ */
+export const betaFeaturesFlagQueryOptions =
+  platformFlagQueryOptions(BETA_FEATURES_FLAG);
+
+/**
+ * Every flag of `types` as the platform source evaluates it for this
+ * organization, metadata included, in one bulk read shared with the gates.
+ *
+ * Unlike a gate, a failed read throws: a page listing the flags says it could
+ * not read them, rather than drawing an empty list as if there were none.
+ * With no source at all there is nothing to list, and the answer is empty.
+ */
+export async function readPlatformFlags(
+  types: Readonly<Record<string, PlatformFlagType>> = PLATFORM_FLAG_TYPES,
+): Promise<PlatformFlagEvaluation[]> {
+  const source = await resolveSource();
+  if (!source) {
+    return [];
+  }
+
+  await ensureFeatureFlagsReady(source);
+  const client = OpenFeature.getClient();
+
+  return Object.entries(types).map(([flag, type]) => {
+    const details =
+      type === 'boolean'
+        ? client.getBooleanDetails(flag, false)
+        : type === 'string'
+          ? client.getStringDetails(flag, '')
+          : type === 'number'
+            ? client.getNumberDetails(flag, 0)
+            : client.getObjectDetails(flag, {});
+
+    return {
+      flag,
+      type,
+      value: details.value,
+      variant: details.variant,
+      metadata: details.flagMetadata ?? {},
+      errorCode: details.errorCode,
+    };
+  });
+}
+
+/** `readPlatformFlags` for the flags of this app, as query options. */
+export const platformFlagEvaluationsQueryOptions = queryOptions({
+  queryKey: [...featureFlagsQueryKey, 'evaluations'],
+  queryFn: () => readPlatformFlags(),
+  retry: false,
+});
 let aiEvaluation: { subject: string; pending: Promise<boolean> } | null = null;
 
 /** AI alone requires a fresh network evaluation, never the provider's old map. */

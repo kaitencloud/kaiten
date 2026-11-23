@@ -3,6 +3,7 @@ import env from '@/env';
 import type { E2EMswConfig } from '../../../e2e/app/_support/contracts/msw-slots';
 import { AiAppModel } from '../../../e2e/app/_support/model/ai-app-model';
 import { AuditTrailAppModel } from '../../../e2e/app/_support/model/audit-trail-app-model';
+import { BetaFeaturesAppModel } from '../../../e2e/app/_support/model/beta-features-app-model';
 import { BillingAppModel } from '../../../e2e/app/_support/model/billing-app-model';
 import { ConnectorAppModel } from '../../../e2e/app/_support/model/connector-app-model';
 import { CustomerAppModel } from '../../../e2e/app/_support/model/customer-app-model';
@@ -19,6 +20,7 @@ import { createPreviewWorld } from '../../../e2e/app/_support/model/license-prev
 import { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
 import { aiHandlers } from './ai-handlers';
 import { auditTrailHandlers } from './audit-trail-handlers';
+import { betaFeaturesHandlers } from './beta-features-handlers';
 import { billingHandlers } from './billing-handlers';
 import { connectorHandlers } from './connector-handlers';
 import { customerHandlers } from './customer-handlers';
@@ -61,6 +63,9 @@ export function createMockHandlers(
     : null;
   const auditTrail = effectiveConfig.auditTrail
     ? AuditTrailAppModel.fromSerialized(effectiveConfig.auditTrail)
+    : null;
+  const betaFeatures = effectiveConfig.betaFeatures
+    ? BetaFeaturesAppModel.fromSerialized(effectiveConfig.betaFeatures)
     : null;
   const billing = effectiveConfig.billing
     ? BillingAppModel.fromSerialized(effectiveConfig.billing)
@@ -230,7 +235,15 @@ export function createMockHandlers(
           persist('featureFlags', featureFlags.serializeForMsw()),
         )
       : []),
-    ...(flagEvaluations ? flagEvaluationHandlers(flagEvaluations) : []),
+    // The betas' flags are answered in the same bulk evaluation as the others,
+    // so their handler stands in for the plain one when the slot is installed.
+    ...(betaFeatures
+      ? betaFeaturesHandlers(betaFeatures, flagEvaluations ?? {}, () =>
+          persist('betaFeatures', betaFeatures.serializeForMsw()),
+        )
+      : flagEvaluations
+        ? flagEvaluationHandlers(flagEvaluations)
+        : []),
     ...(instances
       ? instanceHandlers(instances, () =>
           persist('instances', instances.serializeForMsw()),

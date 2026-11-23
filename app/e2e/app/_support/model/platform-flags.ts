@@ -5,23 +5,37 @@ import { parseContract } from '../contracts/openapi-contract';
 /** Where the app's platform flags are evaluated in the e2e build. */
 export const PLATFORM_FLAGS_EVALUATION_URL = '**/api/ofrep/v1/evaluate/flags';
 
+/** A flag answered with its metadata, which a boolean entry does not carry. */
+export type FlagAnswer = {
+  key: string;
+  value: boolean | string;
+  variant: string;
+  reason: string;
+  metadata: Record<string, string>;
+};
+
 /**
  * The bulk OFREP evaluation the app gates its own features on
- * (`lib/feature-flags`), answering each listed flag with its boolean. A flag
- * left out is absent from the answer, which the app reads as off.
+ * (`lib/feature-flags`), answering each listed flag with its boolean, then the
+ * `answers` given in full (a beta's stage in its metadata, a string variant).
+ * A flag left out is absent from the answer, which the app reads as off.
  */
 export function bulkFlagEvaluation(
   flags: Record<string, boolean>,
+  answers: readonly FlagAnswer[] = [],
 ): EvaluateFlagsBulkResponses[200] {
   return parseContract(
     zEvaluateFlagsBulkResponse,
     {
-      flags: Object.entries(flags).map(([key, value]) => ({
-        key,
-        value,
-        variant: value ? 'on' : 'off',
-        reason: 'TARGETING_MATCH',
-      })),
+      flags: [
+        ...Object.entries(flags).map(([key, value]) => ({
+          key,
+          value,
+          variant: value ? 'on' : 'off',
+          reason: 'TARGETING_MATCH',
+        })),
+        ...answers,
+      ],
     },
     'bulkFlagEvaluation',
   );

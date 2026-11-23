@@ -1,3 +1,4 @@
+export { BetaFeaturesPageContent } from './beta-features';
 export { BillingSettingsPageContent } from './billing';
 export { ApplicationSettingsSection, SettingsPageContent } from './components';
 export { MetadataFieldsPageContent } from './metadata-fields';

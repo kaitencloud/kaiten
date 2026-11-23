@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import {
+  betaFeaturesFlagQueryOptions,
   demoSandboxFlagQueryOptions,
   planBillingFlagQueryOptions,
 } from '@/lib/feature-flags';
@@ -21,4 +22,12 @@ export function useDemoSandboxEnabled(): boolean {
  */
 export function usePlanBillingEnabled(): boolean {
   return useQuery(planBillingFlagQueryOptions).data ?? false;
+}
+
+/**
+ * Whether this organization has the Beta features page. `false` while the
+ * evaluation is in flight, so its card appears once rather than flashing.
+ */
+export function useBetaFeaturesEnabled(): boolean {
+  return useQuery(betaFeaturesFlagQueryOptions).data ?? false;
 }

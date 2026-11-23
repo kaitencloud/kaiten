@@ -58,6 +58,8 @@ export async function startDevMocks() {
       // Plan & usage is Kaiten Cloud's: `dev:mock` names the Kaiten Cloud its
       // mocks stand for, a mocked console that names none has no such page.
       plan: env.PLATFORM_API_URL ? 'on' : 'off',
+      // Beta features too: the page exists only where Kaiten Cloud serves it.
+      betaFeatures: env.PLATFORM_API_URL ? 'on' : 'off',
       stripe: readStripeStanding(),
     }),
     { warnUnhandledApiRequests: true },
