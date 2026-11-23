@@ -3,7 +3,8 @@ name: Release graphql-schema
 # Publishes the API's GraphQL schema as a versioned npm artifact
 # (@kaitencloud/graphql-schema) to the public npm registry, so the SDK can check
 # its committed snapshot against what the API serves without a checkout of this
-# repository. The GraphQL counterpart of release-openapi.yml.
+# repository. The GraphQL counterpart of @kaitencloud/openapi, which
+# release-contract.yml publishes on a release tag.
 #
 # The consumer is sdk-js's `contract-drift` workflow, job `graphql`. Until this
 # workflow existed, the package it fetches had never been published: that check
@@ -43,7 +44,7 @@ name: Release graphql-schema
 # too; an existing operation keeps working when one appears, so those count as
 # minor here.
 #
-# Authentication is npm trusted publishing, as in release-openapi.yml: no token
+# Authentication is npm trusted publishing, as in release-contract.yml: no token
 # secret, and a fork's copy of this job is skipped. The trusted publisher names
 # organization `kaitencloud`, repository `kaiten`, workflow
 # `release-graphql-schema.yml`, no environment, `npm publish` allowed. npm only

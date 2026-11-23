@@ -433,7 +433,7 @@ tasks:
 
   generate:sdk-go:
     # Feeds the sdk-go generator the same committed 3.1 spec that
-    # .github/workflows/release-openapi.yml publishes. CI does not run this, and
+    # .github/workflows/release-contract.yml publishes. CI does not run this, and
     # sdk-go has no drift gate yet: run it after a contract change.
     desc: "Regenerate the standalone Go SDK from app/openapi.yaml"
     vars:

@@ -4,7 +4,7 @@ name: Contract CI
 # decide a release.
 #
 # scripts/contract/next-version.sh turns oasdiff's verdict into the contract's next
-# semver, and release-openapi.yml publishes under whatever number it prints. A
+# semver, and release-contract.yml publishes under whatever number it prints. A
 # wrong number cannot be taken back: npm never reuses a version, and a consumer
 # pinned to `^4` that receives a breaking 4.2.0 finds out by breaking. So the
 # script's tests run on every change to it, with the oasdiff release the
@@ -18,7 +18,6 @@ on:
       - 'scripts/tests/test-contract-next-version.sh'
       - 'scripts/tests/test-contract-release.sh'
       - '.github/workflows/contract-ci.yml'
-      - '.github/workflows/release-openapi.yml'
       - '.github/workflows/release-contract.yml'
 
 concurrency:
