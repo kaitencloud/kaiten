@@ -357,13 +357,14 @@ gh run list --repo kaitencloud/kaiten     # watch them
 ```
 
 That builds and publishes the api, seeder, admin-tools and app images and
-the Helm charts. It also creates the tag's GitHub Release
-(`.github/workflows/release-notes.yml`), with a body worked out from what shipped
-since the previous release: the pull requests by type, the API contract changes, new
-migrations, chart values, and which artifacts changed or were only rebuilt. A
-pre-release tag gets a draft. `scripts/release-notes/facts.sh <tag>` prints the same
-facts locally. Pre-release suffixes work (`26.08.3-rc.1`), because the pattern
+the Helm charts. Pre-release suffixes work (`26.08.3-rc.1`), because the pattern
 ends in `[0-9]*` and matches anything after the patch digit.
+
+Every tag also gets its GitHub Release (`.github/workflows/release-notes.yml`),
+with a body worked out from what shipped since the previous release: the pull
+requests by type, the API contract changes, new migrations, chart values, and which
+artifacts changed or were only rebuilt. A pre-release tag gets a draft.
+`scripts/release-notes/facts.sh <tag>` prints the same facts locally.
 
 A stable tag (`26.08.3`, no suffix) also publishes the API contract,
 `app/openapi.yaml` with its README, LICENSE and NOTICE
