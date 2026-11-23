@@ -1,5 +1,5 @@
 import { OpenFeature } from '@openfeature/web-sdk';
-import { QueryClient } from '@tanstack/react-query';
+import { QueryClient, useQuery } from '@tanstack/react-query';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse, http } from 'msw/http';
@@ -7,7 +7,10 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 import { server } from '@/__tests__/msw-server';
 import { testI18n } from '@/__tests__/test-i18n';
 import { betaFeaturesHandlers } from '@/e2e/msw/beta-features-handlers';
-import { refreshPlatformFlags } from '@/lib/feature-flags';
+import {
+  betaFeaturesFlagQueryOptions,
+  refreshPlatformFlags,
+} from '@/lib/feature-flags';
 import {
   renderWithClient,
   sessionToken,
@@ -40,24 +43,8 @@ vi.mock('@/lib/feature-flag-source', () => ({
   }),
 }));
 
-// The app declares no beta today, so the page is pointed at test flags of each
-// type, read by the same provider as the app's own.
-vi.mock('@/lib/feature-flags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/lib/feature-flags')>();
-  return {
-    ...actual,
-    platformFlagEvaluationsQueryOptions: {
-      ...actual.platformFlagEvaluationsQueryOptions,
-      queryFn: () =>
-        actual.readPlatformFlags({
-          'smart-search': 'boolean',
-          'checkout-flow': 'string',
-          'early-access': 'boolean',
-        }),
-    },
-  };
-});
-
+// No flag below is named anywhere in the console: the page lists them because
+// the bulk evaluation answers them, as the service answers every flag it holds.
 const SMART_SEARCH: MockedBetaFlag = {
   flagSlug: 'smart-search',
   stage: 'public_beta',
@@ -74,11 +61,25 @@ const CHECKOUT_FLOW: MockedBetaFlag = {
 const WRITER = sessionToken(['read:beta_features', 'write:beta_features']);
 const READER = sessionToken(['read:beta_features', 'read:instances']);
 
-function install(flags: MockedBetaFlag[]) {
+function install(
+  flags: MockedBetaFlag[],
+  flagEvaluations: Record<string, boolean> = {},
+) {
   const model = new BetaFeaturesAppModel(flags);
   const evaluations = vi.spyOn(model, 'evaluations');
-  server.use(...betaFeaturesHandlers(model, {}));
+  server.use(...betaFeaturesHandlers(model, flagEvaluations));
   return { model, evaluations };
+}
+
+const listedSlugs = async () =>
+  (await screen.findAllByTestId('beta-feature')).map(
+    (row) => row.dataset.slug,
+  );
+
+/** A gate on the same page: it reads its flag through the provider. */
+function GateProbe() {
+  const { data } = useQuery(betaFeaturesFlagQueryOptions);
+  return <p data-testid="gate">{String(data)}</p>;
 }
 
 const betaRow = async (slug: string) =>
@@ -129,6 +130,127 @@ describe('BetaFeaturesPageContent', () => {
     expect(screen.queryByTestId('beta-feature')).toBeNull();
   });
 
+  it('lists every public and open beta the evaluation answers, by slug, and no other flag', async () => {
+    install(
+      [
+        { flagSlug: 'zeta-reports', stage: 'open_beta', enabled: true },
+        SMART_SEARCH,
+        { flagSlug: 'early-access', stage: 'private_beta', enabled: true },
+        { flagSlug: 'released-export', enabled: true },
+        {
+          flagSlug: 'broken-beta',
+          stage: 'public_beta',
+          enabled: true,
+          errorCode: 'PARSE_ERROR',
+        },
+        { flagSlug: 'alpha-insights', stage: 'public_beta', enabled: false },
+      ],
+      // A gate's flag answered in the same evaluation, with no stage.
+      { 'beta-features': true },
+    );
+    renderWithClient(<BetaFeaturesPageContent />);
+
+    expect(await listedSlugs()).toEqual([
+      'alpha-insights',
+      'smart-search',
+      'zeta-reports',
+    ]);
+  });
+
+  it('names a beta from its flag metadata until its translations ship, the translation first', async () => {
+    install([
+      {
+        flagSlug: 'order-forecast',
+        stage: 'public_beta',
+        enabled: false,
+        title: 'Order forecast',
+        description: 'Forecasts the next orders of each customer.',
+      },
+      {
+        flagSlug: 'bulk-import',
+        stage: 'open_beta',
+        enabled: false,
+        title: 'Bulk import',
+      },
+      {
+        ...SMART_SEARCH,
+        title: 'Title written on the flag',
+        description: 'Description written on the flag',
+      },
+    ]);
+    renderWithClient(<BetaFeaturesPageContent />);
+
+    const forecast = await betaRow('order-forecast');
+    expect(within(forecast).getByText('Order forecast')).toBeTruthy();
+    expect(
+      within(forecast).getByText('Forecasts the next orders of each customer.'),
+    ).toBeTruthy();
+    expect(
+      within(forecast).getByRole('switch', { name: 'Order forecast' }),
+    ).toBeTruthy();
+
+    const bulkImport = await betaRow('bulk-import');
+    expect(within(bulkImport).getByText('Bulk import')).toBeTruthy();
+    expect(
+      within(bulkImport).getByText('No description for this beta yet.'),
+    ).toBeTruthy();
+
+    const smartSearch = await betaRow('smart-search');
+    expect(within(smartSearch).getByText('Smart search')).toBeTruthy();
+    expect(
+      within(smartSearch).getByText('Search that reads what you mean.'),
+    ).toBeTruthy();
+    expect(
+      within(smartSearch).queryByText('Title written on the flag'),
+    ).toBeNull();
+  });
+
+  it('names a refused beta by its metadata title', async () => {
+    const { model } = install([
+      {
+        flagSlug: 'order-forecast',
+        stage: 'public_beta',
+        enabled: false,
+        title: 'Order forecast',
+      },
+    ]);
+    model.refuseNext('notAccepted');
+    renderWithClient(<BetaFeaturesPageContent />);
+
+    await userEvent.click(
+      within(await betaRow('order-forecast')).getByRole('switch'),
+    );
+
+    const alert = await screen.findByTestId('beta-feature-problem');
+    expect(within(alert).getByText('Order forecast was not changed')).toBeTruthy();
+  });
+
+  it('reads the evaluation again after a toggle, and drops the provider memo the gates read', async () => {
+    const { evaluations } = install([SMART_SEARCH], { 'beta-features': true });
+    renderWithClient(
+      <>
+        <GateProbe />
+        <BetaFeaturesPageContent />
+      </>,
+    );
+
+    await betaRow('smart-search');
+    await vi.waitFor(() =>
+      expect(screen.getByTestId('gate').textContent).toBe('true'),
+    );
+    // One bulk read for the page, one for the provider behind the gate.
+    expect(evaluations).toHaveBeenCalledTimes(2);
+
+    await userEvent.click(
+      within(await betaRow('smart-search')).getByRole('switch'),
+    );
+    await vi.waitFor(async () =>
+      expect((await betaRow('smart-search')).dataset.enabled).toBe('true'),
+    );
+    // Both again: the page's read, and the provider set up anew for the gate.
+    await vi.waitFor(() => expect(evaluations).toHaveBeenCalledTimes(4));
+  });
+
   it('says a change applies within a minute and that turning off deletes nothing', async () => {
     install([SMART_SEARCH]);
     renderWithClient(<BetaFeaturesPageContent />);
@@ -146,7 +268,7 @@ describe('BetaFeaturesPageContent', () => {
     ).toBeTruthy();
   });
 
-  it('turns a boolean beta on, then off, and reads the flags again after each', async () => {
+  it('turns a boolean beta the console does not name on, then off, and reads the flags again after each', async () => {
     const { model, evaluations } = install([SMART_SEARCH]);
     renderWithClient(<BetaFeaturesPageContent />);
 
@@ -291,24 +413,39 @@ describe('BetaFeaturesPageContent', () => {
     expect(evaluations).toHaveBeenCalledTimes(2);
   });
 
-  it('says the flags could not be read, and reads them again on request', async () => {
-    let calls = 0;
-    install([SMART_SEARCH]);
-    // In front of the model's evaluation: the first read fails, the next ones
-    // fall through to it.
-    server.use(
-      http.post('*/api/ofrep/v1/evaluate/flags', () => {
-        calls += 1;
-        return calls === 1
-          ? HttpResponse.json({ errorCode: 'GENERAL' }, { status: 500 })
-          : undefined;
-      }),
-    );
-    renderWithClient(<BetaFeaturesPageContent />);
+  const FAILED_READS: Array<[string, () => Response]> = [
+    ['a 500', () => HttpResponse.json({ errorCode: 'GENERAL' }, { status: 500 })],
+    ['a 401', () => new HttpResponse(null, { status: 401 })],
+    ['a 403', () => new HttpResponse(null, { status: 403 })],
+    [
+      'a 429',
+      () => new HttpResponse(null, { status: 429, headers: { 'Retry-After': '1' } }),
+    ],
+    ['a 304', () => new HttpResponse(null, { status: 304 })],
+    ['a 200 with no flags', () => HttpResponse.json({ errorCode: 'GENERAL' })],
+    ['a network failure', () => HttpResponse.error()],
+  ];
 
-    const error = await screen.findByTestId('beta-features-load-error');
-    await userEvent.click(within(error).getByRole('button', { name: 'Try again' }));
+  it.each(FAILED_READS)(
+    'says the flags could not be read after %s, and reads them again on request',
+    async (_, failure) => {
+      let calls = 0;
+      install([SMART_SEARCH]);
+      // In front of the model's evaluation: the first read fails, the next ones
+      // fall through to it.
+      server.use(
+        http.post('*/api/ofrep/v1/evaluate/flags', () => {
+          calls += 1;
+          return calls === 1 ? failure() : undefined;
+        }),
+      );
+      renderWithClient(<BetaFeaturesPageContent />);
 
-    expect(await betaRow('smart-search')).toBeTruthy();
-  });
+      const error = await screen.findByTestId('beta-features-load-error');
+      expect(screen.queryByTestId('beta-features-empty')).toBeNull();
+      await userEvent.click(within(error).getByRole('button', { name: 'Try again' }));
+
+      expect(await betaRow('smart-search')).toBeTruthy();
+    },
+  );
 });

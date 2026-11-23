@@ -20,6 +20,11 @@ export type MockedBetaFlag = {
   betaVariant?: string;
   /** A string flag: the variant served out of the beta. */
   stableVariant?: string;
+  /** The flag's metadata `title` and `description`, the copy written on the flag. */
+  title?: string;
+  description?: string;
+  /** Set: the service reports the flag in error with this OpenFeature code. */
+  errorCode?: string;
 };
 
 /** The refusals of `PUT /beta-features/{flagSlug}` a spec can arm, by the state the page draws. */
@@ -129,12 +134,27 @@ export class BetaFeaturesAppModel {
     return this.writes;
   }
 
-  /** The flags as the bulk OFREP evaluation answers them for the organization. */
+  /**
+   * The flags as the bulk OFREP evaluation answers them for the organization:
+   * every one, by name or not, as the service answers every flag it holds.
+   */
   evaluations(): FlagAnswer[] {
     return this.flags.map((flag) => {
       const metadata: Record<string, string> = {};
       if (flag.stage) metadata.stage = flag.stage;
       if (flag.betaVariant) metadata.betaVariant = flag.betaVariant;
+      if (flag.title) metadata.title = flag.title;
+      if (flag.description) metadata.description = flag.description;
+      // As the service reports a flag it could not evaluate: its metadata
+      // kept, no value.
+      if (flag.errorCode) {
+        return {
+          key: flag.flagSlug,
+          errorCode: flag.errorCode,
+          errorDetails: 'the flag could not be evaluated',
+          metadata,
+        };
+      }
       const variant = flag.betaVariant
         ? flag.enabled
           ? flag.betaVariant

@@ -29,7 +29,7 @@ export function BetaFeatureRow({
 }: BetaFeatureRowProps) {
   const { t } = useTranslation();
   const copyOf = useBetaFeatureCopy();
-  const { title, description } = copyOf(beta.flagSlug);
+  const { title, description } = copyOf(beta);
   const stageKey = STAGE_KEYS[beta.stage];
 
   return (

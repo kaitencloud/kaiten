@@ -7,6 +7,13 @@ export type BetaFeature = {
   stage: BetaStage;
   /** Whether the organization is in the beta, read off the evaluation. */
   enabled: boolean;
+  /**
+   * The flag's metadata `title` and `description`, when they are non-empty
+   * strings: what names the beta while the translations have no entry for its
+   * slug (`useBetaFeatureCopy`).
+   */
+  metadataTitle?: string;
+  metadataDescription?: string;
 };
 
 /** What `PUT /beta-features/{flagSlug}` answers. */

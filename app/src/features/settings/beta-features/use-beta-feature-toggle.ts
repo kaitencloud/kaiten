@@ -2,9 +2,13 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { refreshPlatformFlags } from '@/lib/feature-flags';
 import { setBetaFeature } from './beta-features.api';
 import { betaFeatureProblem } from './beta-features';
-import type { BetaFeatureProblem } from './types';
+import type { BetaFeature, BetaFeatureProblem } from './types';
 
-type Toggle = { flagSlug: string; enabled: boolean };
+/**
+ * The beta as listed when it was toggled: the request names its slug only, and
+ * a refusal still names the beta by its copy after the beta left the list.
+ */
+type Toggle = { beta: BetaFeature; enabled: boolean };
 
 export type BetaFeatureToggleFailure = Toggle & {
   problem: BetaFeatureProblem;
@@ -19,8 +23,8 @@ export type BetaFeatureToggleFailure = Toggle & {
 export function useBetaFeatureToggle() {
   const queryClient = useQueryClient();
   const mutation = useMutation({
-    mutationFn: ({ flagSlug, enabled }: Toggle) =>
-      setBetaFeature(flagSlug, enabled),
+    mutationFn: ({ beta, enabled }: Toggle) =>
+      setBetaFeature(beta.flagSlug, enabled),
     onSuccess: () => refreshPlatformFlags(queryClient),
     onError: (error) =>
       betaFeatureProblem(error) === 'not-toggleable'
@@ -41,7 +45,9 @@ export function useBetaFeatureToggle() {
       }
     },
     dismiss: () => mutation.reset(),
-    pendingSlug: mutation.isPending ? mutation.variables?.flagSlug : undefined,
+    pendingSlug: mutation.isPending
+      ? mutation.variables?.beta.flagSlug
+      : undefined,
     failure,
   };
 }

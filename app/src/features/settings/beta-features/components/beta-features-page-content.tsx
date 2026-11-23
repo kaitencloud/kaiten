@@ -13,7 +13,7 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Page } from '@/functionals/page';
 import { useGrantedScopes } from '@/hooks/use-granted-scopes';
-import { platformFlagEvaluationsQueryOptions } from '@/lib/feature-flags';
+import { platformFlagEvaluationsQueryOptions } from '@/lib/platform-flag-evaluations';
 import { hasScope } from '@/lib/granted-scopes';
 import { WRITE_BETA_FEATURES_SCOPE, betaFeaturesOf } from '../beta-features';
 import type { BetaFeature } from '../types';
@@ -45,9 +45,7 @@ export function BetaFeaturesPageContent() {
         canToggle={canToggle}
         key={beta.flagSlug}
         locked={toggle.pendingSlug !== undefined}
-        onToggle={(enabled) =>
-          toggle.toggle({ flagSlug: beta.flagSlug, enabled })
-        }
+        onToggle={(enabled) => toggle.toggle({ beta, enabled })}
         pending={toggle.pendingSlug === beta.flagSlug}
       />
     );

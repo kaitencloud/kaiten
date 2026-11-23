@@ -139,7 +139,8 @@ for the tests that run in Node. `src/__tests__/plan-mocks.test.ts` reads these a
 
 The Beta features page is the `betaFeatures` slot (`BetaFeaturesAppModel`, served by
 `beta-features-handlers.ts`): the platform flags of its betas, each with its `stage` (and the
-`betaVariant` of a string flag) in its metadata, answered in the same bulk OFREP evaluation as the
+`betaVariant` of a string flag, and a `title` and `description` when the spec gives them) in its
+metadata, or reported in error with an OpenFeature `errorCode`, answered in the same bulk OFREP evaluation as the
 `flagEvaluations` slot, which its handler stands in for when it is installed; and saas-api's
 `PUT /api/beta-features/{flagSlug}`, written by hand since `openapi.yaml` does not describe it. The
 toggle checks `write:beta_features` from the token, then refuses with saas-api's codes, and a toggle
