@@ -1,0 +1,18 @@
+# oasdiff checks whose level the contract's version deliberately overrides, one per line:
+#
+#   <check id> <ERR|WARN|INFO|NONE>
+#
+# next-version.sh passes the lines that are not comments to `oasdiff --severity-levels`. A check
+# set to INFO stops counting as breaking, so it makes a minor instead of a major. NONE drops it
+# altogether, so only a change of bytes is left and it makes a patch. The ids are oasdiff's:
+# `oasdiff checks` lists them, with the level each has by default.
+#
+# Override a class of change only when it has never broken a consumer, and say why on the line
+# above it. Do not soften the rule wholesale. The major moving often is the contract telling the
+# truth about how young it is.
+#
+# Replayed over every published version, 1.0.3 to 4.1.1, all three majors came from ERR-level
+# checks: new-required-request-property, request-property-became-required,
+# request-property-one-of-removed, request-parameter-max-length-set and
+# response-property-enum-value-added. Each of those majors also held at least one change that
+# rejects a client that worked the day before, so no line here would have spared one of them.

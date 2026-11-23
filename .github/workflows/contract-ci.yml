@@ -1,0 +1,59 @@
+name: Contract CI
+
+# The rule that versions the API contract, tested before it decides a release.
+#
+# scripts/contract/next-version.sh turns oasdiff's verdict into the contract's next
+# semver, and release-openapi.yml publishes under whatever number it prints. A
+# wrong number cannot be taken back: npm never reuses a version, and a consumer
+# pinned to `^4` that receives a breaking 4.2.0 finds out by breaking. So the
+# script's tests run on every change to it, with the oasdiff release the
+# workflows pin.
+
+on:
+  pull_request:
+    branches: ['main', 'feat/**', 'fix/**', 'chore/**']
+    paths:
+      - 'scripts/contract/**'
+      - 'scripts/tests/test-contract-next-version.sh'
+      - '.github/workflows/contract-ci.yml'
+      - '.github/workflows/release-openapi.yml'
+
+concurrency:
+  group: contract-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # In step with go-ci.yml, which explains the choice of version.
+  GO_VERSION: "1.27.x"
+
+jobs:
+  next-version:
+    name: Contract version rule
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      - name: Set up Go
+        uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      # The release workflows' pin, read from the one file every install reads:
+      # the tests prove the numbers those runs produce.
+      - name: Install oasdiff
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
+
+      # yq comes with the runner image. The script only uses it to blank
+      # info.version on both sides of a comparison, so its version does not move
+      # a result.
+      - name: Test next-version.sh
+        run: |
+          yq --version
+          scripts/tests/test-contract-next-version.sh

@@ -17,48 +17,23 @@ name: Release openapi
 #   package    @kaitencloud/openapi
 #   registry   https://registry.npmjs.org (public)
 #   dist-tag   latest            (version is semver, decided by oasdiff)
-#
-# THE VERSION IS SEMVER, AND OASDIFF DECIDES IT
-#
-# The contract is generated from the Go handlers, so the diff between two specs
-# is machine-truth in a way a commit message is not. oasdiff compares the new
-# spec against the one currently published and the bump follows from what it
-# finds -- no `!` marker is trusted, and none is needed.
-#
-#   any change at WARN or above   major
-#   any other change              minor
-#   same API, different files     patch   (a description or an example moved,
-#                                          or the README, LICENSE or NOTICE changed)
-#   identical files               nothing published
-#
-# WARN counts, not just ERR. oasdiff files a removed request property as WARN,
-# which is precisely what dropping `platform` was -- 5 errors and 8 warnings --
-# and the warnings are what forced sdk-go's `fix(instances)!: stop sending
-# platform, which the API no longer accepts`. Counting only errors would have
-# shipped a consumer-breaking change as a minor.
-#
-# Consumers on `latest` are unaffected by the switch: the dist-tag still points
-# at the newest publish. The gain is that they CAN now pin -- `^2` gets told
-# when 3.0.0 lands instead of finding out by breaking.
-#
-# EXPECT THE MAJOR TO MOVE OFTEN, AT LEAST AT FIRST
-#
-# Replayed over the last seven changes to this spec, the rule above produces five
-# majors. That is not the rule being twitchy -- it is what those changes were:
-# required response properties removed, request properties removed, a maxLength
-# introduced on a field that had none. Each of them can reject a client that
-# worked the day before.
-#
-# So a fast-climbing major is the contract telling the truth about how young it
-# is, and the number settling down later is the signal that it has stabilised.
-# If a specific class of change turns out never to matter in practice,
-# oasdiff takes `--err-ignore`/`--warn-ignore` files to reclassify it by id --
-# `request-property-max-length-set` being the obvious first candidate. Curate
-# that list deliberately; do not soften the rule wholesale.
 #   file       openapi.yaml      (tarball path: package/openapi.yaml)
 # Fetch recipe for a consumer workflow:
 #   npm pack @kaitencloud/openapi@latest
 #   tar -xzOf kaitencloud-openapi-*.tgz package/openapi.yaml > openapi.yaml
+#
+# THE VERSION IS SEMVER, AND OASDIFF DECIDES IT
+#
+# scripts/contract/next-version.sh holds the rule and says why: a change at WARN
+# or above is a major, any other change a minor, the same API in different files
+# a patch, and identical files publish nothing. Its tests are
+# scripts/tests/test-contract-next-version.sh, run by contract-ci.yml. The checks
+# it deliberately reclassifies are listed, with their reasons, in
+# scripts/contract/severity-levels.txt.
+#
+# Consumers on `latest` are unaffected by the switch: the dist-tag still points
+# at the newest publish. The gain is that they CAN now pin -- `^2` gets told
+# when 3.0.0 lands instead of finding out by breaking.
 #
 # Authentication is npm trusted publishing, as in release-theme.yml: `id-token:
 # write` lets npm trade this job's OIDC token for a short-lived one, so there is
@@ -90,6 +65,7 @@ on:
       - '.github/contracts/NOTICE'
       - '.github/contracts/openapi/**'
       - '.github/workflows/release-openapi.yml'
+      - 'scripts/contract/**'
   workflow_dispatch: {}
 
 permissions:
@@ -119,7 +95,7 @@ jobs:
       # Pinned, like every other tool here. oasdiff decides what the version is,
       # so an unpinned one silently changes the meaning of the numbers.
       - name: Install oasdiff
-        run: go install github.com/oasdiff/oasdiff@v1.31.0
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
 
       - name: Decide the next contract version
         id: version
@@ -147,56 +123,26 @@ jobs:
           echo "Comparing against published ${PUBLISHED}"
           WORK="$(mktemp -d)"
           ( cd "$WORK" && npm pack "@kaitencloud/openapi@${PUBLISHED}" >/dev/null )
-          tar -xzOf "$WORK"/*.tgz package/openapi.yaml > "$WORK/previous.yaml"
-          # The README, the license and the notice ship with the contract. A
-          # version without one of them, or with another text, differs from this
-          # commit.
-          docs_unchanged() {
-            tar -xzOf "$WORK"/*.tgz package/README.md 2>/dev/null \
-              | cmp -s - .github/contracts/openapi/README.md \
-              && tar -xzOf "$WORK"/*.tgz package/LICENSE 2>/dev/null \
-              | cmp -s - .github/contracts/LICENSE \
-              && tar -xzOf "$WORK"/*.tgz package/NOTICE 2>/dev/null \
-              | cmp -s - .github/contracts/NOTICE
-          }
+          tar -xzf "$WORK"/*.tgz -C "$WORK"
 
-          # WARN counts as breaking, not just ERR. oasdiff files a removed
-          # request property as WARN, and that is exactly what happened when
-          # `platform` was dropped: 5 errors, 8 warnings -- and the warnings are
-          # what forced sdk-go's `fix(instances)!: stop sending platform, which
-          # the API no longer accepts`. A rule that only counted errors would
-          # have shipped that break as a minor.
-          BREAKING=$(oasdiff breaking "$WORK/previous.yaml" app/openapi.yaml -f json \
-            | jq '[.[] | select(.level >= 2)] | length')
-          CHANGES=$(oasdiff changelog "$WORK/previous.yaml" app/openapi.yaml -f json | jq 'length')
+          # The files this commit would publish, laid out as the tarball's.
+          mkdir "$WORK/next"
+          cp app/openapi.yaml "$WORK/next/openapi.yaml"
+          cp .github/contracts/openapi/README.md "$WORK/next/README.md"
+          cp .github/contracts/LICENSE .github/contracts/NOTICE "$WORK/next/"
 
-          echo "oasdiff: ${CHANGES} change(s), ${BREAKING} of them breaking"
-          oasdiff changelog "$WORK/previous.yaml" app/openapi.yaml | head -40 || true
+          scripts/contract/next-version.sh "$PUBLISHED" "$WORK/package" "$WORK/next" >"$WORK/decision"
+          cat "$WORK/decision"
 
-          IFS=. read -r MA MI PA <<<"$PUBLISHED"
-          if (( CHANGES == 0 )); then
-            if cmp -s "$WORK/previous.yaml" app/openapi.yaml && docs_unchanged; then
-              # Also the idempotency guard: a re-run, or a revert that lands back
-              # on the published file, publishes nothing.
-              echo "Contract is unchanged from ${PUBLISHED} — nothing to publish."
-              echo "changed=false" >>"$GITHUB_OUTPUT"
-              exit 0
-            fi
-            # Same API, different files: a description or an example moved, which
-            # oasdiff does not report, or the README, the license or the notice
-            # changed. Consumers that mirror the file byte for byte, like the SDK's
-            # snapshot, still need it, and no client can observe it, so it ships
-            # as a patch.
-            NEXT="${MA}.${MI}.$((PA + 1))"
-          elif (( BREAKING > 0 )); then
-            NEXT="$((MA + 1)).0.0"
-          else
-            NEXT="${MA}.$((MI + 1)).0"
+          if grep -qx 'bump=none' "$WORK/decision"; then
+            # Also the idempotency guard: a re-run, or a revert that lands back
+            # on the published file, publishes nothing.
+            echo "Contract is unchanged from ${PUBLISHED} — nothing to publish."
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+            exit 0
           fi
-
-          echo "Next: ${NEXT}"
-          echo "version=$NEXT" >>"$GITHUB_OUTPUT"
-          echo "changed=true"  >>"$GITHUB_OUTPUT"
+          grep -E '^version=' "$WORK/decision" >>"$GITHUB_OUTPUT"
+          echo "changed=true" >>"$GITHUB_OUTPUT"
 
       - name: Assemble and publish @kaitencloud/openapi
         env:
