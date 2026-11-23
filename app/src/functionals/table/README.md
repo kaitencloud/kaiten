@@ -16,7 +16,7 @@ the way screens assemble a list page is in
 | `DataTable` | The table: client-side sorting, pagination, expandable rows, row links |
 | `dataTableSortableHeader(title)`, `DataTableSortHeader` | A column header that toggles the sort |
 | `DataTableRowExpander` | The toggle that opens a row's children (`getSubRows`) |
-| `FilterTableLayout` | Page layout for a list: toolbar, filters row and table content |
+| `FilterTableLayout` | Page layout for a list: toolbar, filters row and table content; `columnChooser` adds the Columns button |
 | `TableCard` | Card with a header, an optional toolbar and a table |
 | `createActionsColumn(render)` | The right-aligned "Actions" column |
 | `TableActions`, `TableActionButton` | Container and icon button (with tooltip) for row actions |
@@ -99,6 +99,37 @@ The layout of a list screen. It wraps a `FilterToolbarProvider` (from
 controller with `useFilterBuilder` and passes it as `controller`; the customer
 table above shows the full assembly.
 
+### Choosing the columns
+
+`columnChooser` turns on a "Columns" button beside the "Filter" button of
+`.Search`: a menu with one checkbox per column the person may hide, named as
+its header, and "Reset", which shows every column again. The value names the
+table in what is stored (`instances`, `deployment-zones`):
+
+```tsx
+<FilterTableLayout columnChooser="instances" controller={filterController}>
+```
+
+- **Which columns are listed.** Every column of the `DataTable` inside whose
+  header is a text: a string, or the title given to `dataTableSortableHeader`.
+  The column that carries the row's link (`linkColumnId`, `name` by default)
+  and the columns that set `enableHiding: false` (`createActionsColumn` does)
+  are not listed and never hidden. A column whose header is not a text is not
+  listed either.
+- **The default** is every column shown: nothing changes until the person
+  chooses, and the button reads as set (`secondary`) while a column is hidden.
+- **Where the choice is kept.** In this browser's local storage, like the
+  other display choices of the console (the side navigation, the theme), under
+  `kaiten:table-columns:<organization>:<table>`, as `{ "hidden": [column ids] }`.
+  The hidden columns are stored, not the shown ones: a column the table gains
+  later shows; a stored id the table no longer has changes nothing. A storage
+  that is blocked, full or unreadable gives the default and the choice holds
+  for the page only (`logic/column-visibility-storage.ts`).
+- **Filters do not follow.** A hidden column keeps its filter in the Filter
+  menu: the filters are declared apart from the columns (the instances filter
+  on a description that has no column).
+- A `DataTable` outside a layout with `columnChooser` shows every column.
+
 ## `TableCard`
 
 A compound component: a `Card` with a structured header and a table.
@@ -170,8 +201,8 @@ why.
 
 ```
 table/
-├── components/   core/ (DataTable and its parts, dialogs), layout/ (TableCard, FilterTableLayout), actions/
-├── logic/        feature set, sorting and pagination helpers
+├── components/   core/ (DataTable and its parts, dialogs), layout/ (TableCard, FilterTableLayout), actions/, column-chooser/ (the Columns button and its state)
+├── logic/        feature set, sorting and pagination helpers, the choosable columns and their storage
 ├── types/        data-table.types.ts
 ├── stories/      Storybook
 └── index.ts      public API

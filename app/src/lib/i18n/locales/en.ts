@@ -463,6 +463,13 @@ export default {
         replaced: 'Current entries replaced',
       },
     },
+    TableColumns: {
+      button: 'Columns',
+      buttonWithHidden_one: 'Columns, {{count}} hidden',
+      buttonWithHidden_other: 'Columns, {{count}} hidden',
+      menuLabel: 'Show columns',
+      reset: 'Reset',
+    },
   },
   Errors: {
     title: 'Something went wrong',

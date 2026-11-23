@@ -1,10 +1,12 @@
 import { Menu as MenuPrimitive } from "@base-ui/react/menu"
+import { CheckIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 /**
  * A menu of actions that opens from a button: the actions of a row or of a
  * page that do not fit beside each other. Choosing an item runs it and closes
- * the menu. For a choice that stays (a value), use `Select`.
+ * the menu. For a choice that stays (a value), use `Select`; for several
+ * independent on/off choices made in one go, `DropdownMenuCheckboxItem`.
  */
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
   return <MenuPrimitive.Root data-slot="dropdown-menu" {...props} />
@@ -88,6 +90,35 @@ function DropdownMenuItem({
   )
 }
 
+/**
+ * An on/off choice in a menu (`role="menuitemcheckbox"`, its state in
+ * `aria-checked`). Toggling it leaves the menu open, so that several can be
+ * changed in one go; the tick shows when it is checked.
+ */
+function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: MenuPrimitive.CheckboxItem.Props) {
+  return (
+    <MenuPrimitive.CheckboxItem
+      data-slot="dropdown-menu-checkbox-item"
+      className={cn(
+        "data-highlighted:bg-accent data-highlighted:text-foreground relative flex w-full cursor-default items-center gap-2 rounded-sm py-1.5 ps-8 pe-2 text-sm outline-hidden select-none data-disabled:pointer-events-none data-disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        className
+      )}
+      {...props}
+    >
+      <span className="pointer-events-none absolute start-2 flex size-4 items-center justify-center">
+        <MenuPrimitive.CheckboxItemIndicator>
+          <CheckIcon />
+        </MenuPrimitive.CheckboxItemIndicator>
+      </span>
+      {children}
+    </MenuPrimitive.CheckboxItem>
+  )
+}
+
 function DropdownMenuSeparator({
   className,
   ...props
@@ -103,6 +134,7 @@ function DropdownMenuSeparator({
 
 export {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,

@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, SortAsc } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { rememberHeaderTitle } from '../../logic/column-chooser';
 import type { Column, ColumnDef } from '../../types/data-table.types';
 
 export type DataTableSortHeaderProps<
@@ -71,7 +72,10 @@ export function dataTableSortableHeader<
   TData extends RowData,
   TValue extends CellData = CellData,
 >(title: ReactNode): ColumnDef<TData, TValue>['header'] {
-  return ({ column }) => (
+  const header: ColumnDef<TData, TValue>['header'] = ({ column }) => (
     <DataTableSortHeader column={column}>{title}</DataTableSortHeader>
   );
+  // The column chooser lists the column under the same title.
+  rememberHeaderTitle(header, title);
+  return header;
 }

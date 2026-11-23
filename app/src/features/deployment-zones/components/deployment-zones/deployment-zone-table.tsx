@@ -119,7 +119,10 @@ export function DeploymentZoneTable({
       : undefined;
 
   return (
-    <FilterTableLayout controller={filterController}>
+    <FilterTableLayout
+      columnChooser="deployment-zones"
+      controller={filterController}
+    >
       <FilterTableLayout.Toolbar>
         <FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Search filterId="name" />

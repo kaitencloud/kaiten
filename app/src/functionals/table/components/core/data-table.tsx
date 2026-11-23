@@ -5,12 +5,16 @@ import {
   type TableOptions,
   useTable,
 } from '@tanstack/react-table';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   dataTableFeatures,
   type DataTableFeatures,
 } from '../../logic/data-table-features';
+import {
+  columnVisibilityOf,
+  getChoosableColumns,
+} from '../../logic/column-chooser';
 import { deriveDefaultSortingFromColumns } from '../../logic/data-table-sorting';
 import {
   buildVisiblePageIndexes,
@@ -18,6 +22,7 @@ import {
   resolvePaginationConfig,
 } from '../../logic/data-table-utils';
 import type { DataTableProps } from '../../types/data-table.types';
+import { useColumnChooser } from '../column-chooser/column-chooser-context';
 import { DataTableContent } from './data-table-content';
 import { DataTablePagination } from './data-table-pagination';
 
@@ -58,6 +63,24 @@ export function DataTable<TData extends RowData>({
   });
   const [expanded, setExpanded] = useState<ExpandedState>({});
 
+  // Inside a layout with a column chooser (`FilterTableLayout columnChooser`),
+  // the table reports the columns that may be hidden and hides the ones the
+  // person chose. Elsewhere every column shows.
+  const columnChooser = useColumnChooser();
+  const registerColumns = columnChooser?.registerColumns;
+  const choosableColumns = useMemo(
+    () => getChoosableColumns(columns, linkColumnId),
+    [columns, linkColumnId],
+  );
+  useEffect(() => {
+    registerColumns?.(choosableColumns);
+  }, [registerColumns, choosableColumns]);
+  const hiddenColumns = columnChooser?.hidden;
+  const columnVisibility = useMemo(
+    () => columnVisibilityOf(choosableColumns, hiddenColumns ?? []),
+    [choosableColumns, hiddenColumns],
+  );
+
   const tableConfig: TableOptions<DataTableFeatures, TData> = {
     features: dataTableFeatures,
     columns,
@@ -84,6 +107,7 @@ export function DataTable<TData extends RowData>({
         ? paginationState
         : { pageIndex: 0, pageSize: Number.POSITIVE_INFINITY },
       expanded,
+      columnVisibility,
     },
   };
 
@@ -113,7 +137,7 @@ export function DataTable<TData extends RowData>({
     >
       <DataTableContent<TData>
         bodyScrollable={bodyScrollable}
-        columnsLength={columns.length}
+        columnsLength={table.getVisibleLeafColumns().length}
         emptyMessage={emptyMessage}
         enableRowKeyboardNavigation={enableRowKeyboardNavigation}
         getPath={getPath}

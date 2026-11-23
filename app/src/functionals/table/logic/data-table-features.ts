@@ -30,7 +30,8 @@ export type DataTableColumnMeta = {
  * the bundle, and unregistered APIs do not exist (neither in the types nor at
  * runtime).
  *
- * - `columnVisibilityFeature`: `row.getVisibleCells()`
+ * - `columnVisibilityFeature`: `row.getVisibleCells()`, and the columns a
+ *   person hides with the Columns button (`FilterTableLayout columnChooser`)
  * - `rowSortingFeature`: client-side sorting
  * - `rowPaginationFeature`: client-side pagination
  * - `rowExpandingFeature`: collapsible child rows (`getSubRows`)
