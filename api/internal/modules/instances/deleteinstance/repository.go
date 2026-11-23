@@ -81,7 +81,7 @@ func (r *CommandRepository) DeleteInstance(ctx context.Context, userID uuid.UUID
 // The instance is locked first, so a subscribe cannot slip in between.
 func (r *CommandRepository) refuseBilled(ctx context.Context, organizationID uuid.UUID, slug string) error {
 	q := r.q(ctx)
-	if _, err := q.LockInstanceForDelete(ctx, db.LockInstanceForDeleteParams{OrganizationID: organizationID, Slug: slug}); err != nil {
+	if _, err := q.LockInstance(ctx, db.LockInstanceParams{OrganizationID: organizationID, Slug: slug}); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}

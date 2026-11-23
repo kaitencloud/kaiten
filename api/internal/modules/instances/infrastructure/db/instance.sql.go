@@ -1142,7 +1142,7 @@ func (q *Queries) InstanceExists(ctx context.Context, arg InstanceExistsParams) 
 	return exists, err
 }
 
-const lockInstanceForDelete = `-- name: LockInstanceForDelete :one
+const lockInstance = `-- name: LockInstance :one
 SELECT i.id
 FROM instance i
 WHERE i.organization_id = $1
@@ -1150,15 +1150,17 @@ WHERE i.organization_id = $1
 FOR UPDATE
 `
 
-type LockInstanceForDeleteParams struct {
+type LockInstanceParams struct {
 	OrganizationID uuid.UUID `json:"organization_id"`
 	Slug           string    `json:"slug"`
 }
 
-// The instance a delete names, locked first: a subscribe that starts
-// meanwhile waits, then finds it gone.
-func (q *Queries) LockInstanceForDelete(ctx context.Context, arg LockInstanceForDeleteParams) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, lockInstanceForDelete, arg.OrganizationID, arg.Slug)
+// The instance a write names, locked for the rest of the transaction: a
+// subscribe that starts while a delete holds it waits, then finds it gone,
+// and a PATCH reads the metadata it merges into with no other writer between
+// that read and its own write.
+func (q *Queries) LockInstance(ctx context.Context, arg LockInstanceParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockInstance, arg.OrganizationID, arg.Slug)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -1232,6 +1234,103 @@ func (q *Queries) UpdateInstanceLifecycleStage(ctx context.Context, arg UpdateIn
 		arg.Slug,
 	)
 	var i UpdateInstanceLifecycleStageRow
+	err := row.Scan(
+		&i.ID,
+		&i.CreatedByID,
+		&i.CreatedAt,
+		&i.UpdatedByID,
+		&i.UpdatedAt,
+		&i.Name,
+		&i.Slug,
+		&i.Description,
+		&i.CustomerID,
+		&i.LicenseID,
+		&i.DeploymentZoneID,
+		&i.StartLicenseDate,
+		&i.EndLicenseDate,
+		&i.Metadata,
+		&i.OrganizationID,
+		&i.Status,
+		&i.LifecycleStage,
+		&i.CreatedByName,
+		&i.UpdatedByName,
+		&i.LicenseSlug,
+		&i.CustomerSlug,
+		&i.DeploymentZoneSlug,
+	)
+	return i, err
+}
+
+const updateInstanceMetadata = `-- name: UpdateInstanceMetadata :one
+WITH updated AS (
+  UPDATE instance i
+  SET updated_by_id = uo.user_id,
+      updated_at = now(),
+      metadata = $1::jsonb
+  FROM user_on_organization uo
+  WHERE uo.organization_id = $2
+         AND uo.user_id = $3
+         AND uo.deleted_at IS NULL
+         AND i.organization_id = uo.organization_id
+         AND i.slug = $4
+  RETURNING i.id, i.created_by_id, i.created_at, i.updated_by_id, i.updated_at, i.name, i.slug, i.description, i.customer_id, i.license_id, i.deployment_zone_id, i.start_license_date, i.end_license_date, i.metadata, i.organization_id, i.status, i.lifecycle_stage
+)
+SELECT updated.id, updated.created_by_id, updated.created_at, updated.updated_by_id, updated.updated_at, updated.name, updated.slug, updated.description, updated.customer_id, updated.license_id, updated.deployment_zone_id, updated.start_license_date, updated.end_license_date, updated.metadata, updated.organization_id, updated.status, updated.lifecycle_stage,
+       creator.name AS created_by_name,
+       updater.name AS updated_by_name,
+       l.slug AS license_slug,
+       c.slug AS customer_slug,
+       dz.slug AS deployment_zone_slug
+FROM updated
+  INNER JOIN "user" creator ON updated.created_by_id = creator.id
+  INNER JOIN "user" updater ON updated.updated_by_id = updater.id
+  LEFT JOIN "license" l ON updated.license_id = l.id
+  LEFT JOIN "customer" c ON updated.customer_id = c.id
+  LEFT JOIN "deployment_zone" dz ON updated.deployment_zone_id = dz.id
+`
+
+type UpdateInstanceMetadataParams struct {
+	Metadata       []byte    `json:"metadata"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+	UserID         uuid.UUID `json:"user_id"`
+	Slug           string    `json:"slug"`
+}
+
+type UpdateInstanceMetadataRow struct {
+	ID                 uuid.UUID        `json:"id"`
+	CreatedByID        uuid.UUID        `json:"created_by_id"`
+	CreatedAt          pgtype.Timestamp `json:"created_at"`
+	UpdatedByID        uuid.UUID        `json:"updated_by_id"`
+	UpdatedAt          pgtype.Timestamp `json:"updated_at"`
+	Name               string           `json:"name"`
+	Slug               string           `json:"slug"`
+	Description        string           `json:"description"`
+	CustomerID         uuid.UUID        `json:"customer_id"`
+	LicenseID          uuid.UUID        `json:"license_id"`
+	DeploymentZoneID   *uuid.UUID       `json:"deployment_zone_id"`
+	StartLicenseDate   pgtype.Timestamp `json:"start_license_date"`
+	EndLicenseDate     pgtype.Timestamp `json:"end_license_date"`
+	Metadata           []byte           `json:"metadata"`
+	OrganizationID     uuid.UUID        `json:"organization_id"`
+	Status             InstanceStatus   `json:"status"`
+	LifecycleStage     *string          `json:"lifecycle_stage"`
+	CreatedByName      string           `json:"created_by_name"`
+	UpdatedByName      string           `json:"updated_by_name"`
+	LicenseSlug        *string          `json:"license_slug"`
+	CustomerSlug       *string          `json:"customer_slug"`
+	DeploymentZoneSlug *string          `json:"deployment_zone_slug"`
+}
+
+// The whole metadata object, already merged and validated by the caller,
+// which read it under LockInstance in the same transaction.
+func (q *Queries) UpdateInstanceMetadata(ctx context.Context, arg UpdateInstanceMetadataParams) (UpdateInstanceMetadataRow, error) {
+	row := q.db.QueryRow(ctx, updateInstanceMetadata,
+		arg.Metadata,
+		arg.OrganizationID,
+		arg.UserID,
+		arg.Slug,
+	)
+	var i UpdateInstanceMetadataRow
 	err := row.Scan(
 		&i.ID,
 		&i.CreatedByID,

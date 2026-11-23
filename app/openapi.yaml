@@ -12019,6 +12019,10 @@ components:
             - AT_RISK
           minLength: 1
           type: string
+        metadata:
+          additionalProperties: {}
+          description: "Metadata keys to change, merged into the stored metadata at the first level: each key present is set, its value replacing the stored one whole (lists and objects included); a key whose value is null is removed; keys absent from the object are kept. The merged result is validated against the organization's declared instance metadata fields, as on PUT. When omitted, metadata is unchanged."
+          type: object
         status:
           description: Operational status of the instance
           enum:
@@ -25399,7 +25403,7 @@ paths:
       tags:
         - instances
     patch:
-      description: Partially update an instance. Currently supports the operational status and the commercial lifecycle stage.
+      description: "Partially update an instance: its operational status, its commercial lifecycle stage, and individual metadata keys. Unlike PUT, a metadata change needs no read of the instance first, and does not overwrite keys it does not name."
       operationId: patchInstance
       parameters:
         - description: Instance slug

@@ -8,7 +8,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/operationalaccess"
-	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
@@ -90,18 +89,9 @@ func (h *UseCase) ExecuteWithinOperation(ctx context.Context, command *Command, 
 			}
 		}
 		// Validate metadata against the org's declared schema for INSTANCE.
-		// INSTANCE is tolerant (additionalProperties: true) — unknown keys flow
-		// through unchanged (auto-reported metadata stays forward-compat) but
-		// declared keys are still strictly type-checked. The validator also
-		// resolves the metadata to persist by merging in archived keys the
-		// payload omitted (server-side preservation).
-		// See module README in metadatafields/ for the convention.
-		resolvedMetadata, err := validator.ValidateMetadataForResource(
-			ctx, h.deps.MetadataFieldsLister, user.OrganizationID,
-			metadatafieldsdb.MetadataFieldResourceTypeINSTANCE,
-			false, // tolerant: instance metadata is auto-reported by the SaaS
-			command.Metadata, currentInstance.Metadata,
-		)
+		// The result also carries the archived keys the payload omitted
+		// (server-side preservation), so it is what gets persisted.
+		resolvedMetadata, err := schema.ValidateMetadata(ctx, h.deps.MetadataFieldsLister, user.OrganizationID, command.Metadata, currentInstance.Metadata)
 		if err != nil {
 			return err
 		}
