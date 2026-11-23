@@ -7,8 +7,9 @@
 - The package is licensed under the Apache License 2.0, like the rest of the Kaiten
   repository, `@kaitencloud/openapi` and `@kaitencloud/graphql-schema`. `LICENSE`
   holds the text published by the Apache Software Foundation, unmodified, and
-  `NOTICE` names the copyright holder, KAITEN INC. 1.0.1 and 1.0.2 were published
-  under the MIT License. No token changes: same tokens and stylesheets as 1.0.2.
+  `NOTICE` names the copyright holder, KAITEN INC. This corrects 1.0.1 and 1.0.2,
+  which were published under another license by mistake. No token changes: same
+  tokens and stylesheets as 1.0.2.
 
 ## 1.0.2
 
@@ -22,10 +23,9 @@
 
 ### Patch Changes
 
-- The package is licensed under the MIT License, like `@kaitencloud/openapi` and
-  `@kaitencloud/graphql-schema`. 1.0.0 was published under Apache-2.0 by mistake.
-  The `NOTICE` file, which only the Apache License asked for, is gone. No token
-  changes.
+- Published under a license other than the repository's, and without the `NOTICE`
+  file, by mistake. 1.0.3 restored both: the package is licensed under the Apache
+  License 2.0. No token changes.
 
 ## 1.0.0
 
