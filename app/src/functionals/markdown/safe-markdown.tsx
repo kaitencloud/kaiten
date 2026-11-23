@@ -71,7 +71,7 @@ const COMPONENTS: Components = {
 
 const PROSE_CLASSES = [
   'space-y-3 text-sm leading-relaxed break-words',
-  '[&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:underline-offset-4',
+  '[&_a]:font-medium [&_a]:text-primary-subtle-foreground [&_a]:underline [&_a]:underline-offset-4',
   '[&_blockquote]:border-l-2 [&_blockquote]:pl-4 [&_blockquote]:text-muted-foreground',
   '[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-xs',
   '[&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-3 [&_pre_code]:bg-transparent [&_pre_code]:p-0',
