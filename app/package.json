@@ -102,6 +102,7 @@
     "react-day-picker": "10.0.1",
     "react-dom": "catalog:",
     "react-i18next": "^17.0.14",
+    "react-markdown": "catalog:",
     "recharts": "3.10.1",
     "sonner": "^2.0.8",
     "tailwind-merge": "catalog:",

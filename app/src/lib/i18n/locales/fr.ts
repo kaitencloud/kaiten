@@ -3044,6 +3044,10 @@ export default {
             },
             empty: 'Cette release ne contient aucun component.',
           },
+          releaseNote: {
+            title: 'Notes de release',
+            description: 'Rédigées avec la release, à sa création.',
+          },
         },
         DeploymentZones: {
           title: 'Zones de déploiement liées',

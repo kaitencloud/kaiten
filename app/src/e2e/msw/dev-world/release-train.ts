@@ -32,11 +32,13 @@ const buildRelease = ({
   ageInDays,
   components,
   description,
+  releaseNote,
   version,
 }: {
   ageInDays: number;
   components: Component[];
   description: string;
+  releaseNote?: string;
   version: string;
 }): ReleaseManagementReleaseRecord => {
   const slug = releaseSlug(version);
@@ -46,10 +48,22 @@ const buildRelease = ({
     createdBy: TEST_USER,
     description,
     id: slug,
+    releaseNote,
     slug,
     version,
   };
 };
+
+const V1_4_0_RELEASE_NOTE = [
+  '## Highlights',
+  '',
+  '- The **notification hub** joins the release and sends every e-mail.',
+  '- Sign-in sessions now last 12 hours instead of 8.',
+  '',
+  '## Upgrading',
+  '',
+  'Nothing to migrate. Read the [deployment guide](https://example.com/docs/deploy) before rolling out to production.',
+].join('\n');
 
 const ZONES = [
   {
@@ -140,6 +154,7 @@ export const createReleaseTrain = () => {
       ageInDays: 35,
       components: [authService, apiGateway, notificationHub],
       description: 'Adds the notification hub; runs in production',
+      releaseNote: V1_4_0_RELEASE_NOTE,
       version: 'v1.4.0',
     }),
     buildRelease({

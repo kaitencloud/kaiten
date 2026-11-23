@@ -288,8 +288,12 @@ export class ReleaseManagementAppModel {
     return clone(result);
   }
 
+  // The list leaves each release's notes out, as GET /releases does: only the
+  // single read carries them.
   listReleases(): Release[] {
-    return clone(this.releases);
+    return clone(this.releases).map(
+      ({ releaseNote: _releaseNote, ...release }) => release,
+    );
   }
 
   getRelease(releaseSlug: string): Release {
@@ -310,6 +314,7 @@ export class ReleaseManagementAppModel {
       createdBy: DEFAULT_ACTOR,
       description: input.description,
       id: `release-${this.releaseSequence}`,
+      releaseNote: input.releaseNote,
       slug: this.createUniqueSlug(
         this.releases.map((entry) => entry.slug),
         input.slug ?? input.version,

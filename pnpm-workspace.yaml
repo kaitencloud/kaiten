@@ -51,6 +51,7 @@ catalog:
   '@kaitencloud/client': 2.0.0
   '@kaitencloud/react': 2.0.0
   '@kaitencloud/react-ui': 2.1.0
+  react-markdown: 10.1.0
 
 # packages/api-codegen cannot use the default catalog's TypeScript: openapi-ts
 # drives the TypeScript compiler JS API (ts.SyntaxKind ...), which the Go-based
