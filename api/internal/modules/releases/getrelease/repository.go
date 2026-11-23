@@ -55,6 +55,7 @@ func (r *QueryRepository) GetReleaseBySlug(ctx context.Context, slug string, org
 		Version:     rl.Version,
 		Slug:        rl.Slug,
 		Description: rl.Description,
+		ReleaseNote: rl.ReleaseNote,
 		CreatedBy:   shared.User{ID: rl.CreatedByID, Name: rl.CreatedByName},
 		CreatedAt:   rl.CreatedAt.Time,
 		Components:  components,

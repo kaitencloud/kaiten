@@ -22,11 +22,19 @@ import (
 // (writeOnly:"true") is how a client names the same components on create --
 // two views of one relationship, the same pattern as Entitlement's
 // GroupSlugs/EntitlementGroups.
+//
+// ReleaseNote is the release's notes, in markdown, set on create like the
+// rest of the release. The single-release reads return it; the list leaves it
+// out (its query does not select the column), so that a page of releases
+// stays small, and a client that wants the notes reads the release itself.
+// The GraphQL Release type does not declare it, so no GraphQL path, list or
+// single, carries it.
 type Release struct {
 	ID          uuid.UUID   `json:"id" readOnly:"true" example:"123e4567-e89b-12d3-a456-426614174000" doc:"Unique identifier for the release"`
 	Version     string      `json:"version" example:"v1.0.0" doc:"Version of the release" minLength:"1" maxLength:"100"`
 	Slug        string      `json:"slug,omitempty" example:"v1-0-0" doc:"Optional URL-friendly identifier, unique per organization. Auto-generated if not provided." minLength:"2" maxLength:"100" pattern:"^[a-z0-9][a-z0-9-]*[a-z0-9]$"`
 	Description *string     `json:"description,omitempty" example:"This release fixes everything. CHANGELOG: stuff was done" doc:"Description of the release" maxLength:"500"`
+	ReleaseNote *string     `json:"releaseNote,omitempty" example:"Faster start-up. See the [changelog](https://example.com/changelog)." doc:"Release notes for the release, in markdown. Set on create only. Returned when a single release is read; omitted from list responses." maxLength:"62000"`
 	CreatedBy   shared.User `json:"createdBy" readOnly:"true" doc:"User who created this release"`
 	CreatedAt   time.Time   `json:"createdAt" readOnly:"true" example:"2023-10-01T12:00:00Z" doc:"Timestamp when the release was created"`
 

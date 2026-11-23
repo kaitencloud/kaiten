@@ -15180,6 +15180,12 @@ components:
             - 123e4567-e89b-12d3-a456-426614174000
           readOnly: true
           type: string
+        releaseNote:
+          description: Release notes for the release, in markdown. Set on create only. Returned when a single release is read; omitted from list responses.
+          examples:
+            - Faster start-up. See the [changelog](https://example.com/changelog).
+          maxLength: 62000
+          type: string
         slug:
           description: Optional URL-friendly identifier, unique per organization. Auto-generated if not provided.
           examples:
@@ -15252,6 +15258,12 @@ components:
           examples:
             - 123e4567-e89b-12d3-a456-426614174000
           readOnly: true
+          type: string
+        releaseNote:
+          description: Release notes for the release, in markdown. Set on create only. Returned when a single release is read; omitted from list responses.
+          examples:
+            - Faster start-up. See the [changelog](https://example.com/changelog).
+          maxLength: 62000
           type: string
         slug:
           description: Optional URL-friendly identifier, unique per organization. Auto-generated if not provided.

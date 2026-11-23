@@ -4,6 +4,9 @@
 -- limit_plus_one = requested limit + 1 so the caller can detect whether a
 -- further page exists without a separate COUNT query. On the first page,
 -- pass NULL for both cursor_created_at and cursor_id.
+-- release_note is deliberately not selected: release notes can run to tens
+-- of thousands of characters, and a page of releases must stay small. Only
+-- GetOneRelease and GetOneReleaseBySlug read it.
 SELECT r.id,
        r.version,
        r.slug,
@@ -27,6 +30,7 @@ SELECT r.id,
        r.version,
        r.slug,
        r.description,
+       r.release_note,
        r.created_at,
        r.created_by_id,
        creator.name AS created_by_name,
@@ -41,6 +45,7 @@ SELECT r.id,
        r.version,
        r.slug,
        r.description,
+       r.release_note,
        r.created_at,
        r.created_by_id,
        creator.name AS created_by_name,
@@ -54,8 +59,8 @@ WHERE r.organization_id = sqlc.arg(organization_id)
 -- A release is write-once: this is the only statement that writes the table
 -- (nothing UPDATEs it), which is why it carries no updated_* columns.
 WITH inserted AS (
-  INSERT INTO release (version, slug, description, created_at, created_by_id, organization_id)
-  SELECT $1, $2, $3, now(), uo.user_id, uo.organization_id
+  INSERT INTO release (version, slug, description, release_note, created_at, created_by_id, organization_id)
+  SELECT $1, $2, $3, sqlc.narg(release_note)::text, now(), uo.user_id, uo.organization_id
   FROM user_on_organization uo
   WHERE uo.organization_id = sqlc.arg(organization_id)
     AND uo.user_id = sqlc.arg(user_id)

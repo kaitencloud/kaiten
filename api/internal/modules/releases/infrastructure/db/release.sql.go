@@ -14,15 +14,15 @@ import (
 
 const createRelease = `-- name: CreateRelease :one
 WITH inserted AS (
-  INSERT INTO release (version, slug, description, created_at, created_by_id, organization_id)
-  SELECT $1, $2, $3, now(), uo.user_id, uo.organization_id
+  INSERT INTO release (version, slug, description, release_note, created_at, created_by_id, organization_id)
+  SELECT $1, $2, $3, $4::text, now(), uo.user_id, uo.organization_id
   FROM user_on_organization uo
-  WHERE uo.organization_id = $4
-    AND uo.user_id = $5
+  WHERE uo.organization_id = $5
+    AND uo.user_id = $6
     AND uo.deleted_at IS NULL
-  RETURNING id, previous_release_id, version, slug, description, created_at, created_by_id, organization_id
+  RETURNING id, previous_release_id, version, slug, description, created_at, created_by_id, organization_id, release_note
 )
-SELECT inserted.id, inserted.previous_release_id, inserted.version, inserted.slug, inserted.description, inserted.created_at, inserted.created_by_id, inserted.organization_id,
+SELECT inserted.id, inserted.previous_release_id, inserted.version, inserted.slug, inserted.description, inserted.created_at, inserted.created_by_id, inserted.organization_id, inserted.release_note,
        creator.name AS created_by_name
 FROM inserted
   INNER JOIN "user" creator ON inserted.created_by_id = creator.id
@@ -32,6 +32,7 @@ type CreateReleaseParams struct {
 	Version        string    `json:"version"`
 	Slug           string    `json:"slug"`
 	Description    *string   `json:"description"`
+	ReleaseNote    *string   `json:"release_note"`
 	OrganizationID uuid.UUID `json:"organization_id"`
 	UserID         uuid.UUID `json:"user_id"`
 }
@@ -45,6 +46,7 @@ type CreateReleaseRow struct {
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 	CreatedByID       uuid.UUID        `json:"created_by_id"`
 	OrganizationID    uuid.UUID        `json:"organization_id"`
+	ReleaseNote       *string          `json:"release_note"`
 	CreatedByName     string           `json:"created_by_name"`
 }
 
@@ -55,6 +57,7 @@ func (q *Queries) CreateRelease(ctx context.Context, arg CreateReleaseParams) (C
 		arg.Version,
 		arg.Slug,
 		arg.Description,
+		arg.ReleaseNote,
 		arg.OrganizationID,
 		arg.UserID,
 	)
@@ -68,6 +71,7 @@ func (q *Queries) CreateRelease(ctx context.Context, arg CreateReleaseParams) (C
 		&i.CreatedAt,
 		&i.CreatedByID,
 		&i.OrganizationID,
+		&i.ReleaseNote,
 		&i.CreatedByName,
 	)
 	return i, err
@@ -78,9 +82,9 @@ WITH deleted AS (
   DELETE FROM release r
   WHERE r.id = $1
     AND r.organization_id = $2
-  RETURNING r.id, r.previous_release_id, r.version, r.slug, r.description, r.created_at, r.created_by_id, r.organization_id
+  RETURNING r.id, r.previous_release_id, r.version, r.slug, r.description, r.created_at, r.created_by_id, r.organization_id, r.release_note
 )
-SELECT deleted.id, deleted.previous_release_id, deleted.version, deleted.slug, deleted.description, deleted.created_at, deleted.created_by_id, deleted.organization_id,
+SELECT deleted.id, deleted.previous_release_id, deleted.version, deleted.slug, deleted.description, deleted.created_at, deleted.created_by_id, deleted.organization_id, deleted.release_note,
        creator.name AS created_by_name
 FROM deleted
   INNER JOIN "user" creator ON deleted.created_by_id = creator.id
@@ -100,6 +104,7 @@ type DeleteReleaseRow struct {
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 	CreatedByID       uuid.UUID        `json:"created_by_id"`
 	OrganizationID    uuid.UUID        `json:"organization_id"`
+	ReleaseNote       *string          `json:"release_note"`
 	CreatedByName     string           `json:"created_by_name"`
 }
 
@@ -115,6 +120,7 @@ func (q *Queries) DeleteRelease(ctx context.Context, arg DeleteReleaseParams) (D
 		&i.CreatedAt,
 		&i.CreatedByID,
 		&i.OrganizationID,
+		&i.ReleaseNote,
 		&i.CreatedByName,
 	)
 	return i, err
@@ -125,9 +131,9 @@ WITH deleted AS (
   DELETE FROM release r
   WHERE r.slug = $1
     AND r.organization_id = $2
-  RETURNING r.id, r.previous_release_id, r.version, r.slug, r.description, r.created_at, r.created_by_id, r.organization_id
+  RETURNING r.id, r.previous_release_id, r.version, r.slug, r.description, r.created_at, r.created_by_id, r.organization_id, r.release_note
 )
-SELECT deleted.id, deleted.previous_release_id, deleted.version, deleted.slug, deleted.description, deleted.created_at, deleted.created_by_id, deleted.organization_id,
+SELECT deleted.id, deleted.previous_release_id, deleted.version, deleted.slug, deleted.description, deleted.created_at, deleted.created_by_id, deleted.organization_id, deleted.release_note,
        creator.name AS created_by_name
 FROM deleted
   INNER JOIN "user" creator ON deleted.created_by_id = creator.id
@@ -147,6 +153,7 @@ type DeleteReleaseBySlugRow struct {
 	CreatedAt         pgtype.Timestamp `json:"created_at"`
 	CreatedByID       uuid.UUID        `json:"created_by_id"`
 	OrganizationID    uuid.UUID        `json:"organization_id"`
+	ReleaseNote       *string          `json:"release_note"`
 	CreatedByName     string           `json:"created_by_name"`
 }
 
@@ -162,6 +169,7 @@ func (q *Queries) DeleteReleaseBySlug(ctx context.Context, arg DeleteReleaseBySl
 		&i.CreatedAt,
 		&i.CreatedByID,
 		&i.OrganizationID,
+		&i.ReleaseNote,
 		&i.CreatedByName,
 	)
 	return i, err
@@ -172,6 +180,7 @@ SELECT r.id,
        r.version,
        r.slug,
        r.description,
+       r.release_note,
        r.created_at,
        r.created_by_id,
        creator.name AS created_by_name,
@@ -192,6 +201,7 @@ type GetOneReleaseRow struct {
 	Version        string           `json:"version"`
 	Slug           string           `json:"slug"`
 	Description    *string          `json:"description"`
+	ReleaseNote    *string          `json:"release_note"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	CreatedByID    uuid.UUID        `json:"created_by_id"`
 	CreatedByName  string           `json:"created_by_name"`
@@ -206,6 +216,7 @@ func (q *Queries) GetOneRelease(ctx context.Context, arg GetOneReleaseParams) (G
 		&i.Version,
 		&i.Slug,
 		&i.Description,
+		&i.ReleaseNote,
 		&i.CreatedAt,
 		&i.CreatedByID,
 		&i.CreatedByName,
@@ -219,6 +230,7 @@ SELECT r.id,
        r.version,
        r.slug,
        r.description,
+       r.release_note,
        r.created_at,
        r.created_by_id,
        creator.name AS created_by_name,
@@ -239,6 +251,7 @@ type GetOneReleaseBySlugRow struct {
 	Version        string           `json:"version"`
 	Slug           string           `json:"slug"`
 	Description    *string          `json:"description"`
+	ReleaseNote    *string          `json:"release_note"`
 	CreatedAt      pgtype.Timestamp `json:"created_at"`
 	CreatedByID    uuid.UUID        `json:"created_by_id"`
 	CreatedByName  string           `json:"created_by_name"`
@@ -253,6 +266,7 @@ func (q *Queries) GetOneReleaseBySlug(ctx context.Context, arg GetOneReleaseBySl
 		&i.Version,
 		&i.Slug,
 		&i.Description,
+		&i.ReleaseNote,
 		&i.CreatedAt,
 		&i.CreatedByID,
 		&i.CreatedByName,
@@ -304,6 +318,9 @@ type GetReleasesRow struct {
 // limit_plus_one = requested limit + 1 so the caller can detect whether a
 // further page exists without a separate COUNT query. On the first page,
 // pass NULL for both cursor_created_at and cursor_id.
+// release_note is deliberately not selected: release notes can run to tens
+// of thousands of characters, and a page of releases must stay small. Only
+// GetOneRelease and GetOneReleaseBySlug read it.
 func (q *Queries) GetReleases(ctx context.Context, arg GetReleasesParams) ([]GetReleasesRow, error) {
 	rows, err := q.db.Query(ctx, getReleases,
 		arg.OrganizationID,
