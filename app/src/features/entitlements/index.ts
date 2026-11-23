@@ -12,3 +12,4 @@ export {
   entitlementsQueryOptions,
 } from './queries';
 export { EntitlementDetailPricingTab } from './components';
+export { useEntitlementUserFacing } from './hooks';

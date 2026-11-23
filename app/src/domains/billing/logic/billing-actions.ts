@@ -80,6 +80,8 @@ export const BILLING_ACTIONS = {
   'licenseGrants.list': 'getLicenseEntitlements',
   // The entitlements an add-on version can be given.
   'entitlements.list': 'listEntitlements',
+  // An entitlement's own attributes, which the grants of a license offer to change.
+  'entitlement.update': 'updateEntitlement',
   // The add-on catalogue: families, versions and their lifecycle (scopes of the add-ons).
   'addons.list': 'listAddonFamilies',
   'addons.read': 'listAddons',

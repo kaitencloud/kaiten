@@ -4,13 +4,18 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCanPerform } from '@/domains/billing';
 import { licenseQueryOptions } from '../../queries';
-import { LicenseEntitlementsCard } from '../entitlements/license-entitlements-card';
+import {
+  type EntitlementUserFacingControl,
+  LicenseEntitlementsCard,
+} from '../entitlements/license-entitlements-card';
 import { LicenseCommercialCard } from '../commercial';
 import { NewVersionDialog } from '../new-version-dialog';
 import { LicenseDetailsCard } from './license-details-card';
 import { useLicenseGrants } from './use-license-detail-page';
 
 type LicenseOverviewTabProps = {
+  /** The switch of each granted entitlement's own "user facing" flag. */
+  entitlementUserFacing?: EntitlementUserFacingControl;
   licenseSlug: string;
 };
 
@@ -18,7 +23,10 @@ type LicenseOverviewTabProps = {
  * The Overview tab of a license version: its details, how it is sold where
  * billing is on, and the entitlements it grants, which are edited in place.
  */
-export function LicenseOverviewTab({ licenseSlug }: LicenseOverviewTabProps) {
+export function LicenseOverviewTab({
+  entitlementUserFacing,
+  licenseSlug,
+}: LicenseOverviewTabProps) {
   const { t } = useTranslation();
   const router = useRouter();
   // What the API refused with when the grants could not change any more.
@@ -47,6 +55,7 @@ export function LicenseOverviewTab({ licenseSlug }: LicenseOverviewTabProps) {
         onUpdateEntitlementGrant={grants.onUpdateEntitlementGrant}
         onDeleteEntitlement={grants.onDeleteEntitlement}
         readOnly={!mayWrite}
+        userFacing={entitlementUserFacing}
       />
 
       {frozen ? (

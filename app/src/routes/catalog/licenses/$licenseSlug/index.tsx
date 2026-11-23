@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useEntitlementUserFacing } from '@/features/entitlements';
 import {
   entitlementsQueryOptions,
   LicenseOverviewTab,
@@ -19,6 +20,14 @@ export const Route = createFileRoute('/catalog/licenses/$licenseSlug/')({
 
 function LicenseOverviewRoute() {
   const { licenseSlug } = Route.useParams();
+  // Whether an entitlement is user facing is the entitlement's own: its feature
+  // owns the write, and the grants of the version offer the switch.
+  const entitlementUserFacing = useEntitlementUserFacing();
 
-  return <LicenseOverviewTab licenseSlug={licenseSlug} />;
+  return (
+    <LicenseOverviewTab
+      entitlementUserFacing={entitlementUserFacing}
+      licenseSlug={licenseSlug}
+    />
+  );
 }

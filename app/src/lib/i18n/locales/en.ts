@@ -2853,6 +2853,7 @@ export default {
           type: 'Type',
           threshold: 'Threshold / limit',
           overagePercent: 'Overage allowance',
+          userFacing: 'User facing',
           actions: 'Actions',
         },
         Dialog: {
@@ -2879,6 +2880,9 @@ export default {
         cancelButton: 'Cancel',
         thresholdPlaceholder: 'e.g. 1000 or Unlimited',
         inlineEditHint: 'Enter to save · Esc to cancel',
+        userFacingSwitch: 'Show {{name}} in customer-facing components',
+        userFacingHint:
+          'Shown in customer-facing components (plan and pricing pages). This is the entitlement’s own setting: it applies to every license that grants it.',
         overageNeedsLimit:
           'Set a limit first: an unlimited grant has nothing to exceed.',
         allAttachedHint:

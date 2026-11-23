@@ -124,8 +124,9 @@ Routes import the following from `@/features/entitlements` (the root `index.ts`)
 | `EntitlementDetailPageContent`, `EntitlementFormDialog`, `entitlementQueryOptions`, `entitlementGroupsQueryOptions` | `app/src/routes/catalog/entitlements/$entitlementSlug/route.tsx`                                 |
 | `EntitlementDetailOverviewTab`                                                                                      | `app/src/routes/catalog/entitlements/$entitlementSlug/index.tsx`                                 |
 | `EntitlementDetailUsageTab`                                                                                         | `app/src/routes/catalog/entitlements/$entitlementSlug/usage.tsx`                                 |
+| `useEntitlementUserFacing`                                                                                          | `app/src/routes/catalog/licenses/$licenseSlug/index.tsx`                                         |
 
-The licenses feature does not import this one; it declares its own `entitlementsQueryOptions` over the same generated operation.
+The licenses feature does not import this one; it declares its own `entitlementsQueryOptions` over the same generated operation. Its grants table offers a switch of the "User facing" flag all the same: the write stays here (`useEntitlementUserFacing`, over `saveEntitlementOnFresh`, with whether the session holds the scope of `updateEntitlement`), and the license route hands it to the table.
 
 Only route-consumed symbols are exposed. The form, displays, table internals and
 overview story alias are private to their component modules.
