@@ -399,7 +399,7 @@ func TestFlagRulesTargetProductsByFamily(t *testing.T) {
 	for _, flag := range featureFlags {
 		for _, targeting := range flag.Targetings {
 			rule := targeting.GetRule().Value
-			require.NoErrorf(t, featureflag.LintTargetingRule(rule, known), "flag %q: %s", flag.Slug, rule)
+			require.NoErrorf(t, featureflag.LintTargetingRule(rule, featureflag.TargetingCatalogue{Entitlements: known}), "flag %q: %s", flag.Slug, rule)
 			require.NotContainsf(t, rule, "__kaiten.license.slug",
 				"flag %q targets one license version; target the product with __kaiten.license.familySlug", flag.Slug)
 

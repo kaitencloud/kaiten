@@ -11,14 +11,17 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/openfeature"
 )
 
-var catalogue = []featureflag.KnownEntitlement{
+// catalogue knows entitlements only: plans, license versions and deployment
+// zones are nil, so the rules written for these tests name any of them freely.
+// The known-values tests build their own.
+var catalogue = featureflag.TargetingCatalogue{Entitlements: []featureflag.KnownEntitlement{
 	{Slug: "customers", Type: featureflag.EntitlementNumber},
 	{Slug: "instances", Type: featureflag.EntitlementNumber},
 	{Slug: "seats", Type: featureflag.EntitlementNumber},
 	{Slug: "sso", Type: featureflag.EntitlementBoolean},
 	{Slug: "delivery-tracking", Type: featureflag.EntitlementBoolean},
 	{Slug: "support", Type: featureflag.EntitlementConfig},
-}
+}}
 
 func TestLintAcceptsWhatWorks(t *testing.T) {
 	for _, rule := range []string{
@@ -103,9 +106,9 @@ func TestLintWithoutACatalogue(t *testing.T) {
 		"__kaiten.entitlements.anything.used > 0",
 		"__kaiten.entitlements['anything'] == true",
 	} {
-		assert.NoError(t, featureflag.LintTargetingRule(rule, nil), "rule: %s", rule)
+		assert.NoError(t, featureflag.LintTargetingRule(rule, featureflag.TargetingCatalogue{}), "rule: %s", rule)
 	}
-	assert.Error(t, featureflag.LintTargetingRule("__kaiten.license.tier == 'x'", nil))
+	assert.Error(t, featureflag.LintTargetingRule("__kaiten.license.tier == 'x'", featureflag.TargetingCatalogue{}))
 }
 
 // Each entitlement reads in the shape of its type, and is used the way that

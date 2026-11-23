@@ -24,11 +24,30 @@ const SERVED_TARGETING_CONTEXT: TargetingContext = {
               name: 'slug',
               type: 'string',
               description: "Slug of the license, e.g. 'scale'",
+              knownValues: [
+                { value: 'scale-v1', label: 'Scale', description: 'Version 1, archived' },
+                { value: 'scale-v2', label: 'Scale', description: 'Version 2, published' },
+              ],
+            },
+            {
+              name: 'familySlug',
+              type: 'string',
+              description: "Slug of the product the license is a version of, e.g. 'scale'",
+              knownValues: [
+                { value: 'scale', label: 'Scale' },
+                { value: 'starter', label: 'Starter' },
+              ],
             },
             {
               name: 'type',
               type: 'string',
               description: "Whether the license is paid, e.g. 'PAID'",
+              knownValues: [
+                { value: 'DEVELOPMENT' },
+                { value: 'TRIAL' },
+                { value: 'PAID' },
+                { value: 'COMMUNITY' },
+              ],
             },
           ],
         },
@@ -109,6 +128,12 @@ const SERVED_TARGETING_CONTEXT: TargetingContext = {
               name: 'status',
               type: 'string',
               description: "Operational status, e.g. 'HEALTHY'.",
+              knownValues: [
+                { value: 'HEALTHY' },
+                { value: 'DEGRADED' },
+                { value: 'INCIDENT' },
+                { value: 'MAINTENANCE' },
+              ],
             },
             {
               name: 'metadata',

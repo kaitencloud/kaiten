@@ -46,7 +46,9 @@ func RegisterEndpoint(api huma.API, app Reader) {
 		Path:        "/feature-flags/targeting/context",
 		Summary:     "Get the targeting context schema",
 		Description: "Returns the identifiers a targeting rule may read, with their types and descriptions, " +
-			"including the organization's own entitlement slugs. Intended for an editor: it is what " +
+			"including the organization's own entitlement slugs, and the values a string fact is usually " +
+			"compared with: its plans, license versions and deployment zones, and the fixed sets of " +
+			"license types and instance statuses. Intended for an editor: it is what " +
 			"autocomplete and hover documentation are built from. The set is not closed — a rule may " +
 			"also target on attributes the caller supplies in its own evaluation context.",
 		Tags:   []string{"featureflags"},

@@ -19,7 +19,7 @@ are in [functionals.md](../../../docs/01-architecture/functionals.md).
 | `CelEditorStatus` | The verdict of the check (checking, no issues, or a count that opens the issue list) |
 | `CelRulePreview`, `CelRuleHighlight` | A rule rendered as coloured text, without mounting Monaco |
 | `formatCEL` | Formats an expression |
-| `CelContextNode`, `CelIssue`, `CelLinter`, `CelValueType`, `CelEditorHandle` | Types |
+| `CelContextNode`, `CelKnownValue`, `CelIssue`, `CelLinter`, `CelValueType`, `CelEditorHandle` | Types |
 
 `CelEditor` also exposes a ref (`CelEditorHandle`) with `format()` and
 `focusPosition(line, column)`.
@@ -35,6 +35,28 @@ The caller supplies what the editor cannot know, as props:
   check, usually a call to the server. `issues` and `isChecking` let a caller that
   runs the check itself (a form validator, say) hand the verdict in; they replace
   `lint`.
+
+A `CelContextNode` can say more than its shape:
+
+- `knownKeys` are the keys a `map` currently has. They complete after a dot and
+  inside the quotes of an index. A key that is not an identifier (`ai-credits`)
+  cannot follow a dot, because `entitlements.ai-credits` reads as a subtraction:
+  it is offered as `entitlements['ai-credits']`, replacing the dot. A key that is
+  an identifier stays `.seats`.
+- `knownValues` (`{ value, label?, description? }[]`) are the values a `string`
+  is usually compared with. They complete where a value is expected: the right
+  operand of `==` or `!=` whose left operand is a name the editor can read, and
+  each element of a list after `<name> in [`. Outside quotes the suggestion
+  inserts the quoted literal (`'bronze'`); inside an opened quote it inserts the
+  bare value and swallows or supplies the closing quote, so no quote is doubled.
+  The label is shown beside the value, and the description as documentation.
+  Hovering a string literal in one of those positions shows the matching value's
+  label and description; a literal that is not among them gets no hover, which is
+  the check's to report. A name with no `knownValues` behaves as if the feature
+  did not exist.
+
+Both are advisory, never a closed set: a map stays readable under any key and a
+string stays comparable with any literal. What refuses a value is the `lint`.
 
 ```tsx
 // app/src/features/feature-flags/targeting/hooks/use-targeting-editor-support.ts (abridged)
@@ -88,7 +110,9 @@ renders a plain `CodeEditor` instead.
 cel-editor/
 ├── components/   editor, dialog, status, issue list, preview, templates, context popover
 ├── hooks/        engine loading, syntax validation, lint, Monaco setup
-├── logic/        CEL language definition, completion, highlighting, markers, formatter
+├── logic/        CEL language definition, completion, highlighting, markers, formatter;
+│                 `cel-chain` reads access chains, `cel-path` the position of the cursor,
+│                 `cel-value-position` the literal a name is compared with
 ├── types/        context and engine types
 ├── stories/      Storybook
 └── index.ts      public API

@@ -59,8 +59,10 @@ func RegisterEndpoint(api huma.API, app Linter) {
 		Summary:     "Check a targeting rule",
 		Description: "Runs the same check create and update run before accepting a targeting rule, and " +
 			"reports what it found without writing anything. A rule that references a fact or an " +
-			"entitlement that does not exist does not fail loudly at evaluation — it simply never " +
-			"matches — so this is what lets an editor say so while the rule is being written. " +
+			"entitlement that does not exist, or compares a plan, license version, deployment zone, " +
+			"license type or instance status with a value that does not exist, does not fail loudly " +
+			"at evaluation — it simply never matches — so this is what lets an editor say so while " +
+			"the rule is being written. " +
 			"A rejected rule is a 200 carrying `valid: false`, not a client error.",
 		Tags:   []string{"featureflags"},
 		Errors: []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusInternalServerError},

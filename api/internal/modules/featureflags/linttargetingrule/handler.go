@@ -4,20 +4,19 @@ import (
 	"context"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/featureflag"
-	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/common"
 	"github.com/kaitencloud/kaiten/api/internal/platform/currentuser"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
 // Deps lists exactly what this handler needs, instead of the full
-// services.Container. EntitlementCatalogue is the entitlements module's read
-// port — the same one create and update lint against, which is the whole
-// reason this check cannot run in the browser.
+// services.Container. Catalogue reads what the organization has through the
+// owning modules' read ports — the same one create and update lint against,
+// which is the whole reason this check cannot run in the browser.
 type Deps struct {
-	AIPolicy             aiusage.Policy
-	UserProvider         currentuser.Provider
-	EntitlementCatalogue catalogue.Port
+	AIPolicy     aiusage.Policy
+	UserProvider currentuser.Provider
+	Catalogue    common.Catalogue
 }
 
 type UseCase struct {
@@ -42,7 +41,7 @@ func (h *UseCase) Execute(ctx context.Context, rule string) ([]featureflag.Targe
 	}
 	ctx = h.deps.AIPolicy.Resolve(ctx, user.OrganizationID)
 
-	known := common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)
+	known := h.deps.Catalogue.Read(ctx, user.OrganizationID)
 
 	return featureflag.LintTargetingRuleIssues(rule, known), nil
 }

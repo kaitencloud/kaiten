@@ -252,7 +252,7 @@ func TestLegitimateRulesRunUnderTheBounds(t *testing.T) {
 		allowlist,
 		"user.groups.exists(g, g in ['admins', 'group-999', 'ops'])",
 	} {
-		assert.NoError(t, featureflag.LintTargetingRule(rule, nil), "lint: %.80s", rule)
+		assert.NoError(t, featureflag.LintTargetingRule(rule, featureflag.TargetingCatalogue{}), "lint: %.80s", rule)
 
 		matched, err := engine.EvaluateRule(t.Context(), rule)
 		assert.NoError(t, err, "evaluate: %.80s", rule)

@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vite-plus/test';
-import { hoverFor, proposalsFor } from '../logic/cel-completions';
+import {
+  hoverFor,
+  hoverForValue,
+  proposalsFor,
+} from '../logic/cel-completions';
 import { completionTargetAt, scanChain } from '../logic/cel-path';
 import type { CelContextNode } from '../types/cel-context.types';
 
@@ -15,12 +19,26 @@ const roots: CelContextNode[] = [
         fields: [
           { name: 'slug', type: 'string', description: 'License slug.' },
           { name: 'type', type: 'string' },
+          {
+            name: 'familySlug',
+            type: 'string',
+            description: 'Slug of the plan.',
+            knownValues: [
+              { value: 'bronze', label: 'Bronze' },
+              {
+                value: 'silver',
+                label: 'Silver',
+                description: 'The middle plan.',
+              },
+              { value: "o'neil", label: "O'Neil" },
+            ],
+          },
         ],
       },
       {
         name: 'entitlements',
         type: 'map',
-        knownKeys: ['seats', 'customers'],
+        knownKeys: ['seats', 'customers', 'ai-credits', 'in'],
         values: {
           name: '',
           type: 'object',
@@ -104,6 +122,54 @@ describe('proposalsFor', () => {
       );
     });
 
+    // `entitlements.ai-credits` reads as `entitlements.ai - credits`, which
+    // is a subtraction and never the entitlement. Such a key can only be
+    // written as an index, and the suggestion takes the dot with it.
+    describe('a key that cannot follow a dot', () => {
+      it('is offered as an index that replaces the dot', () => {
+        const credits = proposalAt('__kaiten.entitlements.', 'ai-credits');
+
+        expect(credits?.insertText).toBe("['ai-credits']");
+        expect(credits?.replacesDot).toBe(true);
+      });
+
+      it('keeps the label the author filters on', () => {
+        expect(proposalAt('__kaiten.entitlements.ai', 'ai-credits')?.label).toBe(
+          'ai-credits',
+        );
+      });
+
+      it('applies to a word CEL reserves, which is no field name either', () => {
+        expect(proposalAt('__kaiten.entitlements.', 'in')?.insertText).toBe(
+          "['in']",
+        );
+      });
+
+      it('escapes what would end the literal', () => {
+        const quoted: CelContextNode[] = [
+          {
+            name: 'm',
+            type: 'map',
+            knownKeys: ["it's", 'back\\slash'],
+          },
+        ];
+        const insert = (key: string) =>
+          proposalsFor(completionTargetAt('m.'), quoted).find(
+            (p) => p.label === key,
+          )?.insertText;
+
+        expect(insert("it's")).toBe("['it\\'s']");
+        expect(insert('back\\slash')).toBe("['back\\\\slash']");
+      });
+
+      it('leaves a key that is a plain identifier after the dot', () => {
+        const seats = proposalAt('__kaiten.entitlements.', 'seats');
+
+        expect(seats?.insertText).toBe('seats');
+        expect(seats?.replacesDot).toBe(false);
+      });
+    });
+
     it('offers the fields of an entitlement below its key', () => {
       expect(labelsAt("__kaiten.entitlements['seats'].")).toEqual(
         expect.arrayContaining(['remaining', 'unlimited']),
@@ -159,7 +225,7 @@ describe('proposalsFor', () => {
   });
 
   describe('where nothing should be offered', () => {
-    it.each(["x == '", "x == 'sca", "x == 'scale'", '1.'])(
+    it.each(["x == '", "x == 'sca", "x == 'scale'", '1.', "x.startsWith('"])(
       'offers nothing at %s',
       (text) => {
         expect(labelsAt(text)).toEqual([]);
@@ -167,11 +233,129 @@ describe('proposalsFor', () => {
     );
   });
 
+  describe('the value of a comparison', () => {
+    const family = '__kaiten.license.familySlug';
+    const values = (text: string) =>
+      proposalsFor(completionTargetAt(text), roots).filter(
+        (p) => p.kind === 'value',
+      );
+
+    it.each(['==', '!='])('offers the known values after %s', (operator) => {
+      expect(values(`${family} ${operator} `).map((p) => p.label)).toEqual([
+        'bronze',
+        'silver',
+        "o'neil",
+      ]);
+    });
+
+    it('inserts the quoted literal when no quote is open', () => {
+      expect(
+        proposalAt(`${family} == `, 'bronze')?.insertText,
+      ).toBe("'bronze'");
+      expect(proposalAt(`${family} == br`, 'bronze')?.insertText).toBe(
+        "'bronze'",
+      );
+    });
+
+    it('escapes the quote a value contains', () => {
+      expect(proposalAt(`${family} == `, "o'neil")?.insertText).toBe(
+        "'o\\'neil'",
+      );
+      expect(proposalAt(`${family} == "`, "o'neil")?.insertText).toBe(
+        "o'neil",
+      );
+      expect(proposalAt(`${family} == '`, "o'neil")?.insertText).toBe(
+        "o\\'neil",
+      );
+    });
+
+    // The quote is already typed, so the value goes in bare. Quoting it again
+    // is what produced `''bronze''`.
+    it('inserts the bare value inside an opened quote', () => {
+      expect(proposalAt(`${family} == '`, 'bronze')?.insertText).toBe('bronze');
+      expect(proposalAt(`${family} == 'br`, 'bronze')?.insertText).toBe(
+        'bronze',
+      );
+      expect(proposalAt(`${family} != "si`, 'silver')?.insertText).toBe(
+        'silver',
+      );
+    });
+
+    it('offers only the values inside an opened quote', () => {
+      expect(
+        proposalsFor(completionTargetAt(`${family} == '`), roots).map(
+          (p) => p.label,
+        ),
+      ).toEqual(['bronze', 'silver', "o'neil"]);
+    });
+
+    it('offers them for each element of a list', () => {
+      expect(values(`${family} in [`).map((p) => p.label)).toContain('silver');
+      expect(values(`${family} in ['bronze', `).map((p) => p.label)).toContain(
+        'silver',
+      );
+      expect(
+        proposalAt(`${family} in ['bronze', '`, 'silver')?.insertText,
+      ).toBe('silver');
+      expect(proposalAt(`${family} in ['bronze', `, 'silver')?.insertText).toBe(
+        "'silver'",
+      );
+    });
+
+    it('shows the label beside the value and the description as documentation', () => {
+      const silver = proposalAt(`${family} == `, 'silver');
+
+      expect(silver?.detail).toBe('Silver');
+      expect(silver?.documentation).toBe('The middle plan.');
+      expect(proposalAt(`${family} == `, 'bronze')?.documentation).toBe(
+        undefined,
+      );
+    });
+
+    it('puts the values above everything else', () => {
+      const all = proposalsFor(completionTargetAt(`${family} == `), roots);
+      const bronze = all.find((p) => p.label === 'bronze')!;
+
+      for (const other of all.filter((p) => p.kind !== 'value')) {
+        expect(bronze.sortText < other.sortText).toBe(true);
+      }
+    });
+
+    // Unquoted, the author may be about to write another name instead.
+    it('still offers the roots where a name could be written', () => {
+      expect(
+        proposalsFor(completionTargetAt(`${family} == `), roots).map(
+          (p) => p.label,
+        ),
+      ).toEqual(expect.arrayContaining(['__kaiten', 'targetingKey', 'true']));
+    });
+
+    // Nothing is known about it, so the editor behaves as it always did.
+    describe('on a name with no known values', () => {
+      it('offers the roots where no quote is open', () => {
+        const labels = labelsAt('__kaiten.license.slug == ');
+
+        expect(labels).toEqual(expect.arrayContaining(['__kaiten', 'true']));
+        expect(
+          proposalsFor(completionTargetAt('__kaiten.license.slug == '), roots)
+            .filter((p) => p.kind === 'value'),
+        ).toEqual([]);
+      });
+
+      it.each(["'", "'sca", '"'])('offers nothing inside a quote: %s', (typed) => {
+        expect(labelsAt(`__kaiten.license.slug == ${typed}`)).toEqual([]);
+        expect(labelsAt(`user.plan != ${typed}`)).toEqual([]);
+      });
+    });
+  });
+
   describe('inside an index', () => {
     it('offers the keys, and only the keys', () => {
       expect(labelsAt("__kaiten.entitlements['")).toEqual([
         'seats',
         'customers',
+        'ai-credits',
+        'in',
       ]);
     });
 
@@ -217,6 +401,32 @@ describe('proposalsFor', () => {
         'may be absent',
       );
     });
+  });
+});
+
+describe('hoverForValue', () => {
+  const hover = (text: string, value: string) =>
+    hoverForValue(scanChain(text) ?? [], value, roots);
+
+  it('names the field and what the value is', () => {
+    expect(hover('__kaiten.license.familySlug', 'silver')).toEqual({
+      title: '__kaiten.license.familySlug',
+      label: 'Silver',
+      description: 'The middle plan.',
+    });
+    expect(hover('__kaiten.license.familySlug', 'bronze')).toMatchObject({
+      label: 'Bronze',
+    });
+  });
+
+  // An unknown value is the check's to report.
+  it('says nothing about a literal that is not known', () => {
+    expect(hover('__kaiten.license.familySlug', 'gold')).toBeNull();
+  });
+
+  it('says nothing about a name that has no known values', () => {
+    expect(hover('__kaiten.license.slug', 'bronze')).toBeNull();
+    expect(hover('user.plan', 'bronze')).toBeNull();
   });
 });
 

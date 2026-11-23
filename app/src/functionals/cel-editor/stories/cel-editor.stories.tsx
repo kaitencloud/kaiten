@@ -45,11 +45,45 @@ const KAITEN_CONTEXT_ROOTS: CelContextNode[] = [
             name: 'slug',
             type: 'string',
             description: "Slug of the license, e.g. 'scale'",
+            knownValues: [
+              {
+                value: 'scale-v1',
+                label: 'Scale',
+                description: 'Version 1, archived',
+              },
+              {
+                value: 'scale-v2',
+                label: 'Scale',
+                description: 'Version 2, published',
+              },
+              {
+                value: 'starter-v1',
+                label: 'Starter',
+                description: 'Version 1, published',
+              },
+            ],
+          },
+          {
+            name: 'familySlug',
+            type: 'string',
+            description:
+              "Slug of the product the license is a version of, e.g. 'scale'",
+            knownValues: [
+              { value: 'scale', label: 'Scale' },
+              { value: 'starter', label: 'Starter' },
+              { value: 'enterprise', label: 'Enterprise' },
+            ],
           },
           {
             name: 'type',
             type: 'string',
             description: "Whether the license is paid, e.g. 'PAID'",
+            knownValues: [
+              { value: 'DEVELOPMENT' },
+              { value: 'TRIAL' },
+              { value: 'PAID' },
+              { value: 'COMMUNITY' },
+            ],
           },
         ],
       },
@@ -58,7 +92,7 @@ const KAITEN_CONTEXT_ROOTS: CelContextNode[] = [
         type: 'map',
         description:
           "What the license grants, keyed by entitlement slug, in the shape of each entitlement's type. Readable as entitlements['seats'] or entitlements.seats.",
-        knownKeys: ['seats', 'customers', 'sso', 'support'],
+        knownKeys: ['seats', 'customers', 'sso', 'support', 'ai-credits'],
         entries: [
           {
             name: 'seats',
@@ -105,6 +139,20 @@ const KAITEN_CONTEXT_ROOTS: CelContextNode[] = [
             ],
           },
           {
+            // Not an identifier: `entitlements.ai-credits` would read as a
+            // subtraction, so the editor offers the index form instead.
+            name: 'ai-credits',
+            type: 'object',
+            description: 'NUMBER entitlement: what the license grants, and what is used of it.',
+            fields: [
+              {
+                name: 'remaining',
+                type: 'number',
+                description: 'Ceiling minus usage.',
+              },
+            ],
+          },
+          {
             name: 'sso',
             type: 'boolean',
             description:
@@ -129,12 +177,24 @@ const KAITEN_CONTEXT_ROOTS: CelContextNode[] = [
             name: 'status',
             type: 'string',
             description: "Operational status, e.g. 'HEALTHY'.",
+            knownValues: [
+              { value: 'HEALTHY' },
+              { value: 'DEGRADED' },
+              { value: 'INCIDENT' },
+              { value: 'MAINTENANCE' },
+            ],
           },
           {
             name: 'lifecycleStage',
             type: 'string',
             optional: true,
             description: 'Lifecycle stage, when one is set.',
+            knownValues: [
+              { value: 'TRIAL' },
+              { value: 'ACTIVE' },
+              { value: 'AT_RISK' },
+              { value: 'CHURNED' },
+            ],
           },
           {
             name: 'metadata',
@@ -196,6 +256,27 @@ export const WithoutContext: Story = {
     value: "user.cohort == 'beta' && device.os == 'ios'",
     contextRoots: [],
     height: '200px',
+  },
+};
+
+/**
+ * The values of a comparison. Type `__kaiten.license.familySlug == ` or put the
+ * caret between the quotes of `''` and ask for suggestions: the plans of the
+ * organization come first, each with its name, and the literal is inserted
+ * quoted or bare depending on whether the quote is already there. Hovering a
+ * known literal says what it is.
+ *
+ * Also `__kaiten.entitlements.` — `ai-credits` is offered as
+ * `__kaiten.entitlements['ai-credits']`, replacing the dot.
+ */
+export const KnownValues: Story = {
+  render: (args) => <CelEditorWithState {...args} />,
+  args: {
+    value: `__kaiten.license.familySlug in ['scale', 'starter'] &&
+__kaiten.instance.status != 'INCIDENT' &&
+__kaiten.license.familySlug == `,
+    contextRoots: KAITEN_CONTEXT_ROOTS,
+    height: '240px',
   },
 };
 
