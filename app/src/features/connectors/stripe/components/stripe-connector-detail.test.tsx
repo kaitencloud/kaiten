@@ -406,6 +406,8 @@ describe('a connected Stripe', () => {
     const permissions = within(screen.getByTestId('stripe-permissions'));
     expect(permissions.getByText('Invoices: write')).toBeInTheDocument();
     expect(permissions.getByText('Events: read')).toBeInTheDocument();
+    // Stripe's form for a restricted key has no row of that name.
+    expect(permissions.queryByText(/invoice items/i)).not.toBeInTheDocument();
   });
 });
 

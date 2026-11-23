@@ -34,7 +34,8 @@ const (
 // Manifest is what this connector declares about itself at startup.
 //
 // The secret key is a restricted key (rk_), writeOnly so that it is never read
-// back. It needs Customers, Invoices and Invoice items write, and Events read.
+// back. Its description names the permissions it needs as the rows of the form
+// where Stripe creates a restricted key: that form has no row for invoice items.
 // Activation is gated on the connector-stripe entitlement, which a deployment
 // with no licensing authority (self-hosted) always grants.
 func Manifest() builtinconnectors.Manifest {
@@ -54,7 +55,7 @@ func Manifest() builtinconnectors.Manifest {
 					"type":        "string",
 					"writeOnly":   true,
 					"pattern":     "^rk_(live|test)_[A-Za-z0-9]+$",
-					"description": "A restricted key of the Stripe account (rk_live_… or rk_test_…), with write access to Customers, Invoices, Invoice items, Coupons, Payment methods, Checkout Sessions and the Customer portal, and read access to Events",
+					"description": "A restricted key of the Stripe account (rk_live_… or rk_test_…), with write access to Customers, Invoices, Coupons, Payment methods, Checkout Sessions and the Customer portal, and read access to Events",
 				},
 				SettingAutomaticTax: map[string]any{
 					"type":        "boolean",

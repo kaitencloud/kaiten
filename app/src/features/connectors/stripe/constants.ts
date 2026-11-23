@@ -29,12 +29,13 @@ export const STRIPE_SETTING_DEFAULTS = {
 
 /**
  * The permissions the restricted key needs, as the connector documents them:
- * write on what Kaiten creates in Stripe, read on the events it mirrors.
+ * write on what Kaiten creates in Stripe, read on the events it mirrors. Each
+ * one is a row of the form where Stripe creates a restricted key: that form has
+ * no row for invoice items, so the list has none either.
  */
 export const STRIPE_KEY_PERMISSIONS = [
   { access: 'write', resource: 'Customers' },
   { access: 'write', resource: 'Invoices' },
-  { access: 'write', resource: 'Invoice items' },
   { access: 'write', resource: 'Coupons' },
   { access: 'write', resource: 'Payment methods' },
   { access: 'write', resource: 'Checkout Sessions' },
