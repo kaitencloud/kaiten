@@ -84,7 +84,7 @@ jobs:
           cache: false
 
       - name: Install oasdiff
-        run: go install github.com/oasdiff/oasdiff@v1.31.0
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
 
       # The release's pin.
       - name: Set up ORAS

@@ -93,10 +93,25 @@ jobs:
           go-version: ${{ env.GO_VERSION }}
           cache: false
 
-      # Pinned, like every other tool here. oasdiff decides what the version is,
-      # so an unpinned one silently changes the meaning of the numbers.
+      # Pinned in scripts/contract/oasdiff-version, which every workflow that runs
+      # oasdiff reads: it decides what the version is, so an unpinned one, or two
+      # pins that disagree, silently change the meaning of the numbers.
       - name: Install oasdiff
-        run: go install github.com/oasdiff/oasdiff@v1.31.0
+        run: go install "github.com/oasdiff/oasdiff@$(cat scripts/contract/oasdiff-version)"
+
+      # The one step that cannot be taken back publishes the committed document.
+      # go-ci's drift check runs on pull requests only, and main requires no
+      # branch to be up to date, so two green pull requests can still merge into a
+      # document that no longer matches the handlers. The release proves it here.
+      - name: The committed contract is what the handlers generate
+        if: github.ref_type == 'tag'
+        working-directory: api
+        run: |
+          set -euo pipefail
+          if ! go run cmd/docs/main.go openapi | cmp -s - ../app/openapi.yaml; then
+            echo "::error::app/openapi.yaml at $GITHUB_REF_NAME is not what the handlers generate. Run task generate:oas on main, merge it, and tag again."
+            exit 1
+          fi
 
       - name: Set up ORAS
         uses: oras-project/setup-oras@5e2f2482b30b0cb3e14e67f89a80c88c659a7c63 # v2.0.3

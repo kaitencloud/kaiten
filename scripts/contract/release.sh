@@ -30,6 +30,18 @@
 # org.opencontainers.image.version equals the tag itself; a CalVer tag's annotation names the
 # semver it points at instead.
 #
+# THE BASE
+#
+# The newest contract version built from an ancestor of this commit, as its manifest's
+# org.opencontainers.image.revision says. Not simply the newest on the registry: a release cut
+# after a newer one already published (a re-run of a failed run, or a tag on an older commit of
+# main) would compare its older document with a newer one, read every operation added in between
+# as removed, and mint a false major. So an older release whose contract did not change gets its
+# CalVer on the version it ships, and one whose contract did change is refused: a version below
+# the newest would move npm's `latest` backwards, and one above it would hold an older contract.
+# The commits must be in the clone (actions/checkout with fetch-depth: 0); a missing one stops the
+# run rather than be read as "not an ancestor".
+#
 # THE FIRST RELEASE
 #
 # Until the registry holds a semver, the base is the newest @kaitencloud/openapi on public npmjs,
@@ -166,7 +178,7 @@ if [[ $mode == tag ]] && exists "$repo:$calver"; then
   exit 0
 fi
 
-# ── The base: the highest semver on the registry, or npm's on the first run ──
+# ── The base: the newest version built from an ancestor, or npm's on the first run ──
 
 tags=""
 if err=$(oras_ repo tags "$repo" 2>&1 >"$work/tags"); then
@@ -176,14 +188,31 @@ elif ! grep -qiE 'not found|name unknown|404' <<<"$err"; then
   exit 1
 fi
 
-base=""
+git cat-file -e "$revision^{commit}" 2>/dev/null || {
+  echo "error: $revision is not in this clone" >&2
+  exit 1
+}
+newest="" base=""
 while read -r tag; do
   [[ -n $tag ]] || continue
-  if [[ $(annotation "$repo:$tag" org.opencontainers.image.version) == "$tag" ]]; then
+  manifest=$(oras_ manifest fetch "$repo:$tag")
+  [[ $(jq -r '.annotations["org.opencontainers.image.version"] // empty' <<<"$manifest") == "$tag" ]] || continue
+  [[ -n $newest ]] || newest=$tag
+  built_from=$(jq -r '.annotations["org.opencontainers.image.revision"] // empty' <<<"$manifest")
+  if [[ -z $built_from ]] || ! git cat-file -e "$built_from^{commit}" 2>/dev/null; then
+    echo "error: $repo:$tag was built from '$built_from', which is not in this clone; fetch the whole history" >&2
+    exit 1
+  fi
+  if git merge-base --is-ancestor "$built_from" "$revision"; then
     base=$tag
     break
   fi
 done < <(grep -E "$semver_re" <<<"$tags" | sort -rV || true)
+
+if [[ -z $base && -n $newest ]]; then
+  echo "error: every contract version on $repo, $newest the newest, was built from a commit after $revision. An older commit cannot release a contract." >&2
+  exit 1
+fi
 
 if [[ -n $base ]]; then
   base_source=registry
@@ -244,6 +273,11 @@ if [[ $mode == next ]]; then
 fi
 
 # ── A release ────────────────────────────────────────────────────────────────
+
+if [[ $bump != none && $base_source == registry && $base != "$newest" ]]; then
+  echo "error: this release's contract changed since $base, the newest version built from its ancestors, but $repo already holds $newest, built later. An older release cannot mint a contract version: a version below $newest would move npm's latest backwards, and one above it would hold an older contract." >&2
+  exit 1
+fi
 
 if [[ $bump == none && $base_source == registry ]]; then
   # The contract did not change: this release ships the existing artifact.
