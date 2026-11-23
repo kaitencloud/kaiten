@@ -212,7 +212,8 @@ func TestCoreOperationsRequireOrganizationScopes(t *testing.T) {
 // Core operation enforces, with the service that does. They are offered like any
 // other, and that is only right if something checks them.
 var organizationModulesEnforcedElsewhere = map[scope.Module]string{
-	scope.Webhooks: "the outbound webhooks service: /api/webhooks, which checks read:/write:webhooks itself",
+	scope.Webhooks:     "the outbound webhooks service: /api/webhooks, which checks read:/write:webhooks itself",
+	scope.BetaFeatures: "the hosted layer that offers an organization its beta features, which checks read:/write:beta_features itself",
 }
 
 // TestEveryOrganizationModuleIsEnforced makes a new module a decision: the

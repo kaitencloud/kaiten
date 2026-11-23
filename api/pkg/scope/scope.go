@@ -32,6 +32,11 @@ const (
 	// this API. It is an organization scope all the same (see
 	// OrganizationScopes).
 	Webhooks Module = "webhooks"
+	// BetaFeatures gates an organization turning a beta feature on or off for
+	// itself. No Core operation enforces it: the hosted layer that offers the
+	// setting does, on the same organization credentials. It is an
+	// organization scope all the same (see OrganizationScopes).
+	BetaFeatures Module = "beta_features"
 	// Memberships gates delete:memberships only — removing a single user's
 	// membership on an organization is a narrower, separately-grantable
 	// privilege from delete:organizations (whole org) or delete:users
@@ -104,6 +109,7 @@ var allModules = []Module{
 	Organizations,
 	Tokens,
 	Webhooks,
+	BetaFeatures,
 	Memberships,
 	Notifications,
 	Billing,
