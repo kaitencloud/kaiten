@@ -66,6 +66,31 @@ git checkout -q -b side
 commit "feat(api): never merged" api/side.go
 git tag 26.09.9
 git checkout -q main
+# Squash bodies that name other numbers: a merged pull request, an issue, a pull request closed
+# unmerged; then one the API cannot answer for.
+commit $'feat(api): a squash\n\n* feat(api): stacked (#7)\n* see the issue (#8)\n* fix: never merged (#9)' api/stacked.go
+git tag 26.10.1
+commit $'fix(api): another squash\n\n* fix: unreadable (#10)' api/unreadable.go
+git tag 26.10.2
+
+# A stand-in for `gh api PATH --jq EXPR`, answering as the API does.
+mkdir -p "$fixture/bin"
+cat >"$fixture/bin/gh" <<'STUB'
+#!/usr/bin/env bash
+path=$2 expr=.
+shift 2
+while [ $# -gt 0 ]; do case $1 in --jq) expr=$2; shift 2 ;; *) shift ;; esac; done
+case $path in
+  repos/example/fixture/commits/*/pulls) body='[]' ;;
+  repos/example/fixture/pulls/7) body='{"number":7,"title":"feat(api): stacked","html_url":"https://example.com/7","user":{"login":"someone"},"merged_at":"2026-10-01T00:00:00Z"}' ;;
+  repos/example/fixture/pulls/8) echo 'gh: Not Found (HTTP 404)' >&2; exit 1 ;;
+  repos/example/fixture/pulls/9) body='{"number":9,"title":"fix: never merged","html_url":"https://example.com/9","user":{"login":"someone"},"merged_at":null}' ;;
+  repos/example/fixture/pulls/10) echo 'gh: Server Error (HTTP 500)' >&2; exit 1 ;;
+  *) echo "stub: unexpected path $path" >&2; exit 1 ;;
+esac
+jq -r "$expr" <<<"$body"
+STUB
+chmod +x "$fixture/bin/gh"
 
 export FACTS_OFFLINE=1 MAIN_REF=main
 facts() { scripts/release-notes/facts.sh "$@"; }
@@ -152,6 +177,22 @@ refuses "a tag that is not on main" 26.09.9
 refuses "a tag of another shape" theme/1.0.0
 refuses "a tag that does not exist" 26.09.3
 refuses "a PREVIOUS that is not an ancestor" 26.09.2 26.09.5
+
+# ── Numbers named in a body ──────────────────────────────────────────────────
+
+out=$(PATH="$fixture/bin:$PATH" FACTS_OFFLINE='' scripts/release-notes/facts.sh 26.10.1 2>"$fixture/stderr") || true
+if [[ $(q '[.pull_requests[].number] | join(",")') == 7 && $(q '.direct_commits | length') == 0 ]]; then
+  pass "a body's numbers: the merged pull request kept, the issue and the unmerged one dropped"
+else
+  fail "a body's numbers: $(q '{prs: [.pull_requests[].number], direct: (.direct_commits | length)}' 2>&1 | tr -d '\n ') $(cat "$fixture/stderr")"
+fi
+if PATH="$fixture/bin:$PATH" FACTS_OFFLINE='' scripts/release-notes/facts.sh 26.10.2 >/dev/null 2>"$fixture/stderr"; then
+  fail "an API failure on a body's number was read as \"not a pull request\""
+elif grep -q '#10' "$fixture/stderr"; then
+  pass "an API failure on a body's number stops the script"
+else
+  fail "an API failure stopped the script without naming #10: $(cat "$fixture/stderr")"
+fi
 
 # ── The body ─────────────────────────────────────────────────────────────────
 

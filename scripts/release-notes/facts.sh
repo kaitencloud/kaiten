@@ -32,8 +32,9 @@
 # Every commit in the range, mapped to its pull request with
 # GET /repos/{owner}/{repo}/commits/{sha}/pulls. That also catches rebase merges, which carry no
 # (#N), and the commits of a merge commit. A pull request merged into another one's branch is
-# named in the squash body, as (#N) at the end of a line, and is listed too. A commit with no
-# pull request is kept as a direct commit. Each entry carries its Conventional Commits type and
+# named in the squash body, as (#N) at the end of a line, and is listed too, once the API confirms
+# it is a merged pull request: issues share the numbering, and a body can name one. A commit with
+# no pull request is kept as a direct commit. Each entry carries its Conventional Commits type and
 # scope, from the pull request's title or the direct commit's subject; a breaking change is a `!`
 # or a BREAKING CHANGE footer in any of its commits.
 #
@@ -123,6 +124,23 @@ conventional() {
     | {type, scope: (.scope // null), breaking: (.bang == "!"), description}'
 }
 
+# merged_pr N: 0 if #N is a merged pull request, 1 if it is not: an issue (404) or a pull request
+# closed unmerged. Any other answer stops the script, so an outage is never read as "not a pull
+# request" and the facts never quietly lose an entry.
+merged_pr() {
+  local merged_at
+  [[ -z $offline ]] || return 1
+  if merged_at=$(gh api "repos/$REPOSITORY/pulls/$1" --jq '.merged_at // ""' 2>"$work/gh-err"); then
+    [[ -n $merged_at ]]
+    return
+  fi
+  if grep -q 'HTTP 404' "$work/gh-err"; then
+    return 1
+  fi
+  echo "error: cannot tell whether #$1 is a merged pull request: $(cat "$work/gh-err")" >&2
+  exit 1
+}
+
 : >"$work/prs.jsonl"
 : >"$work/direct.jsonl"
 while read -r commit; do
@@ -137,10 +155,11 @@ while read -r commit; do
     numbers=$(gh api "repos/$REPOSITORY/commits/$commit/pulls" \
       --jq '.[] | select(.merged_at != null) | .number')
   fi
-  # Stacked pull requests, named at the end of a squash body's lines.
-  numbers=$(printf '%s\n%s\n' "$numbers" "$(sed -nE 's/.*\(#([0-9]+)\)[[:space:]]*$/\1/p' <<<"$body")" |
-    grep -E '^[0-9]+$' | awk '!seen[$0]++' || true)
-  if [[ -n $offline ]]; then numbers=""; fi
+  # Stacked pull requests, named at the end of a squash body's lines, kept once confirmed.
+  for n in $(sed -nE 's/.*\(#([0-9]+)\)[[:space:]]*$/\1/p' <<<"$body" | awk '!seen[$0]++'); do
+    if merged_pr "$n"; then numbers=$(printf '%s\n%s' "$numbers" "$n"); fi
+  done
+  numbers=$(grep -E '^[0-9]+$' <<<"$numbers" | awk '!seen[$0]++' || true)
 
   if [[ -z $numbers ]]; then
     jq -cn --arg sha "$commit" --arg subject "$subject" --arg author "$(git log -1 --format=%an "$commit")" \
