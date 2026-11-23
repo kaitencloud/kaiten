@@ -39,7 +39,8 @@
 # or a BREAKING CHANGE footer in any of its commits.
 #
 # Needs git, jq, and gh (authenticated: GH_TOKEN or `gh auth login`), plus oasdiff for the
-# OpenAPI comparison. FACTS_OFFLINE=1 skips the API and lists every commit as direct, for the
+# OpenAPI comparison, which takes config.sh's OASDIFF_SEVERITY_LEVELS, as the contract's version
+# does, so the changes counted as breaking here are the ones that decided its bump. FACTS_OFFLINE=1 skips the API and lists every commit as direct, for the
 # tests.
 
 set -euo pipefail
@@ -190,6 +191,18 @@ fi
 # show REF PATH OUT: the file at REF, or nothing; 0 if it existed.
 show() { git show "$1:$2" >"$3" 2>/dev/null; }
 
+# The checks the contract's version reclassifies. oasdiff refuses comments and blank lines in its
+# severity file, so it gets the entries alone, as next-version.sh gives them.
+levels=()
+if [[ -n ${OASDIFF_SEVERITY_LEVELS:-} ]]; then
+  if [[ ! -f $OASDIFF_SEVERITY_LEVELS ]]; then
+    echo "error: config.sh names $OASDIFF_SEVERITY_LEVELS, which does not exist" >&2
+    exit 1
+  fi
+  grep -vE '^[[:space:]]*(#|$)' "$OASDIFF_SEVERITY_LEVELS" >"$work/levels.txt" || true
+  [[ ! -s $work/levels.txt ]] || levels=(--severity-levels "$work/levels.txt")
+fi
+
 : >"$work/openapi.jsonl"
 for doc in ${OPENAPI_DOCS[@]+"${OPENAPI_DOCS[@]}"}; do
   show "$sha" "$doc" "$work/new.yaml" || continue
@@ -197,7 +210,7 @@ for doc in ${OPENAPI_DOCS[@]+"${OPENAPI_DOCS[@]}"}; do
     jq -cn --arg path "$doc" '{path: $path, added: true, changes: [], breaking: 0}' >>"$work/openapi.jsonl"
     continue
   fi
-  "$oasdiff" changelog "$work/old.yaml" "$work/new.yaml" -f json |
+  "$oasdiff" changelog "$work/old.yaml" "$work/new.yaml" -f json ${levels[@]+"${levels[@]}"} |
     jq -c --arg path "$doc" '{path: $path, added: false,
       changes: [.[] | {id, level, text, operation: (.operation // null), path: (.path // null)}],
       breaking: ([.[] | select(.level >= 2)] | length)}' >>"$work/openapi.jsonl"

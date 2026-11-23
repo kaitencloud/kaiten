@@ -9,6 +9,11 @@ NAME=kaiten
 # The API contract: oasdiff compares each document between the two releases.
 OPENAPI_DOCS=(app/openapi.yaml app/platform-openapi.yaml)
 
+# The checks the contract's version reclassifies (scripts/contract/next-version.sh): the
+# facts count as breaking what decided the contract's bump. Empty in a repository with no
+# contract.
+OASDIFF_SEVERITY_LEVELS=scripts/contract/severity-levels.txt
+
 # The GraphQL schema, as release-graphql-schema.yml assembles it: the files concatenated in
 # path order.
 GRAPHQL_SCHEMA_GLOBS=(

@@ -49,7 +49,7 @@ commit() { # MESSAGE FILE...
   git add -A
   git commit -q -m "$message"
 }
-commit "chore: initial commit" README.md
+commit "chore: initial commit" README.md api.yaml
 commit "feat(api): list the things" api/main.go
 git tag 26.09.1
 git tag theme/1.0.0
@@ -193,6 +193,41 @@ elif grep -q '#10' "$fixture/stderr"; then
 else
   fail "an API failure stopped the script without naming #10: $(cat "$fixture/stderr")"
 fi
+
+# ── The severity list ────────────────────────────────────────────────────────
+
+# A stand-in for oasdiff that records how it was called, and the severity file it was given.
+cat >"$fixture/bin/oasdiff" <<'STUB'
+#!/usr/bin/env bash
+printf 'args: %s\n' "$*" >>"$OASDIFF_LOG"
+prev=""
+for arg in "$@"; do
+  [[ $prev == --severity-levels ]] && cat "$arg" >>"$OASDIFF_LOG"
+  prev=$arg
+done
+echo '[]'
+STUB
+chmod +x "$fixture/bin/oasdiff"
+cp scripts/release-notes/config.sh "$fixture/config.bak"
+printf '%s\n' 'OPENAPI_DOCS=(api.yaml)' 'OASDIFF_SEVERITY_LEVELS=severity.txt' >>scripts/release-notes/config.sh
+printf '# why this one\n\nresponse-property-enum-value-added INFO\n' >severity.txt
+export OASDIFF_LOG="$fixture/oasdiff.log"
+: >"$OASDIFF_LOG"
+OASDIFF="$fixture/bin/oasdiff" facts 26.09.2 >/dev/null
+if grep -q -- '--severity-levels' "$OASDIFF_LOG" && grep -qx 'response-property-enum-value-added INFO' "$OASDIFF_LOG" &&
+  ! grep -q 'why this one' "$OASDIFF_LOG"; then
+  pass "the contract's severity list reaches oasdiff, its entries only"
+else
+  fail "severity list: $(cat "$OASDIFF_LOG")"
+fi
+sed -i.tmp 's/^OASDIFF_SEVERITY_LEVELS=.*/OASDIFF_SEVERITY_LEVELS=absent.txt/' scripts/release-notes/config.sh
+if OASDIFF="$fixture/bin/oasdiff" facts 26.09.2 >/dev/null 2>&1; then
+  fail "a severity file config.sh names but the tree lacks was ignored"
+else
+  pass "a severity file config.sh names but the tree lacks stops the script"
+fi
+cp "$fixture/config.bak" scripts/release-notes/config.sh
+rm -f severity.txt scripts/release-notes/config.sh.tmp
 
 # ── The body ─────────────────────────────────────────────────────────────────
 
