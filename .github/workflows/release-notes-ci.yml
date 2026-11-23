@@ -1,0 +1,34 @@
+name: Release notes CI
+
+# facts.sh decides which release a tag is compared with and what shipped in between, and
+# release-notes.yml publishes what it finds on the tag. Its tests run on every change to it, and
+# to the release workflows whose source paths config.sh repeats.
+
+on:
+  pull_request:
+    branches: ['main', 'feat/**', 'fix/**', 'chore/**']
+    paths:
+      - 'scripts/release-notes/**'
+      - 'scripts/tests/test-release-notes-facts.sh'
+      - '.github/workflows/release-*.yml'
+      - '.github/actions/docker-meta/**'
+
+concurrency:
+  group: release-notes-ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  facts:
+    name: Release facts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7.0.1
+
+      # git, jq and yq come with the runner image.
+      - name: Test facts.sh and body.sh
+        run: scripts/tests/test-release-notes-facts.sh

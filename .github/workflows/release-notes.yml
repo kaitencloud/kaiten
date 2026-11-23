@@ -1,0 +1,164 @@
+name: Release notes
+
+# Every release tag gets its GitHub Release, with a body worked out from what shipped:
+# scripts/release-notes/facts.sh lists the pull requests, the contract changes, the migrations
+# and which artifacts changed since the previous release, and body.sh renders them. Nothing in
+# it is written by hand, so it is there the moment the tag is.
+#
+#   a stable tag (26.11.4)   a published Release, the latest
+#   a pre-release (-rc.N)    a draft pre-release
+#
+# A tag whose Release already exists is left alone: its body may already be a written note.
+#
+# A written note replaces the body through workflow_dispatch, mode=publish, with the tag, the
+# commit it must still name, and the note. The commit is checked first, so a note never lands on
+# a tag that moved after the note was written. The note is at most 60000 characters, which keeps
+# the dispatch under GitHub's 65535-character budget for all inputs.
+#
+# GITHUB_TOKEN only: `contents: write` for the Release, `pull-requests: read` for facts.sh.
+
+on:
+  push:
+    tags:
+      - '[0-9][0-9].[0-9][0-9].[0-9]*'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: What to do
+        type: choice
+        options: [publish]
+        required: true
+      tag:
+        description: The release tag (26.11.4)
+        type: string
+        required: true
+      sha:
+        description: The commit the tag must name
+        type: string
+        required: true
+      body:
+        description: The note, in markdown, 60000 characters at most
+        type: string
+        required: true
+
+permissions:
+  contents: write # the Release
+  pull-requests: read # facts.sh maps commits to their pull requests
+
+concurrency:
+  group: release-notes-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+env:
+  # In step with go-ci.yml, which explains the choice of version.
+  GO_VERSION: "1.27.x"
+
+jobs:
+  draft:
+    name: Draft the Release
+    if: github.event_name == 'push' && github.repository == 'kaitencloud/kaiten'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          # facts.sh walks the history between two tags.
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v7.0.0
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: false
+
+      # The release workflows' pin, so the contract changes listed here are the ones that
+      # decided the contract's version.
+      - name: Install oasdiff
+        run: go install github.com/oasdiff/oasdiff@v1.31.0
+
+      - name: Work out the facts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          mkdir -p release-notes
+          scripts/release-notes/facts.sh "$GITHUB_REF_NAME" >release-notes/facts.json
+          scripts/release-notes/body.sh release-notes/facts.json >release-notes/body.md
+          cat release-notes/body.md >>"$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-notes-${{ github.ref_name }}
+          path: release-notes/
+
+      - name: Create the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "$TAG already has a Release; its body may be a written note, so it is left as it is."
+            exit 0
+          fi
+          if [[ "$TAG" =~ ^[0-9]{2}\.[0-9]{2}\.[0-9]+$ ]]; then
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file release-notes/body.md
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file release-notes/body.md --prerelease --draft
+          fi
+
+  publish:
+    name: Publish the note
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'publish' && github.repository == 'kaitencloud/kaiten'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Inputs reach the script through the environment, never through the script's text.
+      - name: Check the tag and the note
+        env:
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ inputs.sha }}
+          BODY: ${{ inputs.body }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^[0-9]{2}\.[0-9]{2}\.[0-9]+$ ]]; then
+            echo "::error::$TAG is not a stable release tag. A pre-release gets no written note."
+            exit 1
+          fi
+          if [[ ! "$SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::sha must be a full commit hash"
+            exit 1
+          fi
+          actual=$(git rev-parse --verify --quiet "refs/tags/$TAG^{commit}") || {
+            echo "::error::There is no tag $TAG."
+            exit 1
+          }
+          if [[ "$actual" != "$SHA" ]]; then
+            echo "::error::$TAG names $actual, not $SHA: the tag moved after the note was written. Nothing is published."
+            exit 1
+          fi
+          if [[ -z "${BODY//[[:space:]]/}" ]]; then
+            echo "::error::The note is empty."
+            exit 1
+          fi
+          if (( ${#BODY} > 60000 )); then
+            echo "::error::The note is ${#BODY} characters; the most is 60000."
+            exit 1
+          fi
+          printf '%s\n' "$BODY" >"$RUNNER_TEMP/note.md"
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --notes-file "$RUNNER_TEMP/note.md" --draft=false --prerelease=false
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --notes-file "$RUNNER_TEMP/note.md"
+          fi
+          echo "Published the note on $TAG."
