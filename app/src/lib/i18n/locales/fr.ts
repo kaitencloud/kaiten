@@ -483,6 +483,13 @@ export default {
         replaced: 'Saisie en cours remplacée',
       },
     },
+    TableColumns: {
+      button: 'Colonnes',
+      buttonWithHidden_one: 'Colonnes, {{count}} masquée',
+      buttonWithHidden_other: 'Colonnes, {{count}} masquées',
+      menuLabel: 'Afficher les colonnes',
+      reset: 'Réinitialiser',
+    },
   },
   Errors: {
     title: 'Une erreur est survenue',
