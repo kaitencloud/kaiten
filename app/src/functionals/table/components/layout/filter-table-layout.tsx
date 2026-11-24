@@ -7,28 +7,47 @@ import {
   type UseFilterBuilderResult,
 } from '@/functionals/filters';
 import { cn } from '@/lib/utils';
+import { ColumnChooserProvider } from '../column-chooser/column-chooser-context';
+import { DataTableColumnsButton } from '../column-chooser/data-table-columns-button';
 
 type FilterTableLayoutRootProps<TData> = PropsWithChildren<{
   className?: string;
+  /**
+   * Turns on the Columns button beside the Filter button: the person hides
+   * columns of the `DataTable` inside, and the choice is kept in this browser
+   * for this table (the value names it, `instances`) and the organization.
+   */
+  columnChooser?: string;
   controller: UseFilterBuilderResult<TData>;
   showAdvancedOption?: boolean;
 }>;
 
 const Root = <TData,>({
   className,
+  columnChooser,
   controller,
   showAdvancedOption = false,
   children,
-}: FilterTableLayoutRootProps<TData>) => (
-  <FilterToolbarProvider
-    controller={controller}
-    showAdvancedOption={showAdvancedOption}
-  >
-    <div className={cn('flex h-full min-h-0 flex-col pt-6', className)}>
-      {children}
-    </div>
-  </FilterToolbarProvider>
-);
+}: FilterTableLayoutRootProps<TData>) => {
+  const layout = (
+    <FilterToolbarProvider
+      controller={controller}
+      showAdvancedOption={showAdvancedOption}
+    >
+      <div className={cn('flex h-full min-h-0 flex-col pt-6', className)}>
+        {children}
+      </div>
+    </FilterToolbarProvider>
+  );
+
+  return columnChooser ? (
+    <ColumnChooserProvider tableId={columnChooser}>
+      {layout}
+    </ColumnChooserProvider>
+  ) : (
+    layout
+  );
+};
 
 type FilterTableLayoutToolbarProps = PropsWithChildren<{
   className?: string;
@@ -80,6 +99,7 @@ const Search = ({
     />
     {children}
     <FilterToolbarFilterButton className={cn('sm:shrink-0', buttonClassName)} />
+    <DataTableColumnsButton className={cn('sm:shrink-0', buttonClassName)} />
   </div>
 );
 

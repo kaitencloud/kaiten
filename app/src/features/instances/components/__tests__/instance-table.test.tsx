@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { InstanceStatus } from '@/domains/customer-management';
@@ -110,6 +110,7 @@ describe('InstancesTable', () => {
   beforeEach(() => {
     metadataFieldsStub.gate = Promise.resolve();
     metadataFieldsStub.rows = [];
+    window.localStorage.clear();
   });
 
   // A row's metadata can be opened before the field list has loaded. When the
@@ -194,6 +195,94 @@ describe('InstancesTable', () => {
 
     expect(await screen.findByText('Region')).toBeInTheDocument();
     expect(screen.queryByText('Extra metadata')).not.toBeInTheDocument();
+  });
+
+  // One column per active field pushes the last ones out of a narrow window:
+  // the Columns button of the toolbar hides any of them, the name and the
+  // row's actions excepted, and the table remembers it.
+  describe('the Columns button', () => {
+    const field = (key: string, label: string, displayOrder: number) => ({
+      archivedAt: null,
+      displayOrder,
+      id: `field-${key}`,
+      jsonSchema: { type: 'string' },
+      key,
+      label,
+      resourceType: 'INSTANCE',
+    });
+    const headers = () =>
+      screen
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent?.trim());
+
+    beforeEach(() => {
+      metadataFieldsStub.rows = [
+        field('region', 'Region', 0),
+        field('tier', 'Tier', 1),
+        field('owner', 'Owner', 2),
+        field('cluster', 'Cluster', 3),
+      ];
+    });
+
+    it('lists every column but the name and the actions, metadata fields included', async () => {
+      const user = userEvent.setup();
+      renderTable([
+        {
+          ...baseInstance,
+          metadata: { cluster: 'c1', owner: 'ops', region: 'eu', tier: 'gold' },
+        },
+      ]);
+      expect(await screen.findByText('Cluster')).toBeInTheDocument();
+
+      await user.click(
+        screen.getByRole('button', { name: 'Functionals.TableColumns.button' }),
+      );
+      const menu = within(await screen.findByRole('menu'));
+
+      expect(
+        menu.getAllByRole('menuitemcheckbox').map((item) => item.textContent),
+      ).toEqual([
+        'Customer',
+        'CRM Sync',
+        'License',
+        'Status',
+        'Lifecycle',
+        'Region',
+        'Tier',
+        'Owner',
+        'Cluster',
+      ]);
+    });
+
+    it('hides two metadata columns and keeps them hidden after a remount', async () => {
+      const user = userEvent.setup();
+      const instances = [
+        {
+          ...baseInstance,
+          metadata: { cluster: 'c1', owner: 'ops', region: 'eu', tier: 'gold' },
+        },
+      ];
+      const { unmount } = renderTable(instances);
+      expect(await screen.findByText('Cluster')).toBeInTheDocument();
+      const before = headers();
+
+      await user.click(
+        screen.getByRole('button', { name: 'Functionals.TableColumns.button' }),
+      );
+      const menu = within(await screen.findByRole('menu'));
+      await user.click(menu.getByRole('menuitemcheckbox', { name: 'Tier' }));
+      await user.click(menu.getByRole('menuitemcheckbox', { name: 'Owner' }));
+
+      const after = before.filter(
+        (header) => header !== 'Tier' && header !== 'Owner',
+      );
+      expect(headers()).toEqual(after);
+      unmount();
+
+      renderTable(instances);
+      expect(await screen.findByText('Cluster')).toBeInTheDocument();
+      expect(headers()).toEqual(after);
+    });
   });
 
   describe('the Billing column', () => {

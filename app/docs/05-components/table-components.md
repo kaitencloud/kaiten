@@ -9,6 +9,7 @@ Paths below are relative to `app/src/functionals/table/`.
 | Component | Role | Source |
 | --- | --- | --- |
 | `FilterTableLayout` | The layout of a list screen: `.Toolbar`, `.ToolbarRow`, `.Search`, `.Actions`, `.Filters` and `.Content`, around a `FilterToolbarProvider` from the [`filters` functional](../../src/functionals/filters/README.md). It takes the controller returned by `useFilterBuilder`. | `components/layout/filter-table-layout.tsx` |
+| `DataTableColumnsButton` (not exported) | The "Columns" button `FilterTableLayout.Search` draws when the layout has `columnChooser`: a menu of `DropdownMenuCheckboxItem`, one per column that may be hidden, and Reset. Its state is `ColumnChooserProvider`, which the layout mounts. | `components/column-chooser/` |
 | `DataTable` | The table: client-side sorting and pagination, row links, expandable child rows, `default` and `simple` variants. | `components/core/data-table.tsx` |
 
 ## A table in a card

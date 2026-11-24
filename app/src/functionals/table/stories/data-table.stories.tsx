@@ -1,6 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { expect, userEvent, within } from 'storybook/test';
-import { DataTable, DataTableRowExpander, dataTableSortableHeader } from '..';
+import { expect, userEvent, waitFor, within } from 'storybook/test';
+import { useFilterBuilder } from '@/functionals/filters';
+import {
+  DataTable,
+  DataTableRowExpander,
+  dataTableSortableHeader,
+  FilterTableLayout,
+} from '..';
+import { TABLE_COLUMNS_STORAGE_PREFIX } from '../logic/column-visibility-storage';
 import type { ColumnDef } from '../types/data-table.types';
 
 const meta = {
@@ -372,5 +379,96 @@ export const InteractivePagination: Story = {
 
     await expect(canvas.getByText('User 10')).toBeInTheDocument();
     await expect(canvas.queryByText('User 11')).not.toBeInTheDocument();
+  },
+};
+
+const userFilterFields = [
+  {
+    id: 'name',
+    label: 'Name',
+    type: 'text' as const,
+    accessor: (user: User) => user.name,
+  },
+  {
+    id: 'role',
+    label: 'Role',
+    type: 'text' as const,
+    accessor: (user: User) => user.role,
+  },
+];
+
+function UsersWithColumnChooser() {
+  const controller = useFilterBuilder({
+    data: users,
+    fields: userFilterFields,
+    pinnedFilterIds: ['name'],
+  });
+
+  return (
+    <FilterTableLayout columnChooser="storybook-users" controller={controller}>
+      <FilterTableLayout.Toolbar>
+        <FilterTableLayout.ToolbarRow>
+          <FilterTableLayout.Search filterId="name" />
+        </FilterTableLayout.ToolbarRow>
+        <FilterTableLayout.Filters />
+      </FilterTableLayout.Toolbar>
+      <FilterTableLayout.Content>
+        <DataTable<User> columns={columns} data={controller.filteredData} />
+      </FilterTableLayout.Content>
+    </FilterTableLayout>
+  );
+}
+
+const headerTexts = (canvasElement: HTMLElement) =>
+  within(canvasElement)
+    .getAllByRole('columnheader')
+    .map((header: HTMLElement) => header.textContent?.trim());
+
+export const InteractiveColumnChooser: Story = {
+  name: 'Interactive / Column chooser',
+  beforeEach: () => {
+    for (const key of Object.keys(window.localStorage)) {
+      if (key.startsWith(TABLE_COLUMNS_STORAGE_PREFIX)) {
+        window.localStorage.removeItem(key);
+      }
+    }
+  },
+  render: () => <UsersWithColumnChooser />,
+  parameters: {
+    docs: {
+      description: {
+        story:
+          '`FilterTableLayout columnChooser` adds the Columns button beside Filter: one checkbox per column that may be hidden (not the name, which carries the row), kept in local storage per organization and table, and Reset.',
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const body = within(document.body);
+
+    await expect(headerTexts(canvasElement)).toEqual(['ID', 'Name', 'Email', 'Role']);
+
+    await userEvent.click(canvas.getByRole('button', { name: /^Columns/ }));
+    const menu = within(await body.findByRole('menu'));
+    await expect(
+      menu.getAllByRole('menuitemcheckbox').map((item) => item.textContent),
+    ).toEqual(['ID', 'Email', 'Role']);
+
+    await userEvent.click(menu.getByRole('menuitemcheckbox', { name: 'Email' }));
+    await userEvent.click(menu.getByRole('menuitemcheckbox', { name: 'ID' }));
+    await expect(headerTexts(canvasElement)).toEqual(['Name', 'Role']);
+    await expect(
+      menu.getByRole('menuitemcheckbox', { name: 'Email' }),
+    ).toHaveAttribute('aria-checked', 'false');
+
+    // Reset runs and closes the menu, once its exit animation is over.
+    await userEvent.click(menu.getByRole('menuitem', { name: 'Reset' }));
+    await waitFor(() => expect(body.queryByRole('menu')).toBeNull());
+    await expect(headerTexts(canvasElement)).toEqual([
+      'ID',
+      'Name',
+      'Email',
+      'Role',
+    ]);
   },
 };
