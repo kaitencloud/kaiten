@@ -201,7 +201,7 @@ export const InstancesTable = ({ billing, instances }: InstancesTableProps) => {
     }).pathname;
 
   return (
-    <FilterTableLayout controller={filterController}>
+    <FilterTableLayout columnChooser="instances" controller={filterController}>
       <FilterTableLayout.Toolbar>
         <FilterTableLayout.ToolbarRow>
           <FilterTableLayout.Search filterId="name" />

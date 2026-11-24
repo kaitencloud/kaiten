@@ -14,6 +14,8 @@ export function createActionsColumn<T extends RowData>(
   return {
     id: 'actions',
     enableSorting: false,
+    // The row's actions stay, whatever columns the person hides.
+    enableHiding: false,
     header: () => (
       <div className="text-right">
         {i18next.t('Common.actions', { defaultValue: 'Actions' })}
