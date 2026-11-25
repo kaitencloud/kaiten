@@ -1,4 +1,5 @@
 import { subscribeAiFlagUnavailable } from '@/lib/ai-feature-flag-events';
+import { usesPlatform } from '@/lib/feature-flag-source';
 import type { Query, QueryClient } from '@tanstack/react-query';
 import { client } from '@/api-client/client.gen';
 import type { ResolvedRequestOptions } from '@/api-client/client';
@@ -206,10 +207,18 @@ export function subscribeAiAccess(queryClient: QueryClient) {
       event.query.queryKey[0] === 'feature-flags' &&
       event.action.type === 'invalidate'
     ) {
-      queryClient.setQueriesData(
-        { queryKey: aiAccessQueryKey },
-        deniedAiAccess,
-      );
+      // Flags read from the app's own API are invalidated after a write of this
+      // console, which may be the one that turned AI off: close at once. Flags
+      // read from the platform service are invalidated when the organization
+      // turns a beta of Kaiten Cloud on or off, which says nothing against a
+      // grant already held: ask for a fresh answer and keep the grant until it
+      // comes, as for any other refresh. A false answer still withdraws it.
+      if (!usesPlatform()) {
+        queryClient.setQueriesData(
+          { queryKey: aiAccessQueryKey },
+          deniedAiAccess,
+        );
+      }
       void queryClient.invalidateQueries({ queryKey: aiAccessQueryKey });
     }
     if (event.query.queryKey[0] === aiAccessQueryKey[0]) scheduleExpiry();
