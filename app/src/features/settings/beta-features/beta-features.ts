@@ -1,6 +1,6 @@
 import type { ApiScope, ApiScopeResource } from '@/lib/api/scopes.gen';
 import { isApiError } from '@/lib/errors';
-import type { PlatformFlagEvaluation } from '@/lib/feature-flags';
+import type { PlatformFlagEvaluation } from '@/lib/platform-flag-evaluations';
 import type { BetaFeature, BetaFeatureProblem, BetaStage } from './types';
 
 /**
@@ -20,8 +20,9 @@ function listedStage(stage: unknown): BetaStage | null {
 /**
  * Whether the organization is in the beta, read off its flag's evaluation: the
  * value of a boolean flag, and for any other type whether the variant served
- * is the one the flag's metadata names `betaVariant`. A non-boolean flag that
- * names none is never on, since nothing says which variant is the beta.
+ * is the one the flag's metadata names `betaVariant`. The type is the value's,
+ * as the evaluation answered it. A non-boolean flag that names no
+ * `betaVariant` is never on, since nothing says which variant is the beta.
  */
 export function isInBeta(evaluation: PlatformFlagEvaluation): boolean {
   if (evaluation.type === 'boolean') {
@@ -37,26 +38,55 @@ export function isInBeta(evaluation: PlatformFlagEvaluation): boolean {
   );
 }
 
+function nonEmptyString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() !== '' ? value : undefined;
+}
+
+/** Code-unit order: the same in every language and every browser. */
+function bySlug(a: BetaFeature, b: BetaFeature): number {
+  if (a.flagSlug === b.flagSlug) {
+    return 0;
+  }
+  return a.flagSlug < b.flagSlug ? -1 : 1;
+}
+
 /**
- * The betas the page lists: the platform flags whose metadata `stage` is
- * `public_beta` or `open_beta`, in the order the app declares them. A flag with
- * no stage is released or not a beta, and a `private_beta` is the vendor's to
- * open; neither is listed. Nor is a flag the provider could not evaluate as
- * declared, whose state the page could not tell.
+ * The betas the page lists: every flag of the bulk evaluation whose metadata
+ * `stage` is `public_beta` or `open_beta`, whether or not the console knows its
+ * name. A flag with no stage is released or not a beta, and a `private_beta` is
+ * the vendor's to open; neither is listed. Nor is a flag the service reported in
+ * error, whose state the page could not tell.
+ *
+ * Ordered by slug, since the evaluation comes in no guaranteed order: a title
+ * would sort differently in each language, and change order when its
+ * translation ships.
  */
 export function betaFeaturesOf(
   evaluations: readonly PlatformFlagEvaluation[],
 ): BetaFeature[] {
-  return evaluations.flatMap((evaluation) => {
-    const stage = listedStage(evaluation.metadata.stage);
-    if (!stage || evaluation.errorCode) {
-      return [];
-    }
+  return evaluations
+    .flatMap((evaluation): BetaFeature[] => {
+      const stage = listedStage(evaluation.metadata.stage);
+      if (!stage || evaluation.error) {
+        return [];
+      }
 
-    return [
-      { flagSlug: evaluation.flag, stage, enabled: isInBeta(evaluation) },
-    ];
-  });
+      const metadataTitle = nonEmptyString(evaluation.metadata.title);
+      const metadataDescription = nonEmptyString(
+        evaluation.metadata.description,
+      );
+
+      return [
+        {
+          flagSlug: evaluation.key,
+          stage,
+          enabled: isInBeta(evaluation),
+          ...(metadataTitle && { metadataTitle }),
+          ...(metadataDescription && { metadataDescription }),
+        },
+      ];
+    })
+    .sort(bySlug);
 }
 
 const PROBLEM_BY_CODE: Readonly<Record<string, BetaFeatureProblem>> = {

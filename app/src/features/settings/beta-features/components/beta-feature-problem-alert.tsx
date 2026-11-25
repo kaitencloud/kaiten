@@ -33,7 +33,7 @@ export function BetaFeatureProblemAlert({
   const { t } = useTranslation();
   const copyOf = useBetaFeatureCopy();
   const key = KEYS[failure.problem];
-  const { title } = copyOf(failure.flagSlug);
+  const { title } = copyOf(failure.beta);
 
   return (
     <Alert

@@ -5,14 +5,25 @@ import { parseContract } from '../contracts/openapi-contract';
 /** Where the app's platform flags are evaluated in the e2e build. */
 export const PLATFORM_FLAGS_EVALUATION_URL = '**/api/ofrep/v1/evaluate/flags';
 
-/** A flag answered with its metadata, which a boolean entry does not carry. */
-export type FlagAnswer = {
-  key: string;
-  value: boolean | string;
-  variant: string;
-  reason: string;
-  metadata: Record<string, string>;
-};
+/**
+ * A flag answered with its metadata, which a boolean entry does not carry:
+ * evaluated, or reported in error, OFREP's two shapes of a flag in the bulk
+ * answer.
+ */
+export type FlagAnswer =
+  | {
+      key: string;
+      value: boolean | string;
+      variant: string;
+      reason: string;
+      metadata: Record<string, string>;
+    }
+  | {
+      key: string;
+      errorCode: string;
+      errorDetails: string;
+      metadata: Record<string, string>;
+    };
 
 /**
  * The bulk OFREP evaluation the app gates its own features on
