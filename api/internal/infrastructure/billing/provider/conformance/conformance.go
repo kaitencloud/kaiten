@@ -223,8 +223,21 @@ func pushContract(t *testing.T, s Subject) {
 		if len(feed) == 0 || next == "" {
 			t.Fatalf("the feed reports the finalization and the void: %+v", feed)
 		}
-		if after, _, err := s.Adapter.ListInvoiceEvents(ctx, s.Ref, next, time.Time{}); err != nil || len(after) != 0 {
-			t.Fatalf("the feed resumes after its cursor: %+v (%v)", after, err)
+		// The feed is the whole account's: on a sandbox other tests write to,
+		// an event may be created between the two reads. Resuming means no
+		// event already read comes back, not that nothing follows the cursor.
+		after, _, err := s.Adapter.ListInvoiceEvents(ctx, s.Ref, next, time.Time{})
+		if err != nil {
+			t.Fatalf("ListInvoiceEvents from the cursor: %v", err)
+		}
+		read := make(map[string]struct{}, len(feed))
+		for _, event := range feed {
+			read[event.ID] = struct{}{}
+		}
+		for _, event := range after {
+			if _, again := read[event.ID]; again {
+				t.Fatalf("the feed resumes after its cursor: %s was read before, got %+v", event.ID, after)
+			}
 		}
 	}
 }
