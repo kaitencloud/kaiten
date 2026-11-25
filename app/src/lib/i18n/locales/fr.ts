@@ -3957,6 +3957,35 @@ export default {
               enabled:
                 'Quand il est désactivé, le feature flag retournera toujours la variante par défaut, quel que soit le ciblage',
             },
+            Beta: {
+              title: 'Bêta',
+              description:
+                'Indiquez le stade d’une fonctionnalité qui n’est pas encore ouverte à tous. Le stade est renvoyé avec chaque évaluation ; ce sont toujours les règles de ciblage qui décident qui reçoit la fonctionnalité.',
+              Labels: {
+                stage: 'Stade',
+                title: 'Titre affiché aux clients',
+                description: 'Description affichée aux clients',
+              },
+              Stages: {
+                none: 'Pas une bêta',
+                private_beta: 'Bêta privée',
+                public_beta: 'Bêta publique',
+                open_beta: 'Bêta ouverte',
+              },
+              StageDescriptions: {
+                none: 'Le flag n’indique aucun stade : la fonctionnalité est sortie, ou ce n’est pas une bêta.',
+                private_beta:
+                  'Sur invitation : vous décidez qui reçoit la fonctionnalité. Elle n’est pas proposée dans une liste de bêtas.',
+                public_beta:
+                  'Désactivée tant qu’un client ne l’active pas : elle peut être proposée dans une liste de bêtas.',
+                open_beta:
+                  'Activée sauf si un client la désactive : elle peut être proposée dans une liste de bêtas.',
+              },
+              ownStage:
+                'Ce flag indique un stade qui lui est propre, {{stage}}. Il est conservé tant que vous n’en choisissez pas un autre ici.',
+              copyHint:
+                'Renvoyés avec chaque évaluation, sous title et description, pour la page où vos clients activent ou désactivent les bêtas.',
+            },
           },
           Step2: {
             title: 'Configuration des variantes',
