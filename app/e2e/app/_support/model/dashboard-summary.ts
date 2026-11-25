@@ -474,9 +474,9 @@ export function buildDashboardSummary(
     saturation,
     usageReports: { perDay: perDay(now, days, accepted, rejected), byInstance },
     featureFlags: {
-      total: 7,
-      enabled: 6,
-      evaluations: 42_913,
+      total: 8,
+      enabled: 7,
+      evaluations: 44_153,
       notEvaluated: 2,
       perFlag: [
         {
@@ -502,6 +502,12 @@ export function buildDashboardSummary(
           name: 'Promo Banner',
           enabled: true,
           evaluations: 3_877,
+        },
+        {
+          slug: 'order-forecast',
+          name: 'Order Forecast',
+          enabled: true,
+          evaluations: 1_240,
         },
         {
           slug: 'discount-campaign',

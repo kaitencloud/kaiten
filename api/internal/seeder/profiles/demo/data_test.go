@@ -1,6 +1,7 @@
 package demo
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"regexp"
@@ -12,13 +13,17 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/featureflag"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/openfeature"
 	addoncatalogue "github.com/kaitencloud/kaiten/api/internal/modules/addons/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
+	flagvalidator "github.com/kaitencloud/kaiten/api/internal/modules/featureflags/validator"
 	licensesdb "github.com/kaitencloud/kaiten/api/internal/modules/licenses/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/prices"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	metadatafieldsdb "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/infrastructure/db"
+	metadatavalidator "github.com/kaitencloud/kaiten/api/internal/modules/metadatafields/validator"
 	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 )
@@ -384,17 +389,7 @@ var (
 // Every rule also lints against this dataset's entitlements, and names only
 // families the catalogue has.
 func TestFlagRulesTargetProductsByFamily(t *testing.T) {
-	known := make([]featureflag.KnownEntitlement, 0, len(entitlements))
-	for _, ent := range entitlements {
-		typ := featureflag.EntitlementConfig
-		switch {
-		case entitlementschema.IsNumberFamily(ent.Type):
-			typ = featureflag.EntitlementNumber
-		case ent.Type == entitlementschema.Boolean:
-			typ = featureflag.EntitlementBoolean
-		}
-		known = append(known, featureflag.KnownEntitlement{Slug: ent.Slug, Type: typ})
-	}
+	known := knownEntitlements()
 	families := make(map[string]struct{}, len(licenses))
 	for _, lic := range licenses {
 		families[lic.Slug] = struct{}{}
@@ -762,4 +757,151 @@ func TestVouchersFollowTheCaptures(t *testing.T) {
 		"NEW-LOCATION COMPOSITE REPEATING x3 max 100 10 PERCENTAGE on LICENSE_BASE ADD 2 delivery-drivers for standard,standard-v2",
 		"SUMMER-FESTIVAL PRICE ONE_TIME expires 2026-08-31T23:59:59Z 1000 FIXED_AMOUNT EUR on LICENSE_BASE",
 	}, got)
+}
+
+// knownEntitlements is the dataset's entitlements as a flag's create sees them.
+func knownEntitlements() []featureflag.KnownEntitlement {
+	known := make([]featureflag.KnownEntitlement, 0, len(entitlements))
+	for _, ent := range entitlements {
+		typ := featureflag.EntitlementConfig
+		switch {
+		case entitlementschema.IsNumberFamily(ent.Type):
+			typ = featureflag.EntitlementNumber
+		case ent.Type == entitlementschema.Boolean:
+			typ = featureflag.EntitlementBoolean
+		}
+		known = append(known, featureflag.KnownEntitlement{Slug: ent.Slug, Type: typ})
+	}
+	return known
+}
+
+// TestFlagsPassTheCreateValidation runs every seeded flag through the
+// validation create-feature-flag applies: variants, default, metadata and
+// each targeting rule against the dataset's entitlements.
+func TestFlagsPassTheCreateValidation(t *testing.T) {
+	known := knownEntitlements()
+	for i := range featureFlags {
+		require.NoErrorf(t, flagvalidator.NewValidator().ValidateFlagInOrganization(&featureFlags[i], known), "flag %q", featureFlags[i].Slug)
+	}
+}
+
+// TestInstanceMetadataFollowsTheDeclaredFields holds every instance's metadata
+// to the INSTANCE fields the seed declares, strictly, as the metadata
+// validator composes them. The seed writes the fields' schemas straight to the
+// table, so their shape is checked here as a metadata-field write would.
+func TestInstanceMetadataFollowsTheDeclaredFields(t *testing.T) {
+	fields := make([]metadatafieldsdb.MetadataField, 0, len(metadataFieldsInstance))
+	for _, f := range metadataFieldsInstance {
+		encoded, err := json.Marshal(f.JSONSchema)
+		require.NoError(t, err)
+		require.NoErrorf(t, metadatavalidator.ValidateSchemaShape(encoded), "field %q", f.Key)
+		fields = append(fields, metadatafieldsdb.MetadataField{Key: f.Key, JsonSchema: encoded})
+	}
+	composed, err := metadatavalidator.BuildResourceSchema(fields, true)
+	require.NoError(t, err)
+
+	for _, cust := range customers {
+		for _, inst := range cust.Instances {
+			require.NoErrorf(t, metadatavalidator.ValidateMetadata(jsonRoundTrip(t, inst.MetadataPayload()), composed), "instance %q", inst.Slug)
+		}
+	}
+}
+
+// TestBetaListsAreDeclaredAsWritten pins the three beta lists: their keys,
+// labels and schema, an array of distinct slugs of the one beta.
+func TestBetaListsAreDeclaredAsWritten(t *testing.T) {
+	var want map[string]any
+	require.NoError(t, json.Unmarshal([]byte(`{"type":"array","items":{"type":"string","enum":["order-forecast"]},"uniqueItems":true}`), &want))
+
+	got := map[string]string{}
+	for _, f := range metadataFieldsInstance {
+		if !strings.HasPrefix(f.Key, "beta") {
+			continue
+		}
+		require.Equal(t, metadatafieldsdb.MetadataFieldResourceTypeINSTANCE, f.ResourceType, f.Key)
+		require.Equal(t, want, jsonRoundTrip(t, f.JSONSchema), f.Key)
+		got[f.Key] = f.Label
+	}
+	require.Equal(t, map[string]string{
+		"betaAccess": "Beta access",
+		"betaOptIn":  "Beta opt-in",
+		"betaOptOut": "Beta opt-out",
+	}, got)
+}
+
+// TestOrderForecastReadsEachInstancesBetaLists evaluates the beta's rules in
+// order, the first match deciding, against each instance's seeded metadata:
+// four instances in four states -- invited, opted in, invited then opted out,
+// untouched -- and an evaluation that names no instance, which reads the
+// default without any rule failing.
+func TestOrderForecastReadsEachInstancesBetaLists(t *testing.T) {
+	i := slices.IndexFunc(featureFlags, func(flag schema.FeatureFlag) bool { return flag.Slug == "order-forecast" })
+	require.GreaterOrEqual(t, i, 0)
+	flag := featureFlags[i]
+
+	require.Equal(t, "Order Forecast", flag.Name)
+	require.Equal(t, "boolean", flag.Type)
+	require.True(t, flag.Enabled)
+	require.Equal(t, map[string]any{"stage": "public_beta"}, flag.Metadata)
+	require.Equal(t, []string{"off"}, flag.DefaultVariant.GetVariantValue().GetVariants())
+
+	var names []string
+	for _, targeting := range flag.Targetings {
+		names = append(names, targeting.(*schema.BasicTargeting).Name)
+	}
+	require.Equal(t, []string{"Opted out", "Invited", "Opted in"}, names)
+
+	// evaluate answers the variant served and the rule that served it, "" for
+	// the default.
+	evaluate := func(kaiten map[string]any) (string, string) {
+		engine, err := featureflag.NewEngine(openfeature.EvaluationContext{
+			TargetingKey: "sakura-tokyo",
+			Inputs:       map[string]any{featureflag.FactsRoot: kaiten},
+		})
+		require.NoError(t, err)
+		for _, targeting := range flag.Targetings {
+			basic := targeting.(*schema.BasicTargeting)
+			matched, err := engine.EvaluateRule(t.Context(), basic.Rule.Value)
+			require.NoErrorf(t, err, "rule %q", basic.Name)
+			if matched {
+				return string(basic.Variant), basic.Name
+			}
+		}
+		return "off", ""
+	}
+
+	got := map[string][2]string{}
+	enrolled := 0
+	for _, cust := range customers {
+		for _, inst := range cust.Instances {
+			metadata := jsonRoundTrip(t, inst.MetadataPayload())
+			if len(inst.Metadata) > 0 {
+				enrolled++
+			}
+			variant, rule := evaluate(map[string]any{"instance": map[string]any{"slug": inst.Slug, "metadata": metadata}})
+			got[inst.Slug] = [2]string{variant, rule}
+		}
+	}
+	require.Equal(t, 3, enrolled, "only the three enrolled instances carry beta lists")
+	require.Equal(t, map[string][2]string{
+		"sakura-tokyo-prod":    {"on", "Invited"},
+		"sakura-tokyo-demo":    {"off", ""},
+		"ninja-osaka-prod":     {"on", "Opted in"},
+		"ninja-osaka-delivery": {"off", ""},
+		"demo-restaurant-prod": {"off", "Opted out"},
+		"kappa-kyoto-prod":     {"off", ""},
+	}, got)
+
+	variant, rule := evaluate(map[string]any{"customer": map[string]any{"slug": "sakura-tokyo"}})
+	require.Equal(t, [2]string{"off", ""}, [2]string{variant, rule}, "an evaluation naming no instance")
+}
+
+// jsonRoundTrip is v as it reads back from a jsonb column.
+func jsonRoundTrip[T any](t *testing.T, v T) map[string]any {
+	t.Helper()
+	encoded, err := json.Marshal(v)
+	require.NoError(t, err)
+	var decoded map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &decoded))
+	return decoded
 }

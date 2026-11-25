@@ -78,6 +78,44 @@ var metadataFieldsInstance = []seedkit.MetadataFieldDef{
 			"enum": []string{"production", "staging", "demo"},
 		},
 	},
+	// The three lists a beta's flag reads, each one a set of flag slugs: the
+	// betas the vendor invited the instance to, and the ones its customer
+	// turned on or off. order-forecast is the dataset's only beta, so it is
+	// the only slug the lists accept.
+	{
+		Key:          "betaAccess",
+		Label:        "Beta access",
+		ResourceType: metadatafieldsdb.MetadataFieldResourceTypeINSTANCE,
+		DisplayOrder: 2,
+		JSONSchema:   betaListSchema(),
+	},
+	{
+		Key:          "betaOptIn",
+		Label:        "Beta opt-in",
+		ResourceType: metadatafieldsdb.MetadataFieldResourceTypeINSTANCE,
+		DisplayOrder: 3,
+		JSONSchema:   betaListSchema(),
+	},
+	{
+		Key:          "betaOptOut",
+		Label:        "Beta opt-out",
+		ResourceType: metadatafieldsdb.MetadataFieldResourceTypeINSTANCE,
+		DisplayOrder: 4,
+		JSONSchema:   betaListSchema(),
+	},
+}
+
+// betaListSchema is the schema of the three beta lists: distinct slugs of the
+// dataset's betas. A fresh map each call, so no two fields share one.
+func betaListSchema() map[string]any {
+	return map[string]any{
+		"type": "array",
+		"items": map[string]any{
+			"type": "string",
+			"enum": []string{betaFlagSlug},
+		},
+		"uniqueItems": true,
+	}
 }
 
 // ── Organization identity ────────────────────────────────────────────────────
@@ -599,6 +637,9 @@ type instanceDef struct {
 	LicenseVersion int
 	Environment    string
 	ZoneKey        string
+	// Metadata is added to the instance's metadata beside its environment:
+	// the beta lists of the instances enrolled in order-forecast's beta.
+	Metadata map[string]any
 	// Status is the seeded operational status. An empty value
 	// defaults to HEALTHY.
 	Status instanceschema.InstanceStatus
@@ -613,6 +654,13 @@ type instanceDef struct {
 	// UsageValues maps entitlement slug → usage value/event-count for this
 	// instance. Only NUMBER-type entitlements need usage values.
 	UsageValues map[string]usageEntry
+}
+
+// MetadataPayload is the metadata the instance is created with.
+func (d instanceDef) MetadataPayload() map[string]any {
+	payload := map[string]any{"environment": d.Environment}
+	maps.Copy(payload, d.Metadata)
+	return payload
 }
 
 type customerDef struct {
@@ -634,6 +682,7 @@ var customers = []customerDef{
 				LicenseName: "Premium", Environment: "production", ZoneKey: zoneKeySakuraDedicated,
 				Status:    instanceschema.InstanceStatusHealthy,
 				CreatedAt: time.Date(2026, 7, 2, 9, 0, 0, 0, time.UTC),
+				Metadata:  map[string]any{"betaAccess": []string{betaFlagSlug}},
 				UsageValues: map[string]usageEntry{
 					"menu-items":       {Value: 42, EventCount: 12},
 					"monthly-orders":   {Value: 730, EventCount: 730},
@@ -667,6 +716,7 @@ var customers = []customerDef{
 				LicenseName: "Starter", Environment: "production", ZoneKey: zoneKeySharedAPAC,
 				Status:    instanceschema.InstanceStatusHealthy,
 				CreatedAt: time.Date(2026, 7, 2, 9, 10, 0, 0, time.UTC),
+				Metadata:  map[string]any{"betaOptIn": []string{betaFlagSlug}},
 				UsageValues: map[string]usageEntry{
 					"menu-items":       {Value: 5, EventCount: 4},
 					"monthly-orders":   {Value: 18, EventCount: 18},
@@ -705,6 +755,12 @@ var customers = []customerDef{
 				Status: instanceschema.InstanceStatusHealthy,
 				// The dataset gives this one no creation date, so it isn't
 				// backdated (CreatedAt left zero).
+
+				// Invited, then turned it off: the opt-out wins.
+				Metadata: map[string]any{
+					"betaAccess": []string{betaFlagSlug},
+					"betaOptOut": []string{betaFlagSlug},
+				},
 				UsageValues: map[string]usageEntry{
 					"menu-items":       {Value: 6, EventCount: 3},
 					"monthly-orders":   {Value: 41, EventCount: 41},
@@ -1124,6 +1180,43 @@ var featureFlags = []schema.FeatureFlag{
 			Value: schema.BasicVariant("none"),
 		},
 	},
+
+	// 8. Order Forecast — boolean, a feature in public beta. The instance's
+	// beta lists decide, first match wins: a customer's opt-out comes before
+	// the vendor's invitation, which comes before the customer's own opt-in.
+	// Each rule first checks that the evaluation names an instance, so one
+	// that names none reads the default without a rule failing.
+	{
+		Name:        "Order Forecast",
+		Slug:        betaFlagSlug,
+		Type:        "boolean",
+		Enabled:     true,
+		EventName:   betaFlagSlug + ".evaluated",
+		Description: ptr.To("Forecasts tomorrow's orders from the last weeks."),
+		Metadata:    map[string]any{"stage": "public_beta"},
+		Variants: []schema.Variant{
+			{Name: "on", Value: true, Description: "Order forecast is visible"},
+			{Name: "off", Value: false, Description: "Order forecast is hidden"},
+		},
+		Targetings: schema.Targetings{
+			schema.NewBasicTargeting("Opted out", betaListRule("betaOptOut"), "off"),
+			schema.NewBasicTargeting("Invited", betaListRule("betaAccess"), "on"),
+			schema.NewBasicTargeting("Opted in", betaListRule("betaOptIn"), "on"),
+		},
+		DefaultVariant: &schema.DefaultVariant{
+			Type:  schema.BasicType,
+			Value: schema.BasicVariant("off"),
+		},
+	},
+}
+
+// betaFlagSlug is the dataset's flag in public beta.
+const betaFlagSlug = "order-forecast"
+
+// betaListRule matches an instance whose metadata list key names the beta.
+func betaListRule(key string) string {
+	return "has(__kaiten.instance) && has(__kaiten.instance.metadata." + key + ") && '" +
+		betaFlagSlug + "' in __kaiten.instance.metadata." + key
 }
 
 // ── Vouchers ───────────────────────────────────────────────────────────────
