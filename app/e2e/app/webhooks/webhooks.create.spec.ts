@@ -16,7 +16,7 @@ import { createWebhooksFormModel } from './webhooks.scenarios';
 
 const SLACK_URL = 'https://hooks.slack.com/services/T000/B000/XXXX';
 const SLACK_WORKFLOW_URL =
-  'https://hooks.slack.com/workflows/T00000000/A00000000/000000000000000000/xxxx';
+  'https://hooks.slack.com/workflows/T000/A000/000/xxxx';
 const GOOGLE_CHAT_URL =
   'https://chat.googleapis.com/v1/spaces/AAAAAAAAAAA/messages?key=k&token=t';
 
