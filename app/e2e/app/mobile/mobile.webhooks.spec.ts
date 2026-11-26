@@ -130,6 +130,8 @@ test.describe('the deliveries, on the narrowest phone', () => {
     await deliveries.deliveries().first().click();
 
     await expect(deliveries.chronology()).toBeHidden();
+    // The focus left the hidden list for the detail that replaced it.
+    await expect(deliveries.backButton()).toBeFocused();
     await expect(deliveries.payload()).toBeVisible();
     await expectOnScreen(page, deliveries.dialog());
     await expectOnScreen(page, deliveries.payload());
@@ -148,5 +150,6 @@ test.describe('the deliveries, on the narrowest phone', () => {
 
     await expect(deliveries.chronology()).toBeVisible();
     await expect(deliveries.detail()).toBeHidden();
+    await expect(deliveries.deliveries().first()).toBeFocused();
   });
 });

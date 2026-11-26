@@ -122,8 +122,13 @@ export class WebhooksDeliveriesDriver {
     return this.detail().getByRole('heading', { name: RESPONSE });
   }
 
+  /** The detail's way back to the chronology, on a narrow screen. */
+  backButton(): Locator {
+    return this.dialog().getByRole('button', { name: BACK });
+  }
+
   async back() {
-    await this.dialog().getByRole('button', { name: BACK }).click();
+    await this.backButton().click();
   }
 
   /** The History tab's rows, header apart: one per attempt. */

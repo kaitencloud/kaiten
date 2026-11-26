@@ -1,10 +1,12 @@
 import { AlertCircle } from 'lucide-react';
-import { type ReactNode, useMemo, useState } from 'react';
+import { type ReactNode, type Ref, useMemo, useRef, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { getApiErrorMessage } from '@/lib/errors';
 import { cn } from '@/lib/utils';
 import { useDeliveryWatch } from '../../hooks/use-delivery-watch';
@@ -39,14 +41,17 @@ function Panes({ children }: { children: ReactNode }) {
 function Pane({
   children,
   hiddenOnPhone,
+  ref,
   side,
 }: {
   children: ReactNode;
   hiddenOnPhone: boolean;
+  ref?: Ref<HTMLDivElement>;
   side: 'list' | 'detail';
 }) {
   return (
     <div
+      ref={ref}
       className={cn(
         PANE_CLASS_NAME,
         side === 'list' ? 'md:border-r' : 'md:p-6',
@@ -100,15 +105,31 @@ function LoadError({
   );
 }
 
+/** Focuses the chronology's button of a delivery. */
+function focusDelivery(pane: HTMLElement | null, key: string | undefined) {
+  const buttons = pane?.querySelectorAll<HTMLButtonElement>(
+    'button[data-delivery-key]',
+  );
+  for (const button of buttons ?? []) {
+    if (button.dataset.deliveryKey === key) {
+      button.focus();
+      return;
+    }
+  }
+}
+
 /**
  * The open dialog's content: the header, then the chronology beside the
  * selected delivery. Below `md` one pane shows at a time: the chronology, then
- * the delivery picked in it, with a way back. It mounts only while the dialog
- * is open, so it reads nothing while closed, and closing forgets the
- * selection.
+ * the delivery picked in it, with a way back; the focus follows, since the
+ * pane that held it is hidden. It mounts only while the dialog is open, so it
+ * reads nothing while closed, and closing forgets the selection.
  */
 function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
   const { t } = useTranslation();
+  const isPhone = useIsMobile();
+  const listPaneRef = useRef<HTMLDivElement>(null);
+  const backButtonRef = useRef<HTMLButtonElement>(null);
   const watch = useDeliveryWatch();
   const { data, error, isError, refetch } = useWebhookDeliveries(webhook.id, {
     limit: WEBHOOK_DELIVERIES_LIMIT,
@@ -133,12 +154,24 @@ function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
   }
 
   function handleSelect(key: string) {
-    setSelectedKey(key);
-    setShowDetail(true);
+    if (!isPhone) {
+      setSelectedKey(key);
+      setShowDetail(true);
+      return;
+    }
+    // The list pane, with the focused delivery in it, is about to hide.
+    flushSync(() => {
+      setSelectedKey(key);
+      setShowDetail(true);
+    });
+    backButtonRef.current?.focus();
   }
 
   function handleBack() {
-    setShowDetail(false);
+    flushSync(() => {
+      setShowDetail(false);
+    });
+    focusDelivery(listPaneRef.current, selected?.key);
   }
 
   function handleRetry() {
@@ -154,7 +187,7 @@ function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
       <>
         {header}
         <Panes>
-          <Pane hiddenOnPhone={showDetail} side="list">
+          <Pane hiddenOnPhone={showDetail} ref={listPaneRef} side="list">
             <WebhookDeliveryChronology
               createdAt={data?.webhook.createdAt}
               deliveries={deliveries}
@@ -167,6 +200,7 @@ function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
           <Pane hiddenOnPhone={!showDetail} side="detail">
             <WebhookDeliveryDetail
               key={selected.key}
+              backButtonRef={backButtonRef}
               delivery={selected}
               onBack={handleBack}
               watch={watch}

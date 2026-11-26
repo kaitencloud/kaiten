@@ -282,6 +282,29 @@ describe('WebhookDeliveriesDialog', () => {
     );
   });
 
+  it('moves the focus to the detail on a phone, and back to the delivery', async () => {
+    const width = window.innerWidth;
+    window.innerWidth = 375;
+    try {
+      const user = userEvent.setup();
+      serve(list([delivered, failed]));
+      renderDialog();
+
+      const older = deliveryButtons(await chronology())[1];
+      await user.click(older);
+      expect(
+        screen.getByRole('button', { name: 'Back to deliveries' }),
+      ).toHaveFocus();
+
+      await user.click(
+        screen.getByRole('button', { name: 'Back to deliveries' }),
+      );
+      expect(older).toHaveFocus();
+    } finally {
+      window.innerWidth = width;
+    }
+  });
+
   it('says so when there is no delivery yet, with only the creation', async () => {
     serve(list([], { updatedAt: '2026-11-01T09:00:30Z' }));
     renderDialog();

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
+import { type Ref, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -35,13 +35,22 @@ interface WebhookDeliveryDetailProps {
   watch: DeliveryWatch;
   /** On a narrow screen, goes back to the list of deliveries the detail replaced. */
   onBack?: () => void;
+  /** The Back button, which takes the focus when the detail replaces the list. */
+  backButtonRef?: Ref<HTMLButtonElement>;
 }
 
-function BackToDeliveries({ onBack }: { onBack: () => void }) {
+function BackToDeliveries({
+  onBack,
+  buttonRef,
+}: {
+  onBack: () => void;
+  buttonRef?: Ref<HTMLButtonElement>;
+}) {
   const { t } = useTranslation();
 
   return (
     <Button
+      ref={buttonRef}
       className="-ml-2 self-start md:hidden"
       onClick={onBack}
       size="sm"
@@ -124,6 +133,7 @@ export function WebhookDeliveryDetail({
   initialAttemptId,
   watch,
   onBack,
+  backButtonRef,
 }: WebhookDeliveryDetailProps) {
   const message = useQuery({
     ...webhookMessageQueryOptions(delivery.hookId, delivery.messageId ?? '', {
@@ -146,7 +156,9 @@ export function WebhookDeliveryDetail({
 
   return (
     <div className="flex flex-col gap-6" data-testid="webhook-delivery-detail">
-      {onBack ? <BackToDeliveries onBack={onBack} /> : null}
+      {onBack ? (
+        <BackToDeliveries buttonRef={backButtonRef} onBack={onBack} />
+      ) : null}
       <DeliveryHead
         delivery={delivery}
         eventType={delivery.eventType || message.data?.eventType || ''}
