@@ -7,12 +7,16 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { type ReactNode, StrictMode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import {
+  webhookHistoryQueryOptions,
   webhookMessageQueryOptions,
   webhookMessagesQueryOptions,
 } from '../../queries';
 import type {
   WebhookDeliveryStatus,
+  WebhookDeliveryTrigger,
+  WebhookHistoryResponse,
   WebhookMessage,
+  WebhookMessageAttempt,
   WebhookMessageList,
 } from '../../types';
 import {
@@ -40,29 +44,50 @@ const emptyList: WebhookMessageList = {
   hasMore: false,
 };
 
+/** The resend's attempt, recorded after the known one. */
+function resentAttempt(
+  status: WebhookDeliveryStatus,
+  triggerType: WebhookDeliveryTrigger = 'manual',
+): WebhookMessageAttempt {
+  return { id: 'atmpt_2', timestamp: '2026-11-26T10:00:00Z', status, triggerType };
+}
+
+/** The row's list, its message carrying `lastAttempt` when one is given. */
+function listWith(lastAttempt?: WebhookMessageAttempt): WebhookMessageList {
+  return lastAttempt
+    ? {
+        ...emptyList,
+        messages: [
+          {
+            messageId: 'msg_1',
+            eventType: 'com.kaiten.instance.v1.created',
+            timestamp: '2026-11-26T08:59:00Z',
+            status: lastAttempt.status,
+            lastAttempt,
+          },
+        ],
+      }
+    : emptyList;
+}
+
 /**
  * The message with its known failed attempt, then the resend's, if any, and
  * an older failed attempt the detail never knew when `withOlder` is set.
+ * `trigger` is the reason the provider gives for the attempt after the known one.
  */
 function messageWith(
   resent?: WebhookDeliveryStatus,
-  { withOlder = false }: { withOlder?: boolean } = {},
+  {
+    withOlder = false,
+    trigger = 'manual',
+  }: { withOlder?: boolean; trigger?: WebhookDeliveryTrigger } = {},
 ): WebhookMessage {
   return {
     messageId: 'msg_1',
     payloadAvailable: true,
     payload: { id: 'evt_1' },
     attempts: [
-      ...(resent
-        ? [
-            {
-              id: 'atmpt_2',
-              timestamp: '2026-11-26T10:00:00Z',
-              status: resent,
-              triggerType: 'manual' as const,
-            },
-          ]
-        : []),
+      ...(resent ? [resentAttempt(resent, trigger)] : []),
       {
         id: 'atmpt_1',
         timestamp: '2026-11-26T09:00:00Z',
@@ -84,17 +109,22 @@ function messageWith(
 }
 
 /**
- * The watch beside two queries on screen: the row's list (as the deliveries
- * cell reads it) and the watched message, whose answer `readMessage` gives.
+ * The watch beside two queries: the row's list (as the deliveries cell reads
+ * it), whose answer `readListAt` gives, and the watched message, whose answer
+ * `readMessage` gives. The message is read only while `open`, as the dialog's
+ * detail unmounts when it closes. The app's 30 s staleTime: a query shown
+ * again is read only if something marked it stale.
  */
 function renderWatch(
   readMessage: (read: number) => WebhookMessage = () => messageWith(),
+  readListAt: (read: number) => WebhookMessageList = () => emptyList,
 ) {
   const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   });
   const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
-  const readList = vi.fn(async () => emptyList);
+  let listReads = 0;
+  const readList = vi.fn(async () => readListAt(++listReads));
   let messageReads = 0;
   const readMessageFn = vi.fn(async () => readMessage(++messageReads));
   function Wrapper({ children }: { children: ReactNode }) {
@@ -118,13 +148,14 @@ function renderWatch(
       useQuery({
         ...webhookMessageQueryOptions('ep_orders', 'msg_1'),
         queryFn: readMessageFn,
+        enabled: open,
       });
       return useDeliveryWatch({ open });
     },
     { initialProps: { open: true }, wrapper: Wrapper },
   );
 
-  return { ...view, invalidate, readList, readMessageFn };
+  return { ...view, invalidate, queryClient, readList, readMessageFn };
 }
 
 async function advance(ms: number) {
@@ -224,6 +255,21 @@ describe('useDeliveryWatch', () => {
     expect(readMessageFn).toHaveBeenCalledTimes(4);
   });
 
+  it('does not take a scheduled retry for the resend', async () => {
+    // Armed on an attempt that was not the message's newest, as from the
+    // History before the message is read: the retry that followed it is not
+    // the resend's.
+    const { readMessageFn, result } = renderWatch(() =>
+      messageWith('fail', { trigger: 'scheduled' }),
+    );
+    await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
+
+    act(() => result.current.arm(target));
+    await advance(3 * WATCH_INTERVAL_MS);
+
+    expect(readMessageFn).toHaveBeenCalledTimes(4);
+  });
+
   it('stops after a minute whatever the message shows', async () => {
     const { readList, result } = renderWatch();
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
@@ -273,27 +319,94 @@ describe('useDeliveryWatch', () => {
     expect(readMessageFn).toHaveBeenCalledTimes(2);
   });
 
-  it('keeps reading the lists, not the message, after a close until its cap', async () => {
-    const { invalidate, readList, readMessageFn, rerender, result } =
-      renderWatch();
+  it('keeps reading the lists, not the message off screen, after a close until its cap', async () => {
+    const { readList, readMessageFn, rerender, result } = renderWatch();
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
     await advance(1_000);
-    const before = invalidate.mock.calls.length;
     rerender({ open: false });
     await advance(WATCH_CAP_MS);
 
-    const after = invalidate.mock.calls.slice(before).map(([filters]) => filters);
     // The read at the close, then one per tick until the cap.
-    expect(after).toHaveLength(2 * (1 + WATCH_CAP_MS / WATCH_INTERVAL_MS));
-    expect(after).not.toContainEqual(
-      expect.objectContaining({ queryKey: ['webhooks', 'messages', 'ep_orders', 'msg_1'] }),
+    expect(readList).toHaveBeenCalledTimes(
+      2 + Math.floor((WATCH_CAP_MS + 1_000) / WATCH_INTERVAL_MS),
     );
     expect(readMessageFn).toHaveBeenCalledTimes(1);
     const reads = readList.mock.calls.length;
     await advance(60_000);
     expect(readList).toHaveBeenCalledTimes(reads);
+  });
+
+  it('reads the message again when it is shown again after a close', async () => {
+    const { readList, readMessageFn, rerender, result } = renderWatch(
+      (read) => messageWith(read >= 2 ? 'success' : undefined),
+    );
+    await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
+
+    act(() => result.current.arm(target));
+    await advance(1_000);
+    rerender({ open: false });
+    await advance(WATCH_INTERVAL_MS);
+    expect(readMessageFn).toHaveBeenCalledTimes(1);
+
+    // Marked stale by the tick while off screen, it is read when shown.
+    rerender({ open: true });
+    await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(2));
+    await advance(WATCH_INTERVAL_MS);
+    expect(readMessageFn).toHaveBeenCalledTimes(3);
+    const reads = readList.mock.calls.length;
+    await advance(30_000);
+    expect(readMessageFn).toHaveBeenCalledTimes(3);
+    expect(readList).toHaveBeenCalledTimes(reads);
+  });
+
+  it('ends after a close once a list shows the new attempt, settled', async () => {
+    const { readList, rerender, result } = renderWatch(undefined, (read) =>
+      listWith(read >= 4 ? resentAttempt('success') : undefined),
+    );
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
+
+    act(() => result.current.arm(target));
+    await advance(1_000);
+    // The read at the close is the second.
+    rerender({ open: false });
+    await advance(2 * WATCH_INTERVAL_MS);
+
+    // The second tick's read showed it: one more read of the lists, then none.
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(5));
+    await advance(30_000);
+    expect(readList).toHaveBeenCalledTimes(5);
+  });
+
+  it('ends after a close once the History shows the new attempt, settled', async () => {
+    const { queryClient, readList, rerender, result } = renderWatch();
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
+
+    act(() => result.current.arm(target));
+    await advance(1_000);
+    rerender({ open: false });
+    const history: WebhookHistoryResponse = {
+      history: [
+        {
+          date: '2026-11-26T10:00:00Z',
+          hookId: 'ep_orders',
+          hookUrl: 'https://api.example.com/hooks',
+          eventType: 'com.kaiten.instance.v1.created',
+          status: 'success',
+          messageId: 'msg_1',
+          attemptId: 'atmpt_2',
+          triggerType: 'manual',
+        },
+      ],
+    };
+    queryClient.setQueryData(webhookHistoryQueryOptions.queryKey, history);
+    await advance(WATCH_INTERVAL_MS);
+
+    // The close's read, the tick's, then the one that follows the end.
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(4));
+    await advance(30_000);
+    expect(readList).toHaveBeenCalledTimes(4);
   });
 
   it('reads nothing again when closed without a resend', async () => {
@@ -309,9 +422,10 @@ describe('useDeliveryWatch', () => {
     expect(readList).toHaveBeenCalledTimes(1);
   });
 
-  it('reads only the lists on a tick after the owner unmounts, even one in flight', async () => {
+  it('reads nothing off screen on a tick after the owner unmounts, even one in flight', async () => {
     let answerList: (list: WebhookMessageList) => void = () => undefined;
-    const { invalidate, readList, result, unmount } = renderWatch();
+    const { invalidate, readList, readMessageFn, result, unmount } =
+      renderWatch();
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
     readList.mockImplementation(
       () =>
@@ -328,12 +442,17 @@ describe('useDeliveryWatch', () => {
     answerList(emptyList);
     await advance(WATCH_INTERVAL_MS);
 
-    // The reads at the unmount, then the next tick's: never the message.
+    // The lists at the unmount, then the next tick's queries, only marked
+    // stale: nothing shows them any more, so nothing is fetched.
     expect(invalidate.mock.calls.slice(before).map(([filters]) => filters)).toEqual([
       { queryKey: ['webhooks', 'messages-list', 'ep_orders'] },
       { queryKey: ['webhooks', 'history'], exact: true },
-      { queryKey: ['webhooks', 'messages-list', 'ep_orders'] },
       { queryKey: ['webhooks', 'history'], exact: true },
+      { queryKey: ['webhooks', 'messages-list', 'ep_orders'] },
+      { queryKey: ['webhooks', 'messages', 'ep_orders', 'msg_1'], exact: true },
     ]);
+    expect(readList).toHaveBeenCalledTimes(2);
+    // The one read with the first tick, before the unmount.
+    expect(readMessageFn).toHaveBeenCalledTimes(2);
   });
 });

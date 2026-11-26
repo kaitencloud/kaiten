@@ -18,11 +18,14 @@ import { configureApiClient } from '@/lib/api/configure-api-client';
 import en from '@/lib/i18n/locales/en';
 import type {
   Webhook,
+  WebhookHistoryEntry,
   WebhookMessageAttempt,
   WebhookMessageList,
 } from '../../../types';
+import { deliveryFromHistoryEntry } from '../../../utils/webhook-deliveries';
 import { WebhookDeliveriesCell } from '../webhook-deliveries-cell';
 import { WebhookDeliveriesDialog } from '../webhook-deliveries-dialog';
+import { WebhookDeliveryDetailDialog } from '../webhook-delivery-detail-dialog';
 
 vi.mock('@/hooks/use-granted-scopes', () => ({
   useGrantedScopes: () => ({ isPending: false, scopes: ['write:webhooks'] }),
@@ -166,6 +169,43 @@ function renderRowAndDialog() {
 
   return {
     close: () => rerender(view(false)),
+    reopen: () => rerender(view(true)),
+  };
+}
+
+/** The History tab's clicked attempt: the message's failed one. */
+const historyEntry: WebhookHistoryEntry = {
+  date: failedAttempt.timestamp,
+  hookId: webhook.id,
+  hookUrl: webhook.url,
+  eventType: 'com.kaiten.instance.v1.created',
+  status: 'fail',
+  responseStatusCode: 503,
+  messageId: 'msg_1',
+  attemptId: failedAttempt.id,
+  triggerType: 'scheduled',
+};
+
+/** The History tab's dialog, which stays mounted while closed. */
+function renderHistoryDialog() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
+  const view = (open: boolean) => (
+    <QueryClientProvider client={queryClient}>
+      <WebhookDeliveryDetailDialog
+        delivery={deliveryFromHistoryEntry(historyEntry)}
+        initialAttemptId={historyEntry.attemptId}
+        onOpenChange={vi.fn()}
+        open={open}
+      />
+    </QueryClientProvider>
+  );
+  const { rerender } = render(view(true));
+
+  return {
+    close: () => rerender(view(false)),
+    reopen: () => rerender(view(true)),
   };
 }
 
@@ -265,5 +305,43 @@ describe('a resend from the deliveries dialog', () => {
     const reads = listReads.length;
     await advance(60_000);
     expect(listReads).toHaveLength(reads);
+  });
+
+  it('shows the settled attempt in a dialog opened again before it settles', async () => {
+    serveProvider({ settleMs: 10_000 });
+    const { close, reopen } = renderRowAndDialog();
+    await waitFor(() => expect(dialogRate()).toHaveTextContent(/^0 \/ 1/));
+
+    await resend();
+    await advance(2_000);
+    close();
+    await advance(3_000);
+    reopen();
+    await advance(20_000);
+
+    expect(dialogRate()).toHaveTextContent(/^1 \/ 1 delivered/);
+    expect(screen.getByText(/attempt 2 of 2/)).toBeInTheDocument();
+    expect(screen.getByText('Resent manually')).toBeInTheDocument();
+    expect(rowSummary('all delivered')).toBeInTheDocument();
+  });
+});
+
+describe('a resend from the History dialog', () => {
+  it('shows the settled attempt when the dialog is opened again before it settles', async () => {
+    serveProvider({ settleMs: 10_000 });
+    const { close, reopen } = renderHistoryDialog();
+    await waitFor(() =>
+      expect(screen.getByText(/attempt 1 of 1/)).toBeInTheDocument(),
+    );
+
+    await resend();
+    await advance(2_000);
+    close();
+    await advance(3_000);
+    reopen();
+    await advance(20_000);
+
+    // The clicked attempt stays selected: the message now counts two.
+    expect(await screen.findByText(/attempt 1 of 2/)).toBeInTheDocument();
   });
 });

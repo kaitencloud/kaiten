@@ -35,8 +35,8 @@ export function WebhookDeliveryDetailDialog({
   onOpenChange,
 }: WebhookDeliveryDetailDialogProps) {
   const { t } = useTranslation();
-  // The dialog stays mounted while closed: the watch lets go of the message
-  // when it closes.
+  // The dialog stays mounted while closed: `open` tells the watch when it
+  // closes, so that it reads the table behind once more.
   const watch = useDeliveryWatch({ open });
 
   return (
