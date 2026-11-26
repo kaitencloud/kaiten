@@ -4906,7 +4906,7 @@ export default {
           },
           Detail: {
             title: 'Delivery details',
-            description: '{{eventName}} at {{deliveredAt}}',
+            description: '{{eventName}} on {{deliveredAt}}',
             unknownEvent: 'Unknown event',
             messageId: 'Message ID',
             resend: 'Resend',
@@ -4920,7 +4920,7 @@ export default {
               'This delivery cannot be resent: its body is no longer available.',
             bodySent: 'Body sent',
             bodyFidelity:
-              'Re-serialized by the delivery provider: equivalent to what was sent, not byte-identical, so it cannot verify the signature.',
+              'Re-serialized by the delivery provider: equivalent to what was sent, but not byte-identical, so it cannot be used to verify the signature.',
             bodyLabel: 'Body sent, as JSON',
             chatEvent: 'Event',
             chatEventHint:

@@ -31,7 +31,7 @@ test.describe('the History tab', () => {
     // Newest first: the newest delivery, delivered at once.
     await deliveries.viewDetails(deliveries.historyRows().first());
     await expect(deliveries.historyDialog()).toHaveAccessibleDescription(
-      /^Instance created at /,
+      /^Instance created on /,
     );
     await expect(deliveries.payload()).toContainText('"id": "evt_ops_00"');
     await expect(deliveries.responseHeading()).toHaveText(

@@ -4988,7 +4988,7 @@ export default {
           },
           Detail: {
             title: 'Détails de la livraison',
-            description: '{{eventName}} à {{deliveredAt}}',
+            description: '{{eventName}}, le {{deliveredAt}}',
             unknownEvent: 'Événement inconnu',
             messageId: 'ID du message',
             resend: 'Renvoyer',

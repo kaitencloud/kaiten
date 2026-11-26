@@ -48,7 +48,7 @@ describe('WebhookDeliveryDetailDialog', () => {
     renderDialog(success);
 
     const dialog = screen.getByRole('dialog', { name: 'Delivery details' });
-    expect(dialog).toHaveAccessibleDescription(/^Release published at /);
+    expect(dialog).toHaveAccessibleDescription(/^Release published on /);
     expect(screen.getByText('Response · attempt 1 of 1')).toBeInTheDocument();
   });
 
