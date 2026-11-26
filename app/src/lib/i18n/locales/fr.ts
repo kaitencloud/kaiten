@@ -4951,12 +4951,63 @@ export default {
             nextAttempt: 'prochaine tentative le {{when}}',
           },
           Detail: {
+            title: 'Détails de la livraison',
+            description: '{{eventName}} à {{deliveredAt}}',
+            unknownEvent: 'Événement inconnu',
+            messageId: 'ID du message',
+            resend: 'Renvoyer',
+            resending: 'Renvoi…',
+            resendNoMessage:
+              "Cette livraison ne peut pas être renvoyée : l'API n'a pas indiqué son message.",
+            resendNoScope:
+              'Votre jeton doit avoir le scope write:webhooks pour renvoyer une livraison.',
+            resendSending: 'Cette livraison est en cours d’envoi.',
+            resendNoBody:
+              "Cette livraison ne peut pas être renvoyée : son corps n'est plus disponible.",
+            bodySent: 'Corps envoyé',
+            bodyFidelity:
+              'Resérialisé par le fournisseur de livraison : équivalent à ce qui a été envoyé, mais pas identique octet pour octet, il ne permet donc pas de vérifier la signature.',
+            bodyLabel: 'Corps envoyé, en JSON',
+            chatEvent: 'Événement',
+            chatEventHint:
+              "Ce point de terminaison reçoit un message {{service}} construit à partir de cet événement ; le message lui-même n'est pas conservé.",
+            chatEventLabel: 'Événement, en JSON',
+            copyBody: 'Copier le corps',
+            bodyCopied: 'Corps copié',
+            bodyCopyError: 'Impossible de copier le corps',
+            bodyGone: 'Corps plus disponible',
+            bodyGoneHint:
+              'Le fournisseur de livraison ne conserve les corps des messages que pendant une durée limitée : celui-ci ne peut plus être affiché. Les tentatives et réponses ci-dessous restent disponibles.',
+            bodyNotReported:
+              "Cette version de l'API n'indique pas le message d'une livraison : son corps ne peut pas être chargé. Les tentatives et réponses ci-dessous proviennent de l'historique.",
+            deliveryNotFound:
+              'Cette livraison est introuvable. Le webhook a peut-être été supprimé, ou le fournisseur de livraison ne la conserve plus.',
+            bodyLoadError: 'Impossible de charger le corps.',
+            response: 'Réponse · tentative {{index}} sur {{count}}',
+            responseBodyLabel: 'Corps de la réponse du point de terminaison',
+            noResponseBody: "Le point de terminaison n'a renvoyé aucun corps.",
+            noResponseReceived: "Le point de terminaison n'a pas répondu.",
+            resentManually: 'Renvoyée manuellement',
+            attempts: 'Tentatives',
+            attemptLabel: 'Afficher la tentative {{index}}',
+            noAttempt: 'Aucune tentative pour le moment.',
+            Columns: {
+              attempt: 'Tentative',
+              time: 'Heure',
+              trigger: 'Déclenchement',
+              result: 'Résultat',
+              duration: 'Durée',
+            },
             resendQueued:
               'Renvoi programmé. La nouvelle tentative apparaîtra dans un instant.',
             resendPayloadUnavailable:
               "Le corps de cette livraison n'est plus disponible : elle ne peut pas être renvoyée.",
             resendNotDelivered:
               'Cette livraison ne peut plus être renvoyée. Elle a peut-être été supprimée.',
+          },
+          Trigger: {
+            scheduled: 'Planifié',
+            manual: 'Manuel',
           },
         },
         History: {
@@ -4993,18 +5044,11 @@ export default {
             hookUrl: 'URL du webhook',
             event: 'Événement',
             status: 'Statut',
-            failureInfo: "Informations d'échec",
+            response: 'Réponse',
             actions: 'Actions',
             viewDetails: 'Voir les détails',
             emptyState:
               'Aucune livraison ne correspond aux filtres sélectionnés.',
-          },
-          FailureDialog: {
-            title: "Détails de l'échec de livraison",
-            description: '{{eventName}} à {{deliveredAt}}',
-            hookLabel: 'Webhook :',
-            statusCodeLabel: 'Statut HTTP :',
-            responseLabel: 'Réponse :',
           },
         },
       },

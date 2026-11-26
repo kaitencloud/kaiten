@@ -2,6 +2,7 @@ import type {
   ApiWebhook,
   Webhook,
   WebhookHistoryEntry,
+  WebhookMessage,
 } from '../../types';
 import {
   storyLastWeek,
@@ -52,6 +53,10 @@ export const storyWebhookHistory = [
     responseStatusCode: 200,
     responseStatusText: 'OK',
     status: 'success',
+    messageId: 'msg_story_customer',
+    attemptId: 'atmpt_story_customer',
+    responseDurationMs: 84,
+    triggerType: 'scheduled',
   },
   {
     date: storyYesterday,
@@ -61,6 +66,10 @@ export const storyWebhookHistory = [
     responseStatusCode: 500,
     responseStatusText: 'Internal server error while syncing release.',
     status: 'fail',
+    messageId: 'msg_story_release',
+    attemptId: 'atmpt_story_release_2',
+    responseDurationMs: 1204,
+    triggerType: 'scheduled',
   },
   {
     date: storyLastWeek,
@@ -70,6 +79,42 @@ export const storyWebhookHistory = [
     status: 'pending',
   },
 ] satisfies WebhookHistoryEntry[];
+
+/** The release message of the history: two failed attempts, then a manual resend in flight. */
+export const storyWebhookReleaseMessage = {
+  messageId: 'msg_story_release',
+  eventType: 'com.kaiten.release.v1.created',
+  timestamp: storyYesterday,
+  payloadAvailable: true,
+  payload: {
+    name: 'RELEASE_CREATED',
+    type: 'com.kaiten.release.v1.created',
+    data: { slug: 'v2-4-0', name: 'v2.4.0' },
+  },
+  attempts: [
+    {
+      id: 'atmpt_story_release_3',
+      timestamp: storyNow,
+      status: 'sending',
+      triggerType: 'manual',
+    },
+    {
+      id: 'atmpt_story_release_2',
+      timestamp: storyYesterday,
+      status: 'fail',
+      responseStatusCode: 500,
+      response: 'Internal server error while syncing release.',
+      responseDurationMs: 1204,
+      triggerType: 'scheduled',
+    },
+    {
+      id: 'atmpt_story_release_1',
+      timestamp: storyLastWeek,
+      status: 'fail',
+      triggerType: 'scheduled',
+    },
+  ],
+} satisfies WebhookMessage;
 
 // A short placeholder: a Slack incoming-webhook URL is a credential, so no
 // real one is ever written in a story.

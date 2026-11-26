@@ -4870,11 +4870,62 @@ export default {
             nextAttempt: 'next attempt {{when}}',
           },
           Detail: {
+            title: 'Delivery details',
+            description: '{{eventName}} at {{deliveredAt}}',
+            unknownEvent: 'Unknown event',
+            messageId: 'Message ID',
+            resend: 'Resend',
+            resending: 'Resending…',
+            resendNoMessage:
+              'This delivery cannot be resent: the API did not report its message.',
+            resendNoScope:
+              'Your token needs the write:webhooks scope to resend a delivery.',
+            resendSending: 'This delivery is being sent.',
+            resendNoBody:
+              'This delivery cannot be resent: its body is no longer available.',
+            bodySent: 'Body sent',
+            bodyFidelity:
+              'Re-serialized by the delivery provider: equivalent to what was sent, not byte-identical, so it cannot verify the signature.',
+            bodyLabel: 'Body sent, as JSON',
+            chatEvent: 'Event',
+            chatEventHint:
+              'This endpoint receives a {{service}} message built from this event; the message itself is not kept.',
+            chatEventLabel: 'Event, as JSON',
+            copyBody: 'Copy body',
+            bodyCopied: 'Body copied',
+            bodyCopyError: 'Failed to copy body',
+            bodyGone: 'Body no longer available',
+            bodyGoneHint:
+              'The delivery provider only keeps message bodies for a limited time, so this one can no longer be shown. The attempts and responses below are still available.',
+            bodyNotReported:
+              'This version of the API does not report the message of a delivery, so its body cannot be loaded. The attempts and responses below come from the history.',
+            deliveryNotFound:
+              'This delivery can no longer be found. The webhook may have been deleted, or the delivery provider no longer keeps it.',
+            bodyLoadError: 'Failed to load the body.',
+            response: 'Response · attempt {{index}} of {{count}}',
+            responseBodyLabel: 'Response body of the endpoint',
+            noResponseBody: 'The endpoint returned no body.',
+            noResponseReceived: 'The endpoint did not answer.',
+            resentManually: 'Resent manually',
+            attempts: 'Attempts',
+            attemptLabel: 'Show attempt {{index}}',
+            noAttempt: 'No attempt yet.',
+            Columns: {
+              attempt: 'Attempt',
+              time: 'Time',
+              trigger: 'Trigger',
+              result: 'Result',
+              duration: 'Duration',
+            },
             resendQueued: 'Resend queued. The new attempt will appear shortly.',
             resendPayloadUnavailable:
               'The body of this delivery is no longer available, so it cannot be resent.',
             resendNotDelivered:
               'This delivery can no longer be resent. It may have been removed.',
+          },
+          Trigger: {
+            scheduled: 'Scheduled',
+            manual: 'Manual',
           },
         },
         History: {
@@ -4911,17 +4962,10 @@ export default {
             hookUrl: 'Hook URL',
             event: 'Event',
             status: 'Status',
-            failureInfo: 'Failure info',
+            response: 'Response',
             actions: 'Actions',
             viewDetails: 'View details',
             emptyState: 'No deliveries match the selected filters.',
-          },
-          FailureDialog: {
-            title: 'Failed delivery details',
-            description: '{{eventName}} at {{deliveredAt}}',
-            hookLabel: 'Webhook:',
-            statusCodeLabel: 'HTTP status:',
-            responseLabel: 'Response:',
           },
         },
       },

@@ -1,15 +1,22 @@
-import { formatDateTime } from '@/lib/format-date';
+import { formatDateTime, formatNumber } from '@/lib/format-date';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { TFunction } from 'i18next';
-import { AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
+import { Eye } from 'lucide-react';
 import { type ColumnDef, dataTableSortableHeader } from '@/functionals/table';
+import { cn } from '@/lib/utils';
 import type { WebhookHistoryEntry } from '../../types';
+import {
+  hasResponseCode,
+  normalizeDeliveryStatus,
+  OUTCOME_SEPARATOR,
+} from '../../utils/webhook-deliveries';
 import {
   getWebhookEvent,
   getWebhookEventGroupLabel,
   getWebhookEventLabel,
 } from '../../utils/webhook-events';
+import { WebhookDeliveryStatusBadge } from '../webhook-deliveries';
 
 const formatDate = (date: string) => formatDateTime(date);
 
@@ -51,70 +58,59 @@ function EventCell({ entry, t }: { entry: WebhookHistoryEntry; t: TFunction }) {
   );
 }
 
-function StatusCell({
+function ResponseCell({
   entry,
   t,
 }: {
   entry: WebhookHistoryEntry;
   t: TFunction;
 }) {
-  if (entry.status === 'success') {
-    return (
-      <Badge variant="success" className="gap-1">
-        <CheckCircle2 className="size-3" />
-        {t('Pages.Integrations.Webhooks.History.Status.success')}
-      </Badge>
+  const failed = entry.status === 'fail';
+
+  if (!hasResponseCode(entry.responseStatusCode)) {
+    return failed ? (
+      <span className="text-sm text-destructive-subtle-foreground">
+        {t('Pages.Integrations.Webhooks.Deliveries.Outcome.noResponse')}
+      </span>
+    ) : (
+      <span className="text-sm text-muted-foreground">—</span>
     );
   }
 
-  if (entry.status === 'fail') {
-    return (
-      <Badge variant="destructive" className="gap-1">
-        <XCircle className="size-3" />
-        {t('Pages.Integrations.Webhooks.History.Status.fail')}
-        {entry.responseStatusCode != null && (
-          <span className="font-mono">{entry.responseStatusCode}</span>
-        )}
-      </Badge>
-    );
-  }
+  const duration = entry.responseDurationMs ?? 0;
 
   return (
-    <Badge variant="outline">
-      {entry.status === 'pending'
-        ? t('Pages.Integrations.Webhooks.History.Status.pending')
-        : t('Pages.Integrations.Webhooks.History.Status.sending')}
-    </Badge>
-  );
-}
-
-function FailureInfoCell({ entry }: { entry: WebhookHistoryEntry }) {
-  if (entry.status !== 'fail') {
-    return <span className="text-sm text-muted-foreground">—</span>;
-  }
-
-  return (
-    <span className="text-sm text-destructive-subtle-foreground truncate max-w-[280px] block">
-      {entry.responseStatusText || '—'}
+    <span
+      className={cn(
+        'block max-w-[280px] truncate text-sm',
+        failed ? 'text-destructive-subtle-foreground' : 'text-muted-foreground',
+      )}
+    >
+      <span className="font-mono">{entry.responseStatusCode}</span>
+      {duration > 0
+        ? `${OUTCOME_SEPARATOR}${t(
+            'Pages.Integrations.Webhooks.Deliveries.Outcome.duration',
+            { value: formatNumber(duration) },
+          )}`
+        : null}
+      {entry.responseStatusText
+        ? `${OUTCOME_SEPARATOR}${entry.responseStatusText}`
+        : null}
     </span>
   );
 }
 
-function FailureActionCell({
+function DeliveryActionCell({
   entry,
-  onSelectFailure,
+  onSelectEntry,
   t,
 }: {
   entry: WebhookHistoryEntry;
-  onSelectFailure: (entry: WebhookHistoryEntry) => void;
+  onSelectEntry: (entry: WebhookHistoryEntry) => void;
   t: TFunction;
 }) {
-  if (entry.status !== 'fail' || !entry.responseStatusText) {
-    return null;
-  }
-
   function handleClick() {
-    onSelectFailure(entry);
+    onSelectEntry(entry);
   }
 
   return (
@@ -124,7 +120,7 @@ function FailureActionCell({
       className="h-auto gap-1 px-2 py-1 text-primary-subtle-foreground"
       onClick={handleClick}
     >
-      <AlertCircle className="size-3" />
+      <Eye aria-hidden className="size-3" />
       {t('Pages.Integrations.Webhooks.History.Table.viewDetails')}
     </Button>
   );
@@ -132,11 +128,11 @@ function FailureActionCell({
 
 export const createWebhookHistoryColumns = ({
   hookUrlById,
-  onSelectFailure,
+  onSelectEntry,
   t,
 }: {
   hookUrlById: Map<string, string>;
-  onSelectFailure: (entry: WebhookHistoryEntry) => void;
+  onSelectEntry: (entry: WebhookHistoryEntry) => void;
   t: TFunction;
 }): ColumnDef<WebhookHistoryEntry>[] => [
   {
@@ -169,13 +165,18 @@ export const createWebhookHistoryColumns = ({
     accessorKey: 'status',
     enableSorting: false,
     header: t('Pages.Integrations.Webhooks.History.Table.status'),
-    cell: ({ row }) => <StatusCell entry={row.original} t={t} />,
+    cell: ({ row }) => (
+      <WebhookDeliveryStatusBadge
+        responseStatusCode={row.original.responseStatusCode}
+        status={normalizeDeliveryStatus(row.original.status)}
+      />
+    ),
   },
   {
-    id: 'failureInfo',
+    id: 'response',
     enableSorting: false,
-    header: t('Pages.Integrations.Webhooks.History.Table.failureInfo'),
-    cell: ({ row }) => <FailureInfoCell entry={row.original} />,
+    header: t('Pages.Integrations.Webhooks.History.Table.response'),
+    cell: ({ row }) => <ResponseCell entry={row.original} t={t} />,
   },
   {
     id: 'actions',
@@ -183,9 +184,9 @@ export const createWebhookHistoryColumns = ({
     header: t('Pages.Integrations.Webhooks.History.Table.actions'),
     meta: { headerClassName: 'w-[120px]' },
     cell: ({ row }) => (
-      <FailureActionCell
+      <DeliveryActionCell
         entry={row.original}
-        onSelectFailure={onSelectFailure}
+        onSelectEntry={onSelectEntry}
         t={t}
       />
     ),
