@@ -1,5 +1,12 @@
 import { client } from '@/api-client/client.gen';
-import type { ApiWebhook, WebhookHistoryResponse, WebhookInput } from './types';
+import type {
+  ApiWebhook,
+  WebhookHistoryResponse,
+  WebhookInput,
+  WebhookMessage,
+  WebhookMessageList,
+  WebhookMessageResendResponse,
+} from './types';
 
 export async function getWebhooks() {
   const response = await client.get<{ 200: ApiWebhook[] }, unknown, true>({
@@ -72,4 +79,54 @@ export async function deleteWebhook(webhookId: string) {
     path: { webhookId },
     throwOnError: true,
   });
+}
+
+/**
+ * The most recent messages of one webhook, newest first, one entry per
+ * message. Without attempts the answer is cheaper: no attempt count and no
+ * last attempt per message.
+ */
+export async function getWebhookMessages(
+  webhookId: string,
+  { limit, withAttempts }: { limit: number; withAttempts: boolean },
+) {
+  const response = await client.get<{ 200: WebhookMessageList }, unknown, true>(
+    {
+      url: '/webhooks/{webhookId}/messages',
+      path: { webhookId },
+      query: { limit, withAttempts },
+      throwOnError: true,
+    },
+  );
+
+  return response.data;
+}
+
+/** One message of a webhook, with its payload and the webhook's attempts at it. */
+export async function getWebhookMessage(webhookId: string, messageId: string) {
+  const response = await client.get<{ 200: WebhookMessage }, unknown, true>({
+    url: '/webhooks/{webhookId}/messages/{messageId}',
+    path: { webhookId, messageId },
+    throwOnError: true,
+  });
+
+  return response.data;
+}
+
+/** Queues a manual attempt of a message the webhook already received (202). */
+export async function resendWebhookMessage(
+  webhookId: string,
+  messageId: string,
+) {
+  const response = await client.post<
+    { 202: WebhookMessageResendResponse },
+    unknown,
+    true
+  >({
+    url: '/webhooks/{webhookId}/messages/{messageId}/resend',
+    path: { webhookId, messageId },
+    throwOnError: true,
+  });
+
+  return response.data;
 }

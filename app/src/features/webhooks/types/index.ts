@@ -29,6 +29,14 @@ export interface WebhookInput {
   url: string;
 }
 
+/** Whether Svix scheduled an attempt (the first one, or a retry) or a person resent it. */
+export type WebhookDeliveryTrigger = 'scheduled' | 'manual';
+
+/**
+ * One attempt of the history (`GET /webhooks/history`). The four last fields
+ * are absent when saas-api predates them: the console and saas-api deploy on
+ * their own schedules.
+ */
 export interface WebhookHistoryEntry {
   date: string;
   hookId: string;
@@ -37,9 +45,92 @@ export interface WebhookHistoryEntry {
   eventType: string;
   status: WebhookDeliveryStatus;
   responseStatusCode?: number;
+  /** The body the endpoint answered with, despite its name. */
   responseStatusText?: string;
+  /** The Svix message id (`msg_...`) the attempt delivered. */
+  messageId?: string;
+  attemptId?: string;
+  responseDurationMs?: number;
+  triggerType?: WebhookDeliveryTrigger;
 }
 
 export interface WebhookHistoryResponse {
   history: WebhookHistoryEntry[];
+}
+
+/**
+ * One attempt to deliver a message to a webhook. `responseStatusCode` and
+ * `responseDurationMs` are absent when the endpoint did not answer (a timeout,
+ * a refused connection), and `response` is absent from a list's `lastAttempt`.
+ */
+export interface WebhookMessageAttempt {
+  id: string;
+  timestamp: string;
+  status: WebhookDeliveryStatus;
+  responseStatusCode?: number;
+  /** The body the endpoint answered with. */
+  response?: string;
+  responseDurationMs?: number;
+  triggerType?: WebhookDeliveryTrigger;
+}
+
+/**
+ * One message of a webhook, as `GET /webhooks/{id}/messages` lists it. `status`
+ * is the message's own: a message that failed and waits for a retry is
+ * `pending` with `nextAttempt`. `attemptCount` and `lastAttempt` are absent
+ * when the list was asked without attempts, or could not prove it saw them all.
+ */
+export interface WebhookMessageSummary {
+  messageId: string;
+  eventId?: string;
+  eventType: string;
+  timestamp: string;
+  status: WebhookDeliveryStatus;
+  nextAttempt?: string;
+  attemptCount?: number;
+  lastAttempt?: WebhookMessageAttempt;
+}
+
+/** Counts over the messages a list returned; `pending` includes `sending`. */
+export interface WebhookMessageCounts {
+  total: number;
+  delivered: number;
+  failed: number;
+  pending: number;
+}
+
+/** `GET /webhooks/{id}/messages`: the most recent messages, newest first. */
+export interface WebhookMessageList {
+  webhook: { id: string; url: string; createdAt: string; updatedAt: string };
+  messages: WebhookMessageSummary[];
+  summary: WebhookMessageCounts;
+  hasMore: boolean;
+}
+
+/** The chat service whose message an endpoint received instead of the event. */
+export type WebhookMessageChatService = 'Slack' | 'Google Chat';
+
+/**
+ * `GET /webhooks/{id}/messages/{messageId}`: one message with its payload and
+ * the webhook's attempts at it. `payload` is null, and `payloadAvailable`
+ * false, once the delivery provider no longer keeps the payload; the event
+ * fields are then absent too if the message itself is gone.
+ */
+export interface WebhookMessage {
+  messageId: string;
+  eventId?: string;
+  eventType?: string;
+  timestamp?: string;
+  payloadAvailable?: boolean;
+  payload: Record<string, unknown> | null;
+  /** Set for a Slack or Google Chat endpoint, which received a message built from `payload`. */
+  chatService?: WebhookMessageChatService;
+  /** Newest first as sent; the console sorts them itself. */
+  attempts: WebhookMessageAttempt[];
+}
+
+/** `POST /webhooks/{id}/messages/{messageId}/resend`: the attempt is queued. */
+export interface WebhookMessageResendResponse {
+  messageId: string;
+  webhookId: string;
 }
