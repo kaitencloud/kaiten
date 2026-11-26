@@ -50,6 +50,8 @@ export function WebhookEventSearch({
         </InputGroupAddon>
         <InputGroupInput
           type="search"
+          // The clear button below replaces the browser's own.
+          className="[&::-webkit-search-cancel-button]:appearance-none"
           value={query}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
