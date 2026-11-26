@@ -1,6 +1,10 @@
 import { queryOptions } from '@tanstack/react-query';
-import { getProblemCode } from '@/domains/billing';
-import { isForbiddenError, isNotFoundError } from '@/lib/errors';
+import {
+  isApiError,
+  isForbiddenError,
+  isNotFoundError,
+  isProblem,
+} from '@/lib/errors';
 import { getWebhookMessage } from '../webhooks.api';
 
 export const webhookMessageBaseQueryKey = ['webhooks', 'messages'] as const;
@@ -11,6 +15,17 @@ export const webhookMessageBaseQueryKey = ['webhooks', 'messages'] as const;
  * shows can be in that state for a few seconds, before its first attempt.
  */
 export const WEBHOOK_MESSAGE_NOT_DELIVERED = 'GetWebhookMessage.NotDelivered';
+
+/**
+ * The `code` of the problem saas-api refused with. `getProblemCode` of
+ * `@/domains/billing` reads the same, but its barrel loads the billing queries,
+ * which a webhooks query has no use for.
+ */
+function getProblemCode(error: unknown): string | undefined {
+  return isApiError(error) && isProblem(error.data)
+    ? error.data.code
+    : undefined;
+}
 
 /** Keep a payload, which can hold customer data, in memory no longer than needed. */
 const WEBHOOK_MESSAGE_GC_TIME_MS = 60_000;
