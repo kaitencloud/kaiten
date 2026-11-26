@@ -4950,6 +4950,14 @@ export default {
             retrying_other: 'Nouvel essai après {{count}} tentatives',
             nextAttempt: 'prochaine tentative le {{when}}',
           },
+          Detail: {
+            resendQueued:
+              'Renvoi programmé. La nouvelle tentative apparaîtra dans un instant.',
+            resendPayloadUnavailable:
+              "Le corps de cette livraison n'est plus disponible : elle ne peut pas être renvoyée.",
+            resendNotDelivered:
+              'Cette livraison ne peut plus être renvoyée. Elle a peut-être été supprimée.',
+          },
         },
         History: {
           sectionTitle: 'Historique des webhooks',

@@ -4869,6 +4869,13 @@ export default {
             retrying_other: 'Retrying after {{count}} attempts',
             nextAttempt: 'next attempt {{when}}',
           },
+          Detail: {
+            resendQueued: 'Resend queued. The new attempt will appear shortly.',
+            resendPayloadUnavailable:
+              'The body of this delivery is no longer available, so it cannot be resent.',
+            resendNotDelivered:
+              'This delivery can no longer be resent. It may have been removed.',
+          },
         },
         History: {
           sectionTitle: 'Webhooks history',
