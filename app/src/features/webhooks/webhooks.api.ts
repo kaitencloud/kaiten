@@ -1,9 +1,5 @@
 import { client } from '@/api-client/client.gen';
-import type {
-  ApiWebhook,
-  CreateWebhookInput,
-  WebhookHistoryResponse,
-} from './types';
+import type { ApiWebhook, WebhookHistoryResponse, WebhookInput } from './types';
 
 export async function getWebhooks() {
   const response = await client.get<{ 200: ApiWebhook[] }, unknown, true>({
@@ -14,8 +10,16 @@ export async function getWebhooks() {
   return response.data ?? [];
 }
 
-export async function getWebhook(webhookId: string) {
+/**
+ * One webhook, with its signing secret. `cache` lets the read that precedes a
+ * write skip every cache (`FRESH_READ_OPTIONS`).
+ */
+export async function getWebhook(
+  webhookId: string,
+  options?: { cache?: RequestCache },
+) {
   const response = await client.get<{ 200: ApiWebhook }, unknown, true>({
+    ...options,
     url: '/webhooks/{webhookId}',
     path: { webhookId },
     throwOnError: true,
@@ -37,9 +41,24 @@ export async function getWebhookHistory() {
   return response.data ?? { history: [] };
 }
 
-export async function createWebhook(body: CreateWebhookInput) {
+export async function createWebhook(body: WebhookInput) {
   const response = await client.post<{ 201: ApiWebhook }, unknown, true>({
     url: '/webhooks',
+    body,
+    throwOnError: true,
+  });
+
+  return response.data;
+}
+
+/**
+ * Replaces the URL and the events of a webhook. The answer carries no signing
+ * secret: the secret does not change.
+ */
+export async function updateWebhook(webhookId: string, body: WebhookInput) {
+  const response = await client.put<{ 200: ApiWebhook }, unknown, true>({
+    url: '/webhooks/{webhookId}',
+    path: { webhookId },
     body,
     throwOnError: true,
   });

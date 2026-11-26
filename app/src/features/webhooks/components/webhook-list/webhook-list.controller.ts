@@ -8,7 +8,7 @@ import {
 } from '@/functionals/filters';
 import { useWebhookMutations } from '../../hooks/use-webhook-mutations';
 import { webhooksQueryOptions } from '../../queries';
-import type { CreateWebhookFormValues } from '../../schemas';
+import type { WebhookFormValues } from '../../schemas';
 import type { Webhook } from '../../types';
 import { mapApiWebhooksToWebhooks } from '../../utils/mappers';
 import {
@@ -92,7 +92,7 @@ export function useWebhookListController() {
   const filterController = useFilteredWebhooks(webhooks, t);
   const dialogState = useWebhookDialogState();
 
-  async function handleCreateWebhook(value: CreateWebhookFormValues) {
+  async function handleCreateWebhook(value: WebhookFormValues) {
     await createWebhook.mutateAsync({
       body: value,
     });

@@ -23,7 +23,8 @@ export interface ApiWebhook {
   updatedAt?: string;
 }
 
-export interface CreateWebhookInput {
+/** The body of a create (POST) and of an update (PUT): the two members it replaces. */
+export interface WebhookInput {
   eventTypes: string[];
   url: string;
 }

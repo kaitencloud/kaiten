@@ -12,10 +12,10 @@ import { Label } from '@/components/ui/label';
 import { createFormSubmitHandler, useAppForm } from '@/hooks/form';
 import { cn } from '@/lib/utils';
 import {
-  type CreateWebhookFormValues,
-  createWebhookFormSchema,
-  initialCreateWebhookFormValues,
-} from '../../schemas/create-webhook.schema';
+  initialWebhookFormValues,
+  type WebhookFormValues,
+  webhookFormSchema,
+} from '../../schemas/webhook-form.schema';
 import {
   getWebhookEventGroupLabel,
   getWebhookEventLabel,
@@ -28,7 +28,7 @@ type WebhookEventGroupEntry = (typeof SUBSCRIBABLE_WEBHOOK_EVENTS)[number];
 interface CreateWebhookDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (value: CreateWebhookFormValues) => Promise<void> | void;
+  onSubmit: (value: WebhookFormValues) => Promise<void> | void;
 }
 
 // A subscription is kept as the types of its events: what the API publishes
@@ -179,13 +179,13 @@ export function CreateWebhookDialog({
   const formId = useId();
 
   const form = useAppForm({
-    defaultValues: initialCreateWebhookFormValues,
+    defaultValues: initialWebhookFormValues,
     validators: {
-      onChange: createWebhookFormSchema,
+      onChange: webhookFormSchema,
     },
     onSubmit: async ({ value }) => {
       try {
-        const parsedValue = createWebhookFormSchema.parse(value);
+        const parsedValue = webhookFormSchema.parse(value);
         await onSubmit(parsedValue);
         handleClose();
       } catch {

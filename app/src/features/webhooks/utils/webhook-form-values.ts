@@ -1,5 +1,5 @@
-import type { CreateWebhookFormValues } from '../schemas';
-import type { ApiWebhook, CreateWebhookInput } from '../types';
+import type { WebhookFormValues } from '../schemas';
+import type { ApiWebhook, WebhookInput } from '../types';
 import { sortEventTypes } from './webhook-event-selection';
 
 // The create and edit page builds the body of a webhook from its values, and
@@ -9,9 +9,7 @@ import { sortEventTypes } from './webhook-event-selection';
 // sound (writeOnFresh compares arrays in order).
 
 /** The values the form opens with for a webhook. A webhook without a filter has no events. */
-export function webhookToFormValues(
-  webhook: ApiWebhook,
-): CreateWebhookFormValues {
+export function webhookToFormValues(webhook: ApiWebhook): WebhookFormValues {
   return {
     eventTypes: sortEventTypes(webhook.eventTypes),
     url: webhook.url,
@@ -19,9 +17,7 @@ export function webhookToFormValues(
 }
 
 /** The body the API receives for the form's values. */
-export function formValuesToBody(
-  values: CreateWebhookFormValues,
-): CreateWebhookInput {
+export function formValuesToBody(values: WebhookFormValues): WebhookInput {
   return {
     eventTypes: sortEventTypes(values.eventTypes),
     url: values.url.trim(),
@@ -29,7 +25,7 @@ export function formValuesToBody(
 }
 
 /** A webhook read from the API, restated as the body the form would send. */
-export function webhookToBody(webhook: ApiWebhook): CreateWebhookInput {
+export function webhookToBody(webhook: ApiWebhook): WebhookInput {
   return formValuesToBody(webhookToFormValues(webhook));
 }
 

@@ -4,8 +4,12 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { getApiErrorMessage } from '@/lib/errors';
-import { invalidateWebhookQueries, webhooksQueryOptions } from '../queries';
+import { getApiErrorMessage, isNotFoundError } from '@/lib/errors';
+import {
+  invalidateWebhookQueries,
+  saveWebhookOnFresh,
+  webhooksQueryOptions,
+} from '../queries';
 import type { ApiWebhook } from '../types';
 import {
   createWebhook as createWebhookRequest,
@@ -58,6 +62,25 @@ export function useWebhookMutations() {
     },
   });
 
+  const updateWebhook = useMutation({
+    mutationFn: saveWebhookOnFresh,
+    onSuccess: async (webhook) => {
+      // The answer carries no secret, nor does a list entry: replacing the entry
+      // in place is safe. The detail entry, which holds the secret, is
+      // invalidated by prefix below rather than overwritten.
+      upsertWebhookInCache(queryClient, webhook);
+      await invalidateWebhookQueries(queryClient);
+    },
+    onError: async (error) => {
+      toast.error(getApiErrorMessage(error));
+      // A 404 comes from the fresh read of a webhook deleted meanwhile: the
+      // list must forget it.
+      if (isNotFoundError(error)) {
+        await invalidateWebhookQueries(queryClient);
+      }
+    },
+  });
+
   const deleteWebhook = useMutation({
     mutationFn: ({ path }: { path: { webhookId: string } }) =>
       deleteWebhookRequest(path.webhookId),
@@ -73,5 +96,6 @@ export function useWebhookMutations() {
   return {
     createWebhook,
     deleteWebhook,
+    updateWebhook,
   };
 }

@@ -4803,14 +4803,16 @@ export default {
           eventsSelected: 'selected',
           selectedEvents: 'Selected events',
           selectedEventsPlaceholder: 'No events selected yet.',
-          eventsRequired: 'Select at least one event.',
           urlLabel: 'Webhook URL',
           urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
-          urlRequired: 'Webhook URL is required.',
-          urlInvalid: 'Enter a valid URL.',
           urlDescription:
             'The webhook will receive a POST request with the event payload when any of the selected events occur',
           createButton: 'Create Webhook',
+        },
+        Form: {
+          eventsRequired: 'Select at least one event.',
+          urlRequired: 'Webhook URL is required.',
+          urlInvalid: 'Enter a valid http or https URL.',
         },
         History: {
           sectionTitle: 'Webhooks history',
