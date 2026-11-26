@@ -26,6 +26,7 @@ SELECT s.id,
           AND pk.revoked_at IS NULL)::text[] AS allowed_origins
 FROM customer_session s
 JOIN customer c ON c.id = s.customer_id AND c.organization_id = s.organization_id
+JOIN "user" creator ON creator.id = s.created_by_id AND creator.deleted_at IS NULL
 LEFT JOIN instance i ON i.id = s.instance_id AND i.organization_id = s.organization_id
 WHERE s.lookup_hash = $1
   AND s.revoked_at IS NULL
@@ -48,7 +49,10 @@ type AuthenticateCustomerSessionRow struct {
 // browser origins it may be used from: the union of its organization's live
 // publishable keys' origins. A bound instance that has since moved to another
 // customer no longer authenticates: the session would otherwise reach an
-// instance its customer does not hold.
+// instance its customer does not hold. A session whose minting principal has
+// since been deleted -- a service account removed through
+// DELETE /service-accounts/{slug}, or a deleted user -- no longer authenticates
+// either: deleting the account ends what it issued, as it revokes its tokens.
 func (q *Queries) AuthenticateCustomerSession(ctx context.Context, lookupHash string) (AuthenticateCustomerSessionRow, error) {
 	row := q.db.QueryRow(ctx, authenticateCustomerSession, lookupHash)
 	var i AuthenticateCustomerSessionRow

@@ -100,6 +100,8 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 		return err
 	}
 
+	// Committed: what follows must not be skipped because the caller went away.
+	ctx = context.WithoutCancel(ctx)
 	for _, lookupHash := range lookupHashes {
 		h.tokenCache.Delete(lookupHash)
 		// Best effort, as for one token: the tokens are revoked and the account

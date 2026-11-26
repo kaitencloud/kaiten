@@ -78,3 +78,9 @@ func (r *CommandRepository) CreateServiceAccount(ctx context.Context, name strin
 func (r *CommandRepository) CountServiceAccounts(ctx context.Context, organizationID uuid.UUID) (int64, error) {
 	return r.q(ctx).CountServiceAccounts(ctx, organizationID)
 }
+
+// LockServiceAccounts serializes the organization's creates until the end of the
+// caller's transaction.
+func (r *CommandRepository) LockServiceAccounts(ctx context.Context, organizationID uuid.UUID) error {
+	return r.q(ctx).LockServiceAccounts(ctx, organizationID)
+}

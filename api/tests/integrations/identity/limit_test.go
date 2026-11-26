@@ -123,3 +123,46 @@ func TestDeleteServiceAccountGivesItsPlaceBack(t *testing.T) {
 
 	require.Equal(t, fiber.StatusCreated, call("POST", "/api/service-accounts", schema.ServiceAccount{Name: "Replacement"}))
 }
+
+// Two creates racing for the last place: both are allowed the same count by the
+// licensing authority, and the one that inserts second finds the organization
+// past it, is checked again at the count it reached, and is rolled back.
+func TestConcurrentCreatesCannotBothTakeTheLastPlace(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+	var held int64
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+		`SELECT count(*) FROM "user" WHERE type = 'machine' AND organization_id = $1 AND deleted_at IS NULL`,
+		testDb.DefaultData.OrganizationID).Scan(&held))
+
+	counter := &gatedCounter{limit: float64(held + 1), values: map[string][]float64{}}
+	server := tests.NewTestServer(testDb, tests.TestServerOptions{
+		OrganizationID: &testDb.DefaultData.OrganizationID,
+		UsageReporter:  counter,
+	})
+	t.Cleanup(func() { require.NoError(t, server.Close()) })
+
+	statuses := make([]int, 2)
+	var wg sync.WaitGroup
+	for i := range statuses {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			resp, err := server.App.Test(commonfixture.NewJSONRequest(t, "POST", "/api/service-accounts",
+				schema.ServiceAccount{Name: fmt.Sprintf("Racer %d", i)}), fiber.TestConfig{})
+			if err != nil {
+				return
+			}
+			defer commonfixture.MustCloseBody(t, resp.Body)
+			statuses[i] = resp.StatusCode
+		}()
+	}
+	wg.Wait()
+
+	var after int64
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+		`SELECT count(*) FROM "user" WHERE type = 'machine' AND organization_id = $1 AND deleted_at IS NULL`,
+		testDb.DefaultData.OrganizationID).Scan(&after))
+	require.Equal(t, held+1, after, "exactly one racer keeps the last place")
+	require.ElementsMatch(t, []int{fiber.StatusCreated, fiber.StatusConflict}, statuses)
+}

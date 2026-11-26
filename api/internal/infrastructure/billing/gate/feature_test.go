@@ -40,3 +40,22 @@ func TestFeatureKeptWhenUnknownFollowsAKnownAnswer(t *testing.T) {
 func TestFeatureKeptWhenUnknownSelfHosted(t *testing.T) {
 	require.True(t, NewFeatureKeptWhenUnknown(nil, dogfooding.ThresholdAlertingEntitlementSlug, 0).Granted(t.Context(), uuid.New()))
 }
+
+// A licensing authority that cannot answer is not asked again on every read for
+// featureRetryAfter: each read would otherwise wait for its timeout. Once that
+// has passed, it is asked again, and a known answer clears the wait.
+func TestFeatureDoesNotRetryAFailedLookupAtOnce(t *testing.T) {
+	entitlements := &countingEntitlements{err: errors.New("licensing authority unreachable")}
+	feature := NewFeatureKeptWhenUnknown(entitlements, dogfooding.ThresholdAlertingEntitlementSlug, time.Minute)
+	org := uuid.New()
+
+	require.True(t, feature.Granted(t.Context(), org))
+	require.True(t, feature.Granted(t.Context(), org))
+	require.Equal(t, 1, entitlements.calls, "a second read during the wait asks nothing")
+
+	entitlements.err = nil
+	entitlements.entitled = false
+	feature.failures.now = func() time.Time { return time.Now().Add(featureRetryAfter + time.Second) }
+	require.False(t, feature.Granted(t.Context(), org), "after the wait, the authority is asked and followed")
+	require.Equal(t, 2, entitlements.calls)
+}

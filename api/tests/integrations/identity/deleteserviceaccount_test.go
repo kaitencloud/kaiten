@@ -133,3 +133,41 @@ func TestDeleteServiceAccount(t *testing.T) {
 		require.Equal(t, before, after, "the neighbouring organization's service account must be untouched")
 	})
 }
+
+func TestDeleteServiceAccountTouchesNothingElse(t *testing.T) {
+	t.Run("WhenAnotherAccountOfTheOrganizationHasTokens_KeepsThem", func(t *testing.T) {
+		// Arrange
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		sas, err := createSAS(t, 2, testDb.DefaultData.OrganizationID)
+		require.NoError(t, err)
+		createToken(t, *sas[0].Slug)
+		kept := createToken(t, *sas[1].Slug)
+
+		// Act
+		status, _ := deleteServiceAccount(t, *sas[0].Slug)
+
+		// Assert
+		require.Equal(t, fiber.StatusNoContent, status)
+		resp := validateToken(t, kept)
+		defer commonfixture.MustCloseBody(t, resp.Body)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+	})
+
+	t.Run("WhenAccountIsDeleted_NoTokenCanBeCreatedOnIt", func(t *testing.T) {
+		// Arrange
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		sas, err := createSAS(t, 1, testDb.DefaultData.OrganizationID)
+		require.NoError(t, err)
+		status, _ := deleteServiceAccount(t, *sas[0].Slug)
+		require.Equal(t, fiber.StatusNoContent, status)
+
+		// Act
+		resp, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "POST",
+			"/api/service-accounts/"+*sas[0].Slug+"/tokens", schema.PlainToken{Scopes: []string{"read:customers"}}), fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, resp.Body)
+
+		// Assert
+		require.Equal(t, fiber.StatusNotFound, resp.StatusCode)
+	})
+}

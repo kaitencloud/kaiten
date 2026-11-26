@@ -39,7 +39,7 @@ func RegisterEndpoint(api huma.API, app Activator) {
 		Method:      http.MethodPut,
 		Path:        "/connectors/{connectorName}/activation",
 		Summary:     "Activate connector",
-		Description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's license does not include the connector (403), or when it already has as many active connectors as its license allows (409 ActivateConnector.LimitReached).",
+		Description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's license does not include the connector (403), or when it already has as many active connectors as its license allows (409 ActivateConnector.EntitlementLimitReached).",
 		Tags:        []string{"connectors"},
 		Errors: []int{
 			http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden,

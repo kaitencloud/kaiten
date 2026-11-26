@@ -41,11 +41,11 @@ const (
 	SeatEntitlementSlug = "seats"
 
 	// ServiceAccountEntitlementSlug is the organization's service accounts:
-	// counted when one is created, and gated -- a create beyond the licence's
-	// allowance is refused. Core has no route that deletes a service account, so
-	// the count only climbs. It is set to the number the organization holds,
-	// plus the one being created, rather than incremented: a counter that
-	// starts at the true count needs no separate backfill.
+	// counted when one is created or deleted, and gated -- a create beyond the
+	// licence's allowance is refused. It is set to the number the organization
+	// holds, plus the one being created, rather than incremented: a counter that
+	// starts at the true count needs no separate backfill. A delete sets it back
+	// to the number still held.
 	ServiceAccountEntitlementSlug = "service-accounts"
 
 	// ConnectorEntitlementSlug is the connectors an organization has active

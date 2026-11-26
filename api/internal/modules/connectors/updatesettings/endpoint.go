@@ -35,7 +35,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Method:      http.MethodPut,
 		Path:        "/connectors/{connectorName}/settings",
 		Summary:     "Upsert connector settings",
-		Description: "Create or update connector settings for the authenticated organization. Write-only fields (flagged `writeOnly` in the connector settings schema) may be omitted or sent as `***` to keep the stored value; they are returned redacted. Saving settings activates the connector, so it is refused as an activation is: 409 ActivateConnector.LimitReached when the organization already has as many active connectors as its license allows.",
+		Description: "Create or update connector settings for the authenticated organization. Write-only fields (flagged `writeOnly` in the connector settings schema) may be omitted or sent as `***` to keep the stored value; they are returned redacted. Saving settings activates the connector, so it is refused as an activation is: 409 ActivateConnector.EntitlementLimitReached when the organization already has as many active connectors as its license allows.",
 		Tags:        []string{"connectors"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError, http.StatusServiceUnavailable},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*Response, error) {

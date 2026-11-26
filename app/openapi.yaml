@@ -21948,7 +21948,7 @@ paths:
       tags:
         - connectors
     put:
-      description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's license does not include the connector (403), or when it already has as many active connectors as its license allows (409 ActivateConnector.LimitReached)."
+      description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's license does not include the connector (403), or when it already has as many active connectors as its license allows (409 ActivateConnector.EntitlementLimitReached)."
       operationId: activate-connector
       parameters:
         - description: Stable connector name
@@ -22143,7 +22143,7 @@ paths:
       tags:
         - connectors
     put:
-      description: "Create or update connector settings for the authenticated organization. Write-only fields (flagged `writeOnly` in the connector settings schema) may be omitted or sent as `***` to keep the stored value; they are returned redacted. Saving settings activates the connector, so it is refused as an activation is: 409 ActivateConnector.LimitReached when the organization already has as many active connectors as its license allows."
+      description: "Create or update connector settings for the authenticated organization. Write-only fields (flagged `writeOnly` in the connector settings schema) may be omitted or sent as `***` to keep the stored value; they are returned redacted. Saving settings activates the connector, so it is refused as an activation is: 409 ActivateConnector.EntitlementLimitReached when the organization already has as many active connectors as its license allows."
       operationId: update-connector-settings
       parameters:
         - description: Stable connector name

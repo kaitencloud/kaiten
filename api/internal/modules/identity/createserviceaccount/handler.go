@@ -59,10 +59,26 @@ func NewUseCase(deps Deps) *UseCase {
 // the truth, so accounts created before the entitlement existed are counted, and
 // an organization already above its allowance is refused. A delete
 // (deleteserviceaccount) sets it back to the number still held.
+//
+// A caller-supplied slug is validated before the counter is touched, so an
+// invalid one answers 422 without a round trip to the licensing authority.
+// Creates of one organization are serialized from their insert on: a create
+// that finds, once inserted, more accounts than the count it was allowed is
+// checked again at that count, so two creates racing for the last place cannot
+// both keep it.
 func (h *UseCase) Execute(ctx context.Context, name string, slug *string) (*schema.ServiceAccount, error) {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
+	}
+
+	if slug != nil {
+		resolved, err := slugutil.New(*slug)
+		if err != nil {
+			return nil, kaitenerrors.Validation("CreateServiceAccount.InvalidSlug", slugutil.InvalidReason(*slug))
+		}
+		normalized := resolved.String()
+		slug = &normalized
 	}
 
 	held, err := h.repo.CountServiceAccounts(ctx, user.OrganizationID)
@@ -76,17 +92,24 @@ func (h *UseCase) Execute(ctx context.Context, name string, slug *string) (*sche
 		return nil, err
 	}
 
-	created, err := h.create(ctx, user, name, slug)
+	created, err := h.create(ctx, user, name, slug, held+1)
 	if err != nil {
-		// The counter was set for an account that does not exist: set it back.
-		dogfooding.SyncStock(ctx, h.deps.StockReporter, user.OrganizationID,
-			dogfooding.ServiceAccountEntitlementSlug, held)
+		// The counter was set for an account that does not exist: set it to what
+		// the organization holds now, which a concurrent create may have changed.
+		if now, countErr := h.repo.CountServiceAccounts(ctx, user.OrganizationID); countErr == nil {
+			dogfooding.SyncStock(ctx, h.deps.StockReporter, user.OrganizationID,
+				dogfooding.ServiceAccountEntitlementSlug, now)
+		}
 		return nil, err
 	}
 	return created, nil
 }
 
-func (h *UseCase) create(ctx context.Context, user *currentuser.User, name string, slug *string) (*schema.ServiceAccount, error) {
+// create inserts the account. allowed is the count the licensing authority
+// accepted for this create; an insert that brings the organization past it,
+// because another create committed in between, is checked again at the count it
+// actually reaches, and rolled back if that is refused.
+func (h *UseCase) create(ctx context.Context, user *currentuser.User, name string, slug *string, allowed int64) (*schema.ServiceAccount, error) {
 	externalID, err := random.GeneratePrefixed("ksa_", IDSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate service account ID: %w", err)
@@ -96,6 +119,10 @@ func (h *UseCase) create(ctx context.Context, user *currentuser.User, name strin
 		var result *db.CreateServiceAccountRow
 
 		err := h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+			if err := h.repo.LockServiceAccounts(ctx, user.OrganizationID); err != nil {
+				return fmt.Errorf("failed to lock the organization's service accounts: %w", err)
+			}
+
 			serviceAccount, err := h.repo.CreateServiceAccount(
 				ctx,
 				name,
@@ -119,6 +146,22 @@ func (h *UseCase) create(ctx context.Context, user *currentuser.User, name strin
 				return fmt.Errorf("failed to link service account to organization: %w", err)
 			}
 
+			// Another create committed between the count and this insert: check the
+			// count actually reached. Rare, so the round trip to the licensing
+			// authority inside the transaction is too.
+			reached, err := h.repo.CountServiceAccounts(ctx, user.OrganizationID)
+			if err != nil {
+				return fmt.Errorf("failed to count service accounts: %w", err)
+			}
+			if reached > allowed {
+				if err := dogfooding.EnforceStockLimit(ctx, h.deps.StockReporter, user.OrganizationID,
+					dogfooding.ServiceAccountEntitlementSlug, reached,
+					EntitlementLimitReachedCode, "Service account limit reached for this organization",
+				); err != nil {
+					return err
+				}
+			}
+
 			result = serviceAccount
 			return nil
 		})
@@ -137,11 +180,8 @@ func (h *UseCase) create(ctx context.Context, user *currentuser.User, name strin
 	}
 
 	if slug != nil {
-		resolvedSlug, err := slugutil.New(*slug)
-		if err != nil {
-			return nil, kaitenerrors.Validation("CreateServiceAccount.InvalidSlug", slugutil.InvalidReason(*slug))
-		}
-		return attempt(resolvedSlug.String())
+		// Validated and normalized by Execute, before the counter was set.
+		return attempt(*slug)
 	}
 
 	// No caller-supplied slug: derive one from the name. GenerateUnique's

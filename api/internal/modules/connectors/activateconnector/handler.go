@@ -55,9 +55,10 @@ type Deps struct {
 	StockReporter services.StockReporter
 }
 
-// LimitReachedCode is the error code an activation answers with when the
-// organization already has every active connector its licence allows.
-const LimitReachedCode = "ActivateConnector.LimitReached"
+// EntitlementLimitReachedCode is the error code an activation answers with when
+// the organization already has every active connector its licence allows. Named
+// like every other limit code, <Operation>.EntitlementLimitReached.
+const EntitlementLimitReachedCode = "ActivateConnector.EntitlementLimitReached"
 
 type UseCase struct {
 	deps         Deps
@@ -153,6 +154,11 @@ func (h *UseCase) execute(ctx context.Context, connectorName string, settings ma
 
 	var activated *activation.Activation
 	err = h.transact(ctx, func(ctx context.Context) error {
+		if counted && h.deps.Queries != nil {
+			if err := h.deps.Queries.LockConnectorActivations(ctx, user.OrganizationID); err != nil {
+				return fmt.Errorf("lock the organization's connector activations: %w", err)
+			}
+		}
 		var inserted bool
 		var err error
 		activated, inserted, err = h.activations.Activate(ctx, user.OrganizationID, normalizedName)
@@ -165,13 +171,21 @@ func (h *UseCase) execute(ctx context.Context, connectorName string, settings ma
 		if !inserted {
 			return nil
 		}
+		if counted {
+			if err := h.recheckLimit(ctx, user.OrganizationID, held+1); err != nil {
+				return err
+			}
+		}
 		return connectorHooks.Activated(ctx, user.OrganizationID, settings)
 	})
 	if err != nil {
 		if counted {
-			// The counter was set for an activation that did not happen.
-			dogfooding.SyncStock(ctx, h.deps.StockReporter, user.OrganizationID,
-				dogfooding.ConnectorEntitlementSlug, held)
+			// The counter was set for an activation that did not happen: set it
+			// to what is active now, which a concurrent activation may have changed.
+			if now, countErr := h.activations.Count(ctx, user.OrganizationID); countErr == nil {
+				dogfooding.SyncStock(ctx, h.deps.StockReporter, user.OrganizationID,
+					dogfooding.ConnectorEntitlementSlug, now)
+			}
 		}
 		return nil, err
 	}
@@ -208,12 +222,31 @@ func (h *UseCase) enforceLimit(
 
 	if err := dogfooding.EnforceStockLimit(ctx, h.deps.StockReporter, organizationID,
 		dogfooding.ConnectorEntitlementSlug, held+1,
-		LimitReachedCode, "Active connector limit reached for this organization",
+		EntitlementLimitReachedCode, "Active connector limit reached for this organization",
 	); err != nil {
 		return 0, false, err
 	}
 
 	return held, true, nil
+}
+
+// recheckLimit runs inside the activation's transaction, after its insert and
+// under the organization's activation lock. Another activation committed between
+// the count and this insert brings the organization past the count the licensing
+// authority accepted: that count is checked again, and a refusal rolls this
+// activation back. Rare, so the round trip inside the transaction is too.
+func (h *UseCase) recheckLimit(ctx context.Context, organizationID uuid.UUID, allowed int64) error {
+	reached, err := h.activations.Count(ctx, organizationID)
+	if err != nil {
+		return fmt.Errorf("count active connectors: %w", err)
+	}
+	if reached <= allowed {
+		return nil
+	}
+	return dogfooding.EnforceStockLimit(ctx, h.deps.StockReporter, organizationID,
+		dogfooding.ConnectorEntitlementSlug, reached,
+		EntitlementLimitReachedCode, "Active connector limit reached for this organization",
+	)
 }
 
 // requireEntitlement refuses an organization whose license does not grant the

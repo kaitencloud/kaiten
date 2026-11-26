@@ -143,6 +143,28 @@ func TestCustomerSessions(t *testing.T) {
 			"/api/customer-sessions/"+uuid.NewString()+"/revoke", nil))
 	})
 
+	t.Run("a session minted by a principal since deleted stops authenticating", func(t *testing.T) {
+		created := mintSession(t, testServer, acme.Slug, "")
+
+		// The session as a service account would have minted it, then the
+		// account deleted the way DELETE /service-accounts/{slug} deletes one.
+		var minter uuid.UUID
+		require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `
+			INSERT INTO "user" (external_id, name, slug, type, organization_id, created_by_id)
+			VALUES ('ksa_session_minter', 'Session minter', 'session-minter', 'machine', $1, $2)
+			RETURNING id`, testDb.DefaultData.OrganizationID, testDb.DefaultData.UserID).Scan(&minter))
+		_, err := testDb.DbPool.Exec(t.Context(),
+			`UPDATE customer_session SET created_by_id = $1 WHERE id = $2`, minter, created.ID)
+		require.NoError(t, err)
+		page := sessionCall(t, testServer, "GET", invoicesPath, created.Token, storefront, nil)
+		require.Equal(t, fiber.StatusOK, page.StatusCode, "a live minter's session authenticates")
+
+		_, err = testDb.DbPool.Exec(t.Context(), `UPDATE "user" SET deleted_at = now() WHERE id = $1`, minter)
+		require.NoError(t, err)
+		require.Equal(t, "PublicAuth.InvalidCredential",
+			sessionProblem(t, sessionCall(t, testServer, "GET", invoicesPath, created.Token, "", nil), fiber.StatusUnauthorized))
+	})
+
 	t.Run("a session cannot name another organization's customer or instance", func(t *testing.T) {
 		var foreignOrg uuid.UUID
 		require.NoError(t, testDb.DbPool.QueryRow(t.Context(),

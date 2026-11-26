@@ -133,3 +133,10 @@ WHERE u.id = uoo.user_id
   AND u.deleted_at IS NULL
   AND uoo.deleted_at IS NULL
 RETURNING u.id;
+
+
+-- name: LockServiceAccounts :exec
+-- Serializes the creates of one organization for the rest of the transaction,
+-- so the count a create takes after its insert sees every account committed
+-- before it: two creates racing for the last place cannot both keep theirs.
+SELECT pg_advisory_xact_lock(hashtextextended('service-accounts:' || sqlc.arg(organization_id)::uuid::text, 0));

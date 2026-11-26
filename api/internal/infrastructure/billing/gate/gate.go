@@ -162,11 +162,51 @@ type Feature struct {
 	// for reads: false for a feature better hidden than shown by mistake, true
 	// for one better kept than silenced (see NewFeatureKeptWhenUnknown).
 	unknown bool
+	// failures holds, per organization, when a failed lookup may be tried again:
+	// while the licensing authority cannot answer, a feature read on every request
+	// would otherwise wait for its timeout every time.
+	failures *failures
+}
+
+// featureRetryAfter is how long a failed lookup is not repeated for one
+// organization. The feature reads its last answer, or its unknown value,
+// meanwhile.
+const featureRetryAfter = 30 * time.Second
+
+type failures struct {
+	now func() time.Time
+
+	mu    sync.Mutex
+	until map[entitlementKey]time.Time
+}
+
+func (f *failures) waiting(key entitlementKey) bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	until, ok := f.until[key]
+	return ok && f.now().Before(until)
+}
+
+func (f *failures) record(key entitlementKey) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.until[key] = f.now().Add(featureRetryAfter)
+}
+
+func (f *failures) clear(key entitlementKey) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	delete(f.until, key)
 }
 
 // NewFeature checks slug, trusting an answer for ttl (0 caches nothing).
 func NewFeature(entitlements services.ConnectorEntitlements, slug string, ttl time.Duration) *Feature {
-	f := &Feature{entitlements: services.ConnectorEntitlementsOrAlways(entitlements), slug: slug, answers: nil}
+	f := &Feature{
+		entitlements: services.ConnectorEntitlementsOrAlways(entitlements),
+		slug:         slug,
+		answers:      nil,
+		failures:     &failures{now: time.Now, until: map[entitlementKey]time.Time{}},
+	}
 	if ttl > 0 {
 		f.answers = &answers{ttl: ttl, now: time.Now, byEntitlement: map[entitlementKey]answer{}}
 	}
@@ -194,19 +234,35 @@ func (f *Feature) Granted(ctx context.Context, organizationID uuid.UUID) bool {
 			return granted
 		}
 	}
+	key := entitlementKey{organizationID: organizationID, slug: f.slug}
+	if f.failures != nil && f.failures.waiting(key) {
+		return f.fallback(organizationID)
+	}
 	granted, err := f.entitlements.Entitled(ctx, organizationID, f.slug)
 	if err != nil {
-		if f.answers != nil {
-			if last, _, ok := f.answers.get(organizationID, f.slug); ok {
-				return last
-			}
+		if f.failures != nil {
+			f.failures.record(key)
 		}
-		return f.unknown
+		return f.fallback(organizationID)
+	}
+	if f.failures != nil {
+		f.failures.clear(key)
 	}
 	if f.answers != nil {
 		f.answers.set(organizationID, f.slug, granted)
 	}
 	return granted
+}
+
+// fallback is what the feature reads when the licensing authority cannot answer:
+// its last answer, fresh or stale, else its unknown value.
+func (f *Feature) fallback(organizationID uuid.UUID) bool {
+	if f.answers != nil {
+		if last, _, ok := f.answers.get(organizationID, f.slug); ok {
+			return last
+		}
+	}
+	return f.unknown
 }
 
 type answer struct {

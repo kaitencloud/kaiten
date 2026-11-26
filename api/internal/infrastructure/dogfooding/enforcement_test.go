@@ -392,11 +392,11 @@ func TestEnforceStockLimit_SetsTheNextCountAndAllows(t *testing.T) {
 func TestEnforceStockLimit_RefusalIsAConflictWithTheCallersCode(t *testing.T) {
 	reporter := &stockReporter{err: fmt.Errorf("enforce: %w", dogfooding.ErrThresholdExceeded)}
 
-	err := dogfooding.EnforceStockLimit(t.Context(), reporter, uuid.New(), dogfooding.ConnectorEntitlementSlug, 2, "ActivateConnector.LimitReached", "limit")
+	err := dogfooding.EnforceStockLimit(t.Context(), reporter, uuid.New(), dogfooding.ConnectorEntitlementSlug, 2, "ActivateConnector.EntitlementLimitReached", "limit")
 
 	var apiErr *kaitenerrors.Error
-	if !errors.As(err, &apiErr) || apiErr.Code != "ActivateConnector.LimitReached" || apiErr.HTTPStatus() != http.StatusConflict {
-		t.Fatalf("EnforceStockLimit() = %v, want a 409 ActivateConnector.LimitReached", err)
+	if !errors.As(err, &apiErr) || apiErr.Code != "ActivateConnector.EntitlementLimitReached" || apiErr.HTTPStatus() != http.StatusConflict {
+		t.Fatalf("EnforceStockLimit() = %v, want a 409 ActivateConnector.EntitlementLimitReached", err)
 	}
 }
 

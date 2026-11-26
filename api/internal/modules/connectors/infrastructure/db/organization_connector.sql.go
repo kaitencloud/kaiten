@@ -150,3 +150,15 @@ func (q *Queries) ListConnectorActivations(ctx context.Context, organizationID u
 	}
 	return items, nil
 }
+
+const lockConnectorActivations = `-- name: LockConnectorActivations :exec
+SELECT pg_advisory_xact_lock(hashtextextended('connectors:' || $1::uuid::text, 0))
+`
+
+// Serializes the activations of one organization for the rest of the
+// transaction, so the count an activation takes after its insert sees every
+// activation committed before it.
+func (q *Queries) LockConnectorActivations(ctx context.Context, organizationID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, lockConnectorActivations, organizationID)
+	return err
+}

@@ -261,6 +261,18 @@ func (q *Queries) GetServiceAccounts(ctx context.Context, arg GetServiceAccounts
 	return items, nil
 }
 
+const lockServiceAccounts = `-- name: LockServiceAccounts :exec
+SELECT pg_advisory_xact_lock(hashtextextended('service-accounts:' || $1::uuid::text, 0))
+`
+
+// Serializes the creates of one organization for the rest of the transaction,
+// so the count a create takes after its insert sees every account committed
+// before it: two creates racing for the last place cannot both keep theirs.
+func (q *Queries) LockServiceAccounts(ctx context.Context, organizationID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, lockServiceAccounts, organizationID)
+	return err
+}
+
 const softDeleteServiceAccount = `-- name: SoftDeleteServiceAccount :one
 UPDATE "user" u
 SET deleted_at = now()
