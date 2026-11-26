@@ -1,19 +1,28 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from '../_support/app-test';
 import {
+  expectDialogAccessible,
   expectNoAccessibilityViolations,
   settle,
   useLightTheme,
 } from '../_support/assertions/accessibility';
+import { WebhooksDeliveriesDriver } from '../_support/drivers/webhooks-deliveries.driver';
 import { WebhooksFormDriver } from '../_support/drivers/webhooks-form.driver';
 import { WebhooksListDriver } from '../_support/drivers/webhooks-list.driver';
 import { installWebhooksAppMocks } from '../_support/mocks/install-webhooks-app-mocks';
-import { createWebhooksFormModel } from '../webhooks/webhooks.scenarios';
+import {
+  createWebhooksDeliveriesModel,
+  createWebhooksFormModel,
+  OPS_WEBHOOK_URL,
+  WEBHOOKS_DELIVERIES_NOW,
+} from '../webhooks/webhooks.scenarios';
 
 // The webhooks as a person who cannot use a mouse or a screen meets them: no
 // violation on the create and edit page, folded, opened and searched, in either
 // theme; every control of the picker named, the group checkbox saying when it
-// holds part of its group, and the list's Edit action named by the host.
+// holds part of its group, and the list's Edit action named by the host. The
+// deliveries too: the list with its strips, the dialog with a body long enough
+// to scroll, and the History tab's detail, the focus held and given back.
 
 async function expectAccessibleInBothThemes(page: Page) {
   await settle(page);
@@ -113,5 +122,71 @@ test.describe('accessibility of the list of webhooks', () => {
       list.editRow('https://ops.example.com/kaiten/instances'),
     ).toHaveAccessibleName('Edit webhook ops.example.com');
     await expectNoAccessibilityViolations(page);
+  });
+});
+
+test.describe('accessibility of the deliveries', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date(WEBHOOKS_DELIVERIES_NOW));
+    await installWebhooksAppMocks(page, createWebhooksDeliveriesModel());
+  });
+
+  test('the list with its Deliveries column has no violation in either theme', async ({
+    page,
+  }) => {
+    const deliveries = new WebhooksDeliveriesDriver(page);
+    await deliveries.gotoList();
+    await expect(deliveries.deliveriesCell(OPS_WEBHOOK_URL)).toBeVisible();
+
+    await expectAccessibleInBothThemes(page);
+  });
+
+  test('the dialog, its long body open, has none, holds the focus and gives it back', async ({
+    page,
+  }) => {
+    const deliveries = new WebhooksDeliveriesDriver(page);
+    await deliveries.gotoList();
+    await deliveries.openDeliveries(OPS_WEBHOOK_URL);
+    // The newest delivery's body is taller than its box: it scrolls.
+    await expect(deliveries.payload()).toBeVisible();
+    const scrolls = await deliveries
+      .payload()
+      .evaluate((node) => node.scrollHeight > node.clientHeight);
+    expect(scrolls).toBe(true);
+
+    await expectDialogAccessible(page, deliveries.dialog());
+
+    await expect(deliveries.deliveriesCell(OPS_WEBHOOK_URL)).toBeFocused();
+  });
+
+  test('the dialog has none in the light theme', async ({ page }) => {
+    const deliveries = new WebhooksDeliveriesDriver(page);
+    await deliveries.gotoList();
+    await useLightTheme(page);
+    await deliveries.openDeliveries(OPS_WEBHOOK_URL);
+    await expect(deliveries.payload()).toBeVisible();
+    await deliveries.deliveries().nth(2).click();
+    await expect(deliveries.responseHeading()).toHaveText(
+      'Response · attempt 3 of 3',
+    );
+
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+
+    // A retrying delivery selected: its amber outcome on the selection.
+    await deliveries.deliveries().nth(3).click();
+    await settle(page);
+    await expectNoAccessibilityViolations(page);
+  });
+
+  test('the History tab’s detail has none, and holds the focus', async ({
+    page,
+  }) => {
+    const deliveries = new WebhooksDeliveriesDriver(page);
+    await deliveries.gotoHistory();
+    await deliveries.viewDetails(deliveries.historyRows().first());
+    await expect(deliveries.payload()).toBeVisible();
+
+    await expectDialogAccessible(page, deliveries.historyDialog());
   });
 });

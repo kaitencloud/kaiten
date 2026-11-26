@@ -6,8 +6,11 @@ import {
   WebhooksAppModel,
 } from '../../e2e/app/_support/model/webhooks-app-model';
 import {
+  createWebhooksDeliveriesModel,
   createWebhooksFormModel,
+  createWebhooksLegacyHistoryModel,
   createWebhookWithoutFilterModel,
+  OPS_MESSAGES,
 } from '../../e2e/app/webhooks/webhooks.scenarios';
 import { server } from './msw-server';
 
@@ -218,5 +221,181 @@ describe('webhooks mocks', () => {
           ],
         }),
     ).toThrow(/duplicate/);
+  });
+  describe('deliveries', () => {
+    type Listed = {
+      messages: Array<{ messageId: string; status: string; lastAttempt?: unknown; attemptCount?: number }>;
+      summary: Record<string, number>;
+      hasMore: boolean;
+      webhook: { id: string; createdAt: string };
+    };
+    type Detail = {
+      payloadAvailable: boolean;
+      payload: unknown;
+      attempts: Array<{ id: string; status: string; triggerType: string; timestamp: string }>;
+    };
+
+    it('lists a webhook\'s messages newest first, with or without attempts', async () => {
+      install(createWebhooksDeliveriesModel());
+
+      const response = await call('/webhooks/ep_ops/messages?limit=20&withAttempts=false');
+      expect(response.headers.get('Cache-Control')).toBe('no-store');
+      const strip = (await response.json()) as Listed;
+      expect(strip.messages).toHaveLength(20);
+      expect(strip.messages[0]?.messageId).toBe(OPS_MESSAGES.newest);
+      expect(strip.messages.some((message) => 'lastAttempt' in message)).toBe(false);
+      expect(strip.summary).toEqual({ total: 20, delivered: 16, failed: 2, pending: 2 });
+      expect(strip.hasMore).toBe(true);
+
+      const dialog = (await (await call('/webhooks/ep_ops/messages')).json()) as Listed;
+      expect(dialog.messages).toHaveLength(25);
+      expect(dialog.hasMore).toBe(false);
+      expect(dialog.summary).toEqual({ total: 25, delivered: 19, failed: 4, pending: 2 });
+      const failed = dialog.messages.find((message) => message.messageId === OPS_MESSAGES.failed);
+      expect(failed).toMatchObject({ status: 'fail', attemptCount: 3 });
+      expect(failed?.lastAttempt).not.toHaveProperty('response');
+
+      expect((await call('/webhooks/ep_ops/messages?limit=101')).status).toBe(400);
+      expect(await (await call('/webhooks/ep_unknown/messages')).json()).toMatchObject({
+        code: 'GetWebhookMessages.WebhookNotFound',
+      });
+    });
+
+    it('reads a message with its attempts newest first, and refuses one of another webhook', async () => {
+      install(createWebhooksDeliveriesModel());
+
+      const message = (await (
+        await call(`/webhooks/ep_ops/messages/${OPS_MESSAGES.resent}`)
+      ).json()) as Detail;
+      expect(message.payloadAvailable).toBe(true);
+      expect(message.attempts.map((attempt) => attempt.triggerType)).toEqual([
+        'manual',
+        'scheduled',
+        'scheduled',
+      ]);
+
+      const expired = (await (
+        await call('/webhooks/ep_audit/messages/msg_audit_0')
+      ).json()) as Detail;
+      expect(expired).toMatchObject({ payloadAvailable: false, payload: null });
+
+      const elsewhere = await call(`/webhooks/ep_crm/messages/${OPS_MESSAGES.newest}`);
+      expect(elsewhere.status).toBe(404);
+      expect(await elsewhere.json()).toMatchObject({ code: 'GetWebhookMessage.NotDelivered' });
+      expect((await call('/webhooks/ep_ops/messages/evt_1')).status).toBe(400);
+    });
+
+    it('resends a message as a manual attempt that settles on the second read', async () => {
+      const config = install(createWebhooksDeliveriesModel());
+      const path = `/webhooks/ep_ops/messages/${OPS_MESSAGES.failedOnce}`;
+
+      const queued = await call(`${path}/resend`, { method: 'POST' });
+      expect(queued.status).toBe(202);
+      expect(await queued.json()).toEqual({
+        messageId: OPS_MESSAGES.failedOnce,
+        webhookId: 'ep_ops',
+      });
+
+      const first = (await (await call(path)).json()) as Detail;
+      expect(first.attempts[0]).toMatchObject({ status: 'sending', triggerType: 'manual' });
+      const second = (await (await call(path)).json()) as Detail;
+      expect(second.attempts[0]).toMatchObject({ status: 'success', triggerType: 'manual' });
+      expect(second.attempts).toHaveLength(2);
+
+      const persisted = WebhooksAppModel.fromSerialized(config.webhooks!);
+      expect(persisted.acceptedWrites).toEqual([
+        { operation: 'resend', webhookId: 'ep_ops', messageId: OPS_MESSAGES.failedOnce },
+      ]);
+      const history = persisted.history().history;
+      expect(history[0]).toMatchObject({
+        messageId: OPS_MESSAGES.failedOnce,
+        status: 'success',
+        triggerType: 'manual',
+      });
+    });
+
+    it('refuses a resend of an expired body, and one without write:webhooks', async () => {
+      install(createWebhooksDeliveriesModel());
+
+      const expired = await call('/webhooks/ep_audit/messages/msg_audit_0/resend', {
+        method: 'POST',
+      });
+      expect(expired.status).toBe(409);
+      expect(await expired.json()).toMatchObject({
+        code: 'ResendWebhookMessage.PayloadUnavailable',
+      });
+
+      const readOnly = await call(`/webhooks/ep_ops/messages/${OPS_MESSAGES.newest}/resend`, {
+        method: 'POST',
+        scopes: ['read:webhooks'],
+      });
+      expect(readOnly.status).toBe(403);
+      expect(await readOnly.json()).toMatchObject({ code: 'RequireScope.MissingScope' });
+    });
+
+    it('derives the history from the attempts, 50 per webhook at most', async () => {
+      const model = new WebhooksAppModel({
+        webhooks: [{ id: 'ep_busy', url: 'https://busy.example.com', eventTypes: [CUSTOMER_CREATED] }],
+        messages: Array.from({ length: 30 }, (_, index) => ({
+          hookId: 'ep_busy',
+          messageId: `msg_busy_${index}`,
+          eventType: CUSTOMER_CREATED,
+          timestamp: new Date(Date.UTC(2026, 10, 26, 10, index)).toISOString(),
+          payload: {},
+          attempts: [0, 1].map((attempt) => ({
+            id: `atmpt_busy_${index}_${attempt}`,
+            timestamp: new Date(Date.UTC(2026, 10, 26, 10, index, attempt)).toISOString(),
+            status: attempt === 0 ? ('fail' as const) : ('success' as const),
+            triggerType: 'scheduled' as const,
+          })),
+        })),
+      });
+      install(model);
+
+      const { history } = (await (await call('/webhooks/history')).json()) as {
+        history: Array<{ attemptId: string }>;
+      };
+      expect(history).toHaveLength(50);
+      expect(history[0]?.attemptId).toBe('atmpt_busy_29_1');
+    });
+
+    it('answers the history of an older saas-api without message ids', async () => {
+      install(createWebhooksLegacyHistoryModel());
+
+      const { history } = (await (await call('/webhooks/history')).json()) as {
+        history: Array<Record<string, unknown>>;
+      };
+      expect(history.length).toBeGreaterThan(0);
+      expect(history.some((entry) => 'messageId' in entry || 'attemptId' in entry)).toBe(false);
+    });
+
+    it('refuses a seed with a duplicate attempt id or a message id that is not one', () => {
+      const webhooks = [{ id: 'ep_a', url: 'https://a.example.com', eventTypes: [] }];
+      const attempt = {
+        id: 'atmpt_1',
+        timestamp: '2026-11-26T10:00:00Z',
+        status: 'success' as const,
+        triggerType: 'scheduled' as const,
+      };
+      const message = {
+        hookId: 'ep_a',
+        messageId: 'msg_1',
+        eventType: CUSTOMER_CREATED,
+        timestamp: '2026-11-26T10:00:00Z',
+        payload: {},
+        attempts: [attempt],
+      };
+
+      expect(
+        () =>
+          new WebhooksAppModel({
+            webhooks,
+            messages: [message, { ...message, messageId: 'msg_2' }],
+          }),
+      ).toThrow(/duplicate attempt id/);
+      expect(
+        () => new WebhooksAppModel({ webhooks, messages: [{ ...message, messageId: 'evt_1' }] }),
+      ).toThrow();
+    });
   });
 });

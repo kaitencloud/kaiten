@@ -103,6 +103,7 @@ const storybookTestExclude = [
   'src/features/releases/components/stories/release-form.stories.tsx',
   'src/features/releases/components/stories/release-table.stories.tsx',
   'src/features/settings/components/stories/settings-page-content.stories.tsx',
+  'src/features/webhooks/components/stories/webhook-deliveries.stories.tsx',
   'src/features/webhooks/components/stories/webhook-form.stories.tsx',
   'src/features/webhooks/components/stories/webhooks.stories.tsx',
   'src/functionals/cel-editor/stories/cel-editor.stories.tsx',

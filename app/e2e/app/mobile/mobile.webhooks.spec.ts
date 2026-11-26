@@ -4,10 +4,17 @@ import { settle } from '../_support/assertions/accessibility';
 import {
   expectNoHorizontalScroll,
   expectOnScreen,
+  expectScrollsInside,
 } from '../_support/assertions/layout';
+import { WebhooksDeliveriesDriver } from '../_support/drivers/webhooks-deliveries.driver';
 import { WebhooksFormDriver } from '../_support/drivers/webhooks-form.driver';
 import { installWebhooksAppMocks } from '../_support/mocks/install-webhooks-app-mocks';
-import { createWebhooksFormModel } from '../webhooks/webhooks.scenarios';
+import {
+  createWebhooksDeliveriesModel,
+  createWebhooksFormModel,
+  OPS_WEBHOOK_URL,
+  WEBHOOKS_DELIVERIES_NOW,
+} from '../webhooks/webhooks.scenarios';
 
 // The create and edit page of a webhook on the narrowest phone: the page keeps
 // the width of the screen, and its one column reads Destination, the catalogue,
@@ -18,10 +25,6 @@ const WIDTH = 375;
 
 test.use({ ...devices['Pixel 5'], viewport: { height: 812, width: WIDTH } });
 
-test.beforeEach(async ({ page }) => {
-  await installWebhooksAppMocks(page, createWebhooksFormModel());
-});
-
 async function top(locator: Locator) {
   const box = await locator.boundingBox();
   expect(box).not.toBeNull();
@@ -29,6 +32,10 @@ async function top(locator: Locator) {
 }
 
 test.describe('the webhook form, on the narrowest phone', () => {
+  test.beforeEach(async ({ page }) => {
+    await installWebhooksAppMocks(page, createWebhooksFormModel());
+  });
+
   test('keeps the width of the screen, with a group open and a Slack URL typed', async ({
     page,
   }) => {
@@ -87,5 +94,59 @@ test.describe('the webhook form, on the narrowest phone', () => {
     await expectNoHorizontalScroll(page, WIDTH);
     await expectOnScreen(page, form.url());
     await expectOnScreen(page, form.selection());
+  });
+});
+
+test.describe('the deliveries, on the narrowest phone', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.clock.setFixedTime(new Date(WEBHOOKS_DELIVERIES_NOW));
+    await installWebhooksAppMocks(page, createWebhooksDeliveriesModel());
+  });
+
+  test('the list keeps the width of the screen, the table scrolls inside', async ({
+    page,
+  }) => {
+    const deliveries = new WebhooksDeliveriesDriver(page);
+    await deliveries.gotoList();
+    await expect(deliveries.deliveriesCell(OPS_WEBHOOK_URL)).toBeAttached();
+    await settle(page);
+
+    await expectNoHorizontalScroll(page, WIDTH);
+    await expectScrollsInside(page.getByRole('table'));
+  });
+
+  test('the dialog shows the list, then the delivery chosen, and goes back', async ({
+    page,
+  }) => {
+    const deliveries = new WebhooksDeliveriesDriver(page);
+    await deliveries.gotoList();
+    await deliveries.deliveriesCell(OPS_WEBHOOK_URL).scrollIntoViewIfNeeded();
+    await deliveries.openDeliveries(OPS_WEBHOOK_URL);
+
+    await expect(deliveries.chronology()).toBeVisible();
+    await expect(deliveries.detail()).toBeHidden();
+    await expectOnScreen(page, deliveries.dialog());
+
+    await deliveries.deliveries().first().click();
+
+    await expect(deliveries.chronology()).toBeHidden();
+    await expect(deliveries.payload()).toBeVisible();
+    await expectOnScreen(page, deliveries.dialog());
+    await expectOnScreen(page, deliveries.payload());
+    // The long body scrolls inside its own box, not the page.
+    const scrolls = await deliveries
+      .payload()
+      .evaluate(
+        (node) =>
+          node.scrollWidth > node.clientWidth ||
+          node.scrollHeight > node.clientHeight,
+      );
+    expect(scrolls).toBe(true);
+    await expectNoHorizontalScroll(page, WIDTH);
+
+    await deliveries.back();
+
+    await expect(deliveries.chronology()).toBeVisible();
+    await expect(deliveries.detail()).toBeHidden();
   });
 });

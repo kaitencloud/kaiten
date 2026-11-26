@@ -59,7 +59,10 @@ import {
   createVouchersNotShippedBillingModel,
 } from '../vouchers/vouchers.scenarios';
 import {
+  createWebhooksDeliveriesModel,
+  createWebhooksDeliveriesUnavailableModel,
   createWebhooksFormModel,
+  createWebhooksLegacyHistoryModel,
   createWebhookWithOtherEventsModel,
   createWebhookWithoutFilterModel,
 } from '../webhooks/webhooks.scenarios';
@@ -391,6 +394,15 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createWebhookWithOtherEventsModel,
   ],
   ['webhooks/createWebhookWithoutFilterModel', createWebhookWithoutFilterModel],
+  ['webhooks/createWebhooksDeliveriesModel', createWebhooksDeliveriesModel],
+  [
+    'webhooks/createWebhooksLegacyHistoryModel',
+    createWebhooksLegacyHistoryModel,
+  ],
+  [
+    'webhooks/createWebhooksDeliveriesUnavailableModel',
+    createWebhooksDeliveriesUnavailableModel,
+  ],
   ['licenses/createPublicPaidCatalogModel', createPublicPaidCatalogModel],
   [
     'release-management/createReleaseManagementReadModel',

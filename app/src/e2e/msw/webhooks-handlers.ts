@@ -24,8 +24,9 @@ function requireScope(request: Request, scope: WebhookScope) {
 /**
  * saas-api's `/api/webhooks` routes, over the `webhooks` model. Written by hand:
  * `app/openapi.yaml` does not describe them, so there is no generated handler.
- * The history is matched before `/:webhookId`; each write is persisted, so the
- * state survives a reload of the spec's page.
+ * The history is matched before `/:webhookId`; each write, and each read of a
+ * message (it settles a resend), is persisted, so the state survives a reload
+ * of the spec's page.
  */
 export const webhooksHandlers = (
   model: WebhooksAppModel,
@@ -42,7 +43,44 @@ export const webhooksHandlers = (
     '*/api/webhooks/history',
     withProblems(({ request }) => {
       requireScope(request, 'read:webhooks');
-      return HttpResponse.json({ history: [] });
+      return HttpResponse.json(model.history());
+    }),
+  ),
+  http.get<{ webhookId: string }>(
+    '*/api/webhooks/:webhookId/messages',
+    withProblems(({ params, request }) => {
+      requireScope(request, 'read:webhooks');
+      const query = new URL(request.url).searchParams;
+      const list = model.listMessages(params.webhookId, {
+        limit: query.get('limit'),
+        withAttempts: query.get('withAttempts'),
+      });
+
+      return HttpResponse.json(list, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }),
+  ),
+  http.get<{ webhookId: string; messageId: string }>(
+    '*/api/webhooks/:webhookId/messages/:messageId',
+    withProblems(({ params, request }) => {
+      requireScope(request, 'read:webhooks');
+      const message = model.getMessage(params.webhookId, params.messageId);
+      persist();
+
+      return HttpResponse.json(message, {
+        headers: { 'Cache-Control': 'no-store' },
+      });
+    }),
+  ),
+  http.post<{ webhookId: string; messageId: string }>(
+    '*/api/webhooks/:webhookId/messages/:messageId/resend',
+    withProblems(({ params, request }) => {
+      requireScope(request, 'write:webhooks');
+      const queued = model.resend(params.webhookId, params.messageId);
+      persist();
+
+      return HttpResponse.json(queued, { status: 202 });
     }),
   ),
   http.get<{ webhookId: string }>(
