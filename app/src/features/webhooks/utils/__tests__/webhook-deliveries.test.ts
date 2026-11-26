@@ -284,6 +284,56 @@ describe('resolveDeliveryState', () => {
 
     expect(resolveDeliveryState(delivery, attempts).status).toBe('sending');
   });
+
+  it('follows the attempt the list caught sending, once the read sees it settled', () => {
+    const delivery = mapMessageSummaryToDelivery(
+      summary({
+        status: 'sending',
+        attemptCount: 2,
+        lastAttempt: attempt('atmpt_2', '2026-11-26T09:30:00Z', {
+          status: 'sending',
+          triggerType: 'manual',
+        }),
+      }),
+      'ep_orders',
+    );
+    const attempts = resolveAttempts(delivery, {
+      attempts: [
+        attempt('atmpt_2', '2026-11-26T09:30:00Z', {
+          status: 'success',
+          triggerType: 'manual',
+        }),
+        attempt('atmpt_1', '2026-11-26T08:40:06Z', { status: 'fail' }),
+      ],
+    });
+
+    expect(resolveDeliveryState(delivery, attempts)).toEqual({
+      status: 'success',
+    });
+  });
+
+  it('keeps the list status while the read shows its last attempt unchanged', () => {
+    const delivery = mapMessageSummaryToDelivery(
+      summary({
+        status: 'pending',
+        nextAttempt: '2026-11-26T09:10:03Z',
+        lastAttempt: attempt('atmpt_1', '2026-11-26T08:40:06Z', {
+          status: 'fail',
+        }),
+      }),
+      'ep_orders',
+    );
+    const attempts = resolveAttempts(delivery, {
+      attempts: [
+        attempt('atmpt_1', '2026-11-26T08:40:06Z', { status: 'fail' }),
+      ],
+    });
+
+    expect(resolveDeliveryState(delivery, attempts)).toEqual({
+      status: 'pending',
+      nextAttempt: '2026-11-26T09:10:03Z',
+    });
+  });
 });
 
 describe('describeDeliveryOutcome', () => {

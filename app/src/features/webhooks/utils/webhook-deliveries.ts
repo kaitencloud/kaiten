@@ -162,10 +162,30 @@ export function resolveAttempts(
 }
 
 /**
+ * Whether the message read knows more than the list did: an attempt newer than
+ * the list's last one (a resend the list has not caught up with), or that same
+ * attempt in another state (the list caught it sending, the read after it
+ * settled).
+ */
+function isAheadOfList(
+  latest: WebhookMessageAttempt | undefined,
+  known: WebhookMessageAttempt | undefined,
+): boolean {
+  if (latest === undefined || known === undefined) {
+    return false;
+  }
+  if (latest.id === known.id) {
+    return latest.status !== known.status;
+  }
+
+  return compareAttempts(known, latest) < 0;
+}
+
+/**
  * The delivery's state against its attempts. A history attempt gives way to
  * the newest attempt; the list's message status holds, retrying included,
- * unless the message shows an attempt newer than the one the list knew (a
- * resend the list has not caught up with).
+ * unless the message read is ahead of the list (see `isAheadOfList`): its
+ * newest attempt then gives the status, without the list's next attempt.
  */
 export function resolveDeliveryState(
   delivery: WebhookDelivery,
@@ -173,13 +193,8 @@ export function resolveDeliveryState(
 ): { status: WebhookDeliveryStatus; nextAttempt?: string } {
   const latest = attempts.at(-1);
   const known = delivery.attempts.at(-1);
-  const newerThanKnown =
-    latest !== undefined &&
-    known !== undefined &&
-    latest.id !== known.id &&
-    compareAttempts(known, latest) < 0;
 
-  if (delivery.statusSource === 'message' && !newerThanKnown) {
+  if (delivery.statusSource === 'message' && !isAheadOfList(latest, known)) {
     return { status: delivery.status, nextAttempt: delivery.nextAttempt };
   }
 
