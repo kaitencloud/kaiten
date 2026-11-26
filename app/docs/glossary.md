@@ -204,6 +204,10 @@ A **token** authenticates a service account. Its value is returned once, when it
 
 An outbound HTTP subscription to events. A webhook has a URL and a signing secret that the console reveals on demand, can be edited (its URL and its events; the secret stays), subscribes to event types such as `com.kaiten.license.v1.created`, and has a delivery history. The console calls its endpoints from `app/src/features/webhooks/webhooks.api.ts`; they are not in `app/openapi.yaml`, whose `webhooks` section declares the events. Feature: `app/src/features/webhooks/`.
 
+### Delivery
+
+One event published to one webhook. The delivery provider (Svix) holds it as a *message* with one or more *attempts*: the first, the retries it schedules after a failure, and any manual resend. The console's "delivery" is the message: the Deliveries column and dialog of the webhooks list count messages, and their status is the message's (a failed message that waits for a retry is "retrying"). A row of the History tab is one attempt. The payload of a delivery is kept for a limited time only. Feature: `app/src/features/webhooks/`.
+
 ### Audit trail
 
 The record of the events of an organization: each entry has an `eventName`, an `eventType`, a `timestamp` and a `payload`. The API exposes it per instance (`GET /instances/{instanceSlug}/audit-trails`) and, through GraphQL, for the whole organization (`organizationAuditTrails`). The console shows all the events on `/audit-trail`, including those tied to no instance, such as a customer created, and one instance's events on its detail page. Each event the API emits has a label in the console, typed against the contract so that a new event fails the type check until it has one. Code: `app/src/domains/audit-trail/` and `app/src/features/audit-trail/`.

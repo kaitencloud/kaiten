@@ -137,8 +137,12 @@ export const customersWithInstancesQueryOptions = queryOptions({
 
 Other examples are `instancesWithRelationsBaseQueryKey`
 (`app/src/domains/customer-management/queries/`), `licensesWithInstancesBaseQueryKey`
-(`app/src/features/licenses/queries/`) and `webhooksBaseQueryKey`
-(`app/src/features/webhooks/queries/`). The dashboard's summary
+(`app/src/features/licenses/queries/`), and `webhooksBaseQueryKey`,
+`webhookMessagesListBaseQueryKey` (a webhook's recent messages) and
+`webhookMessageBaseQueryKey` (one message with its payload)
+(`app/src/features/webhooks/queries/`). The two message keys have second
+segments of their own, `messages-list` and `messages`, so that invalidating one
+never reaches the other, while `['webhooks']` reaches both. The dashboard's summary
 (`app/src/features/dashboard/queries/dashboard-summary.ts`) spreads the options the
 generated client builds for `getDashboardSummary`, so its key is the generated one,
 with the period in it. No mutation invalidates it: it is a read over the whole
@@ -193,6 +197,7 @@ slug:
 | `invalidateLicenseQueries(queryClient, licenseSlug?)` | The license lists and families, the license's detail and entitlements, then refetches them |
 | `invalidatePublishableKeyQueries(queryClient)` | The list of publishable keys, with the revoked ones and without |
 | `invalidateWebhookQueries(queryClient)`, `invalidateNotificationFeedQueries(queryClient)`, `invalidateAttioQueries(queryClient)` | The webhooks, the notification feed and the Attio connector |
+| `invalidateWebhookDeliveryQueries(queryClient, webhookId, messageId)` | After a resend: the delivery history, the webhook's message lists and the message, not the list of webhooks |
 | `invalidateInstanceBillingQueries(queryClient, instanceSlug)`, `invalidateInvoiceQueries(queryClient, invoiceId?)`, `invalidateLicensePriceQueries(queryClient, licenseSlug)`, `invalidateBillingSettingsQueries(queryClient)` | An instance's subscription, upcoming invoice and invoices (and the instance itself, and the Billing column of the lists of instances), the invoices and the handoff queue (and the Billing column of the lists of instances, since settling an invoice can end PAST_DUE), the prices of a license version (and the license versions read with their prices, `licensesWithPricesBaseQueryKey`), the billing settings and capabilities |
 
 They live in `app/src/domains/customer-management/queries/`,
