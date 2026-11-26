@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { getApiErrorMessage, isNotFoundError } from '@/lib/errors';
 import {
   invalidateWebhookQueries,
+  removeWebhookQueries,
   saveWebhookOnFresh,
   webhooksQueryOptions,
 } from '../queries';
@@ -66,8 +67,8 @@ export function useWebhookMutations() {
     mutationFn: saveWebhookOnFresh,
     onSuccess: async (webhook) => {
       // The answer carries no secret, nor does a list entry: replacing the entry
-      // in place is safe. The detail entry, which holds the secret, is
-      // invalidated by prefix below rather than overwritten.
+      // in place is safe. The detail entries, which hold the secret, are
+      // invalidated by their prefix below rather than overwritten.
       upsertWebhookInCache(queryClient, webhook);
       await invalidateWebhookQueries(queryClient);
     },
@@ -87,6 +88,9 @@ export function useWebhookMutations() {
     onSuccess: async (_data, variables) => {
       removeWebhookFromCache(queryClient, variables.path.webhookId);
       await invalidateWebhookQueries(queryClient);
+      // Its row is gone by now: forget what it read, rather than read it again
+      // into a 404.
+      removeWebhookQueries(queryClient, variables.path.webhookId);
     },
     onError: (error) => {
       toast.error(getApiErrorMessage(error));

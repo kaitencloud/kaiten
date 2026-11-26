@@ -142,7 +142,9 @@ Other examples are `instancesWithRelationsBaseQueryKey`
 `webhookMessageBaseQueryKey` (one message with its payload)
 (`app/src/features/webhooks/queries/`). The two message keys have second
 segments of their own, `messages-list` and `messages`, so that invalidating one
-never reaches the other, while `['webhooks']` reaches both. The dashboard's summary
+never reaches the other. `['webhooks']` is a prefix of both, so the list of
+webhooks is invalidated with `exact: true`: a write to a webhook does not change
+its deliveries. The dashboard's summary
 (`app/src/features/dashboard/queries/dashboard-summary.ts`) spreads the options the
 generated client builds for `getDashboardSummary`, so its key is the generated one,
 with the period in it. No mutation invalidates it: it is a read over the whole
@@ -196,7 +198,9 @@ slug:
 | `invalidateReleaseQueries(queryClient, releaseSlug?)` | The releases, components and deployment zones, the release overview, and the release's detail |
 | `invalidateLicenseQueries(queryClient, licenseSlug?)` | The license lists and families, the license's detail and entitlements, then refetches them |
 | `invalidatePublishableKeyQueries(queryClient)` | The list of publishable keys, with the revoked ones and without |
-| `invalidateWebhookQueries(queryClient)`, `invalidateNotificationFeedQueries(queryClient)`, `invalidateAttioQueries(queryClient)` | The webhooks, the notification feed and the Attio connector |
+| `invalidateWebhookQueries(queryClient)` | After a create, an update or a delete: the list of webhooks and the delivery history (both exact) and the webhooks' details (by prefix), not their message lists nor their messages |
+| `removeWebhookQueries(queryClient, webhookId)` | After a delete: removes, rather than invalidates, the webhook's detail, message lists and messages |
+| `invalidateNotificationFeedQueries(queryClient)`, `invalidateAttioQueries(queryClient)` | The notification feed and the Attio connector |
 | `invalidateWebhookDeliveryQueries(queryClient, webhookId, messageId)` | After a resend: the delivery history, the webhook's message lists and the message, not the list of webhooks |
 | `invalidateInstanceBillingQueries(queryClient, instanceSlug)`, `invalidateInvoiceQueries(queryClient, invoiceId?)`, `invalidateLicensePriceQueries(queryClient, licenseSlug)`, `invalidateBillingSettingsQueries(queryClient)` | An instance's subscription, upcoming invoice and invoices (and the instance itself, and the Billing column of the lists of instances), the invoices and the handoff queue (and the Billing column of the lists of instances, since settling an invoice can end PAST_DUE), the prices of a license version (and the license versions read with their prices, `licensesWithPricesBaseQueryKey`), the billing settings and capabilities |
 

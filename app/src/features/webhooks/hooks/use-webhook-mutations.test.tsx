@@ -4,7 +4,10 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { ApiError } from '@/lib/errors';
 import {
+  webhookDetailQueryOptions,
   webhookHistoryQueryOptions,
+  webhookMessageQueryOptions,
+  webhookMessagesQueryOptions,
   webhooksQueryOptions,
 } from '../queries';
 import type { ApiWebhook } from '../types';
@@ -28,30 +31,29 @@ vi.mock('sonner', () => ({
   },
 }));
 
-vi.mock('../webhooks.api', () => ({
+vi.mock('../webhooks.api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../webhooks.api')>()),
   createWebhook: createWebhookMock,
   deleteWebhook: deleteWebhookMock,
-  getWebhook: vi.fn(),
-  updateWebhook: vi.fn(),
 }));
 
-vi.mock('../queries', () => ({
+vi.mock('../queries', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../queries')>()),
   saveWebhookOnFresh: saveWebhookOnFreshMock,
-  webhooksQueryOptions: {
-    queryKey: [{ _id: 'getWebhooks', baseURL: 'http://stale-base-url' }],
-  },
-  webhookHistoryQueryOptions: {
-    queryKey: [{ _id: 'getWebhookHistory', baseURL: 'http://stale-base-url' }],
-  },
-  invalidateWebhookQueries: vi.fn(async (queryClient: QueryClient) => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: webhooksQueryOptions.queryKey }),
-      queryClient.invalidateQueries({
-        queryKey: webhookHistoryQueryOptions.queryKey,
-      }),
-    ]);
-  }),
 }));
+
+/** What a create, an update or a delete invalidates: no message list nor message. */
+function expectWebhookQueriesInvalidated(spy: {
+  mock: { calls: unknown[][] };
+}) {
+  expect(spy.mock.calls.map(([filters]) => filters)).toEqual(
+    expect.arrayContaining([
+      { queryKey: webhooksQueryOptions.queryKey, exact: true },
+      { queryKey: webhookHistoryQueryOptions.queryKey, exact: true },
+      { queryKey: ['webhooks', 'detail'] },
+    ]),
+  );
+}
 
 const existingWebhook: ApiWebhook = {
   createdAt: '2026-03-01T12:00:00Z',
@@ -127,12 +129,38 @@ describe('useWebhookMutations', () => {
       ]);
     });
 
-    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-      queryKey: webhooksQueryOptions.queryKey,
+    expectWebhookQueriesInvalidated(invalidateQueriesSpy);
+  });
+
+  it("leaves the webhooks' deliveries alone", async () => {
+    const messagesKey = webhookMessagesQueryOptions(existingWebhook.id, {
+      limit: 20,
+      withAttempts: false,
+    }).queryKey;
+    const messageKey = webhookMessageQueryOptions(
+      existingWebhook.id,
+      'msg_1',
+    ).queryKey;
+    const detailKey = webhookDetailQueryOptions(existingWebhook.id).queryKey;
+    queryClient.setQueryData(messagesKey, { messages: [] });
+    queryClient.setQueryData(messageKey, { messageId: 'msg_1' });
+    queryClient.setQueryData(detailKey, existingWebhook);
+    const { result } = renderHook(() => useWebhookMutations(), {
+      wrapper: createWrapper(),
     });
-    expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-      queryKey: webhookHistoryQueryOptions.queryKey,
+
+    await act(async () => {
+      await result.current.createWebhook.mutateAsync({
+        body: {
+          eventTypes: ['com.kaiten.instance.v1.updated'],
+          url: 'https://example.com/created',
+        },
+      });
     });
+
+    expect(queryClient.getQueryState(messagesKey)?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(messageKey)?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryState(detailKey)?.isInvalidated).toBe(true);
   });
 
   it('removes the webhook from cache immediately after deleting it', async () => {
@@ -156,6 +184,39 @@ describe('useWebhookMutations', () => {
         existingWebhook,
       ]);
     });
+  });
+
+  it("forgets the deleted webhook's detail and deliveries, not the others'", async () => {
+    const keysOf = (webhookId: string) => [
+      webhookDetailQueryOptions(webhookId).queryKey,
+      webhookMessagesQueryOptions(webhookId, { limit: 20, withAttempts: false })
+        .queryKey,
+      webhookMessageQueryOptions(webhookId, 'msg_1').queryKey,
+    ];
+    for (const key of [
+      ...keysOf(createdWebhook.id),
+      ...keysOf(existingWebhook.id),
+    ]) {
+      queryClient.setQueryData(key, {});
+    }
+    const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
+    const { result } = renderHook(() => useWebhookMutations(), {
+      wrapper: createWrapper(),
+    });
+
+    await act(async () => {
+      await result.current.deleteWebhook.mutateAsync({
+        path: { webhookId: createdWebhook.id },
+      });
+    });
+
+    expectWebhookQueriesInvalidated(invalidateQueriesSpy);
+    for (const key of keysOf(createdWebhook.id)) {
+      expect(queryClient.getQueryState(key)).toBeUndefined();
+    }
+    for (const key of keysOf(existingWebhook.id)) {
+      expect(queryClient.getQueryState(key)).toBeDefined();
+    }
   });
 
   describe('updateWebhook', () => {
@@ -196,12 +257,7 @@ describe('useWebhookMutations', () => {
         createdWebhook,
         updatedWebhook,
       ]);
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: webhooksQueryOptions.queryKey,
-      });
-      expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-        queryKey: webhookHistoryQueryOptions.queryKey,
-      });
+      expectWebhookQueriesInvalidated(invalidateQueriesSpy);
       expect(toastErrorMock).not.toHaveBeenCalled();
     });
 
@@ -244,9 +300,7 @@ describe('useWebhookMutations', () => {
 
       expect(toastErrorMock).toHaveBeenCalledTimes(1);
       await waitFor(() => {
-        expect(invalidateQueriesSpy).toHaveBeenCalledWith({
-          queryKey: webhooksQueryOptions.queryKey,
-        });
+        expectWebhookQueriesInvalidated(invalidateQueriesSpy);
       });
     });
   });
