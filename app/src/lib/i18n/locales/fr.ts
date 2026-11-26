@@ -4874,6 +4874,7 @@ export default {
           signingSecretLoadError:
             'Impossible de charger le secret de signature',
           signingSecretCopyError: 'Impossible de copier le secret de signature',
+          edit: 'Modifier le webhook {{host}}',
         },
         Form: {
           titleNew: 'Nouveau webhook',

@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { Webhook } from '../../../types';
 import { WebhookTable } from '../webhook-table';
@@ -38,6 +38,30 @@ vi.mock('../../../webhooks.api', async (importOriginal) => {
     getWebhook: getWebhookMock,
   };
 });
+
+// The Edit action is a router link: rendered as a plain anchor, with the
+// params put into the path, so the test needs no router.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    params,
+    preload: _preload,
+    to,
+    ...props
+  }: {
+    children: ReactNode;
+    params?: Record<string, string>;
+    preload?: unknown;
+    to: string;
+  }) => (
+    <a
+      {...props}
+      href={to.replace('$webhookId', params?.webhookId ?? '$webhookId')}
+    >
+      {children}
+    </a>
+  ),
+}));
 
 vi.mock('sonner', () => ({
   toast: {
@@ -74,6 +98,7 @@ vi.mock('react-i18next', () => ({
         'Pages.Integrations.Webhooks.EventGroups.instance': 'Instances',
         'Pages.Integrations.Webhooks.EventGroups.other': 'Other events',
         'Pages.Integrations.Webhooks.Table.created': 'Created',
+        'Pages.Integrations.Webhooks.Table.edit': 'Edit webhook {{host}}',
         'Pages.Integrations.Webhooks.Table.events': 'Events',
         'Pages.Integrations.Webhooks.Table.signingSecret': 'Signing secret',
         'Pages.Integrations.Webhooks.Table.showSigningSecret':
@@ -91,7 +116,15 @@ vi.mock('react-i18next', () => ({
         'Pages.Integrations.Webhooks.Table.url': 'URL',
       };
 
-      return translations[key] ?? key;
+      const text = translations[key] ?? key;
+
+      return typeof options === 'object' && options !== null
+        ? Object.entries(options).reduce(
+            (result, [name, value]) =>
+              result.replace(`{{${name}}}`, String(value)),
+            text,
+          )
+        : text;
     },
   }),
 }));
@@ -258,6 +291,31 @@ describe('WebhookTable', () => {
       expect(clipboardWriteSpy).toHaveBeenCalledWith('whsec_test_secret');
     });
     expect(toastSuccessMock).toHaveBeenCalledWith('Signing secret copied');
+  });
+
+  it('links each row to the edit page of its webhook, named by its host', () => {
+    renderWebhookTable({
+      webhooks: [
+        {
+          createdAt: '2026-02-25',
+          eventTypes: ['com.kaiten.customer.v1.created'],
+          id: 'webhook-1',
+          url: 'https://hooks.slack.com/services/T000/B000/secret-path',
+        },
+      ],
+      onDelete: vi.fn(),
+    });
+
+    const edit = screen.getByRole('link', {
+      name: 'Edit webhook hooks.slack.com',
+    });
+
+    expect(edit).toHaveAttribute(
+      'href',
+      '/integrations/webhooks/webhook-1/edit',
+    );
+    // The label never repeats the URL: its path is a credential.
+    expect(edit.getAttribute('aria-label')).not.toContain('secret-path');
   });
 
   it('calls onDelete when clicking delete action', () => {

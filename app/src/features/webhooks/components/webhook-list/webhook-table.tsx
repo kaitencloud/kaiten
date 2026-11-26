@@ -14,8 +14,6 @@ import {
   createActionsColumn,
   DataTable,
   dataTableSortableHeader,
-  TableActions,
-  TableDeleteDialog,
 } from '@/functionals/table';
 import { useEllipsis } from '@/hooks/use-ellipsis';
 import { cn } from '@/lib/utils';
@@ -26,6 +24,7 @@ import {
   getWebhookEventGroupLabel,
 } from '../../utils/webhook-events';
 import { WebhookSigningSecretCell } from './webhook-signing-secret-cell';
+import { WebhookTableActions } from './webhook-table-actions';
 
 interface WebhookTableProps {
   className?: string;
@@ -197,17 +196,9 @@ function WebhookCreatedAtCell({ webhook }: { webhook: Webhook }) {
 }
 
 function createWebhookActionsCell(onDelete: (webhookId: string) => void) {
-  return (webhook: Webhook) => {
-    function handleConfirm() {
-      onDelete(webhook.id);
-    }
-
-    return (
-      <TableActions>
-        <TableDeleteDialog name={webhook.url} onConfirm={handleConfirm} />
-      </TableActions>
-    );
-  };
+  return (webhook: Webhook) => (
+    <WebhookTableActions webhook={webhook} onDelete={onDelete} />
+  );
 }
 
 const createColumns = (

@@ -4794,6 +4794,7 @@ export default {
           signingSecretCopied: 'Signing secret copied',
           signingSecretLoadError: 'Failed to load signing secret',
           signingSecretCopyError: 'Failed to copy signing secret',
+          edit: 'Edit webhook {{host}}',
         },
         Form: {
           titleNew: 'New Webhook',

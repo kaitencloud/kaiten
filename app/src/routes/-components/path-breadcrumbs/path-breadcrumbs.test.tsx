@@ -31,6 +31,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 const translations: Record<string, string> = {
+  'Common.edit': 'Edit',
   'Common.new': 'New',
   'Errors.notFound': 'Page not found',
   'Features.Releases.Actions.deploy': 'Deploy',
@@ -40,6 +41,7 @@ const translations: Record<string, string> = {
   'Pages.Customers.title': 'Customers',
   'Pages.FeatureFlags.title': 'Feature Flags',
   'Pages.Integrations.Webhooks.Tabs.history': 'History',
+  'Pages.Integrations.Webhooks.sectionTitle': 'Webhooks',
   'Pages.Integrations.title': 'Integrations',
   'Pages.Licenses.Prices.title': 'Prices',
   'Pages.Licenses.title': 'Licenses',
@@ -305,6 +307,42 @@ describe('PathBreadcrumbs', () => {
       screen.getByRole('link', { current: 'page', name: 'New' }),
     ).toBeInTheDocument();
     expect(screen.queryByText('sdk')).not.toBeInTheDocument();
+  });
+
+  it('names a webhook being edited by its host, outside the layout of the list', () => {
+    // `webhooks_/$webhookId/edit` hangs from the root: only its own match is
+    // there, and the levels above it are named by their segment.
+    mockRoutesByPath = {
+      '/integrations': {},
+      '/integrations/webhooks': {},
+      '/integrations/webhooks/$webhookId/edit': {},
+    };
+    mockUseMatches.mockReturnValue([
+      { pathname: '/', fullPath: '/', context: {} },
+      {
+        pathname: '/integrations/webhooks/ep_2a9f/edit',
+        fullPath: '/integrations/webhooks/$webhookId/edit',
+        context: { getTitle: () => 'hooks.slack.com' },
+      },
+    ]);
+
+    render(<PathBreadcrumbs />);
+
+    expect(screen.getByRole('link', { name: 'Webhooks' })).toHaveAttribute(
+      'href',
+      '/integrations/webhooks',
+    );
+    expect(screen.getByText('hooks.slack.com')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: 'hooks.slack.com' }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { current: 'page', name: 'Edit' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('ep_2a9f')).not.toBeInTheDocument();
+    expect(document.title).toBe(
+      'Edit · hooks.slack.com · Webhooks · Integrations · Kaiten',
+    );
   });
 
   it('titles the tab "Page not found" when the API has no such entity', () => {

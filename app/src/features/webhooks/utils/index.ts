@@ -14,3 +14,4 @@ export {
   SUBSCRIBABLE_WEBHOOK_EVENTS,
   type WebhookEvent,
 } from './webhook-events';
+export { webhookDisplayName } from './webhook-form-values';
