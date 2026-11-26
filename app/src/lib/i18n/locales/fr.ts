@@ -4875,6 +4875,7 @@ export default {
             'Impossible de charger le secret de signature',
           signingSecretCopyError: 'Impossible de copier le secret de signature',
           edit: 'Modifier le webhook {{host}}',
+          deliveries: 'Livraisons',
         },
         Form: {
           titleNew: 'Nouveau webhook',
@@ -4939,6 +4940,41 @@ export default {
           },
         },
         Deliveries: {
+          title: 'Livraisons',
+          cell: {
+            none: "Aucune livraison pour l'instant",
+            loadError: 'Livraisons indisponibles',
+            summary: '{{when}} · {{outcome}}',
+            allDelivered: 'toutes livrées',
+            failures_one: '{{count}} échec',
+            failures_other: '{{count}} échecs',
+            retrying_one: '{{count}} nouvel essai prévu',
+            retrying_other: '{{count}} nouveaux essais prévus',
+            inFlight_one: '{{count}} en cours',
+            inFlight_other: '{{count}} en cours',
+            ariaLabel:
+              'Livraisons de {{host}} : {{summary}}. Ouvrir les détails.',
+            tooltip_one:
+              'Dernière livraison. Livrées : {{delivered}}, en échec : {{failed}}, nouvel essai prévu : {{retrying}}, en cours : {{inFlight}}.',
+            tooltip_other:
+              '{{count}} dernières livraisons. Livrées : {{delivered}}, en échec : {{failed}}, nouvel essai prévu : {{retrying}}, en cours : {{inFlight}}.',
+          },
+          Dialog: {
+            rate: '{{delivered}} / {{total}} livrées · {{percent}}',
+            rateHint_one:
+              'Sur la livraison la plus récente que Kaiten conserve pour ce webhook.',
+            rateHint_other:
+              'Sur les {{count}} livraisons les plus récentes que Kaiten conserve pour ce webhook.',
+            empty:
+              "Aucune livraison pour l'instant. Elles apparaissent ici dès qu'un des événements de ce webhook est publié.",
+            loadError: 'Échec du chargement des livraisons.',
+            back: 'Retour aux livraisons',
+          },
+          Chronology: {
+            label: 'Livraisons',
+            created: 'Webhook créé',
+            updated: 'Webhook modifié',
+          },
           Outcome: {
             duration: '{{value}} ms',
             attempts_one: '{{count}} tentative',

@@ -1,8 +1,12 @@
 import type {
   ApiWebhook,
   Webhook,
+  WebhookDeliveryTone,
   WebhookHistoryEntry,
   WebhookMessage,
+  WebhookMessageAttempt,
+  WebhookMessageList,
+  WebhookMessageSummary,
 } from '../../types';
 import {
   storyLastWeek,
@@ -14,7 +18,7 @@ export const storyApiWebhooks = [
   {
     createdAt: storyLastWeek,
     eventTypes: ['com.kaiten.customer.v1.created', 'com.kaiten.customer.v1.updated'],
-    id: 'webhook-customers',
+    id: 'ep_story_customers',
     signingSecret: 'whsec_customer_story',
     updatedAt: storyYesterday,
     url: 'https://hooks.example.com/customers',
@@ -22,7 +26,7 @@ export const storyApiWebhooks = [
   {
     createdAt: storyYesterday,
     eventTypes: ['com.kaiten.release.v1.created', 'com.kaiten.instance.v1.deployed'],
-    id: 'webhook-release-ops',
+    id: 'ep_story_release_ops',
     updatedAt: storyNow,
     url: 'https://ops.example.com/kaiten',
   },
@@ -155,3 +159,110 @@ export const storyWebhookOtherEvents = {
   updatedAt: storyYesterday,
   url: 'https://hooks.example.com/other',
 } satisfies ApiWebhook;
+
+const STORY_EVENT_TYPES = [
+  'com.kaiten.instance.v1.created',
+  'com.kaiten.release.v1.created',
+  'com.kaiten.customer.v1.updated',
+  'com.kaiten.instance.v1.deployed',
+];
+
+const SEVEN_MINUTES = 7 * 60_000;
+
+function storyLastAttempt(
+  index: number,
+  tone: WebhookDeliveryTone,
+  at: number,
+): WebhookMessageAttempt | undefined {
+  if (tone === 'pending') {
+    return undefined;
+  }
+  const status = tone === 'retrying' ? 'fail' : tone;
+  const answered = status === 'success' || index % 2 === 0;
+
+  return {
+    id: `atmpt_story_${String(index).padStart(2, '0')}`,
+    timestamp: new Date(at + 1_000).toISOString(),
+    status,
+    ...(status === 'sending'
+      ? {}
+      : answered
+        ? {
+            responseStatusCode: status === 'success' ? 200 : 503,
+            responseDurationMs: 60 + index * 7,
+          }
+        : {}),
+    triggerType: 'scheduled',
+  };
+}
+
+/**
+ * `count` messages of a webhook, newest first, seven minutes apart from
+ * `newest`, each in the state `toneAt` gives it: a failed message waiting for
+ * a retry is `retrying`.
+ */
+export function buildStoryMessages(
+  count: number,
+  toneAt: (index: number) => WebhookDeliveryTone = () => 'success',
+  newest: string = storyNow,
+): WebhookMessageSummary[] {
+  const start = Date.parse(newest);
+
+  return Array.from({ length: count }, (_, index) => {
+    const tone = toneAt(index);
+    const at = start - index * SEVEN_MINUTES;
+    const lastAttempt = storyLastAttempt(index, tone, at);
+    const attemptCount = tone === 'fail' || tone === 'retrying' ? 3 : 1;
+
+    return {
+      messageId: `msg_story_${String(index).padStart(2, '0')}`,
+      eventType: STORY_EVENT_TYPES[index % STORY_EVENT_TYPES.length],
+      timestamp: new Date(at).toISOString(),
+      status: tone === 'retrying' ? 'pending' : tone,
+      ...(tone === 'retrying'
+        ? { nextAttempt: new Date(at + 3_600_000).toISOString() }
+        : {}),
+      ...(lastAttempt ? { attemptCount, lastAttempt } : {}),
+    };
+  });
+}
+
+/**
+ * `GET /webhooks/{id}/messages` for a webhook of the stories: the messages,
+ * without their attempts when the console asks for none, and their summary.
+ */
+export function buildStoryMessageList(
+  webhook: ApiWebhook,
+  messages: WebhookMessageSummary[],
+  { withAttempts = true }: { withAttempts?: boolean } = {},
+): WebhookMessageList {
+  const count = (status: WebhookMessageSummary['status']) =>
+    messages.filter((message) => message.status === status).length;
+
+  return {
+    webhook: {
+      id: webhook.id,
+      url: webhook.url,
+      createdAt: webhook.createdAt ?? storyLastWeek,
+      updatedAt: webhook.updatedAt ?? webhook.createdAt ?? storyLastWeek,
+    },
+    messages: withAttempts
+      ? messages
+      : messages.map(({ attemptCount: _count, lastAttempt: _last, ...rest }) => rest),
+    summary: {
+      total: messages.length,
+      delivered: count('success'),
+      failed: count('fail'),
+      pending: count('pending') + count('sending'),
+    },
+    hasMore: false,
+  };
+}
+
+/** The recent deliveries of the stories' two webhooks: a mix, and a clean run. */
+export const storyWebhookMessages: Record<string, WebhookMessageSummary[]> = {
+  [storyApiWebhooks[0].id]: buildStoryMessages(20, (index) =>
+    index === 0 ? 'sending' : index === 3 || index === 9 ? 'fail' : index === 1 ? 'retrying' : 'success',
+  ),
+  [storyApiWebhooks[1].id]: buildStoryMessages(6, () => 'success', storyYesterday),
+};

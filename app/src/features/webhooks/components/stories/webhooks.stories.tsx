@@ -3,8 +3,10 @@ import { expect, within } from 'storybook/test';
 import { HttpResponse, http } from 'msw/http';
 import { useState } from 'react';
 import {
+	buildStoryMessageList,
 	storyApiWebhooks,
 	storyWebhookHistory,
+	storyWebhookMessages,
 	storyWebhookReleaseMessage,
 	storyWebhooks,
 } from './webhooks.fixtures';
@@ -31,6 +33,28 @@ const meta = {
 				http.get('*/api/webhooks/history', () =>
 					HttpResponse.json({ history: storyWebhookHistory }),
 				),
+				http.get('*/api/webhooks/:webhookId/messages', ({ params, request }) => {
+					const webhook = storyApiWebhooks.find(
+						(item) => item.id === params.webhookId,
+					);
+					return webhook
+						? HttpResponse.json(
+								buildStoryMessageList(
+									webhook,
+									storyWebhookMessages[webhook.id] ?? [],
+									{
+										withAttempts:
+											new URL(request.url).searchParams.get(
+												'withAttempts',
+											) !== 'false',
+									},
+								),
+							)
+						: HttpResponse.json(
+								{ code: 'GetWebhookMessages.WebhookNotFound', status: 404 },
+								{ status: 404 },
+							);
+				}),
 				http.get('*/api/webhooks/:webhookId/messages/:messageId', () =>
 					HttpResponse.json(storyWebhookReleaseMessage),
 				),
@@ -90,7 +114,11 @@ export const Table: Story = {
 	render: () => (
 		<WebhookFrame>
 			<div className="h-[520px]">
-				<WebhookTable webhooks={storyWebhooks} onDelete={() => {}} />
+				<WebhookTable
+					webhooks={storyWebhooks}
+					onDelete={() => {}}
+					onOpenDeliveries={() => {}}
+				/>
 			</div>
 		</WebhookFrame>
 	),
@@ -98,7 +126,7 @@ export const Table: Story = {
 		docs: {
 			description: {
 				story:
-					'Webhook table with grouped events, URL, signing secret disclosure and delete action.',
+					'Webhook table with grouped events, URL, recent deliveries, signing secret disclosure and the edit and delete actions.',
 			},
 		},
 	},
@@ -120,6 +148,7 @@ export const EmptyList: Story = {
 			<WebhookListContent
 				filteredWebhooks={[]}
 				onDelete={() => {}}
+				onOpenDeliveries={() => {}}
 				webhooks={[]}
 			/>
 		</WebhookFrame>
@@ -139,6 +168,7 @@ export const NoSearchResults: Story = {
 			<WebhookListContent
 				filteredWebhooks={[]}
 				onDelete={() => {}}
+				onOpenDeliveries={() => {}}
 				webhooks={storyWebhooks}
 			/>
 		</WebhookFrame>

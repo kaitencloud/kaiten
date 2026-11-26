@@ -16,3 +16,9 @@ export const isValidUrl = (url: string): boolean => {
  */
 const WEBHOOKS_SCOPE_RESOURCE: ApiScopeResource = 'webhooks';
 export const WRITE_WEBHOOKS_SCOPE: ApiScope = `write:${WEBHOOKS_SCOPE_RESOURCE}`;
+
+/** The recent deliveries the table's strip shows, one bar per message. */
+export const WEBHOOK_STRIP_SIZE = 20;
+
+/** The deliveries the dialog lists: saas-api's default page of messages. */
+export const WEBHOOK_DELIVERIES_LIMIT = 50;

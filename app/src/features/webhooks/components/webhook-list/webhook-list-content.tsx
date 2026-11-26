@@ -8,12 +8,14 @@ const WebhookIcon = dataModelIcons.webhook;
 interface WebhookListContentProps {
   filteredWebhooks: Webhook[];
   onDelete: (webhookId: string) => void;
+  onOpenDeliveries: (webhookId: string) => void;
   webhooks: Webhook[];
 }
 
 export function WebhookListContent({
   filteredWebhooks,
   onDelete,
+  onOpenDeliveries,
   webhooks,
 }: WebhookListContentProps) {
   const { t } = useTranslation();
@@ -49,6 +51,7 @@ export function WebhookListContent({
       className="h-full"
       webhooks={filteredWebhooks}
       onDelete={onDelete}
+      onOpenDeliveries={onOpenDeliveries}
     />
   );
 }

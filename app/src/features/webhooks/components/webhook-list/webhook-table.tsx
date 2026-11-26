@@ -18,6 +18,7 @@ import {
 import { useEllipsis } from '@/hooks/use-ellipsis';
 import { cn } from '@/lib/utils';
 import type { Webhook } from '../../types';
+import { WebhookDeliveriesCell } from '../webhook-deliveries';
 import { WEBHOOK_EVENT_GROUPS } from '../../utils/webhook-event-catalogue';
 import {
   getWebhookEvent,
@@ -30,6 +31,8 @@ interface WebhookTableProps {
   className?: string;
   webhooks: Webhook[];
   onDelete: (webhookId: string) => void;
+  /** Opens the deliveries dialog of a webhook, from its Deliveries cell. */
+  onOpenDeliveries: (webhookId: string) => void;
 }
 
 type WebhookEventGroupView = {
@@ -195,6 +198,12 @@ function WebhookCreatedAtCell({ webhook }: { webhook: Webhook }) {
   );
 }
 
+// Rows hold state (a revealed secret, a focused Deliveries button): keyed by
+// webhook, they keep it when the list is refetched or reordered.
+function getWebhookRowId(webhook: Webhook) {
+  return webhook.id;
+}
+
 function createWebhookActionsCell(onDelete: (webhookId: string) => void) {
   return (webhook: Webhook) => (
     <WebhookTableActions webhook={webhook} onDelete={onDelete} />
@@ -204,6 +213,7 @@ function createWebhookActionsCell(onDelete: (webhookId: string) => void) {
 const createColumns = (
   t: TFunction,
   onDelete: (webhookId: string) => void,
+  onOpenDeliveries: (webhookId: string) => void,
 ): ColumnDef<Webhook>[] => [
   {
     accessorKey: 'eventTypes',
@@ -211,7 +221,7 @@ const createColumns = (
     header: t('Pages.Integrations.Webhooks.Table.events'),
     cell: ({ row }) => <WebhookEventsCell webhook={row.original} />,
     meta: {
-      headerClassName: 'w-[34%]',
+      headerClassName: 'w-[22%]',
       cellClassName: 'align-top',
     },
   },
@@ -221,7 +231,19 @@ const createColumns = (
     header: t('Pages.Integrations.Webhooks.Table.url'),
     cell: ({ row }) => <WebhookUrlCell webhook={row.original} />,
     meta: {
-      headerClassName: 'w-[30%]',
+      headerClassName: 'w-[20%]',
+      cellClassName: 'align-top',
+    },
+  },
+  {
+    id: 'deliveries',
+    enableSorting: false,
+    header: t('Pages.Integrations.Webhooks.Table.deliveries'),
+    cell: ({ row }) => (
+      <WebhookDeliveriesCell onOpen={onOpenDeliveries} webhook={row.original} />
+    ),
+    meta: {
+      headerClassName: 'w-[14rem]',
       cellClassName: 'align-top',
     },
   },
@@ -231,7 +253,7 @@ const createColumns = (
     header: t('Pages.Integrations.Webhooks.Table.signingSecret'),
     cell: ({ row }) => <WebhookSigningSecretCell webhook={row.original} />,
     meta: {
-      headerClassName: 'w-[24%]',
+      headerClassName: 'w-[16%]',
       cellClassName: 'align-top',
     },
   },
@@ -254,15 +276,20 @@ export function WebhookTable({
   className,
   webhooks,
   onDelete,
+  onOpenDeliveries,
 }: WebhookTableProps) {
   const { t } = useTranslation();
-  const columns = useMemo(() => createColumns(t, onDelete), [onDelete, t]);
+  const columns = useMemo(
+    () => createColumns(t, onDelete, onOpenDeliveries),
+    [onDelete, onOpenDeliveries, t],
+  );
 
   return (
     <DataTable
       className={className}
       columns={columns}
       data={webhooks}
+      getRowId={getWebhookRowId}
       bodyScrollable
       tableClassName="table-fixed"
     />

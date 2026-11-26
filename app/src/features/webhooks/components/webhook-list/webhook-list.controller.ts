@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   type FilterFieldDefinition,
@@ -66,6 +66,36 @@ function useFilteredWebhooks(webhooks: Webhook[], t: TFunction) {
   });
 }
 
+/**
+ * Which webhook's deliveries the dialog shows, and whether it is open. Closing
+ * only hides it: the webhook is kept so that the closing animation still has
+ * its content.
+ */
+function useDeliveriesDialogState(webhooks: Webhook[]) {
+  const [deliveriesWebhookId, setDeliveriesWebhookId] = useState<string | null>(
+    null,
+  );
+  const [deliveriesOpen, setDeliveriesOpen] = useState(false);
+  // Read from every webhook, not the filtered ones: a search that hides the
+  // row keeps the dialog open, and a webhook deleted meanwhile closes it.
+  const deliveriesWebhook =
+    webhooks.find((webhook) => webhook.id === deliveriesWebhookId) ?? null;
+
+  // Stable, like `handleDeleteHook`: the table's columns depend on it, and
+  // new columns would remount every cell, the focused Deliveries button too.
+  const openDeliveries = useCallback((webhookId: string) => {
+    setDeliveriesWebhookId(webhookId);
+    setDeliveriesOpen(true);
+  }, []);
+
+  return {
+    deliveriesOpen,
+    deliveriesWebhook,
+    openDeliveries,
+    setDeliveriesOpen,
+  };
+}
+
 export function useWebhookListController() {
   const { t } = useTranslation();
   const { data: webhooksData } = useSuspenseQuery(webhooksQueryOptions);
@@ -75,12 +105,18 @@ export function useWebhookListController() {
     [webhooksData],
   );
   const filterController = useFilteredWebhooks(webhooks, t);
+  const deliveriesDialog = useDeliveriesDialogState(webhooks);
 
-  function handleDeleteHook(webhookId: string) {
-    deleteWebhook.mutate({ path: { webhookId } });
-  }
+  const { mutate: deleteWebhookMutate } = deleteWebhook;
+  const handleDeleteHook = useCallback(
+    (webhookId: string) => {
+      deleteWebhookMutate({ path: { webhookId } });
+    },
+    [deleteWebhookMutate],
+  );
 
   return {
+    deliveriesDialog,
     filteredWebhooks: filterController.filteredData,
     filterController,
     handleDeleteHook,

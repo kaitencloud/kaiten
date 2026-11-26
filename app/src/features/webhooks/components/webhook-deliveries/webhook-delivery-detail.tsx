@@ -1,7 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
+import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import type { DeliveryWatch } from '../../hooks/use-delivery-watch';
 import { webhookMessageQueryOptions } from '../../queries';
 import type { WebhookDelivery, WebhookDeliveryStatus } from '../../types';
@@ -31,6 +33,25 @@ interface WebhookDeliveryDetailProps {
   initialAttemptId?: string;
   /** Polls the message for a while after a resend; the owner of the dialog holds it. */
   watch: DeliveryWatch;
+  /** On a narrow screen, goes back to the list of deliveries the detail replaced. */
+  onBack?: () => void;
+}
+
+function BackToDeliveries({ onBack }: { onBack: () => void }) {
+  const { t } = useTranslation();
+
+  return (
+    <Button
+      className="-ml-2 self-start md:hidden"
+      onClick={onBack}
+      size="sm"
+      type="button"
+      variant="ghost"
+    >
+      <ArrowLeft aria-hidden />
+      {t('Pages.Integrations.Webhooks.Deliveries.Dialog.back')}
+    </Button>
+  );
 }
 
 function DeliveryHead({
@@ -102,6 +123,7 @@ export function WebhookDeliveryDetail({
   delivery,
   initialAttemptId,
   watch,
+  onBack,
 }: WebhookDeliveryDetailProps) {
   const message = useQuery({
     ...webhookMessageQueryOptions(delivery.hookId, delivery.messageId ?? '', {
@@ -124,6 +146,7 @@ export function WebhookDeliveryDetail({
 
   return (
     <div className="flex flex-col gap-6" data-testid="webhook-delivery-detail">
+      {onBack ? <BackToDeliveries onBack={onBack} /> : null}
       <DeliveryHead
         delivery={delivery}
         eventType={delivery.eventType || message.data?.eventType || ''}

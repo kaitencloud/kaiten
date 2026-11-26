@@ -4795,6 +4795,7 @@ export default {
           signingSecretLoadError: 'Failed to load signing secret',
           signingSecretCopyError: 'Failed to copy signing secret',
           edit: 'Edit webhook {{host}}',
+          deliveries: 'Deliveries',
         },
         Form: {
           titleNew: 'New Webhook',
@@ -4858,6 +4859,40 @@ export default {
           },
         },
         Deliveries: {
+          title: 'Deliveries',
+          cell: {
+            none: 'No deliveries yet',
+            loadError: 'Deliveries unavailable',
+            summary: '{{when}} · {{outcome}}',
+            allDelivered: 'all delivered',
+            failures_one: '{{count}} failure',
+            failures_other: '{{count}} failures',
+            retrying_one: '{{count}} retrying',
+            retrying_other: '{{count}} retrying',
+            inFlight_one: '{{count}} in flight',
+            inFlight_other: '{{count}} in flight',
+            ariaLabel: 'Deliveries of {{host}}: {{summary}}. Open details.',
+            tooltip_one:
+              'Last delivery: {{delivered}} delivered, {{failed}} failed, {{retrying}} retrying, {{inFlight}} in flight.',
+            tooltip_other:
+              'Last {{count}} deliveries: {{delivered}} delivered, {{failed}} failed, {{retrying}} retrying, {{inFlight}} in flight.',
+          },
+          Dialog: {
+            rate: '{{delivered}} / {{total}} delivered · {{percent}}',
+            rateHint_one:
+              'Over the most recent delivery Kaiten keeps for this webhook.',
+            rateHint_other:
+              'Over the {{count}} most recent deliveries Kaiten keeps for this webhook.',
+            empty:
+              "No deliveries yet. They appear here after one of this webhook's events is published.",
+            loadError: 'Failed to load the deliveries.',
+            back: 'Back to deliveries',
+          },
+          Chronology: {
+            label: 'Deliveries',
+            created: 'Webhook created',
+            updated: 'Webhook updated',
+          },
           Outcome: {
             duration: '{{value}} ms',
             attempts_one: '{{count}} attempt',
