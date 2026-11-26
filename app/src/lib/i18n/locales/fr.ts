@@ -4961,10 +4961,9 @@ export default {
           },
           Dialog: {
             rate: '{{delivered}} / {{total}} livrées · {{percent}}',
-            rateHint_one:
-              'Sur la livraison la plus récente que Kaiten conserve pour ce webhook.',
+            rateHint_one: 'Sur la livraison la plus récente de ce webhook.',
             rateHint_other:
-              'Sur les {{count}} livraisons les plus récentes que Kaiten conserve pour ce webhook.',
+              'Sur les {{count}} livraisons les plus récentes de ce webhook.',
             empty:
               "Aucune livraison pour l'instant. Elles apparaissent ici dès qu'un des événements de ce webhook est publié.",
             loadError: 'Échec du chargement des livraisons.',
@@ -4974,6 +4973,7 @@ export default {
             label: 'Livraisons',
             created: 'Webhook créé',
             updated: 'Webhook modifié',
+            older: 'Les livraisons plus anciennes ne sont pas affichées',
           },
           Outcome: {
             duration: '{{value}} ms',

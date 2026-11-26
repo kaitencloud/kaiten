@@ -152,6 +152,7 @@ function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
             <WebhookDeliveryChronology
               createdAt={data?.webhook.createdAt}
               deliveries={deliveries}
+              hasMore={data?.hasMore}
               onSelect={handleSelect}
               selectedKey={selected.key}
               updatedAt={data?.webhook.updatedAt}

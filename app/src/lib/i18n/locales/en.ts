@@ -4879,10 +4879,9 @@ export default {
           },
           Dialog: {
             rate: '{{delivered}} / {{total}} delivered · {{percent}}',
-            rateHint_one:
-              'Over the most recent delivery Kaiten keeps for this webhook.',
+            rateHint_one: 'Over the most recent delivery of this webhook.',
             rateHint_other:
-              'Over the {{count}} most recent deliveries Kaiten keeps for this webhook.',
+              'Over the {{count}} most recent deliveries of this webhook.',
             empty:
               "No deliveries yet. They appear here after one of this webhook's events is published.",
             loadError: 'Failed to load the deliveries.',
@@ -4892,6 +4891,7 @@ export default {
             label: 'Deliveries',
             created: 'Webhook created',
             updated: 'Webhook updated',
+            older: 'Older deliveries are not shown',
           },
           Outcome: {
             duration: '{{value}} ms',

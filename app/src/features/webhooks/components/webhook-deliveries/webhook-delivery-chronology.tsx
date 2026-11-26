@@ -8,52 +8,18 @@ import {
   describeDeliveryOutcome,
   getDeliveryTone,
   OUTCOME_SEPARATOR,
-  parseTimestamp,
 } from '../../utils/webhook-deliveries';
+import {
+  buildChronologyItems,
+  type ChronologyItem,
+  getWebhookMilestones,
+  type WebhookMilestone,
+} from '../../utils/webhook-delivery-timeline';
 import { getWebhookEventLabel } from '../../utils/webhook-events';
 import { formatDeliveryTime } from './webhook-delivery-format';
 import { DELIVERY_STATUS_PRESENTATION } from './webhook-delivery-status';
 
 const CHRONOLOGY_KEY = 'Pages.Integrations.Webhooks.Deliveries.Chronology';
-
-/**
- * saas-api applies the Slack or Google Chat formatting right after a create,
- * which may touch the webhook's update time: an update this close to the
- * creation is not one a person made.
- */
-const UPDATE_TOLERANCE_MS = 60_000;
-
-export interface WebhookMilestone {
-  kind: 'created' | 'updated';
-  at: string;
-}
-
-/**
- * The webhook's own dates, closing the chronology: updated (when it was
- * edited after its creation), then created. A date that does not parse is
- * left out rather than shown as a dash.
- */
-export function getWebhookMilestones(
-  createdAt?: string,
-  updatedAt?: string,
-): WebhookMilestone[] {
-  const created = parseTimestamp(createdAt);
-  const updated = parseTimestamp(updatedAt);
-  if (created === undefined || !createdAt) {
-    return [];
-  }
-  const milestones: WebhookMilestone[] = [];
-  if (
-    updated !== undefined &&
-    updatedAt &&
-    updated - created > UPDATE_TOLERANCE_MS
-  ) {
-    milestones.push({ kind: 'updated', at: updatedAt });
-  }
-  milestones.push({ kind: 'created', at: createdAt });
-
-  return milestones;
-}
 
 const FOCUS_KEYS = new Set(['ArrowDown', 'ArrowUp', 'Home', 'End']);
 
@@ -188,8 +154,20 @@ function MilestoneItem({ milestone }: { milestone: WebhookMilestone }) {
   );
 }
 
-function renderMilestone(milestone: WebhookMilestone) {
-  return <MilestoneItem key={milestone.kind} milestone={milestone} />;
+/** Closes a list that holds only the most recent deliveries. */
+function OlderItem() {
+  const { t } = useTranslation();
+
+  return (
+    <li className="group relative flex gap-2 pb-2 last:pb-0">
+      <Rail>
+        <span className="size-3 rounded-full border-2 border-dashed border-muted-foreground bg-background ring-4 ring-background" />
+      </Rail>
+      <p className="min-w-0 flex-1 px-2 py-1 text-sm text-muted-foreground">
+        {t(`${CHRONOLOGY_KEY}.older`)}
+      </p>
+    </li>
+  );
 }
 
 interface WebhookDeliveryChronologyProps {
@@ -199,12 +177,15 @@ interface WebhookDeliveryChronologyProps {
   onSelect: (key: string) => void;
   createdAt?: string;
   updatedAt?: string;
+  /** The webhook has deliveries older than the listed ones. */
+  hasMore?: boolean;
 }
 
 /**
  * A webhook's deliveries as a timeline, newest first, each a dot coloured by
  * its state, its time, its event and its outcome; the webhook's update and
- * creation close it. A delivery is selected by click, Enter or Space.
+ * creation sit among them by date (see `buildChronologyItems`). A delivery is
+ * selected by click, Enter or Space.
  */
 export function WebhookDeliveryChronology({
   deliveries,
@@ -212,18 +193,33 @@ export function WebhookDeliveryChronology({
   onSelect,
   createdAt,
   updatedAt,
+  hasMore = false,
 }: WebhookDeliveryChronologyProps) {
   const { t } = useTranslation();
+  const items = buildChronologyItems(
+    deliveries,
+    getWebhookMilestones(createdAt, updatedAt),
+    hasMore,
+  );
 
-  function renderDelivery(delivery: WebhookDelivery) {
-    return (
-      <DeliveryItem
-        key={delivery.key}
-        delivery={delivery}
-        onSelect={onSelect}
-        selected={delivery.key === selectedKey}
-      />
-    );
+  function renderItem(item: ChronologyItem) {
+    switch (item.kind) {
+      case 'delivery':
+        return (
+          <DeliveryItem
+            key={item.delivery.key}
+            delivery={item.delivery}
+            onSelect={onSelect}
+            selected={item.delivery.key === selectedKey}
+          />
+        );
+      case 'milestone':
+        return (
+          <MilestoneItem key={item.milestone.kind} milestone={item.milestone} />
+        );
+      case 'older':
+        return <OlderItem key="older" />;
+    }
   }
 
   return (
@@ -232,8 +228,7 @@ export function WebhookDeliveryChronology({
       className="flex flex-col"
       onKeyDown={handleChronologyKeyDown}
     >
-      {deliveries.map(renderDelivery)}
-      {getWebhookMilestones(createdAt, updatedAt).map(renderMilestone)}
+      {items.map(renderItem)}
     </ol>
   );
 }

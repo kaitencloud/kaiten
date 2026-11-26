@@ -12,7 +12,6 @@ import type {
   WebhookMessageList,
   WebhookMessageSummary,
 } from '../../../types';
-import { getWebhookMilestones } from '../webhook-delivery-chronology';
 import { WebhookDeliveriesDialog } from '../webhook-deliveries-dialog';
 
 vi.mock('@/hooks/use-granted-scopes', () => ({
@@ -155,7 +154,7 @@ describe('WebhookDeliveriesDialog', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'Over the 2 most recent deliveries Kaiten keeps for this webhook.',
+        'Over the 2 most recent deliveries of this webhook.',
       ),
     ).toBeInTheDocument();
     expect(reads[0]).toBe('list?limit=50&withAttempts=true');
@@ -232,6 +231,32 @@ describe('WebhookDeliveriesDialog', () => {
     expect(detailPane).toHaveClass('max-md:hidden');
   });
 
+  it('sets an update made between two deliveries between them', async () => {
+    serve(list([delivered, failed], { updatedAt: '2026-11-26T10:30:00Z' }));
+    renderDialog();
+
+    const items = within(await chronology()).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringContaining('com.kaiten.gadget.v1.created'),
+      expect.stringContaining('Webhook updated'),
+      expect.stringContaining('Instance created'),
+      expect.stringContaining('Webhook created'),
+    ]);
+  });
+
+  it('says older deliveries are not shown, without an older creation, when there are more', async () => {
+    serve({ ...list([delivered, failed]), hasMore: true });
+    renderDialog();
+
+    const items = within(await chronology()).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      expect.stringContaining('com.kaiten.gadget.v1.created'),
+      expect.stringContaining('Instance created'),
+      'Older deliveries are not shown',
+    ]);
+    expect(screen.queryByText('Webhook created')).toBeNull();
+  });
+
   it('says so when there is no delivery yet, with only the creation', async () => {
     serve(list([], { updatedAt: '2026-11-01T09:00:30Z' }));
     renderDialog();
@@ -255,34 +280,5 @@ describe('WebhookDeliveriesDialog', () => {
       await screen.findByText('Failed to load the deliveries.'),
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
-  });
-});
-
-describe('getWebhookMilestones', () => {
-  it('leaves out an update within a minute of the creation', () => {
-    expect(
-      getWebhookMilestones('2026-11-01T09:00:00Z', '2026-11-01T09:00:59Z'),
-    ).toEqual([{ kind: 'created', at: '2026-11-01T09:00:00Z' }]);
-    expect(
-      getWebhookMilestones('2026-11-01T09:00:00Z', '2026-11-01T09:00:00Z'),
-    ).toHaveLength(1);
-  });
-
-  it('closes with the creation, after a later update', () => {
-    expect(
-      getWebhookMilestones('2026-11-01T09:00:00Z', '2026-11-02T09:00:00Z'),
-    ).toEqual([
-      { kind: 'updated', at: '2026-11-02T09:00:00Z' },
-      { kind: 'created', at: '2026-11-01T09:00:00Z' },
-    ]);
-  });
-
-  it("leaves out a creation that does not parse, and reads Go's older format", () => {
-    expect(getWebhookMilestones('not a date', '2026-11-02T09:00:00Z')).toEqual(
-      [],
-    );
-    expect(
-      getWebhookMilestones('2026-03-01 12:00:00.123456 +0000 UTC', undefined),
-    ).toHaveLength(1);
   });
 });
