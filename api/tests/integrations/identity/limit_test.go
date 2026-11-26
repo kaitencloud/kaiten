@@ -88,3 +88,38 @@ func TestCreateServiceAccountIsGatedByTheLicence(t *testing.T) {
 		testDb.DefaultData.OrganizationID).Scan(&after))
 	require.Equal(t, held+1, after, "a refused create persists nothing")
 }
+
+func TestDeleteServiceAccountGivesItsPlaceBack(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+	var held int64
+	require.NoError(t, testDb.DbPool.QueryRow(t.Context(),
+		`SELECT count(*) FROM "user" WHERE type = 'machine' AND organization_id = $1 AND deleted_at IS NULL`,
+		testDb.DefaultData.OrganizationID).Scan(&held))
+
+	// Room for exactly one more account, as a Starter licence with one granted.
+	counter := &gatedCounter{limit: float64(held + 1), values: map[string][]float64{}}
+	server := tests.NewTestServer(testDb, tests.TestServerOptions{
+		OrganizationID: &testDb.DefaultData.OrganizationID,
+		UsageReporter:  counter,
+	})
+	t.Cleanup(func() { require.NoError(t, server.Close()) })
+
+	call := func(method, url string, payload any) int {
+		resp, err := server.App.Test(commonfixture.NewJSONRequest(t, method, url, payload), fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, resp.Body)
+		return resp.StatusCode
+	}
+
+	require.Equal(t, fiber.StatusCreated, call("POST", "/api/service-accounts", schema.ServiceAccount{Name: "First", Slug: "first"}))
+	require.Equal(t, fiber.StatusConflict, call("POST", "/api/service-accounts", schema.ServiceAccount{Name: "Second"}))
+
+	// The delete sets the counter back to the accounts still held, so the
+	// organization can replace the one it had.
+	require.Equal(t, fiber.StatusNoContent, call("DELETE", "/api/service-accounts/first", nil))
+	set := counter.set(dogfooding.ServiceAccountEntitlementSlug)
+	require.Equal(t, float64(held), set[len(set)-1])
+
+	require.Equal(t, fiber.StatusCreated, call("POST", "/api/service-accounts", schema.ServiceAccount{Name: "Replacement"}))
+}
