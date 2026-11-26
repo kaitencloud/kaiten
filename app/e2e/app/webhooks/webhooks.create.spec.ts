@@ -14,8 +14,7 @@ import { createWebhooksFormModel } from './webhooks.scenarios';
 // group or a preset ticked at once, a search across labels, names and types,
 // the notice of a chat URL, and what reaches saas-api when the form is sent.
 
-const SLACK_URL =
-  'https://hooks.slack.com/services/T000/B000/XXXX';
+const SLACK_URL = 'https://hooks.slack.com/services/T000/B000/XXXX';
 const SLACK_WORKFLOW_URL =
   'https://hooks.slack.com/workflows/T00000000/A00000000/000000000000000000/xxxx';
 const GOOGLE_CHAT_URL =

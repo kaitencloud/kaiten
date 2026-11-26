@@ -9,8 +9,7 @@ import { createWebhooksFormModel } from './webhooks.scenarios';
 // notice in French, with the plural French gives zero and one. What the API
 // wrote (a URL, an event's NAME) stays as it came.
 
-const SLACK_URL =
-  'https://hooks.slack.com/services/T000/B000/XXXX';
+const SLACK_URL = 'https://hooks.slack.com/services/T000/B000/XXXX';
 
 test.beforeEach(async ({ page }) => {
   await startInLanguage(page, 'fr');

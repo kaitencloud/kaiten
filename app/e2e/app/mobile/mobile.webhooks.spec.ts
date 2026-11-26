@@ -41,9 +41,7 @@ test.describe('the webhook form, on the narrowest phone', () => {
   }) => {
     const form = new WebhooksFormDriver(page);
     await form.gotoNew();
-    await form.fillUrl(
-      'https://hooks.slack.com/services/T000/B000/XXXX',
-    );
+    await form.fillUrl('https://hooks.slack.com/services/T000/B000/XXXX');
     await expect(form.chatNotice()).toBeVisible();
     await form.preset('Billing').click();
     await form.openGroup('Subscriptions');
