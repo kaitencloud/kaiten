@@ -58,7 +58,10 @@ export function WebhookFormPage({ webhook }: WebhookFormPageProps) {
             </Page.Header>
           </Page.Fixed>
           <Page.Scroll>
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
+            {/* `grid-cols-1`, here and on the events field's own grid: an
+                implicit column is as wide as its widest row, which a long URL
+                or event NAME would push past a phone's screen. */}
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start">
               <WebhookFormAside
                 form={form}
                 isEditMode={isEditMode}
@@ -68,7 +71,7 @@ export function WebhookFormPage({ webhook }: WebhookFormPageProps) {
                 form={form}
                 retainedTypes={retainedTypes}
                 hasNoEventFilter={hasNoEventFilter}
-                className="order-2 lg:col-start-1 lg:row-start-1"
+                className="order-2 grid-cols-1 lg:col-start-1 lg:row-start-1"
               />
             </div>
           </Page.Scroll>
