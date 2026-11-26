@@ -3898,6 +3898,35 @@ export default {
               enabled:
                 'When disabled, the feature flag will always return the default variant regardless of targeting rules',
             },
+            Beta: {
+              title: 'Beta',
+              description:
+                'Name the stage of a feature that is not released to everyone yet. The stage is returned with every evaluation; the targeting rules still decide who gets the feature.',
+              Labels: {
+                stage: 'Stage',
+                title: 'Title shown to customers',
+                description: 'Description shown to customers',
+              },
+              Stages: {
+                none: 'Not a beta',
+                private_beta: 'Private beta',
+                public_beta: 'Public beta',
+                open_beta: 'Open beta',
+              },
+              StageDescriptions: {
+                none: 'The flag names no stage: it is released, or not a beta.',
+                private_beta:
+                  'On invitation: you decide who gets the feature. It is not offered in a list of betas.',
+                public_beta:
+                  'Off until a customer turns it on: it can be offered in a list of betas.',
+                open_beta:
+                  'On unless a customer turns it off: it can be offered in a list of betas.',
+              },
+              ownStage:
+                'This flag names a stage of its own, {{stage}}. It is kept until you choose another one here.',
+              copyHint:
+                'Returned with every evaluation, as title and description, for the page where your customers turn betas on or off.',
+            },
           },
           Step2: {
             title: 'Variants Configuration',
