@@ -640,3 +640,44 @@ func (q *Queries) RevokeToken(ctx context.Context, arg RevokeTokenParams) (Revok
 	err := row.Scan(&i.ID, &i.LookupHash)
 	return i, err
 }
+
+const revokeTokensForServiceAccount = `-- name: RevokeTokensForServiceAccount :many
+UPDATE token
+SET revoked_by   = $1,
+    revoked_date = now()
+WHERE service_account_id = $2
+  AND organization_id = $3
+  AND revoked_date IS NULL
+RETURNING lookup_hash
+`
+
+type RevokeTokensForServiceAccountParams struct {
+	RevokerID        *uuid.UUID `json:"revoker_id"`
+	ServiceAccountID uuid.UUID  `json:"service_account_id"`
+	OrganizationID   uuid.UUID  `json:"organization_id"`
+}
+
+// Every token still active on one service account, revoked at once when the
+// account is deleted. Its tokens already stop authenticating with the account
+// (both lookups check the user's deleted_at); revoking them as well records who
+// ended them and when, as RevokeToken does for one, and hands back the lookup
+// hashes the credential cache is evicted by.
+func (q *Queries) RevokeTokensForServiceAccount(ctx context.Context, arg RevokeTokensForServiceAccountParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, revokeTokensForServiceAccount, arg.RevokerID, arg.ServiceAccountID, arg.OrganizationID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var lookup_hash string
+		if err := rows.Scan(&lookup_hash); err != nil {
+			return nil, err
+		}
+		items = append(items, lookup_hash)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

@@ -98,7 +98,14 @@ const awaitsAIHistory = "AI history: the SDK regenerates its typed client after 
 // joined the contract after the SDK pin.
 const awaitsAIRefund = "AI refund: the SDK regenerates its typed client after the contract"
 
+// awaitsServiceAccountDelete is the reason of deleting a service account: the
+// same audience as revoking one of its tokens, which the SDK maps, but the
+// operation joined the contract after the SDK pin.
+const awaitsServiceAccountDelete = "service accounts: the SDK adds Delete after the contract"
+
 var awaitingSDKOperations = map[string]string{
+	"delete-service-account": awaitsServiceAccountDelete,
+
 	"listOrganizationAiInferences": awaitsAIHistory,
 	"refundAiInference":            awaitsAIRefund,
 

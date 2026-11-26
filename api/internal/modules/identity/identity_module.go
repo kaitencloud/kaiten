@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createplatformtoken"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createtokenonserviceaccount"
+	"github.com/kaitencloud/kaiten/api/internal/modules/identity/deleteserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/deletetokenonserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getplatformcredential"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getserviceaccount"
@@ -34,6 +35,7 @@ type UseCases struct {
 	GetServiceAccount           *getserviceaccount.UseCase
 	GetServiceAccounts          *getserviceaccounts.UseCase
 	UpdateServiceAccount        *updateserviceaccount.UseCase
+	DeleteServiceAccount        *deleteserviceaccount.UseCase
 	CreateTokenOnServiceAccount *createtokenonserviceaccount.UseCase
 	DeleteTokenOnServiceAccount *deletetokenonserviceaccount.UseCase
 	GetServiceAccountTokens     *getserviceaccounttokens.UseCase
@@ -164,6 +166,15 @@ func NewUseCases(svc services.Container) *UseCases {
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
 		}),
+		// The module's cache instance, for the reason DeleteTokenOnServiceAccount
+		// takes it: deleting an account revokes its tokens, and a revoked token
+		// that stayed cached would keep authenticating on this replica.
+		DeleteServiceAccount: deleteserviceaccount.NewUseCase(deleteserviceaccount.Deps{
+			UserProvider:  svc.UserProvider,
+			Uof:           svc.Uof,
+			Pool:          svc.Pool,
+			StockReporter: svc.StockReporter,
+		}, cache),
 		CreateTokenOnServiceAccount: createtokenonserviceaccount.NewUseCase(createtokenonserviceaccount.Deps{
 			UserProvider: svc.UserProvider,
 			Queries:      queries,

@@ -35263,6 +35263,65 @@ paths:
       tags:
         - service-accounts
   /service-accounts/{serviceAccountSlug}:
+    delete:
+      description: "Delete a service account of the organization and revoke every token it still holds: they stop authenticating at once. The rows the account wrote keep it as their author, and its slug can be given to a new account. On Kaiten Cloud, the account no longer counts against the service-accounts allowance of the organization's License. The organization context is derived from the authenticated user's JWT token."
+      operationId: delete-service-account
+      parameters:
+        - description: Service account slug
+          in: path
+          name: serviceAccountSlug
+          required: true
+          schema:
+            description: Service account slug
+            examples:
+              - service-account-slug
+            format: text
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:tokens
+      summary: Delete a service account
+      tags:
+        - service-accounts
     get:
       description: Retrieve details of a specific service account (machine user) by its slug.
       operationId: get-service-account

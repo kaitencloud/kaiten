@@ -261,6 +261,41 @@ func (q *Queries) GetServiceAccounts(ctx context.Context, arg GetServiceAccounts
 	return items, nil
 }
 
+const softDeleteServiceAccount = `-- name: SoftDeleteServiceAccount :one
+UPDATE "user" u
+SET deleted_at = now()
+FROM user_on_organization uoo
+WHERE u.id = uoo.user_id
+  AND u.slug = $1
+  AND uoo.organization_id = $2
+  AND u.organization_id = uoo.organization_id
+  AND u.type = 'machine'
+  AND u.deleted_at IS NULL
+  AND uoo.deleted_at IS NULL
+RETURNING u.id
+`
+
+type SoftDeleteServiceAccountParams struct {
+	ServiceAccountSlug *string   `json:"service_account_slug"`
+	OrganizationID     uuid.UUID `json:"organization_id"`
+}
+
+// Soft, like a human user's (users/deleteuser): the row is the created_by_id /
+// updated_by_id target of every row the account authored, ON DELETE RESTRICT,
+// so it stays, and the attribution with it. deleted_at takes it out of every
+// read in this file, gives its slug back (idx_unique_machine_slug_per_org only
+// counts live accounts) and stops its tokens authenticating
+// (GetActiveTokenByLookupHash, ResolveOrganizationTokenAuthorization).
+//
+// The same tenant predicates as GetServiceAccount, so the orgless system:kaiten
+// identity can never be reached from inside an organization.
+func (q *Queries) SoftDeleteServiceAccount(ctx context.Context, arg SoftDeleteServiceAccountParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, softDeleteServiceAccount, arg.ServiceAccountSlug, arg.OrganizationID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
 const updateServiceAccountName = `-- name: UpdateServiceAccountName :execresult
 UPDATE "user"
 SET name = $1

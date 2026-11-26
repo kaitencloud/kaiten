@@ -254,3 +254,17 @@ WHERE t.id = sqlc.arg(token_id)
   AND t.kind = 'organization' AND t.revoked_date IS NULL
   AND (t.expires_at IS NULL OR t.expires_at > now())
   AND u.type = 'machine' AND u.deleted_at IS NULL AND m.deleted_at IS NULL;
+
+-- name: RevokeTokensForServiceAccount :many
+-- Every token still active on one service account, revoked at once when the
+-- account is deleted. Its tokens already stop authenticating with the account
+-- (both lookups check the user's deleted_at); revoking them as well records who
+-- ended them and when, as RevokeToken does for one, and hands back the lookup
+-- hashes the credential cache is evicted by.
+UPDATE token
+SET revoked_by   = sqlc.arg(revoker_id),
+    revoked_date = now()
+WHERE service_account_id = sqlc.arg(service_account_id)
+  AND organization_id = sqlc.arg(organization_id)
+  AND revoked_date IS NULL
+RETURNING lookup_hash;

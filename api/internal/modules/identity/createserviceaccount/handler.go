@@ -57,8 +57,8 @@ func NewUseCase(deps Deps) *UseCase {
 // create is refused with a 409 when that is beyond the licence (a 503 when the
 // limit cannot be verified). Set rather than incremented: the count read here is
 // the truth, so accounts created before the entitlement existed are counted, and
-// an organization already above its allowance is refused. There is no route that
-// deletes a service account, so the count never goes down.
+// an organization already above its allowance is refused. A delete
+// (deleteserviceaccount) sets it back to the number still held.
 func (h *UseCase) Execute(ctx context.Context, name string, slug *string) (*schema.ServiceAccount, error) {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
