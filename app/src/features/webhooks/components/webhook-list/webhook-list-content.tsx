@@ -1,7 +1,9 @@
-import { Webhook as WebhookIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { Webhook } from '../../types';
 import { WebhookTable } from './webhook-table';
+
+const WebhookIcon = dataModelIcons.webhook;
 
 interface WebhookListContentProps {
   filteredWebhooks: Webhook[];
