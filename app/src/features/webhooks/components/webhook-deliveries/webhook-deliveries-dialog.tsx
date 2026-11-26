@@ -121,10 +121,16 @@ function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
     () => (data ? sortDeliveriesNewestFirst(data.deliveries) : undefined),
     [data],
   );
-  // The chosen delivery, or the newest when none is chosen or it left the list.
+  // The chosen delivery, or the newest when none is chosen or it left the
+  // list. The newest is then pinned as the choice, so that a refetch bringing
+  // in a newer message (a watch poll after a resend) does not swap the detail
+  // being read.
   const selected =
     deliveries?.find((delivery) => delivery.key === selectedKey) ??
     deliveries?.[0];
+  if (selected && selected.key !== selectedKey) {
+    setSelectedKey(selected.key);
+  }
 
   function handleSelect(key: string) {
     setSelectedKey(key);

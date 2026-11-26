@@ -126,7 +126,7 @@ function renderDialog() {
       />
     </QueryClientProvider>,
   );
-  return { onOpenChange };
+  return { onOpenChange, queryClient };
 }
 
 const chronology = () => screen.findByRole('list', { name: 'Deliveries' });
@@ -255,6 +255,31 @@ describe('WebhookDeliveriesDialog', () => {
       'Older deliveries are not shown',
     ]);
     expect(screen.queryByText('Webhook created')).toBeNull();
+  });
+
+  it('keeps the delivery shown when a refetch brings in a newer one', async () => {
+    serve(list([delivered]));
+    const { queryClient } = renderDialog();
+
+    const [first] = deliveryButtons(await chronology());
+    expect(first).toHaveAttribute('aria-current', 'true');
+    const detail = screen.getByTestId('webhook-delivery-detail');
+    expect(within(detail).getByRole('heading', { level: 3 })).toHaveTextContent(
+      'Instance created',
+    );
+
+    serve(list([delivered, failed]));
+    await queryClient.invalidateQueries();
+    const list_ = await chronology();
+    await waitFor(() => expect(deliveryButtons(list_)).toHaveLength(2));
+
+    const [newest, shown] = deliveryButtons(list_);
+    expect(shown).toHaveAttribute('aria-current', 'true');
+    expect(newest).not.toHaveAttribute('aria-current');
+    expect(screen.getByTestId('webhook-delivery-detail')).toBe(detail);
+    expect(within(detail).getByRole('heading', { level: 3 })).toHaveTextContent(
+      'Instance created',
+    );
   });
 
   it('says so when there is no delivery yet, with only the creation', async () => {
