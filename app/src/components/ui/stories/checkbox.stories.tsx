@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
+import { expect, userEvent, within } from 'storybook/test';
 import { Checkbox } from '../checkbox';
 import { Label } from '../label';
 
@@ -41,6 +42,57 @@ export const WithLabel: Story = {
         <Label htmlFor="terms">Accept terms and conditions</Label>
       </div>
     );
+  },
+};
+
+// A box that stands for a set of which some, not all, are checked: it draws a
+// minus, reads as "mixed", and a click checks the whole set.
+export const Indeterminate: Story = {
+  render: function IndeterminateCheckboxStory() {
+    const [items, setItems] = useState([true, false, false]);
+    const all = items.every(Boolean);
+    const some = !all && items.some(Boolean);
+
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center space-x-2">
+          <Checkbox
+            id="all-items"
+            checked={all}
+            indeterminate={some}
+            onCheckedChange={(value) =>
+              setItems(items.map(() => value === true))
+            }
+          />
+          <Label htmlFor="all-items">All items</Label>
+        </div>
+        {items.map((checked, index) => (
+          <div key={index} className="ml-6 flex items-center space-x-2">
+            <Checkbox
+              id={`item-${index}`}
+              checked={checked}
+              onCheckedChange={(value) =>
+                setItems(
+                  items.map((item, i) => (i === index ? value === true : item)),
+                )
+              }
+            />
+            <Label htmlFor={`item-${index}`}>{`Item ${index + 1}`}</Label>
+          </div>
+        ))}
+      </div>
+    );
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const all = canvas.getByRole('checkbox', { name: 'All items' });
+
+    await expect(all).toHaveAttribute('aria-checked', 'mixed');
+    await userEvent.click(all);
+    await expect(all).toHaveAttribute('aria-checked', 'true');
+    await expect(
+      canvas.getByRole('checkbox', { name: 'Item 3' }),
+    ).toHaveAttribute('aria-checked', 'true');
   },
 };
 
