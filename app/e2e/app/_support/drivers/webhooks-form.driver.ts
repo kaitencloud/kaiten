@@ -44,11 +44,9 @@ export class WebhooksFormDriver {
 
   /** The polite notice that a Slack or Google Chat URL receives chat messages. */
   chatNotice(): Locator {
-    return this.page
-      .getByRole('status')
-      .filter({
-        hasText: /Sent as chat messages|Envoyé comme messages de chat/,
-      });
+    return this.page.getByRole('status').filter({
+      hasText: /Sent as chat messages|Envoyé comme messages de chat/,
+    });
   }
 
   /** The notice of a webhook that has no event filter and so receives every event. */
