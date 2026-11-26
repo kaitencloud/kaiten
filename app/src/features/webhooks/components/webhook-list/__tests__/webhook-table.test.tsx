@@ -108,6 +108,7 @@ vi.mock('react-i18next', () => {
         'Pages.Integrations.Webhooks.Table.deliveries': 'Deliveries',
         'Pages.Integrations.Webhooks.Table.edit': 'Edit webhook {{host}}',
         'Pages.Integrations.Webhooks.Table.events': 'Events',
+        'Pages.Integrations.Webhooks.Table.everyEvent': 'Every event',
         'Pages.Integrations.Webhooks.Table.signingSecret': 'Signing secret',
         'Pages.Integrations.Webhooks.Table.showSigningSecret':
           'Show signing secret',
@@ -246,6 +247,16 @@ describe('WebhookTable', () => {
 
     expect(screen.getByText('CUSTOMER_CREATED')).toBeInTheDocument();
     expect(screen.getByText('https://example.com/hook')).toBeInTheDocument();
+  });
+
+  it('says a webhook without an event filter receives every event', () => {
+    renderWebhookTable({
+      webhooks: [{ ...webhooks[0]!, eventTypes: [] }],
+      onDelete: vi.fn(),
+    });
+
+    const row = screen.getAllByRole('row')[1]!;
+    expect(within(row).getByText('Every event')).toBeVisible();
   });
 
   it('shows a grouped tooltip when the event summary is truncated', async () => {

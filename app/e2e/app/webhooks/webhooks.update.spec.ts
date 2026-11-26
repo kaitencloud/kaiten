@@ -220,16 +220,85 @@ test.describe('editing a webhook that holds events the picker does not offer', (
 });
 
 test.describe('editing a webhook that has no event filter', () => {
-  test('says it receives every event, selects none and keeps Save off', async ({
+  const EVERYTHING_URL = 'https://hooks.example.com/everything';
+
+  test.beforeEach(async ({ page }) => {
+    await installWebhooksAppMocks(page, createWebhookWithoutFilterModel());
+  });
+
+  test('keeps it receiving every event while only its URL changes', async ({
     page,
   }) => {
-    await installWebhooksAppMocks(page, createWebhookWithoutFilterModel());
+    const list = new WebhooksListDriver(page);
     const form = new WebhooksFormDriver(page);
+    await list.gotoList();
+    await expect(list.row(EVERYTHING_URL)).toContainText('Every event');
+    await form.gotoEdit('ep_no_filter');
+    const writes = recordWrites(page, /^\/api\/webhooks/);
+
+    await expect(form.keepEveryEvent()).toBeChecked();
+    await expect(form.picker()).toHaveCount(0);
+    await expect(form.narrowingNotice()).toHaveCount(0);
+    await expect(form.selectionCount()).toHaveText('Every event');
+    await expect(form.submitButton()).toBeDisabled();
+
+    await form.fillUrl(`${EVERYTHING_URL}/v2`);
+    await form.submit();
+
+    await expectToast(page, 'Webhook updated');
+    // An empty eventTypes asks saas-api to keep the webhook without a filter.
+    expect(writes).toEqual([
+      {
+        body: { eventTypes: [], url: `${EVERYTHING_URL}/v2` },
+        method: 'PUT',
+        pathname: '/api/webhooks/ep_no_filter',
+      },
+    ]);
+    await expect(list.row(`${EVERYTHING_URL}/v2`)).toContainText('Every event');
 
     await form.gotoEdit('ep_no_filter');
+    await expect(form.keepEveryEvent()).toBeChecked();
+  });
 
-    await expect(form.noFilterNotice()).toBeVisible();
+  test('unticked, warns that saving is for good, needs an event, then narrows it', async ({
+    page,
+  }) => {
+    const form = new WebhooksFormDriver(page);
+    await form.gotoEdit('ep_no_filter');
+    const writes = recordWrites(page, /^\/api\/webhooks/);
+
+    await form.keepEveryEvent().click();
+    await expect(form.narrowingNotice()).toBeVisible();
+    await expect(form.picker()).toBeVisible();
     await expect(form.selectionCount()).toHaveText('0 events selected');
     await expect(form.submitButton()).toBeDisabled();
+
+    // Ticked again with nothing else changed: nothing to save.
+    await form.keepEveryEvent().click();
+    await expect(form.picker()).toHaveCount(0);
+    await expect(form.submitButton()).toBeDisabled();
+
+    await form.keepEveryEvent().click();
+    await form.openGroup('Customers');
+    await form.row('Customer created').click();
+    await expect(form.selectionCount()).toHaveText('1 event selected');
+    await form.submit();
+
+    await expectToast(page, 'Webhook updated');
+    expect(writes).toEqual([
+      {
+        body: {
+          eventTypes: ['com.kaiten.customer.v1.created'],
+          url: EVERYTHING_URL,
+        },
+        method: 'PUT',
+        pathname: '/api/webhooks/ep_no_filter',
+      },
+    ]);
+
+    // Filtered now, for good: its edit page no longer offers every event.
+    await form.gotoEdit('ep_no_filter');
+    await expect(form.selectionCount()).toHaveText('1 event selected');
+    await expect(form.keepEveryEvent()).toHaveCount(0);
   });
 });

@@ -4876,6 +4876,7 @@ export default {
           signingSecretCopyError: 'Impossible de copier le secret de signature',
           edit: 'Modifier le webhook {{host}}',
           deliveries: 'Livraisons',
+          everyEvent: 'Tous les événements',
         },
         Form: {
           titleNew: 'Nouveau webhook',
@@ -4904,8 +4905,11 @@ export default {
             title: 'Événements',
             description:
               'Choisissez les événements qui déclenchent ce webhook.',
-            noFilterNotice:
-              "Ce webhook n'a pas de filtre d'événements : il reçoit tous les événements. Choisissez ceux qu'il doit recevoir.",
+            keepEveryEvent: 'Continuer à recevoir tous les événements',
+            keepEveryEventDescription:
+              "Ce webhook n'a pas de filtre d'événements : il reçoit tous les événements, y compris les types d'événements ajoutés plus tard.",
+            narrowingNotice:
+              'Une fois enregistré, ce webhook ne recevra plus que les événements choisis. La console ne pourra plus lui faire recevoir tous les événements.',
           },
           picker: {
             searchLabel: 'Rechercher des événements',
@@ -4933,6 +4937,7 @@ export default {
             count_one: '{{count}} événement sélectionné',
             count_other: '{{count}} événements sélectionnés',
             empty: 'Aucun événement sélectionné.',
+            everyEvent: 'Tous les événements',
             clear: 'Tout effacer',
             allOfGroup: 'Les {{count}} événements',
             removeEvent: 'Retirer {{event}}',

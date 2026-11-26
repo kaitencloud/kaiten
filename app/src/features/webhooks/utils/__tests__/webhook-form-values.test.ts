@@ -3,6 +3,7 @@ import type { ApiWebhook } from '../../types';
 import { WEBHOOK_EVENTS } from '../webhook-event-catalogue';
 import {
   formValuesToBody,
+  isUnchangedWebhook,
   webhookDisplayName,
   webhookToBody,
   webhookToFormValues,
@@ -21,21 +22,59 @@ const webhook = (overrides: Partial<ApiWebhook> = {}): ApiWebhook => ({
 describe('webhook form values', () => {
   it('opens a webhook with its events in catalogue order', () => {
     expect(webhookToFormValues(webhook())).toEqual({
+      keepEveryEvent: false,
       eventTypes: [MODEL_CREATED, CUSTOMER_CREATED],
       url: 'https://api.example.com/hooks/kaiten?token=secret',
     });
   });
 
-  it('opens a webhook without a filter with no events', () => {
-    const unfiltered = webhook({ eventTypes: null as unknown as string[] });
+  it('opens a webhook without a filter with no events, keeping every event', () => {
+    const unfiltered = webhook({ eventTypes: null });
 
-    expect(webhookToFormValues(unfiltered).eventTypes).toEqual([]);
+    expect(webhookToFormValues(unfiltered)).toMatchObject({
+      keepEveryEvent: true,
+      eventTypes: [],
+    });
+    expect(webhookToFormValues(webhook({ eventTypes: [] })).keepEveryEvent).toBe(true);
     expect(webhookToBody(unfiltered).eventTypes).toEqual([]);
+  });
+
+  it('sends no event while the webhook keeps every event, whatever was ticked', () => {
+    expect(
+      formValuesToBody({
+        keepEveryEvent: true,
+        eventTypes: [CUSTOMER_CREATED],
+        url: ' https://a.example.com/v2 ',
+      }),
+    ).toEqual({ eventTypes: [], url: 'https://a.example.com/v2' });
+  });
+
+  it('compares what the values would send, not the values', () => {
+    const opened = webhookToFormValues(webhook({ eventTypes: null }));
+
+    expect(isUnchangedWebhook(opened, opened)).toBe(true);
+    // Unticked, events ticked, then ticked again: the same body.
+    expect(
+      isUnchangedWebhook({ ...opened, eventTypes: [MODEL_CREATED] }, opened),
+    ).toBe(true);
+    expect(isUnchangedWebhook({ ...opened, keepEveryEvent: false }, opened)).toBe(
+      true,
+    );
+    expect(
+      isUnchangedWebhook(
+        { ...opened, keepEveryEvent: false, eventTypes: [MODEL_CREATED] },
+        opened,
+      ),
+    ).toBe(false);
+    expect(isUnchangedWebhook({ ...opened, url: `${opened.url}/v2` }, opened)).toBe(
+      false,
+    );
   });
 
   it('sends the URL trimmed and the events normalised', () => {
     expect(
       formValuesToBody({
+        keepEveryEvent: false,
         eventTypes: [CUSTOMER_CREATED, MODEL_CREATED, CUSTOMER_CREATED],
         url: '  https://a.example.com  ',
       }),

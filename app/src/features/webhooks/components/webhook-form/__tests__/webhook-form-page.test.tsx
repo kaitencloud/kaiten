@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
@@ -312,22 +313,115 @@ describe('WebhookFormPage, edit', () => {
     },
     FORM_TEST_TIMEOUT_MS,
   );
+});
 
-  it('says a webhook without a filter receives every event, and needs events to be saved', async () => {
+describe('WebhookFormPage, edit of a webhook without an event filter', () => {
+  const filterless: ApiWebhook = { ...stored, eventTypes: null };
+  const keepEveryEvent = () =>
+    screen.getByRole('checkbox', { name: 'Keep receiving every event' });
+  const narrowingNotice =
+    'Saving limits this webhook to the events you choose. The console cannot make it receive every event again.';
+
+  it(
+    'keeps every event by default, without the picker, and saves the URL alone',
+    async () => {
+      const user = userEvent.setup();
+      const writes = serveWebhooks({ webhook: filterless });
+      renderPage(filterless);
+
+      expect(keepEveryEvent()).toBeChecked();
+      expect(keepEveryEvent()).toHaveAccessibleDescription(
+        'This webhook has no event filter: it receives every event, including the event types added later.',
+      );
+      expect(screen.queryByRole('group', { name: 'Events' })).toBeNull();
+      expect(screen.queryByText(narrowingNotice)).toBeNull();
+      expect(screen.getByText('Every event')).toBeVisible();
+      expect(screen.queryByRole('button', { name: 'Clear all' })).toBeNull();
+      expect(saveButton()).toBeDisabled();
+
+      await user.type(urlInput(), '/v2');
+      expect(saveButton()).toBeEnabled();
+      await user.click(saveButton());
+
+      await waitFor(() => {
+        expect(navigateMock).toHaveBeenCalledWith({ to: '/integrations/webhooks' });
+      });
+      // An empty eventTypes is how saas-api is asked to keep no filter.
+      expect(writes).toEqual([
+        {
+          method: 'PUT',
+          body: { eventTypes: [], url: `${stored.url}/v2` },
+        },
+      ]);
+    },
+    FORM_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'unticked, shows the picker, warns that the change is for good and needs an event',
+    async () => {
+      const user = userEvent.setup();
+      const writes = serveWebhooks({ webhook: filterless });
+      renderPage(filterless);
+      // Mounted, empty, before the box is unticked: a live region mounted
+      // with its text would not be announced.
+      const card = keepEveryEvent().closest<HTMLElement>('[data-slot="card"]');
+      const warning = within(card ?? document.body).getByRole('status');
+      expect(warning).toBeEmptyDOMElement();
+
+      await user.click(keepEveryEvent());
+
+      expect(keepEveryEvent()).not.toBeChecked();
+      expect(screen.getByRole('group', { name: 'Events' })).toBeVisible();
+      expect(warning).toHaveTextContent(narrowingNotice);
+      expect(screen.getByText(narrowingNotice)).toBeVisible();
+      expect(screen.getByText('0 events selected')).toBeVisible();
+      expect(saveButton()).toBeDisabled();
+
+      await tickCustomerCreated(user);
+      expect(saveButton()).toBeEnabled();
+      await user.click(saveButton());
+
+      await waitFor(() => {
+        expect(writes).toHaveLength(1);
+      });
+      expect(writes[0]?.body).toEqual({
+        eventTypes: [CUSTOMER_CREATED],
+        url: stored.url,
+      });
+    },
+    FORM_TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'has nothing to save once the box is ticked again, whatever was chosen meanwhile',
+    async () => {
+      const user = userEvent.setup();
+      serveWebhooks({ webhook: filterless });
+      renderPage(filterless);
+
+      await user.click(keepEveryEvent());
+      await tickCustomerCreated(user);
+      expect(saveButton()).toBeEnabled();
+
+      await user.click(keepEveryEvent());
+
+      expect(screen.queryByRole('group', { name: 'Events' })).toBeNull();
+      expect(screen.getByText('Every event')).toBeVisible();
+      expect(saveButton()).toBeDisabled();
+    },
+    FORM_TEST_TIMEOUT_MS,
+  );
+
+  it('is operable from the keyboard', async () => {
     const user = userEvent.setup();
-    const webhook = { ...stored, eventTypes: null as unknown as string[] };
-    serveWebhooks({ webhook });
-    renderPage(webhook);
+    serveWebhooks({ webhook: filterless });
+    renderPage(filterless);
 
-    expect(
-      screen.getByText(
-        'This webhook has no event filter, so it receives every event. Choose the events it should receive.',
-      ),
-    ).toBeVisible();
-    expect(screen.getByText('0 events selected')).toBeVisible();
+    keepEveryEvent().focus();
+    await user.keyboard(' ');
 
-    await user.type(urlInput(), '/v2');
-
-    expect(saveButton()).toBeDisabled();
+    expect(keepEveryEvent()).not.toBeChecked();
+    expect(screen.getByRole('group', { name: 'Events' })).toBeVisible();
   });
 });

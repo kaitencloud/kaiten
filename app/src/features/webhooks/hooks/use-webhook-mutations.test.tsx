@@ -251,7 +251,7 @@ describe('useWebhookMutations', () => {
         url: existingWebhook.url,
       },
       opened: {
-        eventTypes: existingWebhook.eventTypes,
+        eventTypes: existingWebhook.eventTypes ?? [],
         url: existingWebhook.url,
       },
     };

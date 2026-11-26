@@ -13,6 +13,7 @@ import { installWebhooksAppMocks } from '../_support/mocks/install-webhooks-app-
 import {
   createWebhooksDeliveriesModel,
   createWebhooksFormModel,
+  createWebhookWithoutFilterModel,
   OPS_WEBHOOK_URL,
   WEBHOOKS_DELIVERIES_NOW,
 } from '../webhooks/webhooks.scenarios';
@@ -107,6 +108,29 @@ test.describe('accessibility of the webhook form', () => {
     await expect(
       form.chip('CUSTOMER_UPDATED').getByRole('button'),
     ).toBeFocused();
+  });
+});
+
+test.describe('accessibility of the edit page of a webhook without an event filter', () => {
+  test.beforeEach(async ({ page }) => {
+    await installWebhooksAppMocks(page, createWebhookWithoutFilterModel());
+  });
+
+  test('has none with the box ticked, nor once it is unticked from the keyboard', async ({
+    page,
+  }) => {
+    const form = new WebhooksFormDriver(page);
+    await form.gotoEdit('ep_no_filter');
+    await expect(form.keepEveryEvent()).toBeChecked();
+
+    await expectAccessibleInBothThemes(page);
+
+    await form.keepEveryEvent().focus();
+    await page.keyboard.press('Space');
+    await expect(form.keepEveryEvent()).not.toBeChecked();
+    await expect(form.narrowingNotice()).toBeVisible();
+
+    await expectAccessibleInBothThemes(page);
   });
 });
 

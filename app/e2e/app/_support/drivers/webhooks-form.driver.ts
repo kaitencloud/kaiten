@@ -49,10 +49,19 @@ export class WebhooksFormDriver {
     });
   }
 
-  /** The notice of a webhook that has no event filter and so receives every event. */
-  noFilterNotice(): Locator {
+  // --- A webhook without an event filter ------------------------------------
+
+  /** The box of the edit page of a webhook without a filter, ticked when it opens. */
+  keepEveryEvent(): Locator {
+    return this.page.getByRole('checkbox', {
+      name: /^(Keep receiving every event|Continuer à recevoir tous les événements)$/,
+    });
+  }
+
+  /** The warning, once the box is unticked, that saving narrows the webhook for good. */
+  narrowingNotice(): Locator {
     return this.page.getByRole('status').filter({
-      hasText: /has no event filter|n'a pas de filtre d'événements/,
+      hasText: /Saving limits this webhook|Une fois enregistré, ce webhook/,
     });
   }
 

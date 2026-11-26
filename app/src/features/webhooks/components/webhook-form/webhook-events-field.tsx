@@ -1,10 +1,9 @@
-import { Info } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/lib/utils';
 import type { WebhookFormApi } from '../../hooks/use-webhook-form';
 import { WebhookEventPicker } from './event-picker';
+import { WebhookKeepEveryEventField } from './webhook-keep-every-event-field';
 
 type WebhookEventsFieldProps = {
   form: WebhookFormApi;
@@ -15,8 +14,11 @@ type WebhookEventsFieldProps = {
 
 /**
  * The `eventTypes` field: the picker, with the field's error under it and
- * linked to it. A webhook made without an event filter receives every event:
- * the page says so rather than show an empty picker as if it received none.
+ * linked to it. A webhook without an event filter receives every event: its
+ * edit page first offers to keep it that way, and the picker is not shown
+ * while it does, rather than show an empty picker as if it received none.
+ * Unticked, the picker comes back, below the box's warning that saving
+ * narrows the webhook for good.
  */
 export function WebhookEventsField({
   form,
@@ -24,35 +26,30 @@ export function WebhookEventsField({
   hasNoEventFilter,
   className,
 }: WebhookEventsFieldProps) {
-  const { t } = useTranslation();
-
   return (
-    <form.AppField name="eventTypes">
-      {() => (
-        <FormField<string[]> className={className}>
-          {(field) => (
-            <>
-              {hasNoEventFilter ? (
-                <Alert role="status">
-                  <Info aria-hidden />
-                  <AlertDescription>
-                    {t(
-                      'Pages.Integrations.Webhooks.Form.events.noFilterNotice',
-                    )}
-                  </AlertDescription>
-                </Alert>
-              ) : null}
-              <FormControl announceRequired={false}>
-                <WebhookEventPicker
-                  value={field.value}
-                  onChange={field.handleChange}
-                  retainedTypes={retainedTypes}
-                />
-              </FormControl>
-            </>
-          )}
-        </FormField>
-      )}
-    </form.AppField>
+    <div className={cn('grid gap-4', className)}>
+      {hasNoEventFilter ? <WebhookKeepEveryEventField form={form} /> : null}
+      <form.Subscribe selector={(state) => state.values.keepEveryEvent}>
+        {(keepEveryEvent) =>
+          keepEveryEvent ? null : (
+            <form.AppField name="eventTypes">
+              {() => (
+                <FormField<string[]> className="grid-cols-1">
+                  {(field) => (
+                    <FormControl announceRequired={false}>
+                      <WebhookEventPicker
+                        value={field.value}
+                        onChange={field.handleChange}
+                        retainedTypes={retainedTypes}
+                      />
+                    </FormControl>
+                  )}
+                </FormField>
+              )}
+            </form.AppField>
+          )
+        }
+      </form.Subscribe>
+    </div>
   );
 }

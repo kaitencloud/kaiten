@@ -4796,6 +4796,7 @@ export default {
           signingSecretCopyError: 'Failed to copy signing secret',
           edit: 'Edit webhook {{host}}',
           deliveries: 'Deliveries',
+          everyEvent: 'Every event',
         },
         Form: {
           titleNew: 'New Webhook',
@@ -4823,8 +4824,11 @@ export default {
           events: {
             title: 'Events',
             description: 'Choose the events that trigger this webhook.',
-            noFilterNotice:
-              'This webhook has no event filter, so it receives every event. Choose the events it should receive.',
+            keepEveryEvent: 'Keep receiving every event',
+            keepEveryEventDescription:
+              'This webhook has no event filter: it receives every event, including the event types added later.',
+            narrowingNotice:
+              'Saving limits this webhook to the events you choose. The console cannot make it receive every event again.',
           },
           picker: {
             searchLabel: 'Search events',
@@ -4852,6 +4856,7 @@ export default {
             count_one: '{{count}} event selected',
             count_other: '{{count}} events selected',
             empty: 'No events selected yet.',
+            everyEvent: 'Every event',
             clear: 'Clear all',
             allOfGroup: 'All {{count}} events',
             removeEvent: 'Remove {{event}}',

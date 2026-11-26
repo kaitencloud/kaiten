@@ -143,7 +143,18 @@ function WebhookEventsSummaryText({
 }
 
 function WebhookEventsCell({ webhook }: { webhook: Webhook }) {
+  const { t } = useTranslation();
   const ellipsis = useEllipsis();
+
+  // No event filter: the webhook receives every event, which an empty cell
+  // would read as none.
+  if (webhook.eventTypes.length === 0) {
+    return (
+      <span className="block text-sm leading-6 text-muted-foreground">
+        {t('Pages.Integrations.Webhooks.Table.everyEvent')}
+      </span>
+    );
+  }
 
   if (!ellipsis.isEllipsis) {
     return (

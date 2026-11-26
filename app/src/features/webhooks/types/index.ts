@@ -16,14 +16,22 @@ export interface Webhook {
 
 export interface ApiWebhook {
   id: string;
-  eventTypes: string[];
+  /**
+   * `null` for a webhook without an event filter, which receives every event:
+   * one created outside the console, or kept that way by an edit.
+   */
+  eventTypes: string[] | null;
   url: string;
   signingSecret?: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
-/** The body of a create (POST) and of an update (PUT): the two members it replaces. */
+/**
+ * The body of a create (POST) and of an update (PUT): the two members it
+ * replaces. An update may send no event only for a webhook without a filter,
+ * which then keeps receiving every event; saas-api refuses it to any other.
+ */
 export interface WebhookInput {
   eventTypes: string[];
   url: string;

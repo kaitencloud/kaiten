@@ -13,6 +13,11 @@ import { WebhookSelectionChips } from './webhook-selection-chips';
 
 type WebhookSelectionCardProps = {
   value: readonly string[];
+  /**
+   * The webhook keeps receiving every event: the card says so instead of
+   * listing `value`, which is not sent.
+   */
+  everyEvent?: boolean;
   onChange: EventSelectionUpdate;
   className?: string;
 };
@@ -22,12 +27,14 @@ const chipCount = (summary: SelectionGroupSummary) =>
 
 /**
  * What will be sent: the count, the selection by group as removable chips, and
- * "Clear all". It owns no state: it reads the field's value and asks for every
- * change. After a removal the focus goes to the next chip, else the previous
- * one, else the card's title, so a keyboard user never falls to the page.
+ * "Clear all", or "Every event" alone for a webhook that keeps no filter. It
+ * owns no state: it reads the field's value and asks for every change. After a
+ * removal the focus goes to the next chip, else the previous one, else the
+ * card's title, so a keyboard user never falls to the page.
  */
 export function WebhookSelectionCard({
   value,
+  everyEvent = false,
   onChange,
   className,
 }: WebhookSelectionCardProps) {
@@ -93,29 +100,33 @@ export function WebhookSelectionCard({
             {t('Pages.Integrations.Webhooks.Form.selection.title')}
           </CardTitle>
           <p role="status" className="text-sm text-muted-foreground">
-            {t('Pages.Integrations.Webhooks.Form.selection.count', {
-              count: value.length,
-            })}
+            {everyEvent
+              ? t('Pages.Integrations.Webhooks.Form.selection.everyEvent')
+              : t('Pages.Integrations.Webhooks.Form.selection.count', {
+                  count: value.length,
+                })}
           </p>
         </div>
-        {value.length > 0 ? (
+        {value.length > 0 && !everyEvent ? (
           <Button type="button" variant="ghost" size="sm" onClick={handleClear}>
             {t('Pages.Integrations.Webhooks.Form.selection.clear')}
           </Button>
         ) : null}
       </div>
-      <div
-        ref={listRef}
-        className="min-h-0 space-y-3 overflow-y-auto px-5 max-lg:max-h-64 lg:flex-1"
-      >
-        {summaries.length > 0 ? (
-          summaries.map(renderChipGroup)
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            {t('Pages.Integrations.Webhooks.Form.selection.empty')}
-          </p>
-        )}
-      </div>
+      {everyEvent ? null : (
+        <div
+          ref={listRef}
+          className="min-h-0 space-y-3 overflow-y-auto px-5 max-lg:max-h-64 lg:flex-1"
+        >
+          {summaries.length > 0 ? (
+            summaries.map(renderChipGroup)
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {t('Pages.Integrations.Webhooks.Form.selection.empty')}
+            </p>
+          )}
+        </div>
+      )}
     </Card>
   );
 }

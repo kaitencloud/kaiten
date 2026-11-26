@@ -1,16 +1,18 @@
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { useAppForm } from '@/hooks/form';
 import {
   initialWebhookFormValues,
+  type WebhookFormValues,
   webhookFormSchema,
 } from '../schemas/webhook-form.schema';
 import type { ApiWebhook } from '../types';
 import { isOfferedType } from '../utils/webhook-event-selection';
 import {
   formValuesToBody,
+  isUnchangedWebhook,
   webhookToFormValues,
 } from '../utils/webhook-form-values';
 import { useWebhookMutations } from './use-webhook-mutations';
@@ -68,12 +70,23 @@ export function useWebhookForm({ webhook }: UseWebhookFormOptions = {}) {
     void navigate({ to: '/integrations/webhooks' });
   }
 
+  // Save has nothing to send while the body is the one the page opened with.
+  // TanStack Form's `isDirty` stays set once a field changed, and its
+  // `isDefaultValue` would count the events ticked while "keep every event"
+  // is on, which are not sent.
+  const isUnchanged = useCallback(
+    (values: WebhookFormValues) => isUnchangedWebhook(values, openedValues),
+    [openedValues],
+  );
+
   return {
     form,
     handleCancel,
     isEditMode: Boolean(webhook),
-    // A webhook made outside the console without a filter receives every event.
-    hasNoEventFilter: Boolean(webhook) && openedValues.eventTypes.length === 0,
+    isUnchanged,
+    // A webhook without a filter receives every event: its edit page offers to
+    // keep it that way. Only an edit opens with the box ticked.
+    hasNoEventFilter: openedValues.keepEveryEvent,
     // What the webhook carries that the picker does not offer: kept, and
     // listed under "Other events" so that it can be removed.
     retainedTypes: openedValues.eventTypes.filter(

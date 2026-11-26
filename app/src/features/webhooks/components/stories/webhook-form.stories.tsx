@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { HttpResponse, http } from 'msw/http';
+import { userEvent, within } from 'storybook/test';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import type { ApiWebhook } from '../../types';
 import { SUBSCRIBABLE_WEBHOOK_EVENTS } from '../../utils/webhook-events';
@@ -15,7 +16,8 @@ import {
 // The page needs the router (it navigates), a QueryClient and the API: it is
 // excluded from the Storybook test runner (vite.config.ts), and its behaviour
 // is covered by the page's unit test and the e2e specs. These stories are for
-// looking at it: the sticky column, the chat notice, a long selection.
+// looking at it: the sticky column, the chat notice, a long selection, and a
+// webhook without a filter, kept that way or about to be narrowed.
 function FormFrame({ webhook }: { webhook?: ApiWebhook }) {
   return (
     <StorybookRouter
@@ -79,12 +81,23 @@ export const EditWithOtherEvents: Story = {
   args: { webhook: storyWebhookOtherEvents },
 };
 
+/** "Keep receiving every event" ticked, as the page opens: no picker. */
 export const EditWithoutFilter: Story = {
   args: {
-    webhook: {
-      ...storyApiWebhooks[0],
-      eventTypes: null as unknown as string[],
-    },
+    webhook: { ...storyApiWebhooks[0], eventTypes: null },
+  },
+};
+
+/** The box unticked: the picker, and the warning that saving is for good. */
+export const EditWithoutFilterNarrowing: Story = {
+  args: EditWithoutFilter.args,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      await canvas.findByRole('checkbox', {
+        name: 'Keep receiving every event',
+      }),
+    );
   },
 };
 

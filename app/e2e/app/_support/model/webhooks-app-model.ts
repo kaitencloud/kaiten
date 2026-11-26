@@ -46,7 +46,10 @@ export type MockedWebhookSeed = Pick<
 > &
   Partial<Pick<MockedWebhook, 'signingSecret' | 'createdAt' | 'updatedAt'>>;
 
-/** The body of `POST /webhooks` and `PUT /webhooks/{id}`. */
+/**
+ * The body of `POST /webhooks` and `PUT /webhooks/{id}`. An update records an
+ * absent or null `eventTypes` as `[]`: saas-api reads all three alike.
+ */
 export type WebhookBody = { url: string; eventTypes: string[] };
 
 /** The operations a spec can arm a refusal for. */
@@ -341,15 +344,30 @@ export class WebhooksAppModel {
     return withoutSecret(webhook);
   }
 
-  /** `PUT /webhooks/{id}`: replaces the URL and the events, keeps the secret. */
+  /**
+   * `PUT /webhooks/{id}`: replaces the URL and the events, keeps the secret.
+   * No event (absent, null or []) is accepted only for a webhook without a
+   * filter, which keeps receiving every event (`eventTypes: null`); one with a
+   * filter is refused it, nothing changed. That check needs the stored
+   * webhook, so an unknown id answers 404 before it, while the body's other
+   * checks answer 400 before any lookup.
+   */
   updateWebhook(webhookId: string, body: unknown) {
     checkPathIds('UpdateWebhook', webhookId);
     const valid = this.validate('UpdateWebhook', body);
     this.problems.consume('updateWebhook');
     const webhook = this.find(webhookId);
     if (!webhook) throw notFound();
+    const keepEveryEvent = valid.eventTypes.length === 0;
+    if (keepEveryEvent && (webhook.eventTypes ?? []).length > 0) {
+      throw new BillingProblem(
+        400,
+        'UpdateWebhook.MissingEventTypes',
+        'eventTypes is required; only a webhook without an event filter can keep receiving every event',
+      );
+    }
     webhook.url = valid.url;
-    webhook.eventTypes = [...valid.eventTypes];
+    webhook.eventTypes = keepEveryEvent ? null : [...valid.eventTypes];
     webhook.updatedAt = this.tick();
     this.writes.push({ operation: 'update', webhookId, body: valid });
 
@@ -533,8 +551,10 @@ export class WebhooksAppModel {
     return new Date(at).toISOString();
   }
 
-  // As saas-api: the URL must be there, the events too, each a valid type. Svix
-  // decides the rest of the URL (a 422, armed by a spec when it needs one).
+  // As saas-api: the URL must be there, the events too, each a valid type. An
+  // update may leave the events out (absent, null or []), which updateWebhook
+  // then checks against the stored webhook. Svix decides the rest of the URL
+  // (a 422, armed by a spec when it needs one).
   private validate(
     operation: 'CreateWebhook' | 'UpdateWebhook',
     body: unknown,
@@ -549,7 +569,13 @@ export class WebhooksAppModel {
         'url is required',
       );
     }
-    if (!Array.isArray(eventTypes) || eventTypes.length === 0) {
+    if (operation === 'UpdateWebhook' && eventTypes == null) {
+      return { url, eventTypes: [] };
+    }
+    if (
+      !Array.isArray(eventTypes) ||
+      (operation === 'CreateWebhook' && eventTypes.length === 0)
+    ) {
       throw new BillingProblem(
         400,
         `${operation}.MissingEventTypes`,

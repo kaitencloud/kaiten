@@ -143,6 +143,103 @@ describe('webhooks mocks', () => {
     expect(after.signingSecret).toBe(before.signingSecret);
   });
 
+  describe('an update without events', () => {
+    const MISSING_EVENT_TYPES = {
+      status: 400,
+      code: 'UpdateWebhook.MissingEventTypes',
+      detail:
+        'eventTypes is required; only a webhook without an event filter can keep receiving every event',
+    };
+
+    it.each([
+      ['an empty list', { eventTypes: [] }],
+      ['null', { eventTypes: null }],
+      ['nothing', {}],
+    ])(
+      'keeps a webhook without a filter receiving every event, given %s',
+      async (_, events) => {
+        const config = install(createWebhookWithoutFilterModel());
+
+        const response = await call('/webhooks/ep_no_filter', {
+          method: 'PUT',
+          body: { url: 'https://hooks.example.com/v2', ...events },
+        });
+
+        expect(response.status).toBe(200);
+        expect(await response.json()).toMatchObject({
+          url: 'https://hooks.example.com/v2',
+          eventTypes: null,
+        });
+        const persisted = WebhooksAppModel.fromSerialized(config.webhooks!);
+        expect(persisted.listWebhooks()[0]?.eventTypes).toBeNull();
+        expect(persisted.acceptedWrites).toEqual([
+          {
+            operation: 'update',
+            webhookId: 'ep_no_filter',
+            body: { url: 'https://hooks.example.com/v2', eventTypes: [] },
+          },
+        ]);
+      },
+    );
+
+    it('gives a webhook without a filter the events it names, for good', async () => {
+      install(createWebhookWithoutFilterModel());
+
+      const response = await call('/webhooks/ep_no_filter', {
+        method: 'PUT',
+        body: { url: 'https://hooks.example.com/everything', eventTypes: [MODEL_CREATED] },
+      });
+
+      expect(await response.json()).toMatchObject({ eventTypes: [MODEL_CREATED] });
+      const refused = await call('/webhooks/ep_no_filter', {
+        method: 'PUT',
+        body: { url: 'https://hooks.example.com/everything', eventTypes: [] },
+      });
+      expect(refused.status).toBe(400);
+      expect(await refused.json()).toMatchObject(MISSING_EVENT_TYPES);
+    });
+
+    it('refuses one to a webhook that has a filter, and changes nothing', async () => {
+      const config = install(createWebhooksFormModel());
+
+      const response = await call('/webhooks/ep_customers', {
+        method: 'PUT',
+        body: { url: 'https://crm.example.com/v2', eventTypes: [] },
+      });
+
+      expect(response.status).toBe(400);
+      expect(await response.json()).toMatchObject(MISSING_EVENT_TYPES);
+      const persisted = WebhooksAppModel.fromSerialized(config.webhooks!);
+      expect(persisted.acceptedWrites).toEqual([]);
+      expect(persisted.getWebhook('ep_customers').url).toBe(
+        'https://crm.example.com/hooks/kaiten',
+      );
+    });
+
+    it('answers 404 for an unknown webhook before that check, 400 for the body before any lookup', async () => {
+      install(createWebhooksFormModel());
+
+      const unknown = await call('/webhooks/ep_unknown', {
+        method: 'PUT',
+        body: { url: 'https://a.example.com', eventTypes: [] },
+      });
+      expect(unknown.status).toBe(404);
+      expect(await unknown.json()).toMatchObject({ code: 'Svix.NotFound' });
+
+      for (const [body, code] of [
+        [{ eventTypes: [] }, 'UpdateWebhook.MissingURL'],
+        [
+          { url: 'https://a.example.com', eventTypes: ['CUSTOMER_CREATION'] },
+          'UpdateWebhook.InvalidEventTypes',
+        ],
+      ] as const) {
+        const response = await call('/webhooks/ep_unknown', { method: 'PUT', body });
+        expect(response.status).toBe(400);
+        expect(await response.json()).toMatchObject({ code });
+      }
+    });
+  });
+
   it('answers 404 Svix.NotFound for an unknown webhook on get, update and delete', async () => {
     install(createWebhooksFormModel());
 

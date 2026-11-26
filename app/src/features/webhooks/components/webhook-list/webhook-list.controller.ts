@@ -17,11 +17,15 @@ import {
 } from '../../utils/webhook-events';
 
 // A webhook is found by its URL, and by any of its events -- their type, their
-// name, or the label and group the viewer reads them under.
+// name, or the label and group the viewer reads them under. A webhook without
+// a filter is found by the "Every event" its row shows instead.
 export function getWebhookSearchTokens(
   webhook: Webhook,
   t: TFunction,
 ): string[] {
+  if (webhook.eventTypes.length === 0) {
+    return [webhook.url, t('Pages.Integrations.Webhooks.Table.everyEvent')];
+  }
   const eventTokens = webhook.eventTypes.flatMap((type) => {
     const event = getWebhookEvent(type);
     return event

@@ -24,8 +24,14 @@ type WebhookFormPageProps = {
 export function WebhookFormPage({ webhook }: WebhookFormPageProps) {
   const { t } = useTranslation();
   const formId = useId();
-  const { form, handleCancel, hasNoEventFilter, isEditMode, retainedTypes } =
-    useWebhookForm({ webhook });
+  const {
+    form,
+    handleCancel,
+    hasNoEventFilter,
+    isEditMode,
+    isUnchanged,
+    retainedTypes,
+  } = useWebhookForm({ webhook });
 
   return (
     <form
@@ -65,6 +71,7 @@ export function WebhookFormPage({ webhook }: WebhookFormPageProps) {
               <WebhookFormAside
                 form={form}
                 isEditMode={isEditMode}
+                isUnchanged={isUnchanged}
                 onCancel={handleCancel}
               />
               <WebhookEventsField

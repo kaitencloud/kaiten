@@ -2,7 +2,10 @@ import { expect, test } from '../_support/app-test';
 import { WebhooksFormDriver } from '../_support/drivers/webhooks-form.driver';
 import { startInLanguage } from '../_support/language';
 import { installWebhooksAppMocks } from '../_support/mocks/install-webhooks-app-mocks';
-import { createWebhooksFormModel } from './webhooks.scenarios';
+import {
+  createWebhooksFormModel,
+  createWebhookWithoutFilterModel,
+} from './webhooks.scenarios';
 
 // The console reads its language when it starts. The create and edit page of a
 // webhook has its titles, its groups, its presets, its counters and the chat
@@ -13,10 +16,13 @@ const SLACK_URL = 'https://hooks.slack.com/services/T000/B000/XXXX';
 
 test.beforeEach(async ({ page }) => {
   await startInLanguage(page, 'fr');
-  await installWebhooksAppMocks(page, createWebhooksFormModel());
 });
 
 test.describe('the webhook form, read in French', () => {
+  test.beforeEach(async ({ page }) => {
+    await installWebhooksAppMocks(page, createWebhooksFormModel());
+  });
+
   test('the create page: titles, groups, presets and counters', async ({
     page,
   }) => {
@@ -95,5 +101,32 @@ test.describe('the webhook form, read in French', () => {
     await expect(
       page.getByRole('navigation', { name: 'breadcrumb' }),
     ).toContainText('Modifier');
+  });
+});
+
+test.describe('the edit page of a webhook without an event filter, read in French', () => {
+  test.beforeEach(async ({ page }) => {
+    await installWebhooksAppMocks(page, createWebhookWithoutFilterModel());
+  });
+
+  test('the box that keeps every event, and the warning once it is unticked', async ({
+    page,
+  }) => {
+    const form = new WebhooksFormDriver(page);
+    await form.gotoEdit('ep_no_filter');
+
+    await expect(form.keepEveryEvent()).toHaveAccessibleName(
+      'Continuer à recevoir tous les événements',
+    );
+    await expect(form.keepEveryEvent()).toHaveAccessibleDescription(
+      "Ce webhook n'a pas de filtre d'événements : il reçoit tous les événements, y compris les types d'événements ajoutés plus tard.",
+    );
+    await expect(form.selectionCount()).toHaveText('Tous les événements');
+
+    await form.keepEveryEvent().click();
+    await expect(form.narrowingNotice()).toHaveText(
+      'Une fois enregistré, ce webhook ne recevra plus que les événements choisis. La console ne pourra plus lui faire recevoir tous les événements.',
+    );
+    await expect(form.selectionCount()).toHaveText('0 événement sélectionné');
   });
 });
