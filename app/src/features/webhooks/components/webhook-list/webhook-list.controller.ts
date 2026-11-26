@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   type FilterFieldDefinition,
@@ -8,7 +8,6 @@ import {
 } from '@/functionals/filters';
 import { useWebhookMutations } from '../../hooks/use-webhook-mutations';
 import { webhooksQueryOptions } from '../../queries';
-import type { WebhookFormValues } from '../../schemas';
 import type { Webhook } from '../../types';
 import { mapApiWebhooksToWebhooks } from '../../utils/mappers';
 import {
@@ -67,46 +66,23 @@ function useFilteredWebhooks(webhooks: Webhook[], t: TFunction) {
   });
 }
 
-function useWebhookDialogState() {
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
-
-  function openAddDialog() {
-    setAddDialogOpen(true);
-  }
-
-  return {
-    addDialogOpen,
-    openAddDialog,
-    setAddDialogOpen,
-  };
-}
-
 export function useWebhookListController() {
   const { t } = useTranslation();
   const { data: webhooksData } = useSuspenseQuery(webhooksQueryOptions);
-  const { createWebhook, deleteWebhook } = useWebhookMutations();
+  const { deleteWebhook } = useWebhookMutations();
   const webhooks = useMemo(
     () => mapApiWebhooksToWebhooks(webhooksData),
     [webhooksData],
   );
   const filterController = useFilteredWebhooks(webhooks, t);
-  const dialogState = useWebhookDialogState();
-
-  async function handleCreateWebhook(value: WebhookFormValues) {
-    await createWebhook.mutateAsync({
-      body: value,
-    });
-  }
 
   function handleDeleteHook(webhookId: string) {
     deleteWebhook.mutate({ path: { webhookId } });
   }
 
   return {
-    ...dialogState,
     filteredWebhooks: filterController.filteredData,
     filterController,
-    handleCreateWebhook,
     handleDeleteHook,
     t,
     webhooks,

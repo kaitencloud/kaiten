@@ -1,4 +1,5 @@
 export {
+  WebhookFormPage,
   WebhookHistorySection,
   WebhookList,
   WebhooksPageContent,

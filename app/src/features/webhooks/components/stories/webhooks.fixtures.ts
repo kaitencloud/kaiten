@@ -70,3 +70,43 @@ export const storyWebhookHistory = [
     status: 'pending',
   },
 ] satisfies WebhookHistoryEntry[];
+
+// A short placeholder: a Slack incoming-webhook URL is a credential, so no
+// real one is ever written in a story.
+export const STORY_SLACK_URL =
+  'https://hooks.slack.com/services/T000/B000/XXXX';
+
+export const STORY_GOOGLE_CHAT_URL =
+  'https://chat.googleapis.com/v1/spaces/AAAAAAAAAAA/messages?key=placeholder';
+
+/** A webhook holding a whole group (Customers) and a few single events. */
+export const storyWebhookManyEvents = {
+  createdAt: storyLastWeek,
+  eventTypes: [
+    'com.kaiten.customer.v1.created',
+    'com.kaiten.customer.v1.updated',
+    'com.kaiten.customer.v1.deleted',
+    'com.kaiten.customer.v1.creation_rejected',
+    'com.kaiten.instance.v1.created',
+    'com.kaiten.license.v1.created',
+  ],
+  id: 'ep_many_events',
+  updatedAt: storyYesterday,
+  url: 'https://hooks.example.com/kaiten',
+} satisfies ApiWebhook;
+
+/**
+ * A webhook holding events the picker does not offer: one offered by no group,
+ * and one newer than the console.
+ */
+export const storyWebhookOtherEvents = {
+  createdAt: storyLastWeek,
+  eventTypes: [
+    'com.kaiten.customer.v1.created',
+    'com.kaiten.feature_flag.v1.evaluated',
+    'com.kaiten.future.v1.created',
+  ],
+  id: 'ep_other_events',
+  updatedAt: storyYesterday,
+  url: 'https://hooks.example.com/other',
+} satisfies ApiWebhook;

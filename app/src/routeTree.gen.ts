@@ -125,6 +125,7 @@ import { Route as CustomersInstancesNewIndexRouteImport } from './routes/custome
 import { Route as IntegrationsPublishableKeysKeyIdEditRouteImport } from './routes/integrations/publishable-keys/$keyId/edit'
 import { Route as IntegrationsPublishableKeysNewIndexRouteImport } from './routes/integrations/publishable-keys/new/index'
 import { Route as IntegrationsServiceAccountsNewIndexRouteImport } from './routes/integrations/service-accounts/new/index'
+import { Route as IntegrationsWebhooksNewIndexRouteImport } from './routes/integrations/webhooks_/new/index'
 import { Route as InvoicesInvoiceIdLinesLineIdRouteImport } from './routes/invoices/$invoiceId/lines/$lineId'
 import { Route as ReleasesComponentsNewIndexRouteImport } from './routes/releases/components/new/index'
 import { Route as ReleasesDeploymentZoneZoneSlugIndexRouteImport } from './routes/releases/deployment-zone/$zoneSlug/index'
@@ -793,6 +794,12 @@ const IntegrationsServiceAccountsNewIndexRoute =
     path: '/new/',
     getParentRoute: () => IntegrationsServiceAccountsRouteRoute,
   } as any)
+const IntegrationsWebhooksNewIndexRoute =
+  IntegrationsWebhooksNewIndexRouteImport.update({
+    id: '/integrations/webhooks_/new/',
+    path: '/integrations/webhooks/new/',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const InvoicesInvoiceIdLinesLineIdRoute =
   InvoicesInvoiceIdLinesLineIdRouteImport.update({
     id: '/lines/$lineId',
@@ -1059,6 +1066,7 @@ export interface FileRoutesByFullPath {
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
   '/integrations/publishable-keys/new/': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
+  '/integrations/webhooks/new/': typeof IntegrationsWebhooksNewIndexRoute
   '/releases/components/new/': typeof ReleasesComponentsNewIndexRoute
   '/releases/deployment-zone/$zoneSlug/': typeof ReleasesDeploymentZoneZoneSlugIndexRoute
   '/releases/deployment-zones/new/': typeof ReleasesDeploymentZonesNewIndexRoute
@@ -1175,6 +1183,7 @@ export interface FileRoutesByTo {
   '/customers/instances/new': typeof CustomersInstancesNewIndexRoute
   '/integrations/publishable-keys/new': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new': typeof IntegrationsServiceAccountsNewIndexRoute
+  '/integrations/webhooks/new': typeof IntegrationsWebhooksNewIndexRoute
   '/releases/components/new': typeof ReleasesComponentsNewIndexRoute
   '/releases/deployment-zone/$zoneSlug': typeof ReleasesDeploymentZoneZoneSlugIndexRoute
   '/releases/deployment-zones/new': typeof ReleasesDeploymentZonesNewIndexRoute
@@ -1317,6 +1326,7 @@ export interface FileRoutesById {
   '/customers/instances/new/': typeof CustomersInstancesNewIndexRoute
   '/integrations/publishable-keys/new/': typeof IntegrationsPublishableKeysNewIndexRoute
   '/integrations/service-accounts/new/': typeof IntegrationsServiceAccountsNewIndexRoute
+  '/integrations/webhooks_/new/': typeof IntegrationsWebhooksNewIndexRoute
   '/releases/components/new/': typeof ReleasesComponentsNewIndexRoute
   '/releases/deployment-zone/$zoneSlug/': typeof ReleasesDeploymentZoneZoneSlugIndexRoute
   '/releases/deployment-zones/new/': typeof ReleasesDeploymentZonesNewIndexRoute
@@ -1460,6 +1470,7 @@ export interface FileRouteTypes {
     | '/customers/instances/new/'
     | '/integrations/publishable-keys/new/'
     | '/integrations/service-accounts/new/'
+    | '/integrations/webhooks/new/'
     | '/releases/components/new/'
     | '/releases/deployment-zone/$zoneSlug/'
     | '/releases/deployment-zones/new/'
@@ -1576,6 +1587,7 @@ export interface FileRouteTypes {
     | '/customers/instances/new'
     | '/integrations/publishable-keys/new'
     | '/integrations/service-accounts/new'
+    | '/integrations/webhooks/new'
     | '/releases/components/new'
     | '/releases/deployment-zone/$zoneSlug'
     | '/releases/deployment-zones/new'
@@ -1717,6 +1729,7 @@ export interface FileRouteTypes {
     | '/customers/instances/new/'
     | '/integrations/publishable-keys/new/'
     | '/integrations/service-accounts/new/'
+    | '/integrations/webhooks_/new/'
     | '/releases/components/new/'
     | '/releases/deployment-zone/$zoneSlug/'
     | '/releases/deployment-zones/new/'
@@ -1772,6 +1785,7 @@ export interface RootRouteChildren {
   FeatureFlagsNewIndexRoute: typeof FeatureFlagsNewIndexRoute
   CatalogLicensesNewIndexRoute: typeof CatalogLicensesNewIndexRoute
   CatalogLicensesVersionsIndexRoute: typeof CatalogLicensesVersionsIndexRoute
+  IntegrationsWebhooksNewIndexRoute: typeof IntegrationsWebhooksNewIndexRoute
   CatalogLicensesVersionsLicenseSlugIndexRoute: typeof CatalogLicensesVersionsLicenseSlugIndexRoute
   CatalogLicensesVersionsNewIndexRoute: typeof CatalogLicensesVersionsNewIndexRoute
 }
@@ -2590,6 +2604,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsServiceAccountsNewIndexRouteImport
       parentRoute: typeof IntegrationsServiceAccountsRouteRoute
     }
+    '/integrations/webhooks_/new/': {
+      id: '/integrations/webhooks_/new/'
+      path: '/integrations/webhooks/new'
+      fullPath: '/integrations/webhooks/new/'
+      preLoaderRoute: typeof IntegrationsWebhooksNewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invoices/$invoiceId/lines/$lineId': {
       id: '/invoices/$invoiceId/lines/$lineId'
       path: '/lines/$lineId'
@@ -3378,6 +3399,7 @@ const rootRouteChildren: RootRouteChildren = {
   FeatureFlagsNewIndexRoute: FeatureFlagsNewIndexRoute,
   CatalogLicensesNewIndexRoute: CatalogLicensesNewIndexRoute,
   CatalogLicensesVersionsIndexRoute: CatalogLicensesVersionsIndexRoute,
+  IntegrationsWebhooksNewIndexRoute: IntegrationsWebhooksNewIndexRoute,
   CatalogLicensesVersionsLicenseSlugIndexRoute:
     CatalogLicensesVersionsLicenseSlugIndexRoute,
   CatalogLicensesVersionsNewIndexRoute: CatalogLicensesVersionsNewIndexRoute,

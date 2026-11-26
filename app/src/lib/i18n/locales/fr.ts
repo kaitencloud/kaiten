@@ -4875,25 +4875,67 @@ export default {
             'Impossible de charger le secret de signature',
           signingSecretCopyError: 'Impossible de copier le secret de signature',
         },
-        Dialog: {
-          title: 'Nouveau webhook',
-          description:
-            'Configurez un webhook pour recevoir des notifications quand des événements du cycle de vie se produisent. Sélectionnez un ou plusieurs événements pour déclencher ce webhook.',
-          eventsLabel: 'Événements',
-          eventsSelected: 'sélectionné(s)',
-          selectedEvents: 'Événements sélectionnés',
-          selectedEventsPlaceholder:
-            'Aucun événement sélectionné pour le moment.',
-          urlLabel: 'URL du webhook',
-          urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
-          urlDescription:
-            "Le webhook recevra une requête POST avec la charge utile de l'événement lorsqu'un des événements sélectionnés se produit",
-          createButton: 'Créer le webhook',
-        },
         Form: {
+          titleNew: 'Nouveau webhook',
+          titleEdit: 'Modifier le webhook',
+          descriptionNew:
+            "Choisissez les événements à recevoir et l'URL qui les reçoit.",
+          descriptionEdit:
+            "Modifiez l'URL ou les événements. Le secret de signature reste le même.",
+          createButton: 'Créer le webhook',
+          createSuccess: 'Webhook créé',
+          updateSuccess: 'Webhook mis à jour',
           eventsRequired: 'Sélectionnez au moins un événement.',
           urlRequired: "L'URL du webhook est obligatoire.",
           urlInvalid: 'Saisissez une URL http ou https valide.',
+          destination: {
+            title: 'Destination',
+            urlLabel: 'URL du webhook',
+            urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
+            urlDescription:
+              "Le webhook reçoit une requête POST avec le contenu de l'événement dès que l'un des événements sélectionnés se produit.",
+            chatNoticeTitle: 'Envoyé comme messages de chat',
+            chatNotice:
+              "Ceci est un webhook entrant {{service}}. Kaiten met chaque événement en forme de message {{service}} au lieu d'envoyer l'événement brut.",
+          },
+          events: {
+            title: 'Événements',
+            description:
+              'Choisissez les événements qui déclenchent ce webhook.',
+            noFilterNotice:
+              "Ce webhook n'a pas de filtre d'événements : il reçoit tous les événements. Choisissez ceux qu'il doit recevoir.",
+          },
+          picker: {
+            searchLabel: 'Rechercher des événements',
+            searchPlaceholder: 'Rechercher par libellé, nom ou type',
+            searchClear: 'Effacer la recherche',
+            searchResults_one: '{{count}} événement correspond',
+            searchResults_other: '{{count}} événements correspondent',
+            noResults: 'Aucun événement ne correspond à « {{query}} ».',
+            presets: {
+              label: 'Préréglages',
+              instanceLifecycle: 'Cycle de vie des instances',
+              billing: 'Facturation',
+              usageAlerts: "Alertes d'usage",
+            },
+            presetCount: '{{count}} événements',
+            selectGroup: 'Sélectionner tous les événements « {{group}} »',
+            selectMatching: 'Sélectionner les événements « {{group}} » trouvés',
+            groupCount: '{{selected}} / {{total}}',
+            groupCountLabel: '{{selected}} sur {{total}} sélectionnés',
+            otherNote:
+              'Déjà abonnés, mais non proposés par cette console. Décochez pour retirer.',
+          },
+          selection: {
+            title: 'Sélection',
+            count_one: '{{count}} événement sélectionné',
+            count_other: '{{count}} événements sélectionnés',
+            empty: 'Aucun événement sélectionné.',
+            clear: 'Tout effacer',
+            allOfGroup: 'Les {{count}} événements',
+            removeEvent: 'Retirer {{event}}',
+            removeGroup: 'Retirer les {{count}} événements « {{group}} »',
+          },
         },
         History: {
           sectionTitle: 'Historique des webhooks',

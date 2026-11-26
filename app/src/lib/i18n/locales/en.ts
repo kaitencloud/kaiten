@@ -4749,7 +4749,7 @@ export default {
         title: 'Event Webhooks',
         description:
           'Configure webhooks to be triggered when specific lifecycle events occur. You can select multiple events for a single webhook.',
-        newButton: 'New  Webhook',
+        newButton: 'New Webhook',
         emptyState: 'No webhooks configured yet.',
         emptyStateHint:
           'Create a webhook to receive notifications when events occur.',
@@ -4795,24 +4795,66 @@ export default {
           signingSecretLoadError: 'Failed to load signing secret',
           signingSecretCopyError: 'Failed to copy signing secret',
         },
-        Dialog: {
-          title: 'New Webhook',
-          description:
-            'Configure a webhook to receive notifications when lifecycle events occur. Select one or more events to trigger this webhook.',
-          eventsLabel: 'Events',
-          eventsSelected: 'selected',
-          selectedEvents: 'Selected events',
-          selectedEventsPlaceholder: 'No events selected yet.',
-          urlLabel: 'Webhook URL',
-          urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
-          urlDescription:
-            'The webhook will receive a POST request with the event payload when any of the selected events occur',
-          createButton: 'Create Webhook',
-        },
         Form: {
+          titleNew: 'New Webhook',
+          titleEdit: 'Edit Webhook',
+          descriptionNew:
+            'Choose the events you want to receive and the URL that receives them.',
+          descriptionEdit:
+            'Change the URL or the events. The signing secret stays the same.',
+          createButton: 'Create Webhook',
+          createSuccess: 'Webhook created',
+          updateSuccess: 'Webhook updated',
           eventsRequired: 'Select at least one event.',
           urlRequired: 'Webhook URL is required.',
           urlInvalid: 'Enter a valid http or https URL.',
+          destination: {
+            title: 'Destination',
+            urlLabel: 'Webhook URL',
+            urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
+            urlDescription:
+              'The webhook receives a POST request with the event payload when any of the selected events occurs.',
+            chatNoticeTitle: 'Sent as chat messages',
+            chatNotice:
+              'This is a {{service}} incoming webhook. Kaiten formats each event as a {{service}} message instead of sending the raw event.',
+          },
+          events: {
+            title: 'Events',
+            description: 'Choose the events that trigger this webhook.',
+            noFilterNotice:
+              'This webhook has no event filter, so it receives every event. Choose the events it should receive.',
+          },
+          picker: {
+            searchLabel: 'Search events',
+            searchPlaceholder: 'Search by label, name or type',
+            searchClear: 'Clear search',
+            searchResults_one: '{{count}} event matches',
+            searchResults_other: '{{count}} events match',
+            noResults: 'No event matches “{{query}}”.',
+            presets: {
+              label: 'Presets',
+              instanceLifecycle: 'Instance lifecycle',
+              billing: 'Billing',
+              usageAlerts: 'Usage alerts',
+            },
+            presetCount: '{{count}} events',
+            selectGroup: 'Select all {{group}} events',
+            selectMatching: 'Select the matching {{group}} events',
+            groupCount: '{{selected}} / {{total}}',
+            groupCountLabel: '{{selected}} of {{total}} selected',
+            otherNote:
+              'Already subscribed, but not offered by this console. Untick to remove.',
+          },
+          selection: {
+            title: 'Selection',
+            count_one: '{{count}} event selected',
+            count_other: '{{count}} events selected',
+            empty: 'No events selected yet.',
+            clear: 'Clear all',
+            allOfGroup: 'All {{count}} events',
+            removeEvent: 'Remove {{event}}',
+            removeGroup: 'Remove all {{count}} {{group}} events',
+          },
         },
         History: {
           sectionTitle: 'Webhooks history',

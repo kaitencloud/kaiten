@@ -1,10 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
 import {
   QueryClient,
   QueryClientProvider,
   useSuspenseQuery,
 } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { webhooksQueryOptions } from "../../../queries";
 import { WebhookList } from "../webhook-list";
@@ -18,26 +18,31 @@ vi.mock("@tanstack/react-query", async (importOriginal) => {
   };
 });
 
-const createWebhookMutate = vi.fn();
-const createWebhookMutateAsync = vi.fn();
 const deleteWebhookMutate = vi.fn();
 
 vi.mock("../../../hooks/use-webhook-mutations", () => ({
   useWebhookMutations: () => ({
-    createWebhook: {
-      isPending: false,
-      mutate: createWebhookMutate,
-      mutateAsync: createWebhookMutateAsync,
-    },
     deleteWebhook: {
       mutate: deleteWebhookMutate,
     },
   }),
 }));
 
-vi.mock("../create-webhook-dialog", () => ({
-  CreateWebhookDialog: ({ open }: { open: boolean }) => (
-    <div>{open ? "Create dialog open" : "Create dialog closed"}</div>
+// "New Webhook" is a link to the create page: rendered as a plain anchor, so
+// the test needs no router.
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({
+    children,
+    className,
+    to,
+  }: {
+    children: ReactNode;
+    className?: string;
+    to: string;
+  }) => (
+    <a className={className} href={to}>
+      {children}
+    </a>
   ),
 }));
 
@@ -59,7 +64,6 @@ vi.mock("react-i18next", () => ({
         "Common.filterBy": "Filter by",
         "Common.filterFieldPlaceholder": "Filter {{field}}",
         "Common.noResults": "No results",
-        "Pages.Integrations.Webhooks.Dialog.title": "New Webhook",
         "Pages.Integrations.Webhooks.Filters.queryPlaceholder": "Search webhooks",
         "Pages.Integrations.Webhooks.Table.created": "Created",
         "Pages.Integrations.Webhooks.Table.events": "Events",
@@ -110,8 +114,6 @@ function renderWebhookList() {
 
 describe("WebhookList", () => {
   beforeEach(() => {
-    createWebhookMutate.mockReset();
-    createWebhookMutateAsync.mockReset();
     deleteWebhookMutate.mockReset();
     useSuspenseQueryMock.mockReset();
     useSuspenseQueryMock.mockImplementation((query) => {
@@ -123,16 +125,13 @@ describe("WebhookList", () => {
     });
   });
 
-  it("opens the create dialog from the gradient button", async () => {
-    const user = userEvent.setup();
-
+  it("links New Webhook to the create page", () => {
     renderWebhookList();
 
-    expect(screen.getByText("Create dialog closed")).toBeInTheDocument();
-
-    await user.click(screen.getByRole("button", { name: "New Hook" }));
-
-    expect(screen.getByText("Create dialog open")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "New Hook" })).toHaveAttribute(
+      "href",
+      "/integrations/webhooks/new",
+    );
   });
 
   it("filters webhooks by event label", async () => {

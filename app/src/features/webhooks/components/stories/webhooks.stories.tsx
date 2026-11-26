@@ -12,7 +12,6 @@ import type { WebhookHistoryEntry } from '../../types';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
 import { WebhookHistoryFailureDialog } from '../webhook-history/webhook-history-failure-dialog';
 import { WebhookHistorySection } from '../webhook-history/webhook-history-section';
-import { CreateWebhookDialog } from '../webhook-list/create-webhook-dialog';
 import { WebhookList } from '../webhook-list/webhook-list';
 import { WebhookListContent } from '../webhook-list/webhook-list-content';
 import { WebhookTable } from '../webhook-list/webhook-table';
@@ -132,39 +131,6 @@ export const NoSearchResults: Story = {
 			/>
 		</WebhookFrame>
 	),
-};
-
-function CreateWebhookDialogStory() {
-	const [open, setOpen] = useState(true);
-
-	return (
-		<WebhookFrame>
-			<div className="flex min-h-[680px] items-center justify-center">
-				<CreateWebhookDialog
-					open={open}
-					onOpenChange={setOpen}
-					onSubmit={() => undefined}
-				/>
-			</div>
-		</WebhookFrame>
-	);
-}
-
-export const CreateDialog: Story = {
-	render: () => <CreateWebhookDialogStory />,
-	parameters: {
-		docs: {
-			description: {
-				story:
-					'Create webhook dialog with event category selection, selected-events summary and URL validation.',
-			},
-		},
-	},
-	play: async () => {
-		// The dialog renders in a portal under document.body, not inside
-		// canvasElement. Scope to body to find it.
-		await expect(await findVisibleByRole(document.body, 'dialog')).toBeVisible();
-	},
 };
 
 export const History: Story = {
