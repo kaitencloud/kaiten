@@ -2,8 +2,10 @@ import { type ArmedBillingProblem, ArmedProblems } from './armed-problems';
 import { BillingProblem } from './billing-problem';
 import {
   checkMessagesSeed,
+  checkPathIds,
   countMessages,
   historyEntry,
+  isPayloadGone,
   locateMessage,
   type MockedMessage,
   messageDetail,
@@ -162,6 +164,17 @@ export type WebhooksAppModelSeed = {
   legacyHistory?: boolean;
 };
 
+/**
+ * saas-api's `chatformat.For`: the chat service a webhook's URL belongs to, by
+ * a case-sensitive substring of the URL as stored, Slack first. The detail
+ * names it from the webhook's current URL, not from the message.
+ */
+const chatServiceOf = (url: string): 'Slack' | 'Google Chat' | undefined => {
+  if (url.includes('hooks.slack.com/services/')) return 'Slack';
+  if (url.includes('chat.googleapis.com/v1/spaces/')) return 'Google Chat';
+  return undefined;
+};
+
 const notFound = () => {
   const { code, detail, status } = WEBHOOK_REFUSALS.svixNotFound;
   return new BillingProblem(status, code, detail);
@@ -297,6 +310,7 @@ export class WebhooksAppModel {
   /** `GET /webhooks/{id}`: one webhook, with its signing secret. */
   getWebhook(webhookId: string): MockedWebhook {
     this.problems.consume('getWebhook');
+    checkPathIds('GetWebhook', webhookId);
     const webhook = this.find(webhookId);
     if (!webhook) throw notFound();
 
@@ -329,6 +343,7 @@ export class WebhooksAppModel {
 
   /** `PUT /webhooks/{id}`: replaces the URL and the events, keeps the secret. */
   updateWebhook(webhookId: string, body: unknown) {
+    checkPathIds('UpdateWebhook', webhookId);
     const valid = this.validate('UpdateWebhook', body);
     this.problems.consume('updateWebhook');
     const webhook = this.find(webhookId);
@@ -343,6 +358,7 @@ export class WebhooksAppModel {
 
   /** `DELETE /webhooks/{id}`. */
   deleteWebhook(webhookId: string) {
+    checkPathIds('DeleteWebhook', webhookId);
     if (!this.find(webhookId)) throw notFound();
     this.webhooks = this.webhooks.filter((webhook) => webhook.id !== webhookId);
     this.writes.push({ operation: 'delete', webhookId });
@@ -376,6 +392,7 @@ export class WebhooksAppModel {
     query: { limit: string | null; withAttempts: string | null },
   ) {
     this.problems.consume('listMessages');
+    checkPathIds('GetWebhookMessages', webhookId);
     const { limit, withAttempts } = parseListQuery(
       query.limit,
       query.withAttempts,
@@ -406,7 +423,9 @@ export class WebhooksAppModel {
    */
   getMessage(webhookId: string, messageId: string) {
     this.problems.consume('getMessage');
-    if (!this.find(webhookId)) throw webhookNotFound('GetWebhookMessage');
+    checkPathIds('GetWebhookMessage', webhookId, messageId);
+    const webhook = this.find(webhookId);
+    if (!webhook) throw webhookNotFound('GetWebhookMessage');
     const message = locateMessage(
       this.messages,
       webhookId,
@@ -415,12 +434,13 @@ export class WebhooksAppModel {
     );
     this.advanceResends(message);
 
-    return messageDetail(message);
+    return messageDetail(message, chatServiceOf(webhook.url));
   }
 
   /** `POST /webhooks/{id}/messages/{messageId}/resend`: queues a manual attempt (202). */
   resend(webhookId: string, messageId: string) {
     this.problems.consume('resend');
+    checkPathIds('ResendWebhookMessage', webhookId, messageId);
     if (!this.find(webhookId)) throw webhookNotFound('ResendWebhookMessage');
     const message = locateMessage(
       this.messages,
@@ -428,7 +448,7 @@ export class WebhooksAppModel {
       messageId,
       'ResendWebhookMessage',
     );
-    if (message.payload === null) {
+    if (isPayloadGone(message)) {
       const { code, detail, status } = WEBHOOK_REFUSALS.payloadUnavailable;
       throw new BillingProblem(status, code, detail);
     }

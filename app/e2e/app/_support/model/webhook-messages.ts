@@ -36,9 +36,8 @@ export type MockedMessage = {
    */
   status?: MockedDeliveryStatus;
   nextAttempt?: string;
-  /** Null once Svix no longer keeps the payload. */
+  /** Null once Svix no longer keeps the payload (`{}` and `{"expired": true}` too). */
   payload: Record<string, unknown> | null;
-  chatService?: 'Slack' | 'Google Chat';
   /** In any order: the routes sort them, newest first, as saas-api does. */
   attempts: MockedAttempt[];
   /** saas-api could not prove it saw every attempt: the list leaves out the count and the last one. */
@@ -54,6 +53,51 @@ export type SettlingResend = {
   reads: number;
 };
 
+// saas-api's `ValidSvixID` and `ValidMessageID` (subscriptions/schema): an id
+// that cannot alter the Svix URL it fills, and for a message the `msg_` prefix.
+const SVIX_ID = /^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$/;
+const MESSAGE_ID = /^msg_[A-Za-z0-9_.:-]{0,124}$/;
+
+/**
+ * Refuses a path id as saas-api does, before any lookup: a webhook id that is
+ * not a Svix id, then a message id that is not a message id.
+ */
+export function checkPathIds(
+  operation: string,
+  webhookId: string,
+  messageId?: string,
+) {
+  if (!SVIX_ID.test(webhookId)) {
+    throw new BillingProblem(
+      400,
+      `${operation}.InvalidWebhookID`,
+      'webhookId must be a webhook id, such as ep_2abc',
+    );
+  }
+  if (messageId !== undefined && !MESSAGE_ID.test(messageId)) {
+    throw new BillingProblem(
+      400,
+      `${operation}.InvalidMessageID`,
+      'messageId must be a message id, such as msg_2xyz',
+    );
+  }
+}
+
+/**
+ * saas-api's `payloadGone` (messagelookup): no payload, an empty one, or the
+ * `{"expired": true}` marker. A message Svix no longer has (empty event type)
+ * has no payload either.
+ */
+export function isPayloadGone(message: MockedMessage): boolean {
+  const { payload } = message;
+  if (message.eventType === '' || payload === null) return true;
+  const keys = Object.keys(payload);
+
+  return (
+    keys.length === 0 || (keys.length === 1 && payload['expired'] === true)
+  );
+}
+
 const attemptSchema = z.object({
   id: z.string().min(1),
   timestamp: z.iso.datetime(),
@@ -67,14 +111,13 @@ const attemptSchema = z.object({
 const messageSchema = z.object({
   hookId: z.string().min(1),
   // saas-api validates the `msg_` prefix (subscriptions/schema ValidMessageID).
-  messageId: z.string().regex(/^msg_[A-Za-z0-9_]+$/),
+  messageId: z.string().regex(MESSAGE_ID),
   eventId: z.string().optional(),
   eventType: z.string(),
   timestamp: z.iso.datetime(),
   status: z.enum(['success', 'pending', 'fail', 'sending']).optional(),
   nextAttempt: z.iso.datetime().optional(),
   payload: z.record(z.string(), z.unknown()).nullable(),
-  chatService: z.enum(['Slack', 'Google Chat']).optional(),
   attempts: z.array(attemptSchema),
   attemptsIncomplete: z.boolean().optional(),
 });
@@ -144,15 +187,17 @@ function lastAttemptOf(message: MockedMessage) {
   return copy;
 }
 
-/** One entry of `GET /webhooks/{id}/messages`. */
+/**
+ * One entry of `GET /webhooks/{id}/messages`. With attempts, a message whose
+ * attempts saas-api saw in full carries `attemptCount`, 0 included for one
+ * still queued, and `lastAttempt` when it has one.
+ */
 export function summarizeMessage(
   message: MockedMessage,
   withAttempts: boolean,
 ) {
-  const lastAttempt =
-    withAttempts && !message.attemptsIncomplete
-      ? lastAttemptOf(message)
-      : undefined;
+  const counted = withAttempts && !message.attemptsIncomplete;
+  const lastAttempt = counted ? lastAttemptOf(message) : undefined;
 
   return {
     messageId: message.messageId,
@@ -161,9 +206,8 @@ export function summarizeMessage(
     timestamp: message.timestamp,
     status: messageStatus(message),
     ...(message.nextAttempt ? { nextAttempt: message.nextAttempt } : {}),
-    ...(lastAttempt
-      ? { attemptCount: message.attempts.length, lastAttempt }
-      : {}),
+    ...(counted ? { attemptCount: message.attempts.length } : {}),
+    ...(lastAttempt ? { lastAttempt } : {}),
   };
 }
 
@@ -181,12 +225,15 @@ export function countMessages(messages: readonly MockedMessage[]) {
   };
 }
 
-/** saas-api's parse of `limit` (1..100, 50 when absent) and `withAttempts`. */
+/**
+ * saas-api's parse of `limit` (decimal digits, 1..100, 50 when absent or
+ * empty) and `withAttempts` (`true` or `false`, true when absent or empty).
+ */
 export function parseListQuery(
   limit: string | null,
   withAttempts: string | null,
 ) {
-  const parsedLimit = limit === null ? 50 : Number(limit);
+  const parsedLimit = !limit ? 50 : /^\d+$/.test(limit) ? Number(limit) : NaN;
   if (!Number.isInteger(parsedLimit) || parsedLimit < 1 || parsedLimit > 100) {
     throw new BillingProblem(
       400,
@@ -194,11 +241,7 @@ export function parseListQuery(
       'limit must be an integer between 1 and 100',
     );
   }
-  if (
-    withAttempts !== null &&
-    withAttempts !== 'true' &&
-    withAttempts !== 'false'
-  ) {
+  if (withAttempts && withAttempts !== 'true' && withAttempts !== 'false') {
     throw new BillingProblem(
       400,
       'GetWebhookMessages.InvalidWithAttempts',
@@ -209,12 +252,10 @@ export function parseListQuery(
   return { limit: parsedLimit, withAttempts: withAttempts !== 'false' };
 }
 
-const MESSAGE_ID = /^msg_[A-Za-z0-9_]+$/;
-
 /**
  * Finds the message a detail or a resend names, refused as saas-api's
- * `messagelookup` refuses it: an id that is not a message id, an unknown
- * message, or one that was never delivered to this webhook.
+ * `messagelookup` refuses it: an unknown message, or one that was never
+ * delivered to this webhook. The ids are checked first (`checkPathIds`).
  */
 export function locateMessage(
   messages: readonly MockedMessage[],
@@ -222,18 +263,20 @@ export function locateMessage(
   messageId: string,
   operation: 'GetWebhookMessage' | 'ResendWebhookMessage',
 ): MockedMessage {
-  if (!MESSAGE_ID.test(messageId)) {
-    throw new BillingProblem(
-      400,
-      `${operation}.InvalidMessageID`,
-      'messageId must be a message id',
-    );
-  }
   const found = messages.find(
     (message) => message.hookId === hookId && message.messageId === messageId,
   );
-  if (found) {
+  // A message Svix no longer has is still a delivery while it lists an
+  // attempt at it; without one, there is no trace of it left.
+  if (found && (found.eventType !== '' || found.attempts.length > 0)) {
     return found;
+  }
+  if (found) {
+    throw new BillingProblem(
+      404,
+      `${operation}.MessageNotFound`,
+      'the message does not exist',
+    );
   }
   const elsewhere = messages.some((message) => message.messageId === messageId);
   throw new BillingProblem(
@@ -245,16 +288,31 @@ export function locateMessage(
   );
 }
 
-/** One message as `GET /webhooks/{id}/messages/{messageId}` answers it. */
-export function messageDetail(message: MockedMessage) {
+/**
+ * One message as `GET /webhooks/{id}/messages/{messageId}` answers it. A
+ * message Svix no longer has (empty event type) comes without its event
+ * fields, as saas-api answers it then. `chatService` is the webhook's, from its
+ * URL (saas-api's `chatformat.For`).
+ */
+export function messageDetail(
+  message: MockedMessage,
+  chatService?: 'Slack' | 'Google Chat',
+) {
+  const gone = message.eventType === '';
+  const payloadAvailable = !isPayloadGone(message);
+
   return {
     messageId: message.messageId,
-    ...(message.eventId ? { eventId: message.eventId } : {}),
-    ...(message.eventType ? { eventType: message.eventType } : {}),
-    timestamp: message.timestamp,
-    payloadAvailable: message.payload !== null,
-    payload: structuredClone(message.payload),
-    ...(message.chatService ? { chatService: message.chatService } : {}),
+    ...(gone
+      ? {}
+      : {
+          ...(message.eventId ? { eventId: message.eventId } : {}),
+          eventType: message.eventType,
+          timestamp: message.timestamp,
+        }),
+    payloadAvailable,
+    payload: payloadAvailable ? structuredClone(message.payload) : null,
+    ...(chatService ? { chatService } : {}),
     attempts: newestFirst(message.attempts).map((attempt) =>
       structuredClone(attempt),
     ),

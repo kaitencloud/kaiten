@@ -369,6 +369,80 @@ describe('webhooks mocks', () => {
       expect(history.some((entry) => 'messageId' in entry || 'attemptId' in entry)).toBe(false);
     });
 
+    it('parses the path and the query as saas-api does', async () => {
+      install(createWebhooksDeliveriesModel());
+      const codeOf = async (path: string, method = 'GET') => {
+        const response = await call(path, { method });
+        return [response.status, ((await response.json()) as { code: string }).code];
+      };
+
+      expect(await codeOf('/webhooks/_ops/messages')).toEqual([400, 'GetWebhookMessages.InvalidWebhookID']);
+      expect(await codeOf('/webhooks/ep_ops/messages?limit=1e1')).toEqual([400, 'GetWebhookMessages.InvalidLimit']);
+      expect(await codeOf('/webhooks/ep_ops/messages?limit=0')).toEqual([400, 'GetWebhookMessages.InvalidLimit']);
+      expect(await codeOf('/webhooks/ep_ops/messages?withAttempts=1')).toEqual([
+        400,
+        'GetWebhookMessages.InvalidWithAttempts',
+      ]);
+      expect(await codeOf('/webhooks/_ops/messages/msg_1')).toEqual([400, 'GetWebhookMessage.InvalidWebhookID']);
+      expect(await codeOf('/webhooks/ep_ops/messages/evt_1')).toEqual([400, 'GetWebhookMessage.InvalidMessageID']);
+      expect(await codeOf('/webhooks/ep_ops/messages/evt_1/resend', 'POST')).toEqual([
+        400,
+        'ResendWebhookMessage.InvalidMessageID',
+      ]);
+      expect(await codeOf('/webhooks/_ops')).toEqual([400, 'GetWebhook.InvalidWebhookID']);
+
+      // Empty values take the defaults: 50 messages, with attempts.
+      const listed = (await (await call('/webhooks/ep_ops/messages?limit=&withAttempts=')).json()) as {
+        messages: Array<{ attemptCount?: number }>;
+      };
+      expect(listed.messages).toHaveLength(25);
+      expect(listed.messages.every((message) => message.attemptCount !== undefined)).toBe(true);
+    });
+
+    it('answers a payload Svix no longer keeps, a queued message and a chat webhook as saas-api does', async () => {
+      const at = (minute: number) => new Date(Date.UTC(2026, 10, 26, 10, minute)).toISOString();
+      const message = (messageId: string, minute: number, payload: Record<string, unknown> | null) => ({
+        hookId: 'ep_slack',
+        messageId,
+        eventType: CUSTOMER_CREATED,
+        timestamp: at(minute),
+        payload,
+        attempts: [] as never[],
+      });
+      install(
+        new WebhooksAppModel({
+          webhooks: [
+            {
+              id: 'ep_slack',
+              url: 'https://hooks.slack.com/services/T000/B000/XXXX',
+              eventTypes: [CUSTOMER_CREATED],
+            },
+          ],
+          messages: [
+            message('msg_expired', 1, { expired: true }),
+            message('msg_queued', 2, { type: CUSTOMER_CREATED }),
+            { ...message('msg_gone', 3, null), eventType: '' },
+          ],
+        }),
+      );
+
+      const expired = (await (await call('/webhooks/ep_slack/messages/msg_expired')).json()) as Record<string, unknown>;
+      expect(expired).toMatchObject({ payloadAvailable: false, payload: null, chatService: 'Slack' });
+      const resend = await call('/webhooks/ep_slack/messages/msg_expired/resend', { method: 'POST' });
+      expect(resend.status).toBe(409);
+
+      const { messages } = (await (await call('/webhooks/ep_slack/messages')).json()) as {
+        messages: Array<Record<string, unknown>>;
+      };
+      const queued = messages.find((entry) => entry.messageId === 'msg_queued');
+      expect(queued).toMatchObject({ status: 'pending', attemptCount: 0 });
+      expect(queued).not.toHaveProperty('lastAttempt');
+
+      const gone = await call('/webhooks/ep_slack/messages/msg_gone');
+      expect(gone.status).toBe(404);
+      expect(await gone.json()).toMatchObject({ code: 'GetWebhookMessage.MessageNotFound' });
+    });
+
     it('refuses a seed with a duplicate attempt id or a message id that is not one', () => {
       const webhooks = [{ id: 'ep_a', url: 'https://a.example.com', eventTypes: [] }];
       const attempt = {
