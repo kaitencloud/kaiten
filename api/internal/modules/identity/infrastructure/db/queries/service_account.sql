@@ -54,6 +54,20 @@ WHERE u.slug = sqlc.arg(service_account_slug)
   AND uoo.deleted_at IS NULL;
 
 
+-- name: CountServiceAccounts :one
+-- The service accounts an organization holds, as GetServiceAccounts lists them:
+-- what the service-accounts entitlement is set to when the organization creates
+-- one more.
+SELECT count(*)::bigint
+FROM "user" u
+       INNER JOIN user_on_organization uoo ON u.id = uoo.user_id
+WHERE uoo.organization_id = sqlc.arg(organization_id)
+  AND u.organization_id = uoo.organization_id
+  AND u.type = 'machine'
+  AND u.deleted_at IS NULL
+  AND uoo.deleted_at IS NULL;
+
+
 -- name: GetServiceAccounts :many
 -- Cursor (keyset) pagination: ordered by created_at DESC, id DESC (id
 -- tie-breaks created_at, which is not guaranteed unique). Pass
@@ -96,3 +110,33 @@ WHERE slug = sqlc.arg(slug)
   AND type = 'machine'
   AND deleted_at IS NULL
 RETURNING *;
+
+
+-- name: SoftDeleteServiceAccount :one
+-- Soft, like a human user's (users/deleteuser): the row is the created_by_id /
+-- updated_by_id target of every row the account authored, ON DELETE RESTRICT,
+-- so it stays, and the attribution with it. deleted_at takes it out of every
+-- read in this file, gives its slug back (idx_unique_machine_slug_per_org only
+-- counts live accounts) and stops its tokens authenticating
+-- (GetActiveTokenByLookupHash, ResolveOrganizationTokenAuthorization).
+--
+-- The same tenant predicates as GetServiceAccount, so the orgless system:kaiten
+-- identity can never be reached from inside an organization.
+UPDATE "user" u
+SET deleted_at = now()
+FROM user_on_organization uoo
+WHERE u.id = uoo.user_id
+  AND u.slug = sqlc.arg(service_account_slug)
+  AND uoo.organization_id = sqlc.arg(organization_id)
+  AND u.organization_id = uoo.organization_id
+  AND u.type = 'machine'
+  AND u.deleted_at IS NULL
+  AND uoo.deleted_at IS NULL
+RETURNING u.id;
+
+
+-- name: LockServiceAccounts :exec
+-- Serializes the creates of one organization for the rest of the transaction,
+-- so the count a create takes after its insert sees every account committed
+-- before it: two creates racing for the last place cannot both keep theirs.
+SELECT pg_advisory_xact_lock(hashtextextended('service-accounts:' || sqlc.arg(organization_id)::uuid::text, 0));

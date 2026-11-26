@@ -35,3 +35,18 @@ SELECT organization_id, connector_name, activated_at, created_at, updated_at
 FROM organization_connector
 WHERE organization_id = sqlc.arg(organization_id)
 ORDER BY connector_name;
+
+
+-- name: CountConnectorActivations :one
+-- The connectors an organization has active: what the connectors entitlement is
+-- set to whenever that number changes.
+SELECT count(*)::bigint
+FROM organization_connector
+WHERE organization_id = sqlc.arg(organization_id);
+
+
+-- name: LockConnectorActivations :exec
+-- Serializes the activations of one organization for the rest of the
+-- transaction, so the count an activation takes after its insert sees every
+-- activation committed before it.
+SELECT pg_advisory_xact_lock(hashtextextended('connectors:' || sqlc.arg(organization_id)::uuid::text, 0));

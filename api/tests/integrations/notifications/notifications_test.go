@@ -441,7 +441,7 @@ func TestTheObjectTypeFilterNarrowsThePageAndItsUnreadCount(t *testing.T) {
 	insertNotification(t, orgID, nil, deploymentzoneevents.ReleaseDeployed.Name,
 		`{"deploymentZoneId":"`+zoneID.String()+`","releaseId":"`+releaseID.String()+`"}`)
 
-	list, err := listnotifications.NewUseCase(queries(t)).Execute(t.Context(), userID, orgID, listnotifications.Query{
+	list, err := listnotifications.NewUseCase(queries(t), nil).Execute(t.Context(), userID, orgID, listnotifications.Query{
 		UnreadOnly: false,
 		Objects:    []catalogue.Object{catalogue.ObjectDeploymentZone},
 		Limit:      feed.MaxLimit,

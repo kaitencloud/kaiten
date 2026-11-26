@@ -4640,6 +4640,10 @@ export default {
         noActiveTokens: 'Aucun token actif. Tous les tokens ont été révoqués.',
         noRevokedTokens: 'Aucun token révoqué.',
         deleteServiceAccount: 'Supprimer le compte de service',
+        deleteConfirmTitle: 'Supprimer le compte de service',
+        deleteConfirmDescription:
+          'Voulez-vous vraiment supprimer le compte de service « {{name}} » ? Tous ses tokens sont révoqués aussitôt, et ce qui les utilise cesse de s’authentifier. Cette action est irréversible.',
+        deleteSuccess: 'Compte de service supprimé',
         Filters: {
           activeTokens: 'Tokens actifs',
           revokedTokens: 'Tokens révoqués',

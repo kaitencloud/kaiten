@@ -33,7 +33,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 		Method:        http.MethodPost,
 		Path:          "/service-accounts",
 		Summary:       "Create a new service account",
-		Description:   "Create a new service account (machine user) with the provided name. Service accounts can be used to generate API tokens for programmatic access.",
+		Description:   "Create a new service account (machine user) with the provided name. Service accounts can be used to generate API tokens for programmatic access. Refused when the organization already holds as many service accounts as its license allows (409 CreateServiceAccount.EntitlementLimitReached).",
 		Tags:          []string{"service-accounts"},
 		DefaultStatus: http.StatusCreated,
 		Errors:        []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusInternalServerError, http.StatusServiceUnavailable},

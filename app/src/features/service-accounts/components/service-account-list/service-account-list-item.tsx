@@ -13,6 +13,7 @@ import {
   ActionAccordionTrigger,
 } from '@/components/ui/action-accordion';
 import { dataModelIcons } from '@/lib/data-model-icons';
+import { DeleteConfirmationDialog } from '@/components/dialog';
 import type { ServiceAccount } from '../../types';
 import { TokenList } from '../token-list';
 
@@ -78,17 +79,30 @@ export function ServiceAccountListItem({
                   <CirclePlus className="size-4" />
                   {t('Pages.Integrations.ServiceAccounts.generateToken')}
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  aria-label={t(
-                    'Pages.Integrations.ServiceAccounts.deleteServiceAccount',
+                <DeleteConfirmationDialog
+                  trigger={
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      aria-label={t(
+                        'Pages.Integrations.ServiceAccounts.deleteServiceAccount',
+                      )}
+                      className="gap-2 text-destructive-subtle-foreground hover:text-destructive-subtle-foreground"
+                    >
+                      <Trash2 className="size-3" />
+                    </Button>
+                  }
+                  title={t(
+                    'Pages.Integrations.ServiceAccounts.deleteConfirmTitle',
                   )}
-                  onClick={() => onDeleteServiceAccount(sa.slug!)}
-                  className="gap-2 text-destructive-subtle-foreground hover:text-destructive-subtle-foreground"
-                >
-                  <Trash2 className="size-3" />
-                </Button>
+                  description={t(
+                    'Pages.Integrations.ServiceAccounts.deleteConfirmDescription',
+                    { name: sa.name },
+                  )}
+                  cancelLabel={t('Common.cancel')}
+                  confirmLabel={t('Common.delete')}
+                  onConfirm={() => onDeleteServiceAccount(sa.slug!)}
+                />
               </ActionAccordionActions>
             </ActionAccordionHeader>
             <ActionAccordionContent className="px-6 pb-6">

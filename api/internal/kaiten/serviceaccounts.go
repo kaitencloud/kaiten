@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createtokenonserviceaccount"
+	"github.com/kaitencloud/kaiten/api/internal/modules/identity/deleteserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/deletetokenonserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getserviceaccounts"
@@ -20,15 +21,15 @@ import (
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
 )
 
-// ServiceAccounts is the seven identity operations a tenant reaches with its own
-// credential: four on the machine user, three on the tokens it authenticates with.
+// ServiceAccounts is the eight identity operations a tenant reaches with its own
+// credential: five on the machine user, three on the tokens it authenticates with.
 //
 // Named for the aggregate rather than the module, unlike every other namespace here,
 // because identity is the one module whose operations are split by credential class,
 // and no one of those parts is the module. Its platform-facing three live on
 // Platform, its credential-bootstrap three on InProcess, and what remains on the
 // Core document is this: service accounts, and their tokens. A namespace called
-// Identity would claim all fourteen and deliver seven.
+// Identity would claim all fifteen and deliver eight.
 //
 // One operation of the module is on no surface at all -- validatetoken, the ext_authz
 // check Envoy calls. It authenticates rather than acts: there is no caller to take,
@@ -87,6 +88,19 @@ func (s ServiceAccounts) Update(
 	}
 
 	return s.uc.UpdateServiceAccount.Execute(bindOrganization(ctx, cl), slug, name)
+}
+
+// Delete removes a machine user and revokes every token it holds. The row stays,
+// deleted, because it is the author of what it wrote -- the same reason DeleteToken
+// keeps a revoked token.
+func (s ServiceAccounts) Delete(
+	ctx context.Context, cl caller.OrganizationCaller, slug string,
+) error {
+	if err := cl.Require(deleteserviceaccount.RequiredScope); err != nil {
+		return err
+	}
+
+	return s.uc.DeleteServiceAccount.Execute(bindOrganization(ctx, cl), slug)
 }
 
 // CreateToken mints a token on a service account and returns it in plain text, the

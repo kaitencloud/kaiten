@@ -13,6 +13,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countServiceAccounts = `-- name: CountServiceAccounts :one
+SELECT count(*)::bigint
+FROM "user" u
+       INNER JOIN user_on_organization uoo ON u.id = uoo.user_id
+WHERE uoo.organization_id = $1
+  AND u.organization_id = uoo.organization_id
+  AND u.type = 'machine'
+  AND u.deleted_at IS NULL
+  AND uoo.deleted_at IS NULL
+`
+
+// The service accounts an organization holds, as GetServiceAccounts lists them:
+// what the service-accounts entitlement is set to when the organization creates
+// one more.
+func (q *Queries) CountServiceAccounts(ctx context.Context, organizationID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countServiceAccounts, organizationID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createServiceAccount = `-- name: CreateServiceAccount :one
 WITH creator AS (
     SELECT id
@@ -238,6 +259,53 @@ func (q *Queries) GetServiceAccounts(ctx context.Context, arg GetServiceAccounts
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockServiceAccounts = `-- name: LockServiceAccounts :exec
+SELECT pg_advisory_xact_lock(hashtextextended('service-accounts:' || $1::uuid::text, 0))
+`
+
+// Serializes the creates of one organization for the rest of the transaction,
+// so the count a create takes after its insert sees every account committed
+// before it: two creates racing for the last place cannot both keep theirs.
+func (q *Queries) LockServiceAccounts(ctx context.Context, organizationID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, lockServiceAccounts, organizationID)
+	return err
+}
+
+const softDeleteServiceAccount = `-- name: SoftDeleteServiceAccount :one
+UPDATE "user" u
+SET deleted_at = now()
+FROM user_on_organization uoo
+WHERE u.id = uoo.user_id
+  AND u.slug = $1
+  AND uoo.organization_id = $2
+  AND u.organization_id = uoo.organization_id
+  AND u.type = 'machine'
+  AND u.deleted_at IS NULL
+  AND uoo.deleted_at IS NULL
+RETURNING u.id
+`
+
+type SoftDeleteServiceAccountParams struct {
+	ServiceAccountSlug *string   `json:"service_account_slug"`
+	OrganizationID     uuid.UUID `json:"organization_id"`
+}
+
+// Soft, like a human user's (users/deleteuser): the row is the created_by_id /
+// updated_by_id target of every row the account authored, ON DELETE RESTRICT,
+// so it stays, and the attribution with it. deleted_at takes it out of every
+// read in this file, gives its slug back (idx_unique_machine_slug_per_org only
+// counts live accounts) and stops its tokens authenticating
+// (GetActiveTokenByLookupHash, ResolveOrganizationTokenAuthorization).
+//
+// The same tenant predicates as GetServiceAccount, so the orgless system:kaiten
+// identity can never be reached from inside an organization.
+func (q *Queries) SoftDeleteServiceAccount(ctx context.Context, arg SoftDeleteServiceAccountParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, softDeleteServiceAccount, arg.ServiceAccountSlug, arg.OrganizationID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
 const updateServiceAccountName = `-- name: UpdateServiceAccountName :execresult

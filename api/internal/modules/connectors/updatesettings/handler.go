@@ -31,6 +31,9 @@ type Deps struct {
 	// validates the settings before anything is written.
 	Uof   *uow.UnitOfWork
 	Hooks connectorhooks.Registry
+	// StockReporter is handed to the composed activation, which counts the
+	// connector it turns on.
+	StockReporter services.StockReporter
 }
 
 type UseCase struct {
@@ -74,6 +77,7 @@ func NewHandlerWithRegistry(deps Deps, connectorRegistry registry.Reader) *UseCa
 			Uof:                     deps.Uof,
 			Hooks:                   deps.Hooks,
 			ConnectorsVaultBasePath: deps.ConnectorsVaultBasePath,
+			StockReporter:           deps.StockReporter,
 		}),
 	}
 }

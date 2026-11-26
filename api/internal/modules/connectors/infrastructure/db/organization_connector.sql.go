@@ -56,6 +56,21 @@ func (q *Queries) ActivateConnectorForOrganization(ctx context.Context, arg Acti
 	return i, err
 }
 
+const countConnectorActivations = `-- name: CountConnectorActivations :one
+SELECT count(*)::bigint
+FROM organization_connector
+WHERE organization_id = $1
+`
+
+// The connectors an organization has active: what the connectors entitlement is
+// set to whenever that number changes.
+func (q *Queries) CountConnectorActivations(ctx context.Context, organizationID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countConnectorActivations, organizationID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const deactivateConnectorForOrganization = `-- name: DeactivateConnectorForOrganization :execrows
 DELETE FROM organization_connector
 WHERE organization_id = $1
@@ -134,4 +149,16 @@ func (q *Queries) ListConnectorActivations(ctx context.Context, organizationID u
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockConnectorActivations = `-- name: LockConnectorActivations :exec
+SELECT pg_advisory_xact_lock(hashtextextended('connectors:' || $1::uuid::text, 0))
+`
+
+// Serializes the activations of one organization for the rest of the
+// transaction, so the count an activation takes after its insert sees every
+// activation committed before it.
+func (q *Queries) LockConnectorActivations(ctx context.Context, organizationID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, lockConnectorActivations, organizationID)
+	return err
 }

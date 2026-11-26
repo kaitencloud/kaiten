@@ -76,6 +76,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:                     svc.Uof,
 			Hooks:                   svc.ConnectorHooks,
 			ConnectorsVaultBasePath: svc.Config.Connectors.VaultBasePath,
+			StockReporter:           svc.StockReporter,
 		}),
 		Deactivate: deactivateconnector.NewUseCase(deactivateconnector.Deps{
 			UserProvider:            svc.UserProvider,
@@ -83,6 +84,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:                     svc.Uof,
 			Hooks:                   svc.ConnectorHooks,
 			ConnectorsVaultBasePath: svc.Config.Connectors.VaultBasePath,
+			StockReporter:           svc.StockReporter,
 		}),
 		GetSettings: getsettings.NewUseCase(getsettings.Deps{
 			UserProvider:            svc.UserProvider,
@@ -97,6 +99,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Entitlements:            svc.ConnectorEntitlements,
 			Uof:                     svc.Uof,
 			Hooks:                   svc.ConnectorHooks,
+			StockReporter:           svc.StockReporter,
 		}),
 		DeleteSettings: deletesettings.NewUseCase(deletesettings.Deps{
 			UserProvider:            svc.UserProvider,
@@ -104,6 +107,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:                 queries,
 			Uof:                     svc.Uof,
 			Hooks:                   svc.ConnectorHooks,
+			StockReporter:           svc.StockReporter,
 		}),
 		Attio: newAttioConsumer(svc, queries),
 	}

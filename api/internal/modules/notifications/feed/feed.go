@@ -93,6 +93,54 @@ func (s Subscription) About(objects []catalogue.Object) Subscription {
 	return narrowed
 }
 
+// Licensing answers whether an organization's own plan grants the capability a
+// catalogue entry requires (catalogue.Entry.Capability). Nil grants every one: a
+// deployment with no licensing authority sells nothing, so it withholds nothing.
+type Licensing func(ctx context.Context, organizationID uuid.UUID, capability string) bool
+
+// Licensed narrows a subscription to the events the organization's plan lets reach
+// its members: an event whose entry requires a capability the plan does not grant
+// is dropped, however the user set their preferences. Like About, it narrows the
+// event names, so the page, the unread count and the stream agree.
+func (s Subscription) Licensed(ctx context.Context, licensing Licensing, organizationID uuid.UUID) Subscription {
+	if licensing == nil {
+		return s
+	}
+
+	granted := map[string]bool{}
+	licensed := make(Subscription, 0, len(s))
+	for _, name := range s {
+		if entry, known := catalogue.Lookup(name); known && entry.Capability != "" {
+			allowed, asked := granted[entry.Capability]
+			if !asked {
+				allowed = licensing(ctx, organizationID, entry.Capability)
+				granted[entry.Capability] = allowed
+			}
+			if !allowed {
+				continue
+			}
+		}
+		licensed = append(licensed, name)
+	}
+
+	return licensed
+}
+
+// LicensedSubscriptionFor is SubscriptionFor narrowed to what the organization's
+// plan lets reach its members (see Subscription.Licensed): what every reader of the
+// feed resolves.
+func LicensedSubscriptionFor(
+	ctx context.Context, reader Reader, licensing Licensing,
+	userID, organizationID uuid.UUID, channel catalogue.Channel,
+) (Subscription, error) {
+	subscription, err := SubscriptionFor(ctx, reader, userID, channel)
+	if err != nil {
+		return nil, err
+	}
+
+	return subscription.Licensed(ctx, licensing, organizationID), nil
+}
+
 // SubscriptionFor resolves one user's subscription on a channel.
 //
 // Resolved on every read rather than stored: a stored subscription would freeze

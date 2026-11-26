@@ -365,3 +365,76 @@ func TestEnforceAndPersist_NoopReporter_PersistsAndPropagatesPersistError(t *tes
 		t.Fatalf("EnforceAndPersist() error = %v, want %v", err, persistErr)
 	}
 }
+
+// stockReporter records the values it is asked to set and answers err.
+type stockReporter struct {
+	values []float64
+	err    error
+}
+
+func (r *stockReporter) SetUsage(_ context.Context, _ uuid.UUID, _ string, value float64) error {
+	r.values = append(r.values, value)
+	return r.err
+}
+
+func TestEnforceStockLimit_SetsTheNextCountAndAllows(t *testing.T) {
+	reporter := &stockReporter{}
+
+	err := dogfooding.EnforceStockLimit(t.Context(), reporter, uuid.New(), dogfooding.ServiceAccountEntitlementSlug, 3, "X.LimitReached", "limit")
+	if err != nil {
+		t.Fatalf("EnforceStockLimit() = %v, want nil", err)
+	}
+	if len(reporter.values) != 1 || reporter.values[0] != 3 {
+		t.Fatalf("set %v, want [3]", reporter.values)
+	}
+}
+
+func TestEnforceStockLimit_RefusalIsAConflictWithTheCallersCode(t *testing.T) {
+	reporter := &stockReporter{err: fmt.Errorf("enforce: %w", dogfooding.ErrThresholdExceeded)}
+
+	err := dogfooding.EnforceStockLimit(t.Context(), reporter, uuid.New(), dogfooding.ConnectorEntitlementSlug, 2, "ActivateConnector.EntitlementLimitReached", "limit")
+
+	var apiErr *kaitenerrors.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "ActivateConnector.EntitlementLimitReached" || apiErr.HTTPStatus() != http.StatusConflict {
+		t.Fatalf("EnforceStockLimit() = %v, want a 409 ActivateConnector.EntitlementLimitReached", err)
+	}
+}
+
+func TestEnforceStockLimit_UnknownLimitFailsClosed(t *testing.T) {
+	reporter := &stockReporter{err: errors.New("dial tcp: connection refused")}
+
+	err := dogfooding.EnforceStockLimit(t.Context(), reporter, uuid.New(), dogfooding.ConnectorEntitlementSlug, 1, "X.LimitReached", "limit")
+
+	var apiErr *kaitenerrors.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != dogfooding.VerificationUnavailableCode || apiErr.HTTPStatus() != http.StatusServiceUnavailable {
+		t.Fatalf("EnforceStockLimit() = %v, want a 503 %s", err, dogfooding.VerificationUnavailableCode)
+	}
+}
+
+func TestEnforceStockLimit_NilAndNoopReportersAllow(t *testing.T) {
+	for _, reporter := range []services.StockReporter{nil, services.NoopStockReporter{}} {
+		if err := dogfooding.EnforceStockLimit(t.Context(), reporter, uuid.New(), dogfooding.ServiceAccountEntitlementSlug, 99, "X", "x"); err != nil {
+			t.Fatalf("EnforceStockLimit(%T) = %v, want nil", reporter, err)
+		}
+	}
+}
+
+func TestSyncStock_SetsTheCountAndSwallowsEveryOutcome(t *testing.T) {
+	for _, err := range []error{nil, dogfooding.ErrThresholdExceeded, errors.New("timeout")} {
+		reporter := &stockReporter{err: err}
+		dogfooding.SyncStock(t.Context(), reporter, uuid.New(), dogfooding.ConnectorEntitlementSlug, 4)
+		if len(reporter.values) != 1 || reporter.values[0] != 4 {
+			t.Fatalf("set %v, want [4]", reporter.values)
+		}
+	}
+	dogfooding.SyncStock(t.Context(), nil, uuid.New(), dogfooding.ConnectorEntitlementSlug, 1)
+}
+
+func TestStockReporterOf(t *testing.T) {
+	if _, ok := services.StockReporterOf(nil).(services.NoopStockReporter); !ok {
+		t.Fatal("StockReporterOf(nil) is not a no-op")
+	}
+	if _, ok := services.StockReporterOf(services.NoopUsageReporter{}).(services.NoopStockReporter); !ok {
+		t.Fatal("StockReporterOf(a reporter that cannot set) is not a no-op")
+	}
+}

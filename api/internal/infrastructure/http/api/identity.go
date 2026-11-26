@@ -7,6 +7,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/kaiten"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/createtokenonserviceaccount"
+	"github.com/kaitencloud/kaiten/api/internal/modules/identity/deleteserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/deletetokenonserviceaccount"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getplatformcredential"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/getserviceaccount"
@@ -46,6 +47,7 @@ func registerIdentity(
 	getserviceaccount.RegisterEndpoint(core, serviceAccounts)
 	getserviceaccounts.RegisterEndpoint(core, serviceAccounts)
 	updateserviceaccount.RegisterEndpoint(core, serviceAccounts)
+	deleteserviceaccount.RegisterEndpoint(core, serviceAccounts)
 	createtokenonserviceaccount.RegisterEndpoint(core, serviceAccounts)
 	deletetokenonserviceaccount.RegisterEndpoint(core, serviceAccounts)
 	getserviceaccounttokens.RegisterEndpoint(core, serviceAccounts)

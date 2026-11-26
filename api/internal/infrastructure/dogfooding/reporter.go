@@ -204,6 +204,51 @@ func (r *client) ReportAndEnforce(ctx context.Context, orgID uuid.UUID, entitlem
 	return nil
 }
 
+// SetUsage sets entitlementSlug's counter for orgID to value, gated by the grant:
+// it returns an error wrapping ErrThresholdExceeded when value is beyond it. The
+// same organizations are skipped as by ReportAndEnforce.
+func (r *client) SetUsage(ctx context.Context, orgID uuid.UUID, entitlementSlug string, value float64) error {
+	if strings.TrimSpace(entitlementSlug) == "" {
+		return nil
+	}
+
+	if r.isSelf(orgID) {
+		return nil
+	}
+
+	evalCtx, evalCancel := context.WithTimeout(ctx, evaluationTimeout)
+	defer evalCancel()
+
+	isKaiten, err := r.ofClient.BooleanValue(evalCtx, IsKaitenFlagKey, false, newInternalEvaluationContext(orgID))
+	if err != nil {
+		slog.Warn(
+			"dogfooding flag evaluation failed, using org fallback",
+			"organization_id", orgID,
+			"entitlement_slug", entitlementSlug,
+			"error", err,
+		)
+	} else if isKaiten {
+		return nil
+	}
+
+	reportCtx, reportCancel := context.WithTimeout(ctx, usageReportTimeout)
+	defer reportCancel()
+
+	_, err = r.sdkClient.Instances.ReportEntitlementUsageMetric(reportCtx, orgID.String(), entitlementSlug, sdk.UsageReportInput{
+		Value:    value,
+		Behavior: sdk.Set,
+	})
+	if err != nil {
+		var apiErr *sdk.Error
+		if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusConflict {
+			return fmt.Errorf("enforce %q limit: %w", entitlementSlug, ErrThresholdExceeded)
+		}
+		return fmt.Errorf("set %q usage: %w", entitlementSlug, err)
+	}
+
+	return nil
+}
+
 // isSelf reports whether orgID is the reporting deployment's own organization,
 // which is exempt from its own meters.
 //

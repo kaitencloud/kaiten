@@ -18,11 +18,14 @@ type Session struct {
 }
 
 type UseCase struct {
-	reader feed.Reader
+	reader    feed.Reader
+	licensing feed.Licensing
 }
 
-func NewUseCase(reader feed.Reader) *UseCase {
-	return &UseCase{reader: reader}
+// NewUseCase resolves sessions through reader; licensing withholds what the
+// organization's plan does not include, and nil withholds nothing.
+func NewUseCase(reader feed.Reader, licensing feed.Licensing) *UseCase {
+	return &UseCase{reader: reader, licensing: licensing}
 }
 
 // Execute resolves the caller's subscription and unread count.
@@ -31,7 +34,7 @@ func NewUseCase(reader feed.Reader) *UseCase {
 // preferences can change while the stream is open, and the replica is told when
 // they do.
 func (uc *UseCase) Execute(ctx context.Context, userID, organizationID uuid.UUID) (Session, error) {
-	subscription, err := feed.SubscriptionFor(ctx, uc.reader, userID, catalogue.ChannelInApp)
+	subscription, err := feed.LicensedSubscriptionFor(ctx, uc.reader, uc.licensing, userID, organizationID, catalogue.ChannelInApp)
 	if err != nil {
 		return Session{}, err
 	}

@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { ServiceAccount } from '../../types';
@@ -9,6 +10,7 @@ import {
 } from './service-account-list';
 
 const mockNavigate = vi.fn();
+const mockDeleteServiceAccount = vi.hoisted(() => vi.fn());
 
 vi.mock('@tanstack/react-router', async (importOriginal) => {
   const actual =
@@ -68,7 +70,7 @@ vi.mock('../../hooks/use-service-accounts-mutations', () => ({
     },
     handlers: {
       handleCreateSA: vi.fn(),
-      handleDeleteServiceAccount: vi.fn(),
+      handleDeleteServiceAccount: mockDeleteServiceAccount,
       handleRevokeToken: vi.fn(),
     },
   }),
@@ -171,6 +173,35 @@ const renderComponent = (
 describe('ServiceAccountList', () => {
   beforeEach(() => {
     mockNavigate.mockClear();
+    mockDeleteServiceAccount.mockClear();
+  });
+
+  it('deletes a service account only once its deletion is confirmed', async () => {
+    const user = userEvent.setup();
+    renderComponent();
+
+    const bravoRow = screen
+      .getByText('Bravo monitoring')
+      .closest('[data-slot="accordion-item"]');
+
+    if (!(bravoRow instanceof HTMLElement)) {
+      throw new Error('Expected Bravo service account row to be rendered');
+    }
+
+    await user.click(
+      within(bravoRow).getByRole('button', {
+        name: 'Pages.Integrations.ServiceAccounts.deleteServiceAccount',
+      }),
+    );
+
+    expect(
+      screen.getByText('Pages.Integrations.ServiceAccounts.deleteConfirmTitle'),
+    ).toBeInTheDocument();
+    expect(mockDeleteServiceAccount).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Common.delete' }));
+
+    expect(mockDeleteServiceAccount).toHaveBeenCalledExactlyOnceWith('bravo');
   });
 
   it('removes the duplicated heading and navigates to the create route from the add button', () => {

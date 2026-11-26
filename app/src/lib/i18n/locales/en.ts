@@ -4568,6 +4568,10 @@ export default {
         noActiveTokens: 'No active tokens. All tokens have been revoked.',
         noRevokedTokens: 'No revoked tokens.',
         deleteServiceAccount: 'Delete service account',
+        deleteConfirmTitle: 'Delete Service Account',
+        deleteConfirmDescription:
+          'Are you sure you want to delete the service account "{{name}}"? Every token it holds is revoked at once, and whatever uses them stops authenticating. This action cannot be undone.',
+        deleteSuccess: 'Service account deleted',
         Filters: {
           activeTokens: 'Active tokens',
           revokedTokens: 'Revoked tokens',

@@ -91,6 +91,52 @@ func UsageReporterOrNoop(reporter UsageReporter) UsageReporter {
 	return reporter
 }
 
+// StockReporter sets a stock counter to a value rather than moving it by one.
+//
+// For the counters whose truth Core can read in its own database (the service
+// accounts an organization holds, the connectors it has active): setting the count
+// on every change keeps the licensing authority's counter equal to that truth, so a
+// counter introduced after the organization already held some needs no backfill, and
+// one that drifted corrects itself on the next change.
+//
+// Separate from UsageReporter, rather than a fifth method on it, because the two are
+// different operations and every reporter that exists only to count calls would have
+// to grow a method it never uses.
+type StockReporter interface {
+	// SetUsage sets entitlementSlug's counter for orgID to value. The licensing
+	// authority gates the value like any report: it returns an error wrapping
+	// dogfooding.ErrThresholdExceeded when value is beyond the grant, and another
+	// error when the counter could not be set at all.
+	SetUsage(ctx context.Context, orgID uuid.UUID, entitlementSlug string, value float64) error
+}
+
+// NoopStockReporter sets nothing, so every value is allowed: the self-hosted
+// answer, for the reason NoopUsageReporter exists.
+type NoopStockReporter struct{}
+
+var _ StockReporter = NoopStockReporter{}
+
+func (NoopStockReporter) SetUsage(context.Context, uuid.UUID, string, float64) error { return nil }
+
+// StockReporterOf returns reporter as a StockReporter when it is one, and a
+// NoopStockReporter otherwise: a deployment that meters through the dogfooding
+// reporter sets stock counters through the same one, and every other deployment sets
+// nothing.
+func StockReporterOf(reporter UsageReporter) StockReporter {
+	if stock, ok := reporter.(StockReporter); ok && reporter != nil {
+		return stock
+	}
+	return NoopStockReporter{}
+}
+
+// StockReporterOrNoop returns reporter, or a NoopStockReporter when reporter is nil.
+func StockReporterOrNoop(reporter StockReporter) StockReporter {
+	if reporter == nil {
+		return NoopStockReporter{}
+	}
+	return reporter
+}
+
 // ConnectorEntitlements answers whether an organization's license permits it to
 // activate a connector.
 //
@@ -223,6 +269,10 @@ type Container struct {
 	Config        config.CoreConfig
 	UsageReporter UsageReporter
 	PlatformFlags PlatformFlags
+
+	// StockReporter sets the stock counters Core can count itself. Never nil: see
+	// StockReporterOf.
+	StockReporter StockReporter
 
 	// ConnectorEntitlements answers whether an organization's license permits a
 	// connector. Never nil: see ConnectorEntitlementsOrAlways.

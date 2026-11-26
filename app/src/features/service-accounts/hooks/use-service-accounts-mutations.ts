@@ -7,6 +7,7 @@ import { getApiErrorMessage } from '@/lib/errors';
 import {
   createServiceAccountMutation,
   createServiceAccountTokenMutation,
+  deleteServiceAccountMutation,
   deleteServiceAccountTokenMutation,
   getServiceAccountQueryKey,
   getServiceAccountsQueryKey,
@@ -93,9 +94,27 @@ export function useCreateServiceAccountToken(serviceAccountSlug: string) {
   return { createToken, createdToken: mutation.data ?? null };
 }
 
-function handleDeleteServiceAccount(_saId: string) {
-  // eslint-disable-next-line no-console
-  console.warn('Delete service account not yet implemented');
+/**
+ * Deletes a service account. The API revokes every token it holds in the same
+ * call, so the list is refetched and the account's own query dropped.
+ */
+function useDeleteServiceAccountMutation(
+  queryClient: QueryClient,
+  t: TFunction,
+) {
+  return useMutation({
+    ...deleteServiceAccountMutation(),
+    onSuccess: async (_data, { path }) => {
+      queryClient.removeQueries({
+        queryKey: getServiceAccountQueryKey({
+          path: { serviceAccountSlug: path.serviceAccountSlug },
+        }),
+      });
+      await invalidateServiceAccounts(queryClient);
+      toast.success(t('Pages.Integrations.ServiceAccounts.deleteSuccess'));
+    },
+    onError: handleMutationError,
+  });
 }
 
 export function useServiceAccountsMutations() {
@@ -103,6 +122,7 @@ export function useServiceAccountsMutations() {
   const queryClient = useQueryClient();
   const createServiceAccount = useCreateServiceAccountMutation(queryClient);
   const deleteToken = useDeleteTokenMutation(queryClient, t);
+  const deleteServiceAccount = useDeleteServiceAccountMutation(queryClient, t);
 
   const handleCreateSA = (name: string) => {
     createServiceAccount.mutate({
@@ -116,10 +136,17 @@ export function useServiceAccountsMutations() {
     });
   };
 
+  const handleDeleteServiceAccount = (saSlug: string) => {
+    deleteServiceAccount.mutate({
+      path: { serviceAccountSlug: saSlug },
+    });
+  };
+
   return {
     mutations: {
       createServiceAccount,
       deleteToken,
+      deleteServiceAccount,
     },
     handlers: {
       handleCreateSA,
