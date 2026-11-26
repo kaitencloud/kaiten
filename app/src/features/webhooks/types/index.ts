@@ -134,3 +134,34 @@ export interface WebhookMessageResendResponse {
   messageId: string;
   webhookId: string;
 }
+
+/**
+ * A message's state as the deliveries screens draw it: its status, with a
+ * pending message that failed and waits for a retry told apart as retrying.
+ */
+export type WebhookDeliveryTone = WebhookDeliveryStatus | 'retrying';
+
+/**
+ * One delivery as the deliveries screens show it: one message to one webhook.
+ * It comes either from the webhook's message list, whose status is the
+ * message's own, or from one attempt of the history, whose status is that
+ * attempt's and gives way to the newest attempt the message shows.
+ */
+export interface WebhookDelivery {
+  /** `${hookId}:${messageId}`, or `${hookId}:no-message:${date}:${status}` without a message id. */
+  key: string;
+  hookId: string;
+  /** Absent from an attempt of a saas-api that predates message ids. */
+  messageId?: string;
+  /** Empty when the delivery provider no longer has the message. */
+  eventType: string;
+  /** When the message was created, or when the history's attempt was made. */
+  timestamp: string;
+  status: WebhookDeliveryStatus;
+  statusSource: 'message' | 'attempt';
+  nextAttempt?: string;
+  /** Absent when not known (a list without attempts, or a history attempt). */
+  attemptCount?: number;
+  /** The attempts known before the message is read: none, or one. */
+  attempts: WebhookMessageAttempt[];
+}

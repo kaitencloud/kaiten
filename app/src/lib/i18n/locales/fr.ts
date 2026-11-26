@@ -4938,6 +4938,19 @@ export default {
             removeGroup: 'Retirer les {{count}} événements « {{group}} »',
           },
         },
+        Deliveries: {
+          Outcome: {
+            duration: '{{value}} ms',
+            attempts_one: '{{count}} tentative',
+            attempts_other: '{{count}} tentatives',
+            noResponse: 'Aucune réponse',
+            pending: 'En attente · tentative {{count}}',
+            sending: 'En cours · tentative {{count}}',
+            retrying_one: 'Nouvel essai après {{count}} tentative',
+            retrying_other: 'Nouvel essai après {{count}} tentatives',
+            nextAttempt: 'prochaine tentative le {{when}}',
+          },
+        },
         History: {
           sectionTitle: 'Historique des webhooks',
           sectionDescription:
@@ -4965,6 +4978,7 @@ export default {
             pending: 'En attente',
             fail: 'Échec',
             sending: 'En cours',
+            retrying: 'Nouvel essai prévu',
           },
           Table: {
             date: 'Date',

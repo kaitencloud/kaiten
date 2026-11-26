@@ -4857,6 +4857,19 @@ export default {
             removeGroup: 'Remove all {{count}} {{group}} events',
           },
         },
+        Deliveries: {
+          Outcome: {
+            duration: '{{value}} ms',
+            attempts_one: '{{count}} attempt',
+            attempts_other: '{{count}} attempts',
+            noResponse: 'No response',
+            pending: 'Pending · attempt {{count}}',
+            sending: 'Sending · attempt {{count}}',
+            retrying_one: 'Retrying after {{count}} attempt',
+            retrying_other: 'Retrying after {{count}} attempts',
+            nextAttempt: 'next attempt {{when}}',
+          },
+        },
         History: {
           sectionTitle: 'Webhooks history',
           sectionDescription:
@@ -4884,6 +4897,7 @@ export default {
             pending: 'Pending',
             fail: 'Fail',
             sending: 'Sending',
+            retrying: 'Retrying',
           },
           Table: {
             date: 'Date',
