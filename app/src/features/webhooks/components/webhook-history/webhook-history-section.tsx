@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   type FilterFieldDefinition,
@@ -25,6 +25,17 @@ import {
   sortWebhookHistoryEntries,
 } from './webhook-history-filters';
 import { HistoryEmptyState } from './webhook-history-view';
+
+/**
+ * Rows keyed by attempt, so that a refetch that brings in newer attempts keeps
+ * each row, and its focused button, on its own attempt. An older saas-api
+ * sends no attempt id: the attempt's own fields stand in for it.
+ */
+function getWebhookHistoryRowId(entry: WebhookHistoryEntry) {
+  return entry.attemptId
+    ? `${entry.hookId}:${entry.attemptId}`
+    : `${entry.hookId}:${entry.date}:${entry.eventType}:${entry.status}`;
+}
 
 function useWebhookHistoryController() {
   const { t } = useTranslation();
@@ -66,17 +77,31 @@ function useWebhookHistoryController() {
     resetOnDataChange: false,
   });
 
-  function selectEntry(entry: WebhookHistoryEntry) {
+  // The columns stay the same across renders and refetches: a cell whose
+  // renderer changes is remounted, and the View details button that opened
+  // the dialog would no longer be there to take the focus back when it closes.
+  // A refetch rebuilds the map of hook URLs with the same content, so the
+  // columns follow its content, not its identity.
+  const selectEntry = useCallback((entry: WebhookHistoryEntry) => {
     setSelectedEntry(entry);
     setDetailOpen(true);
-  }
+  }, []);
+  const hookUrlKey = useMemo(
+    () => JSON.stringify([...hookUrlById]),
+    [hookUrlById],
+  );
+  const columns = useMemo(
+    () =>
+      createWebhookHistoryColumns({
+        hookUrlById: new Map(JSON.parse(hookUrlKey) as [string, string][]),
+        onSelectEntry: selectEntry,
+        t,
+      }),
+    [hookUrlKey, selectEntry, t],
+  );
 
   return {
-    columns: createWebhookHistoryColumns({
-      hookUrlById,
-      onSelectEntry: selectEntry,
-      t,
-    }),
+    columns,
     detailOpen,
     filteredHistory: filterController.filteredData,
     filterController,
@@ -115,6 +140,7 @@ function WebhookHistoryTableContent({
       className="h-full"
       columns={columns}
       data={filteredHistory}
+      getRowId={getWebhookHistoryRowId}
       bodyScrollable
     />
   );

@@ -43,76 +43,80 @@ vi.mock('@/hooks/use-granted-scopes', () => ({
   useGrantedScopes: () => ({ isPending: false, scopes: null }),
 }));
 
-vi.mock('react-i18next', () => ({
-  initReactI18next: {
-    init: () => undefined,
-    type: '3rdParty',
-  },
-  useTranslation: () => ({
-    t: (key: string, options?: Record<string, unknown>) => {
-      const translations: Record<string, string> = {
-        'Common.addFilter': 'Add filter',
-        'Common.advancedFilter': 'Advanced filter',
-        'Common.all': 'All',
-        'Common.and': 'and',
-        'Common.clearFilter': 'Clear filter',
-        'Common.clearRules': 'Clear rules',
-        'Common.deleteRule': 'Delete rule',
-        'Common.falseValue': 'False',
-        'Common.filter': 'Filter',
-        'Common.filterBy': 'Filter by',
-        'Common.filterFieldPlaceholder': 'Filter {{field}}',
-        'Common.noFilterAvailable': 'No filter available',
-        'Common.noResults': 'No results',
-        'Common.or': 'or',
-        'Common.rulesCount': `${options?.count ?? 0} rules`,
-        'Common.search': 'Search',
-        'Common.trueValue': 'True',
-        'Common.where': 'Where',
-        'Features.AuditTrail.events.CUSTOMER_CREATED': 'Customer created',
-        'Features.AuditTrail.events.INSTANCE_UPDATED': 'Instance updated',
-        'Pages.Integrations.Webhooks.EventGroups.customer': 'Customers',
-        'Pages.Integrations.Webhooks.EventGroups.instance': 'Instances',
-        'Pages.Integrations.Webhooks.History.Filters.queryPlaceholder':
-          'Search deliveries',
-        'Pages.Integrations.Webhooks.Deliveries.Detail.bodyLabel':
-          'Body sent, as JSON',
-        'Pages.Integrations.Webhooks.Deliveries.Detail.bodyNotReported':
-          'Body not reported',
-        'Pages.Integrations.Webhooks.Deliveries.Detail.response':
-          'Response · attempt {{index}} of {{count}}',
-        'Pages.Integrations.Webhooks.Deliveries.Detail.responseBodyLabel':
-          'Response body',
-        'Pages.Integrations.Webhooks.Deliveries.Detail.title':
-          'Delivery details',
-        'Pages.Integrations.Webhooks.History.Status.fail': 'Fail',
-        'Pages.Integrations.Webhooks.History.Status.pending': 'Pending',
-        'Pages.Integrations.Webhooks.History.Status.sending': 'Sending',
-        'Pages.Integrations.Webhooks.History.Status.success': 'OK',
-        'Pages.Integrations.Webhooks.History.Table.actions': 'Actions',
-        'Pages.Integrations.Webhooks.History.Table.date': 'Date',
-        'Pages.Integrations.Webhooks.History.Table.emptyState':
-          'No deliveries match the selected filters.',
-        'Pages.Integrations.Webhooks.History.Table.event': 'Event',
-        'Pages.Integrations.Webhooks.History.Table.response': 'Response',
-        'Pages.Integrations.Webhooks.History.Table.hookUrl': 'Hook URL',
-        'Pages.Integrations.Webhooks.History.Table.status': 'Status',
-        'Pages.Integrations.Webhooks.History.Table.viewDetails': 'View details',
-        'Pages.Integrations.Webhooks.History.emptyState':
-          'No webhook deliveries yet.',
-        'Pages.Integrations.Webhooks.History.emptyStateHint':
-          'Deliveries will appear here after your event webhooks are triggered.',
-        'Pages.Integrations.Webhooks.History.eventFilter': 'Event',
-        'Pages.Integrations.Webhooks.History.hookFilter': 'Webhook URL',
-      };
+vi.mock('react-i18next', () => {
+  // One function for every render, as react-i18next gives: the columns depend
+  // on it, and a new one per render would remount every cell.
+  const t = (key: string, options?: Record<string, unknown>) => {
+    const translations: Record<string, string> = {
+      'Common.addFilter': 'Add filter',
+      'Common.advancedFilter': 'Advanced filter',
+      'Common.all': 'All',
+      'Common.and': 'and',
+      'Common.clearFilter': 'Clear filter',
+      'Common.clearRules': 'Clear rules',
+      'Common.deleteRule': 'Delete rule',
+      'Common.falseValue': 'False',
+      'Common.filter': 'Filter',
+      'Common.filterBy': 'Filter by',
+      'Common.filterFieldPlaceholder': 'Filter {{field}}',
+      'Common.noFilterAvailable': 'No filter available',
+      'Common.noResults': 'No results',
+      'Common.or': 'or',
+      'Common.rulesCount': `${options?.count ?? 0} rules`,
+      'Common.search': 'Search',
+      'Common.trueValue': 'True',
+      'Common.where': 'Where',
+      'Features.AuditTrail.events.CUSTOMER_CREATED': 'Customer created',
+      'Features.AuditTrail.events.INSTANCE_UPDATED': 'Instance updated',
+      'Pages.Integrations.Webhooks.EventGroups.customer': 'Customers',
+      'Pages.Integrations.Webhooks.EventGroups.instance': 'Instances',
+      'Pages.Integrations.Webhooks.History.Filters.queryPlaceholder':
+        'Search deliveries',
+      'Pages.Integrations.Webhooks.Deliveries.Detail.bodyLabel':
+        'Body sent, as JSON',
+      'Pages.Integrations.Webhooks.Deliveries.Detail.bodyNotReported':
+        'Body not reported',
+      'Pages.Integrations.Webhooks.Deliveries.Detail.response':
+        'Response · attempt {{index}} of {{count}}',
+      'Pages.Integrations.Webhooks.Deliveries.Detail.responseBodyLabel':
+        'Response body',
+      'Pages.Integrations.Webhooks.Deliveries.Detail.title':
+        'Delivery details',
+      'Pages.Integrations.Webhooks.History.Status.fail': 'Fail',
+      'Pages.Integrations.Webhooks.History.Status.pending': 'Pending',
+      'Pages.Integrations.Webhooks.History.Status.sending': 'Sending',
+      'Pages.Integrations.Webhooks.History.Status.success': 'OK',
+      'Pages.Integrations.Webhooks.History.Table.actions': 'Actions',
+      'Pages.Integrations.Webhooks.History.Table.date': 'Date',
+      'Pages.Integrations.Webhooks.History.Table.emptyState':
+        'No deliveries match the selected filters.',
+      'Pages.Integrations.Webhooks.History.Table.event': 'Event',
+      'Pages.Integrations.Webhooks.History.Table.response': 'Response',
+      'Pages.Integrations.Webhooks.History.Table.hookUrl': 'Hook URL',
+      'Pages.Integrations.Webhooks.History.Table.status': 'Status',
+      'Pages.Integrations.Webhooks.History.Table.viewDetails': 'View details',
+      'Pages.Integrations.Webhooks.History.emptyState':
+        'No webhook deliveries yet.',
+      'Pages.Integrations.Webhooks.History.emptyStateHint':
+        'Deliveries will appear here after your event webhooks are triggered.',
+      'Pages.Integrations.Webhooks.History.eventFilter': 'Event',
+      'Pages.Integrations.Webhooks.History.hookFilter': 'Webhook URL',
+    };
 
-      return (translations[key] ?? key).replace(
-        /\{\{(\w+)\}\}/g,
-        (_, name: string) => String(options?.[name] ?? ''),
-      );
+    return (translations[key] ?? key).replace(
+      /\{\{(\w+)\}\}/g,
+      (_, name: string) => String(options?.[name] ?? ''),
+    );
+  };
+
+  return {
+    initReactI18next: {
+      init: () => undefined,
+      type: '3rdParty',
     },
-  }),
-}));
+    useTranslation: () => ({ t }),
+  };
+});
 
 const useSuspenseQueryMock = vi.mocked(useSuspenseQuery);
 
@@ -302,6 +306,54 @@ describe('WebhookHistorySection', () => {
       within(dialog).getByText('Response · attempt 1 of 1'),
     ).toBeInTheDocument();
     expect(reads).toEqual([]);
+  });
+
+  it('gives the focus back to the View details button when the detail closes', async () => {
+    serveMessages();
+    const user = userEvent.setup();
+    const view = renderHistory();
+
+    // The modal hides the table from the accessibility tree while it is open.
+    const viewDetails = () =>
+      within(screen.getAllByRole('row', { hidden: true })[1]).getByRole(
+        'button',
+        { hidden: true, name: 'View details' },
+      );
+    const opener = viewDetails();
+    await user.click(opener);
+    expect(
+      screen.getByRole('dialog', { name: 'Delivery details' }),
+    ).toBeInTheDocument();
+
+    // A refetch while the dialog is open, with a newer attempt on top (a
+    // resend), must keep the row and its button.
+    serveHistory([
+      {
+        ...historyData[0],
+        attemptId: 'atmpt_customer_2',
+        date: '2026-03-03T13:00:00Z',
+        responseStatusCode: 200,
+        responseStatusText: '',
+        status: 'success',
+      },
+      ...historyData,
+    ]);
+    view.rerender();
+    expect(
+      within(screen.getAllByRole('row', { hidden: true })[2]).getByRole(
+        'button',
+        { hidden: true, name: 'View details' },
+      ),
+    ).toBe(opener);
+
+    await user.keyboard('{Escape}');
+    await waitFor(() =>
+      expect(
+        screen.queryByRole('dialog', { name: 'Delivery details' }),
+      ).toBeNull(),
+    );
+    expect(opener).toBeInTheDocument();
+    await waitFor(() => expect(opener).toHaveFocus());
   });
 
   it('keeps the search and the open detail across a history refetch', async () => {
