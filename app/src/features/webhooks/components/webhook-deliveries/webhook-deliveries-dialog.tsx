@@ -130,11 +130,13 @@ function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
   const isPhone = useIsMobile();
   const listPaneRef = useRef<HTMLDivElement>(null);
   const backButtonRef = useRef<HTMLButtonElement>(null);
+  // Held here, not in the detail, so that it outlives a change of delivery;
+  // it lets go of the message when the body unmounts, that is when the
+  // dialog closes.
   const watch = useDeliveryWatch();
   const { data, error, isError, refetch } = useWebhookDeliveries(webhook.id, {
     limit: WEBHOOK_DELIVERIES_LIMIT,
     withAttempts: true,
-    refetchInterval: watch.refetchInterval,
   });
   const [selectedKey, setSelectedKey] = useState<string>();
   const [showDetail, setShowDetail] = useState(false);
@@ -144,7 +146,7 @@ function WebhookDeliveriesBody({ webhook }: { webhook: Webhook }) {
   );
   // The chosen delivery, or the newest when none is chosen or it left the
   // list. The newest is then pinned as the choice, so that a refetch bringing
-  // in a newer message (a watch poll after a resend) does not swap the detail
+  // in a newer message (a watch read after a resend) does not swap the detail
   // being read.
   const selected =
     deliveries?.find((delivery) => delivery.key === selectedKey) ??

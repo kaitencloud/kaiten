@@ -26,11 +26,7 @@ export interface WebhookDeliveries {
  */
 export function useWebhookDeliveries(
   webhookId: string,
-  {
-    limit,
-    withAttempts,
-    refetchInterval,
-  }: WebhookMessagesListParams & { refetchInterval?: () => number | false },
+  { limit, withAttempts }: WebhookMessagesListParams,
 ) {
   const select = useCallback(
     (list: WebhookMessageList): WebhookDeliveries => ({
@@ -46,7 +42,6 @@ export function useWebhookDeliveries(
   const query = useQuery({
     ...webhookMessagesQueryOptions(webhookId, { limit, withAttempts }),
     select,
-    refetchInterval,
   });
 
   return {

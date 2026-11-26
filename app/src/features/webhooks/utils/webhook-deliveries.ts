@@ -68,8 +68,8 @@ function normalizeAttempt(
 
 /** Oldest first; a time that does not parse sorts last; ties by id. */
 function compareAttempts(
-  left: WebhookMessageAttempt,
-  right: WebhookMessageAttempt,
+  left: Pick<WebhookMessageAttempt, 'id' | 'timestamp'>,
+  right: Pick<WebhookMessageAttempt, 'id' | 'timestamp'>,
 ): number {
   const leftTime = parseTimestamp(left.timestamp);
   const rightTime = parseTimestamp(right.timestamp);
@@ -81,6 +81,14 @@ function compareAttempts(
   }
 
   return left.id.localeCompare(right.id);
+}
+
+/** Whether `attempt` comes after `than`, in the order the detail lists them. */
+export function isLaterAttempt(
+  attempt: Pick<WebhookMessageAttempt, 'id' | 'timestamp'>,
+  than: Pick<WebhookMessageAttempt, 'id' | 'timestamp'>,
+): boolean {
+  return compareAttempts(than, attempt) < 0;
 }
 
 /** A message of the webhook's list, as a delivery. */

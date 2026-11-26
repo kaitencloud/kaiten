@@ -38,10 +38,9 @@ export function getResendErrorMessage(error: unknown, t: TFunction): string {
 }
 
 /**
- * Resends a message to a webhook. `onQueued` runs first on success, before the
- * awaited invalidation, so that a watch it arms sees the refetch that follows
- * (`useDeliveryWatch`). A message that can no longer be resent is read again,
- * so the detail shows why.
+ * Resends a message to a webhook. On success `onQueued` runs (the detail arms
+ * its `useDeliveryWatch` there), then the deliveries are read again at once. A
+ * message that can no longer be resent is read again, so the detail shows why.
  */
 export function useResendWebhookMessage({
   onQueued,

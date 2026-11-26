@@ -35,7 +35,9 @@ export function WebhookDeliveryDetailDialog({
   onOpenChange,
 }: WebhookDeliveryDetailDialogProps) {
   const { t } = useTranslation();
-  const watch = useDeliveryWatch();
+  // The dialog stays mounted while closed: the watch lets go of the message
+  // when it closes.
+  const watch = useDeliveryWatch({ open });
 
   return (
     <Dialog onOpenChange={onOpenChange} open={open && delivery !== null}>

@@ -51,9 +51,10 @@ export function removeWebhookQueries(
 }
 
 /**
- * After a resend: the history, the webhook's message lists and the message
- * itself. Not the list of webhooks, which a delivery does not change. Only the
- * queries on screen refetch; the others are marked stale.
+ * After a resend, and on each read of the watch that follows it
+ * (`useDeliveryWatch`): the history, the webhook's message lists and the
+ * message itself. Not the list of webhooks, which a delivery does not change.
+ * Only the queries on screen refetch; the others are marked stale.
  */
 export async function invalidateWebhookDeliveryQueries(
   queryClient: QueryClient,

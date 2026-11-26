@@ -92,7 +92,7 @@ afterEach(() => {
 });
 
 describe('useResendWebhookMessage', () => {
-  it('arms the watch before invalidating the delivery queries, not the webhooks', async () => {
+  it('calls onQueued, then invalidates the delivery queries, not the webhooks', async () => {
     const resends = serveResend(202);
     const { invalidated, onQueued, order, resend } = renderResend();
 

@@ -128,10 +128,7 @@ function renderDetail(
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retryDelay: 0 }, mutations: { retry: false } },
   });
-  const watch: DeliveryWatch = {
-    arm: vi.fn(),
-    refetchInterval: () => false,
-  };
+  const watch: DeliveryWatch = { arm: vi.fn() };
   render(
     <QueryClientProvider client={queryClient}>
       <WebhookDeliveryDetail
@@ -342,7 +339,7 @@ describe('WebhookDeliveryDetail', () => {
     expect(resendButton()).toBeDisabled();
   });
 
-  it('resends once and arms the watch', async () => {
+  it('resends once and arms the watch with the newest attempt it knew', async () => {
     scopes.current = ['write:webhooks'];
     const requests = serve();
     const user = userEvent.setup();
@@ -352,6 +349,14 @@ describe('WebhookDeliveryDetail', () => {
     await user.click(resendButton());
 
     await waitFor(() => expect(watch.arm).toHaveBeenCalledTimes(1));
+    expect(watch.arm).toHaveBeenCalledWith({
+      webhookId: 'ep_orders',
+      messageId: 'msg_1',
+      latestKnownAttempt: expect.objectContaining({
+        id: 'atmpt_3',
+        timestamp: '2026-11-25T12:00:00Z',
+      }),
+    });
     expect(requests.filter((request) => request.startsWith('POST'))).toEqual([
       'POST msg_1',
     ]);

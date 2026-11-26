@@ -31,7 +31,7 @@ interface WebhookDeliveryDetailProps {
   delivery: WebhookDelivery;
   /** The attempt to show first; the newest one otherwise. */
   initialAttemptId?: string;
-  /** Polls the message for a while after a resend; the owner of the dialog holds it. */
+  /** Reads the deliveries again after a resend until it settles; the owner of the dialog holds it. */
   watch: DeliveryWatch;
   /** On a narrow screen, goes back to the list of deliveries the detail replaced. */
   onBack?: () => void;
@@ -140,7 +140,6 @@ export function WebhookDeliveryDetail({
       retryNotDelivered: delivery.statusSource === 'message',
     }),
     enabled: Boolean(delivery.messageId),
-    refetchInterval: watch.refetchInterval,
   });
   const [attemptId, setAttemptId] = useState(initialAttemptId);
   const attempts = resolveAttempts(delivery, message.data);
@@ -154,6 +153,18 @@ export function WebhookDeliveryDetail({
     void message.refetch();
   }
 
+  // The newest attempt known when Resend was pressed: the watch ends on a
+  // settled attempt that comes after it.
+  function handleQueued() {
+    if (delivery.messageId) {
+      watch.arm({
+        webhookId: delivery.hookId,
+        messageId: delivery.messageId,
+        latestKnownAttempt: attempts.at(-1),
+      });
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6" data-testid="webhook-delivery-detail">
       {onBack ? (
@@ -164,7 +175,7 @@ export function WebhookDeliveryDetail({
         eventType={delivery.eventType || message.data?.eventType || ''}
         hasPayload={canResendPayload(payload)}
         nextAttempt={nextAttempt}
-        onQueued={watch.arm}
+        onQueued={handleQueued}
         status={status}
       />
       <WebhookPayloadBlock onRetry={handleRetry} state={payload} />
