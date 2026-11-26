@@ -158,6 +158,10 @@ type Feature struct {
 	entitlements services.ConnectorEntitlements
 	slug         string
 	answers      *answers
+	// unknown is what an organization the licensing authority never answered
+	// for reads: false for a feature better hidden than shown by mistake, true
+	// for one better kept than silenced (see NewFeatureKeptWhenUnknown).
+	unknown bool
 }
 
 // NewFeature checks slug, trusting an answer for ttl (0 caches nothing).
@@ -166,6 +170,17 @@ func NewFeature(entitlements services.ConnectorEntitlements, slug string, ttl ti
 	if ttl > 0 {
 		f.answers = &answers{ttl: ttl, now: time.Now, byEntitlement: map[entitlementKey]answer{}}
 	}
+	return f
+}
+
+// NewFeatureKeptWhenUnknown is NewFeature for a feature whose loss costs more
+// than its mistaken presence, such as a warning that an instance nears its
+// limit: an organization the licensing authority never answered for reads true
+// rather than false. A known answer, fresh or stale, is followed as NewFeature
+// follows it.
+func NewFeatureKeptWhenUnknown(entitlements services.ConnectorEntitlements, slug string, ttl time.Duration) *Feature {
+	f := NewFeature(entitlements, slug, ttl)
+	f.unknown = true
 	return f
 }
 
@@ -186,7 +201,7 @@ func (f *Feature) Granted(ctx context.Context, organizationID uuid.UUID) bool {
 				return last
 			}
 		}
-		return false
+		return f.unknown
 	}
 	if f.answers != nil {
 		f.answers.set(organizationID, f.slug, granted)

@@ -56,6 +56,21 @@ func (q *Queries) ActivateConnectorForOrganization(ctx context.Context, arg Acti
 	return i, err
 }
 
+const countConnectorActivations = `-- name: CountConnectorActivations :one
+SELECT count(*)::bigint
+FROM organization_connector
+WHERE organization_id = $1
+`
+
+// The connectors an organization has active: what the connectors entitlement is
+// set to whenever that number changes.
+func (q *Queries) CountConnectorActivations(ctx context.Context, organizationID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countConnectorActivations, organizationID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const deactivateConnectorForOrganization = `-- name: DeactivateConnectorForOrganization :execrows
 DELETE FROM organization_connector
 WHERE organization_id = $1

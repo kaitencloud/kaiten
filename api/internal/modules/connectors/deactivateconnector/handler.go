@@ -12,8 +12,11 @@ package deactivateconnector
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/activation"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
@@ -37,11 +40,19 @@ type Deps struct {
 	// ConnectorsVaultBasePath locates the stored settings the Deactivated
 	// hook receives.
 	ConnectorsVaultBasePath string
+	// StockReporter gives the connector back: it sets the connectors entitlement
+	// to the number still active. Nil sets nothing (self-hosted, unit tests).
+	StockReporter services.StockReporter
+}
+
+type activations interface {
+	activation.Writer
+	activation.Counter
 }
 
 type UseCase struct {
 	deps        Deps
-	activations activation.Writer
+	activations activations
 	store       *connectorsettings.Store
 }
 
@@ -88,8 +99,10 @@ func (h *UseCase) ExecuteAs(ctx context.Context, connectorName, operation string
 		settings = stored
 	}
 
+	var removed bool
 	run := func(ctx context.Context) error {
-		removed, err := h.activations.Deactivate(ctx, user.OrganizationID, normalizedName)
+		var err error
+		removed, err = h.activations.Deactivate(ctx, user.OrganizationID, normalizedName)
 		if err != nil {
 			return kaitenerrors.Internal(
 				"DeactivateConnector.DeactivationFailed",
@@ -102,7 +115,23 @@ func (h *UseCase) ExecuteAs(ctx context.Context, connectorName, operation string
 		return connectorHooks.Deactivated(ctx, user.OrganizationID, settings)
 	}
 	if h.deps.Uof == nil {
-		return run(ctx)
+		err = run(ctx)
+	} else {
+		err = h.deps.Uof.Transact(ctx, run)
 	}
-	return h.deps.Uof.Transact(ctx, run)
+	if err != nil || !removed {
+		return err
+	}
+
+	// After the commit: the connector is given back by setting the counter to the
+	// number still active. Best effort, as a deletion's decrement is -- the next
+	// activation sets it again -- and never a reason to report the deactivation
+	// as failed.
+	if held, err := h.activations.Count(ctx, user.OrganizationID); err == nil {
+		dogfooding.SyncStock(ctx, h.deps.StockReporter, user.OrganizationID, dogfooding.ConnectorEntitlementSlug, held)
+	} else {
+		slog.WarnContext(ctx, "failed to count active connectors after a deactivation",
+			"organization_id", user.OrganizationID, "error", err)
+	}
+	return nil
 }

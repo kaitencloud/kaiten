@@ -35,3 +35,11 @@ SELECT organization_id, connector_name, activated_at, created_at, updated_at
 FROM organization_connector
 WHERE organization_id = sqlc.arg(organization_id)
 ORDER BY connector_name;
+
+
+-- name: CountConnectorActivations :one
+-- The connectors an organization has active: what the connectors entitlement is
+-- set to whenever that number changes.
+SELECT count(*)::bigint
+FROM organization_connector
+WHERE organization_id = sqlc.arg(organization_id);

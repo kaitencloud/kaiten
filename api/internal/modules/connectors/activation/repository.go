@@ -55,9 +55,16 @@ type Writer interface {
 	Deactivate(ctx context.Context, organizationID uuid.UUID, connectorName string) (bool, error)
 }
 
+// Counter answers how many connectors one organization has active: what the
+// connectors entitlement is set to whenever that number changes.
+type Counter interface {
+	Count(ctx context.Context, organizationID uuid.UUID) (int64, error)
+}
+
 type Repository interface {
 	Reader
 	Writer
+	Counter
 }
 
 type QueryRepository struct {
@@ -127,6 +134,14 @@ func (r *QueryRepository) Deactivate(
 	}
 
 	return removed > 0, nil
+}
+
+func (r *QueryRepository) Count(ctx context.Context, organizationID uuid.UUID) (int64, error) {
+	if r.queries == nil {
+		return 0, fmt.Errorf("connector activation repository is not configured")
+	}
+
+	return r.queries.CountConnectorActivations(ctx, organizationID)
 }
 
 func decode(row db.OrganizationConnector) *Activation {

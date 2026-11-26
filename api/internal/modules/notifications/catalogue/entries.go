@@ -18,6 +18,7 @@ import (
 	publicsdkevents "github.com/kaitencloud/kaiten/api/internal/modules/publicsdk/events"
 	releaseevents "github.com/kaitencloud/kaiten/api/internal/modules/releases/events"
 	voucherevents "github.com/kaitencloud/kaiten/api/internal/modules/vouchers/events"
+	"github.com/kaitencloud/kaiten/api/pkg/dogfooding"
 )
 
 // Groups the settings page renders under. The client owns the heading and the
@@ -434,30 +435,33 @@ func init() {
 	// ── Usage and entitlements ───────────────────────────────────────────────
 
 	Register(Entry{
-		Event:    instanceevents.InstanceEntitlementUsageWarningThresholdReached,
-		Group:    GroupUsage,
-		Object:   ObjectInstance,
-		Label:    "Entitlement near limit",
-		Defaults: map[Channel]bool{ChannelInApp: true},
-		renderer: renderEntitlement("%s is close to its %s limit"),
+		Event:      instanceevents.InstanceEntitlementUsageWarningThresholdReached,
+		Group:      GroupUsage,
+		Object:     ObjectInstance,
+		Label:      "Entitlement near limit",
+		Defaults:   map[Channel]bool{ChannelInApp: true},
+		Capability: dogfooding.ThresholdAlertingEntitlementSlug,
+		renderer:   renderEntitlement("%s is close to its %s limit"),
 	})
 
 	Register(Entry{
-		Event:    instanceevents.InstanceEntitlementUsageReached,
-		Group:    GroupUsage,
-		Object:   ObjectInstance,
-		Label:    "Entitlement fully used",
-		Defaults: map[Channel]bool{ChannelInApp: true},
-		renderer: renderEntitlement("%s has used all of its %s"),
+		Event:      instanceevents.InstanceEntitlementUsageReached,
+		Group:      GroupUsage,
+		Object:     ObjectInstance,
+		Label:      "Entitlement fully used",
+		Defaults:   map[Channel]bool{ChannelInApp: true},
+		Capability: dogfooding.ThresholdAlertingEntitlementSlug,
+		renderer:   renderEntitlement("%s has used all of its %s"),
 	})
 
 	Register(Entry{
-		Event:    instanceevents.InstanceEntitlementCapExceeded,
-		Group:    GroupUsage,
-		Object:   ObjectInstance,
-		Label:    "Entitlement limit reached",
-		Defaults: map[Channel]bool{ChannelInApp: true},
-		renderer: renderEntitlement("%s has reached its %s limit"),
+		Event:      instanceevents.InstanceEntitlementCapExceeded,
+		Group:      GroupUsage,
+		Object:     ObjectInstance,
+		Label:      "Entitlement limit reached",
+		Defaults:   map[Channel]bool{ChannelInApp: true},
+		Capability: dogfooding.ThresholdAlertingEntitlementSlug,
+		renderer:   renderEntitlement("%s has reached its %s limit"),
 	})
 
 	// A fleet reported usage and the platform refused it: metering for that

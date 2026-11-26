@@ -6,6 +6,8 @@ import (
 	"fmt"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/identity/schema"
@@ -19,6 +21,10 @@ import (
 
 const IDSize = 32
 
+// EntitlementLimitReachedCode is the error code a create answers with when the
+// organization already holds every service account its licence allows.
+const EntitlementLimitReachedCode = "CreateServiceAccount.EntitlementLimitReached"
+
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container. Membership is the organization module's own public
 // port (see addmembership) -- this module never imports organization's
@@ -27,6 +33,9 @@ type Deps struct {
 	UserProvider currentuser.Provider
 	Uof          *uow.UnitOfWork
 	Membership   *addmembership.UseCase
+	// StockReporter sets the service-accounts entitlement to the number the
+	// organization will hold. Nil sets nothing (self-hosted, unit tests).
+	StockReporter services.StockReporter
 }
 
 type UseCase struct {
@@ -41,12 +50,43 @@ func NewUseCase(deps Deps) *UseCase {
 	}
 }
 
+// Execute creates a service account in the caller's organization.
+//
+// On a deployment licensed by a licensing authority, the service-accounts
+// entitlement is set first to the number the organization will hold, and the
+// create is refused with a 409 when that is beyond the licence (a 503 when the
+// limit cannot be verified). Set rather than incremented: the count read here is
+// the truth, so accounts created before the entitlement existed are counted, and
+// an organization already above its allowance is refused. There is no route that
+// deletes a service account, so the count never goes down.
 func (h *UseCase) Execute(ctx context.Context, name string, slug *string) (*schema.ServiceAccount, error) {
 	user, err := h.deps.UserProvider.GetUser(ctx)
 	if err != nil {
 		return nil, err
 	}
 
+	held, err := h.repo.CountServiceAccounts(ctx, user.OrganizationID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count service accounts: %w", err)
+	}
+	if err := dogfooding.EnforceStockLimit(ctx, h.deps.StockReporter, user.OrganizationID,
+		dogfooding.ServiceAccountEntitlementSlug, held+1,
+		EntitlementLimitReachedCode, "Service account limit reached for this organization",
+	); err != nil {
+		return nil, err
+	}
+
+	created, err := h.create(ctx, user, name, slug)
+	if err != nil {
+		// The counter was set for an account that does not exist: set it back.
+		dogfooding.SyncStock(ctx, h.deps.StockReporter, user.OrganizationID,
+			dogfooding.ServiceAccountEntitlementSlug, held)
+		return nil, err
+	}
+	return created, nil
+}
+
+func (h *UseCase) create(ctx context.Context, user *currentuser.User, name string, slug *string) (*schema.ServiceAccount, error) {
 	externalID, err := random.GeneratePrefixed("ksa_", IDSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate service account ID: %w", err)

@@ -1,7 +1,7 @@
 // Package dogfooding holds the entitlement and entitlement-group slugs of
 // kaiten's own metering catalogue -- the vocabulary, and nothing else.
 //
-// The catalogue has twenty-four entitlements in four groups. Kaiten reports against
+// The catalogue has twenty-eight entitlements in four groups. Kaiten reports against
 // some of them, the installation that holds the licences gates on others, and
 // some are declarative terms or capabilities nobody reports against at all.
 // Every slug lives here, so that whoever creates the catalogue and whoever
@@ -39,6 +39,29 @@ const (
 	// seat -- they join through a different door -- and it gates nothing:
 	// sign-in is never refused for a quota.
 	SeatEntitlementSlug = "seats"
+
+	// ServiceAccountEntitlementSlug is the organization's service accounts:
+	// counted when one is created, and gated -- a create beyond the licence's
+	// allowance is refused. Core has no route that deletes a service account, so
+	// the count only climbs. It is set to the number the organization holds,
+	// plus the one being created, rather than incremented: a counter that
+	// starts at the true count needs no separate backfill.
+	ServiceAccountEntitlementSlug = "service-accounts"
+
+	// ConnectorEntitlementSlug is the connectors an organization has active
+	// (Stripe, Attio...): gated at activation, given back at deactivation, and
+	// set to the number active rather than incremented, for the reason service
+	// accounts are. A paid connector keeps its own BOOLEAN on top
+	// (ConnectorStripeEntitlementSlug): the count says how many, the capability
+	// which.
+	ConnectorEntitlementSlug = "connectors"
+
+	// MeteringEventEntitlementSlug is the metering events an organization sends
+	// per calendar month. Declared so that licences can carry the allowance; Core
+	// reports nothing against it yet. Which unit it counts (a usage report, an
+	// event, the quantity reported) and on which routes is still to be designed,
+	// and it gates nothing: metering is never refused.
+	MeteringEventEntitlementSlug = "metering-events"
 )
 
 // Catalog objects: stock counters on the objects an organization declares,
@@ -94,6 +117,13 @@ const (
 	// portal hide "Powered by Kaiten" (V31-E3, §18.5). BOOLEAN, read rather
 	// than reported; the public surface says it as branding.poweredByRemovable.
 	RemovePoweredByEntitlementSlug = "remove-powered-by"
+
+	// ThresholdAlertingEntitlementSlug decides whether the organization's
+	// members are notified when an instance nears, reaches or exceeds an
+	// entitlement limit. BOOLEAN, read rather than reported. Only the in-app
+	// notifications are gated: the events themselves, and the webhooks that
+	// carry them, are a contract every organization keeps.
+	ThresholdAlertingEntitlementSlug = "threshold-alerting"
 )
 
 // Platform usage: whether an organization actually uses Kaiten. Unlimited on
@@ -122,6 +152,9 @@ var EntitlementSlugs = []string{
 	LicenseEntitlementSlug,
 	WebhookEntitlementSlug,
 	SeatEntitlementSlug,
+	ServiceAccountEntitlementSlug,
+	ConnectorEntitlementSlug,
+	MeteringEventEntitlementSlug,
 
 	EntitlementEntitlementSlug,
 	LicenseEntitlementEntitlementSlug,
@@ -140,6 +173,7 @@ var EntitlementSlugs = []string{
 	AddonsEntitlementSlug,
 	ConnectorStripeEntitlementSlug,
 	RemovePoweredByEntitlementSlug,
+	ThresholdAlertingEntitlementSlug,
 
 	FeatureFlagEvaluatedEntitlementSlug,
 	EntitlementValuesCheckedEntitlementSlug,
@@ -159,6 +193,8 @@ var GatedEntitlementSlugs = []string{
 	InstanceEntitlementSlug,
 	LicenseEntitlementSlug,
 	WebhookEntitlementSlug,
+	ServiceAccountEntitlementSlug,
+	ConnectorEntitlementSlug,
 
 	EntitlementEntitlementSlug,
 	LicenseEntitlementEntitlementSlug,
@@ -187,6 +223,7 @@ var BooleanEntitlementSlugs = []string{
 	AddonsEntitlementSlug,
 	ConnectorStripeEntitlementSlug,
 	RemovePoweredByEntitlementSlug,
+	ThresholdAlertingEntitlementSlug,
 }
 
 // ConfigEntitlementSlugs are the catalogue entries created as CONFIG

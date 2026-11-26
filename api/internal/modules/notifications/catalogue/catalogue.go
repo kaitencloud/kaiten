@@ -104,7 +104,11 @@ type Entry struct {
 	Object   Object
 	Label    string
 	Defaults map[Channel]bool
-	renderer Renderer
+	// Capability, when set, is the BOOLEAN entitlement an organization's own plan
+	// must grant for the entry to reach its members. Only the notification is
+	// gated: the event is recorded, and published to webhooks, either way.
+	Capability string
+	renderer   Renderer
 }
 
 // Render is Entry's renderer with the guarantee the renderer itself does not

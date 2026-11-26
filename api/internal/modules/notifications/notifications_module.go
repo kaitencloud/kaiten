@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/billing/gate"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/notifications/announce"
@@ -50,6 +51,10 @@ type UseCases struct {
 	// on commit -- see the package comment in ./announce for why it cannot be a
 	// consumer of its own.
 	Announcer *announce.Publisher
+
+	// licensing withholds the entries the organization's plan does not include,
+	// in the live fan-out as in every read.
+	licensing feed.Licensing
 }
 
 func NewUseCases(svc services.Container) *UseCases {
@@ -57,21 +62,44 @@ func NewUseCases(svc services.Container) *UseCases {
 	txQueries := func(dbtx uow.DBTX) *db.Queries { return db.New(dbtx) }
 
 	streams := hub.New(maxStreamsPerReplica)
+	licensing := planLicensing(svc)
 
 	useCases := &UseCases{
-		ListNotifications: listnotifications.NewUseCase(queries),
-		MarkRead:          markread.NewUseCase(svc.Uof, txQueries, queries),
+		ListNotifications: listnotifications.NewUseCase(queries, licensing),
+		MarkRead:          markread.NewUseCase(svc.Uof, txQueries, queries, licensing),
 		GetPreferences:    getpreferences.NewUseCase(queries),
-		Stream:            stream.NewUseCase(queries),
+		Stream:            stream.NewUseCase(queries, licensing),
 		PutPreferences:    putpreferences.NewUseCase(svc.Uof, txQueries),
 		Hub:               streams,
 		Reader:            queries,
 		Announcer:         announce.NewPublisher(),
+		licensing:         licensing,
 	}
 
 	useCases.listen(svc, queries, streams)
 
 	return useCases
+}
+
+// planLicensing answers, for each capability a catalogue entry requires, whether
+// the organization's own plan grants it -- the threshold alerts' threshold-alerting
+// today. Each answer is trusted for the billing entitlement cache's TTL and kept
+// while the licensing authority cannot be reached; an organization it never
+// answered for keeps its notifications rather than losing them to an outage (see
+// gate.NewFeatureKeptWhenUnknown). Self-hosted, every capability is granted.
+func planLicensing(svc services.Container) feed.Licensing {
+	features := map[string]*gate.Feature{}
+	for _, entry := range catalogue.All() {
+		if entry.Capability != "" && features[entry.Capability] == nil {
+			features[entry.Capability] = gate.NewFeatureKeptWhenUnknown(
+				svc.ConnectorEntitlements, entry.Capability, svc.Config.Billing.EntitlementCacheTTL)
+		}
+	}
+
+	return func(ctx context.Context, organizationID uuid.UUID, capability string) bool {
+		feature, gated := features[capability]
+		return !gated || feature.Granted(ctx, organizationID)
+	}
 }
 
 // listen subscribes this replica to the two notification channels.
@@ -141,7 +169,8 @@ func (uc *UseCases) fanOut(ctx context.Context, queries *db.Queries, streams *hu
 	}
 
 	for _, connection := range recipients {
-		subscription, err := feed.SubscriptionFor(ctx, queries, connection.UserID, catalogue.ChannelInApp)
+		subscription, err := feed.LicensedSubscriptionFor(ctx, queries, uc.licensing,
+			connection.UserID, connection.OrganizationID, catalogue.ChannelInApp)
 		if err != nil {
 			continue
 		}

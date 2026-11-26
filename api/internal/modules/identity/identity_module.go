@@ -147,9 +147,10 @@ func NewUseCases(svc services.Container) *UseCases {
 
 	return &UseCases{
 		CreateServiceAccount: createserviceaccount.NewUseCase(createserviceaccount.Deps{
-			UserProvider: svc.UserProvider,
-			Uof:          svc.Uof,
-			Membership:   addmembership.NewUseCase(svc.Uof),
+			UserProvider:  svc.UserProvider,
+			Uof:           svc.Uof,
+			Membership:    addmembership.NewUseCase(svc.Uof),
+			StockReporter: svc.StockReporter,
 		}),
 		GetServiceAccount: getserviceaccount.NewUseCase(getserviceaccount.Deps{
 			UserProvider: svc.UserProvider,

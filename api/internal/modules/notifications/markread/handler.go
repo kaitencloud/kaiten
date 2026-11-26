@@ -21,13 +21,17 @@ import (
 const MaxIDs = 200
 
 type UseCase struct {
-	uof     *uow.UnitOfWork
-	queries func(uow.DBTX) *db.Queries
-	reader  feed.Reader
+	uof       *uow.UnitOfWork
+	queries   func(uow.DBTX) *db.Queries
+	reader    feed.Reader
+	licensing feed.Licensing
 }
 
-func NewUseCase(uof *uow.UnitOfWork, queries func(uow.DBTX) *db.Queries, reader feed.Reader) *UseCase {
-	return &UseCase{uof: uof, queries: queries, reader: reader}
+// NewUseCase marks through queries and counts what is left unread through reader;
+// licensing withholds what the organization's plan does not include, and nil
+// withholds nothing.
+func NewUseCase(uof *uow.UnitOfWork, queries func(uow.DBTX) *db.Queries, reader feed.Reader, licensing feed.Licensing) *UseCase {
+	return &UseCase{uof: uof, queries: queries, reader: reader, licensing: licensing}
 }
 
 type Command struct {
@@ -86,7 +90,7 @@ func (uc *UseCase) Execute(
 		return schema.MarkReadResult{}, err
 	}
 
-	subscription, err := feed.SubscriptionFor(ctx, uc.reader, userID, catalogue.ChannelInApp)
+	subscription, err := feed.LicensedSubscriptionFor(ctx, uc.reader, uc.licensing, userID, organizationID, catalogue.ChannelInApp)
 	if err != nil {
 		return schema.MarkReadResult{}, err
 	}

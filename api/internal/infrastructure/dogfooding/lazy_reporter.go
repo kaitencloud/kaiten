@@ -418,6 +418,20 @@ func (r *Reporter) reportAndEnforce(ctx context.Context, orgID uuid.UUID, entitl
 	return client.ReportAndEnforce(ctx, orgID, entitlementSlug)
 }
 
+// SetUsage sets a stock counter using the latest valid token, gated by the grant.
+// Before the token is loaded it fails at once with errNotReady, as ReportAndEnforce
+// does: it is called on a request's path.
+func (r *Reporter) SetUsage(ctx context.Context, orgID uuid.UUID, entitlementSlug string, value float64) error {
+	if r.shouldSkip(orgID, entitlementSlug) {
+		return nil
+	}
+	client, err := r.clientNow(ctx)
+	if err != nil {
+		return err
+	}
+	return client.SetUsage(ctx, orgID, entitlementSlug, value)
+}
+
 // shouldSkip reports whether this call has nothing to meter: no entitlement
 // named, or the caller is the reporting deployment's own organization.
 //

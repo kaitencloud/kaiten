@@ -155,6 +155,8 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 		// meter usage says so by leaving the option nil and every handler still
 		// reports unconditionally. See services.UsageReporterOrNoop.
 		UsageReporter: services.UsageReporterOrNoop(opts.UsageReporter),
+		// The same reporter, when it can set a counter: see services.StockReporterOf.
+		StockReporter: services.StockReporterOf(opts.UsageReporter),
 		PlatformFlags: opts.PlatformFlags,
 		// Same funnel, same reason: a deployment that licenses nothing says so by
 		// leaving the option nil, and every use case still asks unconditionally.

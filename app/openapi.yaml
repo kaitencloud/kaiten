@@ -21948,7 +21948,7 @@ paths:
       tags:
         - connectors
     put:
-      description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's license does not include the connector."
+      description: "Activates a registered connector for the authenticated organization. Idempotent: activating an already-active connector succeeds without changing when it was first activated. Refused when the organization's license does not include the connector (403), or when it already has as many active connectors as its license allows (409 ActivateConnector.LimitReached)."
       operationId: activate-connector
       parameters:
         - description: Stable connector name
@@ -21991,6 +21991,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:
@@ -22137,7 +22143,7 @@ paths:
       tags:
         - connectors
     put:
-      description: Create or update connector settings for the authenticated organization. Write-only fields (flagged `writeOnly` in the connector settings schema) may be omitted or sent as `***` to keep the stored value; they are returned redacted.
+      description: "Create or update connector settings for the authenticated organization. Write-only fields (flagged `writeOnly` in the connector settings schema) may be omitted or sent as `***` to keep the stored value; they are returned redacted. Saving settings activates the connector, so it is refused as an activation is: 409 ActivateConnector.LimitReached when the organization already has as many active connectors as its license allows."
       operationId: update-connector-settings
       parameters:
         - description: Stable connector name
@@ -22187,6 +22193,12 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
         "422":
           content:
             application/problem+json:
@@ -22199,6 +22211,18 @@ paths:
               schema:
                 $ref: "#/components/schemas/Problem"
           description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
       security:
         - bearerAuth:
             - write:organizations
@@ -35161,7 +35185,7 @@ paths:
       tags:
         - service-accounts
     post:
-      description: Create a new service account (machine user) with the provided name. Service accounts can be used to generate API tokens for programmatic access.
+      description: Create a new service account (machine user) with the provided name. Service accounts can be used to generate API tokens for programmatic access. Refused when the organization already holds as many service accounts as its license allows (409 CreateServiceAccount.EntitlementLimitReached).
       operationId: create-service-account
       requestBody:
         content:

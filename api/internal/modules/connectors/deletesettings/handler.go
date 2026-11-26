@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/connectorhooks"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/common"
 	"github.com/kaitencloud/kaiten/api/internal/modules/connectors/deactivateconnector"
@@ -23,6 +24,9 @@ type Deps struct {
 	// guards the deletion of the settings.
 	Uof   *uow.UnitOfWork
 	Hooks connectorhooks.Registry
+	// StockReporter is handed to the composed deactivation, which gives the
+	// connector back.
+	StockReporter services.StockReporter
 }
 
 type UseCase struct {
@@ -50,6 +54,7 @@ func NewUseCase(deps Deps) *UseCase {
 			Uof:                     deps.Uof,
 			Hooks:                   deps.Hooks,
 			ConnectorsVaultBasePath: deps.ConnectorsVaultBasePath,
+			StockReporter:           deps.StockReporter,
 		}),
 	}
 }

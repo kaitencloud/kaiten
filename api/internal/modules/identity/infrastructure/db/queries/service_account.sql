@@ -54,6 +54,20 @@ WHERE u.slug = sqlc.arg(service_account_slug)
   AND uoo.deleted_at IS NULL;
 
 
+-- name: CountServiceAccounts :one
+-- The service accounts an organization holds, as GetServiceAccounts lists them:
+-- what the service-accounts entitlement is set to when the organization creates
+-- one more.
+SELECT count(*)::bigint
+FROM "user" u
+       INNER JOIN user_on_organization uoo ON u.id = uoo.user_id
+WHERE uoo.organization_id = sqlc.arg(organization_id)
+  AND u.organization_id = uoo.organization_id
+  AND u.type = 'machine'
+  AND u.deleted_at IS NULL
+  AND uoo.deleted_at IS NULL;
+
+
 -- name: GetServiceAccounts :many
 -- Cursor (keyset) pagination: ordered by created_at DESC, id DESC (id
 -- tie-breaks created_at, which is not guaranteed unique). Pass

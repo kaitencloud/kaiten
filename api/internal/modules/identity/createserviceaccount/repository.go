@@ -73,3 +73,8 @@ func (r *CommandRepository) CreateServiceAccount(ctx context.Context, name strin
 
 	return &user, nil
 }
+
+// CountServiceAccounts is the number of service accounts the organization holds.
+func (r *CommandRepository) CountServiceAccounts(ctx context.Context, organizationID uuid.UUID) (int64, error) {
+	return r.q(ctx).CountServiceAccounts(ctx, organizationID)
+}

@@ -145,3 +145,52 @@ func EnforceAndPersist[T any](
 
 	return result, nil
 }
+
+// EnforceStockLimit sets slug's counter for orgID to next -- the count the
+// organization will hold once the resource being created exists -- and refuses the
+// operation when the licensing authority says that is beyond the grant.
+//
+// The counterpart of EnforceCreationLimit for the counters Core counts itself (see
+// services.StockReporter): the outcomes map the same way, a refusal to a 409 with
+// conflictCode and an unknown limit to a 503, failing closed. An organization already
+// above its grant is refused, which an increment on a counter that started at zero
+// would not do.
+func EnforceStockLimit(
+	ctx context.Context,
+	reporter services.StockReporter,
+	orgID uuid.UUID,
+	slug string,
+	next int64,
+	conflictCode, conflictMessage string,
+) error {
+	reportErr := services.StockReporterOrNoop(reporter).SetUsage(ctx, orgID, slug, float64(next))
+	switch ClassifyEnforcementError(reportErr) {
+	case EnforcementAllowed:
+		return nil
+	case EnforcementRejected:
+		return kaitenerrors.Conflict(conflictCode, conflictMessage)
+	default: // EnforcementUnavailable
+		slog.ErrorContext(ctx, "stock limit could not be verified, refusing the operation",
+			"organization_id", orgID, "entitlement_slug", slug, "error", reportErr)
+		return kaitenerrors.Unavailable(VerificationUnavailableCode, verificationUnavailableMessage)
+	}
+}
+
+// SyncStock sets slug's counter for orgID to count, the number the organization
+// holds now: after a resource was given back, or after a create that
+// EnforceStockLimit allowed failed to persist. Best effort, like
+// CompensateEnforcement: a failure is logged, and the next change sets the counter
+// again. A refusal is expected for an organization still above its grant, and only
+// logged at debug.
+func SyncStock(ctx context.Context, reporter services.StockReporter, orgID uuid.UUID, slug string, count int64) {
+	err := services.StockReporterOrNoop(reporter).SetUsage(ctx, orgID, slug, float64(count))
+	switch ClassifyEnforcementError(err) {
+	case EnforcementAllowed:
+	case EnforcementRejected:
+		slog.DebugContext(ctx, "stock counter left above its grant",
+			"organization_id", orgID, "entitlement_slug", slug, "count", count)
+	default:
+		slog.ErrorContext(ctx, "failed to set stock usage",
+			"organization_id", orgID, "entitlement_slug", slug, "count", count, "error", err)
+	}
+}

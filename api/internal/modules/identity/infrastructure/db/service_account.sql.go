@@ -13,6 +13,27 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countServiceAccounts = `-- name: CountServiceAccounts :one
+SELECT count(*)::bigint
+FROM "user" u
+       INNER JOIN user_on_organization uoo ON u.id = uoo.user_id
+WHERE uoo.organization_id = $1
+  AND u.organization_id = uoo.organization_id
+  AND u.type = 'machine'
+  AND u.deleted_at IS NULL
+  AND uoo.deleted_at IS NULL
+`
+
+// The service accounts an organization holds, as GetServiceAccounts lists them:
+// what the service-accounts entitlement is set to when the organization creates
+// one more.
+func (q *Queries) CountServiceAccounts(ctx context.Context, organizationID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countServiceAccounts, organizationID)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const createServiceAccount = `-- name: CreateServiceAccount :one
 WITH creator AS (
     SELECT id

@@ -11,11 +11,14 @@ import (
 )
 
 type UseCase struct {
-	reader feed.Reader
+	reader    feed.Reader
+	licensing feed.Licensing
 }
 
-func NewUseCase(reader feed.Reader) *UseCase {
-	return &UseCase{reader: reader}
+// NewUseCase lists through reader; licensing withholds what the organization's
+// plan does not include, and nil withholds nothing.
+func NewUseCase(reader feed.Reader, licensing feed.Licensing) *UseCase {
+	return &UseCase{reader: reader, licensing: licensing}
 }
 
 type Query struct {
@@ -30,7 +33,7 @@ type Query struct {
 func (uc *UseCase) Execute(
 	ctx context.Context, userID, organizationID uuid.UUID, query Query,
 ) (schema.List, error) {
-	subscription, err := feed.SubscriptionFor(ctx, uc.reader, userID, catalogue.ChannelInApp)
+	subscription, err := feed.LicensedSubscriptionFor(ctx, uc.reader, uc.licensing, userID, organizationID, catalogue.ChannelInApp)
 	if err != nil {
 		return schema.List{}, err
 	}
