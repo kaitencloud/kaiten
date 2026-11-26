@@ -337,7 +337,7 @@ describe('WebhookHistorySection', () => {
         status: 'success',
       },
       ...historyData,
-    ]);
+    ] as typeof historyData);
     view.rerender();
     expect(
       within(screen.getAllByRole('row', { hidden: true })[2]).getByRole(

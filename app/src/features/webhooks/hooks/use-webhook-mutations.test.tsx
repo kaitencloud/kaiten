@@ -10,7 +10,11 @@ import {
   webhookMessagesQueryOptions,
   webhooksQueryOptions,
 } from '../queries';
-import type { ApiWebhook } from '../types';
+import type {
+  ApiWebhook,
+  WebhookMessage,
+  WebhookMessageList,
+} from '../types';
 import { useWebhookMutations } from './use-webhook-mutations';
 
 const {
@@ -62,6 +66,39 @@ const existingWebhook: ApiWebhook = {
   updatedAt: '2026-03-01T12:00:00Z',
   url: 'https://example.com/existing',
 };
+
+/** A webhook's detail, one message list and one message, in the cache. */
+function seedWebhookQueries(queryClient: QueryClient, webhook: ApiWebhook) {
+  const list: WebhookMessageList = {
+    webhook: {
+      id: webhook.id,
+      url: webhook.url,
+      createdAt: '2026-03-01T12:00:00Z',
+      updatedAt: '2026-03-01T12:00:00Z',
+    },
+    messages: [],
+    summary: { total: 0, delivered: 0, failed: 0, pending: 0 },
+    hasMore: false,
+  };
+  const message: WebhookMessage = {
+    messageId: 'msg_1',
+    payload: null,
+    attempts: [],
+  };
+  const keys = {
+    detail: webhookDetailQueryOptions(webhook.id).queryKey,
+    list: webhookMessagesQueryOptions(webhook.id, {
+      limit: 20,
+      withAttempts: false,
+    }).queryKey,
+    message: webhookMessageQueryOptions(webhook.id, 'msg_1').queryKey,
+  };
+  queryClient.setQueryData(keys.detail, webhook);
+  queryClient.setQueryData(keys.list, list);
+  queryClient.setQueryData(keys.message, message);
+
+  return [keys.detail, keys.list, keys.message];
+}
 
 const createdWebhook: ApiWebhook = {
   createdAt: '2026-03-02T12:00:00Z',
@@ -133,18 +170,10 @@ describe('useWebhookMutations', () => {
   });
 
   it("leaves the webhooks' deliveries alone", async () => {
-    const messagesKey = webhookMessagesQueryOptions(existingWebhook.id, {
-      limit: 20,
-      withAttempts: false,
-    }).queryKey;
-    const messageKey = webhookMessageQueryOptions(
-      existingWebhook.id,
-      'msg_1',
-    ).queryKey;
-    const detailKey = webhookDetailQueryOptions(existingWebhook.id).queryKey;
-    queryClient.setQueryData(messagesKey, { messages: [] });
-    queryClient.setQueryData(messageKey, { messageId: 'msg_1' });
-    queryClient.setQueryData(detailKey, existingWebhook);
+    const [detailKey, messagesKey, messageKey] = seedWebhookQueries(
+      queryClient,
+      existingWebhook,
+    );
     const { result } = renderHook(() => useWebhookMutations(), {
       wrapper: createWrapper(),
     });
@@ -187,18 +216,8 @@ describe('useWebhookMutations', () => {
   });
 
   it("forgets the deleted webhook's detail and deliveries, not the others'", async () => {
-    const keysOf = (webhookId: string) => [
-      webhookDetailQueryOptions(webhookId).queryKey,
-      webhookMessagesQueryOptions(webhookId, { limit: 20, withAttempts: false })
-        .queryKey,
-      webhookMessageQueryOptions(webhookId, 'msg_1').queryKey,
-    ];
-    for (const key of [
-      ...keysOf(createdWebhook.id),
-      ...keysOf(existingWebhook.id),
-    ]) {
-      queryClient.setQueryData(key, {});
-    }
+    const deletedKeys = seedWebhookQueries(queryClient, createdWebhook);
+    const keptKeys = seedWebhookQueries(queryClient, existingWebhook);
     const invalidateQueriesSpy = vi.spyOn(queryClient, 'invalidateQueries');
     const { result } = renderHook(() => useWebhookMutations(), {
       wrapper: createWrapper(),
@@ -211,10 +230,10 @@ describe('useWebhookMutations', () => {
     });
 
     expectWebhookQueriesInvalidated(invalidateQueriesSpy);
-    for (const key of keysOf(createdWebhook.id)) {
+    for (const key of deletedKeys) {
       expect(queryClient.getQueryState(key)).toBeUndefined();
     }
-    for (const key of keysOf(existingWebhook.id)) {
+    for (const key of keptKeys) {
       expect(queryClient.getQueryState(key)).toBeDefined();
     }
   });
