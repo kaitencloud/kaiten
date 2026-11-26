@@ -40,8 +40,8 @@ type WebhookEventGroupView = {
 };
 
 // A webhook's events as its tooltip lists them: by group, under the title the
-// subscription dialog uses, by the name each event carries in its payload.
-// Events the dialog does not offer, and types this build does not know, close
+// event picker uses, by the name each event carries in its payload.
+// Events the picker does not offer, and types this build does not know, close
 // the list under "Other events", the latter as their raw type.
 function buildWebhookEventGroups(
   eventTypes: string[],
