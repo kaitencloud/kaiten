@@ -10,8 +10,10 @@ vi.mock('@/api-client/client.gen', () => ({ client: { getConfig: () => ({ baseUr
   response: { use: (fn: (response: Response, request: Request) => Response) => responseHooks.add(fn), eject: (fn: (response: Response, request: Request) => Response) => responseHooks.delete(fn) },
   error: { use: (fn: (error: unknown) => unknown) => errorHooks.add(fn), eject: (fn: (error: unknown) => unknown) => errorHooks.delete(fn) },
 } } }));
+const platform = vi.hoisted(() => ({ used: false }));
+vi.mock('@/lib/feature-flag-source', async (original) => ({ ...(await original<typeof import('@/lib/feature-flag-source')>()), usesPlatform: () => platform.used }));
 vi.mock('@/lib/session-identity', () => ({ getSessionIdentity: () => ({ userId: 'fixture', organizationId: 'organization' }) }));
-beforeEach(() => { requestHooks.clear(); responseHooks.clear(); errorHooks.clear(); });
+beforeEach(() => { requestHooks.clear(); responseHooks.clear(); errorHooks.clear(); platform.used = false; });
 function install() {
   const client = new QueryClient(); const dispose = subscribeAiAccess(client);
   const hook = [...requestHooks][0];
@@ -52,6 +54,23 @@ it('closes immediately when the local feature flag refresh invalidates its query
   client.setQueryData(['feature-flags', 'ai-credits'], true);
   void client.invalidateQueries({ queryKey: ['feature-flags'] });
   expect(client.getQueryData(aiAccessQueryOptions().queryKey)).toMatchObject({ enabled: false }); dispose();
+});
+it('keeps the grant and asks for a fresh answer when the platform flags are read again', async () => {
+  platform.used = true;
+  const { client, request, dispose } = install(); const { queryKey } = aiAccessQueryOptions();
+  client.setQueryData(queryKey, { enabled: true, expiresAt: performance.now() + AI_ACCESS_FRESHNESS_MS });
+  client.setQueryData([{ _id: 'listModels' }], { items: ['AI state on screen'] });
+  const admitted = await request(new Request('http://api.test/api/models'));
+  client.setQueryData(['feature-flags', 'beta-features'], true);
+  void client.invalidateQueries({ queryKey: ['feature-flags'] });
+  expect(client.getQueryData(queryKey)).toMatchObject({ enabled: true });
+  expect(client.getQueryState(queryKey)?.isInvalidated).toBe(true);
+  expect(admitted.signal.aborted).toBe(false);
+  expect(client.getQueryData([{ _id: 'listModels' }])).toBeDefined();
+  // The fresh answer is still the judge: a false one withdraws the grant.
+  client.setQueryData(queryKey, { enabled: false, expiresAt: 0 });
+  expect(admitted.signal.aborted).toBe(true);
+  dispose();
 });
 
 it('expires without aborting already-admitted requests or revoking the grant', async () => {
