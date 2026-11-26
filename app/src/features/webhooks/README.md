@@ -1,6 +1,6 @@
 # Webhooks
 
-The Webhooks page manages outbound webhooks: HTTP endpoints that receive an event when something changes in the organization. A user creates a webhook by choosing the events it subscribes to and the URL to call, reveals and copies its signing secret, deletes it, and reads the delivery history: every attempt with its status and, for a failure, the response the endpoint gave.
+The Webhooks page manages outbound webhooks: HTTP endpoints that receive an event when something changes in the organization. A user creates a webhook, or edits one, on a page of its own by choosing the events it subscribes to and the URL to call, reveals and copies its signing secret, deletes it, and reads the delivery history: every attempt with its status and, for a failure, the response the endpoint gave.
 
 ## Routes
 
@@ -8,32 +8,37 @@ The Webhooks page manages outbound webhooks: HTTP endpoints that receive an even
 | --- | --- | --- |
 | `/integrations/webhooks` | `app/src/routes/integrations/webhooks/route.tsx` (layout) and `index.tsx` | `WebhooksPageContent` around the Events tab, which is `WebhookList` |
 | `/integrations/webhooks/history` | `app/src/routes/integrations/webhooks/history.tsx` | `WebhookHistorySection`, the History tab |
+| `/integrations/webhooks/new` | `app/src/routes/integrations/webhooks_/new/index.tsx` | `WebhookFormPage`, the create page |
+| `/integrations/webhooks/$webhookId/edit` | `app/src/routes/integrations/webhooks_/$webhookId/edit.tsx` | `WebhookFormPage` for that webhook, the edit page |
 
-`route.tsx` answers not-found where webhooks are not served to the organization (see Availability below), sets the "Webhooks" breadcrumb title and renders `WebhooksPageContent` (header and route tabs) around an `Outlet` in a Suspense boundary. The list loader calls `ensureQueryData(webhooksQueryOptions)`. The history loader loads the history and the list, because the history resolves a webhook's URL from the list. The side navigation entry comes from `integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`.
+`route.tsx` answers not-found where webhooks are not served to the organization (see Availability below), through `requireWebhooksServed` from `@/domains/webhooks`, sets the "Webhooks" breadcrumb title and renders `WebhooksPageContent` (header and route tabs) around an `Outlet` in a Suspense boundary. It guards the list and the history only. The two form pages sit under `webhooks_/`: the trailing underscore keeps them out of that layout, so the Events and History header and tabs are not drawn above the form, and so they do not inherit its `beforeLoad` either. Each calls `requireWebhooksServed` itself. The create page has nothing to load (`pendingComponent: () => null`). The edit page's `beforeLoad` then reads the webhook with `loadWebhookForEdit` (the list entry, else `GET /webhooks/{webhookId}`; an unknown id is the API's 404, the not-found page), titles the breadcrumb and the tab with `webhookDisplayName` (the host of the URL, never the URL, which is a credential for Slack and Google Chat) and renders the page keyed by the webhook's id. The list loader calls `ensureQueryData(webhooksQueryOptions)`. The history loader loads the history and the list, because the history resolves a webhook's URL from the list. The side navigation entry comes from `integrationsSubRoutes` in `app/src/routes/-components/side-nav/side-nav.constants.ts`.
 
 ## Structure
 
 ```txt
 app/src/features/webhooks/
 ├── index.ts                        # route-level exports
-├── webhooks.api.ts                 # the five hand-written REST calls
+├── webhooks.api.ts                 # the six hand-written REST calls
 ├── components/
 │   ├── webhooks-page-content.tsx   # header and tabs, around the routed tab
 │   ├── webhooks-tabs.tsx           # Events and History route tabs
-│   ├── webhook-list/               # controller, list, table, secret cell, create dialog
+│   ├── webhook-list/               # controller, list, table, row actions, secret cell
+│   ├── webhook-form/               # the create and edit page: Destination, Selection, actions
+│   │   └── event-picker/           # search, presets, groups and rows of the catalogue
 │   ├── webhook-history/            # section, columns, filters, failure dialog, empty state
-│   ├── stories/                    # webhooks.stories.tsx and its fixtures
+│   ├── stories/                    # webhooks, webhook-form and webhook-event-picker stories, fixtures
 │   └── __tests__/
-├── hooks/                          # useWebhookMutations (test beside it)
-├── queries/                        # query options and invalidation
-├── schemas/                        # create-webhook.schema.ts
+├── hooks/                          # useWebhookMutations, useWebhookForm, useWebhookEventPicker
+├── queries/                        # query options, invalidation, edit loader, fresh save
+├── schemas/                        # webhook-form.schema.ts
 ├── types/
-└── utils/                          # event catalogue, mappers, isValidUrl
+└── utils/                          # event catalogue, presets, selection, search, chat
+                                    # destination, form values, mappers, isValidUrl
 ```
 
 In this page, a path inside the feature is relative to `app/src/features/webhooks/`. Any other path starts at the repository root.
 
-There is no `store/`: everything the feature holds is server state in TanStack Query, plus local component state (dialog open, secret visibility, the failure dialog's entry).
+There is no `store/`: everything the feature holds is server state in TanStack Query, plus local component state (secret visibility, the failure dialog's entry, the picker's search and open groups) and the form's own state in TanStack Form.
 
 ## Data
 
@@ -44,16 +49,19 @@ The response shapes below are the types the client declares for each call. Nothi
 | Call | Request | Used by |
 | --- | --- | --- |
 | `getWebhooks` | `GET /webhooks`, a list of webhooks | `webhooksQueryOptions` |
-| `getWebhook` | `GET /webhooks/{webhookId}`, one webhook with its `signingSecret` | `webhookDetailQueryOptions` |
+| `getWebhook` | `GET /webhooks/{webhookId}`, one webhook with its `signingSecret`; an optional `{ cache }` skips every cache for the read before a write | `webhookDetailQueryOptions`, `loadWebhookForEdit`, `saveWebhookOnFresh` |
 | `getWebhookHistory` | `GET /webhooks/history`, `{ history: [...] }` | `webhookHistoryQueryOptions` |
 | `createWebhook` | `POST /webhooks` with `{ eventTypes, url }`, typed as returning the created webhook | `useWebhookMutations` |
+| `updateWebhook` | `PUT /webhooks/{webhookId}` with `{ eventTypes, url }`, answered with the webhook without its secret | `saveWebhookOnFresh` |
 | `deleteWebhook` | `DELETE /webhooks/{webhookId}` | `useWebhookMutations` |
 
-A webhook is `{ id, eventTypes, url, signingSecret?, createdAt?, updatedAt? }`. A history entry is `{ date, hookId, hookUrl, eventType, status, responseStatusCode?, responseStatusText? }`, with `status` one of `success`, `pending`, `fail` and `sending`. `eventType` is empty when the delivery's message could not be looked up.
+A webhook is `{ id, eventTypes, url, signingSecret?, createdAt?, updatedAt? }`. `eventTypes` comes back `null` for an endpoint created outside the console without an event filter, so every helper of the form accepts `null` and reads it as no event. A history entry is `{ date, hookId, hookUrl, eventType, status, responseStatusCode?, responseStatusText? }`, with `status` one of `success`, `pending`, `fail` and `sending`. `eventType` is empty when the delivery's message could not be looked up.
 
-The query keys are hand-written constants, because no generated key exists: `webhooksQueryOptions` uses `['webhooks']`, the history `['webhooks', 'history']` and one webhook's detail `['webhooks', 'detail', webhookId]` (`staleTime` is infinite). `invalidateWebhookQueries` invalidates the list and history keys; because `['webhooks']` is a prefix of all three keys, it reaches the detail entries as well. `useWebhookMutations` (`createWebhook`, `deleteWebhook`) updates the list cache with `setQueryData` first, then invalidates the webhook queries: create upserts the returned webhook into the list, delete removes the webhook from it. An error shows `toast.error(getApiErrorMessage(error))`; a success shows no toast.
+The query keys are hand-written constants, because no generated key exists: `webhooksQueryOptions` uses `['webhooks']`, the history `['webhooks', 'history']` and one webhook's detail `['webhooks', 'detail', webhookId]` (`staleTime` is infinite). `invalidateWebhookQueries` invalidates the list and history keys; because `['webhooks']` is a prefix of all three keys, it reaches the detail entries as well. `useWebhookMutations` (`createWebhook`, `updateWebhook`, `deleteWebhook`) updates the list cache with `setQueryData` first, then invalidates the webhook queries: create and update upsert the returned webhook into the list (in place for an update, which keeps the order), delete removes the webhook from it. The detail entry, which holds the secret, is invalidated by the prefix, never overwritten. An error shows `toast.error(getApiErrorMessage(error))`, and an update refused with a 404 (the webhook was deleted meanwhile) also invalidates the webhook queries, so the list forgets it. The mutations show no success toast: the form hook does, for create and update.
 
-The create form's schema, `createWebhookFormSchema`, is a plain `z.object`: at least one event type, and a trimmed, valid URL. It does not start from a generated schema, for the same reason as the calls.
+`updateWebhook` runs `saveWebhookOnFresh` (`queries/webhook-save.ts`): `PUT` replaces both members, so the save re-reads the webhook with `FRESH_READ_OPTIONS` and sends only what the form changed, through `writeOnFresh` (see [forms](../../../docs/03-patterns/forms.md)). The opened values, the edited values and the fresh read are all restated by the same functions of `utils/webhook-form-values.ts` (URL trimmed, events in catalogue order), so that "unchanged" means unchanged. A URL changed in another tab survives a save that changed only the events here; the events are one array, replaced whole when the form changed them. A webhook deleted meanwhile fails the read with a 404, and nothing is written.
+
+The form's schema, `webhookFormSchema` (`schemas/webhook-form.schema.ts`), is a plain `z.object`: at least one event type, and a trimmed URL whose scheme is http or https. It does not start from a generated schema, for the same reason as the calls.
 
 The feature has no GraphQL document.
 
@@ -61,11 +69,17 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
 
 ## Behaviour
 
-**Availability.** The paths above are not served by the API in `api/`, and the stack in `compose.yml` does not route `/api/webhooks` to a service either (see the header of `docker/envoy/kaiten.yaml.tmpl`, and the [README](../../../../README.md) for what a deployment adds). Kaiten Cloud's saas-api serves them, and only to an organization whose Kaiten licence grants it webhook events: `webhooks` is a NUMBER entitlement, the events it may publish each calendar month, and a grant of 0 (or none) is answered 403 `Webhooks.NotEntitled` on every route, and 503 when the licence cannot be read. Any other grant serves them, and creating endpoints is never limited: the licence counts the events delivered, not the endpoints, so the console shows no quota on the create. The console reads the answer off `GET /webhooks` (asked only where webhooks can exist: Cloud's builds, which name their platform, or a dev or e2e build started with `VITE_KAITEN_WEBHOOKS=true`) through the [`webhooks` domain](../../domains/webhooks/README.md): where webhooks are not served, the side navigation leaves out the Webhooks entry (`needsWebhooks` in `integrationsSubRoutes`), `route.tsx` answers not-found for the list and the history, and the token scope picker leaves out the `webhooks` scope. Where the answer could not be read, the route renders `RouteError` (`app/src/components/route/route-error.tsx`), an error card with a retry button.
+**Availability.** The paths above are not served by the API in `api/`, and the stack in `compose.yml` does not route `/api/webhooks` to a service either (see the header of `docker/envoy/kaiten.yaml.tmpl`, and the [README](../../../../README.md) for what a deployment adds). Kaiten Cloud's saas-api serves them, and only to an organization whose Kaiten licence grants it webhook events: `webhooks` is a NUMBER entitlement, the events it may publish each calendar month, and a grant of 0 (or none) is answered 403 `Webhooks.NotEntitled` on every route, and 503 when the licence cannot be read. Any other grant serves them, and creating endpoints is never limited: the licence counts the events delivered, not the endpoints, so the console shows no quota on the create. The console reads the answer off `GET /webhooks` (asked only where webhooks can exist: Cloud's builds, which name their platform, or a dev or e2e build started with `VITE_KAITEN_WEBHOOKS=true`) through the [`webhooks` domain](../../domains/webhooks/README.md): where webhooks are not served, the side navigation leaves out the Webhooks entry (`needsWebhooks` in `integrationsSubRoutes`), `route.tsx` answers not-found for the list and the history, the two form routes answer it for themselves, and the token scope picker leaves out the `webhooks` scope. Where the answer could not be read, the route renders `RouteError` (`app/src/components/route/route-error.tsx`), an error card with a retry button.
 
-**Events tab.** `WebhookTable` lists each webhook's events (by name, such as `CUSTOMER_CREATED`), URL, masked signing secret and creation date, newest first. The creation date is the only sortable column. When the event summary is truncated, a tooltip lists the events by group. A search box filters on the URL and on each event's type, name, label and group title. The delete action asks for confirmation and names the webhook's URL.
+**Events tab.** `WebhookTable` lists each webhook's events (by name, such as `CUSTOMER_CREATED`), URL, masked signing secret and creation date, newest first. The creation date is the only sortable column. When the event summary is truncated, a tooltip lists the events by group. A search box filters on the URL and on each event's type, name, label and group title. "New Webhook" is a link to the create page. Each row has two actions (`webhook-table-actions.tsx`): Edit, a link to the edit page, labelled "Edit webhook" with the host and not preloaded on hover (its route may read the API), and Delete, which asks for confirmation and names the webhook's URL. Neither is hidden from a session that may not write webhooks: the API refuses it with a 403, shown in a toast.
 
-**Create dialog.** "New Webhook" opens `CreateWebhookDialog` from local state (`addDialogOpen` in `webhook-list.controller.ts`), not from a route of its own (see [dialog via route](../../../docs/03-patterns/dialog-via-route.md)). Events are checkboxes grouped by category, in a scrollable list, with a summary of the selection below. The Create button stays disabled until the form is valid and changed. The dialog closes when the request succeeds. When it fails, a toast shows the error and the dialog stays open.
+**Create and edit page.** `WebhookFormPage` serves both: a create when it has no webhook (`POST`), an edit otherwise (`PUT` through `saveWebhookOnFresh`). It is a full page, not a dialog, because the catalogue holds 123 events. The header stays in place and the body scrolls (`Page layout="scroll"`). From `lg`, the catalogue fills the left and a column on the right holds Destination, Selection and the actions; that column stays in view while the catalogue scrolls (`sticky`), capped to the height of the scroller so the actions never fall below the fold, the chip list taking what is left. Below `lg` the page is one column that reads Destination, the catalogue, Selection, then the actions (`order-*`), while the DOM, and so the tab order, keeps the URL first.
+
+- **Destination** holds the URL. A Slack incoming webhook (`hooks.slack.com/services/`) or a Google Chat one (`chat.googleapis.com/v1/spaces/`) shows a polite notice that it receives chat messages, not the raw event, as saas-api applies a transformation to it (`utils/webhook-chat-destination.ts`, the same tests as saas-api's). A Slack workflow URL gets none.
+- **The picker** (`components/webhook-form/event-picker/`) lists the catalogue by group, every group folded at first. Each group header has a checkbox for the whole group, checked, unchecked or mixed, a title that folds its rows, and its count ("3 / 13"). A row is the event's label, with the NAME its payload carries on the right. The search matches each event's label in the viewer's language, its NAME (with or without underscores) and its type, ignoring case and accents, every term of the query required; group titles are not searched. While a search is active, only matching rows and their groups show, open, and the group checkbox acts on the matching rows only (its label says so). Three presets check a set of events, or uncheck it when every one of them is checked: Instance lifecycle (7 events: created, updated, deleted, deployed, migrated, status and lifecycle stage changed), Billing (30: subscriptions, invoices and payments; add-ons, vouchers and checkouts stay explicit choices) and Usage alerts (6: the usage warning, reached, cap and maximum events, an AI model use not authorized, and a usage report rejected). `utils/webhook-event-presets.ts` and its test say what each leaves out and why.
+- **Other events** closes the list when the webhook holds types the picker does not offer (an event kept out of the picker, or one newer than the console): they stay selected unless unticked, and a note says so. A webhook without an event filter opens with a notice that it receives every event, and no event selected.
+- **Selection** counts the events and shows them by group as removable chips: one "All n events" chip for a whole group, else one chip per event by its NAME. "Clear all" empties it. After a removal the focus goes to the next chip, else the previous one, else the card's title.
+- **Saving.** The selection is always kept in catalogue order, so the value can be compared. Create stays disabled until the form is valid; Save also stays disabled until the values differ from what the page opened with. That is TanStack Form's `isDefaultValue`, not `isDirty`, which stays set once a field changed: an event unticked then ticked again leaves Save off. A success shows "Webhook created" or "Webhook updated" and goes back to the list. A refusal shows the API's words in a toast and leaves the form as typed. Cancel goes back to the list without asking. There is no form recovery: the URL may be a credential.
 
 **Signing secret.** The secret is masked by default. The eye button reveals it. If the list response already carried it, the cell uses that. Otherwise the cell fetches `GET /webhooks/{webhookId}` through `queryClient.fetchQuery(webhookDetailQueryOptions(id))` and keeps the result for the row. Once revealed, a copy button writes it to the clipboard. A failed load or copy shows an error toast.
 
@@ -91,7 +105,7 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
 
 - An event's label is the audit trail's (`resolveEventLabel` from `@/domains/audit-trail`). Group titles are the `Pages.Integrations.Webhooks.EventGroups` keys of `en.ts` and `fr.ts`.
 - The three events of an anonymous checkout (`CHECKOUT_SESSION_STARTED`, `_COMPLETED` and `_ABANDONED`) are the group `checkout`, titled "Checkouts", listed after the payments. A vendor provisions its customers from `_COMPLETED`: the events carry the e-mail the visitor typed, the only payloads besides the trial reminder that do.
-- `group: null` keeps an event out of the create dialog. Two events have it, `FEATURE_FLAG_EVALUATED` and `ENTITLEMENT_VALUE_GET`. The API triggers them on every flag evaluation and on every read of an entitlement's usage value, so a subscription would receive one request each time.
+- `group: null` keeps an event out of the picker. Two events have it, `FEATURE_FLAG_EVALUATED` and `ENTITLEMENT_VALUE_GET`. The API triggers them on every flag evaluation and on every read of an entitlement's usage value, so a subscription would receive one request each time.
 - A type this build does not know, an event newer than the console, shows as the type itself, under the group "Other events".
 
 **Empty states.** With no webhook, the Events tab shows "No webhooks configured yet." and a hint. With webhooks but no match for the search, it shows "No results". The History tab has its own two states: no delivery yet, and no delivery matching the filters.
@@ -100,17 +114,20 @@ Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/l
 
 - Unit and component tests:
   - `components/__tests__/webhooks-tabs.test.tsx`
-  - `components/webhook-list/__tests__/create-webhook-dialog.test.tsx`, `webhook-list.test.tsx` and `webhook-table.test.tsx`
+  - `components/webhook-list/__tests__/webhook-list.test.tsx` and `webhook-table.test.tsx` (the New Webhook link, the Edit link named by the host)
+  - `components/webhook-form/__tests__/webhook-form-page.test.tsx` (create and edit against MSW handlers: the bodies sent, Save off after an event unticked then ticked again, the chat notices, other events, a webhook without a filter) and `webhook-selection-card.test.tsx`; `components/webhook-form/event-picker/__tests__/webhook-event-picker.test.tsx`
   - `components/webhook-history/__tests__/webhook-history-section.test.tsx`
   - `hooks/use-webhook-mutations.test.tsx`
-  - `utils/__tests__/webhook-events.test.ts`, which checks the catalogue (a type per event, a title per group in both locales, the two events kept out of the dialog, the group of the anonymous checkout)
+  - `queries/__tests__/webhook-edit-loader.test.ts` and `webhook-save.test.ts` (a change made elsewhere kept, a webhook deleted meanwhile never written)
+  - `utils/__tests__/webhook-events.test.ts`, which checks the catalogue (a type per event, a title per group in both locales, the two events kept out of the picker, the group of the anonymous checkout), and the tests of the presets, the selection, the search, the chat destination and the form values beside it
+  - `app/src/routes/integrations/webhooks_/-form-routes.test.ts` (the guards of the two form routes, the edit page's title) and the edit trail in `app/src/routes/-components/path-breadcrumbs/path-breadcrumbs.test.tsx`
 
   `pnpm run test` from `app/` runs them.
-- Stories: `components/stories/webhooks.stories.tsx` (`Features/Webhooks/P0WebhooksStories`: `PageWithList`, `Table`, `EmptyList`, `NoSearchResults`, `CreateDialog`, `History`, `FailureDialog`), with `webhooks.fixtures.ts`. The file is listed in `storybookTestExclude` in `app/vite.config.ts`, so `pnpm run test:stories` skips it. The stories stay available in Storybook.
-- E2E: `app/e2e/app/integrations/integrations.webhooks.spec.ts` covers where the pages are shown and where they are not (a self-hosted console, an organization whose licence grants no webhook events, Kaiten Cloud), with `installEmptyWebhooksStub` and `installWebhooksNotEntitledStub`. `notifications.read.spec.ts` follows a delivery notification to the history. The visual regression suite has no webhook story.
+- Stories, with `webhooks.fixtures.ts`: `components/stories/webhooks.stories.tsx` (`Features/Webhooks/P0WebhooksStories`: `PageWithList`, `Table`, `EmptyList`, `NoSearchResults`, `History`, `FailureDialog`) and `webhook-form.stories.tsx` (`Features/Webhooks/WebhookForm`: the page in its create and edit states) are listed in `storybookTestExclude` in `app/vite.config.ts`, so `pnpm run test:stories` skips them; they stay available in Storybook. `webhook-event-picker.stories.tsx` (`Features/Webhooks/WebhookEventPicker`) is a pure component with no router or query: `pnpm run test:stories` runs its play functions (search, preset, mixed group).
+- E2E, over the `webhooks` model slot (`app/e2e/app/_support/model/webhooks-app-model.ts`, scenarios in `app/e2e/app/webhooks/webhooks.scenarios.ts`) with `WebhooksFormDriver` and `WebhooksListDriver`: `app/e2e/app/webhooks/webhooks.create.spec.ts`, `webhooks.update.spec.ts` and `webhooks.form-french.spec.ts`, `app/e2e/app/accessibility/accessibility.webhooks.spec.ts` and `app/e2e/app/mobile/mobile.webhooks.spec.ts`. `app/e2e/app/integrations/integrations.webhooks.spec.ts` covers where the pages are shown and where they are not (a self-hosted console, an organization whose licence grants no webhook events, Kaiten Cloud), the form pages included, with `installEmptyWebhooksStub` and `installWebhooksNotEntitledStub`. `notifications.read.spec.ts` follows a delivery notification to the history. The visual regression suite has no webhook story.
 
 ## Public API
 
-`app/src/features/webhooks/index.ts` exports `WebhooksPageContent`, `WebhookList`, `WebhookHistorySection`, `WebhooksTabs`, `webhooksQueryOptions`, `webhookHistoryQueryOptions` and the `Webhook` type. The three routes under `app/src/routes/integrations/webhooks/` import `WebhooksPageContent`, `WebhookList`, `WebhookHistorySection` and the two query options, as routes are the only importers of a feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)). Nothing imports `WebhooksTabs` or the `Webhook` type from outside the feature.
+`app/src/features/webhooks/index.ts` exports `WebhooksPageContent`, `WebhookList`, `WebhookHistorySection`, `WebhookFormPage`, `WebhooksTabs`, `webhooksQueryOptions`, `webhookHistoryQueryOptions`, `loadWebhookForEdit`, `webhookDisplayName` and the `Webhook` type. The three routes under `app/src/routes/integrations/webhooks/` import `WebhooksPageContent`, `WebhookList`, `WebhookHistorySection` and the two query options, and the two under `webhooks_/` import `WebhookFormPage`, `loadWebhookForEdit` and `webhookDisplayName`, as routes are the only importers of a feature (see [Import rules](../../../docs/AI_CONTEXT.md#import-rules)). Nothing imports `WebhooksTabs` or the `Webhook` type from outside the feature.
 
 The feature depends on `@/domains/audit-trail` for `AuditEventName` and `resolveEventLabel`, and on the `filters`, `table`, `page` and `route-tabs` functionals. Whether webhooks are served lives outside it, in `@/domains/webhooks`, because the token scope picker of `service-accounts` needs it too.

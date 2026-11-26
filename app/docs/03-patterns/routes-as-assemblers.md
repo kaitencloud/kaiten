@@ -219,7 +219,7 @@ function InvoicesLayout() {
 
 The guard throws because a `beforeLoad` that returns lets the `beforeLoad` and the `loader` of every route below it run, whatever it put in the route context. A screen under a closed gate would ask the API for data that is not there. A throw stops them all, and only the capabilities are requested. A `notFound` that carries `data` is a not-found the route explains itself, so the tab title keeps the title of the trail instead of reading "Page not found" (`isNotFoundPage` in `app/src/routes/-components/path-breadcrumbs/breadcrumb-items.ts`).
 
-`requireBillingCapability` and `BillingNotFound` come from `@/domains/billing`, and the guard fails closed: see [billing](../../src/domains/billing/README.md). A route that guards on a platform flag instead (`routes/integrations/webhooks/route.tsx`) answers with the plain not-found page.
+`requireBillingCapability` and `BillingNotFound` come from `@/domains/billing`, and the guard fails closed: see [billing](../../src/domains/billing/README.md). A route that guards on whether an area is served instead (`routes/integrations/webhooks/route.tsx`, through `requireWebhooksServed` from `@/domains/webhooks`) answers with the plain not-found page. A guard in a layout's `beforeLoad` does not cover a route that leaves the layout with a trailing underscore: the webhooks form pages under `webhooks_/` call `requireWebhooksServed` again (see [dialog via route](dialog-via-route.md#the-layout-route-renders-the-page)).
 
 ### A section that groups several features
 

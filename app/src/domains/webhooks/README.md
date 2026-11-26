@@ -56,20 +56,29 @@ webhooks paths (see the feature's [Data](../../features/webhooks/README.md#data)
   (`app/src/features/service-accounts/components/token-create/scope-access-table.tsx`)
   use it.
 - `getWebhooksServed`, the query function.
+- `requireWebhooksServed(queryClient)`: the route guard. It calls
+  `ensureQueryData(webhooksServedQueryOptions)`: `false` throws `notFound()`, and
+  an error reaches the router's retryable error page.
 
-The route guard of `/integrations/webhooks`
-(`app/src/routes/integrations/webhooks/route.tsx`, the parent of the list and the
-history) calls `ensureQueryData(webhooksServedQueryOptions)`: `false` throws
-`notFound()`, and an error reaches the router's retryable error page.
+Three routes call `requireWebhooksServed` in their `beforeLoad`: the layout of
+`/integrations/webhooks` (`app/src/routes/integrations/webhooks/route.tsx`, the
+parent of the list and the history), and the create and edit pages under
+`app/src/routes/integrations/webhooks_/`. The trailing underscore keeps those two
+out of the layout, and so out of its `beforeLoad`: they do not inherit the guard
+and declare it again.
 
 ## Tests
 
 - `__tests__/webhooks-served.test.ts`: each row of the table above, and the
-  builds that never send the request.
+  builds that never send the request. `__tests__/require-webhooks-served.test.ts`:
+  the guard opens, answers not-found, and lets a failed read through.
 - The consumers' own tests seed the query: `side-nav-sections.test.tsx`,
-  `-route.test.ts` (which also drives a 403 and a 503 through the guard),
+  `-route.test.ts` (which also drives a 403 and a 503 through the guard), the
+  form routes' `app/src/routes/integrations/webhooks_/-form-routes.test.ts`,
   `scope-access-table.test.tsx`, and the side navigation and token stories.
 - E2E: `app/e2e/app/integrations/integrations.webhooks.spec.ts` runs a
   self-hosted console (the mocks answer the webhooks routes 404 by default), an
   organization whose licence grants no webhook events (`installWebhooksNotEntitledStub`)
-  and Kaiten Cloud (`installEmptyWebhooksStub`).
+  and Kaiten Cloud (`installEmptyWebhooksStub`). Where webhooks are not served,
+  `/integrations/webhooks/new` and `/integrations/webhooks/ep_unknown/edit` answer
+  the not-found page too.

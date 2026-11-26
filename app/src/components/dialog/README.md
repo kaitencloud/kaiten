@@ -31,38 +31,41 @@ goes to `DialogContent`: `TargetingFormDialog` calls `preventDefault()` in it so
 that a click outside does not close the dialog.
 
 ```tsx
-// app/src/features/webhooks/components/webhook-list/create-webhook-dialog.tsx (abridged)
-<FormDialog open={open} onOpenChange={handleDialogOpenChange}>
+// app/src/features/connectors/attio/components/attio-mapping-editor-dialog.tsx (abridged)
+<FormDialog
+  open={open}
+  onOpenChange={handleOpenChange}
+  className="sm:max-w-4xl"
+>
   <FormDialog.Header>
     <FormDialog.Title>
-      {t('Pages.Integrations.Webhooks.Dialog.title')}
+      {t('Pages.Integrations.Connectors.Detail.EditMapping.title')}
     </FormDialog.Title>
     <FormDialog.Description>
-      {t('Pages.Integrations.Webhooks.Dialog.description')}
+      {t('Pages.Integrations.Connectors.Detail.EditMapping.description')}
     </FormDialog.Description>
   </FormDialog.Header>
 
   <FormDialog.Content>
-    <form id={formId} onSubmit={handleFormSubmit}>
-      {/* fields */}
-    </form>
+    <AttioWizardStepSchema hideIntro editableRows={rows} /* row handlers */ />
   </FormDialog.Content>
 
   <FormDialog.Footer>
-    <Button type="button" variant="outline" onClick={handleClose}>
+    <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
       {t('Common.cancel')}
     </Button>
-    <Button type="submit" form={formId} disabled={disabled}>
-      {t('Pages.Integrations.Webhooks.Dialog.createButton')}
+    <Button type="button" disabled={updateMapping.isPending} onClick={handleSave}>
+      {t('Common.save')}
     </Button>
   </FormDialog.Footer>
 </FormDialog>
 ```
 
-The footer is outside the `<form>`, so the submit button names the form with
-`form={formId}`. Other users are `TargetingFormDialog`
-(`app/src/features/feature-flags/targeting/components/targeting-form-dialog.tsx`)
-and `attio-mapping-editor-dialog.tsx` in `app/src/features/connectors/attio/components/`.
+The footer is outside the content. When the content holds a `<form>`, its
+submit button in the footer names it with `form={formId}`, as `ReasonDialog`
+(`app/src/domains/billing/components/reason-dialog.tsx`, through
+`BillingActionDialog`) does. Another user is `TargetingFormDialog`
+(`app/src/features/feature-flags/targeting/components/targeting-form-dialog.tsx`).
 
 ### When not to use it
 

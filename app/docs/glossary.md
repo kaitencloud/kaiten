@@ -202,7 +202,7 @@ A **token** authenticates a service account. Its value is returned once, when it
 
 ### Webhook
 
-An outbound HTTP subscription to events. A webhook has a URL and a signing secret that the console reveals on demand, subscribes to event types such as `com.kaiten.license.v1.created`, and has a delivery history. The console calls its endpoints from `app/src/features/webhooks/webhooks.api.ts`; they are not in `app/openapi.yaml`, whose `webhooks` section declares the events. Feature: `app/src/features/webhooks/`.
+An outbound HTTP subscription to events. A webhook has a URL and a signing secret that the console reveals on demand, can be edited (its URL and its events; the secret stays), subscribes to event types such as `com.kaiten.license.v1.created`, and has a delivery history. The console calls its endpoints from `app/src/features/webhooks/webhooks.api.ts`; they are not in `app/openapi.yaml`, whose `webhooks` section declares the events. Feature: `app/src/features/webhooks/`.
 
 ### Audit trail
 
