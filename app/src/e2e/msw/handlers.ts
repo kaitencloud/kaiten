@@ -18,6 +18,7 @@ import { NO_PLATFORM_FLAGS } from '../../../e2e/app/_support/model/platform-flag
 import type { LicenseCatalogue } from '../../../e2e/app/_support/model/graphql-operations';
 import { createPreviewWorld } from '../../../e2e/app/_support/model/license-preview-world';
 import { ReleaseManagementAppModel } from '../../../e2e/app/_support/model/release-management-app-model';
+import { WebhooksAppModel } from '../../../e2e/app/_support/model/webhooks-app-model';
 import { aiHandlers } from './ai-handlers';
 import { auditTrailHandlers } from './audit-trail-handlers';
 import { betaFeaturesHandlers } from './beta-features-handlers';
@@ -41,6 +42,7 @@ import {
   noWebhooksServiceHandler,
 } from './integration-stub-handlers';
 import { shellHandlers } from './shell-handlers';
+import { webhooksHandlers } from './webhooks-handlers';
 
 /** The same first-match assembly in Node tests and in the browser. */
 export function createMockHandlers(
@@ -101,6 +103,9 @@ export function createMockHandlers(
     ? ReleaseManagementAppModel.fromSerialized(
         effectiveConfig.releaseManagement,
       )
+    : null;
+  const webhooks = effectiveConfig.webhooks
+    ? WebhooksAppModel.fromSerialized(effectiveConfig.webhooks)
     : null;
   // Stripe is billing's provider and the connectors' connector: when the page
   // serves both, connecting it in one is seen by the other, and the billing
@@ -264,6 +269,12 @@ export function createMockHandlers(
     ...(releaseManagement
       ? releaseManagementHandlers(releaseManagement, () =>
           persist('releaseManagement', releaseManagement.serializeForMsw()),
+        )
+      : []),
+    // Before the stubs and the 404 of a deployment without saas-api.
+    ...(webhooks
+      ? webhooksHandlers(webhooks, () =>
+          persist('webhooks', webhooks.serializeForMsw()),
         )
       : []),
     ...(effectiveConfig.integrationStubs

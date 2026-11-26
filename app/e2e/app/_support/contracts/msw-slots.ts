@@ -12,6 +12,7 @@ import type { SerializedLicenseAppModel } from '../model/license-app-model';
 import type { SerializedNotificationAppModel } from '../model/notification-app-model';
 import type { SerializedPlanAppModel } from '../model/plan-app-model';
 import type { SerializedReleaseManagementAppModel } from '../model/release-management-app-model';
+import type { SerializedWebhooksAppModel } from '../model/webhooks-app-model';
 import type { ServiceAccount } from '@/api-client';
 
 /** Transport-neutral serialized state installed before app navigation. */
@@ -38,6 +39,10 @@ export type E2EMswConfig = {
   // session saas-api mints, and what Kaiten Cloud's public surface answers it.
   plan?: SerializedPlanAppModel;
   releaseManagement?: SerializedReleaseManagementAppModel;
+  // Kaiten Cloud's outbound webhooks, served by saas-api: a spec that creates,
+  // edits or deletes a webhook installs this model. A spec installs it or one of
+  // the webhooks stubs below, never both: the first answer wins.
+  webhooks?: SerializedWebhooksAppModel;
   // Webhooks are served by Kaiten Cloud's saas-api alone: with neither webhooks
   // stub, the webhooks routes answer 404 in E2E, as a self-hosted deployment's
   // do, and dev may opt into passthrough with the platform flags.
