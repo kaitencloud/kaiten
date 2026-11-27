@@ -79,6 +79,8 @@ export type WebhookRefusal =
   | 'historyLookupFailed'
   | 'payloadUnavailable'
   | 'notDelivered'
+  | 'resendRefused'
+  | 'resendUnavailable'
   | 'resendFailed';
 
 /** saas-api's refusals a spec can arm, with the codes and words the toast shows. */
@@ -128,6 +130,20 @@ export const WEBHOOK_REFUSALS: Record<WebhookRefusal, ArmedBillingProblem> = {
     code: 'ResendWebhookMessage.NotDelivered',
     detail: 'The message was not delivered to this webhook.',
     status: 404,
+  },
+  // What saas-api answers when the delivery provider refuses the resend with a
+  // 400, 409 or 422: nothing about the payload, which the detail still shows.
+  resendRefused: {
+    code: 'ResendWebhookMessage.Refused',
+    detail: 'The webhook service refused to resend this delivery.',
+    status: 409,
+  },
+  // What saas-api answers when the delivery provider answers 429, on the
+  // lookup before the resend or on the resend itself.
+  resendUnavailable: {
+    code: 'ResendWebhookMessage.Unavailable',
+    detail: 'The webhook service is busy; retry in a moment.',
+    status: 503,
   },
   resendFailed: {
     code: 'ResendWebhookMessage.ResendFailed',

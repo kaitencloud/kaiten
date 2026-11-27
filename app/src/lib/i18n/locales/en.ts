@@ -4996,6 +4996,9 @@ export default {
               'The body of this delivery is no longer available, so it cannot be resent.',
             resendNotDelivered:
               'This delivery can no longer be resent. It may have been removed.',
+            resendRefused: 'The delivery provider refused this resend.',
+            resendUnavailable:
+              'The delivery provider is busy. Try again in a moment.',
           },
           Trigger: {
             scheduled: 'Scheduled',
