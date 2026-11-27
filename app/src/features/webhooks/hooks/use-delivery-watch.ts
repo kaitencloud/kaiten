@@ -11,7 +11,10 @@ import {
   countNewSettledAttempts,
   getCachedAttempts,
   getEarlierKnownAttempt,
+  getNewestKnownAttempt,
   isShownWithAttempts,
+  type KnownAttempt,
+  REFUSED,
   readAttemptsOffScreen,
   type WatchedAttempt,
 } from './delivery-watch-attempts';
@@ -37,7 +40,9 @@ export interface DeliveryWatchTarget extends WebhookMessageRef {
    * that is not the message's newest, resent before the message is read or
    * after its read failed, is followed by attempts the detail never knew;
    * since a resend's attempt is manual, a scheduled one among them does not
-   * end the watch.
+   * end the watch. The watch counts from the newest of this attempt, every
+   * attempt of the message the cache holds when it is armed (the History's,
+   * say) and the newest it saw of the message while it watched it before.
    */
   latestKnownAttempt?: Pick<WebhookMessageAttempt, 'id' | 'timestamp'>;
 }
@@ -45,13 +50,15 @@ export interface DeliveryWatchTarget extends WebhookMessageRef {
 export interface DeliveryWatch {
   /**
    * Starts watching a resent message, beside the other messages watched. A
-   * message already watched then waits for one more attempt, and its cap
-   * starts again.
+   * message already watched, from this dialog or another, then waits for one
+   * more attempt, and its cap starts again.
    */
   arm: (target: DeliveryWatchTarget) => void;
 }
 
-interface WatchedMessage extends DeliveryWatchTarget {
+interface WatchedMessage extends WebhookMessageRef {
+  /** Only a settled manual attempt later than this one can be a resend's. */
+  latestKnownAttempt?: KnownAttempt;
   /** The resends since the watch of this message began: as many new attempts end it. */
   resends: number;
   deadline: number;
@@ -84,9 +91,9 @@ async function refreshDeliveryLists(
 
 function createDeliveryWatch(queryClient: QueryClient) {
   const watched = new Map<string, WatchedMessage>();
-  // The webhooks resent to since the owner opened, whose lists and history
-  // are read once more when it closes.
-  const resentWebhookIds = new Set<string>();
+  // The newest attempt seen of each message watched so far, its id and time
+  // only: a resend made after its watch ended never counts one of them.
+  const newestSeen = new Map<string, KnownAttempt>();
   // Set while a tick is scheduled or its reads are in flight: one timer chain
   // serves every watched message.
   let ticking = false;
@@ -100,10 +107,10 @@ function createDeliveryWatch(queryClient: QueryClient) {
 
   async function tick() {
     const messages = [...watched.values()];
-    // A message no query on screen shows the attempts of is read outside the
+    // A message whose attempts no query on screen shows is read outside the
     // cache; any other is read through its queries, refetched below.
     const offScreen = messages.filter(
-      (message) => !isShownWithAttempts(queryClient, message),
+      (message) => !isShownWithAttempts(queryClient, message, message.resends),
     );
     const [, offScreenAttempts] = await Promise.all([
       // Only the queries on screen are read again. A message no dialog shows
@@ -112,26 +119,34 @@ function createDeliveryWatch(queryClient: QueryClient) {
       invalidateWatchedDeliveryQueries(queryClient, messages),
       Promise.all(offScreen.map(readAttemptsOffScreen)),
     ]);
-    const readAttempts = new Map<WatchedMessage, WatchedAttempt[]>(
-      offScreen.map((message, index) => [message, offScreenAttempts[index]]),
-    );
+    const readAttempts = new Map<
+      WatchedMessage,
+      WatchedAttempt[] | typeof REFUSED
+    >(offScreen.map((message, index) => [message, offScreenAttempts[index]]));
     const now = Date.now();
     const settledWebhookIds = new Set<string>();
     for (const message of messages) {
-      const attempts = [
-        ...getCachedAttempts(queryClient, message),
-        ...(readAttempts.get(message) ?? []),
-      ];
+      const key = keyOf(message);
+      const read = readAttempts.get(message) ?? [];
+      if (read === REFUSED) {
+        watched.delete(key);
+        continue;
+      }
+      const attempts = [...getCachedAttempts(queryClient, message), ...read];
+      const newest = getNewestKnownAttempt([newestSeen.get(key), ...attempts]);
+      if (newest) {
+        newestSeen.set(key, newest);
+      }
       // `resends` and `deadline` are read now, not when the tick began: a
       // resend of the same message while the reads were in flight counts.
       if (
         countNewSettledAttempts(attempts, message.latestKnownAttempt) >=
         message.resends
       ) {
-        watched.delete(keyOf(message));
+        watched.delete(key);
         settledWebhookIds.add(message.webhookId);
       } else if (now >= message.deadline) {
-        watched.delete(keyOf(message));
+        watched.delete(key);
       }
     }
     // The lists were read alongside the message, and may have been answered
@@ -146,9 +161,16 @@ function createDeliveryWatch(queryClient: QueryClient) {
 
   return {
     arm(target: DeliveryWatchTarget) {
-      resentWebhookIds.add(target.webhookId);
+      const key = keyOf(target);
       const deadline = Date.now() + WATCH_CAP_MS;
-      const current = watched.get(keyOf(target));
+      // Every attempt the cache holds, or the watch saw, came before this
+      // resend: the newest of them and the detail's is counted from.
+      const latestKnownAttempt = getNewestKnownAttempt([
+        target.latestKnownAttempt,
+        newestSeen.get(key),
+        ...getCachedAttempts(queryClient, target),
+      ]);
+      const current = watched.get(key);
       if (current) {
         // Pressed again before the first resend's attempt was seen: counted
         // from the older known attempt, each resend waits for one attempt of
@@ -157,20 +179,57 @@ function createDeliveryWatch(queryClient: QueryClient) {
         current.deadline = deadline;
         current.latestKnownAttempt = getEarlierKnownAttempt(
           current.latestKnownAttempt,
-          target.latestKnownAttempt,
+          latestKnownAttempt,
         );
       } else {
-        watched.set(keyOf(target), { ...target, resends: 1, deadline });
+        watched.set(key, {
+          webhookId: target.webhookId,
+          messageId: target.messageId,
+          latestKnownAttempt,
+          resends: 1,
+          deadline,
+        });
       }
       if (!ticking) {
         schedule();
       }
     },
+  };
+}
+
+type SharedDeliveryWatch = ReturnType<typeof createDeliveryWatch>;
+
+// One watch per query client, shared by every dialog that resends: a message
+// resent again from a dialog opened again, or from the History's dialog, is
+// the same message watched, read once per tick.
+const watches = new WeakMap<QueryClient, SharedDeliveryWatch>();
+
+function getSharedDeliveryWatch(queryClient: QueryClient) {
+  let watch = watches.get(queryClient);
+  if (!watch) {
+    watch = createDeliveryWatch(queryClient);
+    watches.set(queryClient, watch);
+  }
+
+  return watch;
+}
+
+function createDeliveryWatchOwner(queryClient: QueryClient) {
+  const watch = getSharedDeliveryWatch(queryClient);
+  // The webhooks resent to since the owner opened, whose lists and history
+  // are read once more when it closes.
+  const resentWebhookIds = new Set<string>();
+
+  return {
+    arm(target: DeliveryWatchTarget) {
+      resentWebhookIds.add(target.webhookId);
+      watch.arm(target);
+    },
     /**
      * When the owner closes. After a resend, the webhooks' message lists (the
      * row's strip among them) and the history are read at once, so that what
      * stays on screen catches up with what the dialog showed. A message still
-     * waiting for its attempt goes on being watched until its cap: on a slow
+     * waiting for its attempt goes on being watched until its end: on a slow
      * endpoint the attempt often settles after the dialog is closed, and the
      * row's strip would otherwise stay on the failure, since nothing else
      * reads it again.
@@ -183,40 +242,45 @@ function createDeliveryWatch(queryClient: QueryClient) {
 }
 
 /**
- * A watch over the attempts resends queue, held by the owner of a dialog. It
- * follows every message resent, each until its own end. Once armed, every 3 s,
- * each read settled before the next starts, it reads again the history once,
- * the message lists of each watched message's webhook once (the dialog's list
- * and the row's strip behind it), and each watched message. A message whose
- * attempts no query on screen shows (its dialog closed, or another delivery
- * selected in a dialog whose list does not hold it) is read outside the cache,
- * keeping only its attempts, so its watch can end while only the row's strip,
- * which carries no attempts, is on screen.
+ * A watch over the attempts resends queue. Every dialog under one query client
+ * shares it: a message resent from several dialogs, or from one opened again,
+ * is followed once. It follows every message resent, each until its own end.
+ * Once armed, every 3 s, each tick's reads settled before the next starts, it
+ * invalidates the history once, the message lists of each watched message's
+ * webhook once (the dialog's list and the row's strip behind it), and each
+ * watched message: those on screen are read again, the others only marked
+ * stale. A message whose attempts no query on screen shows is read outside the
+ * cache, once per tick, keeping only its attempts' id, time, status and
+ * trigger, so its watch can end while only the row's strip, which carries no
+ * attempts, is on screen. Such a message is one whose own query is not on
+ * screen (its dialog closed, or another delivery selected) and which no list
+ * read with attempts shows with its last attempt; a message resent more than
+ * once needs its own query, since a list shows its last attempt only.
  *
  * A message's watch ends once the message, a list read with attempts or the
- * History shows a settled attempt newer than the newest the detail knew, one
- * per resend of it (its webhook's lists are then read once more), or
- * `WATCH_CAP_MS` after its last resend. Every tick marks each watched message
- * stale, so a dialog that shows one again, during its watch or after, reads it.
+ * History shows settled manual attempts newer than the newest known when it
+ * was resent, one per resend of it (its webhook's lists are then read once
+ * more); when its read outside the cache is refused with a 403, or a 404 other
+ * than a message not delivered yet; or `WATCH_CAP_MS` after its last resend.
  *
  * When `open` turns false or the owner unmounts, it reads the lists of the
- * webhooks resent to and the history once more, and the messages still waiting
- * go on being watched until their cap. Nothing renders from it.
+ * webhooks this owner resent to and the history once more, and the messages
+ * still waiting go on being watched until their end. Nothing renders from it.
  */
 export function useDeliveryWatch({
   open = true,
 }: { open?: boolean } = {}): DeliveryWatch {
   const queryClient = useQueryClient();
-  const [watch] = useState(() => createDeliveryWatch(queryClient));
+  const [owner] = useState(() => createDeliveryWatchOwner(queryClient));
 
   useEffect(() => {
     if (!open) {
       return;
     }
     return () => {
-      watch.close();
+      owner.close();
     };
-  }, [open, watch]);
+  }, [open, owner]);
 
-  return watch;
+  return owner;
 }

@@ -1,5 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query';
 import {
+  isLastingWebhookMessageRefusal,
   isMessagesListReadWithAttempts,
   type WebhookMessageRef,
   webhookHistoryQueryOptions,
@@ -22,7 +23,7 @@ export type WatchedAttempt = Pick<
   'id' | 'timestamp' | 'status' | 'triggerType'
 >;
 
-type KnownAttempt = Pick<WebhookMessageAttempt, 'id' | 'timestamp'>;
+export type KnownAttempt = Pick<WebhookMessageAttempt, 'id' | 'timestamp'>;
 
 function toWatchedAttempt({
   id,
@@ -75,14 +76,18 @@ export function getCachedAttempts(
 }
 
 /**
- * Whether a query on screen shows the message's attempts, and so is read again
- * by the watch's invalidation: the message's own query, or a list read with
- * attempts that holds the message. The row's strip reads its list without
- * attempts, so it never counts.
+ * Whether a query on screen shows every attempt the watch waits for, and so is
+ * read again by the watch's invalidation: the message's own query, or, for a
+ * message resent once, a list read with attempts that holds the message with
+ * its last attempt. A list carries the last attempt only, which cannot show two
+ * resends' attempts, and saas-api leaves it out of a message its window of
+ * attempts does not cover. The row's strip reads its list without attempts, so
+ * it never counts.
  */
 export function isShownWithAttempts(
   queryClient: QueryClient,
   { webhookId, messageId }: WebhookMessageRef,
+  resends: number,
 ): boolean {
   const message = queryClient.getQueriesData({
     queryKey: webhookMessageQueryOptions(webhookId, messageId).queryKey,
@@ -91,6 +96,9 @@ export function isShownWithAttempts(
   });
   if (message.length > 0) {
     return true;
+  }
+  if (resends > 1) {
+    return false;
   }
 
   return queryClient
@@ -102,29 +110,36 @@ export function isShownWithAttempts(
       ([queryKey, list]) =>
         isMessagesListReadWithAttempts(queryKey) &&
         (list?.messages ?? []).some(
-          (summary) => summary.messageId === messageId,
+          (summary) =>
+            summary.messageId === messageId &&
+            summary.lastAttempt !== undefined,
         ),
     );
 }
+
+/** What a read outside the cache answers when a later read would be refused too. */
+export const REFUSED = 'refused';
 
 /**
  * Reads a message outside the query cache, for a watched message no query on
  * screen shows the attempts of. Only its attempts' id, time, status and trigger
  * are returned: the payload, which can hold customer data, is dropped as soon
  * as the read answers, so this read never keeps one in memory, and the
- * message's cache entry, if any, keeps its own `gcTime`. A failed read returns
- * no attempt: the watch reads again on its next tick, until its cap.
+ * message's cache entry, if any, keeps its own `gcTime`. A 403, or a 404 other
+ * than a message not delivered yet (its webhook deleted, say), returns
+ * `REFUSED`, which ends the message's watch. Any other failed read returns no
+ * attempt: the watch reads again on its next tick, until its cap.
  */
 export async function readAttemptsOffScreen({
   webhookId,
   messageId,
-}: WebhookMessageRef): Promise<WatchedAttempt[]> {
+}: WebhookMessageRef): Promise<WatchedAttempt[] | typeof REFUSED> {
   try {
     const message = await getWebhookMessage(webhookId, messageId);
 
     return (message?.attempts ?? []).map(toWatchedAttempt);
-  } catch {
-    return [];
+  } catch (error) {
+    return isLastingWebhookMessageRefusal(error) ? REFUSED : [];
   }
 }
 
@@ -171,4 +186,21 @@ export function getEarlierKnownAttempt(
   }
 
   return isLaterAttempt(left, right) ? right : left;
+}
+
+/** The newest of the attempts given, by order, keeping only its id and time. */
+export function getNewestKnownAttempt(
+  attempts: readonly (KnownAttempt | undefined)[],
+): KnownAttempt | undefined {
+  let newest: KnownAttempt | undefined;
+  for (const attempt of attempts) {
+    if (
+      attempt !== undefined &&
+      (newest === undefined || isLaterAttempt(attempt, newest))
+    ) {
+      newest = { id: attempt.id, timestamp: attempt.timestamp };
+    }
+  }
+
+  return newest;
 }

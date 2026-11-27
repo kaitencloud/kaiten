@@ -31,6 +31,17 @@ function getProblemCode(error: unknown): string | undefined {
 const WEBHOOK_MESSAGE_GC_TIME_MS = 60_000;
 
 /**
+ * Whether a refused read of a message is the answer, which a later read would
+ * only repeat: a 403, or a 404 other than a message not delivered yet.
+ */
+export function isLastingWebhookMessageRefusal(error: unknown): boolean {
+  return (
+    getProblemCode(error) !== WEBHOOK_MESSAGE_NOT_DELIVERED &&
+    (isNotFoundError(error) || isForbiddenError(error))
+  );
+}
+
+/**
  * Whether to read a message again after a failure. A message the list showed
  * and that is not delivered yet gets one more read; any other 404, and a 403,
  * is the answer; anything else gets two more reads.
@@ -43,7 +54,7 @@ export function shouldRetryWebhookMessage(
   if (getProblemCode(error) === WEBHOOK_MESSAGE_NOT_DELIVERED) {
     return retryNotDelivered && failureCount < 1;
   }
-  if (isNotFoundError(error) || isForbiddenError(error)) {
+  if (isLastingWebhookMessageRefusal(error)) {
     return false;
   }
 
