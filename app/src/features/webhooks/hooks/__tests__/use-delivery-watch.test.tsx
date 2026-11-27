@@ -26,11 +26,23 @@ import {
   WATCH_INTERVAL_MS,
 } from '../use-delivery-watch';
 
+// The watch reads a message no query on screen shows outside the cache, with
+// the API function itself: this is the provider's answer to that read.
+const api = vi.hoisted(() => ({ getWebhookMessage: vi.fn() }));
+vi.mock('../../webhooks.api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../webhooks.api')>()),
+  getWebhookMessage: api.getWebhookMessage,
+}));
+
+const KNOWN_ATTEMPT = { id: 'atmpt_1', timestamp: '2026-11-26T09:00:00Z' };
+
 const target: DeliveryWatchTarget = {
   webhookId: 'ep_orders',
   messageId: 'msg_1',
-  latestKnownAttempt: { id: 'atmpt_1', timestamp: '2026-11-26T09:00:00Z' },
+  latestKnownAttempt: KNOWN_ATTEMPT,
 };
+
+const second: DeliveryWatchTarget = { ...target, messageId: 'msg_2' };
 
 const emptyList: WebhookMessageList = {
   webhook: {
@@ -48,45 +60,57 @@ const emptyList: WebhookMessageList = {
 function resentAttempt(
   status: WebhookDeliveryStatus,
   triggerType: WebhookDeliveryTrigger = 'manual',
+  { id = 'atmpt_2', timestamp = '2026-11-26T10:00:00Z' } = {},
 ): WebhookMessageAttempt {
-  return { id: 'atmpt_2', timestamp: '2026-11-26T10:00:00Z', status, triggerType };
+  return { id, timestamp, status, triggerType };
 }
 
-/** The row's list, its message carrying `lastAttempt` when one is given. */
+/** A second resend's attempt, recorded after the first one. */
+const secondResentAttempt = resentAttempt('success', 'manual', {
+  id: 'atmpt_3',
+  timestamp: '2026-11-26T10:05:00Z',
+});
+
+/** A list holding msg_1, carrying `lastAttempt` when one is given. */
 function listWith(lastAttempt?: WebhookMessageAttempt): WebhookMessageList {
-  return lastAttempt
-    ? {
-        ...emptyList,
-        messages: [
-          {
-            messageId: 'msg_1',
-            eventType: 'com.kaiten.instance.v1.created',
-            timestamp: '2026-11-26T08:59:00Z',
-            status: lastAttempt.status,
-            lastAttempt,
-          },
-        ],
-      }
-    : emptyList;
+  return {
+    ...emptyList,
+    messages: [
+      {
+        messageId: 'msg_1',
+        eventType: 'com.kaiten.instance.v1.created',
+        timestamp: '2026-11-26T08:59:00Z',
+        status: lastAttempt?.status ?? 'fail',
+        ...(lastAttempt ? { lastAttempt } : {}),
+      },
+    ],
+  };
 }
 
 /**
  * The message with its known failed attempt, then the resend's, if any, and
  * an older failed attempt the detail never knew when `withOlder` is set.
- * `trigger` is the reason the provider gives for the attempt after the known one.
+ * `trigger` is the reason the provider gives for the attempt after the known
+ * one, and `also` adds further attempts.
  */
 function messageWith(
   resent?: WebhookDeliveryStatus,
   {
     withOlder = false,
     trigger = 'manual',
-  }: { withOlder?: boolean; trigger?: WebhookDeliveryTrigger } = {},
+    also = [],
+  }: {
+    withOlder?: boolean;
+    trigger?: WebhookDeliveryTrigger;
+    also?: WebhookMessageAttempt[];
+  } = {},
 ): WebhookMessage {
   return {
     messageId: 'msg_1',
     payloadAvailable: true,
     payload: { id: 'evt_1' },
     attempts: [
+      ...also,
       ...(resent ? [resentAttempt(resent, trigger)] : []),
       {
         id: 'atmpt_1',
@@ -108,25 +132,46 @@ function messageWith(
   };
 }
 
+type ReadMessage = (read: number) => WebhookMessage;
+
+interface RenderOptions {
+  /** The provider's answer to each message's n-th read, by message id. */
+  messages?: Record<string, ReadMessage>;
+  /** The provider's answer to the n-th read of the list. */
+  readListAt?: (read: number) => WebhookMessageList;
+  /** Whether the list on screen is read with attempts, as the dialog's is. */
+  listWithAttempts?: boolean;
+}
+
 /**
- * The watch beside two queries: the row's list (as the deliveries cell reads
- * it), whose answer `readListAt` gives, and the watched message, whose answer
- * `readMessage` gives. The message is read only while `open`, as the dialog's
- * detail unmounts when it closes. The app's 30 s staleTime: a query shown
- * again is read only if something marked it stale.
+ * The watch beside a list on screen (the row's, read without attempts, unless
+ * `listWithAttempts`) and the query of each message, as a dialog's detail
+ * reads it: only while `open`, as the detail unmounts when the dialog closes.
+ * The provider counts each message's reads, through the cache or outside it,
+ * so `messages` answers by the n-th read the provider sees. The app's 30 s
+ * staleTime: a query shown again is read only if something marked it stale.
  */
-function renderWatch(
-  readMessage: (read: number) => WebhookMessage = () => messageWith(),
-  readListAt: (read: number) => WebhookMessageList = () => emptyList,
-) {
+function renderWatch({
+  messages = { msg_1: () => messageWith() },
+  readListAt = () => emptyList,
+  listWithAttempts = false,
+}: RenderOptions = {}) {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   });
   const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+  const providerReads: Record<string, number> = {};
+  const answer = (messageId: string) => {
+    providerReads[messageId] = (providerReads[messageId] ?? 0) + 1;
+    return messages[messageId](providerReads[messageId]);
+  };
   let listReads = 0;
   const readList = vi.fn(async () => readListAt(++listReads));
-  let messageReads = 0;
-  const readMessageFn = vi.fn(async () => readMessage(++messageReads));
+  const readMessageFn = vi.fn(async (messageId: string) => answer(messageId));
+  api.getWebhookMessage.mockImplementation(
+    async (_webhookId: string, messageId: string) => answer(messageId),
+  );
+  const ids = Object.keys(messages);
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <StrictMode>
@@ -136,26 +181,53 @@ function renderWatch(
       </StrictMode>
     );
   }
+  function useMessage(messageId: string, open: boolean) {
+    useQuery({
+      ...webhookMessageQueryOptions('ep_orders', messageId),
+      queryFn: () => readMessageFn(messageId),
+      enabled: open,
+    });
+  }
   const view = renderHook(
     ({ open }: { open: boolean }) => {
       useQuery({
         ...webhookMessagesQueryOptions('ep_orders', {
           limit: 20,
-          withAttempts: false,
+          withAttempts: listWithAttempts,
         }),
         queryFn: readList,
       });
-      useQuery({
-        ...webhookMessageQueryOptions('ep_orders', 'msg_1'),
-        queryFn: readMessageFn,
-        enabled: open,
-      });
+      useMessage(ids[0], open);
+      useMessage(ids[1] ?? ids[0], open);
       return useDeliveryWatch({ open });
     },
     { initialProps: { open: true }, wrapper: Wrapper },
   );
+  const cacheReadsOf = (messageId: string) =>
+    readMessageFn.mock.calls.filter(([id]) => id === messageId).length;
+  const offScreenReadsOf = (messageId: string) =>
+    api.getWebhookMessage.mock.calls.filter(([, id]) => id === messageId)
+      .length;
+  const readsOf = (messageId: string) => providerReads[messageId] ?? 0;
 
-  return { ...view, invalidate, queryClient, readList, readMessageFn };
+  return {
+    ...view,
+    cacheReadsOf,
+    invalidate,
+    offScreenReadsOf,
+    queryClient,
+    readList,
+    readMessageFn,
+    readsOf,
+  };
+}
+
+/** The filters of the invalidations made since `from`. */
+function invalidatedSince(
+  invalidate: ReturnType<typeof renderWatch>['invalidate'],
+  from: number,
+) {
+  return invalidate.mock.calls.slice(from).map(([filters]) => filters);
 }
 
 async function advance(ms: number) {
@@ -164,6 +236,7 @@ async function advance(ms: number) {
 
 beforeEach(() => {
   vi.useFakeTimers({ shouldAdvanceTime: true });
+  api.getWebhookMessage.mockReset();
 });
 
 afterEach(() => {
@@ -194,9 +267,9 @@ describe('useDeliveryWatch', () => {
   });
 
   it('stops once the message shows a new attempt, settled, after one more read of the lists', async () => {
-    const { readList, readMessageFn, result } = renderWatch((read) =>
-      messageWith(read >= 3 ? 'success' : undefined),
-    );
+    const { readList, readMessageFn, result } = renderWatch({
+      messages: { msg_1: (read) => messageWith(read >= 3 ? 'success' : undefined) },
+    });
     await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
@@ -211,9 +284,9 @@ describe('useDeliveryWatch', () => {
   });
 
   it('keeps reading while the new attempt is still being sent', async () => {
-    const { readMessageFn, result } = renderWatch(() =>
-      messageWith('sending'),
-    );
+    const { readMessageFn, result } = renderWatch({
+      messages: { msg_1: () => messageWith('sending') },
+    });
     await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
@@ -223,9 +296,9 @@ describe('useDeliveryWatch', () => {
   });
 
   it('does not take a known attempt for the new one', async () => {
-    const { readMessageFn, result } = renderWatch(() =>
-      messageWith('success'),
-    );
+    const { readMessageFn, result } = renderWatch({
+      messages: { msg_1: () => messageWith('success') },
+    });
     await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
 
     act(() =>
@@ -242,9 +315,12 @@ describe('useDeliveryWatch', () => {
   it('does not take an older attempt the detail never knew for the new one', async () => {
     // Armed before the message was read: the detail knew the list's last
     // attempt only, and the message also holds an older failed one.
-    const { readMessageFn, result } = renderWatch((read) =>
-      messageWith(read >= 4 ? 'success' : undefined, { withOlder: true }),
-    );
+    const { readMessageFn, result } = renderWatch({
+      messages: {
+        msg_1: (read) =>
+          messageWith(read >= 4 ? 'success' : undefined, { withOlder: true }),
+      },
+    });
     await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
@@ -259,9 +335,9 @@ describe('useDeliveryWatch', () => {
     // Armed on an attempt that was not the message's newest, as from the
     // History before the message is read: the retry that followed it is not
     // the resend's.
-    const { readMessageFn, result } = renderWatch(() =>
-      messageWith('fail', { trigger: 'scheduled' }),
-    );
+    const { readMessageFn, result } = renderWatch({
+      messages: { msg_1: () => messageWith('fail', { trigger: 'scheduled' }) },
+    });
     await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
@@ -283,24 +359,224 @@ describe('useDeliveryWatch', () => {
     expect(readList).toHaveBeenCalledTimes(reads);
   });
 
-  it('replaces the running watch when armed again', async () => {
-    const { readList, result } = renderWatch();
-    await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
+  it('follows a message resent while another is watched, each until its own attempt', async () => {
+    const { cacheReadsOf, invalidate, readList, result } = renderWatch({
+      messages: {
+        // Its attempt shows on the fourth read, the tick at 9 s.
+        msg_1: (read) => messageWith(read >= 4 ? 'success' : undefined),
+        // Its attempt shows on the second read, the tick at 3 s.
+        msg_2: (read) => ({
+          ...messageWith(read >= 2 ? 'success' : undefined),
+          messageId: 'msg_2',
+        }),
+      },
+    });
+    await waitFor(() => expect(cacheReadsOf('msg_2')).toBe(1));
+    await waitFor(() => expect(cacheReadsOf('msg_1')).toBe(1));
 
     act(() => result.current.arm(target));
     await advance(2_000);
+    act(() => result.current.arm(second));
+    const before = invalidate.mock.calls.length;
+    await advance(1_000);
+
+    // One timer for both: the lists and the history once, each message.
+    expect(invalidatedSince(invalidate, before).slice(0, 4)).toEqual([
+      { queryKey: ['webhooks', 'history'], exact: true },
+      { queryKey: ['webhooks', 'messages-list', 'ep_orders'] },
+      { queryKey: ['webhooks', 'messages', 'ep_orders', 'msg_1'], exact: true },
+      { queryKey: ['webhooks', 'messages', 'ep_orders', 'msg_2'], exact: true },
+    ]);
+    expect(cacheReadsOf('msg_1')).toBe(2);
+    expect(cacheReadsOf('msg_2')).toBe(2);
+    // msg_2's attempt settled: its lists are read once more.
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(3));
+
+    await advance(2 * WATCH_INTERVAL_MS);
+    expect(cacheReadsOf('msg_2')).toBe(2);
+    expect(cacheReadsOf('msg_1')).toBe(4);
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(6));
+
+    await advance(30_000);
+    expect(cacheReadsOf('msg_1')).toBe(4);
+    expect(readList).toHaveBeenCalledTimes(6);
+  });
+
+  it("ends each message's watch at its own cap", async () => {
+    const { cacheReadsOf, result } = renderWatch({
+      messages: {
+        msg_1: () => messageWith(),
+        msg_2: () => ({ ...messageWith(), messageId: 'msg_2' }),
+      },
+    });
+    await waitFor(() => expect(cacheReadsOf('msg_2')).toBe(1));
+
     act(() => result.current.arm(target));
-    await advance(1_500);
-    expect(readList).toHaveBeenCalledTimes(1);
-    await advance(1_500);
-    expect(readList).toHaveBeenCalledTimes(2);
+    await advance(30_000);
+    act(() => result.current.arm(second));
+    await advance(WATCH_CAP_MS - 30_000 - 1_000);
+    // The first message is still read after the second was armed.
+    const firstReads = cacheReadsOf('msg_1');
+    expect(firstReads).toBeGreaterThanOrEqual(19);
+
+    await advance(4_000);
+    const firstAtCap = cacheReadsOf('msg_1');
+    const secondAtFirstCap = cacheReadsOf('msg_2');
+    await advance(24_000);
+    expect(cacheReadsOf('msg_1')).toBe(firstAtCap);
+    expect(cacheReadsOf('msg_2')).toBe(secondAtFirstCap + 8);
+
+    await advance(10_000);
+    const secondAtCap = cacheReadsOf('msg_2');
+    await advance(30_000);
+    expect(cacheReadsOf('msg_2')).toBe(secondAtCap);
+  });
+
+  it('waits for one attempt per resend when the same message is resent again, counting each once', async () => {
+    let provider = 0;
+    const { readList, readsOf, result } = renderWatch({
+      listWithAttempts: true,
+      messages: {
+        msg_1: (read) => {
+          provider = read;
+          // The first resend's attempt from the tick at 3 s, the second's
+          // from the tick at 12 s.
+          return messageWith(read >= 2 ? 'success' : undefined, {
+            also: read >= 5 ? [secondResentAttempt] : [],
+          });
+        },
+      },
+      // The dialog's list shows the first resend's attempt too: the same id
+      // seen in two places is one attempt.
+      readListAt: () =>
+        listWith(provider >= 2 ? resentAttempt('success') : undefined),
+    });
+    await waitFor(() => expect(readsOf('msg_1')).toBe(1));
+
+    act(() => result.current.arm(target));
+    await advance(1_000);
+    // Pressed again before the first resend's attempt was seen.
+    act(() => result.current.arm(target));
+    await advance(3 * WATCH_INTERVAL_MS - 1_000);
+    expect(readsOf('msg_1')).toBe(4);
+
     await advance(WATCH_INTERVAL_MS);
-    expect(readList).toHaveBeenCalledTimes(3);
+    expect(readsOf('msg_1')).toBe(5);
+    // The first read, one per tick, then one more after the end.
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(6));
+    await advance(30_000);
+    expect(readsOf('msg_1')).toBe(5);
+    expect(readList).toHaveBeenCalledTimes(6);
+  });
+
+  it("starts the message's cap again when it is resent again", async () => {
+    // Resent at 0 s and again at 51 s, before the first attempt shows: the
+    // first attempt shows at the tick at 54 s, the second at the tick at 66 s,
+    // past the cap of the first resend.
+    const { readsOf, result } = renderWatch({
+      messages: {
+        msg_1: (read) =>
+          messageWith(read >= 19 ? 'success' : undefined, {
+            also: read >= 23 ? [secondResentAttempt] : [],
+          }),
+      },
+    });
+    await waitFor(() => expect(readsOf('msg_1')).toBe(1));
+
+    act(() => result.current.arm(target));
+    await advance(51_000);
+    expect(readsOf('msg_1')).toBe(18);
+    act(() => result.current.arm(target));
+    await advance(WATCH_CAP_MS);
+
+    // Read on each tick to the one at 66 s, which shows both attempts.
+    expect(readsOf('msg_1')).toBe(23);
+    await advance(30_000);
+    expect(readsOf('msg_1')).toBe(23);
+  });
+
+  it('reads a message no query shows outside the cache, and ends a tick after its attempt settles', async () => {
+    const { cacheReadsOf, offScreenReadsOf, queryClient, readList, rerender, result } =
+      renderWatch({
+        messages: {
+          // Its attempt settles on the fourth read the provider sees.
+          msg_1: (read) => messageWith(read >= 4 ? 'success' : undefined),
+        },
+      });
+    await waitFor(() => expect(cacheReadsOf('msg_1')).toBe(1));
+
+    act(() => result.current.arm(target));
+    await advance(WATCH_INTERVAL_MS);
+    // On screen: read through its query, never outside the cache.
+    expect(cacheReadsOf('msg_1')).toBe(2);
+    expect(offScreenReadsOf('msg_1')).toBe(0);
+
+    rerender({ open: false });
+    await advance(WATCH_INTERVAL_MS);
+    expect(offScreenReadsOf('msg_1')).toBe(1);
+    await advance(WATCH_INTERVAL_MS);
+    expect(offScreenReadsOf('msg_1')).toBe(2);
+    // The first read, the tick at 3 s, the close, the ticks at 6 and 9 s,
+    // then one more after the end.
+    await waitFor(() => expect(readList).toHaveBeenCalledTimes(6));
+
+    await advance(60_000);
+    expect(offScreenReadsOf('msg_1')).toBe(2);
+    expect(cacheReadsOf('msg_1')).toBe(2);
+    expect(readList).toHaveBeenCalledTimes(6);
+    // The cache keeps what its own query read, marked stale; the read
+    // outside it added nothing to it.
+    const cached = queryClient.getQueryState(
+      webhookMessageQueryOptions('ep_orders', 'msg_1').queryKey,
+    );
+    expect(cached?.data?.attempts.map(({ id }) => id)).toEqual(['atmpt_1']);
+    expect(cached?.isInvalidated).toBe(true);
+  });
+
+  it('reads outside the cache only the messages no list read with attempts holds', async () => {
+    const { offScreenReadsOf, rerender, result } = renderWatch({
+      listWithAttempts: true,
+      messages: {
+        msg_1: () => messageWith(),
+        msg_2: () => ({ ...messageWith(), messageId: 'msg_2' }),
+      },
+      // The dialog's list holds msg_1, not msg_2.
+      readListAt: () => listWith(),
+    });
+
+    act(() => result.current.arm(target));
+    act(() => result.current.arm(second));
+    rerender({ open: false });
+    await advance(3 * WATCH_INTERVAL_MS);
+
+    expect(offScreenReadsOf('msg_1')).toBe(0);
+    expect(offScreenReadsOf('msg_2')).toBe(3);
+  });
+
+  it('keeps reading a message off screen after a failed read', async () => {
+    const { offScreenReadsOf, rerender, result } = renderWatch({
+      messages: { msg_1: (read) => messageWith(read >= 4 ? 'success' : undefined) },
+    });
+    await waitFor(() => expect(offScreenReadsOf('msg_1')).toBe(0));
+
+    act(() => result.current.arm(target));
+    rerender({ open: false });
+    api.getWebhookMessage.mockRejectedValueOnce(new Error('503'));
+    await advance(WATCH_INTERVAL_MS);
+    expect(offScreenReadsOf('msg_1')).toBe(1);
+    await advance(3 * WATCH_INTERVAL_MS);
+
+    // Read again after the failure, until the attempt shows, then no more.
+    expect(offScreenReadsOf('msg_1')).toBe(4);
+    await advance(30_000);
+    expect(offScreenReadsOf('msg_1')).toBe(4);
   });
 
   it('reads the lists and the history once more when closed after a settled resend', async () => {
     const { invalidate, readList, readMessageFn, rerender, result } =
-      renderWatch((read) => messageWith(read >= 2 ? 'success' : undefined));
+      renderWatch({
+        messages: { msg_1: (read) => messageWith(read >= 2 ? 'success' : undefined) },
+      });
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
@@ -309,7 +585,7 @@ describe('useDeliveryWatch', () => {
     const before = invalidate.mock.calls.length;
     rerender({ open: false });
 
-    expect(invalidate.mock.calls.slice(before).map(([filters]) => filters)).toEqual([
+    expect(invalidatedSince(invalidate, before)).toEqual([
       { queryKey: ['webhooks', 'messages-list', 'ep_orders'] },
       { queryKey: ['webhooks', 'history'], exact: true },
     ]);
@@ -317,10 +593,12 @@ describe('useDeliveryWatch', () => {
     await advance(30_000);
     expect(readList).toHaveBeenCalledTimes(4);
     expect(readMessageFn).toHaveBeenCalledTimes(2);
+    expect(api.getWebhookMessage).not.toHaveBeenCalled();
   });
 
-  it('keeps reading the lists, not the message off screen, after a close until its cap', async () => {
-    const { readList, readMessageFn, rerender, result } = renderWatch();
+  it('after a close, reads the lists and the message outside the cache on each tick until its cap', async () => {
+    const { cacheReadsOf, offScreenReadsOf, readList, rerender, result } =
+      renderWatch();
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
@@ -329,42 +607,49 @@ describe('useDeliveryWatch', () => {
     await advance(WATCH_CAP_MS);
 
     // The read at the close, then one per tick until the cap.
-    expect(readList).toHaveBeenCalledTimes(
-      2 + Math.floor((WATCH_CAP_MS + 1_000) / WATCH_INTERVAL_MS),
-    );
-    expect(readMessageFn).toHaveBeenCalledTimes(1);
+    const ticks = Math.floor((WATCH_CAP_MS + 1_000) / WATCH_INTERVAL_MS);
+    expect(readList).toHaveBeenCalledTimes(2 + ticks);
+    expect(offScreenReadsOf('msg_1')).toBe(ticks);
+    expect(cacheReadsOf('msg_1')).toBe(1);
     const reads = readList.mock.calls.length;
     await advance(60_000);
     expect(readList).toHaveBeenCalledTimes(reads);
+    expect(offScreenReadsOf('msg_1')).toBe(ticks);
   });
 
   it('reads the message again when it is shown again after a close', async () => {
-    const { readList, readMessageFn, rerender, result } = renderWatch(
-      (read) => messageWith(read >= 2 ? 'success' : undefined),
-    );
-    await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(1));
+    const { cacheReadsOf, offScreenReadsOf, readList, rerender, result } =
+      renderWatch({
+        messages: { msg_1: (read) => messageWith(read >= 3 ? 'success' : undefined) },
+      });
+    await waitFor(() => expect(cacheReadsOf('msg_1')).toBe(1));
 
     act(() => result.current.arm(target));
     await advance(1_000);
     rerender({ open: false });
     await advance(WATCH_INTERVAL_MS);
-    expect(readMessageFn).toHaveBeenCalledTimes(1);
+    expect(cacheReadsOf('msg_1')).toBe(1);
+    expect(offScreenReadsOf('msg_1')).toBe(1);
 
-    // Marked stale by the tick while off screen, it is read when shown.
+    // Marked stale by the tick while off screen, it is read when shown, and
+    // through its query on the next tick, which ends the watch.
     rerender({ open: true });
-    await waitFor(() => expect(readMessageFn).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(cacheReadsOf('msg_1')).toBe(2));
     await advance(WATCH_INTERVAL_MS);
-    expect(readMessageFn).toHaveBeenCalledTimes(3);
+    expect(cacheReadsOf('msg_1')).toBe(3);
+    expect(offScreenReadsOf('msg_1')).toBe(1);
     const reads = readList.mock.calls.length;
     await advance(30_000);
-    expect(readMessageFn).toHaveBeenCalledTimes(3);
+    expect(cacheReadsOf('msg_1')).toBe(3);
     expect(readList).toHaveBeenCalledTimes(reads);
   });
 
-  it('ends after a close once a list shows the new attempt, settled', async () => {
-    const { readList, rerender, result } = renderWatch(undefined, (read) =>
-      listWith(read >= 4 ? resentAttempt('success') : undefined),
-    );
+  it('ends after a close once a list read with attempts shows the new attempt, settled', async () => {
+    const { offScreenReadsOf, readList, rerender, result } = renderWatch({
+      listWithAttempts: true,
+      readListAt: (read) =>
+        listWith(read >= 4 ? resentAttempt('success') : undefined),
+    });
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
 
     act(() => result.current.arm(target));
@@ -377,6 +662,8 @@ describe('useDeliveryWatch', () => {
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(5));
     await advance(30_000);
     expect(readList).toHaveBeenCalledTimes(5);
+    // The list on screen shows the message's attempts.
+    expect(offScreenReadsOf('msg_1')).toBe(0);
   });
 
   it('ends after a close once the History shows the new attempt, settled', async () => {
@@ -422,9 +709,9 @@ describe('useDeliveryWatch', () => {
     expect(readList).toHaveBeenCalledTimes(1);
   });
 
-  it('reads nothing off screen on a tick after the owner unmounts, even one in flight', async () => {
+  it('after the owner unmounts, reads the message outside the cache only, even with a tick in flight', async () => {
     let answerList: (list: WebhookMessageList) => void = () => undefined;
-    const { invalidate, readList, readMessageFn, result, unmount } =
+    const { cacheReadsOf, invalidate, offScreenReadsOf, readList, result, unmount } =
       renderWatch();
     await waitFor(() => expect(readList).toHaveBeenCalledTimes(1));
     readList.mockImplementation(
@@ -443,8 +730,8 @@ describe('useDeliveryWatch', () => {
     await advance(WATCH_INTERVAL_MS);
 
     // The lists at the unmount, then the next tick's queries, only marked
-    // stale: nothing shows them any more, so nothing is fetched.
-    expect(invalidate.mock.calls.slice(before).map(([filters]) => filters)).toEqual([
+    // stale: nothing shows them any more, so nothing is fetched through them.
+    expect(invalidatedSince(invalidate, before)).toEqual([
       { queryKey: ['webhooks', 'messages-list', 'ep_orders'] },
       { queryKey: ['webhooks', 'history'], exact: true },
       { queryKey: ['webhooks', 'history'], exact: true },
@@ -452,7 +739,9 @@ describe('useDeliveryWatch', () => {
       { queryKey: ['webhooks', 'messages', 'ep_orders', 'msg_1'], exact: true },
     ]);
     expect(readList).toHaveBeenCalledTimes(2);
-    // The one read with the first tick, before the unmount.
-    expect(readMessageFn).toHaveBeenCalledTimes(2);
+    // The one read with the first tick, before the unmount, then the
+    // message is read outside the cache.
+    expect(cacheReadsOf('msg_1')).toBe(2);
+    expect(offScreenReadsOf('msg_1')).toBe(1);
   });
 });

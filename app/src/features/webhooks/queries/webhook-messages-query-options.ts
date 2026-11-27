@@ -1,4 +1,4 @@
-import { queryOptions } from '@tanstack/react-query';
+import { type QueryKey, queryOptions } from '@tanstack/react-query';
 import { getWebhookMessages } from '../webhooks.api';
 
 /**
@@ -36,3 +36,11 @@ export const webhookMessagesQueryOptions = (
     refetchOnWindowFocus: false,
     retry: 1,
   });
+
+/**
+ * Whether a message list's key, as `webhookMessagesQueryOptions` writes it,
+ * reads the messages with their attempts.
+ */
+export function isMessagesListReadWithAttempts(queryKey: QueryKey): boolean {
+  return queryKey[4] === true;
+}

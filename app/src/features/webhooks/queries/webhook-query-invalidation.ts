@@ -50,28 +50,54 @@ export function removeWebhookQueries(
   });
 }
 
+/** A message of a webhook, as the resend watch names it. */
+export interface WebhookMessageRef {
+  webhookId: string;
+  messageId: string;
+}
+
 /**
- * After a resend, and on each read of the watch that follows it
- * (`useDeliveryWatch`): the history, the webhook's message lists and the
- * message itself. Not the list of webhooks, which a delivery does not change.
- * Only the queries on screen refetch; the others are marked stale.
+ * After a resend: the history, the webhook's message lists and the message
+ * itself. Not the list of webhooks, which a delivery does not change. Only the
+ * queries on screen refetch; the others are marked stale.
  */
 export async function invalidateWebhookDeliveryQueries(
   queryClient: QueryClient,
   webhookId: string,
   messageId: string,
 ) {
+  await invalidateWatchedDeliveryQueries(queryClient, [
+    { webhookId, messageId },
+  ]);
+}
+
+/**
+ * On each read of the resend watch (`useDeliveryWatch`), for every message it
+ * follows: the history once, the message lists of each of their webhooks once,
+ * and each message. Only the queries on screen refetch; the others are marked
+ * stale, so a message shown again later is read at once.
+ */
+export async function invalidateWatchedDeliveryQueries(
+  queryClient: QueryClient,
+  messages: readonly WebhookMessageRef[],
+) {
+  const webhookIds = new Set(messages.map(({ webhookId }) => webhookId));
+
   await Promise.all([
     queryClient.invalidateQueries({
       queryKey: webhookHistoryQueryOptions.queryKey,
       exact: true,
     }),
-    queryClient.invalidateQueries({
-      queryKey: [...webhookMessagesListBaseQueryKey, webhookId],
-    }),
-    queryClient.invalidateQueries({
-      queryKey: webhookMessageQueryOptions(webhookId, messageId).queryKey,
-      exact: true,
-    }),
+    ...[...webhookIds].map((webhookId) =>
+      queryClient.invalidateQueries({
+        queryKey: [...webhookMessagesListBaseQueryKey, webhookId],
+      }),
+    ),
+    ...messages.map(({ webhookId, messageId }) =>
+      queryClient.invalidateQueries({
+        queryKey: webhookMessageQueryOptions(webhookId, messageId).queryKey,
+        exact: true,
+      }),
+    ),
   ]);
 }

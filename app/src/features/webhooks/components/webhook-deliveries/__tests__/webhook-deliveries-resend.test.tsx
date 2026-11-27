@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
 import { delay } from 'msw';
@@ -61,45 +61,96 @@ const olderAttempt: WebhookMessageAttempt = {
   triggerType: 'scheduled',
 };
 
+/** A failed message the provider serves, and how its resends settle. */
+interface ServedMessage {
+  messageId: string;
+  /** Its publication time: the newest is selected first in the dialog. */
+  timestamp: string;
+  /** How long after each resend its attempt is recorded. */
+  settleMs: number;
+  /** An earlier failed attempt, which the list does not carry. */
+  withOlder?: boolean;
+}
+
+const firstMessage: ServedMessage = {
+  messageId: 'msg_1',
+  timestamp: '2026-11-26T11:57:00Z',
+  settleMs: 0,
+};
+
+/** An older failed message of the same webhook. */
+const olderMessage: ServedMessage = {
+  messageId: 'msg_0',
+  timestamp: '2026-11-26T11:56:00Z',
+  settleMs: 0,
+};
+
 /**
- * The delivery provider as the review describes it: one failed message, and a
+ * The delivery provider as the review describes it: failed messages, and a
  * resend whose attempt is recorded only once it completes, `settleMs` after
  * the resend. Until then the message stays failed with its attempts; never
- * sending. `withOlder` adds an earlier failed attempt, and `messageDelayMs`
- * slows the message's reads. Records the query of each read of the list.
+ * sending. A list read without attempts carries no attempt count and no last
+ * attempt, as saas-api answers. `messageDelayMs` slows the message's reads.
+ * Records the query of each read of the list and each message's reads.
  */
 function serveProvider({
+  messages = [firstMessage],
   settleMs,
   withOlder = false,
   messageDelayMs = 0,
 }: {
-  settleMs: number;
+  messages?: ServedMessage[];
+  settleMs?: number;
   withOlder?: boolean;
   messageDelayMs?: number;
 }) {
-  let resentAt: number | undefined;
+  const served = messages.map((message) => ({
+    ...message,
+    settleMs: settleMs ?? message.settleMs,
+    withOlder: message.withOlder ?? withOlder,
+    resentAt: undefined as number | undefined,
+  }));
   const listReads: string[] = [];
-  const attempts = (): WebhookMessageAttempt[] =>
-    resentAt !== undefined && Date.now() >= resentAt + settleMs
-      ? [
-          {
-            id: 'atmpt_2',
-            timestamp: new Date(resentAt + settleMs).toISOString(),
-            status: 'success',
-            responseStatusCode: 200,
-            responseDurationMs: 84,
-            triggerType: 'manual',
-          },
-          failedAttempt,
-          ...(withOlder ? [olderAttempt] : []),
-        ]
-      : [failedAttempt, ...(withOlder ? [olderAttempt] : [])];
+  const messageReads: string[] = [];
+  const find = (messageId: unknown) =>
+    served.find((message) => message.messageId === messageId) ?? served[0];
+  const failedOf = (message: (typeof served)[number]) =>
+    message.messageId === 'msg_1'
+      ? failedAttempt
+      : { ...failedAttempt, id: `${message.messageId}_atmpt_1` };
+  const attempts = (
+    message: (typeof served)[number],
+  ): WebhookMessageAttempt[] => {
+    const known = [
+      failedOf(message),
+      ...(message.withOlder ? [olderAttempt] : []),
+    ];
+    const { resentAt } = message;
+    if (resentAt === undefined || Date.now() < resentAt + message.settleMs) {
+      return known;
+    }
+    return [
+      {
+        id: message.messageId === 'msg_1' ? 'atmpt_2' : `${message.messageId}_atmpt_2`,
+        timestamp: new Date(resentAt + message.settleMs).toISOString(),
+        status: 'success',
+        responseStatusCode: 200,
+        responseDurationMs: 84,
+        triggerType: 'manual',
+      },
+      ...known,
+    ];
+  };
 
   server.use(
     http.get('*/webhooks/:webhookId/messages', ({ request }) => {
+      const query = new URL(request.url).searchParams;
       listReads.push(new URL(request.url).search);
-      const [latest] = attempts();
-      const delivered = latest.status === 'success';
+      const withAttempts = query.get('withAttempts') !== 'false';
+      const latest = served.map((message) => attempts(message)[0]);
+      const delivered = latest.filter(
+        (attempt) => attempt.status === 'success',
+      ).length;
       const answer: WebhookMessageList = {
         webhook: {
           id: webhook.id,
@@ -107,46 +158,57 @@ function serveProvider({
           createdAt: webhook.createdAt,
           updatedAt: webhook.createdAt,
         },
-        messages: [
-          {
-            messageId: 'msg_1',
-            eventType: 'com.kaiten.instance.v1.created',
-            timestamp: '2026-11-26T11:57:00Z',
-            status: latest.status,
-            attemptCount: attempts().length,
-            lastAttempt: latest,
-          },
-        ],
+        messages: served.map((message, index) => ({
+          messageId: message.messageId,
+          eventType: 'com.kaiten.instance.v1.created',
+          timestamp: message.timestamp,
+          status: latest[index].status,
+          ...(withAttempts
+            ? {
+                attemptCount: attempts(message).length,
+                lastAttempt: latest[index],
+              }
+            : {}),
+        })),
         summary: {
-          total: 1,
-          delivered: delivered ? 1 : 0,
-          failed: delivered ? 0 : 1,
+          total: served.length,
+          delivered,
+          failed: served.length - delivered,
           pending: 0,
         },
         hasMore: false,
       };
       return HttpResponse.json(answer);
     }),
-    http.get('*/webhooks/:webhookId/messages/:messageId', async () => {
-      await delay(messageDelayMs);
-      return HttpResponse.json({
-        messageId: 'msg_1',
-        eventType: 'com.kaiten.instance.v1.created',
-        payloadAvailable: true,
-        payload: { id: 'evt_1' },
-        attempts: attempts(),
-      });
-    }),
-    http.post('*/webhooks/:webhookId/messages/:messageId/resend', () => {
-      resentAt = Date.now();
-      return HttpResponse.json(
-        { messageId: 'msg_1', webhookId: webhook.id },
-        { status: 202 },
-      );
-    }),
+    http.get(
+      '*/webhooks/:webhookId/messages/:messageId',
+      async ({ params }) => {
+        messageReads.push(String(params.messageId));
+        await delay(messageDelayMs);
+        const message = find(params.messageId);
+        return HttpResponse.json({
+          messageId: message.messageId,
+          eventType: 'com.kaiten.instance.v1.created',
+          payloadAvailable: true,
+          payload: { id: `evt_${message.messageId}` },
+          attempts: attempts(message),
+        });
+      },
+    ),
+    http.post(
+      '*/webhooks/:webhookId/messages/:messageId/resend',
+      ({ params }) => {
+        const message = find(params.messageId);
+        message.resentAt = Date.now();
+        return HttpResponse.json(
+          { messageId: message.messageId, webhookId: webhook.id },
+          { status: 202 },
+        );
+      },
+    ),
   );
 
-  return { listReads };
+  return { listReads, messageReads };
 }
 
 /** The row's cell and the open dialog under one client, as on the page. */
@@ -323,6 +385,112 @@ describe('a resend from the deliveries dialog', () => {
     expect(screen.getByText(/attempt 2 of 2/)).toBeInTheDocument();
     expect(screen.getByText('Resent manually')).toBeInTheDocument();
     expect(rowSummary('all delivered')).toBeInTheDocument();
+  });
+});
+
+/** The chronology's button of a message, in the deliveries dialog. */
+function deliveryButton(messageId: string): HTMLElement {
+  const button = document.querySelector<HTMLElement>(
+    `button[data-delivery-key="${webhook.id}:${messageId}"]`,
+  );
+  if (!button) {
+    throw new Error(`no delivery ${messageId} in the chronology`);
+  }
+  return button;
+}
+
+async function select(messageId: string) {
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  await user.click(deliveryButton(messageId));
+}
+
+/** The status the detail's head shows: its first badge. */
+function detailStatus() {
+  return screen
+    .getByTestId('webhook-delivery-detail')
+    .querySelector('[data-status]')
+    ?.getAttribute('data-status');
+}
+
+describe('resends of several messages from the deliveries dialog', () => {
+  const twoRate = () => screen.getByText(/^\d+ \/ 2 delivered/);
+
+  it('shows each message settled when shown again, both attempts settling at once', async () => {
+    serveProvider({
+      messages: [
+        { ...firstMessage, settleMs: 1_500 },
+        { ...olderMessage, settleMs: 1_500 },
+      ],
+    });
+    renderRowAndDialog();
+    await waitFor(() => expect(twoRate()).toHaveTextContent(/^0 \/ 2/));
+
+    // The newest, msg_1, is selected first: resent, then msg_0 2 s later.
+    await resend();
+    await advance(1_000);
+    await select('msg_0');
+    await advance(1_000);
+    await resend();
+    await advance(10_000);
+
+    await select('msg_1');
+    await advance(1_000);
+    expect(await screen.findByText(/attempt 2 of 2/)).toBeInTheDocument();
+    expect(detailStatus()).toBe('success');
+    expect(within(deliveryButton('msg_1')).getByText(/2 attempts/)).toBeInTheDocument();
+    expect(twoRate()).toHaveTextContent(/^2 \/ 2 delivered/);
+  });
+
+  it('follows the first message resent when a second one settles first', async () => {
+    serveProvider({
+      messages: [
+        { ...firstMessage, settleMs: 8_000 },
+        { ...olderMessage, settleMs: 1_500 },
+      ],
+    });
+    renderRowAndDialog();
+    await waitFor(() => expect(rowSummary('2 failures')).toBeInTheDocument());
+    await waitFor(() => expect(twoRate()).toHaveTextContent(/^0 \/ 2/));
+
+    await resend();
+    await advance(1_000);
+    await select('msg_0');
+    await advance(1_000);
+    await resend();
+    await advance(20_000);
+
+    expect(twoRate()).toHaveTextContent(/^2 \/ 2 delivered/);
+    expect(
+      within(deliveryButton('msg_1')).getByText(/^200 · 84 ms/),
+    ).toBeInTheDocument();
+    expect(rowSummary('all delivered')).toBeInTheDocument();
+  });
+});
+
+describe("a resend followed with only the row's strip on screen", () => {
+  it('ends a read or two after the attempt settles, once the dialog is closed', async () => {
+    const { listReads, messageReads } = serveProvider({ settleMs: 10_000 });
+    const { close } = renderRowAndDialog();
+    await waitFor(() => expect(rowSummary('1 failure')).toBeInTheDocument());
+    await waitFor(() => expect(dialogRate()).toHaveTextContent(/^0 \/ 1/));
+
+    await resend();
+    const resentAt = Date.now();
+    await advance(2_000);
+    close();
+    // Past the settle at 10 s, short of the next tick.
+    await advance(10_000 - (Date.now() - resentAt) + 100);
+    const stripReads = () =>
+      listReads.filter((search) => search.includes('withAttempts=false'))
+        .length;
+    const readsAtSettle = stripReads();
+    const messageReadsAtSettle = messageReads.length;
+
+    await advance(60_000);
+    expect(rowSummary('all delivered')).toBeInTheDocument();
+    // The tick that sees the attempt, then the read that follows its end.
+    expect(stripReads() - readsAtSettle).toBeLessThanOrEqual(2);
+    expect(messageReads.length - messageReadsAtSettle).toBeLessThanOrEqual(1);
   });
 });
 

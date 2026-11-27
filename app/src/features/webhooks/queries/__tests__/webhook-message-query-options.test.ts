@@ -1,6 +1,6 @@
 import { QueryClient, type QueryKey } from '@tanstack/react-query';
 import { http, HttpResponse } from 'msw/http';
-import { beforeAll, describe, expect, it } from 'vite-plus/test';
+import { beforeAll, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import { configureApiClient } from '@/lib/api/configure-api-client';
 import { ApiError } from '@/lib/errors';
@@ -11,8 +11,14 @@ import {
   WEBHOOK_MESSAGE_NOT_DELIVERED,
   webhookMessageQueryOptions,
 } from '../webhook-message-query-options';
-import { webhookMessagesQueryOptions } from '../webhook-messages-query-options';
-import { invalidateWebhookDeliveryQueries } from '../webhook-query-invalidation';
+import {
+  isMessagesListReadWithAttempts,
+  webhookMessagesQueryOptions,
+} from '../webhook-messages-query-options';
+import {
+  invalidateWatchedDeliveryQueries,
+  invalidateWebhookDeliveryQueries,
+} from '../webhook-query-invalidation';
 import { webhooksQueryOptions } from '../webhooks-query-options';
 
 const problem = (status: number, code: string) =>
@@ -164,5 +170,38 @@ describe('invalidateWebhookDeliveryQueries', () => {
       message: true,
       otherMessage: false,
     });
+  });
+});
+
+describe('invalidateWatchedDeliveryQueries', () => {
+  it('reads the history once, each webhook\'s lists once and each message', async () => {
+    const queryClient = new QueryClient();
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries');
+
+    await invalidateWatchedDeliveryQueries(queryClient, [
+      { webhookId: 'ep_orders', messageId: 'msg_1' },
+      { webhookId: 'ep_orders', messageId: 'msg_2' },
+      { webhookId: 'ep_other', messageId: 'msg_3' },
+    ]);
+
+    expect(invalidate.mock.calls.map(([filters]) => filters)).toEqual([
+      { queryKey: ['webhooks', 'history'], exact: true },
+      { queryKey: ['webhooks', 'messages-list', 'ep_orders'] },
+      { queryKey: ['webhooks', 'messages-list', 'ep_other'] },
+      { queryKey: ['webhooks', 'messages', 'ep_orders', 'msg_1'], exact: true },
+      { queryKey: ['webhooks', 'messages', 'ep_orders', 'msg_2'], exact: true },
+      { queryKey: ['webhooks', 'messages', 'ep_other', 'msg_3'], exact: true },
+    ]);
+  });
+});
+
+describe('isMessagesListReadWithAttempts', () => {
+  it('tells a list read with attempts from the strip read without', () => {
+    const key = (withAttempts: boolean) =>
+      webhookMessagesQueryOptions('ep_orders', { limit: 20, withAttempts })
+        .queryKey;
+
+    expect(isMessagesListReadWithAttempts(key(true))).toBe(true);
+    expect(isMessagesListReadWithAttempts(key(false))).toBe(false);
   });
 });
