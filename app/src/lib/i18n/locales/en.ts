@@ -4746,7 +4746,8 @@ export default {
             },
             webhooks: {
               label: 'Webhooks',
-              description: 'Access to outbound webhook subscriptions',
+              description:
+                "Access to outbound webhooks and their deliveries; read access includes the payloads of delivered events, which can hold your customers' personal data",
             },
             betaFeatures: {
               label: 'Beta features',

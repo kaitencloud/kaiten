@@ -4823,7 +4823,8 @@ export default {
             },
             webhooks: {
               label: 'Webhooks',
-              description: 'Accès aux abonnements webhooks sortants',
+              description:
+                'Accès aux webhooks sortants et à leurs livraisons ; la lecture donne accès au contenu des événements livrés, qui peut contenir des données personnelles de vos clients',
             },
             betaFeatures: {
               label: 'Fonctionnalités bêta',

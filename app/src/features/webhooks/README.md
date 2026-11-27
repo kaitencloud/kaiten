@@ -75,7 +75,7 @@ The form's schema, `webhookFormSchema` (`schemas/webhook-form.schema.ts`), is a 
 
 The feature has no GraphQL document.
 
-Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/lib/api/scopes.gen.ts`). No operation of `api/` enforces them (see `Webhooks` in `api/pkg/scope/scope.go`); saas-api, which serves these paths, asks `read:webhooks` for the reads and `write:webhooks` for the writes and the resend. The screens check one scope themselves: Resend is disabled, with the reason, for a session whose token lacks `write:webhooks` (`WRITE_WEBHOOKS_SCOPE`, `useGrantedScopes`); the other writes are offered and refused by the API. A delivery's payload is customer data readable under `read:webhooks`: it is never logged, kept in no store and dropped from memory a minute after its dialog closes.
+Scopes: the token picker offers `read:webhooks` and `write:webhooks` (`app/src/lib/api/scopes.gen.ts`). No operation of `api/` enforces them (see `Webhooks` in `api/pkg/scope/scope.go`); saas-api, which serves these paths, asks `read:webhooks` for the reads and `write:webhooks` for the writes and the resend. The screens check one scope themselves: Resend is disabled, with the reason, for a session whose token lacks `write:webhooks` (`WRITE_WEBHOOKS_SCOPE`, `useGrantedScopes`); the other writes are offered and refused by the API. A delivery's payload is customer data readable under `read:webhooks`, which the picker's description of the scope says: it is never logged, kept in no store and dropped from memory a minute after its dialog closes.
 
 ## Behaviour
 

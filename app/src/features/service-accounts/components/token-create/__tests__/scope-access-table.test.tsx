@@ -34,6 +34,16 @@ describe('ScopeAccessTable', () => {
     expect(rowFor('Webhooks')).toBeInTheDocument();
   });
 
+  it('says that reading webhooks reads the payloads of delivered events', () => {
+    renderTableWith(true);
+
+    expect(
+      screen.getByText(
+        /read access includes the payloads of delivered events, which can hold your customers' personal data/,
+      ),
+    ).toBeInTheDocument();
+  });
+
   it.each<[string, boolean | undefined]>([
     ['a self-hosted deployment, or a licence granting 0 webhook events', false],
     ['an answer still being read', undefined],
