@@ -1,5 +1,5 @@
-export type { CreateWebhookFormValues } from './create-webhook.schema';
+export type { WebhookFormValues } from './webhook-form.schema';
 export {
-  createWebhookFormSchema,
-  initialCreateWebhookFormValues,
-} from './create-webhook.schema';
+  initialWebhookFormValues,
+  webhookFormSchema,
+} from './webhook-form.schema';

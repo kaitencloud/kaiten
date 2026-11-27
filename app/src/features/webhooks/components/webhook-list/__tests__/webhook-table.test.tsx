@@ -7,19 +7,21 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import type { ComponentProps } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import type { Webhook } from '../../../types';
 import { WebhookTable } from '../webhook-table';
 
 const {
   clipboardWriteTextMock,
+  getWebhookMessagesMock,
   getWebhookMock,
   toastErrorMock,
   toastSuccessMock,
   useEllipsisMock,
 } = vi.hoisted(() => ({
   clipboardWriteTextMock: vi.fn(),
+  getWebhookMessagesMock: vi.fn(),
   getWebhookMock: vi.fn(),
   toastErrorMock: vi.fn(),
   toastSuccessMock: vi.fn(),
@@ -36,8 +38,33 @@ vi.mock('../../../webhooks.api', async (importOriginal) => {
   return {
     ...actual,
     getWebhook: getWebhookMock,
+    getWebhookMessages: getWebhookMessagesMock,
   };
 });
+
+// The Edit action is a router link: rendered as a plain anchor, with the
+// params put into the path, so the test needs no router.
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    params,
+    preload: _preload,
+    to,
+    ...props
+  }: {
+    children: ReactNode;
+    params?: Record<string, string>;
+    preload?: unknown;
+    to: string;
+  }) => (
+    <a
+      {...props}
+      href={to.replace('$webhookId', params?.webhookId ?? '$webhookId')}
+    >
+      {children}
+    </a>
+  ),
+}));
 
 vi.mock('sonner', () => ({
   toast: {
@@ -46,13 +73,10 @@ vi.mock('sonner', () => ({
   },
 }));
 
-vi.mock('react-i18next', () => ({
-  initReactI18next: {
-    init: () => undefined,
-    type: '3rdParty',
-  },
-  useTranslation: () => ({
-    t: (key: string, options?: unknown) => {
+// One `t` for every render, as react-i18next's own: the columns depend on it,
+// and a new `t` per render would rebuild them and remount every cell.
+vi.mock('react-i18next', () => {
+  const t = (key: string, options?: unknown) => {
       if (typeof options === 'string') {
         return options;
       }
@@ -73,8 +97,18 @@ vi.mock('react-i18next', () => ({
         'Pages.Integrations.Webhooks.EventGroups.customer': 'Customers',
         'Pages.Integrations.Webhooks.EventGroups.instance': 'Instances',
         'Pages.Integrations.Webhooks.EventGroups.other': 'Other events',
+        'Pages.Integrations.Webhooks.Deliveries.cell.allDelivered':
+          'all delivered',
+        'Pages.Integrations.Webhooks.Deliveries.cell.ariaLabel':
+          'Deliveries of {{host}}: {{summary}}. Open details.',
+        'Pages.Integrations.Webhooks.Deliveries.cell.none': 'No deliveries yet',
+        'Pages.Integrations.Webhooks.Deliveries.cell.summary':
+          '{{when}} · {{outcome}}',
         'Pages.Integrations.Webhooks.Table.created': 'Created',
+        'Pages.Integrations.Webhooks.Table.deliveries': 'Deliveries',
+        'Pages.Integrations.Webhooks.Table.edit': 'Edit webhook {{host}}',
         'Pages.Integrations.Webhooks.Table.events': 'Events',
+        'Pages.Integrations.Webhooks.Table.everyEvent': 'Every event',
         'Pages.Integrations.Webhooks.Table.signingSecret': 'Signing secret',
         'Pages.Integrations.Webhooks.Table.showSigningSecret':
           'Show signing secret',
@@ -91,10 +125,25 @@ vi.mock('react-i18next', () => ({
         'Pages.Integrations.Webhooks.Table.url': 'URL',
       };
 
-      return translations[key] ?? key;
+      const text = translations[key] ?? key;
+
+      return typeof options === 'object' && options !== null
+        ? Object.entries(options).reduce(
+            (result, [name, value]) =>
+              result.replace(`{{${name}}}`, String(value)),
+            text,
+          )
+        : text;
+  };
+
+  return {
+    initReactI18next: {
+      init: () => undefined,
+      type: '3rdParty',
     },
-  }),
-}));
+    useTranslation: () => ({ t }),
+  };
+});
 
 const webhooks: Webhook[] = [
   {
@@ -105,7 +154,35 @@ const webhooks: Webhook[] = [
   },
 ];
 
-function renderWebhookTable(props: ComponentProps<typeof WebhookTable>) {
+/** A list of messages, as `GET /webhooks/{id}/messages` answers it. */
+function messageList(webhookId: string, messageIds: string[]) {
+  return {
+    webhook: {
+      id: webhookId,
+      url: 'https://example.com/hook',
+      createdAt: '2026-02-25T00:00:00Z',
+      updatedAt: '2026-02-25T00:00:00Z',
+    },
+    messages: messageIds.map((messageId, index) => ({
+      messageId,
+      eventType: 'com.kaiten.customer.v1.created',
+      timestamp: new Date(Date.UTC(2026, 1, 25, 10, index)).toISOString(),
+      status: 'success',
+    })),
+    summary: {
+      total: messageIds.length,
+      delivered: messageIds.length,
+      failed: 0,
+      pending: 0,
+    },
+    hasMore: false,
+  };
+}
+
+function renderWebhookTable(
+  props: Omit<ComponentProps<typeof WebhookTable>, 'onOpenDeliveries'> &
+    Partial<Pick<ComponentProps<typeof WebhookTable>, 'onOpenDeliveries'>>,
+) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -116,7 +193,7 @@ function renderWebhookTable(props: ComponentProps<typeof WebhookTable>) {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <WebhookTable {...props} />
+      <WebhookTable onOpenDeliveries={vi.fn()} {...props} />
     </QueryClientProvider>,
   );
 }
@@ -126,6 +203,10 @@ describe('WebhookTable', () => {
     clipboardWriteTextMock.mockReset();
     clipboardWriteTextMock.mockResolvedValue(undefined);
     getWebhookMock.mockReset();
+    getWebhookMessagesMock.mockReset();
+    getWebhookMessagesMock.mockImplementation((webhookId: string) =>
+      Promise.resolve(messageList(webhookId, [])),
+    );
     toastErrorMock.mockReset();
     toastSuccessMock.mockReset();
     useEllipsisMock.mockReset();
@@ -152,6 +233,9 @@ describe('WebhookTable', () => {
       screen.getByRole('columnheader', { name: 'URL' }),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole('columnheader', { name: 'Deliveries' }),
+    ).toBeInTheDocument();
+    expect(
       screen.getByRole('columnheader', { name: 'Signing secret' }),
     ).toBeInTheDocument();
     expect(
@@ -163,6 +247,16 @@ describe('WebhookTable', () => {
 
     expect(screen.getByText('CUSTOMER_CREATED')).toBeInTheDocument();
     expect(screen.getByText('https://example.com/hook')).toBeInTheDocument();
+  });
+
+  it('says a webhook without an event filter receives every event', () => {
+    renderWebhookTable({
+      webhooks: [{ ...webhooks[0]!, eventTypes: [] }],
+      onDelete: vi.fn(),
+    });
+
+    const row = screen.getAllByRole('row')[1]!;
+    expect(within(row).getByText('Every event')).toBeVisible();
   });
 
   it('shows a grouped tooltip when the event summary is truncated', async () => {
@@ -260,6 +354,31 @@ describe('WebhookTable', () => {
     expect(toastSuccessMock).toHaveBeenCalledWith('Signing secret copied');
   });
 
+  it('links each row to the edit page of its webhook, named by its host', () => {
+    renderWebhookTable({
+      webhooks: [
+        {
+          createdAt: '2026-02-25',
+          eventTypes: ['com.kaiten.customer.v1.created'],
+          id: 'webhook-1',
+          url: 'https://hooks.slack.com/services/T000/B000/secret-path',
+        },
+      ],
+      onDelete: vi.fn(),
+    });
+
+    const edit = screen.getByRole('link', {
+      name: 'Edit webhook hooks.slack.com',
+    });
+
+    expect(edit).toHaveAttribute(
+      'href',
+      '/integrations/webhooks/webhook-1/edit',
+    );
+    // The label never repeats the URL: its path is a credential.
+    expect(edit.getAttribute('aria-label')).not.toContain('secret-path');
+  });
+
   it('calls onDelete when clicking delete action', () => {
     const onDelete = vi.fn();
 
@@ -277,5 +396,80 @@ describe('WebhookTable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Confirm' }));
 
     expect(onDelete).toHaveBeenCalledWith('webhook-1');
+  });
+  it('reads the recent deliveries of each row and opens them from its cell', async () => {
+    const user = userEvent.setup();
+    const onOpenDeliveries = vi.fn();
+    getWebhookMessagesMock.mockImplementation((webhookId: string) =>
+      Promise.resolve(messageList(webhookId, ['msg_1', 'msg_2'])),
+    );
+
+    renderWebhookTable({ webhooks, onDelete: vi.fn(), onOpenDeliveries });
+
+    const open = await screen.findByRole('button', {
+      name: /^Deliveries of example\.com: .* · all delivered\. Open details\.$/,
+    });
+    expect(getWebhookMessagesMock).toHaveBeenCalledWith('webhook-1', {
+      limit: 20,
+      withAttempts: false,
+    });
+
+    await user.click(open);
+
+    expect(onOpenDeliveries).toHaveBeenCalledWith('webhook-1');
+  });
+
+  it('keeps the state of a row with its webhook when the rows are reordered', async () => {
+    const user = userEvent.setup();
+    const first: Webhook = {
+      createdAt: '2026-02-25',
+      eventTypes: ['com.kaiten.customer.v1.created'],
+      id: 'webhook-1',
+      url: 'https://example.com/first',
+    };
+    const second: Webhook = {
+      createdAt: '2026-02-24',
+      eventTypes: ['com.kaiten.customer.v1.updated'],
+      id: 'webhook-2',
+      url: 'https://example.com/second',
+    };
+    getWebhookMock.mockResolvedValue({ ...first, signingSecret: 'whsec_first' });
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const onDelete = vi.fn();
+    const onOpenDeliveries = vi.fn();
+    const { rerender } = render(
+      <QueryClientProvider client={queryClient}>
+        <WebhookTable
+          onDelete={onDelete}
+          onOpenDeliveries={onOpenDeliveries}
+          webhooks={[first, second]}
+        />
+      </QueryClientProvider>,
+    );
+
+    const firstRow = () =>
+      screen.getByText('https://example.com/first').closest('tr');
+    await user.click(
+      within(firstRow() as HTMLElement).getByRole('button', {
+        name: 'Show signing secret',
+      }),
+    );
+    await screen.findByText('whsec_first');
+
+    rerender(
+      <QueryClientProvider client={queryClient}>
+        <WebhookTable
+          onDelete={onDelete}
+          onOpenDeliveries={onOpenDeliveries}
+          webhooks={[second, first]}
+        />
+      </QueryClientProvider>,
+    );
+
+    expect(
+      within(firstRow() as HTMLElement).getByText('whsec_first'),
+    ).toBeInTheDocument();
   });
 });

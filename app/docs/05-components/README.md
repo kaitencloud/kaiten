@@ -30,7 +30,7 @@ The table components are not here: they live in the `table` functional, see [Tab
 
 The shell of the create and edit dialogs of the entities (customers, instances, entitlements, deployment zones, components) is not in this folder: it is `StackedFormDialog`, a functional, described in [functionals](../01-architecture/functionals.md) and [the dialog shell](../03-patterns/dialog-via-route.md#the-dialog-shell). Those dialogs open from a route: see [dialog via route](../03-patterns/dialog-via-route.md).
 
-`FormDialog` shells other forms, for example `app/src/features/feature-flags/targeting/components/targeting-form-dialog.tsx`, `app/src/features/webhooks/components/webhook-list/create-webhook-dialog.tsx` and `app/src/features/connectors/attio/components/attio-mapping-editor-dialog.tsx`. Smaller action and secondary dialogs are written directly with the `Dialog` primitives and `DialogContent variant="form"`, as `app/src/features/licenses/components/entitlements/add-entitlement-dialog.tsx` does.
+`FormDialog` shells other forms, for example `app/src/features/feature-flags/targeting/components/targeting-form-dialog.tsx` and `app/src/features/connectors/attio/components/attio-mapping-editor-dialog.tsx`. Smaller action and secondary dialogs are written directly with the `Dialog` primitives and `DialogContent variant="form"`, as `app/src/features/licenses/components/entitlements/add-entitlement-dialog.tsx` does.
 
 ## Route components
 

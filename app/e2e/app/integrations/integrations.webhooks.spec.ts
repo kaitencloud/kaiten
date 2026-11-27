@@ -39,9 +39,13 @@ for (const [where, installWebhooks] of hidden) {
       await expect(nav.entry('Webhooks')).toHaveCount(0);
     });
 
+    // The create and edit pages leave the layout of the list (`webhooks_`)
+    // and so its guard: each asks for itself.
     for (const path of [
       '/integrations/webhooks',
       '/integrations/webhooks/history',
+      '/integrations/webhooks/new',
+      '/integrations/webhooks/ep_unknown/edit',
     ]) {
       test(`answers ${path} with the not-found page`, async ({ page }) => {
         await page.goto(path);

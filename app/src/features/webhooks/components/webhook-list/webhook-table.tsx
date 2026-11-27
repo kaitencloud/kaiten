@@ -14,23 +14,25 @@ import {
   createActionsColumn,
   DataTable,
   dataTableSortableHeader,
-  TableActions,
-  TableDeleteDialog,
 } from '@/functionals/table';
 import { useEllipsis } from '@/hooks/use-ellipsis';
 import { cn } from '@/lib/utils';
 import type { Webhook } from '../../types';
+import { WebhookDeliveriesCell } from '../webhook-deliveries';
 import { WEBHOOK_EVENT_GROUPS } from '../../utils/webhook-event-catalogue';
 import {
   getWebhookEvent,
   getWebhookEventGroupLabel,
 } from '../../utils/webhook-events';
 import { WebhookSigningSecretCell } from './webhook-signing-secret-cell';
+import { WebhookTableActions } from './webhook-table-actions';
 
 interface WebhookTableProps {
   className?: string;
   webhooks: Webhook[];
   onDelete: (webhookId: string) => void;
+  /** Opens the deliveries dialog of a webhook, from its Deliveries cell. */
+  onOpenDeliveries: (webhookId: string) => void;
 }
 
 type WebhookEventGroupView = {
@@ -40,8 +42,8 @@ type WebhookEventGroupView = {
 };
 
 // A webhook's events as its tooltip lists them: by group, under the title the
-// subscription dialog uses, by the name each event carries in its payload.
-// Events the dialog does not offer, and types this build does not know, close
+// event picker uses, by the name each event carries in its payload.
+// Events the picker does not offer, and types this build does not know, close
 // the list under "Other events", the latter as their raw type.
 function buildWebhookEventGroups(
   eventTypes: string[],
@@ -141,7 +143,18 @@ function WebhookEventsSummaryText({
 }
 
 function WebhookEventsCell({ webhook }: { webhook: Webhook }) {
+  const { t } = useTranslation();
   const ellipsis = useEllipsis();
+
+  // No event filter: the webhook receives every event, which an empty cell
+  // would read as none.
+  if (webhook.eventTypes.length === 0) {
+    return (
+      <span className="block text-sm leading-6 text-muted-foreground">
+        {t('Pages.Integrations.Webhooks.Table.everyEvent')}
+      </span>
+    );
+  }
 
   if (!ellipsis.isEllipsis) {
     return (
@@ -196,23 +209,22 @@ function WebhookCreatedAtCell({ webhook }: { webhook: Webhook }) {
   );
 }
 
-function createWebhookActionsCell(onDelete: (webhookId: string) => void) {
-  return (webhook: Webhook) => {
-    function handleConfirm() {
-      onDelete(webhook.id);
-    }
+// Rows hold state (a revealed secret, a focused Deliveries button): keyed by
+// webhook, they keep it when the list is refetched or reordered.
+function getWebhookRowId(webhook: Webhook) {
+  return webhook.id;
+}
 
-    return (
-      <TableActions>
-        <TableDeleteDialog name={webhook.url} onConfirm={handleConfirm} />
-      </TableActions>
-    );
-  };
+function createWebhookActionsCell(onDelete: (webhookId: string) => void) {
+  return (webhook: Webhook) => (
+    <WebhookTableActions webhook={webhook} onDelete={onDelete} />
+  );
 }
 
 const createColumns = (
   t: TFunction,
   onDelete: (webhookId: string) => void,
+  onOpenDeliveries: (webhookId: string) => void,
 ): ColumnDef<Webhook>[] => [
   {
     accessorKey: 'eventTypes',
@@ -220,7 +232,7 @@ const createColumns = (
     header: t('Pages.Integrations.Webhooks.Table.events'),
     cell: ({ row }) => <WebhookEventsCell webhook={row.original} />,
     meta: {
-      headerClassName: 'w-[34%]',
+      headerClassName: 'w-[22%]',
       cellClassName: 'align-top',
     },
   },
@@ -230,7 +242,19 @@ const createColumns = (
     header: t('Pages.Integrations.Webhooks.Table.url'),
     cell: ({ row }) => <WebhookUrlCell webhook={row.original} />,
     meta: {
-      headerClassName: 'w-[30%]',
+      headerClassName: 'w-[20%]',
+      cellClassName: 'align-top',
+    },
+  },
+  {
+    id: 'deliveries',
+    enableSorting: false,
+    header: t('Pages.Integrations.Webhooks.Table.deliveries'),
+    cell: ({ row }) => (
+      <WebhookDeliveriesCell onOpen={onOpenDeliveries} webhook={row.original} />
+    ),
+    meta: {
+      headerClassName: 'w-[14rem]',
       cellClassName: 'align-top',
     },
   },
@@ -240,7 +264,7 @@ const createColumns = (
     header: t('Pages.Integrations.Webhooks.Table.signingSecret'),
     cell: ({ row }) => <WebhookSigningSecretCell webhook={row.original} />,
     meta: {
-      headerClassName: 'w-[24%]',
+      headerClassName: 'w-[16%]',
       cellClassName: 'align-top',
     },
   },
@@ -263,15 +287,20 @@ export function WebhookTable({
   className,
   webhooks,
   onDelete,
+  onOpenDeliveries,
 }: WebhookTableProps) {
   const { t } = useTranslation();
-  const columns = useMemo(() => createColumns(t, onDelete), [onDelete, t]);
+  const columns = useMemo(
+    () => createColumns(t, onDelete, onOpenDeliveries),
+    [onDelete, onOpenDeliveries, t],
+  );
 
   return (
     <DataTable
       className={className}
       columns={columns}
       data={webhooks}
+      getRowId={getWebhookRowId}
       bodyScrollable
       tableClassName="table-fixed"
     />

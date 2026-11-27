@@ -59,6 +59,14 @@ import {
   createVouchersNotShippedBillingModel,
 } from '../vouchers/vouchers.scenarios';
 import {
+  createWebhooksDeliveriesModel,
+  createWebhooksDeliveriesUnavailableModel,
+  createWebhooksFormModel,
+  createWebhooksLegacyHistoryModel,
+  createWebhookWithOtherEventsModel,
+  createWebhookWithoutFilterModel,
+} from '../webhooks/webhooks.scenarios';
+import {
   createCheckoutSessionsBillingModel,
   createCheckoutSessionsCustomersModel,
   createEmptyCheckoutSessionsBillingModel,
@@ -380,6 +388,21 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     () => createPlanSessionRefusedModel('notEnabled'),
   ],
   ['plan/createPlanUnavailableOnceModel', createPlanUnavailableOnceModel],
+  ['webhooks/createWebhooksFormModel', createWebhooksFormModel],
+  [
+    'webhooks/createWebhookWithOtherEventsModel',
+    createWebhookWithOtherEventsModel,
+  ],
+  ['webhooks/createWebhookWithoutFilterModel', createWebhookWithoutFilterModel],
+  ['webhooks/createWebhooksDeliveriesModel', createWebhooksDeliveriesModel],
+  [
+    'webhooks/createWebhooksLegacyHistoryModel',
+    createWebhooksLegacyHistoryModel,
+  ],
+  [
+    'webhooks/createWebhooksDeliveriesUnavailableModel',
+    createWebhooksDeliveriesUnavailableModel,
+  ],
   ['licenses/createPublicPaidCatalogModel', createPublicPaidCatalogModel],
   [
     'release-management/createReleaseManagementReadModel',

@@ -106,6 +106,9 @@ export const getWebhookHistorySearchTokens = (
     event ? getWebhookEventGroupLabel(event.group, t) : '',
     entry.responseStatusText ?? '',
     entry.responseStatusCode?.toString() ?? '',
+    // Support pastes a Svix id to find a delivery.
+    entry.messageId ?? '',
+    entry.attemptId ?? '',
   ];
 };
 

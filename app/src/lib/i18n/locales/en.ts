@@ -4782,7 +4782,7 @@ export default {
         title: 'Event Webhooks',
         description:
           'Configure webhooks to be triggered when specific lifecycle events occur. You can select multiple events for a single webhook.',
-        newButton: 'New  Webhook',
+        newButton: 'New Webhook',
         emptyState: 'No webhooks configured yet.',
         emptyStateHint:
           'Create a webhook to receive notifications when events occur.',
@@ -4827,23 +4827,179 @@ export default {
           signingSecretCopied: 'Signing secret copied',
           signingSecretLoadError: 'Failed to load signing secret',
           signingSecretCopyError: 'Failed to copy signing secret',
+          edit: 'Edit webhook {{host}}',
+          deliveries: 'Deliveries',
+          everyEvent: 'Every event',
         },
-        Dialog: {
-          title: 'New Webhook',
-          description:
-            'Configure a webhook to receive notifications when lifecycle events occur. Select one or more events to trigger this webhook.',
-          eventsLabel: 'Events',
-          eventsSelected: 'selected',
-          selectedEvents: 'Selected events',
-          selectedEventsPlaceholder: 'No events selected yet.',
-          eventsRequired: 'Select at least one event.',
-          urlLabel: 'Webhook URL',
-          urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
-          urlRequired: 'Webhook URL is required.',
-          urlInvalid: 'Enter a valid URL.',
-          urlDescription:
-            'The webhook will receive a POST request with the event payload when any of the selected events occur',
+        Form: {
+          titleNew: 'New Webhook',
+          titleEdit: 'Edit Webhook',
+          descriptionNew:
+            'Choose the events you want to receive and the URL that receives them.',
+          descriptionEdit:
+            'Change the URL or the events. The signing secret stays the same.',
           createButton: 'Create Webhook',
+          createSuccess: 'Webhook created',
+          updateSuccess: 'Webhook updated',
+          eventsRequired: 'Select at least one event.',
+          urlRequired: 'Webhook URL is required.',
+          urlInvalid: 'Enter a valid http or https URL.',
+          destination: {
+            title: 'Destination',
+            urlLabel: 'Webhook URL',
+            urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
+            urlDescription:
+              'The webhook receives a POST request with the event payload when any of the selected events occurs.',
+            chatNoticeTitle: 'Sent as chat messages',
+            chatNotice:
+              'This is a {{service}} incoming webhook. Kaiten formats each event as a {{service}} message instead of sending the raw event.',
+          },
+          events: {
+            title: 'Events',
+            description: 'Choose the events that trigger this webhook.',
+            keepEveryEvent: 'Keep receiving every event',
+            keepEveryEventDescription:
+              'This webhook has no event filter: it receives every event, including the event types added later.',
+            narrowingNotice:
+              'Saving limits this webhook to the events you choose. The console cannot make it receive every event again.',
+          },
+          picker: {
+            searchLabel: 'Search events',
+            searchPlaceholder: 'Search by label, name or type',
+            searchClear: 'Clear search',
+            searchResults_one: '{{count}} event matches',
+            searchResults_other: '{{count}} events match',
+            noResults: 'No event matches “{{query}}”.',
+            presets: {
+              label: 'Presets',
+              instanceLifecycle: 'Instance lifecycle',
+              billing: 'Billing',
+              usageAlerts: 'Usage alerts',
+            },
+            presetCount: '{{count}} events',
+            selectGroup: 'Select all {{group}} events',
+            selectMatching: 'Select the matching {{group}} events',
+            groupCount: '{{selected}} / {{total}}',
+            groupCountLabel: '{{selected}} of {{total}} selected',
+            otherNote:
+              'Already subscribed, but not offered by this console. Untick to remove.',
+          },
+          selection: {
+            title: 'Selection',
+            count_one: '{{count}} event selected',
+            count_other: '{{count}} events selected',
+            empty: 'No events selected yet.',
+            everyEvent: 'Every event',
+            clear: 'Clear all',
+            allOfGroup: 'All {{count}} events',
+            removeEvent: 'Remove {{event}}',
+            removeGroup: 'Remove all {{count}} {{group}} events',
+          },
+        },
+        Deliveries: {
+          title: 'Deliveries',
+          cell: {
+            none: 'No deliveries yet',
+            loadError: 'Deliveries unavailable',
+            summary: '{{when}} · {{outcome}}',
+            allDelivered: 'all delivered',
+            failures_one: '{{count}} failure',
+            failures_other: '{{count}} failures',
+            retrying_one: '{{count}} retrying',
+            retrying_other: '{{count}} retrying',
+            inFlight_one: '{{count}} in flight',
+            inFlight_other: '{{count}} in flight',
+            ariaLabel: 'Deliveries of {{host}}: {{summary}}. Open details.',
+            tooltip_one:
+              'Last delivery: {{delivered}} delivered, {{failed}} failed, {{retrying}} retrying, {{inFlight}} in flight.',
+            tooltip_other:
+              'Last {{count}} deliveries: {{delivered}} delivered, {{failed}} failed, {{retrying}} retrying, {{inFlight}} in flight.',
+          },
+          Dialog: {
+            rate: '{{delivered}} / {{total}} delivered · {{percent}}',
+            rateHint_one: 'Over the most recent delivery of this webhook.',
+            rateHint_other:
+              'Over the {{count}} most recent deliveries of this webhook.',
+            empty:
+              "No deliveries yet. They appear here after one of this webhook's events is published.",
+            loadError: 'Failed to load the deliveries.',
+            back: 'Back to deliveries',
+          },
+          Chronology: {
+            label: 'Deliveries',
+            created: 'Webhook created',
+            updated: 'Webhook updated',
+            older: 'Older deliveries are not shown',
+          },
+          Outcome: {
+            duration: '{{value}} ms',
+            attempts_one: '{{count}} attempt',
+            attempts_other: '{{count}} attempts',
+            noResponse: 'No response',
+            pending: 'Pending · attempt {{count}}',
+            sending: 'Sending · attempt {{count}}',
+            retrying_one: 'Retrying after {{count}} attempt',
+            retrying_other: 'Retrying after {{count}} attempts',
+            nextAttempt: 'next attempt {{when}}',
+          },
+          Detail: {
+            title: 'Delivery details',
+            description: '{{eventName}} on {{deliveredAt}}',
+            unknownEvent: 'Unknown event',
+            messageId: 'Message ID',
+            resend: 'Resend',
+            resending: 'Resending…',
+            resendNoMessage:
+              'This delivery cannot be resent: the API did not report its message.',
+            resendNoScope:
+              'Your token needs the write:webhooks scope to resend a delivery.',
+            resendSending: 'This delivery is being sent.',
+            resendNoBody:
+              'This delivery cannot be resent: its body is no longer available.',
+            bodySent: 'Body sent',
+            bodyFidelity:
+              'Re-serialized by the delivery provider: equivalent to what was sent, but not byte-identical, so it cannot be used to verify the signature.',
+            bodyLabel: 'Body sent, as JSON',
+            chatEvent: 'Event',
+            chatEventHint:
+              'This endpoint receives a {{service}} message built from this event; the message itself is not kept.',
+            chatEventLabel: 'Event, as JSON',
+            copyBody: 'Copy body',
+            bodyCopied: 'Body copied',
+            bodyCopyError: 'Failed to copy body',
+            bodyGone: 'Body no longer available',
+            bodyGoneHint:
+              'The delivery provider only keeps message bodies for a limited time, so this one can no longer be shown. The attempts and responses below are still available.',
+            bodyNotReported:
+              'This version of the API does not report the message of a delivery, so its body cannot be loaded. The attempts and responses below come from the history.',
+            deliveryNotFound:
+              'This delivery can no longer be found. The webhook may have been deleted, or the delivery provider no longer keeps it.',
+            bodyLoadError: 'Failed to load the body.',
+            response: 'Response · attempt {{index}} of {{count}}',
+            responseBodyLabel: 'Response body of the endpoint',
+            noResponseBody: 'The endpoint returned no body.',
+            noResponseReceived: 'The endpoint did not answer.',
+            resentManually: 'Resent manually',
+            attempts: 'Attempts',
+            attemptLabel: 'Show attempt {{index}}',
+            noAttempt: 'No attempt yet.',
+            Columns: {
+              attempt: 'Attempt',
+              time: 'Time',
+              trigger: 'Trigger',
+              result: 'Result',
+              duration: 'Duration',
+            },
+            resendQueued: 'Resend queued. The new attempt will appear shortly.',
+            resendPayloadUnavailable:
+              'The body of this delivery is no longer available, so it cannot be resent.',
+            resendNotDelivered:
+              'This delivery can no longer be resent. It may have been removed.',
+          },
+          Trigger: {
+            scheduled: 'Scheduled',
+            manual: 'Manual',
+          },
         },
         History: {
           sectionTitle: 'Webhooks history',
@@ -4872,23 +5028,17 @@ export default {
             pending: 'Pending',
             fail: 'Fail',
             sending: 'Sending',
+            retrying: 'Retrying',
           },
           Table: {
             date: 'Date',
             hookUrl: 'Hook URL',
             event: 'Event',
             status: 'Status',
-            failureInfo: 'Failure info',
+            response: 'Response',
             actions: 'Actions',
             viewDetails: 'View details',
             emptyState: 'No deliveries match the selected filters.',
-          },
-          FailureDialog: {
-            title: 'Failed delivery details',
-            description: '{{eventName}} at {{deliveredAt}}',
-            hookLabel: 'Webhook:',
-            statusCodeLabel: 'HTTP status:',
-            responseLabel: 'Response:',
           },
         },
       },

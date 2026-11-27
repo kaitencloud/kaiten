@@ -15,7 +15,7 @@ type WebhookEventTypeOf<Name extends AuditEventName> = Extract<
   { body: { name: Name } }
 >['key'];
 
-/** The groups the subscription dialog lists events under, in display order. */
+/** The groups the event picker lists events under, in display order. */
 export const WEBHOOK_EVENT_GROUPS = [
   'model',
   'customer',
@@ -51,14 +51,14 @@ export type WebhookEventEntries<Name extends AuditEventName = AuditEventName> =
   };
 
 // Every event the API emits: the type a subscription names it by, and the
-// group the dialog lists it under.
+// group the event picker lists it under.
 //
 // The OpenAPI document declares each event as a webhook whose body pins both
 // its name and its type, so the compiler checks both halves of every pair
 // below: a new event fails typecheck here until it is listed, and a mistyped
 // type fails it too.
 //
-// A null group keeps an event out of the dialog: ENTITLEMENT_VALUE_GET fires on
+// A null group keeps an event out of the picker: ENTITLEMENT_VALUE_GET fires on
 // every entitlement read and FEATURE_FLAG_EVALUATED on every evaluation, so a
 // subscription to either would receive a request for each one. The API still
 // accepts them for a caller that means it.

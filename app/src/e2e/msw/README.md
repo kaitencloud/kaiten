@@ -188,7 +188,12 @@ and due date differ, one whose push keeps failing and a held draft, and customer
 `connectedLive`, `notEntitled` or `vaultMissing`, `dev.ts`). `src/__tests__/dev-world.test.ts` builds that world through the
 models, which check it against the contract, and checks that its references
 resolve. E2E defaults unmocked platform flags off and the webhooks routes to 404
-(no saas-api), answers the billing capabilities with billing off (the shell reads
+(no saas-api) unless a spec installs the `webhooks` model (`webhooks-handlers.ts`,
+registered before the integration stubs: the webhooks, their message lists, one
+message, the resend that settles on the message's second read, and the history
+derived from the same attempts, each checking the token's `read:webhooks` or
+`write:webhooks` as saas-api does) or a webhooks stub, answers the billing
+capabilities with billing off (the shell reads
 them on every page; the unit network and the stories' network do the same) and
 fails undeclared API requests with a network error; the shared Playwright fixture fails on the
 named console error. Explicit shell fallbacks run after model owners.

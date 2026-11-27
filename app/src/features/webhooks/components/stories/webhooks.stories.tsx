@@ -3,16 +3,18 @@ import { expect, within } from 'storybook/test';
 import { HttpResponse, http } from 'msw/http';
 import { useState } from 'react';
 import {
+	buildStoryMessageList,
 	storyApiWebhooks,
 	storyWebhookHistory,
+	storyWebhookMessages,
+	storyWebhookReleaseMessage,
 	storyWebhooks,
 } from './webhooks.fixtures';
 import { findVisibleByRole } from '@/test-fixtures/storybook-test-utils';
-import type { WebhookHistoryEntry } from '../../types';
 import { StorybookRouter } from '@/test-fixtures/storybook-router';
-import { WebhookHistoryFailureDialog } from '../webhook-history/webhook-history-failure-dialog';
+import { deliveryFromHistoryEntry } from '../../utils/webhook-deliveries';
+import { WebhookDeliveryDetailDialog } from '../webhook-deliveries';
 import { WebhookHistorySection } from '../webhook-history/webhook-history-section';
-import { CreateWebhookDialog } from '../webhook-list/create-webhook-dialog';
 import { WebhookList } from '../webhook-list/webhook-list';
 import { WebhookListContent } from '../webhook-list/webhook-list-content';
 import { WebhookTable } from '../webhook-list/webhook-table';
@@ -30,6 +32,39 @@ const meta = {
 				http.get('*/api/webhooks', () => HttpResponse.json(storyApiWebhooks)),
 				http.get('*/api/webhooks/history', () =>
 					HttpResponse.json({ history: storyWebhookHistory }),
+				),
+				http.get('*/api/webhooks/:webhookId/messages', ({ params, request }) => {
+					const webhook = storyApiWebhooks.find(
+						(item) => item.id === params.webhookId,
+					);
+					return webhook
+						? HttpResponse.json(
+								buildStoryMessageList(
+									webhook,
+									storyWebhookMessages[webhook.id] ?? [],
+									{
+										withAttempts:
+											new URL(request.url).searchParams.get(
+												'withAttempts',
+											) !== 'false',
+									},
+								),
+							)
+						: HttpResponse.json(
+								{ code: 'GetWebhookMessages.WebhookNotFound', status: 404 },
+								{ status: 404 },
+							);
+				}),
+				http.get('*/api/webhooks/:webhookId/messages/:messageId', () =>
+					HttpResponse.json(storyWebhookReleaseMessage),
+				),
+				http.post(
+					'*/api/webhooks/:webhookId/messages/:messageId/resend',
+					({ params }) =>
+						HttpResponse.json(
+							{ messageId: params.messageId, webhookId: params.webhookId },
+							{ status: 202 },
+						),
 				),
 			],
 		},
@@ -79,7 +114,11 @@ export const Table: Story = {
 	render: () => (
 		<WebhookFrame>
 			<div className="h-[520px]">
-				<WebhookTable webhooks={storyWebhooks} onDelete={() => {}} />
+				<WebhookTable
+					webhooks={storyWebhooks}
+					onDelete={() => {}}
+					onOpenDeliveries={() => {}}
+				/>
 			</div>
 		</WebhookFrame>
 	),
@@ -87,7 +126,7 @@ export const Table: Story = {
 		docs: {
 			description: {
 				story:
-					'Webhook table with grouped events, URL, signing secret disclosure and delete action.',
+					'Webhook table with grouped events, URL, recent deliveries, signing secret disclosure and the edit and delete actions.',
 			},
 		},
 	},
@@ -109,6 +148,7 @@ export const EmptyList: Story = {
 			<WebhookListContent
 				filteredWebhooks={[]}
 				onDelete={() => {}}
+				onOpenDeliveries={() => {}}
 				webhooks={[]}
 			/>
 		</WebhookFrame>
@@ -128,43 +168,11 @@ export const NoSearchResults: Story = {
 			<WebhookListContent
 				filteredWebhooks={[]}
 				onDelete={() => {}}
+				onOpenDeliveries={() => {}}
 				webhooks={storyWebhooks}
 			/>
 		</WebhookFrame>
 	),
-};
-
-function CreateWebhookDialogStory() {
-	const [open, setOpen] = useState(true);
-
-	return (
-		<WebhookFrame>
-			<div className="flex min-h-[680px] items-center justify-center">
-				<CreateWebhookDialog
-					open={open}
-					onOpenChange={setOpen}
-					onSubmit={() => undefined}
-				/>
-			</div>
-		</WebhookFrame>
-	);
-}
-
-export const CreateDialog: Story = {
-	render: () => <CreateWebhookDialogStory />,
-	parameters: {
-		docs: {
-			description: {
-				story:
-					'Create webhook dialog with event category selection, selected-events summary and URL validation.',
-			},
-		},
-	},
-	play: async () => {
-		// The dialog renders in a portal under document.body, not inside
-		// canvasElement. Scope to body to find it.
-		await expect(await findVisibleByRole(document.body, 'dialog')).toBeVisible();
-	},
 };
 
 export const History: Story = {
@@ -179,49 +187,45 @@ export const History: Story = {
 		docs: {
 			description: {
 				story:
-					'Webhook history table with status filters and failure details available from failed deliveries.',
+					'Webhook history table with status filters; every attempt opens the detail of its delivery.',
 			},
 		},
 	},
 };
 
-function FailureDialogStory() {
-	const [entry, setEntry] = useState<WebhookHistoryEntry | null>(
-		storyWebhookHistory[1],
-	);
+function DeliveryDetailDialogStory() {
+	const [open, setOpen] = useState(true);
 
 	return (
 		<WebhookFrame>
 			<div className="flex min-h-[320px] items-center justify-center" />
-			<WebhookHistoryFailureDialog
-				entry={entry}
-				onOpenChange={(open) => {
-					if (!open) {
-						setEntry(null);
-					}
-				}}
+			<WebhookDeliveryDetailDialog
+				delivery={deliveryFromHistoryEntry(storyWebhookHistory[1])}
+				initialAttemptId={storyWebhookHistory[1].attemptId}
+				onOpenChange={setOpen}
+				open={open}
 			/>
 		</WebhookFrame>
 	);
 }
 
-export const FailureDialog: Story = {
-	render: () => <FailureDialogStory />,
+export const DeliveryDetailDialog: Story = {
+	render: () => <DeliveryDetailDialogStory />,
 	parameters: {
 		docs: {
 			description: {
 				story:
-					'Failure dialog for a webhook delivery with status code and response body.',
+					'The History tab detail of one delivery: the body sent, the response to the clicked attempt, every attempt and Resend.',
 			},
 		},
 	},
 	play: async () => {
 		const dialog = await findVisibleByRole(document.body, 'dialog', {
-			name: 'Failed delivery details',
+			name: 'Delivery details',
 		});
 		await expect(dialog).toBeVisible();
 		// The dialog names the event by its audit trail label, not by its type:
 		// com.kaiten.release.v1.created reads "Release published".
-		await expect(within(dialog).getByText(/Release published/)).toBeVisible();
+		await expect(within(dialog).getAllByText(/Release published/)[0]).toBeVisible();
 	},
 };

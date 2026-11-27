@@ -1,5 +1,5 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   type FilterFieldDefinition,
@@ -10,8 +10,12 @@ import { DataTable, FilterTableLayout } from '@/functionals/table';
 import { webhookHistoryQueryOptions } from '../../queries';
 import { webhooksQueryOptions } from '../../queries/webhooks-query-options';
 import type { WebhookHistoryEntry } from '../../types';
+import {
+  deliveryFromHistoryEntry,
+  getHistoryEntryAttemptId,
+} from '../../utils/webhook-deliveries';
+import { WebhookDeliveryDetailDialog } from '../webhook-deliveries';
 import { createWebhookHistoryColumns } from './webhook-history-columns';
-import { WebhookHistoryFailureDialog } from './webhook-history-failure-dialog';
 import {
   buildWebhookHistoryEventOptions,
   buildWebhookHistoryHookOptions,
@@ -22,14 +26,28 @@ import {
 } from './webhook-history-filters';
 import { HistoryEmptyState } from './webhook-history-view';
 
+/**
+ * Rows keyed by attempt, so that a refetch that brings in newer attempts keeps
+ * each row, and its focused button, on its own attempt. An older saas-api
+ * sends no attempt id: the attempt's own fields stand in for it.
+ */
+function getWebhookHistoryRowId(entry: WebhookHistoryEntry) {
+  return entry.attemptId
+    ? `${entry.hookId}:${entry.attemptId}`
+    : `${entry.hookId}:${entry.date}:${entry.eventType}:${entry.status}`;
+}
+
 function useWebhookHistoryController() {
   const { t } = useTranslation();
   const { data: webhookHistoryData } = useSuspenseQuery(
     webhookHistoryQueryOptions,
   );
   const { data: webhooksData } = useSuspenseQuery(webhooksQueryOptions);
-  const [selectedFailureEntry, setSelectedFailureEntry] =
+  // The entry is kept while the dialog closes, so its content stays drawn
+  // during the closing animation; `detailOpen` alone opens and closes it.
+  const [selectedEntry, setSelectedEntry] =
     useState<WebhookHistoryEntry | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const sortedHistory = useMemo(
     () => sortWebhookHistoryEntries(webhookHistoryData.history ?? []),
     [webhookHistoryData.history],
@@ -54,19 +72,41 @@ function useWebhookHistoryController() {
     fields: filterFields,
     pinnedFilterIds: ['query'],
     debounceMs: 200,
-    resetOnDataChange: true,
+    // The history is one list that grows: a refetch (after a resend, or on
+    // window focus) must not wipe the search the reader typed.
+    resetOnDataChange: false,
   });
 
+  // The columns stay the same across renders and refetches: a cell whose
+  // renderer changes is remounted, and the View details button that opened
+  // the dialog would no longer be there to take the focus back when it closes.
+  // A refetch rebuilds the map of hook URLs with the same content, so the
+  // columns follow its content, not its identity.
+  const selectEntry = useCallback((entry: WebhookHistoryEntry) => {
+    setSelectedEntry(entry);
+    setDetailOpen(true);
+  }, []);
+  const hookUrlKey = useMemo(
+    () => JSON.stringify([...hookUrlById]),
+    [hookUrlById],
+  );
+  const columns = useMemo(
+    () =>
+      createWebhookHistoryColumns({
+        hookUrlById: new Map(JSON.parse(hookUrlKey) as [string, string][]),
+        onSelectEntry: selectEntry,
+        t,
+      }),
+    [hookUrlKey, selectEntry, t],
+  );
+
   return {
-    columns: createWebhookHistoryColumns({
-      hookUrlById,
-      onSelectFailure: setSelectedFailureEntry,
-      t,
-    }),
+    columns,
+    detailOpen,
     filteredHistory: filterController.filteredData,
     filterController,
-    selectedFailureEntry,
-    setSelectedFailureEntry,
+    selectedEntry,
+    setDetailOpen,
     sortedHistory,
     t,
   };
@@ -100,6 +140,7 @@ function WebhookHistoryTableContent({
       className="h-full"
       columns={columns}
       data={filteredHistory}
+      getRowId={getWebhookHistoryRowId}
       bodyScrollable
     />
   );
@@ -108,19 +149,20 @@ function WebhookHistoryTableContent({
 export function WebhookHistorySection() {
   const {
     columns,
+    detailOpen,
     filteredHistory,
     filterController,
-    selectedFailureEntry,
-    setSelectedFailureEntry,
+    selectedEntry,
+    setDetailOpen,
     sortedHistory,
     t,
   } = useWebhookHistoryController();
-
-  function handleFailureDialogOpenChange(open: boolean) {
-    if (!open) {
-      setSelectedFailureEntry(null);
-    }
-  }
+  // The detail opens on the clicked attempt alone: a refetch that drops it
+  // from the history's window cannot close the dialog under the reader.
+  const selectedDelivery = useMemo(
+    () => (selectedEntry ? deliveryFromHistoryEntry(selectedEntry) : null),
+    [selectedEntry],
+  );
 
   return (
     <>
@@ -147,9 +189,13 @@ export function WebhookHistorySection() {
         </FilterTableLayout.Content>
       </FilterTableLayout>
 
-      <WebhookHistoryFailureDialog
-        entry={selectedFailureEntry}
-        onOpenChange={handleFailureDialogOpenChange}
+      <WebhookDeliveryDetailDialog
+        delivery={selectedDelivery}
+        initialAttemptId={
+          selectedEntry ? getHistoryEntryAttemptId(selectedEntry) : undefined
+        }
+        onOpenChange={setDetailOpen}
+        open={detailOpen}
       />
     </>
   );

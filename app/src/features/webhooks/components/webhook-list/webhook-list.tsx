@@ -1,18 +1,15 @@
 import { GradientButton } from '@/components/gradient-button';
 import { FilterTableLayout } from '@/functionals/table';
-import { CreateWebhookDialog } from './create-webhook-dialog';
+import { WebhookDeliveriesDialog } from '../webhook-deliveries';
 import { useWebhookListController } from './webhook-list.controller';
 import { WebhookListContent } from './webhook-list-content';
 
 export function WebhookList() {
   const {
-    addDialogOpen,
+    deliveriesDialog,
     filterController,
     filteredWebhooks,
-    handleCreateWebhook,
     handleDeleteHook,
-    openAddDialog,
-    setAddDialogOpen,
     t,
     webhooks,
   } = useWebhookListController();
@@ -27,7 +24,7 @@ export function WebhookList() {
           />
           <FilterTableLayout.Actions>
             <GradientButton
-              onClick={openAddDialog}
+              to="/integrations/webhooks/new"
               label={t('Pages.Integrations.Webhooks.newButton')}
             />
           </FilterTableLayout.Actions>
@@ -39,14 +36,15 @@ export function WebhookList() {
         <WebhookListContent
           filteredWebhooks={filteredWebhooks}
           onDelete={handleDeleteHook}
+          onOpenDeliveries={deliveriesDialog.openDeliveries}
           webhooks={webhooks}
         />
       </FilterTableLayout.Content>
 
-      <CreateWebhookDialog
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-        onSubmit={handleCreateWebhook}
+      <WebhookDeliveriesDialog
+        onOpenChange={deliveriesDialog.setDeliveriesOpen}
+        open={deliveriesDialog.deliveriesOpen}
+        webhook={deliveriesDialog.deliveriesWebhook}
       />
     </FilterTableLayout>
   );

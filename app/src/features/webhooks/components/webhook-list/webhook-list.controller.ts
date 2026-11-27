@@ -1,6 +1,6 @@
 import { useSuspenseQuery } from '@tanstack/react-query';
 import type { TFunction } from 'i18next';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   type FilterFieldDefinition,
@@ -8,7 +8,6 @@ import {
 } from '@/functionals/filters';
 import { useWebhookMutations } from '../../hooks/use-webhook-mutations';
 import { webhooksQueryOptions } from '../../queries';
-import type { CreateWebhookFormValues } from '../../schemas';
 import type { Webhook } from '../../types';
 import { mapApiWebhooksToWebhooks } from '../../utils/mappers';
 import {
@@ -18,11 +17,15 @@ import {
 } from '../../utils/webhook-events';
 
 // A webhook is found by its URL, and by any of its events -- their type, their
-// name, or the label and group the viewer reads them under.
+// name, or the label and group the viewer reads them under. A webhook without
+// a filter is found by the "Every event" its row shows instead.
 export function getWebhookSearchTokens(
   webhook: Webhook,
   t: TFunction,
 ): string[] {
+  if (webhook.eventTypes.length === 0) {
+    return [webhook.url, t('Pages.Integrations.Webhooks.Table.everyEvent')];
+  }
   const eventTokens = webhook.eventTypes.flatMap((type) => {
     const event = getWebhookEvent(type);
     return event
@@ -67,46 +70,59 @@ function useFilteredWebhooks(webhooks: Webhook[], t: TFunction) {
   });
 }
 
-function useWebhookDialogState() {
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+/**
+ * Which webhook's deliveries the dialog shows, and whether it is open. Closing
+ * only hides it: the webhook is kept so that the closing animation still has
+ * its content.
+ */
+function useDeliveriesDialogState(webhooks: Webhook[]) {
+  const [deliveriesWebhookId, setDeliveriesWebhookId] = useState<string | null>(
+    null,
+  );
+  const [deliveriesOpen, setDeliveriesOpen] = useState(false);
+  // Read from every webhook, not the filtered ones: a search that hides the
+  // row keeps the dialog open, and a webhook deleted meanwhile closes it.
+  const deliveriesWebhook =
+    webhooks.find((webhook) => webhook.id === deliveriesWebhookId) ?? null;
 
-  function openAddDialog() {
-    setAddDialogOpen(true);
-  }
+  // Stable, like `handleDeleteHook`: the table's columns depend on it, and
+  // new columns would remount every cell, the focused Deliveries button too.
+  const openDeliveries = useCallback((webhookId: string) => {
+    setDeliveriesWebhookId(webhookId);
+    setDeliveriesOpen(true);
+  }, []);
 
   return {
-    addDialogOpen,
-    openAddDialog,
-    setAddDialogOpen,
+    deliveriesOpen,
+    deliveriesWebhook,
+    openDeliveries,
+    setDeliveriesOpen,
   };
 }
 
 export function useWebhookListController() {
   const { t } = useTranslation();
   const { data: webhooksData } = useSuspenseQuery(webhooksQueryOptions);
-  const { createWebhook, deleteWebhook } = useWebhookMutations();
+  const { deleteWebhook } = useWebhookMutations();
   const webhooks = useMemo(
     () => mapApiWebhooksToWebhooks(webhooksData),
     [webhooksData],
   );
   const filterController = useFilteredWebhooks(webhooks, t);
-  const dialogState = useWebhookDialogState();
+  const deliveriesDialog = useDeliveriesDialogState(webhooks);
 
-  async function handleCreateWebhook(value: CreateWebhookFormValues) {
-    await createWebhook.mutateAsync({
-      body: value,
-    });
-  }
-
-  function handleDeleteHook(webhookId: string) {
-    deleteWebhook.mutate({ path: { webhookId } });
-  }
+  const { mutate: deleteWebhookMutate } = deleteWebhook;
+  const handleDeleteHook = useCallback(
+    (webhookId: string) => {
+      deleteWebhookMutate({ path: { webhookId } });
+    },
+    [deleteWebhookMutate],
+  );
 
   return {
-    ...dialogState,
+    deliveriesDialog,
     filteredWebhooks: filterController.filteredData,
     filterController,
-    handleCreateWebhook,
     handleDeleteHook,
     t,
     webhooks,

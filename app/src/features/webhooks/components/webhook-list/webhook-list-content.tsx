@@ -1,17 +1,21 @@
-import { Webhook as WebhookIcon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import type { Webhook } from '../../types';
 import { WebhookTable } from './webhook-table';
+
+const WebhookIcon = dataModelIcons.webhook;
 
 interface WebhookListContentProps {
   filteredWebhooks: Webhook[];
   onDelete: (webhookId: string) => void;
+  onOpenDeliveries: (webhookId: string) => void;
   webhooks: Webhook[];
 }
 
 export function WebhookListContent({
   filteredWebhooks,
   onDelete,
+  onOpenDeliveries,
   webhooks,
 }: WebhookListContentProps) {
   const { t } = useTranslation();
@@ -47,6 +51,7 @@ export function WebhookListContent({
       className="h-full"
       webhooks={filteredWebhooks}
       onDelete={onDelete}
+      onOpenDeliveries={onOpenDeliveries}
     />
   );
 }

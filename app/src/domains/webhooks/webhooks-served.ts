@@ -1,4 +1,9 @@
-import { queryOptions, useQuery } from '@tanstack/react-query';
+import {
+  type QueryClient,
+  queryOptions,
+  useQuery,
+} from '@tanstack/react-query';
+import { notFound } from '@tanstack/react-router';
 import { client } from '@/api-client/client.gen';
 import env from '@/env';
 import { isForbiddenError, isNotFoundError } from '@/lib/errors';
@@ -90,6 +95,25 @@ export const webhooksServedQueryOptions = queryOptions({
   // again, rather than a retry loop against a service that is down.
   retry: false,
 });
+
+/**
+ * The guard of every webhooks page: where webhooks are not served to this
+ * organization -- a self-hosted deployment, or a licence that does not carry
+ * them -- the page does not exist (`notFound`). Where the answer could not be
+ * read, the query throws and the router renders its retryable error page
+ * rather than claiming the page does not exist.
+ *
+ * The layout of the list and the history calls it, and so do the create and
+ * edit pages: their `webhooks_` routes leave that layout, and with it its
+ * `beforeLoad`.
+ */
+export async function requireWebhooksServed(
+  queryClient: QueryClient,
+): Promise<void> {
+  if (!(await queryClient.ensureQueryData(webhooksServedQueryOptions))) {
+    throw notFound();
+  }
+}
 
 /**
  * Whether outbound webhooks are served to this organization, for a list whose

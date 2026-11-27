@@ -26,7 +26,7 @@ const WEBHOOK_EVENT_BY_TYPE = new Map<string, WebhookEvent>(
   ALL_WEBHOOK_EVENTS.map((event) => [event.type, event]),
 );
 
-/** The events the subscription dialog offers, by group, in display order. */
+/** The events the event picker offers, by group, in display order. */
 export const SUBSCRIBABLE_WEBHOOK_EVENTS = WEBHOOK_EVENT_GROUPS.map(
   (group) => ({
     group,

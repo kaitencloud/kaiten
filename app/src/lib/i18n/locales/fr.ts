@@ -4907,24 +4907,182 @@ export default {
           signingSecretLoadError:
             'Impossible de charger le secret de signature',
           signingSecretCopyError: 'Impossible de copier le secret de signature',
+          edit: 'Modifier le webhook {{host}}',
+          deliveries: 'Livraisons',
+          everyEvent: 'Tous les événements',
         },
-        Dialog: {
-          title: 'Nouveau webhook',
-          description:
-            'Configurez un webhook pour recevoir des notifications quand des événements du cycle de vie se produisent. Sélectionnez un ou plusieurs événements pour déclencher ce webhook.',
-          eventsLabel: 'Événements',
-          eventsSelected: 'sélectionné(s)',
-          selectedEvents: 'Événements sélectionnés',
-          selectedEventsPlaceholder:
-            'Aucun événement sélectionné pour le moment.',
-          eventsRequired: 'Sélectionnez au moins un événement.',
-          urlLabel: 'URL du webhook',
-          urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
-          urlRequired: "L'URL du webhook est requise.",
-          urlInvalid: 'Saisissez une URL valide.',
-          urlDescription:
-            "Le webhook recevra une requête POST avec la charge utile de l'événement lorsqu'un des événements sélectionnés se produit",
+        Form: {
+          titleNew: 'Nouveau webhook',
+          titleEdit: 'Modifier le webhook',
+          descriptionNew:
+            "Choisissez les événements à recevoir et l'URL qui les reçoit.",
+          descriptionEdit:
+            "Modifiez l'URL ou les événements. Le secret de signature reste le même.",
           createButton: 'Créer le webhook',
+          createSuccess: 'Webhook créé',
+          updateSuccess: 'Webhook mis à jour',
+          eventsRequired: 'Sélectionnez au moins un événement.',
+          urlRequired: "L'URL du webhook est obligatoire.",
+          urlInvalid: 'Saisissez une URL http ou https valide.',
+          destination: {
+            title: 'Destination',
+            urlLabel: 'URL du webhook',
+            urlPlaceholder: 'https://api.example.com/webhooks/kaiten',
+            urlDescription:
+              "Le webhook reçoit une requête POST avec le contenu de l'événement dès que l'un des événements sélectionnés se produit.",
+            chatNoticeTitle: 'Envoyé comme messages de chat',
+            chatNotice:
+              "Ceci est un webhook entrant {{service}}. Kaiten met chaque événement en forme de message {{service}} au lieu d'envoyer l'événement brut.",
+          },
+          events: {
+            title: 'Événements',
+            description:
+              'Choisissez les événements qui déclenchent ce webhook.',
+            keepEveryEvent: 'Continuer à recevoir tous les événements',
+            keepEveryEventDescription:
+              "Ce webhook n'a pas de filtre d'événements : il reçoit tous les événements, y compris les types d'événements ajoutés plus tard.",
+            narrowingNotice:
+              'Une fois enregistré, ce webhook ne recevra plus que les événements choisis. La console ne pourra plus lui faire recevoir tous les événements.',
+          },
+          picker: {
+            searchLabel: 'Rechercher des événements',
+            searchPlaceholder: 'Rechercher par libellé, nom ou type',
+            searchClear: 'Effacer la recherche',
+            searchResults_one: '{{count}} événement correspond',
+            searchResults_other: '{{count}} événements correspondent',
+            noResults: 'Aucun événement ne correspond à « {{query}} ».',
+            presets: {
+              label: 'Préréglages',
+              instanceLifecycle: 'Cycle de vie des instances',
+              billing: 'Facturation',
+              usageAlerts: "Alertes d'usage",
+            },
+            presetCount: '{{count}} événements',
+            selectGroup: 'Sélectionner tous les événements « {{group}} »',
+            selectMatching: 'Sélectionner les événements « {{group}} » trouvés',
+            groupCount: '{{selected}} / {{total}}',
+            groupCountLabel: '{{selected}} sur {{total}} sélectionnés',
+            otherNote:
+              'Déjà abonnés, mais non proposés par cette console. Décochez pour retirer.',
+          },
+          selection: {
+            title: 'Sélection',
+            count_one: '{{count}} événement sélectionné',
+            count_other: '{{count}} événements sélectionnés',
+            empty: 'Aucun événement sélectionné.',
+            everyEvent: 'Tous les événements',
+            clear: 'Tout effacer',
+            allOfGroup: 'Les {{count}} événements',
+            removeEvent: 'Retirer {{event}}',
+            removeGroup: 'Retirer les {{count}} événements « {{group}} »',
+          },
+        },
+        Deliveries: {
+          title: 'Livraisons',
+          cell: {
+            none: "Aucune livraison pour l'instant",
+            loadError: 'Livraisons indisponibles',
+            summary: '{{when}} · {{outcome}}',
+            allDelivered: 'toutes livrées',
+            failures_one: '{{count}} échec',
+            failures_other: '{{count}} échecs',
+            retrying_one: '{{count}} nouvel essai prévu',
+            retrying_other: '{{count}} nouveaux essais prévus',
+            inFlight_one: '{{count}} en cours',
+            inFlight_other: '{{count}} en cours',
+            ariaLabel:
+              'Livraisons de {{host}} : {{summary}}. Ouvrir les détails.',
+            tooltip_one:
+              'Dernière livraison. Livrées : {{delivered}}, en échec : {{failed}}, nouvel essai prévu : {{retrying}}, en cours : {{inFlight}}.',
+            tooltip_other:
+              '{{count}} dernières livraisons. Livrées : {{delivered}}, en échec : {{failed}}, nouvel essai prévu : {{retrying}}, en cours : {{inFlight}}.',
+          },
+          Dialog: {
+            rate: '{{delivered}} / {{total}} livrées · {{percent}}',
+            rateHint_one: 'Sur la livraison la plus récente de ce webhook.',
+            rateHint_other:
+              'Sur les {{count}} livraisons les plus récentes de ce webhook.',
+            empty:
+              "Aucune livraison pour l'instant. Elles apparaissent ici dès qu'un des événements de ce webhook est publié.",
+            loadError: 'Échec du chargement des livraisons.',
+            back: 'Retour aux livraisons',
+          },
+          Chronology: {
+            label: 'Livraisons',
+            created: 'Webhook créé',
+            updated: 'Webhook modifié',
+            older: 'Les livraisons plus anciennes ne sont pas affichées',
+          },
+          Outcome: {
+            duration: '{{value}} ms',
+            attempts_one: '{{count}} tentative',
+            attempts_other: '{{count}} tentatives',
+            noResponse: 'Aucune réponse',
+            pending: 'En attente · tentative {{count}}',
+            sending: 'En cours · tentative {{count}}',
+            retrying_one: 'Nouvel essai après {{count}} tentative',
+            retrying_other: 'Nouvel essai après {{count}} tentatives',
+            nextAttempt: 'prochaine tentative le {{when}}',
+          },
+          Detail: {
+            title: 'Détails de la livraison',
+            description: '{{eventName}}, le {{deliveredAt}}',
+            unknownEvent: 'Événement inconnu',
+            messageId: 'ID du message',
+            resend: 'Renvoyer',
+            resending: 'Renvoi…',
+            resendNoMessage:
+              "Cette livraison ne peut pas être renvoyée : l'API n'a pas indiqué son message.",
+            resendNoScope:
+              'Votre jeton doit avoir le scope write:webhooks pour renvoyer une livraison.',
+            resendSending: 'Cette livraison est en cours d’envoi.',
+            resendNoBody:
+              "Cette livraison ne peut pas être renvoyée : son corps n'est plus disponible.",
+            bodySent: 'Corps envoyé',
+            bodyFidelity:
+              'Resérialisé par le fournisseur de livraison : équivalent à ce qui a été envoyé, mais pas identique octet pour octet, il ne permet donc pas de vérifier la signature.',
+            bodyLabel: 'Corps envoyé, en JSON',
+            chatEvent: 'Événement',
+            chatEventHint:
+              "Ce point de terminaison reçoit un message {{service}} construit à partir de cet événement ; le message lui-même n'est pas conservé.",
+            chatEventLabel: 'Événement, en JSON',
+            copyBody: 'Copier le corps',
+            bodyCopied: 'Corps copié',
+            bodyCopyError: 'Impossible de copier le corps',
+            bodyGone: 'Corps plus disponible',
+            bodyGoneHint:
+              'Le fournisseur de livraison ne conserve les corps des messages que pendant une durée limitée : celui-ci ne peut plus être affiché. Les tentatives et réponses ci-dessous restent disponibles.',
+            bodyNotReported:
+              "Cette version de l'API n'indique pas le message d'une livraison : son corps ne peut pas être chargé. Les tentatives et réponses ci-dessous proviennent de l'historique.",
+            deliveryNotFound:
+              'Cette livraison est introuvable. Le webhook a peut-être été supprimé, ou le fournisseur de livraison ne la conserve plus.',
+            bodyLoadError: 'Impossible de charger le corps.',
+            response: 'Réponse · tentative {{index}} sur {{count}}',
+            responseBodyLabel: 'Corps de la réponse du point de terminaison',
+            noResponseBody: "Le point de terminaison n'a renvoyé aucun corps.",
+            noResponseReceived: "Le point de terminaison n'a pas répondu.",
+            resentManually: 'Renvoyée manuellement',
+            attempts: 'Tentatives',
+            attemptLabel: 'Afficher la tentative {{index}}',
+            noAttempt: 'Aucune tentative pour le moment.',
+            Columns: {
+              attempt: 'Tentative',
+              time: 'Heure',
+              trigger: 'Déclenchement',
+              result: 'Résultat',
+              duration: 'Durée',
+            },
+            resendQueued:
+              'Renvoi programmé. La nouvelle tentative apparaîtra dans un instant.',
+            resendPayloadUnavailable:
+              "Le corps de cette livraison n'est plus disponible : elle ne peut pas être renvoyée.",
+            resendNotDelivered:
+              'Cette livraison ne peut plus être renvoyée. Elle a peut-être été supprimée.',
+          },
+          Trigger: {
+            scheduled: 'Planifié',
+            manual: 'Manuel',
+          },
         },
         History: {
           sectionTitle: 'Historique des webhooks',
@@ -4953,24 +5111,18 @@ export default {
             pending: 'En attente',
             fail: 'Échec',
             sending: 'En cours',
+            retrying: 'Nouvel essai prévu',
           },
           Table: {
             date: 'Date',
             hookUrl: 'URL du webhook',
             event: 'Événement',
             status: 'Statut',
-            failureInfo: "Informations d'échec",
+            response: 'Réponse',
             actions: 'Actions',
             viewDetails: 'Voir les détails',
             emptyState:
               'Aucune livraison ne correspond aux filtres sélectionnés.',
-          },
-          FailureDialog: {
-            title: "Détails de l'échec de livraison",
-            description: '{{eventName}} à {{deliveredAt}}',
-            hookLabel: 'Webhook :',
-            statusCodeLabel: 'Statut HTTP :',
-            responseLabel: 'Réponse :',
           },
         },
       },

@@ -148,7 +148,8 @@ It is wrapped in a `*.api.ts` module inside its feature, with local types, and
 moves to the generated client once the contract describes it:
 
 - `features/webhooks/webhooks.api.ts` and `features/demo-sandbox/demo-sandbox.api.ts`
-  call the shared client (`client.get`, `client.post`) for `/webhooks*` and
+  call the shared client (`client.get`, `client.post`, `client.put`,
+  `client.delete`) for `/webhooks*` and
   `/demo/*`;
 - `features/notifications/notifications.api.ts` builds the URL of the
   Server-Sent Events stream, which `EventSource` opens by URL.

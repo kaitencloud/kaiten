@@ -22,6 +22,7 @@ import {
   Ticket,
   UserKey,
   Users,
+  Webhook,
 } from 'lucide-react';
 
 // `billing` is not an entity but the area of billing as a whole (its settings, its
@@ -54,6 +55,7 @@ export const dataModelIcons = {
   voucher: Ticket,
   publishableKey: KeySquare,
   checkoutSession: ShoppingCart,
+  webhook: Webhook,
 } as const satisfies Record<string, LucideIcon>;
 
 export type DataModelIconKey = keyof typeof dataModelIcons;

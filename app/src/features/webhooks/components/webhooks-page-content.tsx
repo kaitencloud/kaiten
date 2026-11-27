@@ -1,8 +1,10 @@
-import { Webhook } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Page } from '@/functionals/page';
+import { dataModelIcons } from '@/lib/data-model-icons';
 import { WebhooksTabs } from './webhooks-tabs';
+
+const WebhookIcon = dataModelIcons.webhook;
 
 type WebhooksPageContentProps = {
   children?: ReactNode;
@@ -16,7 +18,7 @@ export function WebhooksPageContent({ children }: WebhooksPageContentProps) {
       <Page.Header>
         <Page.Leading>
           <Page.Icon>
-            <Webhook className="size-8 text-primary-subtle-foreground" />
+            <WebhookIcon className="size-8 text-primary-subtle-foreground" />
           </Page.Icon>
           <Page.Heading>
             <Page.Title>
