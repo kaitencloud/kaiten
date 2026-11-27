@@ -11,6 +11,7 @@ export { formatCEL } from './logic/format-cel';
 export type {
   CelContextNode,
   CelIssue,
+  CelKnownValue,
   CelLinter,
   CelValueType,
 } from './types/cel-context.types';

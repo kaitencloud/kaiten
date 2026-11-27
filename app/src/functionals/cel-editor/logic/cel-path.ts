@@ -1,14 +1,9 @@
-import type { CelContextNode } from '../types/cel-context.types';
+import { scanChain, trimEnd } from './cel-chain';
+import type { CelPathSegment } from './cel-chain';
+import { valueOwnerBefore } from './cel-value-position';
 
-/**
- * One step of an access chain. `dynamic` marks a key the editor cannot read —
- * `entitlements[someVar]` — which resolves against a map (every entry has the
- * same shape) but not against an object (the field name is unknowable).
- */
-export interface CelPathSegment {
-  name: string;
-  dynamic: boolean;
-}
+export { resolveNode, scanChain } from './cel-chain';
+export type { CelPathSegment } from './cel-chain';
 
 /**
  * What the cursor is positioned to complete.
@@ -17,8 +12,17 @@ export interface CelPathSegment {
  * `key` is inside the quotes of an index — `entitlements['|`. They are distinct
  * because each offers a different set: a key completion inserts a slug, a
  * member completion inserts a field name, and only `root` should offer the CEL
- * keywords. `none` is a position where suggesting anything would be noise —
- * inside an ordinary string literal, or in the middle of a number.
+ * keywords.
+ *
+ * `value` is the right-hand side of a comparison — `license.familySlug == |`,
+ * or an element of the list after `in [` — whether or not its quote has been
+ * opened (`quote` says which, and is null when it has not). `path` is the name
+ * compared with, and what to offer there is whatever values that name has: when
+ * it has none, an unquoted value is a root being typed and a quoted one is
+ * nothing at all, exactly as before.
+ *
+ * `none` is a position where suggesting anything would be noise — inside a
+ * string literal that is not one of these, or in the middle of a number.
  *
  * A `member` with an empty path is a dot off something the scanner cannot
  * read — `(a || b).` or a chain continued from the previous line. The value
@@ -27,12 +31,25 @@ export interface CelPathSegment {
  */
 export type CelCompletionTarget =
   | { kind: 'root'; prefix: string }
-  | { kind: 'member'; path: CelPathSegment[]; prefix: string }
+  | {
+      kind: 'member';
+      path: CelPathSegment[];
+      prefix: string;
+      /**
+       * How many characters from the dot up to where the prefix starts, the dot
+       * included: what a suggestion replaces when it is not spelled after the
+       * dot (`['ai-credits']`).
+       */
+      dotLength: number;
+    }
   | { kind: 'key'; path: CelPathSegment[]; prefix: string }
+  | {
+      kind: 'value';
+      path: CelPathSegment[];
+      prefix: string;
+      quote: "'" | '"' | null;
+    }
   | { kind: 'none' };
-
-const IDENTIFIER_START = /[A-Za-z_]/;
-const IDENTIFIER_CHAR = /[A-Za-z0-9_]/;
 
 /** A partial name being typed at the cursor. */
 const TRAILING_IDENTIFIER = /[A-Za-z_][A-Za-z0-9_]*$/;
@@ -108,13 +125,26 @@ export function completionTargetAt(
 ): CelCompletionTarget {
   const strings = scanStrings(textBeforeCursor);
 
-  // Inside a string. An index key completes to the map's known keys; any
+  // Inside a string. An index key completes to the map's known keys, and the
+  // value of a comparison to the values of what it is compared with. Any
   // other string is a value being typed, where every suggestion is noise —
   // and `'` is a trigger character, so without this case the editor popped
   // its root list into the middle of every literal.
   if (strings.open) {
     if (!strings.open.isIndexKey) {
-      return { kind: 'none' };
+      const owner = valueOwnerBefore(
+        textBeforeCursor.slice(0, strings.open.openedAt),
+      );
+      if (!owner) {
+        return { kind: 'none' };
+      }
+
+      return {
+        kind: 'value',
+        path: owner,
+        prefix: textBeforeCursor.slice(strings.open.openedAt + 1),
+        quote: textBeforeCursor[strings.open.openedAt] === '"' ? '"' : "'",
+      };
     }
 
     return {
@@ -139,9 +169,14 @@ export function completionTargetAt(
 
   const beforeDot = trimEnd(chain);
   if (!beforeDot.endsWith('.')) {
-    return { kind: 'root', prefix };
+    const owner = valueOwnerBefore(chain);
+
+    return owner
+      ? { kind: 'value', path: owner, prefix, quote: null }
+      : { kind: 'root', prefix };
   }
 
+  const dotLength = chain.length - beforeDot.length + 1;
   const path = scanChain(beforeDot.slice(0, -1));
   if (!path || path.length === 0) {
     // A dot with no readable chain before it. After a digit it is a float
@@ -153,10 +188,10 @@ export function completionTargetAt(
       return { kind: 'none' };
     }
 
-    return { kind: 'member', path: [], prefix };
+    return { kind: 'member', path: [], prefix, dotLength };
   }
 
-  return { kind: 'member', path, prefix };
+  return { kind: 'member', path, prefix, dotLength };
 }
 
 /**
@@ -180,148 +215,11 @@ export function hoverPathAt(
     return [...target.path, { name: word, dynamic: false }];
   }
 
+  // A literal is documented as a whole (comparedLiteralAt), not by the name
+  // the scanner can read in front of it. A value with no quote is a name like
+  // any other, which the chain below reads.
   if (target.kind === 'none') return null;
+  if (target.kind === 'value' && target.quote) return null;
 
   return scanChain(textUpToWordEnd);
-}
-
-/**
- * Reads the access chain that ends the given text, scanning backwards from it.
- *
- * Backwards because that is where the cursor is: the chain runs from wherever
- * it happens to start — after a `(`, an operator, or the beginning of the rule
- * — up to the cursor, and only its end is known. Anything that is not a name,
- * a dot or an index ends the chain, which is what keeps `has(__kaiten.` and
- * `a == __kaiten.` from dragging the tokens before them in.
- *
- * Returns null when the text does not end in a chain at all.
- */
-export function scanChain(text: string): CelPathSegment[] | null {
-  const segments: CelPathSegment[] = [];
-  let end = trimEndIndex(text, text.length);
-
-  for (;;) {
-    if (end === 0) break;
-
-    if (text[end - 1] === ']') {
-      const open = openingBracket(text, end - 1);
-      if (open < 0) return null;
-
-      segments.push(indexSegment(text.slice(open + 1, end - 1)));
-      end = trimEndIndex(text, open);
-      // An index applies to something, so the operand is still to come.
-      continue;
-    }
-
-    const start = identifierStart(text, end);
-    if (start === end) return null;
-
-    segments.push({ name: text.slice(start, end), dynamic: false });
-
-    end = trimEndIndex(text, start);
-    if (end === 0 || text[end - 1] !== '.') break;
-
-    end = trimEndIndex(text, end - 1);
-  }
-
-  if (segments.length === 0) return null;
-
-  return segments.reverse();
-}
-
-/**
- * Walks a path down the tree, or returns null where it leaves what is
- * described. A map answers to any key, which is what makes both
- * `entitlements['seats']` and `entitlements.seats` land on the same shape —
- * the two forms the server accepts.
- */
-export function resolveNode(
-  roots: CelContextNode[],
-  path: CelPathSegment[],
-): CelContextNode | null {
-  if (path.length === 0) return null;
-
-  let node = roots.find((root) => root.name === path[0].name) ?? null;
-
-  for (const segment of path.slice(1)) {
-    if (!node) return null;
-    node = childNode(node, segment);
-  }
-
-  return node;
-}
-
-function childNode(
-  node: CelContextNode,
-  segment: CelPathSegment,
-): CelContextNode | null {
-  if (node.type === 'map') {
-    // A known key may have a shape of its own; any other key has the one
-    // every entry shares, if there is one.
-    const entry = segment.dynamic
-      ? undefined
-      : node.entries?.find((candidate) => candidate.name === segment.name);
-    return entry ?? node.values ?? null;
-  }
-
-  if (node.type === 'object' && !segment.dynamic) {
-    return node.fields?.find((field) => field.name === segment.name) ?? null;
-  }
-
-  return null;
-}
-
-/**
- * The key inside `[...]`. A quoted key is the name it spells; anything else is
- * computed at evaluation and cannot be read here.
- */
-function indexSegment(inner: string): CelPathSegment {
-  const quoted = /^\s*(['"])(.*)\1\s*$/.exec(inner);
-
-  return quoted
-    ? { name: quoted[2], dynamic: false }
-    : { name: '', dynamic: true };
-}
-
-/** Scans back to the `[` matching the `]` at index, or -1. */
-function openingBracket(text: string, closeIndex: number): number {
-  let depth = 0;
-
-  for (let i = closeIndex; i >= 0; i -= 1) {
-    if (text[i] === ']') depth += 1;
-    if (text[i] === '[') {
-      depth -= 1;
-      if (depth === 0) return i;
-    }
-  }
-
-  return -1;
-}
-
-/** Scans back over an identifier ending at `end`, returning where it starts. */
-function identifierStart(text: string, end: number): number {
-  let start = end;
-
-  while (start > 0 && IDENTIFIER_CHAR.test(text[start - 1])) {
-    start -= 1;
-  }
-
-  // A name cannot begin with a digit; `1.foo` is not an access chain.
-  if (start === end || !IDENTIFIER_START.test(text[start])) return end;
-
-  return start;
-}
-
-function trimEndIndex(text: string, end: number): number {
-  let trimmed = end;
-
-  while (trimmed > 0 && /\s/.test(text[trimmed - 1])) {
-    trimmed -= 1;
-  }
-
-  return trimmed;
-}
-
-function trimEnd(text: string): string {
-  return text.slice(0, trimEndIndex(text, text.length));
 }

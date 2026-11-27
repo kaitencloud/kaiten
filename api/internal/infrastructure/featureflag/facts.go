@@ -38,6 +38,21 @@ var factsSubroots = []string{
 	LicenseRoot, EntitlementsRoot, InstanceRoot, CustomerRoot, DeploymentZoneRoot,
 }
 
+// Two struct tags say which values a string fact is read against, each a
+// comma-separated list read by structNodes (context_schema.go):
+//
+//   - `enum` is a closed set. The field can hold nothing else, so the lint
+//     refuses a rule comparing it with anything outside it
+//     (see targeting_values.go) and the editor offers exactly these.
+//   - `suggest` is what the editor offers for a field that is free-form: a rule
+//     may still compare it with anything, and nothing is refused.
+//
+// The values are declared here, beside the field, because this package cannot
+// import the modules that own them (infrastructure never imports a module);
+// catalogue_test.go in modules/featureflags/common pins each list to the
+// owning module's constants, so a state added there is a failing test here
+// rather than a rule the lint wrongly refuses.
+
 // Typed shapes for every fact written under FactsRoot. A field's name is
 // declared exactly once — its json tag — instead of being hand-typed
 // separately in the enrichment code, in the lint's known-fields list, and in
@@ -69,7 +84,7 @@ type (
 	LicenseFact struct {
 		Slug       string `json:"slug" doc:"Slug of the license version the organization holds, e.g. 'scale-v2'. Each version has its own, so a rule on it matches that version only; target the product with familySlug"`
 		FamilySlug string `json:"familySlug" doc:"Slug of the product the license is a version of, e.g. 'scale'. The same for every version, including ones published later"`
-		Type       string `json:"type" doc:"Whether the license is paid or not, e.g. 'PAID'"`
+		Type       string `json:"type" enum:"DEVELOPMENT,TRIAL,PAID,COMMUNITY" doc:"Whether the license is paid or not, e.g. 'PAID'"`
 	}
 
 	// EntitlementFact is what a NUMBER entitlement reads as under
@@ -99,8 +114,8 @@ type (
 		ID             string         `json:"id" doc:"Identifier of the instance being evaluated"`
 		Slug           string         `json:"slug" doc:"URL-friendly identifier of the instance"`
 		Name           string         `json:"name" doc:"Display name of the instance"`
-		Status         string         `json:"status" doc:"Operational status of the instance, e.g. 'HEALTHY'"`
-		LifecycleStage *string        `json:"lifecycleStage,omitempty" doc:"Lifecycle stage of the instance, when one is set"`
+		Status         string         `json:"status" enum:"HEALTHY,DEGRADED,INCIDENT,MAINTENANCE" doc:"Operational status of the instance, e.g. 'HEALTHY'"`
+		LifecycleStage *string        `json:"lifecycleStage,omitempty" suggest:"TRIAL,ACTIVE,AT_RISK,CHURNED" doc:"Lifecycle stage of the instance, when one is set"`
 		Metadata       map[string]any `json:"metadata" doc:"Free-form metadata the organization sets on the instance. Any key is allowed, so nothing below this point is checked"`
 	}
 
@@ -120,7 +135,7 @@ type (
 		ID               string         `json:"id" doc:"Identifier of the deployment zone the instance runs in"`
 		Name             string         `json:"name" doc:"Display name of the deployment zone"`
 		Slug             string         `json:"slug" doc:"URL-friendly identifier of the deployment zone"`
-		Type             string         `json:"type" doc:"Environment class of the zone. Free-form, but 'production', 'staging' and 'development' are the ones the console labels"`
+		Type             string         `json:"type" suggest:"production,staging,development" doc:"Environment class of the zone. Free-form, but 'production', 'staging' and 'development' are the ones the console labels"`
 		Metadata         map[string]any `json:"metadata" doc:"Free-form metadata set on the deployment zone. Any key is allowed, so nothing below this point is checked"`
 		CurrentReleaseID *string        `json:"currentReleaseId,omitempty" doc:"Identifier of the release currently deployed to the zone, when one is set"`
 	}

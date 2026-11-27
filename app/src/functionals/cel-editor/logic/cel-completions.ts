@@ -1,10 +1,12 @@
 import type { CelCompletionTarget, CelPathSegment } from './cel-path';
-import { resolveNode } from './cel-path';
+import { resolveNode } from './cel-chain';
 import {
   CEL_GLOBAL_FUNCTIONS,
   CEL_GLOBAL_MACROS,
   CEL_LITERALS,
   CEL_MEMBER_MACROS,
+  CEL_OPERATOR_KEYWORDS,
+  CEL_RESERVED_WORDS,
   callSnippet,
   isIterable,
   memberFunctionsFor,
@@ -15,6 +17,7 @@ export type CelProposalKind =
   | 'variable'
   | 'field'
   | 'key'
+  | 'value'
   | 'function'
   | 'macro'
   | 'literal';
@@ -35,14 +38,20 @@ export interface CelProposal {
   documentation?: string;
   /** Whether insertText carries `${n}` tab stops. */
   snippet?: boolean;
+  /**
+   * Whether insertText stands in for the dot before the name as well, because
+   * it is not spelled after one: `['ai-credits']` replaces `.ai-credits`.
+   */
+  replacesDot?: boolean;
   /** Groups context names above CEL's own vocabulary. */
   sortText: string;
 }
 
 /** Sort groups. Monaco orders by this string, so the digit leads. */
-const FROM_CONTEXT = '0';
-const CALLABLE = '1';
-const LITERAL = '2';
+const KNOWN_VALUE = '0';
+const FROM_CONTEXT = '1';
+const CALLABLE = '2';
+const LITERAL = '3';
 
 /**
  * What to offer at the cursor.
@@ -64,6 +73,10 @@ export function proposalsFor(
   }
 
   const node = resolveNode(roots, target.path);
+
+  if (target.kind === 'value') {
+    return valueProposals(node, target.quote, roots);
+  }
 
   if (target.kind === 'key') {
     return keyProposals(node);
@@ -105,6 +118,39 @@ function keyProposals(node: CelContextNode | null): CelProposal[] {
 }
 
 /**
+ * The right-hand side of a comparison. What the compared name is usually
+ * compared with comes first. Without a quote the author may as well be about to
+ * write another name — `plan == other.plan` — so the roots follow; inside one
+ * only a literal makes sense, and a name with no known values has nothing to
+ * say.
+ */
+function valueProposals(
+  node: CelContextNode | null,
+  quote: "'" | '"' | null,
+  roots: CelContextNode[],
+): CelProposal[] {
+  const values = (node?.knownValues ?? []).map((known): CelProposal => ({
+    label: known.value,
+    // Inside a quote the author has already written the delimiters.
+    insertText: quote
+      ? escapeLiteral(known.value, quote)
+      : `'${escapeLiteral(known.value, "'")}'`,
+    kind: 'value',
+    detail: known.label,
+    documentation: known.description,
+    sortText: KNOWN_VALUE + known.value,
+  }));
+
+  if (quote) return values;
+
+  return [...values, ...rootProposals(roots)];
+}
+
+function escapeLiteral(value: string, quote: "'" | '"'): string {
+  return value.replaceAll('\\', '\\\\').replaceAll(quote, `\\${quote}`);
+}
+
+/**
  * After a dot.
  *
  * An unresolved path is treated as `dyn` rather than as nothing: a host targets
@@ -139,10 +185,15 @@ function namedChildren(
 
   // A map is readable by dot as well as by index, so its keys belong here
   // too — `entitlements.seats` is the same lookup as `entitlements['seats']`.
+  //
+  // Only a key that is a plain identifier can be spelled after the dot.
+  // `entitlements.ai-credits` reads as a subtraction, so any other key is
+  // offered as the index it has to be written as, in place of the dot.
   if (node.type === 'map') {
     return (node.knownKeys ?? []).map((key) => ({
       label: key,
-      insertText: key,
+      insertText: isDotAccessible(key) ? key : `['${escapeLiteral(key, "'")}']`,
+      replacesDot: !isDotAccessible(key),
       kind: 'key' as const,
       detail: keyType(node, key),
       documentation:
@@ -153,6 +204,16 @@ function namedChildren(
   }
 
   return [];
+}
+
+/** Whether `.key` reads as that key: an identifier CEL does not reserve. */
+function isDotAccessible(key: string): boolean {
+  return (
+    /^[A-Za-z_][A-Za-z0-9_]*$/.test(key) &&
+    !CEL_RESERVED_WORDS.includes(key) &&
+    !CEL_LITERALS.includes(key) &&
+    !CEL_OPERATOR_KEYWORDS.includes(key)
+  );
 }
 
 function entryNamed(
@@ -208,5 +269,28 @@ export function hoverFor(
           .filter(Boolean)
           .join('\n\n')
       : node.description,
+  };
+}
+
+/**
+ * The documentation shown when hovering a string literal compared with a name
+ * that has known values, or null when the literal is not one of them. An
+ * unknown literal is the check's to report, and a second, vaguer message from
+ * the hover would only repeat it.
+ */
+export function hoverForValue(
+  path: CelPathSegment[],
+  value: string,
+  roots: CelContextNode[],
+): { title: string; label?: string; description?: string } | null {
+  const known = resolveNode(roots, path)?.knownValues?.find(
+    (candidate) => candidate.value === value,
+  );
+  if (!known) return null;
+
+  return {
+    title: path.map((segment) => segment.name).join('.'),
+    label: known.label,
+    description: known.description,
   };
 }

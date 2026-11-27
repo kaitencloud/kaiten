@@ -11,8 +11,10 @@ import (
 	outboxdb "github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox/db"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	customertargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/customers/targetingfacts"
+	deploymentzonecatalogue "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/catalogue"
 	deploymentzonetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/targetingfacts"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
+	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/common"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/createfeatureflag"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/deletefeatureflag"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/getfeatureflag"
@@ -27,6 +29,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/testtargetingrule"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/updatefeatureflag"
 	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
+	licensecatalogue "github.com/kaitencloud/kaiten/api/internal/modules/licenses/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/vouchers/flaggrants"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
@@ -77,7 +80,13 @@ func NewUseCases(svc services.Container) *UseCases {
 		slog.Warn("featureflags: no platform organization configured, every flag evaluation is metered and audited", "error", err)
 	}
 
-	entitlementCatalogue := catalogue.New(svc.Pool, aiusage.Policy{Flags: svc.PlatformFlags})
+	// What a targeting rule is linted against and an editor completes from: each
+	// owning module's own read port, behind one reader.
+	targetingCatalogue := common.Catalogue{
+		Entitlements:    catalogue.New(svc.Pool, aiusage.Policy{Flags: svc.PlatformFlags}),
+		Licenses:        licensecatalogue.New(svc.Pool),
+		DeploymentZones: deploymentzonecatalogue.New(svc.Pool),
+	}
 	customerFacts := customertargetingfacts.New(svc.Pool, aiusage.Policy{Flags: svc.PlatformFlags})
 	closedCustomerFacts := customertargetingfacts.New(svc.Pool, aiusage.Policy{})
 	instanceFacts := instancetargetingfacts.New(svc.Pool)
@@ -88,11 +97,11 @@ func NewUseCases(svc services.Container) *UseCases {
 
 	return &UseCases{
 		CreateFeatureFlag: createfeatureflag.NewUseCase(createfeatureflag.Deps{
-			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
-			UserProvider:         svc.UserProvider,
-			UsageReporter:        svc.UsageReporter,
-			Uof:                  svc.Uof,
-			EntitlementCatalogue: entitlementCatalogue,
+			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider:  svc.UserProvider,
+			UsageReporter: svc.UsageReporter,
+			Uof:           svc.Uof,
+			Catalogue:     targetingCatalogue,
 		}),
 		DeleteFeatureFlag: deletefeatureflag.NewUseCase(deletefeatureflag.Deps{
 			UserProvider:  svc.UserProvider,
@@ -108,10 +117,10 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		UpdateFeatureFlag: updatefeatureflag.NewUseCase(updatefeatureflag.Deps{
-			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
-			UserProvider:         svc.UserProvider,
-			Uof:                  svc.Uof,
-			EntitlementCatalogue: entitlementCatalogue,
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
+			Catalogue:    targetingCatalogue,
 		}),
 		EvaluateFlag: evaluateflag.NewUseCase(evaluateflag.Deps{
 			ClosedCustomerFacts: closedCustomerFacts,
@@ -142,29 +151,29 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:      queries,
 		}),
 		// The two operations that support authoring a targeting rule rather
-		// than serving one. Both read the same entitlement catalogue the write
+		// than serving one. Both read the same catalogue the write
 		// path lints against, which is what makes the editor's verdict and the
 		// save's verdict the same verdict.
 		GetTargetingContext: gettargetingcontext.NewUseCase(gettargetingcontext.Deps{
-			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
-			UserProvider:         svc.UserProvider,
-			EntitlementCatalogue: entitlementCatalogue,
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider: svc.UserProvider,
+			Catalogue:    targetingCatalogue,
 		}),
 		LintTargetingRule: linttargetingrule.NewUseCase(linttargetingrule.Deps{
-			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
-			UserProvider:         svc.UserProvider,
-			EntitlementCatalogue: entitlementCatalogue,
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider: svc.UserProvider,
+			Catalogue:    targetingCatalogue,
 		}),
 		// The rehearsal enriches from the same three fact ports the OFREP
 		// evaluations use, so what an author sees in a dry run is what a
 		// client's evaluation will read.
 		TestTargetingRule: testtargetingrule.NewUseCase(testtargetingrule.Deps{
-			AIPolicy:             aiusage.Policy{Flags: svc.PlatformFlags},
-			UserProvider:         svc.UserProvider,
-			EntitlementCatalogue: entitlementCatalogue,
-			CustomerFacts:        customerFacts,
-			InstanceFacts:        instanceFacts,
-			DeploymentZoneFacts:  deploymentZoneFacts,
+			AIPolicy:            aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider:        svc.UserProvider,
+			Catalogue:           targetingCatalogue,
+			CustomerFacts:       customerFacts,
+			InstanceFacts:       instanceFacts,
+			DeploymentZoneFacts: deploymentZoneFacts,
 		}),
 	}
 }

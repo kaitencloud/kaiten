@@ -5,7 +5,6 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
-	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/common"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/schema"
@@ -16,14 +15,14 @@ import (
 )
 
 // Deps lists exactly what this handler needs, instead of the full
-// services.Container. EntitlementCatalogue is the entitlements module's
-// own public read port -- this module never imports entitlements'
-// generated db package directly.
+// services.Container. Catalogue reads what the organization has through the
+// owning modules' own public read ports -- this module never imports their
+// generated db packages directly.
 type Deps struct {
-	AIPolicy             aiusage.Policy
-	UserProvider         currentuser.Provider
-	Uof                  *uow.UnitOfWork
-	EntitlementCatalogue catalogue.Port
+	AIPolicy     aiusage.Policy
+	UserProvider currentuser.Provider
+	Uof          *uow.UnitOfWork
+	Catalogue    common.Catalogue
 }
 
 type UseCase struct {
@@ -49,7 +48,7 @@ func (h *UseCase) Execute(ctx context.Context, slug string, flag *schema.Feature
 
 	flagValidator := validator.NewValidator()
 
-	err = flagValidator.ValidateFlagInOrganization(flag, common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, u.OrganizationID))
+	err = flagValidator.ValidateFlagInOrganization(flag, h.deps.Catalogue.Read(ctx, u.OrganizationID))
 	if err != nil {
 		return kaitenerrors.FromValidationError(err)
 	}

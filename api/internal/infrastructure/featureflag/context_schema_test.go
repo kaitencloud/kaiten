@@ -110,8 +110,8 @@ func TestSchemaCarriesTheOrganizationsEntitlementSlugs(t *testing.T) {
 	facts := rootNamed(t, featureflag.TargetingContextRoots(catalogue), "__kaiten")
 	entitlements := rootNamed(t, facts.Fields, "entitlements")
 
-	slugs := make([]string, 0, len(catalogue))
-	for _, known := range catalogue {
+	slugs := make([]string, 0, len(catalogue.Entitlements))
+	for _, known := range catalogue.Entitlements {
 		slugs = append(slugs, known.Slug)
 	}
 	assert.Equal(t, slugs, entitlements.KnownKeys)
@@ -133,7 +133,7 @@ func TestSchemaCarriesTheOrganizationsEntitlementSlugs(t *testing.T) {
 // entitlements are missing, slugs and shapes alike, since a slug's shape comes
 // from its type. The lint makes the same trade.
 func TestSchemaWithoutACatalogue(t *testing.T) {
-	facts := rootNamed(t, featureflag.TargetingContextRoots(nil), "__kaiten")
+	facts := rootNamed(t, featureflag.TargetingContextRoots(featureflag.TargetingCatalogue{}), "__kaiten")
 	entitlements := rootNamed(t, facts.Fields, "entitlements")
 
 	assert.Equal(t, featureflag.TargetingTypeMap, entitlements.Type)
@@ -201,11 +201,11 @@ func TestEveryLeafSaysWhatItMeans(t *testing.T) {
 
 func TestKnownEntriesRetainDeclaredTypesWithoutChangingEvaluationShapes(t *testing.T) {
 	t.Parallel()
-	roots := featureflag.TargetingContextRoots([]featureflag.KnownEntitlement{
+	roots := featureflag.TargetingContextRoots(featureflag.TargetingCatalogue{Entitlements: []featureflag.KnownEntitlement{
 		{Slug: "pool", Type: featureflag.EntitlementNumber, DeclaredType: "NUMBER_AI_CREDIT"},
 		{Slug: "quota", Type: featureflag.EntitlementNumber, DeclaredType: "NUMBER"},
 		{Slug: "config", Type: featureflag.EntitlementConfig, DeclaredType: "CONFIG"},
-	})
+	}})
 	entitlements := rootNamed(t, rootNamed(t, roots, "__kaiten").Fields, "entitlements")
 	pool := rootNamed(t, entitlements.Entries, "pool")
 	require.Equal(t, "NUMBER_AI_CREDIT", pool.EntitlementType)

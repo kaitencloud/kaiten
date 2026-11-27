@@ -36,17 +36,21 @@ Four passes, because they catch different things:
     matched against the organization's actual catalogue, and what the rule
     does with each entitlement against the shape its type reads in: a field
     of a NUMBER, a bool for a BOOLEAN, an object for a CONFIG (see
-    entitlementUse).
+    entitlementUse). The same walk refuses a comparison of a fact whose values
+    Kaiten knows with a literal that is not one of them — see unknownValue.
 
   - An estimate of the work the rule's own text commits it to, which
     evaluation would stop anyway — see costResult.
 
-`knownEntitlements` may be nil, which skips the slug check and the
-entitlement shape check that needs the slug's type — a caller without a
-catalogue to hand still gets everything else.
+Each part of the catalogue may be nil, which skips the checks that need it: no
+entitlements skips the slug check and the entitlement shape check that needs the
+slug's type, and no plans, license versions or deployment zones skips comparing
+those facts with a literal — a caller without a catalogue to hand still gets
+everything else. The closed enums (license type, instance status) are known
+without one and are always checked.
 */
-func LintTargetingRule(rule string, knownEntitlements []KnownEntitlement) error {
-	return lintRule(rule, knownEntitlements).err
+func LintTargetingRule(rule string, catalogue TargetingCatalogue) error {
+	return lintRule(rule, catalogue).err
 }
 
 /*
@@ -60,8 +64,8 @@ needs the organization's entitlements, which nothing running in a browser can
 know — and it has to be the same pass, or the editor would say one thing and the
 save another.
 */
-func LintTargetingRuleIssues(rule string, knownEntitlements []KnownEntitlement) []TargetingRuleIssue {
-	issues := lintRule(rule, knownEntitlements).issues
+func LintTargetingRuleIssues(rule string, catalogue TargetingCatalogue) []TargetingRuleIssue {
+	issues := lintRule(rule, catalogue).issues
 	if issues == nil {
 		// A clean rule answers with an empty list, not with JSON null — the
 		// difference is invisible here and a nullability case in every client.
@@ -106,7 +110,7 @@ type lintResult struct {
 	issues []TargetingRuleIssue
 }
 
-func lintRule(rule string, knownEntitlements []KnownEntitlement) lintResult {
+func lintRule(rule string, catalogue TargetingCatalogue) lintResult {
 	if strings.TrimSpace(rule) == "" {
 		return unpositioned(ErrEmptyRule)
 	}
@@ -132,7 +136,7 @@ func lintRule(rule string, knownEntitlements []KnownEntitlement) lintResult {
 		}
 	}
 
-	if result := namespaceResult(rule, parsed.NativeRep(), knownEntitlements); result.err != nil {
+	if result := namespaceResult(rule, parsed.NativeRep(), catalogue); result.err != nil {
 		return result
 	}
 
@@ -183,8 +187,8 @@ func unpositioned(err error) lintResult {
 // namespaceResult runs the walk over the server namespace and positions what it
 // finds from the AST's own source info, so `__kaiten.license.slgu` underlines
 // the misspelt field rather than the whole rule.
-func namespaceResult(rule string, parsed *ast.AST, knownEntitlements []KnownEntitlement) lintResult {
-	where, problem := lintServerNamespace(rule, parsed, knownEntitlements)
+func namespaceResult(rule string, parsed *ast.AST, catalogue TargetingCatalogue) lintResult {
+	where, problem := lintServerNamespace(rule, parsed, catalogue)
 	if problem == nil {
 		return lintResult{}
 	}
@@ -348,7 +352,7 @@ func fieldRoot(expr ast.Expr) (string, bool) {
 
 // lintServerNamespace reports the first problem it finds under FactsRoot, and
 // where in the rule it is written so the caller can underline it.
-func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []KnownEntitlement) (sourceSpan, error) {
+func lintServerNamespace(rule string, parsed *ast.AST, catalogue TargetingCatalogue) (sourceSpan, error) {
 	var problem error
 	var where sourceSpan
 
@@ -382,12 +386,20 @@ func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []Known
 		// catalogue, and what the rule does with it against the shape its
 		// type reads in.
 		if slug, at, ok := entitlementAccess(runes, info, e); ok {
-			if err := unknownEntitlement(rule, slug, knownEntitlements); err != nil {
+			if err := unknownEntitlement(rule, slug, catalogue.Entitlements); err != nil {
 				fail(err, at)
 				return
 			}
-			span, err := entitlementUse(rule, runes, info, e, parents[e.ID()], slug, at, knownEntitlements)
+			span, err := entitlementUse(rule, runes, info, e, parents[e.ID()], slug, at, catalogue.Entitlements)
 			fail(err, span)
+			return
+		}
+
+		// A fact whose values Kaiten knows, compared with a literal: `==`,
+		// `!=`, or `in` a list of them.
+		if e.Kind() == ast.CallKind {
+			at, err := lintKnownValues(rule, info, e, catalogue)
+			fail(err, at)
 			return
 		}
 
@@ -437,6 +449,77 @@ func lintServerNamespace(rule string, parsed *ast.AST, knownEntitlements []Known
 	})
 
 	return where, problem
+}
+
+/*
+lintKnownValues refuses a comparison of a fact whose values Kaiten knows with a
+string literal that is not one of them (valueFields): `==` and `!=` in either
+order, and `in` a list of literals, where each element is judged and the
+offending one underlined.
+
+Only a direct comparison is judged. A function (`startsWith`, `matches`) asks a
+different question — a prefix of a plan is a legitimate thing to test — and a
+literal compared with anything else is a value the lint cannot reason about.
+*/
+func lintKnownValues(rule string, info *ast.SourceInfo, call ast.Expr, catalogue TargetingCatalogue) (sourceSpan, error) {
+	fn := call.AsCall()
+	args := fn.Args()
+	if fn.IsMemberFunction() || len(args) != 2 {
+		return sourceSpan{}, nil
+	}
+
+	var field valueField
+	var literals []ast.Expr
+
+	switch fn.FunctionName() {
+	case celoperators.Equals, celoperators.NotEquals:
+		for i, operand := range args {
+			if f, ok := valueFieldRead(operand); ok {
+				field, literals = f, []ast.Expr{args[1-i]}
+				break
+			}
+		}
+	case celoperators.In:
+		if f, ok := valueFieldRead(args[0]); ok && args[1].Kind() == ast.ListKind {
+			field, literals = f, args[1].AsList().Elements()
+		}
+	}
+
+	for _, literal := range literals {
+		value, ok := literalValue(literal)
+		if !ok {
+			continue
+		}
+		text, ok := value.(string)
+		if !ok {
+			continue
+		}
+		if err := unknownValue(rule, field, text, catalogue); err != nil {
+			return nodeSpan(info, literal.ID()), err
+		}
+	}
+
+	return sourceSpan{}, nil
+}
+
+// valueFieldRead reports whether expr is `__kaiten.<subroot>.<field>` for a
+// field whose literals are checked.
+func valueFieldRead(expr ast.Expr) (valueField, bool) {
+	if expr.Kind() != ast.SelectKind {
+		return valueField{}, false
+	}
+
+	sel := expr.AsSelect()
+	if sel.IsTestOnly() {
+		return valueField{}, false
+	}
+
+	subroot, ok := fieldRoot(sel.Operand())
+	if !ok {
+		return valueField{}, false
+	}
+
+	return valueFieldAt(subroot, sel.FieldName())
 }
 
 // unknownEntitlement reports a slug the organization does not have. A nil

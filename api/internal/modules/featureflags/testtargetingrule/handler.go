@@ -7,7 +7,6 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/openfeature"
 	customertargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/customers/targetingfacts"
 	deploymentzonetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/targetingfacts"
-	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/common"
 	"github.com/kaitencloud/kaiten/api/internal/modules/featureflags/openfeature/ofrep"
 	instancetargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/instances/targetingfacts"
@@ -16,15 +15,15 @@ import (
 )
 
 // Deps lists exactly what this handler needs, instead of the full
-// services.Container: the catalogue the lint checks slugs against, and the
+// services.Container: the catalogue the lint checks a rule against, and the
 // three fact ports the real evaluation path enriches from.
 type Deps struct {
-	AIPolicy             aiusage.Policy
-	UserProvider         currentuser.Provider
-	EntitlementCatalogue catalogue.Port
-	CustomerFacts        customertargetingfacts.Port
-	InstanceFacts        instancetargetingfacts.Port
-	DeploymentZoneFacts  deploymentzonetargetingfacts.Port
+	AIPolicy            aiusage.Policy
+	UserProvider        currentuser.Provider
+	Catalogue           common.Catalogue
+	CustomerFacts       customertargetingfacts.Port
+	InstanceFacts       instancetargetingfacts.Port
+	DeploymentZoneFacts deploymentzonetargetingfacts.Port
 }
 
 type UseCase struct {
@@ -87,9 +86,9 @@ func (h *UseCase) Execute(
 	ofrep.EnrichWithServerFacts(ctx, h.deps.CustomerFacts, h.deps.InstanceFacts, user.OrganizationID, &evaluationContext)
 	ofrep.EnrichWithInstanceFacts(ctx, h.deps.InstanceFacts, h.deps.CustomerFacts, h.deps.DeploymentZoneFacts, user.OrganizationID, &evaluationContext)
 
-	known := common.KnownEntitlements(ctx, h.deps.EntitlementCatalogue, user.OrganizationID)
-	types := make(map[string]string, len(known))
-	for _, entitlement := range known {
+	known := h.deps.Catalogue.Read(ctx, user.OrganizationID)
+	types := make(map[string]string, len(known.Entitlements))
+	for _, entitlement := range known.Entitlements {
 		types[entitlement.Slug] = entitlement.DeclaredType
 	}
 	rehearsal := &Rehearsal{

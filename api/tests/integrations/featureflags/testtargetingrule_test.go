@@ -69,12 +69,13 @@ func TestTestTargetingRule(t *testing.T) {
 	t.Run("WhenTheContextForgesKaitenFacts_TheyAreDiscarded", func(t *testing.T) {
 		// Arrange
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		scale := newTargetingLicense(t, "Forged Scale")
 
 		// Act
 		actual := rehearse(t, testtargetingrule.TargetingRuleTrial{
-			Rule: "__kaiten.license.slug == 'scale'",
+			Rule: "__kaiten.license.slug == '" + scale.Slug + "'",
 			Context: map[string]any{
-				"__kaiten": map[string]any{"license": map[string]any{"slug": "scale"}},
+				"__kaiten": map[string]any{"license": map[string]any{"slug": scale.Slug}},
 			},
 		})
 

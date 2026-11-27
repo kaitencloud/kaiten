@@ -17051,6 +17051,11 @@ components:
           items:
             type: string
           type: array
+        knownValues:
+          description: Values this string is usually compared with, for completion. Not a closed set
+          items:
+            $ref: "#/components/schemas/TargetingKnownValue"
+          type: array
         name:
           description: Name as it is written in a rule
           type: string
@@ -17073,6 +17078,21 @@ components:
       required:
         - name
         - type
+      type: object
+    TargetingKnownValue:
+      additionalProperties: false
+      properties:
+        description:
+          description: What the value is, when the label is not enough
+          type: string
+        label:
+          description: Human-readable name of the value, e.g. a plan's display name
+          type: string
+        value:
+          description: The literal as it is written in a rule, e.g. a plan's slug
+          type: string
+      required:
+        - value
       type: object
     TargetingRuleDraft:
       additionalProperties: false
@@ -24867,7 +24887,7 @@ paths:
         - featureflags
   /feature-flags/targeting/context:
     get:
-      description: "Returns the identifiers a targeting rule may read, with their types and descriptions, including the organization's own entitlement slugs. Intended for an editor: it is what autocomplete and hover documentation are built from. The set is not closed — a rule may also target on attributes the caller supplies in its own evaluation context."
+      description: "Returns the identifiers a targeting rule may read, with their types and descriptions, including the organization's own entitlement slugs, and the values a string fact is usually compared with: its plans, license versions and deployment zones, and the fixed sets of license types and instance statuses. Intended for an editor: it is what autocomplete and hover documentation are built from. The set is not closed — a rule may also target on attributes the caller supplies in its own evaluation context."
       operationId: get-targeting-context
       responses:
         "200":
@@ -24902,7 +24922,7 @@ paths:
         - featureflags
   /feature-flags/targeting/lint:
     post:
-      description: "Runs the same check create and update run before accepting a targeting rule, and reports what it found without writing anything. A rule that references a fact or an entitlement that does not exist does not fail loudly at evaluation — it simply never matches — so this is what lets an editor say so while the rule is being written. A rejected rule is a 200 carrying `valid: false`, not a client error."
+      description: "Runs the same check create and update run before accepting a targeting rule, and reports what it found without writing anything. A rule that references a fact or an entitlement that does not exist, or compares a plan, license version, deployment zone, license type or instance status with a value that does not exist, does not fail loudly at evaluation — it simply never matches — so this is what lets an editor say so while the rule is being written. A rejected rule is a 200 carrying `valid: false`, not a client error."
       operationId: lint-targeting-rule
       requestBody:
         content:

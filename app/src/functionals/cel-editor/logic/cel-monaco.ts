@@ -1,9 +1,11 @@
 import type { Monaco } from '@monaco-editor/react';
 import type { editor, languages } from 'monaco-editor';
 import { celLanguageDef } from './cel-language';
-import { hoverFor, proposalsFor } from './cel-completions';
+import { hoverFor, hoverForValue, proposalsFor } from './cel-completions';
 import type { CelProposal, CelProposalKind } from './cel-completions';
 import { completionTargetAt, hoverPathAt } from './cel-path';
+import type { CelCompletionTarget } from './cel-path';
+import { comparedLiteralAt } from './cel-value-position';
 import { formatCEL } from './format-cel';
 import type { CelContextNode } from '../types/cel-context.types';
 
@@ -114,38 +116,71 @@ function completionProvider(monaco: Monaco): languages.CompletionItemProvider {
       // behind when the suggestion is accepted inside an index.
       const typed = 'prefix' in target ? target.prefix.length : 0;
 
-      // Accepting a key swallows the `']` auto-close already put after the
-      // caret, so the caret lands past the whole index instead of stranded
-      // inside it with two closers still to arrow over.
-      const after =
-        target.kind === 'key'
-          ? (/^(['"]\]?|\])/.exec(
-              model
-                .getLineContent(position.lineNumber)
-                .slice(position.column - 1),
-            )?.[0] ?? '')
-          : '';
-
-      const range = {
-        startLineNumber: position.lineNumber,
-        endLineNumber: position.lineNumber,
-        startColumn: position.column - typed,
-        endColumn: position.column + after.length,
-      };
+      const closing = closingAround(
+        target,
+        model.getLineContent(position.lineNumber).slice(position.column - 1),
+      );
 
       return {
-        suggestions: proposals.map((proposal) =>
-          toCompletionItem(
-            after
-              ? { ...proposal, insertText: proposal.insertText + after }
-              : proposal,
-            range,
+        suggestions: proposals.map((proposal) => {
+          // A key that cannot follow a dot takes the dot with it, and Monaco
+          // filters on the text the range covers: the dot has to be in what
+          // the suggestion is matched against too, or `.ai` would match
+          // nothing and the suggestion would vanish as it is typed.
+          const dot =
+            proposal.replacesDot && target.kind === 'member'
+              ? textUntilPosition.slice(
+                  textUntilPosition.length - typed - target.dotLength,
+                  textUntilPosition.length - typed,
+                )
+              : '';
+
+          return toCompletionItem(
+            { ...proposal, insertText: proposal.insertText + closing.append },
+            {
+              startLineNumber: position.lineNumber,
+              endLineNumber: position.lineNumber,
+              startColumn: position.column - typed - dot.length,
+              endColumn: position.column + closing.swallow,
+            },
             monaco,
-          ),
-        ),
+            dot ? dot + proposal.label : undefined,
+          );
+        }),
       };
     },
   };
+}
+
+/**
+ * What a suggestion has to add after itself, and how much of the line after
+ * the caret it replaces, for the delimiters the editor closed on the author's
+ * behalf.
+ *
+ * Accepting a key swallows the `']` auto-close already put after the caret, so
+ * the caret lands past the whole index instead of stranded inside it with two
+ * closers still to arrow over. A value inside an opened quote does the same
+ * with its one quote, and closes it when there is none, so accepting never
+ * leaves an unterminated literal nor doubles the quote.
+ */
+function closingAround(
+  target: CelCompletionTarget,
+  rest: string,
+): { append: string; swallow: number } {
+  if (target.kind === 'key') {
+    const after = /^(['"]\]?|\])/.exec(rest)?.[0] ?? '';
+
+    return { append: after, swallow: after.length };
+  }
+
+  if (target.kind === 'value' && target.quote) {
+    return {
+      append: target.quote,
+      swallow: rest.startsWith(target.quote) ? 1 : 0,
+    };
+  }
+
+  return { append: '', swallow: 0 };
 }
 
 /**
@@ -164,6 +199,22 @@ function completionProvider(monaco: Monaco): languages.CompletionItemProvider {
 function hoverProvider(): languages.HoverProvider {
   return {
     provideHover: (model, position) => {
+      const literal = comparedLiteralAt(
+        model.getLineContent(position.lineNumber),
+        position.column - 1,
+      );
+      if (literal) {
+        return valueHover(
+          hoverForValue(literal.path, literal.value, rootsFor(model)),
+          {
+            startLineNumber: position.lineNumber,
+            endLineNumber: position.lineNumber,
+            startColumn: literal.start + 1,
+            endColumn: literal.end + 1,
+          },
+        );
+      }
+
       const word = model.getWordAtPosition(position);
       if (!word) return null;
 
@@ -205,14 +256,41 @@ function hoverProvider(): languages.HoverProvider {
   };
 }
 
+/**
+ * The hover of a known value: the name it is compared with, then what the
+ * value is. Nothing for a literal that is not known.
+ */
+function valueHover(
+  documented: ReturnType<typeof hoverForValue>,
+  range: languages.Hover['range'],
+): languages.Hover | null {
+  if (!documented) return null;
+
+  const contents = [{ value: `\`\`\`cel\n${documented.title}\n\`\`\`` }];
+  if (documented.label) {
+    contents.push({ value: `**${documented.label}**` });
+  }
+  if (documented.description) {
+    contents.push({ value: documented.description });
+  }
+
+  return { range, contents };
+}
+
 function toCompletionItem(
   proposal: CelProposal,
   range: languages.CompletionItem['range'],
   monaco: Monaco,
+  filterText?: string,
 ): languages.CompletionItem {
   const item: languages.CompletionItem = {
-    label: proposal.label,
+    // A value reads as `bronze  Bronze`: the literal, then what it is called.
+    label:
+      proposal.kind === 'value' && proposal.detail
+        ? { label: proposal.label, description: proposal.detail }
+        : proposal.label,
     kind: completionKind(proposal.kind, monaco),
+    filterText,
     insertText: proposal.insertText,
     detail: proposal.detail,
     sortText: proposal.sortText,
@@ -244,6 +322,8 @@ function completionKind(
       return kinds.Property;
     case 'key':
       return kinds.Value;
+    case 'value':
+      return kinds.EnumMember;
     case 'function':
       return kinds.Function;
     case 'macro':

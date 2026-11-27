@@ -14,6 +14,19 @@ export type CelValueType =
   | 'dyn';
 
 /**
+ * One value a string is usually compared with: what goes in the rule, and what
+ * an author reads to recognise it.
+ */
+export interface CelKnownValue {
+  /** The literal as it is written in a rule, without its quotes. */
+  value: string;
+  /** A human-readable name for the value, shown beside it. */
+  label?: string;
+  /** What the value is, when the label is not enough. */
+  description?: string;
+}
+
+/**
  * One name a rule may read, and whatever is reachable below it.
  *
  * Recursive, because the context is a tree: today it is two levels of
@@ -39,6 +52,13 @@ export interface CelContextNode {
    * key, so this drives suggestions and never rejection.
    */
   knownKeys?: string[];
+  /**
+   * Values a string is usually compared with, offered after `==`, `!=` and
+   * inside `in [...]`, and described when such a literal is hovered. Advisory,
+   * like `knownKeys`: any other string stays a legal comparison, and what
+   * refuses one is the check, not the editor.
+   */
+  knownValues?: CelKnownValue[];
   /**
    * Whether the value may be absent. CEL raises on a missing field rather than
    * returning false, so these are the ones worth guarding with `has()`.

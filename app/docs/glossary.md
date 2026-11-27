@@ -182,7 +182,7 @@ An entry of a flag's `targetings` that decides which variant a context gets. The
 
 ### Targeting context
 
-The identifiers a targeting rule may read, such as `__kaiten.deploymentZone.type`. The server enriches the context from the license, the entitlements, the instance, the customer and the deployment zone. `GET /feature-flags/targeting/context` lists them, `POST /feature-flags/targeting/lint` checks a rule and `POST /feature-flags/targeting/test` rehearses one without saving anything.
+The identifiers a targeting rule may read, such as `__kaiten.deploymentZone.type`. The server enriches the context from the license, the entitlements, the instance, the customer and the deployment zone. `GET /feature-flags/targeting/context` lists them, `POST /feature-flags/targeting/lint` checks a rule and `POST /feature-flags/targeting/test` rehearses one without saving anything. The context also lists the values a string fact is usually compared with, such as the organization's plans for `__kaiten.license.familySlug`, which the editor offers as completions.
 
 ### CEL
 

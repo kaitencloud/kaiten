@@ -5,6 +5,7 @@ import {
   resolveNode,
   scanChain,
 } from '../logic/cel-path';
+import { comparedLiteralAt } from '../logic/cel-value-position';
 import type { CelContextNode } from '../types/cel-context.types';
 
 const names = (text: string) =>
@@ -21,6 +22,11 @@ const roots: CelContextNode[] = [
         fields: [
           { name: 'slug', type: 'string' },
           { name: 'type', type: 'string' },
+          {
+            name: 'familySlug',
+            type: 'string',
+            knownValues: [{ value: 'bronze', label: 'Bronze' }],
+          },
         ],
       },
       {
@@ -164,9 +170,11 @@ describe('completionTargetAt', () => {
   */
   describe('inside and around ordinary strings', () => {
     it.each([
-      "__kaiten.license.slug == '",
-      "__kaiten.license.slug == 'sca",
-      'device.os == "io',
+      "__kaiten.license.slug.startsWith('",
+      "__kaiten.license.slug.startsWith('sca",
+      'device.os.matches("io',
+      "x + '",
+      "x < '",
     ])('offers nothing inside the literal %s', (text) => {
       expect(completionTargetAt(text)).toEqual({ kind: 'none' });
     });
@@ -175,6 +183,12 @@ describe('completionTargetAt', () => {
       expect(completionTargetAt("__kaiten.license.slug == 'scale'")).toEqual({
         kind: 'none',
       });
+    });
+
+    // A comparison is the one place a literal has something to offer.
+    it('offers nothing inside a literal compared with something it cannot read', () => {
+      expect(completionTargetAt("size(x) == '")).toEqual({ kind: 'none' });
+      expect(completionTargetAt("(a || b) != '")).toEqual({ kind: 'none' });
     });
 
     it('still reads the text after a closed string as what it is', () => {
@@ -187,7 +201,9 @@ describe('completionTargetAt', () => {
     });
 
     it('does not mistake an escaped quote for the end of the string', () => {
-      expect(completionTargetAt("x == 'it\\'s ")).toEqual({ kind: 'none' });
+      expect(completionTargetAt("x.startsWith('it\\'s ")).toEqual({
+        kind: 'none',
+      });
     });
   });
 
@@ -202,6 +218,7 @@ describe('completionTargetAt', () => {
         kind: 'member',
         path: [],
         prefix: '',
+        dotLength: 1,
       });
     });
 
@@ -210,6 +227,7 @@ describe('completionTargetAt', () => {
         kind: 'member',
         path: [],
         prefix: '',
+        dotLength: 1,
       });
     });
 
@@ -221,8 +239,197 @@ describe('completionTargetAt', () => {
     it('keeps a partial name typed after the unreadable dot', () => {
       const target = completionTargetAt('(a || b).sta');
 
-      expect(target).toEqual({ kind: 'member', path: [], prefix: 'sta' });
+      expect(target).toEqual({
+        kind: 'member',
+        path: [],
+        prefix: 'sta',
+        dotLength: 1,
+      });
     });
+  });
+});
+
+describe('after a dot', () => {
+  // What a suggestion that is spelled as an index replaces: the dot, and
+  // whatever whitespace CEL allows between it and the name.
+  it('says how far back the dot is', () => {
+    const near = completionTargetAt('__kaiten.entitlements.ai');
+    const far = completionTargetAt('__kaiten.entitlements .  ai');
+
+    expect(near.kind === 'member' && near.dotLength).toBe(1);
+    expect(far.kind === 'member' && far.dotLength).toBe(3);
+  });
+});
+
+describe('the value of a comparison', () => {
+  const valueAt = (text: string) => {
+    const target = completionTargetAt(text);
+
+    return target.kind === 'value'
+      ? {
+          path: target.path.map((segment) => segment.name).join('.'),
+          prefix: target.prefix,
+          quote: target.quote,
+        }
+      : target;
+  };
+
+  it.each(['==', '!='])('is the right operand of %s', (operator) => {
+    expect(valueAt(`__kaiten.license.familySlug ${operator} `)).toEqual({
+      path: '__kaiten.license.familySlug',
+      prefix: '',
+      quote: null,
+    });
+  });
+
+  it('keeps the name typed before the quote is opened', () => {
+    expect(valueAt('__kaiten.license.familySlug == br')).toEqual({
+      path: '__kaiten.license.familySlug',
+      prefix: 'br',
+      quote: null,
+    });
+  });
+
+  it.each([
+    ["__kaiten.license.familySlug == '", "'", ''],
+    ["__kaiten.license.familySlug == 'br", "'", 'br'],
+    ['__kaiten.license.familySlug != "br', '"', 'br'],
+  ])('is inside an opened quote at %s', (text, quote, prefix) => {
+    expect(valueAt(text)).toEqual({
+      path: '__kaiten.license.familySlug',
+      prefix,
+      quote,
+    });
+  });
+
+  it.each([
+    ['__kaiten.license.familySlug in [', '', null],
+    ["__kaiten.license.familySlug in ['bronze', ", '', null],
+    ["__kaiten.license.familySlug in ['bronze',", '', null],
+    ["__kaiten.license.familySlug in ['bronze', 'si", 'si', "'"],
+    ['__kaiten.license.familySlug in ["bronze", "si', 'si', '"'],
+    ["__kaiten.license.familySlug in ['a,b', 'it\\'s', ", '', null],
+  ])('is an element of the list at %s', (text, prefix, quote) => {
+    expect(valueAt(text)).toEqual({
+      path: '__kaiten.license.familySlug',
+      prefix,
+      quote,
+    });
+  });
+
+  it('reads the name through an index', () => {
+    expect(valueAt("__kaiten.entitlements['support'].tier == '")).toMatchObject(
+      { path: '__kaiten.entitlements.support.tier', quote: "'" },
+    );
+  });
+
+  it('is found after other clauses of the rule', () => {
+    expect(
+      valueAt("x == 'a' && __kaiten.license.familySlug == '"),
+    ).toMatchObject({ path: '__kaiten.license.familySlug', quote: "'" });
+  });
+
+  // `<=` and `>=` compare order, not membership in a set of values.
+  it.each([
+    '__kaiten.license.familySlug <= ',
+    '__kaiten.license.familySlug >= ',
+    '__kaiten.license.familySlug < ',
+    '__kaiten.license.familySlug + ',
+  ])('is not the right operand of %s', (text) => {
+    expect(completionTargetAt(text).kind).toBe('root');
+  });
+
+  it.each([
+    // A list that is not the right operand of `in`.
+    "x = [",
+    "has(a, [",
+    // `in` must be the keyword, not the end of a name.
+    "__kaiten.license.min [",
+    // An element that is not a literal ends what can be read.
+    "__kaiten.license.familySlug in [other, ",
+    // An index is not a list.
+    "__kaiten.entitlements[",
+  ])('is not a value at %s', (text) => {
+    expect(completionTargetAt(text).kind).not.toBe('value');
+  });
+
+  it('leaves a literal of a call alone', () => {
+    expect(completionTargetAt("__kaiten.license.familySlug.startsWith('")).toEqual({
+      kind: 'none',
+    });
+  });
+});
+
+describe('comparedLiteralAt', () => {
+  const compared = (line: string, offset: number) => {
+    const found = comparedLiteralAt(line, offset);
+
+    return found
+      ? { path: found.path.map((s) => s.name).join('.'), value: found.value }
+      : null;
+  };
+
+  it('finds the literal after == and !=', () => {
+    const line = "__kaiten.license.familySlug == 'bronze'";
+
+    expect(compared(line, line.indexOf('bronze') + 2)).toEqual({
+      path: '__kaiten.license.familySlug',
+      value: 'bronze',
+    });
+    expect(
+      compared("__kaiten.license.familySlug != 'bronze'", 34),
+    ).toMatchObject({ value: 'bronze' });
+  });
+
+  it('finds the literal before the name, in either order', () => {
+    expect(compared("'bronze' == __kaiten.license.familySlug", 3)).toEqual({
+      path: '__kaiten.license.familySlug',
+      value: 'bronze',
+    });
+    expect(compared("'bronze' != __kaiten.license.familySlug", 3)).toEqual({
+      path: '__kaiten.license.familySlug',
+      value: 'bronze',
+    });
+  });
+
+  it('finds each element of a list', () => {
+    const line = "__kaiten.license.familySlug in ['bronze', 'silver']";
+
+    expect(compared(line, line.indexOf('bronze'))).toMatchObject({
+      value: 'bronze',
+    });
+    expect(compared(line, line.indexOf('silver'))).toMatchObject({
+      value: 'silver',
+    });
+  });
+
+  it('spans the whole literal, quotes included', () => {
+    const line = "a.b == 'bronze' && c";
+    const found = comparedLiteralAt(line, 10);
+
+    expect(line.slice(found?.start, found?.end)).toBe("'bronze'");
+  });
+
+  it('unescapes what the literal spells', () => {
+    expect(compared("a.b == 'it\\'s'", 9)).toEqual({
+      path: 'a.b',
+      value: "it's",
+    });
+  });
+
+  it('is not a literal outside the quotes', () => {
+    expect(comparedLiteralAt("a.b == 'bronze'", 3)).toBeNull();
+  });
+
+  // A literal is only about a name when it is compared with it.
+  it.each([
+    "__kaiten.license.familySlug.startsWith('bro')",
+    "__kaiten.entitlements['seats'].remaining > 1",
+    "'bronze' == size(x)",
+    "'bronze' == a.b()",
+    "x + 'bronze'",
+  ])('says nothing about %s', (line) => {
+    expect(comparedLiteralAt(line, line.indexOf("'") + 2)).toBeNull();
   });
 });
 
@@ -245,6 +452,17 @@ describe('hoverPathAt', () => {
 
   it('says nothing inside an ordinary string', () => {
     expect(hoverPathAt("x == 'scale", 'scale')).toBeNull();
+    expect(hoverPathAt("x.startsWith('scale", 'scale')).toBeNull();
+  });
+
+  // A name written where a value could be is still a name.
+  it('reads a name compared with another', () => {
+    expect(
+      hoverPathAt('x == __kaiten.license', 'license')?.map((s) => s.name),
+    ).toEqual(['__kaiten', 'license']);
+    expect(hoverPathAt('x == targetingKey', 'targetingKey')?.map((s) => s.name)).toEqual([
+      'targetingKey',
+    ]);
   });
 });
 

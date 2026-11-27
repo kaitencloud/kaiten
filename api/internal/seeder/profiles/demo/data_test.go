@@ -399,7 +399,7 @@ func TestFlagRulesTargetProductsByFamily(t *testing.T) {
 	for _, flag := range featureFlags {
 		for _, targeting := range flag.Targetings {
 			rule := targeting.GetRule().Value
-			require.NoErrorf(t, featureflag.LintTargetingRule(rule, known), "flag %q: %s", flag.Slug, rule)
+			require.NoErrorf(t, featureflag.LintTargetingRule(rule, featureflag.TargetingCatalogue{Entitlements: known}), "flag %q: %s", flag.Slug, rule)
 			require.NotContainsf(t, rule, "__kaiten.license.slug",
 				"flag %q targets one license version; target the product with __kaiten.license.familySlug", flag.Slug)
 
@@ -781,7 +781,7 @@ func knownEntitlements() []featureflag.KnownEntitlement {
 func TestFlagsPassTheCreateValidation(t *testing.T) {
 	known := knownEntitlements()
 	for i := range featureFlags {
-		require.NoErrorf(t, flagvalidator.NewValidator().ValidateFlagInOrganization(&featureFlags[i], known), "flag %q", featureFlags[i].Slug)
+		require.NoErrorf(t, flagvalidator.NewValidator().ValidateFlagInOrganization(&featureFlags[i], featureflag.TargetingCatalogue{Entitlements: known}), "flag %q", featureFlags[i].Slug)
 	}
 }
 

@@ -40,6 +40,14 @@ const (
 	TargetingTypeDyn     TargetingValueType = "dyn"
 )
 
+// TargetingKnownValue is one value a string field is usually compared with: what
+// goes in the rule, and what an author reads to recognise it.
+type TargetingKnownValue struct {
+	Value       string `json:"value" doc:"The literal as it is written in a rule, e.g. a plan's slug"`
+	Label       string `json:"label,omitempty" doc:"Human-readable name of the value, e.g. a plan's display name"`
+	Description string `json:"description,omitempty" doc:"What the value is, when the label is not enough"`
+}
+
 // TargetingContextNode is one name a rule may read, and whatever is reachable
 // below it. Recursive by nature: the context is a tree, and a customer-declared
 // namespace will nest as deeply as the customer nests it.
@@ -67,6 +75,12 @@ type TargetingContextNode struct {
 	// an empty list means only that none are known, never that none are legal.
 	KnownKeys []string `json:"knownKeys,omitempty" nullable:"false" doc:"Keys this map currently has, for completion. Not a closed set"`
 
+	// KnownValues are the values a string field is usually compared with — the
+	// organization's plan slugs for `license.familySlug`, the four statuses for
+	// `instance.status`. Advisory like KnownKeys: the lint is what refuses a
+	// value, and only for the fields where the set is known to be complete.
+	KnownValues []TargetingKnownValue `json:"knownValues,omitempty" nullable:"false" doc:"Values this string is usually compared with, for completion. Not a closed set"`
+
 	// Optional marks a value that may be absent. It matters to a rule author
 	// because CEL raises on a missing field rather than returning false, so
 	// these are the ones worth guarding with has().
@@ -77,27 +91,34 @@ type TargetingContextNode struct {
 TargetingContextRoots is every identifier the server guarantees, ready for an
 editor to complete against.
 
-knownEntitlements is the organization's catalogue, used to complete the slugs
-under __kaiten.entitlements. It may be nil — a caller without one still gets
-the whole shape, minus the slug suggestions.
+catalogue is what the organization has: its entitlement slugs complete
+__kaiten.entitlements, and its plans, license versions and deployment zones
+complete the string facts a rule compares them with (see targeting_values.go).
+Any part of it may be nil — a caller without it still gets the whole shape,
+minus the suggestions.
 
 What this does NOT return is "the identifiers a rule may use": a host sends its
 own attributes in the evaluation context and targets on them, which the linter
 deliberately allows (see LintTargetingRule). An editor must offer these and
 still accept anything else.
 */
-func TargetingContextRoots(knownEntitlements []KnownEntitlement) []TargetingContextNode {
+func TargetingContextRoots(catalogue TargetingCatalogue) []TargetingContextNode {
+	license := factNode(LicenseRoot, "The license the organization holds.", reflect.TypeFor[LicenseFact]())
+	withCatalogueValues(&license, LicenseRoot, catalogue)
+	zone := factNode(DeploymentZoneRoot, "The deployment zone the instance runs in.", reflect.TypeFor[DeploymentZoneFact]())
+	withCatalogueValues(&zone, DeploymentZoneRoot, catalogue)
+
 	return []TargetingContextNode{
 		{
 			Name:        FactsRoot,
 			Type:        TargetingTypeObject,
 			Description: "Facts the server computes for every evaluation. Reserved: nothing a caller sends can set it.",
 			Fields: []TargetingContextNode{
-				factNode(LicenseRoot, "The license the organization holds.", reflect.TypeFor[LicenseFact]()),
-				entitlementsNode(knownEntitlements),
+				license,
+				entitlementsNode(catalogue.Entitlements),
 				factNode(InstanceRoot, "The instance being evaluated.", reflect.TypeFor[InstanceFact]()),
 				factNode(CustomerRoot, "The customer the instance belongs to.", reflect.TypeFor[CustomerFact]()),
-				factNode(DeploymentZoneRoot, "The deployment zone the instance runs in.", reflect.TypeFor[DeploymentZoneFact]()),
+				zone,
 			},
 		},
 		{
@@ -182,7 +203,9 @@ func structNodes(t reflect.Type) []TargetingContextNode {
 			continue
 		}
 
-		nodes = append(nodes, valueNode(name, field.Tag.Get("doc"), field.Type))
+		node := valueNode(name, field.Tag.Get("doc"), field.Type)
+		node.KnownValues = tagValues(field)
+		nodes = append(nodes, node)
 	}
 
 	return nodes

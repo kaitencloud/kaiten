@@ -106,6 +106,54 @@ func TestGetTargetingContext(t *testing.T) {
 	})
 }
 
+// What the organization has is offered to the editor as the values a rule
+// compares a fact with, and the same lists are what the lint checks them
+// against — one read, so the editor cannot suggest what the save refuses.
+func TestKnownValues(t *testing.T) {
+	t.Run("WhenTheOrganizationHasPlans_OffersThemAndRefusesTheRest", func(t *testing.T) {
+		// Arrange
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		first := newTargetingLicense(t, "Known Bronze")
+		second := newTargetingLicenseVersion(t, first)
+
+		// Act
+		context := targetingContext(t)
+		accepted := lint(t, "__kaiten.license.familySlug == '"+first.Slug+"'")
+		version := lint(t, "__kaiten.license.slug in ['"+first.Slug+"', '"+second.Slug+"']")
+		refused := lint(t, "__kaiten.license.familySlug == '"+first.Slug+"x'")
+
+		// Assert
+		license := nodeNamed(t, nodeNamed(t, context.Roots, "__kaiten").Fields, "license")
+
+		plans := nodeNamed(t, license.Fields, "familySlug").KnownValues
+		require.Len(t, plans, 1)
+		assert.Equal(t, first.Slug, plans[0].Value)
+		assert.Equal(t, "Known Bronze", plans[0].Label)
+
+		versions := nodeNamed(t, license.Fields, "slug").KnownValues
+		require.Len(t, versions, 2)
+
+		assert.True(t, accepted.Valid, "issues: %v", accepted.Issues)
+		assert.True(t, version.Valid, "issues: %v", version.Issues)
+		assert.False(t, refused.Valid)
+		require.Len(t, refused.Issues, 1)
+		assert.Contains(t, refused.Issues[0].Message, "which is not a plan of this organization")
+	})
+
+	t.Run("WhenTheRuleComparesAClosedEnum_RefusesAValueItCannotHold", func(t *testing.T) {
+		// Arrange
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+		// Act
+		accepted := lint(t, "__kaiten.instance.status == 'HEALTHY'")
+		refused := lint(t, "__kaiten.instance.status == 'DOWN'")
+
+		// Assert
+		assert.True(t, accepted.Valid, "issues: %v", accepted.Issues)
+		assert.False(t, refused.Valid)
+	})
+}
+
 func createEntitlement(t *testing.T, name string, typ entitlementschema.Type) entitlementschema.Entitlement {
 	t.Helper()
 
@@ -142,10 +190,11 @@ func TestLintTargetingRule(t *testing.T) {
 	t.Run("WhenTheRuleWorks_ReportsNothing", func(t *testing.T) {
 		// Arrange
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		scale := newTargetingLicense(t, "Editor Scale")
 
 		for _, rule := range []string{
 			"true",
-			"__kaiten.license.slug == 'scale'",
+			"__kaiten.license.slug == '" + scale.Slug + "'",
 			// A host's own attributes: the world is not closed, and a rule
 			// targeting on them is legitimate.
 			"user.cohort == 'beta'",
