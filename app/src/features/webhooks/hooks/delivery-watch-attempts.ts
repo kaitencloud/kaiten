@@ -127,15 +127,16 @@ export const REFUSED = 'refused';
  * as the read answers, so this read never keeps one in memory, and the
  * message's cache entry, if any, keeps its own `gcTime`. A 403, or a 404 other
  * than a message not delivered yet (its webhook deleted, say), returns
- * `REFUSED`, which ends the message's watch. Any other failed read returns no
- * attempt: the watch reads again on its next tick, until its cap.
+ * `REFUSED`, which ends the message's watch. Any other failed read, one aborted
+ * through `signal` included, returns no attempt: the watch reads again on its
+ * next tick, until its cap.
  */
-export async function readAttemptsOffScreen({
-  webhookId,
-  messageId,
-}: WebhookMessageRef): Promise<WatchedAttempt[] | typeof REFUSED> {
+export async function readAttemptsOffScreen(
+  { webhookId, messageId }: WebhookMessageRef,
+  signal?: AbortSignal,
+): Promise<WatchedAttempt[] | typeof REFUSED> {
   try {
-    const message = await getWebhookMessage(webhookId, messageId);
+    const message = await getWebhookMessage(webhookId, messageId, { signal });
 
     return (message?.attempts ?? []).map(toWatchedAttempt);
   } catch (error) {

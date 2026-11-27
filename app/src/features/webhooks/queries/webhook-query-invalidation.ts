@@ -75,7 +75,7 @@ export async function invalidateWebhookDeliveryQueries(
  * On each read of the resend watch (`useDeliveryWatch`), for every message it
  * follows: the history once, the message lists of each of their webhooks once,
  * and each message. Only the queries on screen refetch; the others are marked
- * stale, so a message shown again later is read at once.
+ * stale, and are read when shown again.
  */
 export async function invalidateWatchedDeliveryQueries(
   queryClient: QueryClient,

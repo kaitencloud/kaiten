@@ -1,4 +1,8 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from '@tanstack/react-query';
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import i18n from 'i18next';
@@ -249,12 +253,22 @@ const historyEntry: WebhookHistoryEntry = {
 };
 
 /** The History tab's dialog, which stays mounted while closed. */
+/**
+ * Stands for the app around the History dialog (the History table, the
+ * shell), which goes on reading from the query client once the dialog closes.
+ */
+function AppAround() {
+  useQuery({ queryKey: ['app'], queryFn: () => null, staleTime: Infinity });
+  return null;
+}
+
 function renderHistoryDialog() {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
   });
   const view = (open: boolean) => (
     <QueryClientProvider client={queryClient}>
+      <AppAround />
       <WebhookDeliveryDetailDialog
         delivery={deliveryFromHistoryEntry(historyEntry)}
         initialAttemptId={historyEntry.attemptId}

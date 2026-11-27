@@ -102,11 +102,19 @@ export async function getWebhookMessages(
   return response.data;
 }
 
-/** One message of a webhook, with its payload and the webhook's attempts at it. */
-export async function getWebhookMessage(webhookId: string, messageId: string) {
+/**
+ * One message of a webhook, with its payload and the webhook's attempts at it.
+ * `signal` aborts the request.
+ */
+export async function getWebhookMessage(
+  webhookId: string,
+  messageId: string,
+  { signal }: { signal?: AbortSignal } = {},
+) {
   const response = await client.get<{ 200: WebhookMessage }, unknown, true>({
     url: '/webhooks/{webhookId}/messages/{messageId}',
     path: { webhookId, messageId },
+    signal,
     throwOnError: true,
   });
 
