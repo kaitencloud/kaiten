@@ -781,7 +781,7 @@ func knownEntitlements() []featureflag.KnownEntitlement {
 func TestFlagsPassTheCreateValidation(t *testing.T) {
 	known := knownEntitlements()
 	for i := range featureFlags {
-		require.NoErrorf(t, flagvalidator.NewValidator().ValidateFlagInOrganization(&featureFlags[i], known), "flag %q", featureFlags[i].Slug)
+		require.NoErrorf(t, flagvalidator.NewValidator().ValidateFlagInOrganization(&featureFlags[i], featureflag.TargetingCatalogue{Entitlements: known}), "flag %q", featureFlags[i].Slug)
 	}
 }
 
