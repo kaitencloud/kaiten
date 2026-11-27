@@ -105,6 +105,11 @@ for (const [refusal, message] of [
     'notDelivered',
     'This delivery can no longer be resent. It may have been removed.',
   ],
+  ['resendRefused', 'The delivery provider refused this resend.'],
+  [
+    'resendUnavailable',
+    'The delivery provider is busy. Try again in a moment.',
+  ],
 ] as const) {
   test(`a resend refused as ${refusal} says why`, async ({ page }) => {
     const model = createWebhooksDeliveriesModel();
@@ -119,6 +124,12 @@ for (const [refusal, message] of [
 
     await expectErrorToast(page, message);
     await expect(deliveries.resendButton()).toHaveText('Resend');
+    if (refusal === 'resendRefused') {
+      // A refusal that names no cause leaves the body shown, and Resend usable,
+      // after the message is read again.
+      await expect(deliveries.payload()).toBeVisible();
+      await expect(deliveries.resendButton()).toBeEnabled();
+    }
   });
 }
 

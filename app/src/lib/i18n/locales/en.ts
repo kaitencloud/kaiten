@@ -4746,7 +4746,8 @@ export default {
             },
             webhooks: {
               label: 'Webhooks',
-              description: 'Access to outbound webhook subscriptions',
+              description:
+                "Access to outbound webhooks and their deliveries; read access includes the payloads of delivered events, which can hold your customers' personal data",
             },
             betaFeatures: {
               label: 'Beta features',
@@ -4995,6 +4996,9 @@ export default {
               'The body of this delivery is no longer available, so it cannot be resent.',
             resendNotDelivered:
               'This delivery can no longer be resent. It may have been removed.',
+            resendRefused: 'The delivery provider refused this resend.',
+            resendUnavailable:
+              'The delivery provider is busy. Try again in a moment.',
           },
           Trigger: {
             scheduled: 'Scheduled',

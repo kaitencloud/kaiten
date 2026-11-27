@@ -4823,7 +4823,8 @@ export default {
             },
             webhooks: {
               label: 'Webhooks',
-              description: 'Accès aux abonnements webhooks sortants',
+              description:
+                'Accès aux webhooks sortants et à leurs livraisons ; la lecture donne accès au contenu des événements livrés, qui peut contenir des données personnelles de vos clients',
             },
             betaFeatures: {
               label: 'Fonctionnalités bêta',
@@ -5078,6 +5079,9 @@ export default {
               "Le corps de cette livraison n'est plus disponible : elle ne peut pas être renvoyée.",
             resendNotDelivered:
               'Cette livraison ne peut plus être renvoyée. Elle a peut-être été supprimée.',
+            resendRefused: 'Le fournisseur de livraison a refusé ce renvoi.',
+            resendUnavailable:
+              'Le fournisseur de livraison est occupé. Réessayez dans un instant.',
           },
           Trigger: {
             scheduled: 'Planifié',

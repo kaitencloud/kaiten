@@ -28,7 +28,7 @@ vi.mock('sonner', () => ({
 const DETAIL = en.Pages.Integrations.Webhooks.Deliveries.Detail;
 
 /** Answers the resend with `status`; records each resend that reached the API. */
-function serveResend(status: number, code = 'ResendWebhookMessage.Refused') {
+function serveResend(status: number, code = 'ResendWebhookMessage.ResendFailed') {
   const resends: string[] = [];
   server.use(
     http.post(
@@ -123,14 +123,89 @@ describe('useResendWebhookMessage', () => {
     expect(onQueued).not.toHaveBeenCalled();
   });
 
-  it('says a message no longer delivered in the console language', async () => {
-    serveResend(404, 'ResendWebhookMessage.NotDelivered');
+  it('says a resend the delivery provider refused, without blaming the payload, and reads the message again', async () => {
+    serveResend(409, 'ResendWebhookMessage.Refused');
+    const { invalidated, onQueued, resend } = renderResend();
+
+    await resend();
+
+    expect(toastErrorMock).toHaveBeenCalledWith(DETAIL.resendRefused);
+    expect(toastErrorMock).not.toHaveBeenCalledWith(DETAIL.resendPayloadUnavailable);
+    expect(invalidated).toEqual([['webhooks', 'messages', 'ep_orders', 'msg_1']]);
+    expect(onQueued).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    {
+      name: 'another code',
+      body: () =>
+        HttpResponse.json(
+          {
+            status: 409,
+            title: 'Conflict',
+            code: 'ResendWebhookMessage.SomethingElse',
+            detail: 'Refused by saas-api.',
+          },
+          { status: 409 },
+        ),
+      message: 'Refused by saas-api.',
+    },
+    {
+      name: 'no problem body',
+      body: () => HttpResponse.text('Conflict', { status: 409 }),
+      message: en.Errors.api.CONFLICT,
+    },
+  ])('never says a gone payload for a 409 with $name, nor reads again', async ({ body, message }) => {
+    server.use(
+      http.post('*/webhooks/:webhookId/messages/:messageId/resend', body),
+    );
+    const { invalidated, onQueued, resend } = renderResend();
+
+    await resend();
+
+    expect(toastErrorMock).toHaveBeenCalledTimes(1);
+    const shown = toastErrorMock.mock.calls[0]?.[0];
+    expect(shown).not.toBe(DETAIL.resendPayloadUnavailable);
+    expect(shown).not.toBe(DETAIL.resendRefused);
+    expect(shown).not.toBe(DETAIL.resendNotDelivered);
+    expect(shown).toBe(message);
+    expect(invalidated).toEqual([]);
+    expect(onQueued).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    'ResendWebhookMessage.NotDelivered',
+    'ResendWebhookMessage.MessageNotFound',
+    'ResendWebhookMessage.WebhookNotFound',
+  ])('says a %s in the console language and reads the message again', async (code) => {
+    serveResend(404, code);
     const { invalidated, resend } = renderResend();
 
     await resend();
 
     expect(toastErrorMock).toHaveBeenCalledWith(DETAIL.resendNotDelivered);
     expect(invalidated).toEqual([['webhooks', 'messages', 'ep_orders', 'msg_1']]);
+  });
+
+  it('says a busy delivery provider in the console language, without reading again', async () => {
+    serveResend(503, 'ResendWebhookMessage.Unavailable');
+    const { invalidated, onQueued, resend } = renderResend();
+
+    await resend();
+
+    expect(toastErrorMock).toHaveBeenCalledWith(DETAIL.resendUnavailable);
+    expect(invalidated).toEqual([]);
+    expect(onQueued).not.toHaveBeenCalled();
+  });
+
+  it('shows the API message of a 503 for another reason, without reading again', async () => {
+    serveResend(503, 'Webhooks.EntitlementVerificationUnavailable');
+    const { invalidated, resend } = renderResend();
+
+    await resend();
+
+    expect(toastErrorMock).toHaveBeenCalledWith('Refused by saas-api.');
+    expect(invalidated).toEqual([]);
   });
 
   it.each([403, 500])('shows the API message of a %i, without reading again', async (status) => {

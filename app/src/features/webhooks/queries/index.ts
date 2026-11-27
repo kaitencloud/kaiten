@@ -2,6 +2,7 @@ export { webhookDetailQueryOptions } from './webhook-detail-query-options';
 export { loadWebhookForEdit } from './webhook-edit-loader';
 export { webhookHistoryQueryOptions } from './webhook-history-query-options';
 export {
+  getProblemCode,
   isLastingWebhookMessageRefusal,
   shouldRetryWebhookMessage,
   WEBHOOK_MESSAGE_NOT_DELIVERED,

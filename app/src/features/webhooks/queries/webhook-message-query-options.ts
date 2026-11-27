@@ -19,9 +19,9 @@ export const WEBHOOK_MESSAGE_NOT_DELIVERED = 'GetWebhookMessage.NotDelivered';
 /**
  * The `code` of the problem saas-api refused with. `getProblemCode` of
  * `@/domains/billing` reads the same, but its barrel loads the billing queries,
- * which a webhooks query has no use for.
+ * which the webhooks feature has no use for.
  */
-function getProblemCode(error: unknown): string | undefined {
+export function getProblemCode(error: unknown): string | undefined {
   return isApiError(error) && isProblem(error.data)
     ? error.data.code
     : undefined;
