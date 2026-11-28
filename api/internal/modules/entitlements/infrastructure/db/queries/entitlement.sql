@@ -23,7 +23,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id);
 
@@ -53,7 +54,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type <> 'NUMBER_AI_CREDIT')
  AND e.organization_id = sqlc.arg(organization_id)
@@ -68,12 +70,12 @@ LIMIT sqlc.arg(limit_plus_one);
 -- name: CreateEntitlement :one
 INSERT INTO entitlement (name, slug, description, type, aggregation_method, organization_id, icon,
                          unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing,
-                         display_order, warning_threshold_percent, reset_period, reset_anchor)
+                         display_order, warning_threshold_percent, reset_period, reset_anchor, limit_scope)
 VALUES ($1, $2, $3, $4, $5, sqlc.arg(organization_id), sqlc.arg(icon),
         sqlc.arg(unit_singular), sqlc.arg(unit_plural), sqlc.arg(sale_unit_singular), sqlc.arg(sale_unit_plural),
         sqlc.arg(sale_unit_factor), sqlc.arg(user_facing), sqlc.arg(display_order),
         sqlc.arg(warning_threshold_percent),
-        sqlc.arg(reset_period), sqlc.arg(reset_anchor))
+        sqlc.arg(reset_period), sqlc.arg(reset_anchor), sqlc.arg(limit_scope))
 RETURNING *;
 
 
@@ -97,7 +99,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.slug = sqlc.arg(slug);
@@ -157,7 +160,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.slug = sqlc.arg(entitlement_slug);

@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { useState } from 'react';
+import type { Entitlement } from '@/api-client';
 import { handleListEntitlementGroups } from '@/api-client/msw.gen';
 import {
   storyEntitlementGroups,
@@ -30,7 +31,7 @@ type Story = StoryObj<typeof EntitlementFormDialog>;
 function EntitlementFormDialogStory({
   entitlement,
 }: {
-  entitlement?: (typeof storyEntitlements)[number];
+  entitlement?: Entitlement;
 }) {
   const [open, setOpen] = useState(true);
 
@@ -83,6 +84,28 @@ export const EditNumberEntitlementWithUnits: Story = {
       description: {
         story:
           'Edit entitlement dialog with the unit section pre-filled: base units, the sold-in-different-units toggle, and the conversion row.',
+      },
+    },
+  },
+};
+
+export const EditPerResourceNumberEntitlement: Story = {
+  render: () => (
+    <EntitlementFormDialogStory
+      entitlement={{
+        ...storyEntitlements[0],
+        description: 'Sources followed for each competitor, against one limit',
+        limitScope: 'RESOURCE',
+        name: 'Sources per Competitor',
+        slug: 'sources-per-competitor',
+      }}
+    />
+  ),
+  parameters: {
+    docs: {
+      description: {
+        story:
+          'Edit entitlement dialog of a Number that counts per resource: what the limit applies to is chosen once, so the choice is shown locked, like the aggregation method.',
       },
     },
   },

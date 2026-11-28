@@ -85,6 +85,74 @@ function refuseThresholdOnNonNumeric(
 }
 
 /**
+ * What the limit applies to, as the API stores and returns it: the number family
+ * has one, INSTANCE unless the entitlement was made with RESOURCE; a Boolean or a
+ * Config entitlement counts nothing and says none.
+ */
+function limitScopeOf(
+  body: Pick<Partial<EntitlementRecord>, 'limitScope' | 'type'>,
+): EntitlementRecord['limitScope'] {
+  return isNumberFamily(body.type)
+    ? (body.limitScope ?? 'INSTANCE')
+    : undefined;
+}
+
+/**
+ * The refusals of a limit scope on a create, in the order the API makes them: a scope on
+ * a type that has none is a 400, and an AI credit pool is one balance per instance, which
+ * is a 422 apart (RESOURCE only: INSTANCE is what it is).
+ */
+function refuseLimitScope(
+  body: Pick<Partial<EntitlementRecord>, 'limitScope' | 'type'>,
+) {
+  if (body.limitScope === undefined) {
+    return;
+  }
+  if (body.type === 'NUMBER_AI_CREDIT' && body.limitScope === 'RESOURCE') {
+    throw new BillingProblem(
+      422,
+      'CreateEntitlement.AiCreditPoolRequiresInstanceScope',
+      'an AI credit pool is one balance per instance: limitScope must be INSTANCE',
+    );
+  }
+  if (!isNumberFamily(body.type)) {
+    throw new BillingProblem(
+      400,
+      'CreateEntitlement.InvalidLimitScope',
+      'limitScope is only allowed when type is NUMBER or NUMBER_AI_CREDIT',
+    );
+  }
+}
+
+/**
+ * The refusals of a limit scope on an update: it is immutable like the type, so a PUT
+ * leaves it out or echoes the stored one, and a scope on an entitlement that has none is
+ * the same 400 as on a create.
+ */
+function refuseLimitScopeChange(
+  current: Pick<EntitlementRecord, 'limitScope'>,
+  body: Pick<Partial<EntitlementRecord>, 'limitScope'>,
+) {
+  if (body.limitScope === undefined) {
+    return;
+  }
+  if (current.limitScope === undefined) {
+    throw new BillingProblem(
+      400,
+      'UpdateEntitlement.InvalidLimitScope',
+      'limitScope is only allowed when type is NUMBER or NUMBER_AI_CREDIT',
+    );
+  }
+  if (body.limitScope !== current.limitScope) {
+    throw new BillingProblem(
+      400,
+      'UpdateEntitlement.ImmutableLimitScope',
+      'limitScope is immutable and cannot be changed after creation',
+    );
+  }
+}
+
+/**
  * The refusal of the billing date on a cadence it cannot follow, as the API
  * words it: a 422 on the anchor, the same for a create and for the update of an
  * entitlement that adopts a reset.
@@ -141,13 +209,15 @@ export class EntitlementAppModel {
 
   constructor(seed: EntitlementAppModelSeed = {}) {
     this.references = clone(seed.references ?? {});
-    // The API always returns the threshold, 0 when none is set, for every type.
+    // The API always returns the threshold, 0 when none is set, for every type, and what
+    // the limit applies to for the number family.
     this.entitlements = parseContract(
       z.array(zEntitlement),
       seed.entitlements ?? [],
       'EntitlementAppModel seed.entitlements',
     ).map((entitlement) => ({
       ...entitlement,
+      limitScope: limitScopeOf(entitlement),
       warningThresholdPercent: entitlement.warningThresholdPercent ?? 0,
     }));
     this.sequence = this.entitlements.length + 1;
@@ -212,6 +282,7 @@ export class EntitlementAppModel {
       );
     }
 
+    refuseLimitScope({ ...body, type: body.type ?? 'NUMBER' });
     refuseBillingPeriodCadence('CreateEntitlement', body);
     refuseThresholdOnNonNumeric(
       'CreateEntitlement',
@@ -226,6 +297,7 @@ export class EntitlementAppModel {
       description: body.description ?? null,
       icon: body.icon ?? undefined,
       id: `entitlement-${this.sequence}`,
+      limitScope: limitScopeOf({ ...body, type: body.type ?? 'NUMBER' }),
       name: body.name ?? `Entitlement ${this.sequence}`,
       slug: body.slug || slugify(body.name ?? `entitlement-${this.sequence}`),
       type: body.type ?? 'NUMBER',
@@ -297,6 +369,7 @@ export class EntitlementAppModel {
         'resetAnchor is immutable once configured and cannot be changed or removed',
       );
     }
+    refuseLimitScopeChange(current, body);
     refuseBillingPeriodCadence('UpdateEntitlement', body);
     refuseThresholdOnNonNumeric('UpdateEntitlement', current.type, body);
 
@@ -306,6 +379,8 @@ export class EntitlementAppModel {
       createdAt: this.entitlements[index].createdAt,
       id: this.entitlements[index].id,
       slug: this.entitlements[index].slug ?? slug,
+      // Never changes: the PUT left it out or echoed it, and the stored one stands.
+      limitScope: current.limitScope,
       updatedAt: this.nextTimestamp(),
       // PUT replaces these fields wholesale; absent means cleared, like the API.
       description: body.description ?? null,

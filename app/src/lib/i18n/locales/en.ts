@@ -2161,11 +2161,39 @@ export default {
                 description: 'No report was accepted during this period.',
               },
               loadMore: 'Load more reports',
+              resourceFilter: 'Resource: {{resource}}',
+              clearResource: 'Show the reports of every resource',
               OutsideRetention: {
                 title_one: 'Beyond your retention of {{count}} month',
                 title_other: 'Beyond your retention of {{count}} months',
                 titleUnknown: 'Beyond what your organization keeps',
                 showFrom: 'Show from {{date}}',
+              },
+            },
+            resources: {
+              summary_one: '{{count}} resource, {{atLimit}} at limit',
+              summary_other: '{{count}} resources, {{atLimit}} at limit',
+              none: 'No resource yet',
+              highest_one: 'The figure is the counter of the only resource',
+              highest_other:
+                'The figure is the highest counter among {{count}} resources',
+              title: 'Resources',
+              description:
+                '{{entitlement}} on {{instance}}: one counter for each resource, each measured against the same limit ({{limit}}).',
+              region: 'Resources of {{entitlement}}',
+              loading: 'Loading the resources',
+              loadMore: 'Load more resources',
+              historyLabel: 'Usage history of {{entitlement}} for {{resource}}',
+              columns: {
+                resource: 'Resource',
+                usage: 'Usage',
+                status: 'Status',
+                reports: 'Reports',
+              },
+              Empty: {
+                title: 'No resources',
+                description:
+                  'No resource holds a counter for this entitlement. The first accepted report for a resource creates it.',
               },
             },
           },
@@ -3381,6 +3409,7 @@ export default {
             groups: 'Groups',
             type: 'Type',
             aggregationMethod: 'Aggregation Method',
+            limitScope: 'Limit applies to',
             icon: 'Icon',
             userFacing: 'User facing',
             displayOrder: 'Display order',
@@ -3404,6 +3433,7 @@ export default {
             groupSearch: 'Search groups',
             type: 'Select a type',
             aggregationMethod: 'Select an aggregation method',
+            limitScope: 'Select what the limit applies to',
             displayOrder: '0',
             unitSingular: 'seat',
             unitPlural: 'seats',
@@ -3427,6 +3457,10 @@ export default {
               'Associate this entitlement with one or more groups for filtering and reporting.',
             type: 'The type of entitlement (Boolean, Number or Config)',
             aggregationMethod: 'How multiple usage events are combined',
+            limitScope:
+              "One counter per instance measures the whole instance against the limit. One counter per resource gives each resource of the instance (a competitor, a source, a project) its own counter against the same limit, and no price can meter it. It can't be changed afterwards.",
+            limitScopeLocked:
+              "Set when the entitlement was created. It can't be changed.",
             icon: 'Pick an icon to represent this entitlement',
             userFacing:
               'Display this entitlement in customer-facing components such as plan and pricing pages',
@@ -3610,6 +3644,7 @@ export default {
               name: 'Name',
               type: 'Type',
               aggregationMethod: 'Aggregation Method',
+              limitScope: 'Limit applies to',
               resetPeriod: 'Usage resets',
               resetAnchor: 'Window aligned on',
               baseUnit: 'Base unit',
@@ -3673,6 +3708,10 @@ export default {
         MIN: 'Minimum',
         MAX: 'Maximum',
         LATEST: 'Latest',
+      },
+      LimitScopes: {
+        INSTANCE: 'One counter per instance',
+        RESOURCE: 'One counter per resource',
       },
       ResetPeriods: {
         NONE: 'Never (lifetime)',
@@ -7553,6 +7592,7 @@ export default {
         Columns: {
           report: 'Report',
           reportedAt: 'Reported at',
+          resource: 'Resource',
           behavior: 'Behavior',
           value: 'Value',
           counter: 'Counter',
@@ -7796,6 +7836,7 @@ export default {
         INSTANCE_ENTITLEMENT_EXCEPTION_CREATED: 'Entitlement exception created',
         INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED: 'Entitlement exception expired',
         INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED: 'Entitlement exception revoked',
+        INSTANCE_ENTITLEMENT_RESOURCE_DELETED: 'Entitlement resource deleted',
         INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER:
           'Usage period rolled over',
         INSTANCE_ENTITLEMENT_USAGE_REACHED: 'Entitlement fully used',

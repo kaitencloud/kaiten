@@ -84,6 +84,17 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 				return kaitenerrors.Validation("UpdateEntitlement.ImmutableAggregationMethod", "aggregationMethod is immutable and cannot be changed after creation")
 			}
 		}
+		// Immutable like the type: absent is accepted, as for Type. BOOLEAN and
+		// CONFIG carry none, so naming one there is a scope on a type that has no
+		// counter, not a change.
+		if command.LimitScope != nil {
+			if currentEntitlement.LimitScope == nil {
+				return kaitenerrors.Validation("UpdateEntitlement.InvalidLimitScope", "limitScope is only allowed when type is NUMBER or NUMBER_AI_CREDIT")
+			}
+			if *command.LimitScope != *currentEntitlement.LimitScope {
+				return kaitenerrors.Validation("UpdateEntitlement.ImmutableLimitScope", "limitScope is immutable and cannot be changed after creation")
+			}
+		}
 		// Unlike Type/AggregationMethod above, reset_period/reset_anchor are
 		// optional even for NUMBER entitlements (nil = lifetime counter), so an
 		// omitted field can't be caught by a "required field" validation the

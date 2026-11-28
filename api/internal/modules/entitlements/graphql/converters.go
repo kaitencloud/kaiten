@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 )
@@ -38,6 +39,7 @@ func toEntitlementSchema(e db.Entitlement, groups []*schema.EntitlementGroupSumm
 		Description:             e.Description,
 		Type:                    &entitlementType,
 		AggregationMethod:       (*schema.AggregationMethod)(e.AggregationMethod),
+		LimitScope:              dbmap.ToLimitScope(&e),
 		Icon:                    e.Icon,
 		UnitSingular:            e.UnitSingular,
 		UnitPlural:              e.UnitPlural,

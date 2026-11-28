@@ -7,6 +7,7 @@ const buildEntitlement = ({
   description = null,
   icon,
   id,
+  limitScope,
   name,
   slug,
   type = 'NUMBER',
@@ -25,6 +26,7 @@ const buildEntitlement = ({
   description?: string | null;
   icon?: string;
   id: string;
+  limitScope?: Entitlement['limitScope'];
   name: string;
   slug: string;
   type?: string;
@@ -43,6 +45,7 @@ const buildEntitlement = ({
   description,
   icon,
   id,
+  limitScope,
   name,
   slug,
   type: type as Entitlement['type'],
@@ -238,5 +241,43 @@ export function createReferencedLastEntitlementModel() {
       }),
     ],
     references: { seats: { addonGrants: 1 } },
+  });
+}
+
+/**
+ * One NUMBER entitlement that counts per resource and one that counts per instance, as the API
+ * returns them (`limitScope` RESOURCE and INSTANCE), and a flag, which has none. What the limit
+ * applies to is chosen once, so every partial edit has to leave it as it is.
+ */
+export function createResourceEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        description:
+          'Sources followed for each competitor, against the same limit',
+        id: 'entitlement-sources-per-competitor',
+        limitScope: 'RESOURCE',
+        name: 'Sources per Competitor',
+        slug: 'sources-per-competitor',
+        type: 'NUMBER',
+      }),
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        description: 'API calls of the instance',
+        id: 'entitlement-api-calls',
+        limitScope: 'INSTANCE',
+        name: 'API Calls',
+        slug: 'api-calls',
+        type: 'NUMBER',
+      }),
+      buildEntitlement({
+        description: 'Grants access to the advanced analytics dashboard',
+        id: 'entitlement-advanced-analytics',
+        name: 'Advanced Analytics',
+        slug: 'advanced-analytics',
+        type: 'BOOLEAN',
+      }),
+    ],
   });
 }

@@ -65,11 +65,58 @@ function callsJournal(
   return reports;
 }
 
+/**
+ * The reports that brought Acme Production to the counters of its competitors: Stigg to 2,
+ * Schematic to 4 (its limit) and Paid to 3. They share the number of the entitlement's journal,
+ * so the reports of one competitor are not contiguous in it.
+ */
+function competitorsJournal(): UsageReport[] {
+  const day = 24 * 60 * 60 * 1000;
+  const row = (
+    reportSeq: number,
+    resourceKey: string,
+    reportedValue: number,
+    valueBefore: number,
+    daysAgo: number,
+  ): UsageReport => ({
+    aggregationMethod: 'SUM',
+    behavior: 'append',
+    delta: String(reportedValue),
+    entitlementId: uuidFor('sources-per-competitor'),
+    eventCountAfter: reportSeq === 4 ? 2 : 1,
+    instanceId: uuidFor('acme-production'),
+    licenseId: uuidFor('license-enterprise-v2'),
+    limitValue: '4',
+    overageDelta: '0',
+    overagePercent: 0,
+    properties: null,
+    reportSeq,
+    reportedAt: new Date(Date.now() - daysAgo * day).toISOString(),
+    reportedValue: String(reportedValue),
+    resourceKey,
+    transactionId: null,
+    valueAfter: String(valueBefore + reportedValue),
+    valueBefore: String(valueBefore),
+    windowEnd: null,
+    windowStart: null,
+  });
+
+  return [
+    row(1, 'stigg', 1, 0, 12),
+    row(2, 'schematic', 4, 0, 9),
+    row(3, 'paid', 3, 0, 6),
+    row(4, 'stigg', 1, 1, 2),
+  ];
+}
+
 /** The usage history of the world, by instance and entitlement. */
 export const createUsageReports = (): Record<
   string,
   Record<string, UsageReport[]>
 > => ({
+  'acme-production': {
+    'sources-per-competitor': competitorsJournal(),
+  },
   'gamma-production': {
     'api-calls': callsJournal('gamma-production', 14, 11, 10_000, 60),
   },

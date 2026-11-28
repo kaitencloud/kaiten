@@ -1,7 +1,7 @@
 import { exportUsageReports } from '@/api-client';
 import { downloadBlob } from '@/lib/download-blob';
 import { formatFileStamp } from '@/lib/file-stamp';
-import type { UsageHistoryRange } from './usage-history-query-options';
+import type { UsageHistoryFilters } from './usage-history-query-options';
 
 /**
  * The name of the CSV of the history of an entitlement on an instance:
@@ -24,12 +24,13 @@ export function usageHistoryFilename(
  * pages that were read. The export is a stream behind the bearer token of the
  * session, so the request is the client's and the browser is handed the blob; a
  * refusal (a period of more than 366 days, one before what is kept) is thrown as
- * the SDK throws it, for the caller to show. An open end is the API's default.
+ * the SDK throws it, for the caller to show. An open end is the API's default, and the
+ * file holds what the screen shows: the reports of the resource it is narrowed to.
  */
 export function downloadUsageHistory(
   instanceSlug: string,
   entitlementSlug: string,
-  range: UsageHistoryRange,
+  filters: UsageHistoryFilters,
   now?: Date,
 ): Promise<void> {
   return downloadBlob(
@@ -37,7 +38,7 @@ export function downloadUsageHistory(
       exportUsageReports({
         parseAs: 'blob',
         path: { entitlementSlug, instanceSlug },
-        query: { ...range, format: 'csv' },
+        query: { ...filters, format: 'csv' },
         throwOnError: true,
       }),
     usageHistoryFilename(instanceSlug, entitlementSlug, now),

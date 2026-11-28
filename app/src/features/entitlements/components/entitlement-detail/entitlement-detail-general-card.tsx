@@ -9,6 +9,7 @@ import { AggregationMethodDisplay } from '../display/aggregation-method-display'
 import { EntitlementGroupBadges } from '../groups/entitlement-group-badges';
 import { EntitlementTypeDisplay } from '../display/entitlement-type-display';
 import {
+  LimitScopeRow,
   ResetPeriodRows,
   UnitRows,
   UserFacingRow,
@@ -113,6 +114,7 @@ function EntitlementGeneralCardRows({
           />
         }
       />
+      <LimitScopeRow entitlement={entitlement} />
       <ResetPeriodRows entitlement={entitlement} />
       <UnitRows
         entitlement={entitlement}

@@ -19,6 +19,7 @@ import {
   EntitlementLimitFigure,
   SoftLimitHint,
 } from './entitlement-limit';
+import { EntitlementResourcesSummary } from './entitlement-resources-summary';
 
 export type InstanceEntitlementRow = ReturnType<
   typeof useInstanceDetail
@@ -68,7 +69,11 @@ function buildTypeColumn(t: TranslateFn): EntitlementColumn {
   };
 }
 
-function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
+function buildUsageColumn(
+  t: TranslateFn,
+  locale: string,
+  resources?: ResourcesColumnOptions,
+): EntitlementColumn {
   return {
     accessorKey: 'value',
     header: t(
@@ -91,19 +96,23 @@ function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
       }
 
       return (
-        <div className="flex items-center justify-end gap-2">
-          <span className="text-sm font-medium tabular-nums">
-            {row.original.value.toLocaleString(locale)}
-          </span>
-          <UsageMeter
-            className="w-16"
-            limitCapExceededOveragePercent={
-              row.original.limitCapExceededOveragePercent
-            }
-            size="sm"
-            threshold={row.original.threshold}
-            value={row.original.value}
-          />
+        <div className="flex flex-col items-end gap-1">
+          <div className="flex items-center justify-end gap-2">
+            <span className="text-sm font-medium tabular-nums">
+              {row.original.value.toLocaleString(locale)}
+            </span>
+            <UsageMeter
+              className="w-16"
+              limitCapExceededOveragePercent={
+                row.original.limitCapExceededOveragePercent
+              }
+              size="sm"
+              threshold={row.original.threshold}
+              value={row.original.value}
+            />
+          </div>
+          {/* The figure of an entitlement that counts per resource is its highest counter. */}
+          <EntitlementResourcesSummary linkTo={resources} row={row.original} />
         </div>
       );
     },
@@ -251,6 +260,8 @@ function buildHistoryColumn(
   };
 }
 
+type ResourcesColumnOptions = { instanceSlug: string };
+
 type EntitlementsColumnsOptions = {
   /**
    * Where the history of an entitlement is opened, which is the instance the
@@ -258,20 +269,33 @@ type EntitlementsColumnsOptions = {
    * it, and is not offered what it would be refused).
    */
   history?: { instanceSlug: string };
+  /**
+   * Where the resources of an entitlement that counts per resource are opened, with the
+   * same instance: left out, the table says how many there are and offers no list (the
+   * session may not read it).
+   */
+  resources?: ResourcesColumnOptions;
 };
 
 export const useEntitlementsColumns = (
   locale: string,
-  { history }: EntitlementsColumnsOptions = {},
+  { history, resources }: EntitlementsColumnsOptions = {},
 ) => {
   const { t } = useTranslation();
   const historySlug = history?.instanceSlug;
+  const resourcesSlug = resources?.instanceSlug;
 
   return useMemo<EntitlementColumn[]>(
     () => [
       buildNameColumn(t),
       buildTypeColumn(t),
-      buildUsageColumn(t, locale),
+      buildUsageColumn(
+        t,
+        locale,
+        resourcesSlug === undefined
+          ? undefined
+          : { instanceSlug: resourcesSlug },
+      ),
       buildThresholdColumn(t, locale),
       buildCurrentPeriodColumn(t, locale),
       buildStatusColumn(t),
@@ -279,6 +303,6 @@ export const useEntitlementsColumns = (
         ? []
         : [buildHistoryColumn(t, historySlug)]),
     ],
-    [historySlug, locale, t],
+    [historySlug, locale, resourcesSlug, t],
   );
 };

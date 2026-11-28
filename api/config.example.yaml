@@ -172,6 +172,12 @@ usage:
   # applied again. Reports are dated on receipt, so the window covers a whole
   # monthly period plus margin for late, buffered replays. At least 24h.
   idempotency_window: 840h         # KAITEN_USAGE_IDEMPOTENCY_WINDOW
+  # The most resources one instance may hold a counter for, per entitlement that
+  # counts per resource (limitScope RESOURCE). A report that would open one more
+  # answers 422; the counters already there keep counting, and deleting one frees
+  # its place. Each report of such an entitlement reads its resources under the
+  # pair's lock, so this also bounds what a report costs.
+  max_resources: 10000             # KAITEN_USAGE_MAX_RESOURCES
 
 # The usage journal: one row per accepted usage report, in monthly partitions.
 usage_ledger:

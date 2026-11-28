@@ -39,6 +39,7 @@ func (numberKind) plan(st *State, cmd *Command) (*Effect, error) {
 		Value:           cmd.Value,
 		Behavior:        cmd.Behavior,
 		EventCount:      after.EventCount,
+		ResourceKey:     st.Pair.ResourceKey,
 	}
 
 	refund := st.Pair.EntitlementType == "NUMBER_AI_CREDIT" && cmd.Behavior == BehaviorAppend && cmd.Value < 0

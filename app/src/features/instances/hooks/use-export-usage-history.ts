@@ -1,7 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { getApiErrorMessage } from '@/lib/errors';
-import { downloadUsageHistory, type UsageHistoryRange } from '../queries';
+import { downloadUsageHistory, type UsageHistoryFilters } from '../queries';
 
 /**
  * Saves the usage reports of a period as a CSV: a request like another, with its
@@ -13,13 +13,13 @@ export function useExportUsageHistory() {
   return useMutation({
     mutationFn: ({
       entitlementSlug,
+      filters,
       instanceSlug,
-      range,
     }: {
       entitlementSlug: string;
+      filters: UsageHistoryFilters;
       instanceSlug: string;
-      range: UsageHistoryRange;
-    }) => downloadUsageHistory(instanceSlug, entitlementSlug, range),
+    }) => downloadUsageHistory(instanceSlug, entitlementSlug, filters),
     onError: (error) => {
       toast.error(getApiErrorMessage(error));
     },

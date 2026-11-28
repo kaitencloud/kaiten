@@ -145,6 +145,9 @@ func meters(ctx context.Context, q *db.Queries, organizationID, addonID uuid.UUI
 		return "", uuid.Nil, kaitenerrors.NotFoundf(operation+".EntitlementNotFound", "entitlement %q not found", draft.MeteredEntitlementSlug)
 	}
 	switch {
+	case entitlement.LimitScope == db.EntitlementLimitScopeRESOURCE:
+		return "", uuid.Nil, kaitenerrors.UnprocessableEntity(operation+".UnsupportedLimitScope",
+			"an entitlement that counts per resource cannot be metered: an invoice has no line per resource")
 	case entitlement.ResetPeriod == nil:
 		return "", uuid.Nil, kaitenerrors.UnprocessableEntity(operation+".EntitlementIsStock",
 			"only an entitlement with a reset period can be metered")

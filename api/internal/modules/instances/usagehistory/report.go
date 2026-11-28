@@ -41,6 +41,7 @@ type UsageReport struct {
 	LicenseID         uuid.UUID      `json:"licenseId" format:"uuid" doc:"The instance's licence when the report was accepted"`
 	TransactionID     *string        `json:"transactionId" doc:"The report's idempotency key; null when it was sent without one" example:"llm-call-9f2c:tokens"`
 	Properties        map[string]any `json:"properties" nullable:"true" doc:"The report's metadata; null when none was stored"`
+	ResourceKey       *string        `json:"resourceKey,omitempty" doc:"The resource the report counted for, when the entitlement counts per resource (limitScope RESOURCE). Absent otherwise. A resource's reports keep the pair's reportSeq, so the reports of one resource are not contiguous in it." example:"stigg"`
 
 	// organizationID only appears in the CSV export, whose columns carry it.
 	organizationID uuid.UUID
@@ -66,6 +67,7 @@ func fromRow(row db.ListPairUsageReportsRow) UsageReport {
 		WindowEnd:         utcPtr(row.WindowEnd),
 		LicenseID:         row.LicenseID,
 		TransactionID:     row.TransactionID,
+		ResourceKey:       row.ResourceKey,
 		organizationID:    row.OrganizationID,
 	}
 	if row.LimitValue != "" {

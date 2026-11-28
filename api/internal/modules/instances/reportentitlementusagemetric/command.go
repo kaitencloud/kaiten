@@ -21,4 +21,9 @@ type Command struct {
 	// TransactionID is the client's idempotency key, nil when the report
 	// carries none. The endpoint has checked its format.
 	TransactionID *string `json:"transactionId,omitempty"`
+	// ResourceKey is the resource the report counts for: set by the resource
+	// route, nil by the entitlement's own. The endpoint has checked its format;
+	// whether the entitlement counts per resource is checked under the pair's
+	// lock, with the entitlement in hand.
+	ResourceKey *string `json:"resourceKey,omitempty"`
 }

@@ -272,6 +272,48 @@ func (ns NullBillingTiming) Value() (driver.Value, error) {
 	return string(ns.BillingTiming), nil
 }
 
+type EntitlementLimitScope string
+
+const (
+	EntitlementLimitScopeINSTANCE EntitlementLimitScope = "INSTANCE"
+	EntitlementLimitScopeRESOURCE EntitlementLimitScope = "RESOURCE"
+)
+
+func (e *EntitlementLimitScope) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntitlementLimitScope(s)
+	case string:
+		*e = EntitlementLimitScope(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntitlementLimitScope: %T", src)
+	}
+	return nil
+}
+
+type NullEntitlementLimitScope struct {
+	EntitlementLimitScope EntitlementLimitScope `json:"entitlement_limit_scope"`
+	Valid                 bool                  `json:"valid"` // Valid is true if EntitlementLimitScope is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntitlementLimitScope) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntitlementLimitScope, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntitlementLimitScope.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntitlementLimitScope) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntitlementLimitScope), nil
+}
+
 type EntitlementResetPeriod string
 
 const (

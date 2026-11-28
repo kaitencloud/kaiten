@@ -82,6 +82,14 @@ vi.mock('react-i18next', () => ({
           "Remise à zéro de l'usage",
         'Pages.Entitlements.Mutation.Form.Labels.resetAnchor':
           'Fenêtre alignée sur',
+        'Pages.Entitlements.Mutation.Form.Labels.limitScope':
+          "La limite s'applique à",
+        'Pages.Entitlements.Mutation.Form.Descriptions.limitScope':
+          'Choisi une fois',
+        'Pages.Entitlements.Mutation.Form.Descriptions.limitScopeLocked':
+          'Défini à la création du droit',
+        'Pages.Entitlements.LimitScopes.INSTANCE': 'Un compteur par instance',
+        'Pages.Entitlements.LimitScopes.RESOURCE': 'Un compteur par ressource',
         'Pages.Entitlements.EntitlementTypes.BOOLEAN': 'Booléen',
         'Pages.Entitlements.EntitlementTypes.NUMBER': 'Nombre',
         'Pages.Entitlements.EntitlementTypes.CONFIG': 'Config',
@@ -391,6 +399,63 @@ describe('EntitlementForm', () => {
       );
 
       expect(screen.getByTestId('field-type')).toBeInTheDocument();
+    });
+  });
+
+  // What the limit applies to is a choice of a NUMBER entitlement, made once.
+  describe('Limit scope field', () => {
+    const scopeSelect = () =>
+      within(screen.getByTestId('field-limitScope')).getByRole('combobox');
+
+    it('offers one counter for each instance or for each resource, in the language of the console', () => {
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(screen.getByText("La limite s'applique à")).toBeInTheDocument();
+      expect(
+        within(scopeSelect())
+          .getAllByRole('option')
+          .map((option) => option.textContent),
+      ).toEqual(['Un compteur par instance', 'Un compteur par ressource']);
+      expect(scopeSelect()).toBeEnabled();
+      expect(scopeSelect()).toHaveAttribute('description', 'Choisi une fois');
+    });
+
+    it.each(['BOOLEAN', 'CONFIG'])('is not asked of a %s entitlement, which counts nothing', (type) => {
+      formState.values = { ...defaultFormValues, type };
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(screen.queryByTestId('field-limitScope')).not.toBeInTheDocument();
+    });
+
+    it('is not asked of an AI credit pool, which is one balance for each instance', () => {
+      rollout.available = true;
+      formState.values = { ...defaultFormValues, type: 'NUMBER_AI_CREDIT' };
+      render(<EntitlementForm />, { wrapper: createWrapper() });
+
+      expect(screen.queryByTestId('field-limitScope')).not.toBeInTheDocument();
+    });
+
+    it('shows what an existing entitlement has, locked, as the aggregation method is', () => {
+      const perResource: Entitlement = {
+        id: '1',
+        name: 'Sources per competitor',
+        description: null,
+        type: 'NUMBER',
+        aggregationMethod: 'SUM',
+        limitScope: 'RESOURCE',
+        createdAt: '2026-03-01T09:00:00.000Z',
+        updatedAt: '2026-03-01T09:00:00.000Z',
+      };
+
+      render(<EntitlementForm entitlement={perResource} layout="dialog" />, {
+        wrapper: createWrapper(),
+      });
+
+      expect(scopeSelect()).toBeDisabled();
+      expect(scopeSelect()).toHaveAttribute(
+        'description',
+        'Défini à la création du droit',
+      );
     });
   });
 

@@ -62,6 +62,7 @@ export const entitlementFormSchema = zEntitlementWritable
     description: true,
     type: true,
     aggregationMethod: true,
+    limitScope: true,
     groupSlugs: true,
     icon: true,
     userFacing: true,
@@ -165,6 +166,7 @@ export const initialEntitlementFormValues: EntitlementFormValues = {
   description: '',
   type: 'NUMBER',
   aggregationMethod: 'SUM',
+  limitScope: 'INSTANCE',
   groupSlugs: [],
   icon: undefined,
   userFacing: false,
@@ -195,6 +197,8 @@ export const getEntitlementFormDefaults = (
 
   return {
     aggregationMethod: entitlement.aggregationMethod,
+    // Absent on a Boolean or a Config entitlement, which count nothing.
+    limitScope: entitlement.limitScope,
     description: entitlement.description ?? '',
     groupSlugs:
       entitlement.entitlementGroups?.flatMap((group) =>

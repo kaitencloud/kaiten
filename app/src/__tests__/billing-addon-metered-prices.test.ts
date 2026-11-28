@@ -28,6 +28,8 @@ const ENTITLEMENTS: Record<string, EntitlementFacts> = {
   credits: { ...FLOW, saleUnitFactor: 1_000, saleUnitSingular: '1k credits' },
   requests: { ...FLOW, aggregationMethod: 'COUNT' },
   seats: { aggregationMethod: 'SUM', type: 'NUMBER' },
+  // A flow in every other way: one counter for each resource is what keeps it from a price.
+  sources: { ...FLOW, limitScope: 'RESOURCE' },
   tokens: FLOW,
 };
 
@@ -38,6 +40,7 @@ const GRANTED = [
   'credits',
   'requests',
   'seats',
+  'sources',
   'tokens',
 ];
 
@@ -157,6 +160,7 @@ describe('the refusals of a metered add-on price', () => {
     ['a stock, which never resets', 'seats', 'EntitlementIsStock'],
     ['an entitlement that is averaged', 'averaged', 'UnsupportedAggregation'],
     ['an entitlement that is not a number', 'config', 'UnsupportedEntitlementType'],
+    ['an entitlement that counts per resource', 'sources', 'UnsupportedLimitScope'],
   ])('refuses %s', (_title, slug, code) => {
     expect(
       refusalOf(() =>

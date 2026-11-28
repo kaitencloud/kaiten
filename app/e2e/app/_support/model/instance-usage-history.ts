@@ -59,6 +59,8 @@ const CSV_HEADER = [
   'license_id',
   'transaction_id',
   'properties',
+  // Appended last, so that a reader of the columns by position is not moved.
+  'resource_key',
 ];
 
 const csvCell = (value: unknown) => {
@@ -219,6 +221,55 @@ export class InstanceUsageHistory {
     return this.usageReports[instanceSlug]?.[entitlementSlug] !== undefined;
   }
 
+  /**
+   * Writes the journal row of a report the instance accepted, dated now and numbered after the
+   * pair's last: the number is the pair's whatever the resource, so the rows of the resources of
+   * one entitlement share one sequence and none of them is contiguous on its own.
+   */
+  append(
+    instanceSlug: string,
+    entitlementSlug: string,
+    report: Omit<UsageReport, 'reportSeq' | 'reportedAt'>,
+  ): UsageReport {
+    const row = parseContract(
+      zUsageReport,
+      {
+        ...clone(report),
+        reportSeq:
+          (this.reportsOf(instanceSlug, entitlementSlug).at(-1)?.reportSeq ??
+            0) + 1,
+        reportedAt: instant(this.now()),
+      },
+      'InstanceUsageHistory.append row',
+    );
+    this.usageReports[instanceSlug] ??= {};
+    this.usageReports[instanceSlug][entitlementSlug] = [
+      ...this.reportsOf(instanceSlug, entitlementSlug),
+      row,
+    ];
+
+    return clone(row);
+  }
+
+  /**
+   * The report a key was accepted under for a resource, which scopes the key as it scopes the
+   * counter: another resource, or the entitlement itself, may have taken the same key.
+   */
+  findByTransaction(
+    instanceSlug: string,
+    entitlementSlug: string,
+    resourceKey: string,
+    transactionId: string,
+  ): UsageReport | undefined {
+    const found = this.reportsOf(instanceSlug, entitlementSlug).find(
+      (report) =>
+        report.transactionId === transactionId &&
+        report.resourceKey === resourceKey,
+    );
+
+    return found && clone(found);
+  }
+
   private reportsOf(instanceSlug: string, entitlementSlug: string) {
     return this.usageReports[instanceSlug]?.[entitlementSlug] ?? [];
   }
@@ -327,6 +378,7 @@ export class InstanceUsageHistory {
       afterSeq?: number;
       from?: string;
       limit?: number;
+      resourceKey?: string;
       to?: string;
       transactionId?: string;
     },
@@ -353,7 +405,9 @@ export class InstanceUsageHistory {
         Date.parse(report.reportedAt) >= range.from &&
         Date.parse(report.reportedAt) < range.to &&
         (query.transactionId === undefined ||
-          report.transactionId === query.transactionId),
+          report.transactionId === query.transactionId) &&
+        (query.resourceKey === undefined ||
+          report.resourceKey === query.resourceKey),
     );
     const page = rows.slice(0, size);
     const last = page.at(-1);
@@ -402,6 +456,7 @@ export class InstanceUsageHistory {
         report.licenseId,
         report.transactionId,
         report.properties,
+        report.resourceKey,
       ]
         .map(csvCell)
         .join(','),
@@ -420,7 +475,12 @@ export class InstanceUsageHistory {
   exportUsageReports(
     instanceSlug: string,
     entitlementSlug: string,
-    query: { format?: string; from?: string; to?: string },
+    query: {
+      format?: string;
+      from?: string;
+      resourceKey?: string;
+      to?: string;
+    },
     knows: (
       instanceSlug: string,
       entitlementSlug: string,
@@ -440,7 +500,9 @@ export class InstanceUsageHistory {
         .filter(
           (report) =>
             Date.parse(report.reportedAt) >= range.from &&
-            Date.parse(report.reportedAt) < range.to,
+            Date.parse(report.reportedAt) < range.to &&
+            (query.resourceKey === undefined ||
+              report.resourceKey === query.resourceKey),
         )
         .map((report) => ({ entitlementSlug, instanceSlug, report })),
       query.format,

@@ -116,6 +116,7 @@ func TestDefaultsFillWhatNobodySet(t *testing.T) {
 	assert.Equal(t, "kaiten/connectors", cfg.Connectors.VaultBasePath)
 	assert.Equal(t, 100000, cfg.Usage.RolloverMaxClosures)
 	assert.Equal(t, 35*24*time.Hour, cfg.Usage.IdempotencyWindow)
+	assert.Equal(t, 10000, cfg.Usage.MaxResources)
 	assert.Equal(t, 24*time.Hour, cfg.UsageLedger.Maintenance.Interval)
 	assert.Equal(t, 18, cfg.UsageLedger.RetentionMonths)
 	assert.Equal(t, 18, cfg.UsageLedger.MaxRetentionMonths)
@@ -231,6 +232,27 @@ func TestRefusesAConfigurationThatCannotRun(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "usage.rollover_max_closures")
 		assert.Contains(t, err.Error(), "KAITEN_USAGE_ROLLOVER_MAX_CLOSURES")
+	})
+
+	t.Run("a ceiling of zero resources is refused", func(t *testing.T) {
+		minimum(t)
+		t.Setenv("KAITEN_USAGE_MAX_RESOURCES", "0")
+
+		_, err := config.LoadConfig()
+
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "usage.max_resources")
+		assert.Contains(t, err.Error(), "KAITEN_USAGE_MAX_RESOURCES")
+	})
+
+	t.Run("the ceiling of resources is read from its variable", func(t *testing.T) {
+		minimum(t)
+		t.Setenv("KAITEN_USAGE_MAX_RESOURCES", "250")
+
+		cfg, err := config.LoadConfig()
+
+		require.NoError(t, err)
+		assert.Equal(t, 250, cfg.Usage.MaxResources)
 	})
 }
 

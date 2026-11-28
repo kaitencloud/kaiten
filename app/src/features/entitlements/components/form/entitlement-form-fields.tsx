@@ -12,6 +12,7 @@ import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
 import { NumberInput } from '@/components/ui/number-input';
 import { cn } from '@/lib/utils';
+import { EntitlementLimitScopeField } from './entitlement-limit-scope-field';
 import { EntitlementResetPeriodFields } from './entitlement-reset-period-fields';
 import { EntitlementSlugField } from './entitlement-slug-field';
 import { EntitlementUnitFields } from './entitlement-unit-fields';
@@ -236,6 +237,12 @@ export function EntitlementTypeFields({
                   )}
                 </form.AppField>
               )}
+              {type === 'NUMBER' ? (
+                <EntitlementLimitScopeField
+                  entitlement={entitlement}
+                  form={form}
+                />
+              ) : null}
               {type === 'NUMBER_AI_CREDIT' ? (
                 <form.AppField name="warningThresholdPercent">
                   {() => (

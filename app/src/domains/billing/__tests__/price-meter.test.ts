@@ -104,6 +104,50 @@ describe('what a price may meter', () => {
     ]);
   });
 
+  // An invoice has no line for each resource: the API refuses a price on an entitlement that
+  // counts per resource (UnsupportedLimitScope), so the picker does not list it, a stock or not.
+  it.each([
+    ['a flow', { resetPeriod: 'MONTH' as const }],
+    ['a stock', {}],
+  ])('does not list an entitlement that counts per resource, %s', (_title, flow) => {
+    const sources = buildEntitlement({
+      aggregationMethod: 'SUM',
+      limitScope: 'RESOURCE',
+      name: 'Sources per competitor',
+      slug: 'sources-per-competitor',
+      ...flow,
+    });
+    const input = {
+      entitlements: [...CATALOGUE, sources],
+      grants: [...GRANTS, grant(sources, 4, 0)],
+      model: 'USAGE_BASED' as const,
+      prices: [],
+    };
+
+    expect(slugs(licenseOptions(input))).not.toContain('sources-per-competitor');
+    expect(slugs(addonOptions(input))).not.toContain('sources-per-competitor');
+    // The others stay as they were, and an entitlement that counts per instance is listed.
+    expect(slugs(licenseOptions(input))).toEqual(
+      slugs(licenseOptions({ ...input, entitlements: CATALOGUE, grants: GRANTS })),
+    );
+    const perInstance = buildEntitlement({
+      aggregationMethod: 'SUM',
+      limitScope: 'INSTANCE',
+      name: 'Sources',
+      resetPeriod: 'MONTH',
+      slug: 'sources',
+    });
+    expect(
+      slugs(
+        licenseOptions({
+          ...input,
+          entitlements: [perInstance],
+          grants: [grant(perInstance, 4, 0)],
+        }),
+      ),
+    ).toEqual(['sources']);
+  });
+
   it('takes a number as summed when its aggregation is not stated', () => {
     const plain = buildEntitlement({ name: 'Plain', resetPeriod: 'WEEK', slug: 'plain' });
 

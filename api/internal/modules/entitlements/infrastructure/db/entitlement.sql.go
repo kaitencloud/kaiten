@@ -57,13 +57,13 @@ func (q *Queries) CountEntitlementReferences(ctx context.Context, arg CountEntit
 const createEntitlement = `-- name: CreateEntitlement :one
 INSERT INTO entitlement (name, slug, description, type, aggregation_method, organization_id, icon,
                          unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing,
-                         display_order, warning_threshold_percent, reset_period, reset_anchor)
+                         display_order, warning_threshold_percent, reset_period, reset_anchor, limit_scope)
 VALUES ($1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11,
         $12, $13, $14,
         $15,
-        $16, $17)
-RETURNING id, name, slug, description, type, aggregation_method, organization_id, icon, unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing, display_order, warning_threshold_percent, reset_period, reset_anchor, created_at, updated_at
+        $16, $17, $18)
+RETURNING id, name, slug, description, type, aggregation_method, organization_id, icon, unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing, display_order, warning_threshold_percent, reset_period, reset_anchor, created_at, updated_at, limit_scope
 `
 
 type CreateEntitlementParams struct {
@@ -84,6 +84,7 @@ type CreateEntitlementParams struct {
 	WarningThresholdPercent int16                   `json:"warning_threshold_percent"`
 	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
 	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
+	LimitScope              EntitlementLimitScope   `json:"limit_scope"`
 }
 
 func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (Entitlement, error) {
@@ -105,6 +106,7 @@ func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementPa
 		arg.WarningThresholdPercent,
 		arg.ResetPeriod,
 		arg.ResetAnchor,
+		arg.LimitScope,
 	)
 	var i Entitlement
 	err := row.Scan(
@@ -128,6 +130,7 @@ func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementPa
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LimitScope,
 	)
 	return i, err
 }
@@ -137,7 +140,7 @@ DELETE
 FROM entitlement e
 WHERE e.slug = $1
   AND e.organization_id = $2
-RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at
+RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at, e.limit_scope
 `
 
 type DeleteEntitlementParams struct {
@@ -169,6 +172,7 @@ func (q *Queries) DeleteEntitlement(ctx context.Context, arg DeleteEntitlementPa
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LimitScope,
 	)
 	return i, err
 }
@@ -193,7 +197,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.slug = $2
@@ -228,6 +233,7 @@ func (q *Queries) GetEntitlement(ctx context.Context, arg GetEntitlementParams) 
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LimitScope,
 	)
 	return i, err
 }
@@ -252,7 +258,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.slug = $2
@@ -287,6 +294,7 @@ func (q *Queries) GetEntitlementBySlug(ctx context.Context, arg GetEntitlementBy
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LimitScope,
 	)
 	return i, err
 }
@@ -311,7 +319,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE e.organization_id = $1
 `
@@ -351,6 +360,7 @@ func (q *Queries) GetEntitlements(ctx context.Context, organizationID uuid.UUID)
 			&i.ResetAnchor,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LimitScope,
 		); err != nil {
 			return nil, err
 		}
@@ -382,7 +392,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.limit_scope
 FROM entitlement e
 WHERE (NOT $1::boolean OR e.type <> 'NUMBER_AI_CREDIT')
  AND e.organization_id = $2
@@ -443,6 +454,7 @@ func (q *Queries) GetEntitlementsByCursor(ctx context.Context, arg GetEntitlemen
 			&i.ResetAnchor,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.LimitScope,
 		); err != nil {
 			return nil, err
 		}
@@ -472,7 +484,7 @@ SET name               = $1,
     updated_at         = now()
 WHERE e.slug = $14
   AND e.organization_id = $15
-RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at
+RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at, e.limit_scope
 `
 
 type UpdateEntitlementParams struct {
@@ -538,6 +550,7 @@ func (q *Queries) UpdateEntitlement(ctx context.Context, arg UpdateEntitlementPa
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LimitScope,
 	)
 	return i, err
 }

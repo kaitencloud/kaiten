@@ -34,8 +34,9 @@ func NewUseCase(deps Deps) *UseCase {
 // Query is an export request. Nil From and To take their defaults (see
 // usagehistory.ResolveRange).
 type Query struct {
-	From, To *time.Time
-	Format   usagehistory.Format
+	From, To    *time.Time
+	Format      usagehistory.Format
+	ResourceKey *string
 }
 
 // Execute checks the request and returns the export of the pair's reports in
@@ -65,5 +66,6 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		InstanceID:     instanceID,
 		EntitlementID:  entitlementID,
 		Range:          window,
+		ResourceKey:    q.ResourceKey,
 	}, q.Format, "usage-"+instanceSlug+"-"+entitlementSlug), nil
 }

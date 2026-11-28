@@ -14,6 +14,15 @@ export type UsageHistoryRange = {
 };
 
 /**
+ * What narrows a history: its period, and, for an entitlement that counts per resource, the
+ * one resource it is read for. The API applies both, which is why they are in the key.
+ */
+export type UsageHistoryFilters = UsageHistoryRange & {
+  /** Only the reports of this resource; absent, those of every resource of the entitlement. */
+  resourceKey?: string;
+};
+
+/**
  * The usage reports of an entitlement on an instance, read a page at a time by
  * report number (`usageReportPagesQueryOptions` of the billing domain, which the
  * reports behind an invoice line read the same way). The first page asks for no
@@ -25,10 +34,10 @@ export type UsageHistoryRange = {
 export const usageHistoryQueryOptions = (
   instanceSlug: string,
   entitlementSlug: string,
-  range: UsageHistoryRange,
+  filters: UsageHistoryFilters,
 ) => {
   const path = { entitlementSlug, instanceSlug };
-  const query = { ...range, limit: USAGE_HISTORY_PAGE_SIZE };
+  const query = { ...filters, limit: USAGE_HISTORY_PAGE_SIZE };
 
   return usageReportPagesQueryOptions({
     fetchPage: async (afterSeq, signal) => {

@@ -90,6 +90,32 @@ describe('the pages of the usage history', () => {
     expect(asked[0].searchParams.has('to')).toBe(false);
   });
 
+  it('narrows the history to one resource of an entitlement that counts per resource, and keeps a cache for each', async () => {
+    const asked: URL[] = [];
+    server.use(
+      handleListUsageReports(({ request }) => {
+        asked.push(new URL(request.url));
+
+        return HttpResponse.json({ items: [] });
+      }),
+    );
+    const key = (resourceKey?: string) =>
+      JSON.stringify(
+        usageHistoryQueryOptions('nagare-production', 'sources', { resourceKey })
+          .queryKey,
+      );
+
+    await new QueryClient().fetchInfiniteQuery(
+      usageHistoryQueryOptions('nagare-production', 'sources', {
+        resourceKey: 'stigg',
+      }),
+    );
+
+    expect(asked[0].searchParams.get('resourceKey')).toBe('stigg');
+    expect(key('stigg')).not.toBe(key('paid'));
+    expect(key('stigg')).not.toBe(key());
+  });
+
   it('keeps one cache for each period of each pair, and tells it apart from a plain read', () => {
     const key = (slug: string, from?: string) =>
       JSON.stringify(
@@ -164,6 +190,25 @@ describe('saving the usage history', () => {
       content: 'report_seq,delta\n1,10\n',
       filename: 'usage-globex-production-api-calls-20270401T090000Z.csv',
     });
+  });
+
+  it('asks for the reports of the resource the screen is narrowed to, so that the file holds what it shows', async () => {
+    const asked: URL[] = [];
+    server.use(
+      handleExportUsageReports(({ request }) => {
+        asked.push(new URL(request.url));
+
+        return new HttpResponse('report_seq\n1\n', {
+          headers: { 'Content-Type': 'text/csv' },
+        });
+      }),
+    );
+
+    await downloadUsageHistory('nagare-production', 'sources', {
+      resourceKey: 'stigg',
+    });
+
+    expect(asked[0].searchParams.get('resourceKey')).toBe('stigg');
   });
 
   it('lets a refusal of the API reach the caller, which shows it', async () => {

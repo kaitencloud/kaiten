@@ -103,8 +103,18 @@ const awaitsAIRefund = "AI refund: the SDK regenerates its typed client after th
 // operation joined the contract after the SDK pin.
 const awaitsServiceAccountDelete = "service accounts: the SDK adds Delete after the contract"
 
+// awaitsResources is the reason of the operations on the resources of an
+// entitlement that counts per resource (limitScope RESOURCE): report, read, list
+// and delete one. They join the contract first, and the SDK models them after it.
+const awaitsResources = "per-resource entitlements: the SDK models them after the contract"
+
 var awaitingSDKOperations = map[string]string{
 	"delete-service-account": awaitsServiceAccountDelete,
+
+	"reportEntitlementResourceUsageMetric": awaitsResources,
+	"getEntitlementResourceUsageMetrics":   awaitsResources,
+	"listEntitlementResources":             awaitsResources,
+	"deleteEntitlementResource":            awaitsResources,
 
 	"listOrganizationAiInferences": awaitsAIHistory,
 	"refundAiInference":            awaitsAIRefund,

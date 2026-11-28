@@ -155,12 +155,16 @@ export const buildAuditTrailEntitlementOptions = (
   );
 };
 
+// An entitlement that counts per resource has no one value to follow over time: the events
+// of its reports carry the counter of one resource each, and the entitlement's own value
+// (its highest counter) is never in an event. It is left out of the chart and of the total
+// of a group, which would otherwise add up counters of different resources.
 export const buildValueOverTimeNumericEntitlementOptions = (
   entitlementsRows: InstanceEntitlementRow[],
 ) =>
-  buildAuditTrailEntitlementOptions(entitlementsRows).filter(
-    (entitlement) => entitlement.type === 'NUMBER',
-  );
+  buildAuditTrailEntitlementOptions(
+    entitlementsRows.filter((entitlement) => !entitlement.resources),
+  ).filter((entitlement) => entitlement.type === 'NUMBER');
 
 export const buildValueOverTimeNumericGroupOptions = (
   entitlementsRows: InstanceEntitlementRow[],
@@ -170,7 +174,8 @@ export const buildValueOverTimeNumericGroupOptions = (
   for (const entitlement of entitlementsRows) {
     if (
       entitlement.entitlementType !== 'NUMBER' ||
-      !entitlement.entitlementSlug
+      !entitlement.entitlementSlug ||
+      entitlement.resources
     ) {
       continue;
     }

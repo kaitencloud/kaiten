@@ -52,6 +52,7 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 	}
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
 	result, err := r.repository.GetEntitlementUsageForInstanceOrDefault(ctx, db.GetEntitlementUsageForInstanceOrDefaultParams{
+		ResourceKey:     nil,
 		OrganizationID:  organizationID,
 		InstanceSlug:    instanceSlug,
 		EntitlementSlug: entitlementSlug,
@@ -77,6 +78,19 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotAssigned", "Entitlement with slug %q is not assigned to the license used by instance %q", entitlementSlug, instanceSlug)
 	}
 
+	return UsageOf(result, nil)
+}
+
+// UsageOf is the usage a read of GetEntitlementUsageForInstanceOrDefault answers
+// with, once the caller has checked that the instance and the entitlement exist
+// and that the instance is granted it. With a resourceKey the row holds that
+// resource's counter, and the answer names it; without one it is the
+// entitlement's own, which for a RESOURCE entitlement is its highest counter and
+// carries the resources block.
+//
+// The resource route's read in getentitlementresourceusage is this function too,
+// so that the two reads cannot drift apart.
+func UsageOf(result db.GetEntitlementUsageForInstanceOrDefaultRow, resourceKey *string) (*entitlementUsageSchema.EntitlementUsage, error) {
 	// The limit is the instance's effective entitlement, whatever its type:
 	// for the NUMBER family it is the cap the usage below is measured against,
 	// for BOOLEAN and CONFIG it is the value itself.
@@ -89,6 +103,9 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 	var currentPeriodStart, currentPeriodEnd *time.Time
 	isNumberFamily := result.EntitlementType != nil &&
 		(*result.EntitlementType == db.EntitlementTypeNUMBER || *result.EntitlementType == db.EntitlementTypeNUMBERAICREDIT)
+	// closedWindow: the counter read belongs to a usage window that has closed,
+	// so the value below is zero and nothing is at its limit.
+	closedWindow := false
 
 	if isNumberFamily {
 		var stored *entitlementvalue.NumberUsageValue
@@ -122,6 +139,7 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 			}
 			usage = entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
 			currentPeriodStart, currentPeriodEnd = &window.Start, &window.End
+			closedWindow = storedPeriodStart == nil || !storedPeriodStart.Equal(window.Start)
 		}
 
 		resolvedValue = entitlementUsageSchema.EntitlementValue{
@@ -152,6 +170,10 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		text := decimal.NewFromBigInt(result.Reserved.Int, result.Reserved.Exp).String()
 		reserved = &text
 	}
+	var resources *entitlementUsageSchema.UsageResources
+	if resourceKey == nil && result.LimitScope != nil && *result.LimitScope == db.EntitlementLimitScopeRESOURCE {
+		resources = entitlementUsageSchema.NewUsageResources(result.ResourceCount, result.ResourcesAtLimit, closedWindow)
+	}
 	return &entitlementUsageSchema.EntitlementUsage{
 		Reserved:                       reserved,
 		EntitlementID:                  *result.EntitlementID,
@@ -165,6 +187,8 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		LimitCapExceededOveragePercent: result.EffectiveOveragePercent,
 		Source:                         sourceOf(result.Source, result.LicenseEntitlementID),
 		Provenance:                     provenance,
+		ResourceKey:                    resourceKey,
+		Resources:                      resources,
 	}, nil
 }
 

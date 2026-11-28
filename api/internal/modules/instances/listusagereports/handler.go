@@ -39,6 +39,7 @@ type Query struct {
 	AfterSeq      int64
 	Limit         int32
 	TransactionID *string
+	ResourceKey   *string
 }
 
 // UsageReportPage is one page of a pair's usage history.
@@ -81,6 +82,7 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug, entitlementSlug str
 		Range:          window,
 		AfterSeq:       q.AfterSeq,
 		TransactionID:  q.TransactionID,
+		ResourceKey:    q.ResourceKey,
 	}, limit)
 	if err != nil {
 		return nil, err

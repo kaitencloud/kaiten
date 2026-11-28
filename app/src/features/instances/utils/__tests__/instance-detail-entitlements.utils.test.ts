@@ -3,6 +3,7 @@ import { getUsageStatus } from '@/domains/entitlement-usage';
 import { findHistoryRow } from '../usage-history.utils';
 import {
   buildEntitlementsRows,
+  findResourcesRow,
   getEntitlementsMetrics,
   isEntitlementEnabled,
   isEntitlementExhausted,
@@ -96,6 +97,72 @@ describe('instance-detail-entitlements utils', () => {
       expect(isEntitlementExhausted(rows[0])).toBe(false);
     },
   );
+
+  // An entitlement that counts per resource has a usage that is its highest counter, with a block
+  // that says how many resources hold one and how many are at the limit. The API sends the block
+  // for those entitlements alone, so that is what tells them apart on the row.
+  describe('an entitlement that counts per resource', () => {
+    const grants = [
+      {
+        entitlementName: 'Sources per competitor',
+        entitlementSlug: 'sources-per-competitor',
+        entitlementType: 'NUMBER',
+        value: { type: 'number', value: 4 },
+      },
+      {
+        entitlementName: 'API Calls',
+        entitlementSlug: 'api-calls',
+        entitlementType: 'NUMBER',
+        value: { type: 'number', value: 1000 },
+      },
+    ] as never;
+    const usages = [
+      {
+        entitlementId: 'ent-sources',
+        entitlementSlug: 'sources-per-competitor',
+        limit: { type: 'number', value: 4 },
+        resources: { atLimit: 2, count: 6 },
+        value: { type: 'number', value: 4 },
+      },
+      {
+        entitlementId: 'ent-calls',
+        entitlementSlug: 'api-calls',
+        limit: { type: 'number', value: 1000 },
+        value: { type: 'number', value: 120 },
+      },
+    ] as never;
+
+    it('carries the block of the API, and the figure is its highest counter', () => {
+      const [sources, calls] = buildEntitlementsRows(grants, usages, 'Unknown');
+
+      expect(sources).toMatchObject({
+        resources: { atLimit: 2, count: 6 },
+        threshold: 4,
+        value: 4,
+      });
+      expect(calls.resources).toBeNull();
+    });
+
+    it('carries it on the row of an entitlement only an add-on grants, which is read off its usage', () => {
+      const [row] = buildEntitlementsRows([], usages, 'Unknown');
+
+      expect(row).toMatchObject({
+        entitlementSlug: 'sources-per-competitor',
+        resources: { atLimit: 2, count: 6 },
+      });
+    });
+
+    it('is the one a ?resources= names, and no other', () => {
+      const rows = buildEntitlementsRows(grants, usages, 'Unknown');
+
+      expect(findResourcesRow(rows, 'sources-per-competitor')).toBe(rows[0]);
+      // A counter of the instance, an entitlement it does not have, no link at all.
+      expect(findResourcesRow(rows, 'api-calls')).toBeUndefined();
+      expect(findResourcesRow(rows, 'no-such-counter')).toBeUndefined();
+      expect(findResourcesRow(rows, undefined)).toBeUndefined();
+      expect(findResourcesRow(rows, '')).toBeUndefined();
+    });
+  });
 
   // An add-on adds to what the license grants, and the API composes the cap the
   // usage is measured against: it is the one the row shows.

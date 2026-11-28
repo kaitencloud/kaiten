@@ -282,3 +282,39 @@ func TestIsSupportedAggregationMethod(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateLimitScope(t *testing.T) {
+	resource, instance := ptr.To(schema.LimitScopeResource), ptr.To(schema.LimitScopeInstance)
+
+	tests := []struct {
+		name            string
+		entitlementType schema.Type
+		scope           *schema.LimitScope
+		wantErr         bool
+		wantPool        bool // the 422 of a credit pool, not the 400 of a type with no scope
+	}{
+		{name: "no scope on a number", entitlementType: schema.Number},
+		{name: "no scope on a flag", entitlementType: schema.Boolean},
+		{name: "no scope on a pool", entitlementType: schema.NumberAICredit},
+		{name: "RESOURCE on a number", entitlementType: schema.Number, scope: resource},
+		{name: "INSTANCE on a number", entitlementType: schema.Number, scope: instance},
+		{name: "INSTANCE on a pool", entitlementType: schema.NumberAICredit, scope: instance},
+		{name: "RESOURCE on a pool", entitlementType: schema.NumberAICredit, scope: resource, wantErr: true, wantPool: true},
+		{name: "RESOURCE on a flag", entitlementType: schema.Boolean, scope: resource, wantErr: true},
+		{name: "INSTANCE on a flag", entitlementType: schema.Boolean, scope: instance, wantErr: true},
+		{name: "RESOURCE on a config", entitlementType: schema.Config, scope: resource, wantErr: true},
+		{name: "INSTANCE on a config", entitlementType: schema.Config, scope: instance, wantErr: true},
+		{name: "unknown scope", entitlementType: schema.Number, scope: ptr.To(schema.LimitScope("TENANT")), wantErr: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := schema.ValidateLimitScope(tt.entitlementType, tt.scope)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("ValidateLimitScope(%s, %v) error = %v, wantErr %v", tt.entitlementType, tt.scope, err, tt.wantErr)
+			}
+			if got := errors.Is(err, schema.ErrAICreditPoolLimitScope); got != tt.wantPool {
+				t.Errorf("ValidateLimitScope(%s, %v) is the credit pool's refusal = %v, want %v", tt.entitlementType, tt.scope, got, tt.wantPool)
+			}
+		})
+	}
+}

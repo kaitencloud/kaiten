@@ -55,5 +55,6 @@ export function buildUsageOnlyRow(
           : null,
     source: usage.source ?? 'license',
     provenance: usage.provenance ?? null,
+    resources: usage.resources ?? null,
   };
 }

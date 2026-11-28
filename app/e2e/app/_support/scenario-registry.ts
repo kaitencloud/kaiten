@@ -87,6 +87,7 @@ import {
   createEntitlementsListModel,
   createPeriodicEntitlementModel,
   createReferencedEntitlementModel,
+  createResourceEntitlementModel,
   createReferencedLastEntitlementModel,
   createUnitEntitlementModel,
   createIconedEntitlementModel,
@@ -110,6 +111,7 @@ import {
   createInstancesListModel,
   createPagedBilledInstancesModels,
   createProvenanceInstancesModel,
+  createResourcesInstancesModel,
   createTypedMetadataInstanceModel,
 } from '../instances/instances.scenarios';
 import {
@@ -206,6 +208,7 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ],
   ['instances/createBilledInstancesModel', createBilledInstancesModel],
   ['instances/createProvenanceInstancesModel', createProvenanceInstancesModel],
+  ['instances/createResourcesInstancesModel', createResourcesInstancesModel],
   [
     'instances/createPagedBilledInstancesModels',
     createPagedBilledInstancesModels,
@@ -220,6 +223,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['notifications/createNotificationsFeedModel', createNotificationsFeedModel],
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],
   ['entitlements/createUnitEntitlementModel', createUnitEntitlementModel],
+  [
+    'entitlements/createResourceEntitlementModel',
+    createResourceEntitlementModel,
+  ],
   ['entitlements/createIconedEntitlementModel', createIconedEntitlementModel],
   [
     'entitlements/createThresholdEntitlementModel',

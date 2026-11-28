@@ -15,7 +15,10 @@ type Command struct {
 	Type *schema.Type `json:"type,omitempty" example:"subscription"`
 	// Immutable: included only to reject modification attempts.
 	AggregationMethod *schema.AggregationMethod `json:"aggregationMethod,omitempty" example:"sum"`
-	GroupSlugs        []string                  `json:"groupSlugs,omitempty"`
+	// Immutable, like Type: omitted or equal to the stored value, nothing
+	// changes; anything else is rejected.
+	LimitScope *schema.LimitScope `json:"limitScope,omitempty" example:"RESOURCE"`
+	GroupSlugs []string           `json:"groupSlugs,omitempty"`
 	// Icon token (provider:name). Overwrites the stored value; null clears it.
 	Icon *string `json:"icon,omitempty" example:"lucide:rocket"`
 	// Unit fields overwrite the stored values; absent/null clears them.

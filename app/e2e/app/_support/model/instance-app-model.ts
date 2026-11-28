@@ -39,6 +39,13 @@ import {
 } from './effective-entitlement';
 import { ErrorInjector } from './error-injector';
 import {
+  type InstanceEntitlementResourcesSeed,
+  InstanceEntitlementResources,
+  type PairLookup,
+  type ResourceHost,
+  type SerializedInstanceEntitlementResources,
+} from './instance-entitlement-resources';
+import {
   InstanceUsageHistory,
   type InstanceUsageHistorySeed,
   type SerializedInstanceUsageHistory,
@@ -69,27 +76,33 @@ export type InstanceBillingBlock = {
   unpaidInvoiceIds: string[];
 };
 
-export type InstanceAppModelSeed = InstanceUsageHistorySeed & {
-  /** The instances the billing refuses to change or delete, by slug. */
-  billingBlocks?: Record<string, InstanceBillingBlock>;
-  customers?: Customer[];
-  // Zones the instance list and detail page offer as deploy / migrate targets.
-  deploymentZones?: DeploymentZone[];
-  // Active MetadataField declarations for INSTANCE. They drive the typed
-  // metadata card on the detail page and the metadata step of the form.
-  metadataFields?: MetadataFieldRow[];
-  entitlementExceptions?: ExceptionModelSeed;
-  entitlementUsagesByInstance?: Record<string, EntitlementUsage[]>;
-  instances?: Instance[];
-  licenseEntitlements?: LicenseEntitlement[];
-  licenses?: License[];
-};
+export type InstanceAppModelSeed = InstanceUsageHistorySeed &
+  InstanceEntitlementResourcesSeed & {
+    /** The instances the billing refuses to change or delete, by slug. */
+    billingBlocks?: Record<string, InstanceBillingBlock>;
+    customers?: Customer[];
+    // Zones the instance list and detail page offer as deploy / migrate targets.
+    deploymentZones?: DeploymentZone[];
+    // Active MetadataField declarations for INSTANCE. They drive the typed
+    // metadata card on the detail page and the metadata step of the form.
+    metadataFields?: MetadataFieldRow[];
+    entitlementExceptions?: ExceptionModelSeed;
+    entitlementUsagesByInstance?: Record<string, EntitlementUsage[]>;
+    instances?: Instance[];
+    licenseEntitlements?: LicenseEntitlement[];
+    licenses?: License[];
+  };
 
 export type SerializedInstanceAppModel = Required<
-  Omit<InstanceAppModelSeed, keyof InstanceUsageHistorySeed>
+  Omit<
+    InstanceAppModelSeed,
+    keyof InstanceUsageHistorySeed | keyof InstanceEntitlementResourcesSeed
+  >
 > & {
   clock: number;
   pendingErrors: Array<[InstanceErrorOp, number]>;
+  /** The counters of the entitlements that count per resource; a state stored before they existed has none. */
+  resources?: SerializedInstanceEntitlementResources;
   sequence: number;
   /** The usage history; a state stored before it existed has none. */
   usageHistory?: SerializedInstanceUsageHistory;
@@ -119,8 +132,17 @@ export class InstanceAppModel {
   private sequence: number;
   /** The journal of the entitlements of the instances, and what the organization keeps of it. */
   usageHistory: InstanceUsageHistory;
+  /** The counters of the entitlements that count per resource, and the four routes below them. */
+  resources: InstanceEntitlementResources;
   entitlementExceptions: InstanceEntitlementExceptions;
   private readonly errors = new ErrorInjector<InstanceErrorOp>();
+  // What the resources ask of the instances: the journal, and where a pair stands. Read when
+  // asked, since the journal of a model restored from a stored state is another object.
+  private readonly resourceHost: ResourceHost = {
+    journal: () => this.usageHistory,
+    lookup: (instanceSlug, entitlementSlug) =>
+      this.lookupPair(instanceSlug, entitlementSlug),
+  };
 
   /**
    * Arm the next call to `op` to fail with the given HTTP status. One-shot.
@@ -149,6 +171,12 @@ export class InstanceAppModel {
         state.usageHistory,
       );
     }
+    if (state.resources) {
+      model.resources = InstanceEntitlementResources.fromSerialized(
+        state.resources,
+        model.resourceHost,
+      );
+    }
     return model;
   }
 
@@ -165,6 +193,7 @@ export class InstanceAppModel {
       licenseEntitlements: clone(this.licenseEntitlements),
       licenses: clone(this.licenses),
       pendingErrors: this.errors.snapshot(),
+      resources: this.resources.serialize(),
       sequence: this.sequence,
       usageHistory: this.usageHistory.serialize(),
     };
@@ -176,6 +205,14 @@ export class InstanceAppModel {
       retentionStart: seed.retentionStart,
       usageReports: seed.usageReports,
     });
+    this.resources = new InstanceEntitlementResources(
+      {
+        maxResources: seed.maxResources,
+        perResource: seed.perResource,
+        resources: seed.resources,
+      },
+      this.resourceHost,
+    );
     this.customers = parseContract(
       z.array(zCustomer),
       seed.customers ?? [],
@@ -305,7 +342,49 @@ export class InstanceAppModel {
     );
   }
 
+  /**
+   * The usage rows of an instance as the instances serve them: the rows its license, its
+   * add-ons and its exceptions make, with what the counters of an entitlement that counts
+   * per resource make of its `value` and its `resources` (see `InstanceEntitlementResources`).
+   */
   getEntitlementsUsageMetrics(instanceSlug: string) {
+    return this.resources.decorate(
+      instanceSlug,
+      this.effectiveUsages(instanceSlug),
+    );
+  }
+
+  /** `GET /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage`: one row of the list above. */
+  getEntitlementUsageMetrics(instanceSlug: string, entitlementSlug: string) {
+    const pair = this.lookupPair(instanceSlug, entitlementSlug);
+    const operation = 'GetEntitlementUsageMetrics';
+    if (pair.found === 'instance') {
+      throw new BillingProblem(
+        404,
+        `${operation}.InstanceNotFound`,
+        `Instance with slug "${instanceSlug}" not found`,
+      );
+    }
+    const usage = this.getEntitlementsUsageMetrics(instanceSlug).find(
+      (row) => row.entitlementSlug === entitlementSlug,
+    );
+    if (pair.found === 'entitlement' || !usage) {
+      throw new BillingProblem(
+        404,
+        pair.found === 'entitlement'
+          ? `${operation}.EntitlementNotFound`
+          : `${operation}.EntitlementNotAssigned`,
+        pair.found === 'entitlement'
+          ? `Entitlement with slug "${entitlementSlug}" not found`
+          : `Entitlement with slug "${entitlementSlug}" is not assigned to the license used by instance "${instanceSlug}"`,
+      );
+    }
+
+    return usage;
+  }
+
+  /** The usage rows before the counters of the resources are read into them. */
+  private effectiveUsages(instanceSlug: string): EntitlementUsage[] {
     const instance = this.findInstance(instanceSlug);
     const license = this.licenses.find(
       (item) => item.id === instance.licenseId,
@@ -316,6 +395,67 @@ export class InstanceAppModel {
       Date.now(),
       { licenseId: instance.licenseId, licenseSlug: license?.slug ?? '' },
     );
+  }
+
+  /**
+   * Where a pair stands for the routes of the resources: the instance has to exist, and the
+   * entitlement has to be one it uses, was granted, keeps counters or a journal of, or counts
+   * per resource. The API resolves the slug in the catalogue and does not ask for the grant
+   * (a resource outlives the license that granted its entitlement), so an entitlement that
+   * counts per resource and that nothing grants is a pair with no usage: its list is empty and
+   * its delete answers 204, where only a slug the world does not know is a 404.
+   */
+  private lookupPair(
+    instanceSlug: string,
+    entitlementSlug: string,
+  ): PairLookup {
+    const instance = this.instances.find(
+      (candidate) => candidate.slug === instanceSlug,
+    );
+    if (!instance) {
+      return { found: 'instance' };
+    }
+    const usage = this.effectiveUsages(instanceSlug).find(
+      (row) => row.entitlementSlug === entitlementSlug,
+    );
+    if (
+      !usage &&
+      !this.resources.holds(instanceSlug, entitlementSlug) &&
+      !this.resources.isPerResource(entitlementSlug) &&
+      !this.usageHistory.hasPair(instanceSlug, entitlementSlug)
+    ) {
+      return { found: 'entitlement' };
+    }
+
+    return { found: 'ok', usage };
+  }
+
+  /** `POST .../resources/{resourceKey}/usage`: a usage report for one resource of an entitlement. */
+  reportResourceUsage(
+    ...args: Parameters<InstanceEntitlementResources['report']>
+  ) {
+    return this.resources.report(...args);
+  }
+
+  /** `GET .../resources/{resourceKey}/usage`. */
+  getEntitlementResourceUsage(
+    ...args: Parameters<InstanceEntitlementResources['read']>
+  ) {
+    return this.resources.read(...args);
+  }
+
+  /** `GET .../resources`. */
+  listEntitlementResources(
+    ...args: Parameters<InstanceEntitlementResources['list']>
+  ) {
+    return this.resources.list(...args);
+  }
+
+  /** `DELETE .../resources/{resourceKey}`. */
+  deleteEntitlementResource(
+    ...args: Parameters<InstanceEntitlementResources['remove']>
+  ) {
+    this.resources.remove(...args);
   }
 
   /**

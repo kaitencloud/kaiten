@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vite-plus/test';
 import { createDevMockConfig } from '@/e2e/msw/dev-world';
+import { InstanceAppModel } from '../../e2e/app/_support/model/instance-app-model';
 import { createMockHandlers, undeclaredApiRequest } from '@/e2e/msw/handlers';
 import { server } from './msw-server';
 
@@ -85,6 +86,39 @@ describe('dev world', () => {
       expect(instanceSlugs).toContain(slug);
       for (const usage of usages) {
         expect(entitlementSlugs).toContain(usage.entitlementSlug);
+      }
+    }
+  });
+
+  it('counts per resource the entitlements the catalogue says do, and reads their usage off the counters', () => {
+    const catalogue = slot(config.entitlements).entitlements;
+    const { counters, perResource } = slot(instanceSlot.resources);
+    const model = InstanceAppModel.fromSerialized(instanceSlot);
+
+    expect(Object.keys(perResource).sort()).toEqual(
+      catalogue
+        .filter(({ limitScope }) => limitScope === 'RESOURCE')
+        .map(({ slug }) => slug)
+        .sort(),
+    );
+    expect(Object.keys(counters).length).toBeGreaterThan(0);
+    for (const [instanceSlug, byPair] of Object.entries(counters)) {
+      expect(instanceSlugs).toContain(instanceSlug);
+      for (const [entitlementSlug, held] of Object.entries(byPair)) {
+        const highest = Math.max(...held.map(({ value }) => value));
+        const served = model
+          .getEntitlementsUsageMetrics(instanceSlug)
+          .find((usage) => usage.entitlementSlug === entitlementSlug);
+        const seeded = instanceSlot.entitlementUsagesByInstance[
+          instanceSlug
+        ]?.find((usage) => usage.entitlementSlug === entitlementSlug);
+
+        expect(perResource).toHaveProperty([entitlementSlug]);
+        // What the instance says is the highest counter and how many there are, which the
+        // other areas of the world, that read the seeded row, say the same of.
+        expect(served?.value).toMatchObject({ type: 'number', value: highest });
+        expect(served?.resources?.count).toBe(held.length);
+        expect(seeded?.value).toEqual({ type: 'number', value: highest });
       }
     }
   });

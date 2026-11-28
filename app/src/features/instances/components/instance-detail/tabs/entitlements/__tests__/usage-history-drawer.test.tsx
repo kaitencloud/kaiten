@@ -86,12 +86,16 @@ function serveHistory(...pages: UsageReportPage[]) {
 // a state stands for the URL here, and `onRangeChange` is what the tab navigates with.
 function Harness({
   initial = {},
+  onClearResource = () => undefined,
   onClose,
   onRangeChange,
+  resource,
 }: {
   initial?: UsageHistoryRange;
+  onClearResource?: () => void;
   onClose: () => void;
   onRangeChange?: (range: UsageHistoryRange) => void;
+  resource?: string;
 }) {
   const [range, setRange] = useState(initial);
 
@@ -101,12 +105,14 @@ function Harness({
       entitlementSlug="api-calls"
       instanceName="Globex Production"
       instanceSlug="globex-production"
+      onClearResource={onClearResource}
       onClose={onClose}
       onRangeChange={(next) => {
         onRangeChange?.(next);
         setRange(next);
       }}
       range={range}
+      resource={resource}
     />
   );
 }
@@ -115,7 +121,9 @@ const renderDrawer = (
   onClose = vi.fn(),
   options: {
     initial?: UsageHistoryRange;
+    onClearResource?: () => void;
     onRangeChange?: (range: UsageHistoryRange) => void;
+    resource?: string;
   } = {},
 ) => {
   renderWithClient(<Harness onClose={onClose} {...options} />);
@@ -301,6 +309,94 @@ describe('the usage history of an entitlement', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+// An entitlement that counts per resource has one counter for each resource of the instance,
+// and the reports of all of them share one journal. The drawer is narrowed to one of them by the
+// URL (`?resource=`), which a link from the list of resources writes.
+describe('the usage history of one resource', () => {
+  it('asks the API for the resource only, and says so in a chip that takes it off', async () => {
+    const asked = serveHistory({
+      items: [report(1, { resourceKey: 'stigg' })],
+    });
+    const onClearResource = vi.fn();
+    renderDrawer(vi.fn(), { onClearResource, resource: 'stigg' });
+
+    await screen.findByRole('table');
+
+    expect(asked[0].get('resourceKey')).toBe('stigg');
+    expect(screen.getByText('Resource: stigg')).toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole('button', {
+        name: 'Show the reports of every resource',
+      }),
+    );
+    expect(onClearResource).toHaveBeenCalledOnce();
+  });
+
+  it('names the resource each report counted for, in a column of its own', async () => {
+    serveHistory({
+      items: [
+        report(1, { resourceKey: 'stigg' }),
+        report(2, { resourceKey: 'paid' }),
+      ],
+    });
+    renderDrawer();
+
+    const table = await screen.findByRole('table');
+
+    expect(
+      within(table)
+        .getAllByRole('columnheader')
+        .map((header) => header.textContent),
+    ).toEqual([
+      'Report',
+      'Reported at',
+      'Resource',
+      'Behavior',
+      'Value',
+      'Counter',
+      'Change',
+      'Limit',
+      'Transaction',
+      'Properties',
+    ]);
+    const [first, second] = within(table).getAllByRole('row').slice(1);
+    expect(first).toHaveTextContent('stigg');
+    expect(second).toHaveTextContent('paid');
+  });
+
+  it('has neither chip nor column for an entitlement that counts per instance', async () => {
+    const asked = serveHistory({ items: [report(1)] });
+    renderDrawer();
+
+    await screen.findByRole('table');
+
+    expect(asked[0].has('resourceKey')).toBe(false);
+    expect(screen.queryByText(/^Resource:/)).toBeNull();
+    expect(screen.queryByRole('columnheader', { name: 'Resource' })).toBeNull();
+  });
+
+  it('exports the reports of the resource shown, as the CSV matches the screen', async () => {
+    serveHistory({ items: [report(1, { resourceKey: 'stigg' })] });
+    const exported: URL[] = [];
+    server.use(
+      handleExportUsageReports(({ request }) => {
+        exported.push(new URL(request.url));
+
+        return new HttpResponse('report_seq\n1\n', {
+          headers: { 'Content-Type': 'text/csv' },
+        });
+      }),
+    );
+    renderDrawer(vi.fn(), { resource: 'stigg' });
+    await screen.findByRole('table');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+
+    await waitFor(() => expect(exported).toHaveLength(1));
+    expect(exported[0].searchParams.get('resourceKey')).toBe('stigg');
   });
 });
 

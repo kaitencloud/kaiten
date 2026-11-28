@@ -151,14 +151,18 @@ export type MeterRules = {
 
 /**
  * Checks the entitlement a metered draft would meter against what the version
- * grants of it: only a flow is metered (a reset period, SUM or COUNT, a NUMBER
- * type), the version must grant it, an OVERAGE price on a license version needs a
- * grant whose overage can be reached, and no other ACTIVE price may meter it.
+ * grants of it: an entitlement that counts per resource is never metered (an invoice
+ * has no line per resource), only a flow is metered (a reset period, SUM or COUNT, a
+ * NUMBER type), the version must grant it, an OVERAGE price on a license version needs
+ * a grant whose overage can be reached, and no other ACTIVE price may meter it.
  */
 export function checkMeters(
   operation: string,
   draft: PriceDraft,
-  entitlement: Pick<Entitlement, 'aggregationMethod' | 'resetPeriod' | 'type'>,
+  entitlement: Pick<
+    Entitlement,
+    'aggregationMethod' | 'limitScope' | 'resetPeriod' | 'type'
+  >,
   grant: AddonEntitlement | LicenseEntitlement | undefined,
   otherMeters: number,
   {
@@ -167,6 +171,13 @@ export function checkMeters(
     refuse = refuseAsLicense,
   }: MeterRules = {},
 ): void {
+  if (entitlement.limitScope === 'RESOURCE') {
+    refuse(
+      422,
+      `${operation}.UnsupportedLimitScope`,
+      'an entitlement that counts per resource cannot be metered: an invoice has no line per resource',
+    );
+  }
   if (entitlement.resetPeriod === undefined) {
     refuse(
       422,

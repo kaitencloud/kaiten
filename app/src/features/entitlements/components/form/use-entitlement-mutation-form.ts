@@ -74,6 +74,12 @@ const entitlementFormValuesToBody = (
     body.aggregationMethod = undefined;
     body.warningThresholdPercent = undefined;
   }
+  // Only a NUMBER chooses what its limit applies to: the API refuses a scope on a Boolean or
+  // a Config entitlement (400), and an AI credit pool is one balance per instance, so a form
+  // that was switched to one of them leaves the choice it held behind.
+  if (body.type !== 'NUMBER') {
+    body.limitScope = undefined;
+  }
   conditionUnitFields(body);
 
   return body;

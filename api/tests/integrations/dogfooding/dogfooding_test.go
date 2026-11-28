@@ -867,6 +867,7 @@ func waitForReportedUsage(t *testing.T, organizationID, trackedOrgID uuid.UUID, 
 
 	require.Eventually(t, func() bool {
 		result, err := queries.GetEntitlementUsageForInstanceOrDefault(context.Background(), instancesdb.GetEntitlementUsageForInstanceOrDefaultParams{
+			ResourceKey:     nil,
 			OrganizationID:  organizationID,
 			InstanceSlug:    trackedOrgID.String(),
 			EntitlementSlug: entitlementSlug,

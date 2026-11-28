@@ -165,6 +165,8 @@ export const BILLING_ACTIONS = {
   'usageHistory.list': 'listUsageReports',
   'usageHistory.export': 'exportUsageReports',
   'usageHistory.exportOrganization': 'exportOrganizationUsageReports',
+  // The resources an entitlement that counts per resource holds on an instance.
+  'entitlementResources.list': 'listEntitlementResources',
 } as const satisfies Record<string, ApiOperationId>;
 
 export type BillingAction = keyof typeof BILLING_ACTIONS;

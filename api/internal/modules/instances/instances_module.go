@@ -13,11 +13,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteentitlementresource"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportorganizationusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementresourceusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
@@ -26,6 +28,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listentitlementresources"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listorganizationaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
@@ -57,6 +60,12 @@ type UseCases struct {
 	GetEntitlementUsageMetrics   *getentitlementusagemetrics.UseCase
 	GetEntitlementsUsageMetrics  *getentitlementsusagemetrics.UseCase
 	GetAuditTrails               *getaudittrails.UseCase
+
+	// The resources of an entitlement that counts per resource: one counter each,
+	// reported through ReportEntitlementUsageMetric, which runs both routes.
+	GetEntitlementResourceUsage *getentitlementresourceusage.UseCase
+	ListEntitlementResources    *listentitlementresources.UseCase
+	DeleteEntitlementResource   *deleteentitlementresource.UseCase
 
 	ListUsageReports               *listusagereports.UseCase
 	ExportUsageReports             *exportusagereports.UseCase
@@ -144,6 +153,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			Uof:                 svc.Uof,
 			MaxRolloverClosures: svc.Config.Usage.RolloverMaxClosures,
 			IdempotencyWindow:   svc.Config.Usage.IdempotencyWindow,
+			MaxResources:        svc.Config.Usage.MaxResources,
 			ReservationTTL:      svc.Config.AIUsage.ReservationTTL,
 			ReservationMaxTTL:   svc.Config.AIUsage.ReservationMaxTTL,
 		}),
@@ -159,6 +169,23 @@ func NewUseCases(svc services.Container) *UseCases {
 			UserProvider:  svc.UserProvider,
 			Queries:       queries,
 			UsageReporter: svc.UsageReporter,
+		}),
+		GetEntitlementResourceUsage: getentitlementresourceusage.NewUseCase(getentitlementresourceusage.Deps{
+			AIPolicy:         aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider:     svc.UserProvider,
+			Queries:          queries,
+			UsageReporter:    svc.UsageReporter,
+			OutboxRepository: outbox.NewOutboxRepository(outboxdb.New(svc.Pool)),
+		}),
+		ListEntitlementResources: listentitlementresources.NewUseCase(listentitlementresources.Deps{
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider: svc.UserProvider,
+			Queries:      queries,
+		}),
+		DeleteEntitlementResource: deleteentitlementresource.NewUseCase(deleteentitlementresource.Deps{
+			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
+			UserProvider: svc.UserProvider,
+			Uof:          svc.Uof,
 		}),
 		GetAuditTrails: getaudittrails.NewUseCase(getaudittrails.Deps{
 			UserProvider:   svc.UserProvider,

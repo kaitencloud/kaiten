@@ -14,12 +14,14 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { InstanceDetailEntitlementsTab } from '../instance-detail-entitlements-tab';
 vi.mock('../../../../../entitlement-exceptions/exceptions-card', () => ({ ExceptionsCard: () => null }));
-const { drawer, navigate, navigateTo, historyPermission } = vi.hoisted(() => ({
-  historyPermission: { allowed: true },
-  drawer: vi.fn(),
-  navigate: vi.fn(),
-  navigateTo: vi.fn(),
-}));
+const { drawer, navigate, navigateTo, historyPermission, resourcesDrawer } =
+  vi.hoisted(() => ({
+    historyPermission: { allowed: true },
+    drawer: vi.fn(),
+    navigate: vi.fn(),
+    navigateTo: vi.fn(),
+    resourcesDrawer: vi.fn(),
+  }));
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to }: { children?: ReactNode; to: string }) => (
@@ -44,6 +46,14 @@ vi.mock('../usage-history', () => ({
     drawer(props);
 
     return <div data-testid="usage-history" />;
+  },
+}));
+
+vi.mock('../resources', () => ({
+  EntitlementResourcesDrawer: (props: unknown) => {
+    resourcesDrawer(props);
+
+    return <div data-testid="entitlement-resources" />;
   },
 }));
 
@@ -161,6 +171,7 @@ vi.mock('@/functionals/table', () => {
 beforeEach(() => {
   drawer.mockClear();
   navigateTo.mockClear();
+  resourcesDrawer.mockClear();
   historyPermission.allowed = true;
 });
 
@@ -409,8 +420,34 @@ describe('InstanceDetailEntitlementsTab', () => {
         from: undefined,
         history: undefined,
         other: 1,
+        resource: undefined,
         to: undefined,
       });
+    });
+
+    it('hands the drawer the resource the URL narrows the history to, and takes it off the URL without a new history entry', () => {
+      render(
+        <InstanceDetailEntitlementsTab
+          historyParam="api-calls"
+          historyResource="stigg"
+        />,
+      );
+
+      const props = drawer.mock.calls[0][0] as {
+        onClearResource: () => void;
+        resource: unknown;
+      };
+      expect(props.resource).toBe('stigg');
+      props.onClearResource();
+
+      const { replace, search } = navigate.mock.calls[0][0] as {
+        replace: boolean;
+        search: (previous: Record<string, unknown>) => unknown;
+      };
+      expect(replace).toBe(true);
+      expect(
+        search({ history: 'api-calls', other: 1, resource: 'stigg' }),
+      ).toEqual({ history: 'api-calls', other: 1, resource: undefined });
     });
 
     it('opens nothing when there is no link to follow', () => {
@@ -460,11 +497,114 @@ describe('InstanceDetailEntitlementsTab', () => {
         expect(replace).toBe(true);
         expect(to).toBe('/customers/instances/$instanceSlug/entitlements');
         expect(search({ history: historyParam, other: 1 })).toEqual({
+          from: undefined,
           history: undefined,
           other: 1,
+          resource: undefined,
+          to: undefined,
         });
       },
     );
+  });
+
+  // The entitlement that counts per resource is the one that has a `resources` block: its figure
+  // is its highest counter, and the drawer lists the counters it is the highest of.
+  describe('the resources the URL lists', () => {
+    const perResource = {
+      enabled: true,
+      entitlementGroups: [],
+      entitlementId: 'ent-sources',
+      entitlementName: 'Sources per competitor',
+      entitlementSlug: 'sources-per-competitor',
+      entitlementType: 'NUMBER',
+      limitCapExceededOveragePercent: 0,
+      resources: { atLimit: 2, count: 6 },
+      threshold: 4,
+      value: 4,
+    };
+
+    beforeEach(() => {
+      const state = useInstanceDetailMock();
+      useInstanceDetailMock.mockReturnValue({
+        ...state,
+        entitlementsRows: [...state.entitlementsRows, perResource],
+      });
+    });
+
+    it('opens the drawer on the entitlement a link names, with the limit every resource is measured against', () => {
+      render(
+        <InstanceDetailEntitlementsTab resourcesParam="sources-per-competitor" />,
+      );
+
+      expect(screen.getByTestId('entitlement-resources')).toBeInTheDocument();
+      expect(resourcesDrawer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          canViewHistory: true,
+          entitlementName: 'Sources per competitor',
+          entitlementSlug: 'sources-per-competitor',
+          instanceName: 'Globex Production',
+          instanceSlug: 'globex-production',
+          limit: expect.objectContaining({
+            limitCapExceededOveragePercent: 0,
+            threshold: 4,
+          }),
+        }),
+      );
+      expect(navigateTo).not.toHaveBeenCalled();
+    });
+
+    it('drops the entitlement from the URL when the drawer closes, and keeps the rest of it', () => {
+      render(
+        <InstanceDetailEntitlementsTab resourcesParam="sources-per-competitor" />,
+      );
+
+      (resourcesDrawer.mock.calls[0][0] as { onClose: () => void }).onClose();
+
+      const { search, to } = navigate.mock.calls[0][0] as {
+        search: (previous: Record<string, unknown>) => unknown;
+        to: string;
+      };
+      expect(to).toBe('/customers/instances/$instanceSlug/entitlements');
+      expect(
+        search({ other: 1, resources: 'sources-per-competitor' }),
+      ).toStrictEqual({ other: 1, resources: undefined });
+    });
+
+    it.each(['api-calls', 'no-such-counter', ''])(
+      'drops the link %j, which names no entitlement that counts per resource here, and opens the page as it is',
+      (resourcesParam) => {
+        render(<InstanceDetailEntitlementsTab resourcesParam={resourcesParam} />);
+
+        expect(screen.queryByTestId('entitlement-resources')).toBeNull();
+        expect(navigateTo).toHaveBeenCalledTimes(1);
+        const { replace, search } = navigateTo.mock.calls[0][0] as {
+          replace: boolean;
+          search: (previous: Record<string, unknown>) => unknown;
+        };
+        expect(replace).toBe(true);
+        expect(search({ other: 1, resources: resourcesParam })).toEqual({
+          other: 1,
+          resources: undefined,
+        });
+      },
+    );
+
+    it('opens nothing for a session that may not list the resources, and takes the link away', () => {
+      historyPermission.allowed = false;
+      render(
+        <InstanceDetailEntitlementsTab resourcesParam="sources-per-competitor" />,
+      );
+
+      expect(screen.queryByTestId('entitlement-resources')).toBeNull();
+      expect(navigateTo).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens nothing when there is no link to follow', () => {
+      render(<InstanceDetailEntitlementsTab />);
+
+      expect(screen.queryByTestId('entitlement-resources')).toBeNull();
+      expect(navigateTo).not.toHaveBeenCalled();
+    });
   });
 });
 

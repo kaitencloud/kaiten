@@ -40,6 +40,13 @@ exports[`the recovery descriptor of the entitlement creation page > stores value
       "pattern": "^[a-z0-9]+:[a-z0-9]+(-[a-z0-9]+)*$",
       "type": "string",
     },
+    "limitScope": {
+      "enum": [
+        "INSTANCE",
+        "RESOURCE",
+      ],
+      "type": "string",
+    },
     "name": {
       "minLength": 1,
       "type": "string",

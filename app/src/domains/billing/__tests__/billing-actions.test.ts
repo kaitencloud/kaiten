@@ -116,6 +116,19 @@ describe('billing actions', () => {
     expect(canPerformAction(U_READER, 'instance.addons.detach')).toBe(false);
   });
 
+  it('gates the resources of an entitlement that counts per resource on the scope of the instances, as its history is', () => {
+    expect(getActionScopes('entitlementResources.list')).toEqual([
+      'read:instances',
+    ]);
+    expect(getActionScopes('entitlementResources.list')).toEqual(
+      getActionScopes('usageHistory.list'),
+    );
+    expect(canPerformAction(U_READER, 'entitlementResources.list')).toBe(true);
+    expect(canPerformAction(['read:billing'], 'entitlementResources.list')).toBe(
+      false,
+    );
+  });
+
   it('lists a family in the public catalog with the scope of the licenses', () => {
     expect(getActionScopes('licenseFamily.setPublic')).toEqual(['write:licenses']);
     expect(canPerformAction(U_READER, 'licenseFamily.setPublic')).toBe(false);

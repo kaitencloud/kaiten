@@ -277,6 +277,7 @@ export function buildKaitenCloudEntitlements(
           },
           number: null,
         },
+        resources: null,
         slug: grant.slug,
         source: 'license',
         type: 'BOOLEAN',
@@ -305,6 +306,8 @@ export function buildKaitenCloudEntitlements(
         },
         number: null,
       },
+      // These plans count per instance: only an entitlement that counts per resource has a block.
+      resources: null,
       slug: grant.slug,
       source: 'license',
       type: 'NUMBER',

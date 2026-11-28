@@ -12,7 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kaitencloud/kaiten/api/config"
+	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
 	"github.com/kaitencloud/kaiten/api/internal/modules/dashboard/getsummary"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
+	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/pkg/scope"
 	"github.com/kaitencloud/kaiten/api/tests"
 	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
@@ -24,6 +28,22 @@ func reportUsage(t *testing.T, instanceSlug, entitlementSlug string, value int) 
 	req := httptest.NewRequest(
 		http.MethodPost,
 		"/api/instances/"+instanceSlug+"/entitlements/"+entitlementSlug+"/usage",
+		strings.NewReader(`{"value":{"type":"number","value":`+strconv.Itoa(value)+`},"behavior":"append"}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := testServer.App.Test(req, fiber.TestConfig{})
+	require.NoError(t, err)
+	defer commonfixture.MustCloseBody(t, resp.Body)
+	require.Equal(t, fiber.StatusOK, resp.StatusCode)
+}
+
+// reportResourceUsage sends a numeric report for one resource of an entitlement
+// that counts per resource, and expects it accepted.
+func reportResourceUsage(t *testing.T, instanceSlug, entitlementSlug, resourceKey string, value int) {
+	t.Helper()
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/instances/"+instanceSlug+"/entitlements/"+entitlementSlug+"/resources/"+resourceKey+"/usage",
 		strings.NewReader(`{"value":{"type":"number","value":`+strconv.Itoa(value)+`},"behavior":"append"}`),
 	)
 	req.Header.Set("Content-Type", "application/json")
@@ -66,6 +86,38 @@ func rowOf(t *testing.T, rows []getsummary.DashboardInstanceReports, instanceSlu
 	}
 	require.FailNowf(t, "instance row not found", "%s among %d rows", instanceSlug, len(rows))
 	return getsummary.DashboardInstanceReports{}
+}
+
+// An entitlement that counts per resource has one meter per instance, and it is
+// the resource closest to its limit: the figure a person watching a dashboard
+// needs is the one about to be refused.
+func TestGetDashboardSummary_APerResourceEntitlementIsItsHighestCounter(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	instances := newInstances(t, 1)
+	description := "Sources per competitor"
+	perResource, err := createentitlement.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB)).CreateEntitlement(
+		t.Context(),
+		createentitlement.CreateEntitlementInput{
+			Name: "Sources per competitor", Slug: "sources-per-competitor", Description: &description,
+			Type: entitlementschema.Number, AggregationMethod: ptr.To(entitlementschema.Sum),
+			LimitScope: entitlementschema.LimitScopeResource, WarningThresholdPercent: 80,
+		},
+		testDb.DefaultData.OrganizationID,
+	)
+	require.NoError(t, err)
+	grant(t, instances[0].LicenseSlug, perResource.Slug, 10, 0)
+	reportResourceUsage(t, instances[0].Slug, perResource.Slug, "stigg", 3)
+	reportResourceUsage(t, instances[0].Slug, perResource.Slug, "paid", 9)
+
+	resp := getSummary(t, "")
+	defer commonfixture.MustCloseBody(t, resp.Body)
+
+	summary := commonfixture.AssertJSONResponse[getsummary.DashboardSummary](t, resp, fiber.StatusOK)
+	require.Len(t, summary.Saturation, 1, "one meter for the entitlement, not one per resource")
+	meter := meterOf(t, summary.Saturation, instances[0].Slug, perResource.Slug)
+	require.EqualValues(t, 9, meter.Used, "the highest counter")
+	require.EqualValues(t, 1, summary.Attention.NearThreshold.Count)
+	require.Equal(t, "watch", rowOf(t, summary.UsageReports.ByInstance, instances[0].Slug).Standing)
 }
 
 func TestGetDashboardSummary(t *testing.T) {

@@ -8,10 +8,15 @@ export {
   upcomingInvoiceQueryOptions,
 } from './instance-billing-query-options';
 export {
+  ENTITLEMENT_RESOURCES_PAGE_SIZE,
+  entitlementResourcesQueryOptions,
+} from './entitlement-resources-query-options';
+export {
   downloadUsageHistory,
   usageHistoryFilename,
 } from './download-usage-history';
 export {
+  type UsageHistoryFilters,
   type UsageHistoryRange,
   usageHistoryQueryOptions,
 } from './usage-history-query-options';

@@ -354,7 +354,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 						customer { slug }
 						license { slug }
 						deploymentZone { slug }
-						entitlementUsage { entitlementSlug value limit }
+						entitlementUsage { entitlementSlug value limit resourceKey resources { count atLimit } }
 					}
 				}
 			}

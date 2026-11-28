@@ -151,7 +151,16 @@ func TestCSVExport(t *testing.T) {
 	unlimited.ReportSeq, unlimited.LimitValue, unlimited.OveragePercent = 2, nil, nil
 	unlimited.WindowStart, unlimited.WindowEnd, unlimited.TransactionID, unlimited.Properties = nil, nil, nil, nil
 
-	export := &Export{Format: FormatCSV, next: pagesOf([]UsageReport{sampleReport()}, []UsageReport{unlimited})}
+	// A resource's report: its key is the last column, and a key that opens like a
+	// formula is neutralised as the idempotency key is.
+	resource, formula := "stigg", "-cmd"
+	perResource, risky := sampleReport(), sampleReport()
+	perResource.ReportSeq, perResource.ResourceKey = 3, &resource
+	perResource.WindowStart, perResource.WindowEnd, perResource.TransactionID, perResource.Properties = nil, nil, nil, nil
+	risky.ReportSeq, risky.ResourceKey = 4, &formula
+	risky.WindowStart, risky.WindowEnd, risky.TransactionID, risky.Properties = nil, nil, nil, nil
+
+	export := &Export{Format: FormatCSV, next: pagesOf([]UsageReport{sampleReport()}, []UsageReport{unlimited}, []UsageReport{perResource, risky})}
 	var buf bytes.Buffer
 	if err := export.Write(t.Context(), &buf); err != nil {
 		t.Fatal(err)
@@ -159,9 +168,11 @@ func TestCSVExport(t *testing.T) {
 
 	lines := strings.Split(buf.String(), "\n")
 	want := []string{
-		"organization_id,instance_id,entitlement_id,report_seq,reported_at,behavior,aggregation_method,reported_value,value_before,value_after,delta,overage_delta,event_count_after,window_start,window_end,limit_value,overage_percent,license_id,transaction_id,properties",
-		`44444444-4444-4444-4444-444444444444,11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,1,2025-10-10T08:00:00.000Z,append,SUM,600,0,600,600,0,1,2025-10-01T00:00:00.000Z,2025-11-01T00:00:00.000Z,1000,50,33333333-3333-3333-3333-333333333333,'-cmd,"{""note"":""a,b\""c"",""tokens"":12}"`,
-		`44444444-4444-4444-4444-444444444444,11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,2,2025-10-10T08:00:00.000Z,append,SUM,600,0,600,600,0,1,,,,,33333333-3333-3333-3333-333333333333,,`,
+		"organization_id,instance_id,entitlement_id,report_seq,reported_at,behavior,aggregation_method,reported_value,value_before,value_after,delta,overage_delta,event_count_after,window_start,window_end,limit_value,overage_percent,license_id,transaction_id,properties,resource_key",
+		`44444444-4444-4444-4444-444444444444,11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,1,2025-10-10T08:00:00.000Z,append,SUM,600,0,600,600,0,1,2025-10-01T00:00:00.000Z,2025-11-01T00:00:00.000Z,1000,50,33333333-3333-3333-3333-333333333333,'-cmd,"{""note"":""a,b\""c"",""tokens"":12}",`,
+		`44444444-4444-4444-4444-444444444444,11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,2,2025-10-10T08:00:00.000Z,append,SUM,600,0,600,600,0,1,,,,,33333333-3333-3333-3333-333333333333,,,`,
+		`44444444-4444-4444-4444-444444444444,11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,3,2025-10-10T08:00:00.000Z,append,SUM,600,0,600,600,0,1,,,1000,50,33333333-3333-3333-3333-333333333333,,,stigg`,
+		`44444444-4444-4444-4444-444444444444,11111111-1111-1111-1111-111111111111,22222222-2222-2222-2222-222222222222,4,2025-10-10T08:00:00.000Z,append,SUM,600,0,600,600,0,1,,,1000,50,33333333-3333-3333-3333-333333333333,,,'-cmd`,
 		"",
 	}
 	if len(lines) != len(want) {
@@ -175,8 +186,10 @@ func TestCSVExport(t *testing.T) {
 }
 
 func TestNDJSONExportIsTheListShape(t *testing.T) {
-	report := sampleReport()
-	export := &Export{Format: FormatJSON, next: pagesOf([]UsageReport{report, report})}
+	resource := "stigg"
+	report, perResource := sampleReport(), sampleReport()
+	perResource.ResourceKey = &resource
+	export := &Export{Format: FormatJSON, next: pagesOf([]UsageReport{report, perResource})}
 	var buf bytes.Buffer
 	if err := export.Write(t.Context(), &buf); err != nil {
 		t.Fatal(err)
@@ -195,6 +208,12 @@ func TestNDJSONExportIsTheListShape(t *testing.T) {
 	}
 	if strings.Contains(lines[0], "organizationId") {
 		t.Error("the organization id is a CSV column only")
+	}
+	if strings.Contains(lines[0], "resourceKey") {
+		t.Errorf("a report of an entitlement that counts per instance names no resource: %s", lines[0])
+	}
+	if !strings.Contains(lines[1], `"resourceKey":"stigg"`) {
+		t.Errorf("a resource's report names its resource, as the list does: %s", lines[1])
 	}
 }
 

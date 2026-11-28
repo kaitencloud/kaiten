@@ -4,6 +4,12 @@
 -- entitlement value. now is the same database-time value on every returned
 -- row: folded into this query instead of a separate GetDatabaseNow round
 -- trip, since every row in one call already agrees on "now" by construction.
+-- For a RESOURCE entitlement usage_value is the pair row's summary -- the
+-- highest counter of its window -- and resource_count and resources_at_limit
+-- describe the counters behind it; both are 0 for any other entitlement.
+-- ponytail: those two read the pair's resources, up to usage.max_resources rows
+-- (10000 by default), on every read of a RESOURCE entitlement. A count kept on
+-- the pair row and moved by the report would make them O(1).
 SELECT
   iee.entitlement_id,
   e.slug            AS entitlement_slug,
@@ -25,7 +31,19 @@ SELECT
   ib.anchor_at      AS billing_anchor_at,
   ib.live_ended_at,
  (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type <> 'NUMBER_AI_CREDIT')
- AND a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
+ AND a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved,
+  e.limit_scope,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rc
+      WHERE rc.instance_id = i.id AND rc.entitlement_id = e.id)
+  ELSE 0 END::bigint AS resource_count,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rl
+      WHERE rl.instance_id = i.id AND rl.entitlement_id = e.id
+        AND rl.period_start IS NOT DISTINCT FROM eu.period_start
+        AND (iee.value->>'value')::numeric >= 0
+        AND (rl.value->>'value')::numeric >= (iee.value->>'value')::numeric)
+  ELSE 0 END::bigint AS resources_at_limit
 FROM instance i
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = i.id
@@ -53,6 +71,10 @@ WHERE i.id = sqlc.arg(instance_id)
 -- now is folded in here too, instead of a separate GetDatabaseNow
 -- round trip -- it does not depend on any of the LEFT JOINs below, so it is
 -- always populated even when the instance/entitlement/usage row is not found.
+-- With a resource_key, usage_value and period_start are that resource's counter
+-- (NULL when it holds none); without one they are the pair row's, which for a
+-- RESOURCE entitlement is the summary of its highest counter. resource_count and
+-- resources_at_limit are as in GetEntitlementsUsageForInstanceWithFallback.
 SELECT
   i.id              AS instance_id,
   i.license_id      AS license_id,
@@ -67,15 +89,27 @@ SELECT
   iee.license_entitlement_id,
   iee.provenance,
   iee.source,
-  eu.value          AS usage_value,
-  eu.period_start,
+  (CASE WHEN sqlc.narg(resource_key)::text IS NULL THEN eu.value ELSE ru.value END)::jsonb AS usage_value,
+  (CASE WHEN sqlc.narg(resource_key)::text IS NULL THEN eu.period_start ELSE ru.period_start END)::timestamp(3) AS period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   coalesce(ib.status::text, '')::text AS billing_status,
   ib.anchor_at      AS billing_anchor_at,
   ib.live_ended_at,
- (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
+ (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved,
+  e.limit_scope,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rc
+      WHERE rc.instance_id = i.id AND rc.entitlement_id = e.id)
+  ELSE 0 END::bigint AS resource_count,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rl
+      WHERE rl.instance_id = i.id AND rl.entitlement_id = e.id
+        AND rl.period_start IS NOT DISTINCT FROM eu.period_start
+        AND (iee.value->>'value')::numeric >= 0
+        AND (rl.value->>'value')::numeric >= (iee.value->>'value')::numeric)
+  ELSE 0 END::bigint AS resources_at_limit
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = sqlc.arg(instance_slug)
@@ -90,6 +124,11 @@ LEFT JOIN entitlement_usage eu
   ON eu.instance_id    = i.id
  AND eu.entitlement_id = e.id
  AND eu.organization_id = sqlc.arg(organization_id)
+LEFT JOIN entitlement_resource_usage ru
+  ON ru.instance_id    = i.id
+ AND ru.entitlement_id = e.id
+ AND ru.organization_id = sqlc.arg(organization_id)
+ AND ru.resource_key   = sqlc.narg(resource_key)::text
 LEFT JOIN "license" l
   ON l.id = i.license_id
 -- The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
@@ -169,6 +208,116 @@ WHERE eu.instance_id = sqlc.arg(instance_id)
   FOR UPDATE OF eu;
 
 
+-- name: GetEntitlementResourceUsageContext :one
+-- One resource's counter, row-locked, read under the pair's advisory lock as
+-- GetEntitlementUsageContext reads the pair's. No row means the resource's first
+-- report.
+SELECT
+  ru.value,
+  ru.period_start
+FROM entitlement_resource_usage ru
+WHERE ru.instance_id = sqlc.arg(instance_id)
+  AND ru.entitlement_id = sqlc.arg(entitlement_id)
+  AND ru.resource_key = sqlc.arg(resource_key)
+  AND ru.organization_id = sqlc.arg(organization_id)
+  FOR UPDATE OF ru;
+
+
+-- name: CountEntitlementResources :one
+-- How many counters the pair holds, stale windows included: what the ceiling of
+-- resources counts. Read under the pair's advisory lock, so a report cannot
+-- slip a resource in between this count and its own insert.
+SELECT count(*)::bigint AS count
+FROM entitlement_resource_usage ru
+WHERE ru.instance_id = sqlc.arg(instance_id)
+  AND ru.entitlement_id = sqlc.arg(entitlement_id);
+
+
+-- name: UpsertEntitlementResourceUsage :exec
+-- Writes one resource's counter: an accepted report's, or the rollover reset a
+-- refused report still persists. period_start is NULL for a lifetime
+-- entitlement and the window's start for a periodic one.
+INSERT INTO entitlement_resource_usage (entitlement_id, instance_id, resource_key, organization_id, value, period_start)
+VALUES (sqlc.arg(entitlement_id), sqlc.arg(instance_id), sqlc.arg(resource_key), sqlc.arg(organization_id),
+        sqlc.arg(value), sqlc.arg(period_start))
+ON CONFLICT (entitlement_id, instance_id, resource_key)
+  DO UPDATE SET value = EXCLUDED.value, period_start = EXCLUDED.period_start;
+
+
+-- name: SettleEntitlementResourceUsage :one
+-- The pair's row after a resource write, in the same transaction and under the
+-- same lock: the highest counter among the resources that sit in the window the
+-- write landed in (the counter's own row, so its exact float), and report_seq
+-- moved by seq_step -- 1 for an accepted report, 0 for the rollover reset a
+-- refused report still persists. A pair's first accepted report creates the row
+-- at 1, as AcceptEntitlementUsage does. The pair's row is what every reader of
+-- entitlement_usage reads, which is why a RESOURCE entitlement keeps one: it
+-- reads as its highest counter.
+-- ponytail: this sorts the pair's resources, up to usage.max_resources (10000 by
+-- default), under the pair's lock on every report. Past that, keep the highest
+-- counter incrementally, or index (entitlement_id, instance_id, period_start,
+-- value) -- the lock stays the same.
+INSERT INTO entitlement_usage (entitlement_id, instance_id, organization_id, value, period_start, report_seq)
+SELECT sqlc.arg(entitlement_id), sqlc.arg(instance_id), sqlc.arg(organization_id),
+       coalesce((SELECT ru.value
+                   FROM entitlement_resource_usage ru
+                  WHERE ru.entitlement_id = sqlc.arg(entitlement_id)
+                    AND ru.instance_id = sqlc.arg(instance_id)
+                    AND ru.period_start IS NOT DISTINCT FROM sqlc.narg(period_start)::timestamp
+                  ORDER BY (ru.value->>'value')::numeric DESC, ru.resource_key
+                  LIMIT 1),
+                '{"type":"number","value":0,"event_count":0}'::jsonb),
+       sqlc.narg(period_start)::timestamp,
+       sqlc.arg(seq_step)::bigint
+ON CONFLICT (entitlement_id, instance_id)
+  DO UPDATE SET value        = EXCLUDED.value,
+                period_start = EXCLUDED.period_start,
+                report_seq   = entitlement_usage.report_seq + sqlc.arg(seq_step)::bigint
+RETURNING report_seq;
+
+
+-- name: RefreshEntitlementResourceSummary :exec
+-- The pair's summary after a resource was deleted: the highest counter that is
+-- left in the window the row already holds. The window and report_seq stay: a
+-- delete is not a report.
+UPDATE entitlement_usage eu
+SET value = coalesce((SELECT ru.value
+                        FROM entitlement_resource_usage ru
+                       WHERE ru.entitlement_id = eu.entitlement_id
+                         AND ru.instance_id = eu.instance_id
+                         AND ru.period_start IS NOT DISTINCT FROM eu.period_start
+                       ORDER BY (ru.value->>'value')::numeric DESC, ru.resource_key
+                       LIMIT 1),
+                     '{"type":"number","value":0,"event_count":0}'::jsonb)
+WHERE eu.entitlement_id = sqlc.arg(entitlement_id)
+  AND eu.instance_id = sqlc.arg(instance_id);
+
+
+-- name: DeleteEntitlementResourceUsage :one
+-- Forgets one resource's counter and says what it held. No row: the resource
+-- had no counter, and the caller has nothing to announce.
+DELETE FROM entitlement_resource_usage ru
+WHERE ru.entitlement_id = sqlc.arg(entitlement_id)
+  AND ru.instance_id = sqlc.arg(instance_id)
+  AND ru.resource_key = sqlc.arg(resource_key)
+  AND ru.organization_id = sqlc.arg(organization_id)
+RETURNING ru.value, ru.period_start;
+
+
+-- name: ListEntitlementResources :many
+-- One page of a pair's counters, in resource_key order (bytewise: the column is
+-- COLLATE "C"), through the primary key. after_key is the last key of the
+-- previous page; NULL on the first. Pass limit_plus_one = the page size + 1.
+SELECT ru.resource_key, ru.value, ru.period_start
+FROM entitlement_resource_usage ru
+WHERE ru.organization_id = sqlc.arg(organization_id)
+  AND ru.instance_id = sqlc.arg(instance_id)
+  AND ru.entitlement_id = sqlc.arg(entitlement_id)
+  AND (sqlc.narg(after_key)::text IS NULL OR ru.resource_key > sqlc.narg(after_key)::text)
+ORDER BY ru.resource_key
+LIMIT sqlc.arg(limit_plus_one);
+
+
 -- name: StampReportInstant :one
 -- The instant a report is dated by: the usage clock (see GetDatabaseNow), read
 -- once the pair's lock is held. It also becomes the transaction's
@@ -234,7 +383,8 @@ SELECT
   e.warning_threshold_percent,
   e.reset_period,
   e.reset_anchor,
-  l.slug              AS license_slug
+  l.slug              AS license_slug,
+  e.limit_scope
 FROM instance i
 JOIN entitlement e
   ON e.slug            = sqlc.arg(entitlement_slug)

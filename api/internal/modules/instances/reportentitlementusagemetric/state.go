@@ -2,6 +2,7 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -42,11 +43,15 @@ type State struct {
 	TransactionID     *string
 }
 
-// load takes the pair's lock and reads its state. It refuses an entitlement
-// whose type no report kind handles before reading anything else.
-func (h *UseCase) load(ctx context.Context, organizationID uuid.UUID, instanceSlug, entitlementSlug string) (*State, error) {
-	pair, err := h.queryRepo.LockPair(ctx, instanceSlug, entitlementSlug, organizationID)
+// load takes the pair's lock and reads its state. It refuses a report sent to
+// the wrong route for its entitlement's scope, and an entitlement whose type no
+// report kind handles, before reading anything else.
+func (h *UseCase) load(ctx context.Context, organizationID uuid.UUID, instanceSlug, entitlementSlug string, resourceKey *string) (*State, error) {
+	pair, err := h.queryRepo.LockPair(ctx, instanceSlug, entitlementSlug, resourceKey, organizationID)
 	if err != nil {
+		return nil, err
+	}
+	if err := refuseWrongRoute(pair); err != nil {
 		return nil, err
 	}
 
@@ -74,6 +79,30 @@ func (h *UseCase) load(ctx context.Context, organizationID uuid.UUID, instanceSl
 	}, nil
 }
 
+// refuseWrongRoute answers 422 for a report that names a resource of an
+// entitlement that counts per instance, and for one that names none of an
+// entitlement that counts per resource: the two routes are not interchangeable,
+// and neither guesses what the other means.
+func refuseWrongRoute(pair *UsageContext) error {
+	perResource := pair.LimitScope == db.EntitlementLimitScopeRESOURCE
+	switch {
+	case perResource && pair.ResourceKey == nil:
+		return kaitenerrors.UnprocessableEntity(
+			"ReportEntitlementUsageMetric.ResourceKeyRequired",
+			fmt.Sprintf("entitlement %q counts per resource: report its usage at POST /instances/{instanceSlug}/entitlements/%s/resources/{resourceKey}/usage",
+				pair.EntitlementSlug, pair.EntitlementSlug),
+		)
+	case !perResource && pair.ResourceKey != nil:
+		return kaitenerrors.UnprocessableEntityWithErrors(
+			"ReportEntitlementUsageMetric.ResourceKeyNotAllowed",
+			fmt.Sprintf("entitlement %q counts per instance: report its usage at POST /instances/{instanceSlug}/entitlements/%s/usage",
+				pair.EntitlementSlug, pair.EntitlementSlug),
+			&kaitenerrors.ErrorDetail{Message: "the entitlement has no resources", Location: resourceKeyLocation, Value: *pair.ResourceKey},
+		)
+	}
+	return nil
+}
+
 // gauge is the pair's usage at counter, in the window this report resolved.
 func (s *State) gauge(counter usage.Counter) usage.Gauge {
 	licenseSlug := ""
@@ -92,6 +121,7 @@ func (s *State) gauge(counter usage.Counter) usage.Gauge {
 		LicenseValue:    s.Pair.EffectiveValue,
 		Counter:         counter,
 		Window:          s.Resolution.Window,
+		ResourceKey:     s.Pair.ResourceKey,
 	}
 }
 

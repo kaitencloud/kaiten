@@ -32,6 +32,8 @@ export const buildValueOverTimeData = ({
     return (
       payload.entitlement_slug === entitlementSlug &&
       numberEntitlementSlugs.has(payload.entitlement_slug ?? '') &&
+      // The counter of one resource is not the value of the entitlement.
+      payload.resourceKey === undefined &&
       typeof getPayloadScalarValue(payload) === 'number'
     );
   });
@@ -103,6 +105,8 @@ export const buildValueOverTimeGroupData = ({
     if (
       !entitlementSlug ||
       !groupEntitlementSlugSet.has(entitlementSlug) ||
+      // The counter of one resource is not the value of the entitlement.
+      payload.resourceKey !== undefined ||
       typeof scalarValue !== 'number'
     ) {
       continue;

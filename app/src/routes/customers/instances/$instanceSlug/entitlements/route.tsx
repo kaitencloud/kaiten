@@ -11,7 +11,10 @@ import i18n from '@/lib/i18n/config';
 // drawer over the tab, so that it can be linked to, from an invoice that would be
 // held for its usage as much as from a row of the table. `from` and `to` are the
 // period it is read for: they are the API's filters, so they live in the URL too,
-// and a link carries them and a reload keeps them.
+// and a link carries them and a reload keeps them, and so does `resource`, which
+// narrows the history of an entitlement that counts per resource to one of them.
+// `?resources=<entitlementSlug>` opens the list of those resources, in a drawer of
+// its own.
 export const Route = createFileRoute(
   '/customers/instances/$instanceSlug/entitlements',
 )({
@@ -28,13 +31,15 @@ export const Route = createFileRoute(
 });
 
 function InstanceDetailEntitlementsRoute() {
-  const { from, history, to } = Route.useSearch();
+  const { from, history, resource, resources, to } = Route.useSearch();
 
   return (
     <>
       <InstanceDetailEntitlementsTab
         historyParam={history}
         historyRange={{ from, to }}
+        historyResource={resource}
+        resourcesParam={resources}
       />
       <Suspense fallback={null}>
         <Outlet />

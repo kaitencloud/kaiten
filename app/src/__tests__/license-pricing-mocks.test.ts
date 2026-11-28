@@ -3,6 +3,11 @@ import type { InvoicePreview, Price } from '@/api-client';
 import { createMockHandlers, undeclaredApiRequest } from '@/e2e/msw/handlers';
 import type { E2EMswConfig } from '../../e2e/app/_support/contracts/msw-slots';
 import type { LicenseAppModel } from '../../e2e/app/_support/model/license-app-model';
+import { LicenseProblem } from '../../e2e/app/_support/model/license-problem';
+import {
+  checkMeters,
+  type PriceDraft,
+} from '../../e2e/app/_support/model/license-price-rules';
 import {
   createBilledCatalogModel,
   createDraftPricesModel,
@@ -620,5 +625,78 @@ describe('the invoice preview of a license version, as the mocks compose it', ()
     expect(none.body).toMatchObject({ code: 'PreviewLicenseInvoice.NoBasePrice' });
     expect(unknown.status).toBe(404);
     expect(unknown.body).toMatchObject({ code: 'PreviewLicenseInvoice.PriceNotFound' });
+  });
+});
+
+// An invoice has no line for each resource, so the API refuses a metered price on an entitlement
+// that counts per resource, before it reads anything else of it (api/.../prices/rules.go).
+describe('a metered price on an entitlement that counts per resource', () => {
+  const draft: PriceDraft = {
+    billingModel: 'USAGE_BASED',
+    billingTiming: 'ARREARS',
+    currency: 'USD',
+    displayOrder: 0,
+    isDefault: false,
+    meteredEntitlementSlug: 'sources-per-competitor',
+    unitAmountDecimal: '100',
+  };
+  const flow = {
+    aggregationMethod: 'SUM' as const,
+    resetPeriod: 'MONTH' as const,
+    type: 'NUMBER' as const,
+  };
+  const refusalOf = (action: () => unknown) => {
+    try {
+      action();
+    } catch (error) {
+      if (error instanceof LicenseProblem) {
+        return { code: error.code, status: error.httpStatus };
+      }
+      throw error;
+    }
+    throw new Error('The price was not refused');
+  };
+
+  it.each(['CreateLicensePrice', 'UpdateLicensePrice'])(
+    'is refused by %s with UnsupportedLimitScope, whatever else it would say',
+    (operation) => {
+      // A flow in every other way, and not granted by the version either: the scope comes first.
+      expect(
+        refusalOf(() =>
+          checkMeters(
+            operation,
+            draft,
+            { ...flow, limitScope: 'RESOURCE' },
+            undefined,
+            0,
+          ),
+        ),
+      ).toEqual({ code: `${operation}.UnsupportedLimitScope`, status: 422 });
+      expect(
+        refusalOf(() =>
+          checkMeters(
+            operation,
+            draft,
+            { aggregationMethod: 'AVERAGE', limitScope: 'RESOURCE', type: 'NUMBER' },
+            undefined,
+            0,
+          ),
+        ).code,
+      ).toBe(`${operation}.UnsupportedLimitScope`);
+    },
+  );
+
+  it('does not hold an entitlement that counts per instance, which is refused for what is wrong with it only', () => {
+    expect(
+      refusalOf(() =>
+        checkMeters(
+          'CreateLicensePrice',
+          draft,
+          { ...flow, limitScope: 'INSTANCE' },
+          undefined,
+          0,
+        ),
+      ).code,
+    ).toBe('CreateLicensePrice.EntitlementNotGranted');
   });
 });

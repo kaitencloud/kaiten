@@ -22,6 +22,7 @@ import {
   EntitlementLimitFigure,
   SoftLimitHint,
 } from './entitlement-limit';
+import { EntitlementResourcesSummary } from './entitlement-resources-summary';
 
 type InstanceEntitlementsMetrics = ReturnType<
   typeof useInstanceDetail
@@ -120,6 +121,8 @@ export function EntitlementsUsageCard({
           <span className="block text-xs text-muted-foreground">
             {getUsageWindowLabel(entitlement, locale, t)}
           </span>
+          {/* What the figure is for an entitlement that counts per resource. */}
+          <EntitlementResourcesSummary row={entitlement} />
         </div>
         <UsageMeter
           limitCapExceededOveragePercent={

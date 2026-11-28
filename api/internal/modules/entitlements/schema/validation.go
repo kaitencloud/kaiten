@@ -119,6 +119,38 @@ func ValidateTypeConfiguration(entitlementType Type, aggregationMethod *Aggregat
 	return nil
 }
 
+// ErrAICreditPoolLimitScope is RESOURCE on a NUMBER_AI_CREDIT pool: a pool is one
+// balance per instance, so it is a 422 .AiCreditPoolRequiresInstanceScope rather
+// than the 400 of a scope on a type that has none.
+var ErrAICreditPoolLimitScope = errors.New("an AI credit pool is one balance per instance: limitScope must be INSTANCE")
+
+// ValidateLimitScope enforces where limitScope may be set: on NUMBER (either
+// value) and on NUMBER_AI_CREDIT (INSTANCE only, ErrAICreditPoolLimitScope
+// otherwise); BOOLEAN and CONFIG have no counter to scope, so any value is
+// refused there. A nil scope is always valid -- it means INSTANCE, or none.
+// Mirrors entitlement_limit_scope_resource_check in the database. Does not
+// enforce immutability: that is checked against the stored entitlement at the
+// update handler layer.
+func ValidateLimitScope(entitlementType Type, scope *LimitScope) error {
+	if scope == nil {
+		return nil
+	}
+	if *scope != LimitScopeInstance && *scope != LimitScopeResource {
+		return fmt.Errorf("limitScope must be one of INSTANCE, RESOURCE")
+	}
+	switch entitlementType {
+	case Number:
+		return nil
+	case NumberAICredit:
+		if *scope == LimitScopeResource {
+			return ErrAICreditPoolLimitScope
+		}
+		return nil
+	default:
+		return fmt.Errorf("limitScope is only allowed when type is NUMBER or NUMBER_AI_CREDIT")
+	}
+}
+
 // ValidateResetConfiguration enforces the periodic-usage-window rules for
 // entitlement.resetPeriod/resetAnchor: resetAnchor is required exactly when
 // resetPeriod is set, periodic reset is only allowed for NUMBER-family

@@ -239,7 +239,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 -- name: GetAddonPricingEntitlement :one
 -- The entitlement a metered add-on price names, with the version's grant of it.
-SELECT e.id, e.type, e.reset_period, e.aggregation_method,
+SELECT e.id, e.type, e.limit_scope, e.reset_period, e.aggregation_method,
        coalesce(e.sale_unit_factor::text, '')::text AS sale_unit_factor,
        ae.value AS grant_value, ae.limit_cap_exceeded_overage_percent AS grant_overage_percent
 FROM entitlement e
