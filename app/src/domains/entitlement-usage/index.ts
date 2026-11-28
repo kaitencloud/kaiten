@@ -7,6 +7,18 @@
 export { UsageMeter } from './components/usage-meter';
 export { UsageStatusBadge } from './components/usage-status-badge';
 export {
+  canonicalWeight,
+  type CombinedGrant,
+  combineGrants,
+  haveSameSources,
+  isCombinedEntitlement,
+  isEligibleSource,
+  isGrantableEntitlement,
+  isSameUsageWindow,
+  sharedWindow,
+  type UsageWindow,
+} from './combined-entitlements';
+export {
   getHighestAcceptedUsage,
   getLicenseEntitlementOveragePercent,
   getMaximumAllowedUsage,

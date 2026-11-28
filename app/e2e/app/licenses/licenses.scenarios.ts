@@ -1,4 +1,4 @@
-import type { License } from '@/api-client';
+import type { Entitlement, License } from '@/api-client';
 import {
   buildEntitlement,
   buildGrant,
@@ -353,6 +353,90 @@ export function createDraftPricesModel() {
         }),
       ],
     },
+  });
+}
+
+/**
+ * A draft that grants the two counters behind a combined entitlement, 1,000 of each, and
+ * leaves a third unlimited: "Credits" sums the Firecrawl credits at 0.4 and the AI credits
+ * at 0.6, so the version makes 1,000 of them without granting it, and "Capacity" sums the
+ * seats at 2 and the storage at 1, which is unlimited as soon as the storage is. A combined
+ * entitlement is in the catalogue and in no grant: it cannot be added to a version.
+ */
+export function createCombinedGrantsModel() {
+  const unit = { plural: 'credits', singular: 'credit' };
+  const firecrawl = buildEntitlement({
+    aggregationMethod: 'SUM',
+    name: 'Firecrawl Credits',
+    slug: 'firecrawl-credits',
+    unit,
+  });
+  const ai = buildEntitlement({
+    aggregationMethod: 'SUM',
+    name: 'AI Credits',
+    slug: 'ai-credits',
+    unit,
+  });
+  const storage = buildEntitlement({
+    aggregationMethod: 'SUM',
+    name: 'Storage GB',
+    slug: 'storage-gb',
+  });
+  // Granted by nothing yet: what the dialog that adds a grant has to offer.
+  const exportsCount = buildEntitlement({
+    aggregationMethod: 'COUNT',
+    name: 'Exports',
+    slug: 'exports',
+  });
+  const combined = (
+    entitlement: Entitlement,
+    sources: NonNullable<Entitlement['sources']>,
+  ): Entitlement => ({
+    ...entitlement,
+    sources,
+    usageSource: 'COMBINED_USAGE',
+  });
+  const credits = combined(
+    buildEntitlement({
+      aggregationMethod: 'SUM',
+      name: 'Combined Credits',
+      slug: 'combined-credits',
+      unit,
+    }),
+    [
+      { entitlementSlug: 'ai-credits', weight: '0.6' },
+      { entitlementSlug: 'firecrawl-credits', weight: '0.4' },
+    ],
+  );
+  const capacity = combined(
+    buildEntitlement({
+      aggregationMethod: 'SUM',
+      name: 'Capacity',
+      slug: 'capacity',
+    }),
+    [
+      { entitlementSlug: 'seats', weight: '2' },
+      { entitlementSlug: 'storage-gb', weight: '1' },
+    ],
+  );
+
+  return new LicenseAppModel({
+    entitlements: [
+      firecrawl,
+      ai,
+      seats,
+      storage,
+      exportsCount,
+      credits,
+      capacity,
+    ],
+    grants: [
+      buildGrant({ entitlement: firecrawl, license: PRO_V4, value: 1_000 }),
+      buildGrant({ entitlement: ai, license: PRO_V4, value: 1_000 }),
+      buildGrant({ entitlement: seats, license: PRO_V4, value: 10 }),
+      buildGrant({ entitlement: storage, license: PRO_V4, value: -1 }),
+    ],
+    licenses: [PRO_V4],
   });
 }
 

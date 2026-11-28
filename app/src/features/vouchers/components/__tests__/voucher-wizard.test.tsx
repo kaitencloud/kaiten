@@ -12,7 +12,7 @@ import {
   handleUpdateVoucher,
 } from '@/api-client/msw.gen';
 import { pageOf, refusal, useBillingTexts } from '@/test-fixtures/billing-test-support';
-import { buildVoucher } from '../../../../../e2e/app/_support/fixtures';
+import { buildEntitlement, buildVoucher } from '../../../../../e2e/app/_support/fixtures';
 import { buildGrant } from '../../../../../e2e/app/_support/fixtures/build-pricing';
 import { VoucherWizardPage } from '../index';
 import {
@@ -260,6 +260,22 @@ describe('the offer of a boost', () => {
     expect(screen.queryByRole('option', { name: 'AI credits' })).not.toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'SSO' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Theme' })).toBeInTheDocument();
+  });
+
+  it('offers no combined entitlement, which is computed from the sources a boost changes', async () => {
+    serveReferences({
+      entitlements: [
+        TOKENS,
+        { ...buildEntitlement({ name: 'Total tokens', slug: 'total-tokens', type: 'NUMBER' }), sources: [{ entitlementSlug: 'tokens', weight: '1' }], usageSource: 'COMBINED_USAGE' },
+      ],
+    });
+    await toBoost();
+
+    await userEvent.click(await screen.findByRole('button', { name: /Add a change/ }));
+    await userEvent.click(await screen.findByRole('button', { name: /Choose an entitlement/ }));
+
+    expect(await screen.findByRole('option', { name: 'Tokens' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Total tokens' })).not.toBeInTheDocument();
   });
 
   it('asks no value of a change that lifts the limit, and a value above 0 of one that adds or multiplies', async () => {

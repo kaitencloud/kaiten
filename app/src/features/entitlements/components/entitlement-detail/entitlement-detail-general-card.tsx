@@ -11,6 +11,7 @@ import { EntitlementTypeDisplay } from '../display/entitlement-type-display';
 import {
   ResetPeriodRows,
   UnitRows,
+  UsageSourceRow,
   UserFacingRow,
 } from './entitlement-detail-metadata-rows';
 import { getEntitlementAuditMetadata } from './entitlement-detail-overview.helpers';
@@ -102,6 +103,7 @@ function EntitlementGeneralCardRows({
           />
         }
       />
+      <UsageSourceRow entitlement={entitlement} />
       <DetailCard.Row
         label={t(
           'Pages.Entitlements.Detail.Overview.general.fields.aggregationMethod',

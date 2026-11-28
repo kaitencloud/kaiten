@@ -16,8 +16,10 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/usage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
 
@@ -57,8 +59,9 @@ type Port interface {
 }
 
 type port struct {
-	policy  aiusage.Policy
-	queries *db.Queries
+	policy   aiusage.Policy
+	queries  *db.Queries
+	combined catalogue.CombinedReader
 }
 
 // New builds a Port bound to the given pool. Reads never need to join a
@@ -69,7 +72,7 @@ func New(pool *pgxpool.Pool, policies ...aiusage.Policy) Port {
 	if len(policies) > 0 {
 		policy = policies[0]
 	}
-	return &port{policy: policy, queries: db.New(pool)}
+	return &port{policy: policy, queries: db.New(pool), combined: catalogue.NewCombined(pool)}
 }
 
 func (p *port) GetOneCustomerBySlug(ctx context.Context, organizationID uuid.UUID, slug string) (*Customer, error) {
@@ -98,7 +101,11 @@ func (p *port) GetTargetingFactsByCustomerSlug(ctx context.Context, organization
 	if err != nil {
 		return nil, err
 	}
-	return toFacts(rows)
+	facts, err := toFacts(rows)
+	if err != nil {
+		return nil, err
+	}
+	return p.withCombined(ctx, organizationID, facts)
 }
 
 func (p *port) GetTargetingFactsByInstance(ctx context.Context, organizationID, instanceID uuid.UUID) ([]TargetingFact, error) {
@@ -117,7 +124,11 @@ func (p *port) GetTargetingFactsByInstance(ctx context.Context, organizationID, 
 	for i, row := range rows {
 		same[i] = db.GetTargetingFactsByCustomerSlugRow(row)
 	}
-	return toFacts(same)
+	facts, err := toFacts(same)
+	if err != nil {
+		return nil, err
+	}
+	return p.withCombined(ctx, organizationID, facts)
 }
 
 func toFacts(rows []db.GetTargetingFactsByCustomerSlugRow) ([]TargetingFact, error) {
@@ -166,4 +177,82 @@ func currentUsage(row db.GetTargetingFactsByCustomerSlugRow) ([]byte, error) {
 		return nil, err
 	}
 	return json.Marshal(entitlementvalue.ResolveCurrentWindowUsage(stored, storedStart, window))
+}
+
+// withCombined adds to the facts of an instance one for each combined
+// entitlement it reads: a rule reads the sum of the sources the instance is
+// granted as it reads any entitlement, with the same limit, usage and
+// everything derived from them. A combined entitlement is granted to nobody, so
+// no row of the query is its own; one whose sources the instance is granted none
+// of gets no fact.
+//
+// ponytail: the sources are the rows the query returned, so one it hides (an AI
+// credit pool, while AI is off) counts as not granted, as in every reader that
+// hides it. Nothing needs the sum of what it does not show.
+func (p *port) withCombined(ctx context.Context, organizationID uuid.UUID, facts []TargetingFact) ([]TargetingFact, error) {
+	if len(facts) == 0 {
+		return facts, nil
+	}
+
+	definitions, err := p.combined.Combined(ctx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	granted := make(map[string]TargetingFact, len(facts))
+	for _, fact := range facts {
+		if fact.EntitlementSlug != nil {
+			granted[*fact.EntitlementSlug] = fact
+		}
+	}
+
+	subject := facts[0]
+	result := facts
+	for _, definition := range definitions {
+		var sources []usage.CombinedSource
+		for _, source := range definition.Sources {
+			fact, ok := granted[source.Slug]
+			if !ok {
+				continue
+			}
+			threshold, err := entitlementvalue.ParseNumberThreshold(fact.LimitValue)
+			if err != nil {
+				continue // a source that grants no number has nothing to sum
+			}
+			var counter usage.Counter
+			if len(fact.UsageValue) > 0 {
+				if stored, err := entitlementvalue.ParseNumberUsageValue(fact.UsageValue); err == nil {
+					counter = usage.Counter{Value: stored.Value, EventCount: stored.EventCount}
+				}
+			}
+			sources = append(sources, usage.CombinedSource{Slug: source.Slug, Weight: source.Weight, Counter: counter, Threshold: threshold})
+		}
+
+		combined, found := usage.Combine(sources)
+		if !found {
+			continue
+		}
+		limit, err := json.Marshal(entitlementvalue.EntitlementJSONValue{Type: entitlementvalue.TypeNumber, Value: combined.Threshold})
+		if err != nil {
+			return nil, err
+		}
+		used, err := json.Marshal(entitlementvalue.NumberUsageValue{
+			Type: entitlementvalue.TypeNumber, Value: combined.Counter.Value, EventCount: combined.Counter.EventCount,
+		})
+		if err != nil {
+			return nil, err
+		}
+		slug := definition.Slug
+		result = append(result, TargetingFact{
+			InstanceID:        subject.InstanceID,
+			LicenseSlug:       subject.LicenseSlug,
+			LicenseFamilySlug: subject.LicenseFamilySlug,
+			LicenseType:       subject.LicenseType,
+			EntitlementSlug:   &slug,
+			LimitValue:        limit,
+			UsageValue:        used,
+		})
+	}
+
+	return result, nil
 }

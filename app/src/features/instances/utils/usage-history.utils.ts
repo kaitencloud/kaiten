@@ -41,12 +41,14 @@ type HistoryRow = {
   entitlementName: string;
   entitlementSlug?: string | null;
   entitlementType: string;
+  usageSource?: string | null;
 };
 
 /**
  * The entitlement a `?history=` names, among the rows of the instance: only a
- * counter has usage reports, so a slug that names a flag, a configuration or an
- * entitlement the instance does not have opens nothing.
+ * counter that is reported has usage reports, so a slug that names a flag, a
+ * configuration, a combined entitlement (computed from its sources, the API refuses
+ * its history) or an entitlement the instance does not have opens nothing.
  */
 export function findHistoryRow<Row extends HistoryRow>(
   rows: readonly Row[],
@@ -57,6 +59,7 @@ export function findHistoryRow<Row extends HistoryRow>(
     : rows.find(
         (row) =>
           row.entitlementSlug === entitlementSlug &&
-          row.entitlementType === 'NUMBER',
+          row.entitlementType === 'NUMBER' &&
+          row.usageSource !== 'COMBINED_USAGE',
       );
 }

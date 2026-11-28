@@ -171,4 +171,30 @@ describe('EntitlementDetailGeneralCard', () => {
 
     expect(onEdit).toHaveBeenCalledTimes(1);
   });
+
+  it('says where the usage of a number comes from, and nothing for a flag, which has none', () => {
+    renderCard({ ...numberEntitlement, usageSource: 'CALCULATED_USAGE' });
+
+    expect(screen.getByText('Usage source')).toBeInTheDocument();
+    expect(
+      screen.getByText('Pages.Entitlements.UsageSources.CALCULATED_USAGE'),
+    ).toBeInTheDocument();
+  });
+
+  it('says that the window of a combined entitlement is the one of its sources', () => {
+    renderCard({
+      ...numberEntitlement,
+      resetAnchor: 'CALENDAR',
+      resetPeriod: 'MONTH',
+      sources: [{ entitlementSlug: 'a-one', weight: '1' }, { entitlementSlug: 'b-two', weight: '2' }],
+      usageSource: 'COMBINED_USAGE',
+    });
+
+    expect(
+      screen.getByText('Pages.Entitlements.UsageSources.COMBINED_USAGE'),
+    ).toBeInTheDocument();
+    expect(screen.getByText('Usage resets (from its sources)')).toBeInTheDocument();
+    expect(screen.getByText('Window aligned on (from its sources)')).toBeInTheDocument();
+    expect(screen.queryByText('Usage resets')).not.toBeInTheDocument();
+  });
 });

@@ -18,6 +18,9 @@ const buildEntitlement = ({
   saleUnitFactor,
   resetPeriod,
   resetAnchor,
+  sources,
+  usageSource,
+  userFacing,
   warningThresholdPercent,
 }: {
   aggregationMethod?: string;
@@ -36,6 +39,9 @@ const buildEntitlement = ({
   saleUnitFactor?: number;
   resetPeriod?: Entitlement['resetPeriod'];
   resetAnchor?: Entitlement['resetAnchor'];
+  sources?: Entitlement['sources'];
+  usageSource?: Entitlement['usageSource'];
+  userFacing?: boolean;
   warningThresholdPercent?: number;
 }): Entitlement => ({
   aggregationMethod: aggregationMethod as Entitlement['aggregationMethod'],
@@ -54,6 +60,9 @@ const buildEntitlement = ({
   saleUnitFactor,
   resetPeriod,
   resetAnchor,
+  sources,
+  usageSource,
+  userFacing,
   warningThresholdPercent,
 });
 
@@ -238,5 +247,145 @@ export function createReferencedLastEntitlementModel() {
       }),
     ],
     references: { seats: { addonGrants: 1 } },
+  });
+}
+
+/**
+ * What a combined entitlement can sum, and what it cannot: two counters on one lifetime
+ * window (the Nagare case, the credits of two services), two on a calendar month, a
+ * counter that is averaged, one that is a flag. A source must be summed or counted, and
+ * share its window with the others.
+ */
+const summableEntitlements = () => [
+  buildEntitlement({
+    aggregationMethod: 'SUM',
+    description: 'Pages crawled by the scraping service',
+    id: 'entitlement-firecrawl-credits',
+    name: 'Firecrawl Credits',
+    slug: 'firecrawl-credits',
+    unitPlural: 'credits',
+    unitSingular: 'credit',
+  }),
+  buildEntitlement({
+    aggregationMethod: 'SUM',
+    description: 'Tokens used by the language models',
+    id: 'entitlement-ai-credits',
+    name: 'AI Credits',
+    slug: 'ai-credits',
+    unitPlural: 'credits',
+    unitSingular: 'credit',
+  }),
+  buildEntitlement({
+    aggregationMethod: 'SUM',
+    id: 'entitlement-monthly-requests',
+    name: 'Monthly Requests',
+    resetAnchor: 'CALENDAR',
+    resetPeriod: 'MONTH',
+    slug: 'monthly-requests',
+  }),
+  buildEntitlement({
+    aggregationMethod: 'COUNT',
+    id: 'entitlement-monthly-exports',
+    name: 'Monthly Exports',
+    resetAnchor: 'CALENDAR',
+    resetPeriod: 'MONTH',
+    slug: 'monthly-exports',
+  }),
+  buildEntitlement({
+    aggregationMethod: 'AVERAGE',
+    id: 'entitlement-average-latency',
+    name: 'Average Latency',
+    slug: 'average-latency',
+  }),
+  buildEntitlement({
+    description: 'Grants access to the advanced analytics dashboard',
+    id: 'entitlement-advanced-analytics',
+    name: 'Advanced Analytics',
+    slug: 'advanced-analytics',
+    type: 'BOOLEAN',
+  }),
+];
+
+/** Entitlements that can be summed, and none that sums them: for the creation of a combined one */
+export function createCombinableEntitlementsModel() {
+  return new EntitlementAppModel({ entitlements: summableEntitlements() });
+}
+
+/**
+ * The same, with the combined entitlement a vendor shows its customers in place of the
+ * two behind it: "Credits", weighted 0.4 on the Firecrawl credits and 0.6 on the AI
+ * credits, and the only one that is user facing.
+ */
+export function createCombinedEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        description:
+          'The credits a customer reads, whichever service spent them',
+        id: 'entitlement-credits',
+        name: 'Credits',
+        slug: 'credits',
+        sources: [
+          { entitlementSlug: 'ai-credits', weight: '0.6' },
+          { entitlementSlug: 'firecrawl-credits', weight: '0.4' },
+        ],
+        unitPlural: 'credits',
+        unitSingular: 'credit',
+        usageSource: 'COMBINED_USAGE',
+        userFacing: true,
+      }),
+      // A second one, over two other counters, one of which a license may leave unlimited.
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        id: 'entitlement-capacity',
+        name: 'Capacity',
+        slug: 'capacity',
+        sources: [
+          { entitlementSlug: 'seats', weight: '2' },
+          { entitlementSlug: 'storage-gb', weight: '1' },
+        ],
+        usageSource: 'COMBINED_USAGE',
+      }),
+      buildEntitlement({
+        aggregationMethod: 'COUNT',
+        id: 'entitlement-seats',
+        name: 'Seats',
+        slug: 'seats',
+      }),
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        id: 'entitlement-storage-gb',
+        name: 'Storage GB',
+        slug: 'storage-gb',
+      }),
+      ...summableEntitlements(),
+    ],
+  });
+}
+
+/**
+ * A combined entitlement on a calendar month, to move to sources that count for life, and
+ * a source that nothing combines: the window of a combined entitlement is the one its
+ * sources share, and an edit may move them to another.
+ */
+export function createMonthlyCombinedEntitlementModel() {
+  return new EntitlementAppModel({
+    entitlements: [
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        id: 'entitlement-throughput',
+        name: 'Throughput',
+        resetAnchor: 'CALENDAR',
+        resetPeriod: 'MONTH',
+        slug: 'throughput',
+        sources: [
+          { entitlementSlug: 'monthly-exports', weight: '1' },
+          { entitlementSlug: 'monthly-requests', weight: '1' },
+        ],
+        usageSource: 'COMBINED_USAGE',
+      }),
+      ...summableEntitlements(),
+    ],
   });
 }

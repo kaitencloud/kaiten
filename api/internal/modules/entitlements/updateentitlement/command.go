@@ -15,7 +15,12 @@ type Command struct {
 	Type *schema.Type `json:"type,omitempty" example:"subscription"`
 	// Immutable: included only to reject modification attempts.
 	AggregationMethod *schema.AggregationMethod `json:"aggregationMethod,omitempty" example:"sum"`
-	GroupSlugs        []string                  `json:"groupSlugs,omitempty"`
+	// Immutable: included only to reject modification attempts.
+	UsageSource *schema.UsageSource `json:"usageSource,omitempty" example:"COMBINED_USAGE"`
+	// A combined entitlement's sources, replaced as a whole: absent or empty is
+	// refused, so a client that does not know the field cannot drop them.
+	Sources    []schema.EntitlementSource `json:"sources,omitempty"`
+	GroupSlugs []string                   `json:"groupSlugs,omitempty"`
 	// Icon token (provider:name). Overwrites the stored value; null clears it.
 	Icon *string `json:"icon,omitempty" example:"lucide:rocket"`
 	// Unit fields overwrite the stored values; absent/null clears them.

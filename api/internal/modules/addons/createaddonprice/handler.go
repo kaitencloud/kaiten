@@ -145,6 +145,9 @@ func meters(ctx context.Context, q *db.Queries, organizationID, addonID uuid.UUI
 		return "", uuid.Nil, kaitenerrors.NotFoundf(operation+".EntitlementNotFound", "entitlement %q not found", draft.MeteredEntitlementSlug)
 	}
 	switch {
+	case entitlement.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE:
+		return "", uuid.Nil, kaitenerrors.UnprocessableEntity(operation+".EntitlementIsCombined",
+			"a combined entitlement is not metered: its usage is a sum computed when read, nothing is stored to bill; meter its sources")
 	case entitlement.ResetPeriod == nil:
 		return "", uuid.Nil, kaitenerrors.UnprocessableEntity(operation+".EntitlementIsStock",
 			"only an entitlement with a reset period can be metered")

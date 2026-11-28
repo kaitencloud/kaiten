@@ -7,6 +7,7 @@ import type {
   LicenseEntitlement,
 } from '@/api-client';
 import { getEntitlementsUsageMetricsOptions } from '@/api-client/@tanstack/react-query.gen';
+import { isCombinedEntitlement } from '@/domains/entitlement-usage';
 import {
   allCustomersOptions,
   allInstancesOptions,
@@ -22,6 +23,7 @@ import {
   buildSaturationByLicenseType,
 } from './entitlement-detail-context-aggregates';
 import {
+  buildCombinedLicenseMappings,
   buildLinkedLicenseMappings,
   buildUsageByInstanceSlug,
   buildUsageRows,
@@ -96,6 +98,7 @@ function useEntitlementBaseData() {
 
 function useLinkedLicensesForEntitlement(
   activeInstances: Instance[],
+  entitlement: Entitlement,
   entitlementSlug: string | undefined,
   licensesWithSlug: Array<License & { slug: string }>,
 ) {
@@ -107,14 +110,27 @@ function useLinkedLicensesForEntitlement(
     })),
   });
 
+  // A combined entitlement is granted by no license: it is linked to the licenses that
+  // grant its sources, at the weighted sum of what they grant.
   const linkedLicenseMappings = useMemo(
     () =>
-      buildLinkedLicenseMappings(
-        entitlementSlug,
-        licenseEntitlementsQueries,
-        licensesWithSlug,
-      ),
-    [entitlementSlug, licenseEntitlementsQueries, licensesWithSlug],
+      isCombinedEntitlement(entitlement)
+        ? buildCombinedLicenseMappings(
+            entitlement,
+            licenseEntitlementsQueries,
+            licensesWithSlug,
+          )
+        : buildLinkedLicenseMappings(
+            entitlementSlug,
+            licenseEntitlementsQueries,
+            licensesWithSlug,
+          ),
+    [
+      entitlement,
+      entitlementSlug,
+      licenseEntitlementsQueries,
+      licensesWithSlug,
+    ],
   );
   const linkedLicenseBySlug = useMemo(
     () =>
@@ -226,6 +242,7 @@ export function useEntitlementDetailData(
     linkedLicenseMappings,
   } = useLinkedLicensesForEntitlement(
     activeInstances,
+    entitlement,
     entitlementSlug,
     licensesWithSlug,
   );

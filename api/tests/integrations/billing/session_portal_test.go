@@ -24,7 +24,7 @@ func portalOf(t *testing.T, token string) getsessionportal.SessionPortal {
 // for a session bound to the customer only, the customer and its instances.
 func TestSessionPortal(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
-	newEntitlement(t, "seats", 0)
+	newEntitlement(t, "seats", 0, userFacing) // the portal lists what is user facing
 	pro := newDefaultVersion(t, "Pro", "PAID")
 	makePublic(t, pro.FamilySlug)
 	grant(t, pro.Slug, "seats", 10, 50)

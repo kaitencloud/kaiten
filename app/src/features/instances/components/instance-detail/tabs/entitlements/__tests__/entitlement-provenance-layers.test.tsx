@@ -58,7 +58,7 @@ describe('public entitlement provenance', () => {
   });
 
   it('builds an exception-only BOOLEAN row from the effective limit', () => {
-    const row = buildUsageOnlyRow({ entitlementId: 'sso-id', entitlementSlug: 'sso', licenseId: 'license-1', licenseSlug: 'pro', source: 'exception', value: { type: 'boolean', value: true }, limit: { type: 'boolean', value: false } }, { iconBySlug: new Map(), nameBySlug: new Map([['sso', 'SSO']]), typeBySlug: new Map([['sso', 'BOOLEAN']]) });
+    const row = buildUsageOnlyRow({ entitlementId: 'sso-id', entitlementSlug: 'sso', licenseId: 'license-1', licenseSlug: 'pro', source: 'exception', value: { type: 'boolean', value: true }, limit: { type: 'boolean', value: false } }, { iconBySlug: new Map(), nameBySlug: new Map([['sso', 'SSO']]), typeBySlug: new Map([['sso', 'BOOLEAN']]), usageSourceBySlug: new Map() });
     expect(row).toMatchObject({ entitlementName: 'SSO', entitlementType: 'BOOLEAN', enabled: false, source: 'exception' });
   });
 });

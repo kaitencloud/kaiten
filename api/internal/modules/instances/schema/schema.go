@@ -147,6 +147,15 @@ func (v EntitlementValue) TypeString() string {
 	return ""
 }
 
+// CombinedSourceUsage is what one source of a combined entitlement reads on its
+// own, before its weight: the detail of the sum.
+type CombinedSourceUsage struct {
+	EntitlementSlug string  `json:"entitlementSlug" doc:"Slug of the source entitlement" example:"firecrawl-credits"`
+	Weight          string  `json:"weight" doc:"The rate one unit of the source is worth in the combined entitlement" example:"0.4"`
+	Usage           float64 `json:"usage" doc:"The source's own usage in the current window, before its weight" example:"300"`
+	Limit           float64 `json:"limit" doc:"The source's own effective limit, before its weight; -1 means unlimited" example:"1000"`
+}
+
 type EntitlementUsage struct {
 	Replayed        bool             `json:"-"`
 	Reserved        *string          `json:"reserved,omitempty" doc:"Open, unexpired reserved credits; present only on AI credit pools"`
@@ -176,6 +185,9 @@ type EntitlementUsage struct {
 	LimitCapExceededOveragePercent *int16      `json:"limitCapExceededOveragePercent,omitempty" doc:"How far above limit usage is still accepted, in percent: -1 unlimited, 0 a hard limit. Absent for BOOLEAN and CONFIG."`
 	Source                         string      `json:"source" enum:"license,addon,exception" doc:"license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"`
 	Provenance                     *Provenance `json:"provenance,omitempty" doc:"What the licence, the add-ons and the boosts each contribute"`
+	// Sources is present on a combined entitlement only, and the customer portal
+	// does not copy it: a customer gets the total.
+	Sources []CombinedSourceUsage `json:"sources,omitempty" nullable:"false" doc:"Present on a COMBINED_USAGE entitlement only: the sources the instance is granted, each with its own usage and limit before its weight. value is the sum of weight × usage over them, limit the sum of weight × limit (-1 as soon as one is unlimited), and event_count the sum of theirs."`
 }
 
 type AuditTrail struct {

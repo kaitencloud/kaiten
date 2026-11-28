@@ -224,6 +224,10 @@ func (d VoucherDraft) resolveGrants(ctx context.Context, q *db.Queries, operatio
 		if err != nil {
 			return nil, err
 		}
+		if entitlement.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+			return nil, kaitenerrors.UnprocessableEntityf(operation+".EntitlementIsCombined",
+				"entitlement %q is a combined entitlement: a boost targets its sources, and it reads as their weighted sum", grant.EntitlementSlug)
+		}
 		if err := grant.validate(operation, entitlement.Type); err != nil {
 			return nil, err
 		}

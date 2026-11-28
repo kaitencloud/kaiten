@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vite-plus/test';
+import type { Entitlement } from '@/api-client';
 import { getUsageStatus } from '@/domains/entitlement-usage';
 import { findHistoryRow } from '../usage-history.utils';
 import {
@@ -828,5 +829,88 @@ describe('instance-detail-entitlements utils', () => {
         expect(row.catalogueEntitlementType).toBeNull();
       });
     });
+  });
+});
+
+// A combined entitlement is the weighted sum of the usage of its sources, which the API computes
+// when it is read and appends to the usage of the instance. No license grants it, so its row is
+// read off the usage alone: the sources are what says it is combined, and the catalogue names it.
+describe('the row of a combined entitlement', () => {
+  const sources = [
+    { entitlementSlug: 'firecrawl-credits', limit: 1000, usage: 300, weight: '0.4' },
+    { entitlementSlug: 'ai-credits', limit: -1, usage: 100, weight: '0.6' },
+  ];
+  const combinedUsage = {
+    entitlementId: 'entitlement-credits',
+    entitlementSlug: 'credits',
+    licenseId: 'license-pro',
+    licenseSlug: 'pro',
+    limit: { type: 'number', value: 1000 },
+    limitCapExceededOveragePercent: 0,
+    source: 'license',
+    sources,
+    value: { type: 'number', value: 1180 },
+  };
+  const catalogue = [
+    { id: 'entitlement-credits', name: 'Credits', slug: 'credits', type: 'NUMBER', usageSource: 'COMBINED_USAGE' },
+    { id: 'entitlement-firecrawl-credits', name: 'Firecrawl Credits', slug: 'firecrawl-credits', type: 'NUMBER', usageSource: 'CALCULATED_USAGE' },
+    { id: 'entitlement-ai-credits', name: 'AI Credits', slug: 'ai-credits', type: 'NUMBER', usageSource: 'CALCULATED_USAGE' },
+  ] as unknown as Entitlement[];
+  const build = (entitlements = catalogue) =>
+    buildEntitlementsRows([], [combinedUsage] as never, 'Unknown', entitlements);
+
+  it('is told from the others, with its name and the sources the API gave it, named by the catalogue', () => {
+    const [row] = build();
+
+    expect(row).toMatchObject({
+      entitlementName: 'Credits',
+      entitlementSlug: 'credits',
+      entitlementType: 'NUMBER',
+      threshold: 1000,
+      usageSource: 'COMBINED_USAGE',
+      value: 1180,
+    });
+    expect(row.sources).toEqual([
+      { ...sources[0], entitlementName: 'Firecrawl Credits' },
+      { ...sources[1], entitlementName: 'AI Credits' },
+    ]);
+  });
+
+  it('is told from the sources it carries when the session cannot read the catalogue', () => {
+    const [row] = build([]);
+
+    expect(row).toMatchObject({ entitlementName: 'credits', usageSource: 'COMBINED_USAGE' });
+    expect(row.sources?.map(({ entitlementName }) => entitlementName)).toEqual([
+      'firecrawl-credits',
+      'ai-credits',
+    ]);
+  });
+
+  it('says that the entitlements it sums are calculated', () => {
+    const rows = buildEntitlementsRows(
+      [{ entitlementName: 'Firecrawl Credits', entitlementSlug: 'firecrawl-credits', entitlementType: 'NUMBER', value: { type: 'number', value: 1000 } }] as never,
+      [{ entitlementSlug: 'firecrawl-credits', value: { type: 'number', value: 300 }, limit: { type: 'number', value: 1000 } }] as never,
+      'Unknown',
+      catalogue,
+    );
+
+    expect(rows[0]).toMatchObject({ usageSource: 'CALCULATED_USAGE', sources: null });
+  });
+
+  it('is never on a wall: nothing is enforced on a sum, which reads above its limit when its sources are soft', () => {
+    const [row] = build();
+
+    // 1,180 of 1,000: past the limit, and no counter that is refused.
+    expect(isEntitlementExhausted(row)).toBe(false);
+    expect(isEntitlementEnabled(row)).toBe(true);
+    expect(getEntitlementsMetrics([row]).limitReached).toBe(0);
+    // The status stays, as information: the customer reads more than the sum of what was granted.
+    expect(getUsageStatus(row.value, row.threshold, row.limitCapExceededOveragePercent)).toBe('OVER_LIMIT');
+  });
+
+  it('is not a counter whose history can be opened', () => {
+    const [row] = build();
+
+    expect(findHistoryRow([row], 'credits')).toBeUndefined();
   });
 });

@@ -4,8 +4,8 @@ import { getProblem } from './billing-problem';
  * The deletions the API refuses because the record is billed or still in use,
  * read from the problem it answers with: an instance whose subscription lives
  * or whose invoices are not settled, a customer in the same case, an
- * entitlement that a license or an add-on grants, a voucher boost grants or a
- * price meters. The
+ * entitlement that a license or an add-on grants, a voucher boost grants, a
+ * price meters or a combined entitlement sums. The
  * body lists what stands in the way (`errors[0].value`), which a dialog shows
  * with links, so that the person knows what to settle first.
  */
@@ -21,6 +21,7 @@ export const ENTITLEMENT_REFERENCE_KEYS = [
   'addonPrices',
   'addonGrants',
   'boostGrants',
+  'combinedEntitlements',
 ] as const;
 
 export type EntitlementReferenceKey =
@@ -28,7 +29,8 @@ export type EntitlementReferenceKey =
 
 // A price and a boost grant are never deleted through the API, so an entitlement
 // that is metered or boosted stays undeletable: asking for those references to be
-// removed would send the person after something that cannot be done.
+// removed would send the person after something that cannot be done. A combined
+// entitlement that sums the entitlement can be edited to drop it, or deleted.
 const PERMANENT_REFERENCE_KEYS: readonly EntitlementReferenceKey[] = [
   'licensePrices',
   'addonPrices',
@@ -73,6 +75,8 @@ const ENTITLEMENT_REFERENCE_LABEL_KEYS = {
   addonGrants: 'Features.Billing.DeletionRefusal.references.addonGrants',
   addonPrices: 'Features.Billing.DeletionRefusal.references.addonPrices',
   boostGrants: 'Features.Billing.DeletionRefusal.references.boostGrants',
+  combinedEntitlements:
+    'Features.Billing.DeletionRefusal.references.combinedEntitlements',
   licenseGrants: 'Features.Billing.DeletionRefusal.references.licenseGrants',
   licensePrices: 'Features.Billing.DeletionRefusal.references.licensePrices',
 } as const satisfies Record<EntitlementReferenceKey, string>;

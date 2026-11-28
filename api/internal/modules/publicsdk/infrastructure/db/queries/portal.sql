@@ -30,8 +30,11 @@ ORDER BY i.created_at, i.id;
 
 
 -- name: ListPortalEntitlementNames :many
--- The names and types of entitlements, for the portal's quotas.
+-- The names and types of the entitlements the portal shows, for its quotas: the
+-- user-facing ones, as the public catalogue lists them. An internal counter, a
+-- source of a combined entitlement for one, never reaches the browser.
 SELECT e.id, e.name, e.type::text AS type
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id)
-  AND e.id = ANY (sqlc.arg(ids)::uuid[]);
+  AND e.id = ANY (sqlc.arg(ids)::uuid[])
+  AND e.user_facing;

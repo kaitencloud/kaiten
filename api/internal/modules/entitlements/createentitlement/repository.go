@@ -9,11 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/combined"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/grouprefs"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/sourcerefs"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -35,6 +37,11 @@ type CreateEntitlementInput struct {
 	WarningThresholdPercent int32
 	ResetPeriod             *period.ResetPeriod
 	ResetAnchor             *period.ResetAnchor
+	// UsageSource is nil for the stored default, CALCULATED_USAGE: the writers
+	// that know nothing of combined entitlements leave it out.
+	UsageSource *schema.UsageSource
+	// Sources is what a COMBINED_USAGE entitlement sums, checked and weighed.
+	Sources []schema.ParsedSource
 }
 
 type CommandRepository struct {
@@ -65,6 +72,12 @@ func (r *CommandRepository) CreateEntitlement(ctx context.Context, input CreateE
 			return nil, err
 		}
 		aggregationMethod = &am
+	}
+
+	var usageSource *db.EntitlementUsageSource
+	if input.UsageSource != nil {
+		us := db.EntitlementUsageSource(*input.UsageSource)
+		usageSource = &us
 	}
 
 	var dbResetPeriod *db.EntitlementResetPeriod
@@ -103,6 +116,7 @@ func (r *CommandRepository) CreateEntitlement(ctx context.Context, input CreateE
 		WarningThresholdPercent: int16(input.WarningThresholdPercent),
 		ResetPeriod:             dbResetPeriod,
 		ResetAnchor:             dbResetAnchor,
+		UsageSource:             usageSource,
 	}
 
 	entitlement, err := r.q(ctx).CreateEntitlement(ctx, params)
@@ -141,6 +155,9 @@ func (r *CommandRepository) GetEntitlement(ctx context.Context, slug string, org
 	if err != nil {
 		return nil, err
 	}
+	if err := sourcerefs.Attach(ctx, queries, result, organizationID); err != nil {
+		return nil, err
+	}
 
 	return result, nil
 }
@@ -159,6 +176,20 @@ func (r *CommandRepository) AddEntitlementToGroup(ctx context.Context, groupSlug
 			return kaitenerrors.Conflict("CreateEntitlement.GroupAlreadyAssigned", fmt.Sprintf("Entitlement %q is already a member of group %q", entitlementSlug, groupSlug))
 		}
 		return err
+	}
+
+	return nil
+}
+
+// AddSources stores the links of a combined entitlement to what it sums.
+func (r *CommandRepository) AddSources(ctx context.Context, organizationID, combinedID uuid.UUID, sources []combined.Source) error {
+	for _, source := range sources {
+		if err := r.q(ctx).InsertEntitlementSource(ctx, db.InsertEntitlementSourceParams{
+			OrganizationID: organizationID, CombinedEntitlementID: combinedID,
+			SourceEntitlementID: source.ID, Weight: source.Weight.String(),
+		}); err != nil {
+			return err
+		}
 	}
 
 	return nil

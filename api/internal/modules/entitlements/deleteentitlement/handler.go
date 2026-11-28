@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -88,21 +89,29 @@ func (h *UseCase) Execute(ctx context.Context, slug string) error {
 // is not one of them: that is deleted with the entitlement. The keys are the
 // ones the console lists (see ENTITLEMENT_REFERENCE_KEYS).
 func (h *UseCase) inUse(ctx context.Context, organizationID uuid.UUID, slug string) error {
-	counts, err := db.New(h.deps.Uof.DBTX(ctx)).CountEntitlementReferences(ctx, db.CountEntitlementReferencesParams{
+	queries := db.New(h.deps.Uof.DBTX(ctx))
+	counts, err := queries.CountEntitlementReferences(ctx, db.CountEntitlementReferencesParams{
 		OrganizationID: organizationID, Slug: slug,
 	})
 	if err != nil {
 		return err
 	}
-	return kaitenerrors.ConflictWithErrors("DeleteEntitlement.InUseConflict",
-		fmt.Sprintf("Entitlement %q is still in use and cannot be deleted", slug),
+	message := fmt.Sprintf("Entitlement %q is still in use and cannot be deleted", slug)
+	if counts.CombinedEntitlements > 0 {
+		combinedOf, err := queries.ListCombinedOfSource(ctx, db.ListCombinedOfSourceParams{OrganizationID: organizationID, SourceSlug: slug})
+		if err != nil {
+			return err
+		}
+		message += fmt.Sprintf(": it is a source of the combined entitlement(s) %s", strings.Join(combinedOf, ", "))
+	}
+	return kaitenerrors.ConflictWithErrors("DeleteEntitlement.InUseConflict", message,
 		&kaitenerrors.ErrorDetail{
 			Message:  "what still references the entitlement",
 			Location: "entitlement",
 			Value: map[string]any{
 				"licenseGrants": counts.LicenseGrants, "licensePrices": counts.LicensePrices,
 				"addonPrices": counts.AddonPrices, "addonGrants": counts.AddonGrants,
-				"boostGrants": counts.BoostGrants,
+				"boostGrants": counts.BoostGrants, "combinedEntitlements": counts.CombinedEntitlements,
 			},
 		})
 }

@@ -1,4 +1,9 @@
 import type { Entitlement, EntitlementUsage } from '@/api-client';
+import {
+  nameSources,
+  readUsageSource,
+  type UsageSourceLookup,
+} from './combined-usage';
 import type { InstanceEntitlementRow } from './instance-detail-entitlements.utils';
 
 /** What the catalogue of entitlements says of each, by slug. */
@@ -6,7 +11,31 @@ export type CatalogueLookups = {
   iconBySlug: ReadonlyMap<string, string | null>;
   nameBySlug: ReadonlyMap<string, string>;
   typeBySlug: ReadonlyMap<string, NonNullable<Entitlement['type']>>;
+  usageSourceBySlug: UsageSourceLookup;
 };
+
+/** What the catalogue of entitlements says of each, by the slug the usage carries. */
+export function buildCatalogueLookups(
+  entitlements: readonly Entitlement[],
+): CatalogueLookups {
+  const bySlug = <T>(read: (entitlement: Entitlement) => T | undefined) =>
+    new Map(
+      entitlements.flatMap((entitlement) => {
+        const value = read(entitlement);
+
+        return entitlement.slug && value !== undefined
+          ? [[entitlement.slug, value] as const]
+          : [];
+      }),
+    );
+
+  return {
+    iconBySlug: bySlug((entitlement) => entitlement.icon ?? null),
+    nameBySlug: bySlug((entitlement) => entitlement.name),
+    typeBySlug: bySlug((entitlement) => entitlement.type),
+    usageSourceBySlug: bySlug((entitlement) => entitlement.usageSource),
+  };
+}
 
 const ROW_TYPES = {
   boolean: 'BOOLEAN',
@@ -25,7 +54,7 @@ const ROW_TYPES = {
  */
 export function buildUsageOnlyRow(
   usage: EntitlementUsage,
-  { iconBySlug, nameBySlug, typeBySlug }: CatalogueLookups,
+  { iconBySlug, nameBySlug, typeBySlug, usageSourceBySlug }: CatalogueLookups,
 ): InstanceEntitlementRow {
   const slug = usage.entitlementSlug || null;
   const type =
@@ -55,5 +84,7 @@ export function buildUsageOnlyRow(
           : null,
     source: usage.source ?? 'license',
     provenance: usage.provenance ?? null,
+    usageSource: readUsageSource(usage, slug, usageSourceBySlug),
+    sources: nameSources(usage, nameBySlug),
   };
 }

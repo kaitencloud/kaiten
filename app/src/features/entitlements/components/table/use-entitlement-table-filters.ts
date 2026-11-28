@@ -24,6 +24,17 @@ export function useEntitlementTableFilterFields(
     [entitlements],
   );
 
+  const usageSourceOptions = useMemo(
+    () =>
+      toEnumOptions(
+        entitlements.map((entitlement) => entitlement.usageSource),
+      ).map(({ value }) => ({
+        label: t(`Pages.Entitlements.UsageSources.${value}`),
+        value,
+      })),
+    [entitlements, t],
+  );
+
   const aggregationMethodOptions = useMemo(
     () =>
       toEnumOptions(
@@ -80,6 +91,16 @@ export function useEntitlementTableFilterFields(
         options: groupOptions,
       },
       {
+        id: 'usageSource',
+        label: t(
+          'Pages.Entitlements.Table.Columns.usageSource',
+          'Usage source',
+        ),
+        type: 'enum',
+        accessor: (entitlement) => entitlement.usageSource,
+        options: usageSourceOptions,
+      },
+      {
         id: 'aggregationMethod',
         label: t(
           'Pages.Entitlements.Table.Columns.aggregationMethod',
@@ -90,6 +111,12 @@ export function useEntitlementTableFilterFields(
         options: aggregationMethodOptions,
       },
     ],
-    [aggregationMethodOptions, groupOptions, t, typeOptions],
+    [
+      aggregationMethodOptions,
+      groupOptions,
+      t,
+      typeOptions,
+      usageSourceOptions,
+    ],
   );
 }

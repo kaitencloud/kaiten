@@ -4,7 +4,12 @@ import { expectNoToast } from '../_support/assertions/toast';
 import { AddonDetailDriver } from '../_support/drivers/addon-detail.driver';
 import { AddonFreezeDriver } from '../_support/drivers/addon-freeze.driver';
 import { AddonGrantsDriver } from '../_support/drivers/addon-grants.driver';
-import { createAddonsBillingModel } from './addons.scenarios';
+import { buildEntitlement } from '../_support/fixtures';
+import { LicenseAppModel } from '../_support/model/license-app-model';
+import {
+  createAddonsBillingModel,
+  createAddonsLicensesModel,
+} from './addons.scenarios';
 import { installAddonsWorld } from './install-addons-world';
 
 // What one unit of an add-on grants an instance that holds it: a number that counts once
@@ -532,5 +537,62 @@ test.describe('a version an instance with a live subscription holds', () => {
     await grants.submitButton().click();
 
     await expectToast(page, 'Entitlement updated');
+  });
+});
+
+// A combined entitlement is the weighted sum of the entitlements it sums, computed when it is
+// read: an add-on grants its sources, and the sum follows. The API refuses a grant of the sum.
+test.describe('a combined entitlement and what a version grants', () => {
+  test('is not offered when an entitlement is given to a version, only the entitlements it sums', async ({
+    page,
+  }) => {
+    const grants = new AddonGrantsDriver(page);
+    const licenses = createAddonsLicensesModel().serializeForMsw();
+    licenses.entitlements.push(
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        name: 'Firecrawl Credits',
+        slug: 'firecrawl-credits',
+      }),
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        name: 'AI Credits',
+        slug: 'ai-credits',
+      }),
+      {
+        ...buildEntitlement({
+          aggregationMethod: 'SUM',
+          name: 'Credits',
+          slug: 'credits',
+        }),
+        sources: [
+          { entitlementSlug: 'ai-credits', weight: '0.6' },
+          { entitlementSlug: 'firecrawl-credits', weight: '0.4' },
+        ],
+        usageSource: 'COMBINED_USAGE',
+      },
+    );
+    await installAddonsWorld(
+      page,
+      undefined,
+      LicenseAppModel.fromSerialized(licenses),
+    );
+    await grants.goto('extra-seats-v2', 'Extra seats');
+
+    await grants.addLink().click();
+    await grants.entitlementField().click();
+
+    await expect(
+      page.getByRole('option', { exact: true, name: 'Tokens' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('option', { exact: true, name: 'Firecrawl Credits' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('option', { exact: true, name: 'AI Credits' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('option', { exact: true, name: 'Credits' }),
+    ).toHaveCount(0);
   });
 });

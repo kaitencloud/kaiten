@@ -31,7 +31,8 @@ SELECT e.id,
        e.sale_unit_singular,
        e.sale_unit_plural,
        le.value                 AS grant_value,
-       le.limit_cap_exceeded_overage_percent AS grant_overage_percent
+       le.limit_cap_exceeded_overage_percent AS grant_overage_percent,
+       e.usage_source
 FROM entitlement e
 LEFT JOIN license_entitlement le
   ON le.entitlement_id = e.id

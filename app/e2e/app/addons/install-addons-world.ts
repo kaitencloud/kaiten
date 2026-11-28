@@ -12,13 +12,14 @@ import {
  * The three slots of the add-ons world: what the instances are entitled to, the license
  * families the add-ons fit and what their versions grant, and the billing slot that holds
  * the catalogue of add-ons and what each instance holds of it. A spec that needs the
- * billing to be something else passes its own.
+ * billing to be something else, or the licenses and their catalogue to be, passes its own.
  */
 export async function installAddonsWorld(
   page: Page,
   billing = createAddonsBillingModel(),
+  licenses = createAddonsLicensesModel(),
 ) {
   await installInstanceAppMocks(page, createAddonsInstancesModel());
-  await installLicenseAppMocks(page, createAddonsLicensesModel());
+  await installLicenseAppMocks(page, licenses);
   await installBillingAppMocks(page, billing);
 }

@@ -82,6 +82,8 @@ import {
   createFuzzCustomersReadModel,
 } from '../customers/customers.scenarios';
 import {
+  createCombinableEntitlementsModel,
+  createCombinedEntitlementModel,
   createDeletableEntitlementModel,
   createEmptyEntitlementsModel,
   createEntitlementsListModel,
@@ -90,6 +92,7 @@ import {
   createReferencedLastEntitlementModel,
   createUnitEntitlementModel,
   createIconedEntitlementModel,
+  createMonthlyCombinedEntitlementModel,
   createThresholdEntitlementModel,
 } from '../entitlements/entitlements.scenarios';
 import {
@@ -109,6 +112,7 @@ import {
   createEmptyInstancesModel,
   createInstancesListModel,
   createPagedBilledInstancesModels,
+  createCombinedUsageInstancesModel,
   createProvenanceInstancesModel,
   createTypedMetadataInstanceModel,
 } from '../instances/instances.scenarios';
@@ -121,6 +125,7 @@ import {
 import {
   createAiMeterCatalogModel,
   createBilledCatalogModel,
+  createCombinedGrantsModel,
   createDraftPricesModel,
   createFamilySettingsCatalogModel,
   createFreeDraftModel,
@@ -205,6 +210,10 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
     createReferencedLastEntitlementModel,
   ],
   ['instances/createBilledInstancesModel', createBilledInstancesModel],
+  [
+    'instances/createCombinedUsageInstancesModel',
+    createCombinedUsageInstancesModel,
+  ],
   ['instances/createProvenanceInstancesModel', createProvenanceInstancesModel],
   [
     'instances/createPagedBilledInstancesModels',
@@ -219,6 +228,18 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ],
   ['notifications/createNotificationsFeedModel', createNotificationsFeedModel],
   ['notifications/createMixedObjectsFeedModel', createMixedObjectsFeedModel],
+  [
+    'entitlements/createCombinableEntitlementsModel',
+    createCombinableEntitlementsModel,
+  ],
+  [
+    'entitlements/createCombinedEntitlementModel',
+    createCombinedEntitlementModel,
+  ],
+  [
+    'entitlements/createMonthlyCombinedEntitlementModel',
+    createMonthlyCombinedEntitlementModel,
+  ],
   ['entitlements/createUnitEntitlementModel', createUnitEntitlementModel],
   ['entitlements/createIconedEntitlementModel', createIconedEntitlementModel],
   [
@@ -232,6 +253,7 @@ export const e2eScenarioChecks: readonly ScenarioCheck[] = [
   ['licenses/createPricedCatalogModel', createPricedCatalogModel],
   ['licenses/createAiMeterCatalogModel', createAiMeterCatalogModel],
   ['licenses/createBilledCatalogModel', createBilledCatalogModel],
+  ['licenses/createCombinedGrantsModel', createCombinedGrantsModel],
   ['licenses/createDraftPricesModel', createDraftPricesModel],
   ['licenses/createFreeDraftModel', createFreeDraftModel],
   ['licenses/createPricedFamiliesModel', createPricedFamiliesModel],

@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/sourcerefs"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
@@ -57,9 +58,14 @@ func GetEntitlements(ctx context.Context, queries *db.Queries, policy aiusage.Po
 	}
 	groups := groupsBySlug(groupRows)
 
+	sources, err := sourcerefs.ByCombinedSlug(ctx, queries, identity.OrganizationID)
+	if err != nil {
+		return nil, err
+	}
+
 	mapped := make([]schema.Entitlement, len(entitlements))
 	for i, e := range entitlements {
-		mapped[i] = toEntitlementSchema(e, groups[e.Slug])
+		mapped[i] = toEntitlementSchema(e, groups[e.Slug], sources[e.Slug])
 	}
 
 	page, err := pagination.BuildPage(mapped, l, func(e schema.Entitlement) pagination.CreatedAtCursor {

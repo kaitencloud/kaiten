@@ -6,7 +6,7 @@ import { entitlementRecovery } from '../entitlement-recovery';
 describe('the recovery descriptor of the entitlement creation page', () => {
   it('pins the identity of what is stored, and what is kept out of it', () => {
     expect(entitlementRecovery.formId).toBe('entitlements.create');
-    expect(entitlementRecovery.version).toBe(1);
+    expect(entitlementRecovery.version).toBe(2);
     // Nothing in the form is a secret, a code entered once or a file.
     expect(entitlementRecovery.omit).toEqual([]);
     expect(entitlementRecovery.steps).toEqual(['identity', 'type']);

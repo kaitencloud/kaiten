@@ -132,10 +132,15 @@ func (u *UseCase) ExecuteWithinOperation(ctx context.Context, organizationID uui
 	for _, r := range priceRows {
 		pricesByLicense[r.LicenseID] = append(pricesByLicense[r.LicenseID], toPrice(r))
 	}
+	combinedRows, err := q.ListPublicPlanCombinedGrants(ctx, db.ListPublicPlanCombinedGrantsParams{HideAi: !u.deps.AIPolicy.Enabled(ctx), OrganizationID: organizationID, LicenseIds: licenseIDs})
+	if err != nil {
+		return nil, err
+	}
 	grantsByLicense := map[uuid.UUID][]PublicPlanEntitlement{}
 	for _, r := range grantRows {
 		grantsByLicense[r.LicenseID] = append(grantsByLicense[r.LicenseID], toPlanEntitlement(r))
 	}
+	withCombinedGrants(grantsByLicense, combinedRows)
 
 	for _, p := range plans {
 		plan := PublicPlan{

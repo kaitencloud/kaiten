@@ -76,6 +76,10 @@ func (u *UseCase) Execute(ctx context.Context, instanceSlug string, cmd Command)
 		if err := u.deps.AIPolicy.RequireType(ctx, string(entitlement.Type)); err != nil {
 			return err
 		}
+		if entitlement.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+			return kaitenerrors.UnprocessableEntity(operation+".EntitlementIsCombined",
+				"a combined entitlement takes no exception: set it on its sources, and it reads as their weighted sum")
+		}
 		value, err := checkValue(entitlement.Type, cmd.Kind, cmd.Value)
 		if err != nil {
 			return err

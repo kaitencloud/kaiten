@@ -127,23 +127,47 @@ func (r *Reader) Now(ctx context.Context) (time.Time, error) {
 }
 
 // ResolveSlugs finds the instance and entitlement organizationID names by
-// these slugs; uuid.Nil for one it does not have, or for an empty slug.
-func (r *Reader) ResolveSlugs(ctx context.Context, organizationID uuid.UUID, instanceSlug, entitlementSlug string) (instanceID, entitlementID uuid.UUID, err error) {
+// these slugs; uuid.Nil for one it does not have, or for an empty slug. combined
+// says the entitlement sums others' usage: it has no history of its own.
+func (r *Reader) ResolveSlugs(ctx context.Context, organizationID uuid.UUID, instanceSlug, entitlementSlug string) (instanceID, entitlementID uuid.UUID, combined bool, err error) {
 	pair, err := r.queries.ResolveUsageReportPair(ctx, db.ResolveUsageReportPairParams{
 		OrganizationID:  organizationID,
 		InstanceSlug:    instanceSlug,
 		EntitlementSlug: entitlementSlug,
 	})
 	if err != nil {
-		return uuid.Nil, uuid.Nil, fmt.Errorf("resolve usage report pair: %w", err)
+		return uuid.Nil, uuid.Nil, false, fmt.Errorf("resolve usage report pair: %w", err)
 	}
-	return pair.InstanceID, pair.EntitlementID, nil
+	return pair.InstanceID, pair.EntitlementID, pair.EntitlementCombined, nil
+}
+
+// CombinedSlug is the slug of the entitlement id names when it sums others'
+// usage, and "" for any other, and for an ID that names nothing: the reports of
+// a deleted entitlement survive it, and its ID still reaches them.
+func (r *Reader) CombinedSlug(ctx context.Context, organizationID, entitlementID uuid.UUID) (string, error) {
+	slug, err := r.queries.GetCombinedEntitlementSlug(ctx, db.GetCombinedEntitlementSlugParams{
+		OrganizationID: organizationID,
+		EntitlementID:  entitlementID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("read the entitlement an ID names: %w", err)
+	}
+	return slug, nil
+}
+
+// RefuseCombined refuses the history of a combined entitlement, with
+// <operation>.EntitlementIsCombined (422): its usage is the sum of its sources',
+// computed when read, and nothing is journaled for it. The history is theirs.
+func RefuseCombined(operation, entitlementSlug string) error {
+	return apierrors.UnprocessableEntityf(operation+".EntitlementIsCombined",
+		"entitlement %q is a combined entitlement: its usage is computed when read and has no history; read its sources' instead", entitlementSlug)
 }
 
 // ResolvePair finds the pair a per-pair request names, or refuses it with
-// <operation>.InstanceNotFound or <operation>.EntitlementNotFound.
+// <operation>.InstanceNotFound, <operation>.EntitlementNotFound or, for a
+// combined entitlement, <operation>.EntitlementIsCombined.
 func (r *Reader) ResolvePair(ctx context.Context, operation string, organizationID uuid.UUID, instanceSlug, entitlementSlug string) (instanceID, entitlementID uuid.UUID, err error) {
-	instanceID, entitlementID, err = r.ResolveSlugs(ctx, organizationID, instanceSlug, entitlementSlug)
+	instanceID, entitlementID, combined, err := r.ResolveSlugs(ctx, organizationID, instanceSlug, entitlementSlug)
 	switch {
 	case err != nil:
 		return uuid.Nil, uuid.Nil, err
@@ -151,6 +175,8 @@ func (r *Reader) ResolvePair(ctx context.Context, operation string, organization
 		return uuid.Nil, uuid.Nil, apierrors.NotFoundf(operation+".InstanceNotFound", "instance %q not found", instanceSlug)
 	case entitlementID == uuid.Nil:
 		return uuid.Nil, uuid.Nil, apierrors.NotFoundf(operation+".EntitlementNotFound", "entitlement %q not found", entitlementSlug)
+	case combined:
+		return uuid.Nil, uuid.Nil, RefuseCombined(operation, entitlementSlug)
 	}
 	return instanceID, entitlementID, nil
 }

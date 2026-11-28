@@ -1,3 +1,8 @@
+export type {
+  ComputedEntitlement,
+  ComputedPart,
+} from './license-computed-entitlements.utils';
+export { buildComputedEntitlements } from './license-computed-entitlements.utils';
 export type { EditableLicenseEntitlement } from './license-entitlements.utils';
 export {
   formatEntitlementOveragePercent,

@@ -67,6 +67,22 @@ describe('readDeletionRefusal', () => {
     });
   });
 
+  // A combined entitlement sums its sources: deleting one of them would leave the sum with a
+  // source that is not there. The API counts them and names them in its detail.
+  it('lists the combined entitlements that sum an entitlement, which a dialog says can be taken off it', () => {
+    const result = readDeletionRefusal(
+      refusal('DeleteEntitlement.InUseConflict', { combinedEntitlements: 2 }),
+    );
+
+    expect(result).toEqual({
+      detail: 'It is in use',
+      kind: 'entitlement',
+      references: [{ count: 2, key: 'combinedEntitlements' }],
+    });
+    // Unlike a price or a boost, a combined entitlement can be edited to drop its source.
+    expect(hasPermanentReference(result?.kind === 'entitlement' ? result.references : [])).toBe(false);
+  });
+
   it('reads a body that leaves members out as nothing, and never throws', () => {
     expect(
       readDeletionRefusal(refusal('DeleteInstance.BillingActive')),
@@ -128,7 +144,7 @@ describe('hasPermanentReference', () => {
     expect(hasPermanentReference([{ key: 'addonGrants' }, { key }])).toBe(true);
   });
 
-  it.each(['licenseGrants', 'addonGrants'] as const)(
+  it.each(['licenseGrants', 'addonGrants', 'combinedEntitlements'] as const)(
     'is false when only %s holds it, which can be taken away',
     (key) => {
       expect(hasPermanentReference([{ key }])).toBe(false);

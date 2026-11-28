@@ -23,17 +23,16 @@ import (
 type QueryRepository struct {
 	policy     aiusage.Policy
 	repository *db.Queries
+	usage      UsageReader
 }
 
-// NewQueryRepository creates a new QueryRepository.
-func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
-	policy := aiusage.Policy{}
-	if len(policies) > 0 {
-		policy = policies[0]
-	}
+// NewQueryRepository creates a new QueryRepository. usage reads a combined
+// member of the group; without it such a member has no usage.
+func NewQueryRepository(repository *db.Queries, policy aiusage.Policy, usage UsageReader) *QueryRepository {
 	return &QueryRepository{
 		policy:     policy,
 		repository: repository,
+		usage:      usage,
 	}
 }
 
@@ -54,10 +53,31 @@ func (r *QueryRepository) GetEntitlementGroupUsage(ctx context.Context, groupSlu
 	}
 
 	result := make([]*schema.EntitlementGroupUsage, 0, len(rows))
+	// The instance's usage list, read once, for the combined members of the group.
+	var computed map[string]instancesschema.EntitlementUsage
 	for _, row := range rows {
 		item, err := dbmap.ToEntitlementGroupUsage(&row)
 		if err != nil {
 			return nil, kaitenerrors.Validation("GetEntitlementGroupUsage.InvalidStoredValue", err.Error())
+		}
+
+		// A combined member has no counter, no grant and no window of its own to
+		// join: it reads as the sum of the sources the instance is granted, with
+		// theirs. None granted leaves it with no usage, as any member the
+		// instance is not granted.
+		if row.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+			if computed == nil {
+				if computed, err = r.computedUsage(ctx, instanceSlug); err != nil {
+					return nil, err
+				}
+			}
+			item.UsageValue, item.LicenseValue, item.CurrentPeriodStart, item.CurrentPeriodEnd = nil, nil, nil, nil
+			if read, ok := computed[row.EntitlementSlug]; ok {
+				item.UsageValue, item.LicenseValue = &read.Value, read.Limit
+				item.CurrentPeriodStart, item.CurrentPeriodEnd = read.CurrentPeriodStart, read.CurrentPeriodEnd
+			}
+			result = append(result, item)
+			continue
 		}
 
 		isNumberFamily := row.EntitlementType == db.EntitlementTypeNUMBER || row.EntitlementType == db.EntitlementTypeNUMBERAICREDIT
@@ -99,4 +119,23 @@ func (r *QueryRepository) GetEntitlementGroupUsage(ctx context.Context, groupSlu
 	}
 
 	return result, nil
+}
+
+// computedUsage is the instance's usage list by entitlement slug. Empty when no
+// reader was given.
+func (r *QueryRepository) computedUsage(ctx context.Context, instanceSlug string) (map[string]instancesschema.EntitlementUsage, error) {
+	computed := map[string]instancesschema.EntitlementUsage{}
+	if r.usage == nil {
+		return computed, nil
+	}
+
+	usages, err := r.usage.ExecuteWithinOperation(ctx, instanceSlug)
+	if err != nil {
+		return nil, err
+	}
+	for _, usage := range usages {
+		computed[usage.EntitlementSlug] = usage
+	}
+
+	return computed, nil
 }

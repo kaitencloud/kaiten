@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { getEntitlementSlug } from '@/domains/billing';
+import { isGrantableEntitlement } from '@/domains/entitlement-usage';
 import { useLicenseEntitlementsCardStore } from '../../hooks/use-license-entitlements-card-store';
 import type { LicenseEntitlementsCardProps } from './license-entitlements-card.types';
 import { getCardDescriptionParts } from './license-entitlements-card-utils';
@@ -52,10 +53,14 @@ function useLicenseEntitlementsCardData({
       ),
     [rows],
   );
+  // A combined entitlement is computed from its sources, which are what a license
+  // grants: it is never offered, and the API refuses it.
   const availableEntitlements = useMemo(
     () =>
       entitlements.filter(
-        (entitlement) => !attachedEntitlementIds.has(entitlement.id),
+        (entitlement) =>
+          !attachedEntitlementIds.has(entitlement.id) &&
+          isGrantableEntitlement(entitlement),
       ),
     [attachedEntitlementIds, entitlements],
   );

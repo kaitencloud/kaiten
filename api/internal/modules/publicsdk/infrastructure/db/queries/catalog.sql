@@ -77,6 +77,38 @@ WHERE (NOT sqlc.arg(hide_ai)::boolean OR e.type IS DISTINCT FROM 'NUMBER_AI_CRED
 ORDER BY le.license_id, e.display_order, e.slug;
 
 
+-- name: ListPublicPlanCombinedGrants :many
+-- What the given versions grant of each user-facing combined entitlement: one row
+-- per version, combined entitlement and source the version grants, with the
+-- source's weight and grant. The sum is the caller's, because it is the decimal
+-- sum, and the rule for an unlimited source, that the usage readers share. A
+-- source the catalogue would not show on its own (an AI credit pool, while AI
+-- is off) counts as not granted, as in every reader that hides it.
+SELECT le.license_id,
+       c.slug,
+       c.name,
+       c.description,
+       c.type,
+       c.icon,
+       c.unit_singular,
+       c.unit_plural,
+       c.sale_unit_singular,
+       c.sale_unit_plural,
+       coalesce(c.sale_unit_factor::text, '')::text AS sale_unit_factor,
+       c.display_order,
+       trim_scale(es.weight)::text AS weight,
+       le.value AS grant_value
+FROM entitlement_source es
+JOIN entitlement c ON c.id = es.combined_entitlement_id AND c.organization_id = es.organization_id
+JOIN entitlement s ON s.id = es.source_entitlement_id AND s.organization_id = es.organization_id
+JOIN license_entitlement le ON le.entitlement_id = s.id AND le.organization_id = es.organization_id
+WHERE (NOT sqlc.arg(hide_ai)::boolean OR s.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND es.organization_id = sqlc.arg(organization_id)
+  AND le.license_id = ANY (sqlc.arg(license_ids)::uuid[])
+  AND c.user_facing
+ORDER BY le.license_id, c.display_order, c.slug, s.slug;
+
+
 -- name: ListPublicAddons :many
 -- One row per public add-on family: its default version.
 SELECT a.id,

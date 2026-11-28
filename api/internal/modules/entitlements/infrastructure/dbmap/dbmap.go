@@ -64,6 +64,7 @@ func ToEntitlement(entitlement *db.Entitlement) *schema.Entitlement {
 		Description:             entitlement.Description,
 		Type:                    &t,
 		AggregationMethod:       aggregationMethod,
+		UsageSource:             ToUsageSource(t, entitlement.UsageSource),
 		Icon:                    entitlement.Icon,
 		UnitSingular:            entitlement.UnitSingular,
 		UnitPlural:              entitlement.UnitPlural,
@@ -78,6 +79,27 @@ func ToEntitlement(entitlement *db.Entitlement) *schema.Entitlement {
 		CreatedAt:               entitlement.CreatedAt.Time,
 		UpdatedAt:               entitlement.UpdatedAt.Time,
 	}
+}
+
+// ToUsageSource is the usageSource an entitlement reports: its stored one for
+// the NUMBER family, which the column is meaningful for, and none for BOOLEAN
+// and CONFIG, which carry a stored default nobody asked for.
+func ToUsageSource(entitlementType schema.Type, usageSource db.EntitlementUsageSource) *schema.UsageSource {
+	if !schema.IsNumberFamily(entitlementType) {
+		return nil
+	}
+	source := schema.UsageSource(usageSource)
+	return &source
+}
+
+// ToEntitlementSources converts the source rows of combined entitlements into
+// the references embedded in an entitlement payload, in the rows' order.
+func ToEntitlementSources(rows []db.ListCombinedSourcesRow) []schema.EntitlementSource {
+	sources := make([]schema.EntitlementSource, 0, len(rows))
+	for _, row := range rows {
+		sources = append(sources, schema.EntitlementSource{EntitlementSlug: row.SourceSlug, Weight: row.Weight})
+	}
+	return sources
 }
 
 // ToEntitlementType converts a stored entitlement_type into its schema

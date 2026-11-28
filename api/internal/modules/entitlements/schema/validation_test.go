@@ -282,3 +282,92 @@ func TestIsSupportedAggregationMethod(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateUsageSourceConfiguration(t *testing.T) {
+	tests := []struct {
+		name            string
+		entitlementType schema.Type
+		usageSource     *schema.UsageSource
+		wantErr         bool
+	}{
+		{"Number omitted is the default", schema.Number, nil, false},
+		{"Number calculated", schema.Number, ptr.To(schema.CalculatedUsage), false},
+		{"Number combined", schema.Number, ptr.To(schema.CombinedUsage), false},
+		{"Credit pool omitted", schema.NumberAICredit, nil, false},
+		{"Credit pool calculated", schema.NumberAICredit, ptr.To(schema.CalculatedUsage), false},
+		{"Credit pool is never combined", schema.NumberAICredit, ptr.To(schema.CombinedUsage), true},
+		{"Boolean omitted", schema.Boolean, nil, false},
+		{"Boolean carries none, calculated", schema.Boolean, ptr.To(schema.CalculatedUsage), true},
+		{"Boolean carries none, combined", schema.Boolean, ptr.To(schema.CombinedUsage), true},
+		{"Config omitted", schema.Config, nil, false},
+		{"Config carries none", schema.Config, ptr.To(schema.CalculatedUsage), true},
+		{"Unknown value", schema.Number, ptr.To(schema.UsageSource("RAW_EVENT")), true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := schema.ValidateUsageSourceConfiguration(tt.entitlementType, tt.usageSource)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateUsageSourceConfiguration(%s, %v) error = %v, wantErr %v", tt.entitlementType, tt.usageSource, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateCombinedSources(t *testing.T) {
+	source := func(slug, weight string) schema.EntitlementSource {
+		return schema.EntitlementSource{EntitlementSlug: slug, Weight: weight}
+	}
+
+	t.Run("weights are exact decimals, 1 when omitted", func(t *testing.T) {
+		parsed, err := schema.ValidateCombinedSources([]schema.EntitlementSource{
+			source("a-source", "0.4"), source("b-source", ""), source("c-source", "0.40"), source("d-source", "12345678.1234567891"),
+		})
+		if err != nil {
+			t.Fatalf("ValidateCombinedSources() error = %v", err)
+		}
+		got := make([]string, len(parsed))
+		for i, p := range parsed {
+			got[i] = p.EntitlementSlug + "=" + p.Weight.String()
+		}
+		want := []string{"a-source=0.4", "b-source=1", "c-source=0.4", "d-source=12345678.1234567891"}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Errorf("source %d = %s, want %s", i, got[i], want[i])
+			}
+		}
+	})
+
+	t.Run("weights do not have to add up to 1", func(t *testing.T) {
+		if _, err := schema.ValidateCombinedSources([]schema.EntitlementSource{source("a-source", "3"), source("b-source", "0.001")}); err != nil {
+			t.Errorf("weights 3 and 0.001: %v", err)
+		}
+	})
+
+	refused := []struct {
+		name    string
+		sources []schema.EntitlementSource
+		want    error
+	}{
+		{"none", nil, schema.ErrSourcesRequired},
+		{"one", []schema.EntitlementSource{source("a-source", "1")}, schema.ErrSourcesRequired},
+		{"a source named twice", []schema.EntitlementSource{source("a-source", "1"), source("a-source", "2")}, schema.ErrSourceDuplicate},
+		{"zero", []schema.EntitlementSource{source("a-source", "0"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"zero with decimals", []schema.EntitlementSource{source("a-source", "0.0"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"negative", []schema.EntitlementSource{source("a-source", "-1"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"not a number", []schema.EntitlementSource{source("a-source", "abc"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"an exponent", []schema.EntitlementSource{source("a-source", "1e3"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"a sign", []schema.EntitlementSource{source("a-source", "+1"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"more than 8 integer digits", []schema.EntitlementSource{source("a-source", "123456789"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"more than 10 decimals", []schema.EntitlementSource{source("a-source", "0.12345678901"), source("b-source", "1")}, schema.ErrSourceWeight},
+		{"a trailing point", []schema.EntitlementSource{source("a-source", "1."), source("b-source", "1")}, schema.ErrSourceWeight},
+	}
+	for _, tt := range refused {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := schema.ValidateCombinedSources(tt.sources)
+			if !errors.Is(err, tt.want) {
+				t.Errorf("ValidateCombinedSources() error = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}

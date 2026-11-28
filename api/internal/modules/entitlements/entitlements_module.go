@@ -47,7 +47,8 @@ type UseCases struct {
 }
 
 // NewUseCases creates a new UseCases instance with all use cases initialized.
-func NewUseCases(svc services.Container) *UseCases {
+// groupUsage is what a group's usage reads a combined member from, nil for none.
+func NewUseCases(svc services.Container, groupUsage getentitlementgroupusage.UsageReader) *UseCases {
 	queries := db.New(svc.Pool)
 	exceptionDeps := exceptions.Deps{AIPolicy: aiusage.Policy{Flags: svc.PlatformFlags}, UserProvider: svc.UserProvider, Uof: svc.Uof}
 	return &UseCases{
@@ -115,6 +116,7 @@ func NewUseCases(svc services.Container) *UseCases {
 			AIPolicy:     aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider: svc.UserProvider,
 			Queries:      queries,
+			Usage:        groupUsage,
 		}),
 		CreateEntitlementException: createentitlementexception.NewUseCase(exceptionDeps),
 		ListEntitlementExceptions:  listentitlementexceptions.NewUseCase(exceptionDeps),

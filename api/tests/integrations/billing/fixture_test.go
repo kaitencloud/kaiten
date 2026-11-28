@@ -198,12 +198,16 @@ func newVersion(t *testing.T, name string, state licenseschema.LifecycleState) l
 }
 
 // newEntitlement creates a SUM NUMBER entitlement that resets monthly and
-// returns its id. saleUnitFactor 0 gives it no sale unit.
-func newEntitlement(t *testing.T, slug string, saleUnitFactor float64) uuid.UUID {
+// returns its id. saleUnitFactor 0 gives it no sale unit. It is not user
+// facing, the default, unless a mutate says so.
+func newEntitlement(t *testing.T, slug string, saleUnitFactor float64, mutate ...func(map[string]any)) uuid.UUID {
 	t.Helper()
 	payload := map[string]any{
 		"name": slug, "slug": slug, "description": slug, "type": "NUMBER",
 		"aggregationMethod": "SUM", "resetPeriod": "MONTH",
+	}
+	for _, m := range mutate {
+		m(payload)
 	}
 	if saleUnitFactor != 0 {
 		payload["unitSingular"] = "token"

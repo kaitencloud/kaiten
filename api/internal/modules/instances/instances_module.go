@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/auditretention"
 	auditdb "github.com/kaitencloud/kaiten/api/internal/modules/audittrail/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/audittrail/listforinstance"
+	entitlementcatalogue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/aihistory"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/billableusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
@@ -153,12 +154,14 @@ func NewUseCases(svc services.Container) *UseCases {
 			Queries:          queries,
 			UsageReporter:    svc.UsageReporter,
 			OutboxRepository: outbox.NewOutboxRepository(outboxdb.New(svc.Pool)),
+			Combined:         entitlementcatalogue.NewCombined(svc.Pool),
 		}),
 		GetEntitlementsUsageMetrics: getentitlementsusagemetrics.NewUseCase(getentitlementsusagemetrics.Deps{
 			AIPolicy:      aiusage.Policy{Flags: svc.PlatformFlags},
 			UserProvider:  svc.UserProvider,
 			Queries:       queries,
 			UsageReporter: svc.UsageReporter,
+			Combined:      entitlementcatalogue.NewCombined(svc.Pool),
 		}),
 		GetAuditTrails: getaudittrails.NewUseCase(getaudittrails.Deps{
 			UserProvider:   svc.UserProvider,

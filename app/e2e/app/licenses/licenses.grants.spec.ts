@@ -4,7 +4,10 @@ import { LicensePricesDriver } from '../_support/drivers/license-prices.driver';
 import { installBillingAppMocks } from '../_support/mocks/install-billing-app-mocks';
 import { installLicenseAppMocks } from '../_support/mocks/install-license-app-mocks';
 import { createBillingStackModel } from '../billing/billing.scenarios';
-import { createDraftPricesModel } from './licenses.scenarios';
+import {
+  createCombinedGrantsModel,
+  createDraftPricesModel,
+} from './licenses.scenarios';
 
 // The grants of a version, which the prices it bills hold in place: the API
 // refuses to remove an entitlement an active price meters, on a draft as on a
@@ -45,5 +48,83 @@ test.describe('a grant an active price meters', () => {
     await detail.removeGrant('Requests');
     await expectToast(page, 'Entitlement removed successfully');
     await expect(detail.grantRow('Requests')).toHaveCount(0);
+  });
+});
+
+// A combined entitlement is the weighted sum of the entitlements it sums, computed when it is
+// read: no license grants it. A version makes it by granting its sources, and the page of the
+// version says what it comes to, under the grants, where there is no row to edit.
+
+test.describe('a combined entitlement on a version', () => {
+  test.beforeEach(async ({ page }) => {
+    await installLicenseAppMocks(page, createCombinedGrantsModel());
+  });
+
+  test('is computed from the sources the version grants, and read under its grants', async ({
+    page,
+  }) => {
+    const detail = new LicenseDetailDriver(page);
+    await detail.goto('pro-v4', 'Pro');
+
+    const computed = page.locator('[data-slot="card"]').filter({
+      has: page.getByText('Computed entitlements', { exact: true }),
+    });
+    // 0.4 of 1,000 Firecrawl credits and 0.6 of 1,000 AI credits.
+    const credits = computed.getByRole('row', { name: /Combined Credits/ });
+    await expect(credits).toContainText('1,000 credits');
+    await expect(credits).toContainText('0.4 × Firecrawl Credits (1,000)');
+    await expect(credits).toContainText('0.6 × AI Credits (1,000)');
+    // Unlimited as soon as a source is: the storage is.
+    const capacity = computed.getByRole('row', { name: /Capacity/ });
+    await expect(capacity).toContainText('Unlimited');
+    await expect(capacity).toContainText('2 × Seats (10)');
+    await expect(capacity).toContainText('1 × Storage GB (unlimited)');
+    // It is not a grant: the card of the grants has no row for it.
+    await expect(detail.grantRow('Combined Credits')).toHaveCount(0);
+
+    // It leads to the entitlement, where its sources and its weights are.
+    await expect(credits.getByRole('link')).toHaveAttribute(
+      'href',
+      '/catalog/entitlements/combined-credits',
+    );
+  });
+
+  test('follows the grants of its sources, and goes when the version grants none of them', async ({
+    page,
+  }) => {
+    const detail = new LicenseDetailDriver(page);
+    await detail.goto('pro-v4', 'Pro');
+    const computed = page.locator('[data-slot="card"]').filter({
+      has: page.getByText('Computed entitlements', { exact: true }),
+    });
+    const credits = computed.getByRole('row', { name: /Combined Credits/ });
+    await expect(credits).toContainText('1,000 credits');
+
+    await detail.editThreshold('AI Credits', '1,000', '2000');
+    await expect(credits).toContainText('1,600 credits');
+
+    await detail.removeGrant('AI Credits');
+    await expect(credits).toContainText('400 credits');
+    await detail.removeGrant('Firecrawl Credits');
+    await expect(
+      computed.getByRole('row', { name: /Combined Credits/ }),
+    ).toHaveCount(0);
+  });
+
+  test('is not offered when a grant is added, since no license grants it', async ({
+    page,
+  }) => {
+    const detail = new LicenseDetailDriver(page);
+    await detail.goto('pro-v4', 'Pro');
+
+    await detail
+      .grantsCard()
+      .getByRole('button', { name: 'Add entitlement', exact: true })
+      .click();
+    await page.getByRole('dialog').getByRole('combobox').click();
+
+    // What is not granted yet is offered, the combined entitlements being the only ones left out.
+    await expect(page.getByRole('option', { name: /^Exports/ })).toBeVisible();
+    await expect(page.getByRole('option')).toHaveCount(1);
   });
 });

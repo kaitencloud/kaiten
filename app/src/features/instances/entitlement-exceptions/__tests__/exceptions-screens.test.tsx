@@ -3,7 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw';
 import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
-import type { EntitlementException, EntitlementUsage, NewEntitlementException } from '@/api-client';
+import type { Entitlement, EntitlementException, EntitlementUsage, NewEntitlementException } from '@/api-client';
 import { handleCreateEntitlementException, handleGetEntitlementsUsageMetrics, handleListEntitlementExceptions, handleRevokeEntitlementException } from '@/api-client/msw.gen';
 import { server } from '@/__tests__/msw-server';
 import { createTestClient, renderWithClient, useBillingTexts } from '@/test-fixtures/billing-test-support';
@@ -18,6 +18,12 @@ const SSO = buildEntitlement({ name: 'SSO', slug: 'sso', type: 'BOOLEAN' });
 const seats = buildEntitlement({ name: 'Seats', slug: 'seats', type: 'NUMBER' });
 const config = buildEntitlement({ name: 'Settings', slug: 'settings', type: 'CONFIG' });
 const pool = buildEntitlement({ name: 'AI pool', slug: 'ai-pool', type: 'NUMBER_AI_CREDIT' });
+// The weighted sum of two counters, computed when it is read: an exception targets the counters.
+const credits: Entitlement = {
+  ...buildEntitlement({ name: 'Credits', slug: 'credits', type: 'NUMBER' }),
+  sources: [{ entitlementSlug: 'seats', weight: '1' }, { entitlementSlug: 'storage', weight: '1' }],
+  usageSource: 'COMBINED_USAGE',
+};
 const row: EntitlementException = { id: 'exception-1', instanceSlug: 'test', entitlementSlug: 'sso', entitlementType: 'BOOLEAN', kind: 'SET', value: false, startsAt: '2026-10-01T00:00:00Z', endsAt: null, reason: 'Private reason', status: 'ACTIVE', createdAt: '2026-10-01T00:00:00Z', revokedAt: null };
 const usage: EntitlementUsage = { entitlementId: SSO.id, entitlementSlug: 'sso', licenseId: 'license', licenseSlug: 'pro', source: 'license', value: { type: 'boolean', value: true }, limit: { type: 'boolean', value: true } };
 const access = vi.hoisted(() => ({ scopes: null as string[] | null, isPending: false }));
@@ -28,7 +34,7 @@ vi.mock('@/domains/ai-credits', async (original) => ({
 }));
 
 vi.mock('../../components/instance-detail/instance-detail-context', () => ({
-  useInstanceDetail: () => ({ instance: { id: 'test', slug: 'test', name: 'Test' }, entitlements: [SSO, seats, pool, config] }),
+  useInstanceDetail: () => ({ instance: { id: 'test', slug: 'test', name: 'Test' }, entitlements: [SSO, seats, pool, config, credits] }),
 }));
 vi.mock('@/domains/billing', async (original) => ({ ...await original<typeof import('@/domains/billing')>(), useGrantedScopes: () => access }));
 vi.mock('@tanstack/react-router', async (original) => ({
@@ -118,6 +124,13 @@ describe('AI exception rollout visibility', () => {
     expect(await screen.findByRole('option', { name: 'SSO' })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: 'Seats' })).toBeInTheDocument();
     expect(screen.queryByRole('option', { name: 'AI pool' })).not.toBeInTheDocument();
+  });
+  it('does not offer a combined entitlement, which an exception cannot target: its sources are what it changes', async () => {
+    renderWithClient(<CreateExceptionDialog onClose={vi.fn()} />);
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByRole('combobox', { name: /^Entitlement/ }));
+    expect(await screen.findByRole('option', { name: 'Seats' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Credits' })).not.toBeInTheDocument();
   });
   it('does not expose or revoke an AI target through a directly mounted dialog off', async () => {
     const writes = vi.fn();

@@ -1,5 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { aiRateCardQueryKey, isAiEntitlement } from '@/domains/ai-credits';
+import { isCombinedEntitlement } from '@/domains/entitlement-usage';
 import { useRouteContext } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +12,7 @@ import {
 import { TableActions, TableDeleteDialog } from '@/functionals/table';
 import { optimisticDeleteCallbacks } from '@/lib/optimistic-mutations';
 import { useEntitlementLicenseLinks } from '../../hooks';
+import { invalidateInstanceUsage } from '../../queries/entitlement-usage-invalidation';
 
 type EntitlementTableActionsProps = {
   entitlement: Entitlement;
@@ -71,6 +73,11 @@ export const EntitlementTableActions = ({
       // entitlement list, which those writes refresh).
       if (isAiEntitlement(entitlement.type)) {
         void queryClient.invalidateQueries({ queryKey: aiRateCardQueryKey });
+      }
+      // A combined one is in the usage of every instance that has a source, and has
+      // no row there to make the delete refuse: it leaves them with it.
+      if (isCombinedEntitlement(entitlement)) {
+        void invalidateInstanceUsage(queryClient);
       }
     },
   });

@@ -2142,6 +2142,15 @@ export default {
                 'Vue visuelle de la consommation des droits pour cette instance',
               currentWindow: 'Fenêtre courante : {{start}} → {{end}}',
             },
+            combined: {
+              trigger: 'Sources',
+              triggerName: 'Sources de {{name}}',
+              title: 'Calculé à partir de ses sources',
+              source:
+                '{{name}} : {{usage}} sur {{limit}} × {{weight}} = {{counted}} sur {{countedLimit}}',
+              unlimited: 'illimité',
+              hint: "Calculé à la lecture, pour l'affichage seulement. Rien n'est appliqué sur la somme : chaque source garde sa propre limite.",
+            },
             provenance: {
               title: 'Comment cette limite est composée',
               trigger:
@@ -2938,6 +2947,19 @@ export default {
           "Définissez d'abord une limite : un droit illimité n'a rien à dépasser.",
         allAttachedHint:
           'Tous les droits du catalogue sont déjà attachés à cette licence.',
+        Computed: {
+          title: 'Droits calculés',
+          description:
+            "Un droit combiné n'est pas accordé : c'est la somme pondérée des sources que cette version accorde, calculée à la lecture. Modifiez les droits accordés de ses sources pour changer ce qu'il vaut.",
+          Columns: {
+            entitlement: 'Droit',
+            limit: 'Limite',
+            parts: 'Calculé à partir de',
+          },
+          unlimited: 'Illimité',
+          part: '{{weight}} × {{name}} ({{grant}})',
+          partUnlimited: '{{weight}} × {{name}} (illimité)',
+        },
         thresholdError: 'Le seuil doit être un entier ou Illimité',
         configError: 'La configuration doit être un JSON valide',
         overagePercentPlaceholder: 'ex. 10',
@@ -3408,6 +3430,7 @@ export default {
           description: 'Description',
           groups: 'Groupes',
           type: 'Type',
+          usageSource: "Source de l'usage",
           aggregationMethod: "Méthode d'agrégation",
         },
       },
@@ -3446,6 +3469,11 @@ export default {
             saleUnitFactorValue: 'Unités de base par unité de vente',
             resetPeriod: "Remise à zéro de l'usage",
             resetAnchor: 'Fenêtre alignée sur',
+            usageSource: "Source de l'usage",
+            sources: 'Sources',
+            sourceEntitlement: 'Droit',
+            sourceWeight: 'Poids',
+            combinedWindow: "Fenêtre d'usage",
           },
           Placeholders: {
             name: 'Nom du droit',
@@ -3463,6 +3491,10 @@ export default {
             saleUnitFactor: '3',
             resetPeriod: 'Choisir une cadence de remise à zéro',
             resetAnchor: 'Choisir un alignement de fenêtre',
+            usageSource: "Sélectionner une source d'usage",
+            sourceEntitlement: 'Choisir un droit',
+            sourceEntitlementSearch: 'Rechercher des droits',
+            sourceWeight: '1',
           },
           Descriptions: {
             name: 'Le nom du droit',
@@ -3480,7 +3512,7 @@ export default {
               "Comment plusieurs événements d'utilisation sont combinés",
             icon: 'Choisissez une icône pour représenter ce droit',
             userFacing:
-              'Affiche ce droit dans les composants destinés aux clients (pages de plans et tarifs)',
+              'Affiche ce droit dans les composants destinés aux clients (pages de plans et tarifs) et dans le portail client',
             displayOrder:
               'Ordre de tri dans les composants destinés aux clients (les valeurs les plus basses apparaissent en premier)',
             resetPeriod:
@@ -3493,6 +3525,15 @@ export default {
               "L'alignement est figé avec la cadence une fois posé : l'usage déjà compté appartient à des fenêtres qu'un autre alignement découperait autrement.",
             resetPeriodLatest:
               "L'agrégation « Dernier » ne conserve que la valeur la plus récente : elle ne peut pas être combinée à une remise à zéro périodique.",
+            usageSource:
+              "Calculé : votre code envoie l'usage et Kaiten replie chaque envoi. Combiné : la somme pondérée de l'usage d'autres droits, calculée à la lecture et pour l'affichage seulement. Ce choix ne peut plus changer ensuite.",
+            usageSourceLocked:
+              'Défini à la création du droit, il ne peut plus changer.',
+            sources:
+              "Les droits que celui-ci additionne, chacun avec un poids : une unité d'une source vaut ce nombre d'unités ici. Les poids n'ont pas à totaliser 1. Pour ne montrer qu'un seul chiffre aux clients, désactivez « Visible côté client » sur les sources et activez-le ici.",
+            combinedWindow:
+              "Un droit combiné prend la fenêtre d'usage que ses sources partagent. Elle ne se choisit pas.",
+            combinedWindowEmpty: 'Choisissez les sources pour voir la fenêtre.',
           },
           Icon: {
             trigger: 'Choisir une icône',
@@ -3529,12 +3570,30 @@ export default {
               'La date de facturation demande une cadence mensuelle ou annuelle. Choisissez un autre alignement ou une autre cadence.',
             slugConflict:
               'Un autre droit de l’organisation a déjà ce slug. Choisissez-en un autre.',
+            sourcesMin: 'Choisissez au moins deux droits à additionner.',
+            sourceRequired: 'Choisissez un droit.',
+            sourceDuplicate:
+              'Chaque droit ne peut être additionné qu’une fois.',
+            sourceWeight:
+              'Saisissez un poids supérieur à 0, avec au plus 8 chiffres avant la virgule et 10 après.',
           },
           Refusals: {
             immutableResetAnchor:
               "L'alignement des fenêtres d'usage a été posé une fois et ne peut plus changer. Fermez le formulaire et rouvrez le droit pour voir ce qu'il contient maintenant.",
             immutableResetPeriod:
               "La cadence de remise à zéro a été posée une fois et ne peut ni changer ni être retirée. Fermez le formulaire et rouvrez le droit pour voir ce qu'il contient maintenant.",
+            sourceWindowMismatch:
+              "Les sources ne partagent pas une même fenêtre d'usage. Un droit combiné additionne des sources qui se remettent à zéro à la même cadence et au même alignement, ou qui sont toutes des compteurs à vie.",
+            sourceUnsupportedAggregation:
+              "Une source doit être agrégée par Somme ou Comptage : une somme pondérée d'une moyenne, d'un minimum, d'un maximum ou d'une dernière valeur n'a pas de sens.",
+            sourceIsCombined:
+              'Une source ne peut pas être elle-même un droit combiné : un droit combiné n’en additionne pas un autre.',
+            sourceUnsupportedType:
+              'Une source doit être un droit de type Nombre ou Crédit.',
+            sourceNotFound:
+              "L'une des sources n'existe plus. Choisissez-en une autre.",
+            sourceWindowLocked:
+              "Ce droit est une source d'un droit combiné, dont les sources partagent une même fenêtre d'usage : il ne peut donc pas prendre de cadence de remise à zéro. Retirez-le d'abord du droit combiné, ou gardez-le en compteur à vie.",
           },
           Notices: {
             resetAnchorBackToCalendar:
@@ -3543,6 +3602,8 @@ export default {
           Hints: {
             resetAnchorBillingPeriod:
               "Avec la date de facturation, les fenêtres suivent la date de facturation d'une instance qui a un abonnement en cours, et la date de début de licence sinon. Quand la date de facturation change, par exemple à la conversion d'un essai, à un nouvel abonnement ou à une annulation, la fenêtre en cours se termine plus tôt et l'usage repart de zéro dans la suivante.",
+            combinedRevalue:
+              "L'enregistrement revalorise le présent. L'usage et la limite sont calculés à la lecture : une nouvelle source ou un nouveau poids change ce que chaque client lit, aussitôt, fenêtre en cours comprise.",
           },
           Steps: {
             identity: 'Informations du droit',
@@ -3555,6 +3616,9 @@ export default {
           updateButton: 'Mettre à jour le Droit',
           createSuccess: 'Droit créé avec succès',
           updateSuccess: 'Droit mis à jour avec succès',
+          sourceRow: 'Source {{position}}',
+          removeSource: 'Retirer la source {{position}}',
+          addSource: 'Ajouter une source',
         },
       },
       Detail: {
@@ -3565,6 +3629,7 @@ export default {
           linkedLicenses: {
             label: 'Licences liées',
             helper: 'Licences contenant ce droit',
+            helperCombined: 'Licences accordant une source',
           },
           licenseAlerts: {
             label: 'Alertes de licence',
@@ -3664,8 +3729,12 @@ export default {
               name: 'Nom',
               type: 'Type',
               aggregationMethod: "Méthode d'agrégation",
+              usageSource: "Source de l'usage",
               resetPeriod: "Remise à zéro de l'usage",
+              resetPeriodDerived:
+                "Remise à zéro de l'usage (celle de ses sources)",
               resetAnchor: 'Fenêtre alignée sur',
+              resetAnchorDerived: 'Fenêtre alignée sur (celle de ses sources)',
               baseUnit: 'Unité de base',
               saleUnit: 'Unité de vente',
               calculation: 'Calcul',
@@ -3689,10 +3758,26 @@ export default {
             title: 'Licences liées',
             description: 'Ce que chaque licence accorde pour ce droit.',
             empty: "Aucune licence n'accorde encore ce droit.",
+            descriptionCombined:
+              'Ce que chaque licence accorde des sources de ce droit, additionnées avec leurs poids.',
+            emptyCombined:
+              "Aucune licence n'accorde encore une source de ce droit.",
             instances_one: 'instance',
             instances_other: 'instances',
             more_one: 'Afficher {{count}} autre licence',
             more_other: 'Afficher {{count}} autres licences',
+          },
+          sources: {
+            title: 'Sources',
+            description:
+              "L'usage et la limite sont calculés à la lecture, comme la somme pondérée de ces droits. Rien n'est stocké pour la somme et rien n'est appliqué sur elle : chaque source garde sa propre limite.",
+            empty: "Ce droit n'a aucune source.",
+            columns: {
+              name: 'Droit',
+              slug: 'Slug',
+              weight: 'Poids',
+              unit: 'Unité',
+            },
           },
           contract: {
             title: 'Contrat de calcul',
@@ -3727,6 +3812,10 @@ export default {
         MIN: 'Minimum',
         MAX: 'Maximum',
         LATEST: 'Dernier',
+      },
+      UsageSources: {
+        CALCULATED_USAGE: 'Calculé',
+        COMBINED_USAGE: 'Combiné',
       },
       ResetPeriods: {
         NONE: 'Jamais (à vie)',
@@ -7759,6 +7848,9 @@ export default {
           addonGrants_other: 'Accordé par {{count}} options',
           boostGrants_one: 'Accordé par {{count}} bonus de code promo',
           boostGrants_other: 'Accordé par {{count}} bonus de codes promo',
+          combinedEntitlements_one: 'Additionné par {{count}} droit combiné',
+          combinedEntitlements_other:
+            'Additionné par {{count}} droits combinés',
         },
         removeFirst:
           'Retirez ces références, puis supprimez à nouveau le droit.',

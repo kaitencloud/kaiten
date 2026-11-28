@@ -11,6 +11,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
@@ -23,6 +24,8 @@ import (
 type QueryRepository struct {
 	policy     aiusage.Policy
 	repository *db.Queries
+	// combined is set by NewUseCase; nil reads no combined entitlement.
+	combined catalogue.CombinedReader
 }
 
 func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
@@ -55,7 +58,17 @@ func (r *QueryRepository) GetEntitlementsUsageMetrics(ctx context.Context, insta
 		return nil, err
 	}
 
-	return MapUsageRows(entitlements)
+	usages, err := MapUsageRows(entitlements)
+	if err != nil || r.combined == nil {
+		return usages, err
+	}
+
+	definitions, err := r.combined.Combined(ctx, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
+	return WithCombined(usages, definitions)
 }
 
 // MapUsageRows converts fallback-query rows into wire EntitlementUsage values:

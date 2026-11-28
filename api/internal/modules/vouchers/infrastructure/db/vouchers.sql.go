@@ -142,7 +142,7 @@ func (q *Queries) DeleteVoucherGrants(ctx context.Context, arg DeleteVoucherGran
 }
 
 const getBoostableEntitlement = `-- name: GetBoostableEntitlement :one
-SELECT id, type
+SELECT id, type, usage_source
 FROM entitlement
 WHERE organization_id = $1
   AND slug = $2
@@ -154,14 +154,15 @@ type GetBoostableEntitlementParams struct {
 }
 
 type GetBoostableEntitlementRow struct {
-	ID   uuid.UUID       `json:"id"`
-	Type EntitlementType `json:"type"`
+	ID          uuid.UUID              `json:"id"`
+	Type        EntitlementType        `json:"type"`
+	UsageSource EntitlementUsageSource `json:"usage_source"`
 }
 
 func (q *Queries) GetBoostableEntitlement(ctx context.Context, arg GetBoostableEntitlementParams) (GetBoostableEntitlementRow, error) {
 	row := q.db.QueryRow(ctx, getBoostableEntitlement, arg.OrganizationID, arg.Slug)
 	var i GetBoostableEntitlementRow
-	err := row.Scan(&i.ID, &i.Type)
+	err := row.Scan(&i.ID, &i.Type, &i.UsageSource)
 	return i, err
 }
 

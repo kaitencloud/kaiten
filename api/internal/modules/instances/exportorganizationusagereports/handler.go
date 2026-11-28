@@ -59,15 +59,29 @@ func (u *UseCase) Execute(ctx context.Context, q Query) (*usagehistory.Export, e
 
 	instanceID, entitlementID := q.InstanceID, q.EntitlementID
 	if q.InstanceSlug != "" || q.EntitlementSlug != "" {
-		bySlug, entitlementBySlug, err := u.reader.ResolveSlugs(ctx, user.OrganizationID, q.InstanceSlug, q.EntitlementSlug)
+		bySlug, entitlementBySlug, combined, err := u.reader.ResolveSlugs(ctx, user.OrganizationID, q.InstanceSlug, q.EntitlementSlug)
 		if err != nil {
 			return nil, err
+		}
+		if combined {
+			return nil, usagehistory.RefuseCombined(operation, q.EntitlementSlug)
 		}
 		if instanceID, err = filter(q.InstanceSlug, bySlug, instanceID, "InstanceNotFound", "instance"); err != nil {
 			return nil, err
 		}
 		if entitlementID, err = filter(q.EntitlementSlug, entitlementBySlug, entitlementID, "EntitlementNotFound", "entitlement"); err != nil {
 			return nil, err
+		}
+	}
+	// A slug was checked above; an ID alone is checked here, and one that names no
+	// entitlement is a deleted one, whose reports are kept.
+	if q.EntitlementSlug == "" && entitlementID != nil {
+		slug, err := u.reader.CombinedSlug(ctx, user.OrganizationID, *entitlementID)
+		if err != nil {
+			return nil, err
+		}
+		if slug != "" {
+			return nil, usagehistory.RefuseCombined(operation, slug)
 		}
 	}
 

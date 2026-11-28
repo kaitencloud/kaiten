@@ -10,6 +10,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/sourcerefs"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	"github.com/kaitencloud/kaiten/api/internal/shared/pagination"
 )
@@ -73,11 +74,19 @@ func (r *QueryRepository) GetEntitlements(ctx context.Context, organizationID uu
 		})
 	}
 
+	// The sources of the organization's combined entitlements, for the same
+	// reason: one lookup, bounded by how many there are, not by the page.
+	sourcesBySlug, err := sourcerefs.ByCombinedSlug(ctx, r.repository, organizationID)
+	if err != nil {
+		return nil, err
+	}
+
 	result := make([]*schema.Entitlement, 0)
 
 	for _, e := range entitlements {
 		entitlement := dbmap.ToEntitlement(&e)
 		entitlement.EntitlementGroups = groupsBySlug[e.Slug]
+		entitlement.Sources = sourcesBySlug[e.Slug]
 		result = append(result, entitlement)
 	}
 

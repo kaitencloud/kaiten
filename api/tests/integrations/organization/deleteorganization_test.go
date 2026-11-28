@@ -132,6 +132,42 @@ func TestDeleteOrganization(t *testing.T) {
 		}
 	})
 
+	// A combined entitlement is a row that names two others. The organization is
+	// deleted row by row, and a source is stored before the combined entitlement
+	// that sums it, so it is deleted first: a link that restricted the source's
+	// delete would fail the whole offboarding.
+	t.Run("WhenOrganizationHasACombinedEntitlement_StillDeletes", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+
+		orgID := createOrganization(t)
+		insert := func(slug, usageSource string) uuid.UUID {
+			var id uuid.UUID
+			require.NoError(t, testDb.DbPool.QueryRow(t.Context(), `
+				INSERT INTO entitlement (organization_id, name, slug, type, aggregation_method, usage_source)
+				VALUES ($1, $2, $2, 'NUMBER', 'SUM', $3::entitlement_usage_source) RETURNING id
+			`, orgID, slug, usageSource).Scan(&id))
+			return id
+		}
+		first, second := insert("offboarded-first", "CALCULATED_USAGE"), insert("offboarded-second", "CALCULATED_USAGE")
+		combined := insert("offboarded-combined", "COMBINED_USAGE")
+		for _, source := range []uuid.UUID{first, second} {
+			_, err := testDb.DbPool.Exec(t.Context(), `
+				INSERT INTO entitlement_source (organization_id, combined_entitlement_id, source_entitlement_id) VALUES ($1, $2, $3)
+			`, orgID, combined, source)
+			require.NoError(t, err)
+		}
+
+		req := httptest.NewRequest("DELETE", "/api/platform/organizations/"+orgID.String(), nil)
+		resp, err := testServer.PlatformApp.Test(req, fiber.TestConfig{})
+		require.NoError(t, err)
+		defer commonfixture.MustCloseBody(t, resp.Body)
+
+		require.Equal(t, fiber.StatusNoContent, resp.StatusCode)
+		for _, table := range []string{"entitlement_source", "entitlement"} {
+			require.Equal(t, 0, countRows(t, `SELECT count(*) FROM `+table+` WHERE organization_id = $1`, orgID), table)
+		}
+	})
+
 	t.Run("WhenOrganizationDoesNotExist_Returns404", func(t *testing.T) {
 		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import type { Entitlement } from '@/api-client';
-import { zEntitlementWritable } from '@/api-client/zod.gen';
+import { zEntitlementSource, zEntitlementWritable } from '@/api-client/zod.gen';
+import { canonicalWeight } from '@/domains/entitlement-usage';
 import {
   hasBillingPeriodOnWrongCadence,
   RESET_PERIOD_NONE,
@@ -35,6 +36,37 @@ const displayOrderSchema = z
   })
   .optional()
   .pipe(zEntitlementWritable.shape.displayOrder);
+
+/** One source of a combined entitlement, as the form holds it. */
+export type EntitlementSourceFormValues = {
+  entitlementSlug: string;
+  /** The weight as typed; a decimal string, `1` for a line that was just added. */
+  weight: string;
+};
+
+export const DEFAULT_SOURCE_WEIGHT = '1';
+
+/** A line of the sources, as the form adds it: nothing chosen, a weight of 1. */
+export const newSourceRow = (): EntitlementSourceFormValues => ({
+  entitlementSlug: '',
+  weight: DEFAULT_SOURCE_WEIGHT,
+});
+
+/**
+ * Whether the values describe a combined entitlement: where the usage comes from is
+ * a choice of a NUMBER entitlement alone, the others (and the credit pools) have none.
+ */
+export const isCombinedFormValues = (
+  values: Pick<EntitlementFormValues, 'type' | 'usageSource'>,
+): boolean =>
+  values.type === 'NUMBER' && values.usageSource === 'COMBINED_USAGE';
+
+// The weight of a source is an exact decimal, strictly positive: the generated
+// schema owns the shape (up to 8 digits and 10 decimals), a digit other than 0 makes
+// it positive. One translated message tells both.
+const isSourceWeight = (weight: string): boolean =>
+  zEntitlementSource.shape.weight.safeParse(weight.trim()).success &&
+  /[1-9]/.test(weight);
 
 // Creating a schema for entitlement form based on the available fields
 // Step 1 of both create wizards, dialog and page, holds every field of the identity: the
@@ -73,6 +105,19 @@ export const entitlementFormSchema = zEntitlementWritable
     // Optional: left blank, the API generates the slug from the name.
     slug: entitlementSlugSchema,
     displayOrder: displayOrderSchema,
+    // Where the usage comes from is the one choice of a NUMBER entitlement that the form
+    // holds whatever the type: it is dropped from the request for any other.
+    usageSource: zEntitlementWritable.shape.usageSource.unwrap(),
+    // Checked below, and only for a combined entitlement: a line left blank on a
+    // calculated one is not an error, it is a line nobody sees. The line is the generated
+    // one with its two fields loosened to plain strings, so that a blank one is told in the
+    // words of the locales and not the validator's.
+    sources: z.array(
+      zEntitlementSource.extend({
+        entitlementSlug: z.string(),
+        weight: z.string(),
+      }),
+    ),
     unitSingular: unitLabelSchema,
     unitPlural: unitLabelSchema,
     saleUnitSingular: unitLabelSchema,
@@ -87,7 +132,14 @@ export const entitlementFormSchema = zEntitlementWritable
     resetAnchor: resetAnchorSchema,
   })
   .superRefine((values, ctx) => {
-    if (hasBillingPeriodOnWrongCadence(values)) {
+    const combined = isCombinedFormValues(values);
+    if (combined) {
+      addSourceIssues(values.sources, ctx);
+    }
+
+    // A combined entitlement shows no reset period and sends none: the pair it may still
+    // hold, from before it was combined, is not read.
+    if (!combined && hasBillingPeriodOnWrongCadence(values)) {
       ctx.addIssue({
         code: 'custom',
         path: ['resetAnchor'],
@@ -148,6 +200,51 @@ export const entitlementFormSchema = zEntitlementWritable
 
 export type EntitlementFormValues = z.infer<typeof entitlementFormSchema>;
 
+/**
+ * The rules of the sources of a combined entitlement that need no catalogue: at least
+ * two, each named once, each with a weight. What an entitlement must be to be a source
+ * (its type, its aggregation, its window) is not asked here: the picker offers no other,
+ * and the API says it, in a 422, to a client that sent one anyway.
+ */
+function addSourceIssues(
+  sources: readonly EntitlementSourceFormValues[],
+  ctx: z.RefinementCtx,
+) {
+  const form = 'Pages.Entitlements.Mutation.Form.Errors';
+  const named = new Set<string>();
+
+  if (sources.length < 2) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `${form}.sourcesMin`,
+      path: ['sources'],
+    });
+  }
+  sources.forEach(({ entitlementSlug, weight }, index) => {
+    if (entitlementSlug === '') {
+      ctx.addIssue({
+        code: 'custom',
+        message: `${form}.sourceRequired`,
+        path: ['sources', index, 'entitlementSlug'],
+      });
+    } else if (named.has(entitlementSlug)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `${form}.sourceDuplicate`,
+        path: ['sources', index, 'entitlementSlug'],
+      });
+    }
+    named.add(entitlementSlug);
+    if (!isSourceWeight(weight)) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `${form}.sourceWeight`,
+        path: ['sources', index, 'weight'],
+      });
+    }
+  });
+}
+
 /** The values of the form that the first step asks for, as its schema reads them. */
 export const getIdentityStepValues = (values: EntitlementFormValues) => ({
   description: values.description,
@@ -165,6 +262,8 @@ export const initialEntitlementFormValues: EntitlementFormValues = {
   description: '',
   type: 'NUMBER',
   aggregationMethod: 'SUM',
+  usageSource: 'CALCULATED_USAGE',
+  sources: [],
   groupSlugs: [],
   icon: undefined,
   userFacing: false,
@@ -207,6 +306,12 @@ export const getEntitlementFormDefaults = (
     // PUT (a slug that predates today's rules would otherwise block every edit).
     slug: '',
     type: entitlement.type,
+    usageSource: entitlement.usageSource ?? 'CALCULATED_USAGE',
+    // As the API wrote them back: its order, its canonical weights.
+    sources: (entitlement.sources ?? []).map(({ entitlementSlug, weight }) => ({
+      entitlementSlug,
+      weight: canonicalWeight(weight),
+    })),
     userFacing: entitlement.userFacing ?? false,
     displayOrder: entitlement.displayOrder ?? 0,
     warningThresholdPercent: entitlement.warningThresholdPercent,

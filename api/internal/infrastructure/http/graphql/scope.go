@@ -92,14 +92,18 @@ var typeScopes = map[string]string{
 	"DeploymentZone":     getdeploymentzone.RequiredScope,
 	"DeploymentZonePage": getdeploymentzones.RequiredScope,
 	"Entitlement":        getentitlement.RequiredScope,
-	// REST returns an entitlement's groups inside the entitlement.
+	// REST returns an entitlement's groups, and a combined entitlement's
+	// sources, inside the entitlement.
 	"EntitlementGroupSummary": getentitlement.RequiredScope,
+	"EntitlementSource":       getentitlement.RequiredScope,
 	// Instance state, read under read:instances, never gated by billing.
 	"EntitlementException": listentitlementexceptions.RequiredScope,
 	"EntitlementPage":      getentitlements.RequiredScope,
 	"EntitlementUsage":     getentitlementsusagemetrics.RequiredScope,
-	"Instance":             getinstance.RequiredScope,
-	"InstanceAddon":        listinstanceaddons.RequiredScope,
+	// REST returns a combined entitlement's sources inside its usage.
+	"CombinedSourceUsage": getentitlementsusagemetrics.RequiredScope,
+	"Instance":            getinstance.RequiredScope,
+	"InstanceAddon":       listinstanceaddons.RequiredScope,
 	// Billing data: an instance list that selects it needs read:billing too,
 	// so the console fetches it in a document of its own (§13.14).
 	"InstanceBillingSummary": getinstancebilling.RequiredScope,

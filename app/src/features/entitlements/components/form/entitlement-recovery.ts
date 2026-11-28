@@ -16,7 +16,9 @@ import {
  */
 export const entitlementRecovery = defineFormRecovery<EntitlementFormValues>({
   formId: 'entitlements.create',
-  version: 1,
+  // 2: the values gained `usageSource` and `sources`, and a restore that lacks them
+  // is offered with a warning that the form changed.
+  version: 2,
   omit: [],
   steps: ['identity', 'type'],
   stepFields: {
@@ -31,6 +33,8 @@ export const entitlementRecovery = defineFormRecovery<EntitlementFormValues>({
     ],
     type: [
       'type',
+      'usageSource',
+      'sources',
       'aggregationMethod',
       'warningThresholdPercent',
       'unitSingular',
@@ -54,6 +58,10 @@ export const entitlementRecovery = defineFormRecovery<EntitlementFormValues>({
       key: 'Pages.Entitlements.Mutation.Form.Labels.displayOrder',
     },
     type: { key: 'Pages.Entitlements.Mutation.Form.Labels.type' },
+    usageSource: {
+      key: 'Pages.Entitlements.Mutation.Form.Labels.usageSource',
+    },
+    sources: { key: 'Pages.Entitlements.Mutation.Form.Labels.sources' },
     aggregationMethod: {
       key: 'Pages.Entitlements.Mutation.Form.Labels.aggregationMethod',
     },

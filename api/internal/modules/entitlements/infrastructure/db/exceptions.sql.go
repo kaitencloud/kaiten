@@ -96,7 +96,7 @@ func (q *Queries) FindOverlappingException(ctx context.Context, arg FindOverlapp
 }
 
 const getEntitlementForException = `-- name: GetEntitlementForException :one
-SELECT e.id, e.slug, e.type
+SELECT e.id, e.slug, e.type, e.usage_source
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.slug = $2
@@ -108,15 +108,21 @@ type GetEntitlementForExceptionParams struct {
 }
 
 type GetEntitlementForExceptionRow struct {
-	ID   uuid.UUID       `json:"id"`
-	Slug string          `json:"slug"`
-	Type EntitlementType `json:"type"`
+	ID          uuid.UUID              `json:"id"`
+	Slug        string                 `json:"slug"`
+	Type        EntitlementType        `json:"type"`
+	UsageSource EntitlementUsageSource `json:"usage_source"`
 }
 
 func (q *Queries) GetEntitlementForException(ctx context.Context, arg GetEntitlementForExceptionParams) (GetEntitlementForExceptionRow, error) {
 	row := q.db.QueryRow(ctx, getEntitlementForException, arg.OrganizationID, arg.Slug)
 	var i GetEntitlementForExceptionRow
-	err := row.Scan(&i.ID, &i.Slug, &i.Type)
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Type,
+		&i.UsageSource,
+	)
 	return i, err
 }
 

@@ -49,6 +49,17 @@ describe('the entitlements a boost can change', () => {
     expect(isBoostable(buildEntitlement({ name: 'SSO', slug: 'sso', type: 'BOOLEAN' }))).toBe(true);
     expect(isBoostable(buildEntitlement({ name: 'Theme', slug: 'theme', type: 'CONFIG' }))).toBe(true);
   });
+
+  // A combined entitlement is computed from its sources, which are what a boost changes: the sum
+  // follows them, and the API refuses a boost of the sum itself.
+  it('are not the combined ones, which are the sum of what a boost can change', () => {
+    expect(
+      isBoostable({ type: 'NUMBER', usageSource: 'COMBINED_USAGE' }),
+    ).toBe(false);
+    expect(
+      isBoostable({ type: 'NUMBER', usageSource: 'CALCULATED_USAGE' }),
+    ).toBe(true);
+  });
 });
 
 describe('the names of customers', () => {

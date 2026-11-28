@@ -11,8 +11,10 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	entitlementUsageSchema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
@@ -23,6 +25,8 @@ import (
 type QueryRepository struct {
 	policy     aiusage.Policy
 	repository *db.Queries
+	// combined is set by NewUseCase; nil reads no combined entitlement.
+	combined catalogue.CombinedReader
 }
 
 func NewQueryRepository(repository *db.Queries, policies ...aiusage.Policy) *QueryRepository {
@@ -71,6 +75,12 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		if err := r.policy.RequireType(ctx, string(*result.EntitlementType)); err != nil {
 			return nil, err
 		}
+	}
+
+	// A combined entitlement is granted to nobody: it reads as the sum of the
+	// sources the instance is granted, when there is one.
+	if result.UsageSource != nil && *result.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+		return r.getCombined(ctx, *result.InstanceID, instanceSlug, entitlementSlug, organizationID)
 	}
 
 	if result.GrantedEntitlementID == nil {
@@ -166,6 +176,45 @@ func (r *QueryRepository) GetEntitlementUsageMetrics(ctx context.Context, instan
 		Source:                         sourceOf(result.Source, result.LicenseEntitlementID),
 		Provenance:                     provenance,
 	}, nil
+}
+
+// getCombined reads a combined entitlement for an instance, as the instance's
+// usage list does: the weighted sum of the sources it is granted, which is
+// nothing -- the 404 of an entitlement the instance is not assigned -- when it
+// is granted none.
+func (r *QueryRepository) getCombined(ctx context.Context, instanceID uuid.UUID, instanceSlug, entitlementSlug string, organizationID uuid.UUID) (*entitlementUsageSchema.EntitlementUsage, error) {
+	if r.combined != nil {
+		done := effectivelookup.Time(ctx, effectivelookup.ReaderREST)
+		rows, err := r.repository.GetEntitlementsUsageForInstanceWithFallback(ctx, db.GetEntitlementsUsageForInstanceWithFallbackParams{
+			HideAi:         !r.policy.Enabled(ctx),
+			OrganizationID: organizationID,
+			InstanceID:     instanceID,
+		})
+		done()
+		if err != nil {
+			return nil, err
+		}
+		usages, err := getentitlementsusagemetrics.MapUsageRows(rows)
+		if err != nil {
+			return nil, err
+		}
+		definitions, err := r.combined.Combined(ctx, organizationID)
+		if err != nil {
+			return nil, err
+		}
+		usages, err = getentitlementsusagemetrics.WithCombined(usages, definitions)
+		if err != nil {
+			return nil, err
+		}
+		for _, usage := range usages {
+			if usage.EntitlementSlug == entitlementSlug {
+				return &usage, nil
+			}
+		}
+	}
+
+	return nil, kaitenerrors.NotFoundf("GetEntitlementUsageMetrics.EntitlementNotAssigned",
+		"Entitlement with slug %q is not assigned to the license used by instance %q: none of its sources is", entitlementSlug, instanceSlug)
 }
 
 // sourceOf is the view's source of a row the fallback read found in it, else

@@ -3,6 +3,14 @@ import type { Entitlement } from '@/api-client';
 import { zEntitlement } from '@/api-client/zod.gen';
 import { parseContract } from '../contracts/openapi-contract';
 import { BillingProblem } from './billing-problem';
+import {
+  checkSentWindow,
+  combinedOf,
+  refuseSourcesOnCalculated,
+  refuseWarningThreshold,
+  resolveSources,
+  resolveUsageSource,
+} from './entitlement-combined';
 import { ErrorInjector } from './error-injector';
 import type { ArmedProblem } from './license-pricing';
 
@@ -22,8 +30,9 @@ const slugify = (value: string) =>
 
 /**
  * What still references an entitlement, which keeps it from being deleted: the
- * grants of the licenses and of the add-ons, the voucher boosts, and the prices
- * that meter it. The
+ * grants of the licenses and of the add-ons, the voucher boosts, the prices
+ * that meter it, and the combined entitlements that sum it (which the model counts
+ * itself, from their sources). The
  * API counts what the release has; a count it does not carry is left out.
  */
 export type EntitlementReferences = Partial<
@@ -31,6 +40,7 @@ export type EntitlementReferences = Partial<
     | 'addonGrants'
     | 'addonPrices'
     | 'boostGrants'
+    | 'combinedEntitlements'
     | 'licenseGrants'
     | 'licensePrices',
     number
@@ -141,13 +151,17 @@ export class EntitlementAppModel {
 
   constructor(seed: EntitlementAppModelSeed = {}) {
     this.references = clone(seed.references ?? {});
-    // The API always returns the threshold, 0 when none is set, for every type.
+    // The API always returns the threshold, 0 when none is set, for every type, and
+    // where the usage of a number comes from: calculated unless the seed says combined.
     this.entitlements = parseContract(
       z.array(zEntitlement),
       seed.entitlements ?? [],
       'EntitlementAppModel seed.entitlements',
     ).map((entitlement) => ({
       ...entitlement,
+      usageSource:
+        entitlement.usageSource ??
+        (isNumberFamily(entitlement.type) ? 'CALCULATED_USAGE' : undefined),
       warningThresholdPercent: entitlement.warningThresholdPercent ?? 0,
     }));
     this.sequence = this.entitlements.length + 1;
@@ -218,10 +232,43 @@ export class EntitlementAppModel {
       body.type ?? 'NUMBER',
       body,
     );
+    const usageSource = resolveUsageSource(
+      'CreateEntitlement',
+      body.type ?? 'NUMBER',
+      body.usageSource,
+    );
+    // A combined entitlement is a SUM that takes the window of its sources, which are
+    // read and checked here, in the order the API checks them.
+    const combined = usageSource === 'COMBINED_USAGE';
+    let window: Pick<EntitlementRecord, 'resetAnchor' | 'resetPeriod'> = {
+      resetAnchor: body.resetAnchor ?? undefined,
+      resetPeriod: body.resetPeriod ?? undefined,
+    };
+    let sources: EntitlementRecord['sources'];
+    if (combined) {
+      if (body.aggregationMethod && body.aggregationMethod !== 'SUM') {
+        throw new BillingProblem(
+          422,
+          'CreateEntitlement.CombinedAggregationMustBeSum',
+          'a combined entitlement is always aggregated by SUM: omit aggregationMethod or send SUM',
+        );
+      }
+      refuseWarningThreshold('CreateEntitlement', body.warningThresholdPercent);
+      const resolved = resolveSources(
+        'CreateEntitlement',
+        this.entitlements,
+        body.sources ?? [],
+      );
+      checkSentWindow('CreateEntitlement', window, resolved.window);
+      window = resolved.window;
+      sources = resolved.sources;
+    } else {
+      refuseSourcesOnCalculated('CreateEntitlement', body.sources);
+    }
 
     const timestamp = this.nextTimestamp();
     const entitlement: EntitlementRecord = {
-      aggregationMethod: body.aggregationMethod ?? 'COUNT',
+      aggregationMethod: combined ? 'SUM' : (body.aggregationMethod ?? 'COUNT'),
       createdAt: timestamp,
       description: body.description ?? null,
       icon: body.icon ?? undefined,
@@ -237,9 +284,11 @@ export class EntitlementAppModel {
       saleUnitSingular: body.saleUnitSingular ?? undefined,
       saleUnitPlural: body.saleUnitPlural ?? undefined,
       saleUnitFactor: body.saleUnitFactor ?? undefined,
-      resetPeriod: body.resetPeriod ?? undefined,
-      resetAnchor: body.resetAnchor ?? undefined,
+      resetPeriod: window.resetPeriod,
+      resetAnchor: window.resetAnchor,
       warningThresholdPercent: warningThresholdOf(body),
+      usageSource,
+      sources,
     };
     const result = parseContract(
       zEntitlement,
@@ -279,18 +328,70 @@ export class EntitlementAppModel {
       );
     }
 
+    // Where the usage comes from is fixed when the entitlement is created: omitted is
+    // accepted, and so is the stored value; any other, a flag's included, is refused.
+    if (
+      body.usageSource !== undefined &&
+      body.usageSource !== current.usageSource
+    ) {
+      throw new BillingProblem(
+        400,
+        'UpdateEntitlement.ImmutableUsageSource',
+        'usageSource is immutable and cannot be changed after creation',
+      );
+    }
+    const combined = current.usageSource === 'COMBINED_USAGE';
+    // A combined entitlement takes the window its sources share, derived on every write
+    // past the one-way door of the others: nothing is stored for it that a window could
+    // orphan, so the sources can move to another one.
+    let derived:
+      | Pick<EntitlementRecord, 'resetAnchor' | 'resetPeriod'>
+      | undefined;
+    let sources = current.sources;
+    if (combined) {
+      refuseWarningThreshold('UpdateEntitlement', body.warningThresholdPercent);
+      const resolved = resolveSources(
+        'UpdateEntitlement',
+        this.entitlements,
+        body.sources ?? [],
+      );
+      checkSentWindow('UpdateEntitlement', body, resolved.window);
+      derived = resolved.window;
+      sources = resolved.sources;
+    } else {
+      refuseSourcesOnCalculated('UpdateEntitlement', body.sources);
+      // A source cannot adopt a reset cadence while a combined entitlement sums it: it
+      // would break the window the sources share.
+      const sums = combinedOf(this.entitlements, slug);
+      if (body.resetPeriod && !current.resetPeriod && sums.length > 0) {
+        throw new BillingProblem(
+          422,
+          'UpdateEntitlement.SourceWindowLocked',
+          `entitlement "${slug}" is a source of ${sums.join(', ')}, whose sources share one window: remove it from them before giving it a reset period`,
+        );
+      }
+    }
+
     // One-way door, like the API: once a cadence is stored, a full-replace PUT
     // must echo the exact same pair back. Omitting it is an attempted removal,
     // not a reset to null. Modelled here so the e2e suite actually catches a
     // partial-edit path that forgets to carry the pair.
-    if (current.resetPeriod && body.resetPeriod !== current.resetPeriod) {
+    if (
+      !combined &&
+      current.resetPeriod &&
+      body.resetPeriod !== current.resetPeriod
+    ) {
       throw new BillingProblem(
         400,
         'UpdateEntitlement.ImmutableResetPeriod',
         'resetPeriod is immutable once configured and cannot be changed or removed',
       );
     }
-    if (current.resetAnchor && body.resetAnchor !== current.resetAnchor) {
+    if (
+      !combined &&
+      current.resetAnchor &&
+      body.resetAnchor !== current.resetAnchor
+    ) {
       throw new BillingProblem(
         400,
         'UpdateEntitlement.ImmutableResetAnchor',
@@ -317,14 +418,21 @@ export class EntitlementAppModel {
       saleUnitSingular: body.saleUnitSingular ?? undefined,
       saleUnitPlural: body.saleUnitPlural ?? undefined,
       saleUnitFactor: body.saleUnitFactor ?? undefined,
-      resetPeriod: body.resetPeriod ?? undefined,
-      resetAnchor: body.resetAnchor ?? undefined,
+      resetPeriod: derived
+        ? derived.resetPeriod
+        : (body.resetPeriod ?? undefined),
+      resetAnchor: derived
+        ? derived.resetAnchor
+        : (body.resetAnchor ?? undefined),
       // Replaced like the rest: a PUT without the threshold of a numeric entitlement
       // turns the warning off, as the API stores it (0), instead of keeping the old one.
       warningThresholdPercent: warningThresholdOf({
         ...body,
         type: current.type,
       }),
+      // A PUT never changes where the usage comes from, and replaces the sources as a whole.
+      usageSource: current.usageSource,
+      sources,
     };
     const result = parseContract(
       zEntitlement,
@@ -345,12 +453,19 @@ export class EntitlementAppModel {
       throw new Error(`Entitlement "${slug}" not found`);
     }
 
-    const references = this.references[slug];
-    if (references && Object.values(references).some((count) => count > 0)) {
+    // The combined entitlements that sum it are counted from their sources, and named.
+    const sums = combinedOf(this.entitlements, slug);
+    const references: EntitlementReferences = {
+      ...this.references[slug],
+      ...(sums.length > 0 ? { combinedEntitlements: sums.length } : {}),
+    };
+    if (Object.values(references).some((count) => count > 0)) {
       throw new BillingProblem(
         409,
         'DeleteEntitlement.InUseConflict',
-        `Entitlement "${slug}" is still in use and cannot be deleted`,
+        sums.length > 0
+          ? `Entitlement "${slug}" is still in use and cannot be deleted: it is a source of ${sums.join(', ')}`
+          : `Entitlement "${slug}" is still in use and cannot be deleted`,
         {
           errors: [
             {

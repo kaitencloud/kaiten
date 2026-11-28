@@ -1,4 +1,12 @@
-import type { Entitlement, EntitlementWritable } from '@/api-client';
+import type {
+  Entitlement,
+  EntitlementSource,
+  EntitlementWritable,
+} from '@/api-client';
+import {
+  canonicalWeight,
+  isCombinedEntitlement,
+} from '@/domains/entitlement-usage';
 
 const normalizeUnitLabel = (value?: string | null): string | undefined => {
   const trimmed = value?.trim();
@@ -62,17 +70,39 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
 };
 
 /**
+ * The sources of a combined entitlement as a request names them. A PUT replaces them
+ * as a whole, so every write of a combined entitlement names them again; the weight
+ * is written as the API writes it back (`0.40` is `0.4`), so that a form which did
+ * not change a weight sends the one it read.
+ */
+export const sourcesToBody = (
+  sources: ReadonlyArray<Pick<EntitlementSource, 'entitlementSlug' | 'weight'>>,
+): EntitlementSource[] =>
+  sources.map(({ entitlementSlug, weight }) => ({
+    entitlementSlug,
+    weight: canonicalWeight(weight),
+  }));
+
+/**
  * Builds the complete replacement PUT for the form and for inline rename, icon and
  * group edits. Echoes immutable resetPeriod/resetAnchor: omission would attempt
  * removal. Echoes the early-warning threshold unless the edit overrides it: the
  * API stores 0 (the warning off) for a numeric entitlement sent without one. Only a
  * numeric entitlement echoes it: the API returns 0 for every type but refuses any
  * threshold on the others, so a boolean or a config entitlement sends none.
+ *
+ * A numeric entitlement echoes where its usage comes from (`usageSource`, which is
+ * immutable), and a combined one its sources too: the PUT replaces them as a whole
+ * and refuses one that names none (422 `UpdateEntitlement.CombinedSourcesRequired`),
+ * so a rename without them would be refused. A combined entitlement sends neither
+ * the window nor a threshold: it takes the window its sources share (a value sent
+ * must match it, and the sources may change it), and nothing crosses on a sum.
  */
 export const entitlementToUpdateBody = (
   entitlement: Entitlement,
   overrides?: Partial<EntitlementWritable>,
 ): EntitlementWritable => {
+  const combined = isCombinedEntitlement(entitlement);
   const body: EntitlementWritable = {
     aggregationMethod: entitlement.aggregationMethod,
     description: entitlement.description ?? '',
@@ -90,14 +120,17 @@ export const entitlementToUpdateBody = (
     saleUnitSingular: entitlement.saleUnitSingular ?? undefined,
     saleUnitPlural: entitlement.saleUnitPlural ?? undefined,
     saleUnitFactor: entitlement.saleUnitFactor ?? undefined,
-    resetPeriod: entitlement.resetPeriod,
-    resetAnchor: entitlement.resetAnchor,
+    resetPeriod: combined ? undefined : entitlement.resetPeriod,
+    resetAnchor: combined ? undefined : entitlement.resetAnchor,
     ...(isNumberFamily(entitlement.type)
       ? {
-          warningThresholdPercent:
-            entitlement.warningThresholdPercent ?? undefined,
+          usageSource: entitlement.usageSource,
+          warningThresholdPercent: combined
+            ? undefined
+            : (entitlement.warningThresholdPercent ?? undefined),
         }
       : {}),
+    ...(combined ? { sources: sourcesToBody(entitlement.sources ?? []) } : {}),
     ...overrides,
   };
 

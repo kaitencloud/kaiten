@@ -1,6 +1,7 @@
 import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { EntityIcon } from '@/components/ui/icon';
 import { Badge } from '@/components/ui/badge';
+import { isCombinedEntitlement } from '@/domains/entitlement-usage';
 import { useRouterState } from '@tanstack/react-router';
 import { type PropsWithChildren, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -176,6 +177,7 @@ function EntitlementDetailLayout({
         <EntitlementDetailHeader entitlement={entitlement} />
         {activeTab !== 'pricing' && (
           <EntitlementDetailStats
+            combined={isCombinedEntitlement(entitlement)}
             isLoading={isLoading}
             isUsageLoading={isUsageLoading}
             locale={locale}

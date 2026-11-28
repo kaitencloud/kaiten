@@ -638,7 +638,10 @@ page holds, or an export the API streams.
   (`DeleteCustomer.BillingActive`) and of an entitlement
   (`DeleteEntitlement.InUseConflict`) from the problem's `errors[0].value`: the status
   of the subscription and the invoices not settled, whether a subscription lives, or
-  what still grants or prices the entitlement. `useDeletionRefusal(slug)`
+  what still grants, prices or sums the entitlement (the licenses, the add-ons and the
+  voucher boosts that grant it, the prices that meter it, and the combined entitlements
+  that count it as a source: `combinedEntitlements`, which can be edited or deleted
+  and so is asked to be freed, as a license grant is). `useDeletionRefusal(slug)`
   answers whether a failure was one and, if so, holds the dialog to render beside the
   action, with the links to the subscription, the invoices and the record; any other
   failure keeps its toast. A list whose rows leave it before the API has answered (the

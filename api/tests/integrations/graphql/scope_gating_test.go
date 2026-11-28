@@ -367,6 +367,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 					auditTrails(limit: 5) { items { id payload actor { id name kind } } }
 					billing { status }
 					addons { addonSlug }
+					entitlementUsage { entitlementSlug sources { entitlementSlug weight usage limit } }
 					entitlementExceptions(filter: ALL) { id kind value status }
 				}
 			}
@@ -391,7 +392,7 @@ func TestGraphQL_EveryReadScopeReadsEverything(t *testing.T) {
 			}
 			license(slug: $license) { slug conversionRules { entitlementSlug rates { perRequest } createdBy { name } updatedBy { name } } }
 			licenseFamily(slug: $license) { slug currentVersion { slug } versions { slug } }
-			entitlements(limit: 5) { items { slug entitlementGroups { slug } } }
+			entitlements(limit: 5) { items { slug usageSource entitlementGroups { slug } sources { entitlementSlug weight } } }
 		}`,
 		"addons": `{
 			addons(limit: 5) {

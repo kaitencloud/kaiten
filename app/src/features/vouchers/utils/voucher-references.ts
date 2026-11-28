@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { Addon, Customer, Entitlement, License } from '@/api-client';
 import { getAddonTitle } from '@/domains/billing';
+import { isGrantableEntitlement } from '@/domains/entitlement-usage';
 import type { VoucherNames } from '../types';
 
 /**
@@ -101,8 +102,15 @@ export function buildVoucherNames({
   };
 }
 
-/** Every served entitlement type can be boosted; BOOLEAN and CONFIG take SET only. */
-export const isBoostable = (entitlement: Pick<Entitlement, 'type'>): boolean =>
+/**
+ * Every served entitlement type can be boosted; BOOLEAN and CONFIG take SET only. A
+ * combined entitlement is computed from its sources, which are what a boost changes:
+ * it cannot be boosted itself, and the sum follows the sources.
+ */
+export const isBoostable = (
+  entitlement: Pick<Entitlement, 'type' | 'usageSource'>,
+): boolean =>
+  isGrantableEntitlement(entitlement) &&
   ['NUMBER', 'NUMBER_AI_CREDIT', 'BOOLEAN', 'CONFIG'].includes(
     entitlement.type ?? '',
   );

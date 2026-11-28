@@ -78,6 +78,24 @@ exports[`the recovery descriptor of the entitlement creation page > stores value
     "slug": {
       "type": "string",
     },
+    "sources": {
+      "items": {
+        "properties": {
+          "entitlementSlug": {
+            "type": "string",
+          },
+          "weight": {
+            "type": "string",
+          },
+        },
+        "required": [
+          "entitlementSlug",
+          "weight",
+        ],
+        "type": "object",
+      },
+      "type": "array",
+    },
     "type": {
       "enum": [
         "BOOLEAN",
@@ -95,6 +113,13 @@ exports[`the recovery descriptor of the entitlement creation page > stores value
       "maxLength": 100,
       "type": "string",
     },
+    "usageSource": {
+      "enum": [
+        "CALCULATED_USAGE",
+        "COMBINED_USAGE",
+      ],
+      "type": "string",
+    },
     "userFacing": {
       "type": "boolean",
     },
@@ -108,6 +133,8 @@ exports[`the recovery descriptor of the entitlement creation page > stores value
     "name",
     "description",
     "slug",
+    "usageSource",
+    "sources",
     "resetPeriod",
     "resetAnchor",
   ],

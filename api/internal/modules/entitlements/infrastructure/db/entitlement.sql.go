@@ -18,7 +18,8 @@ SELECT
   (SELECT count(*) FROM license_price p WHERE p.meters_entitlement_id = e.id)::int AS license_prices,
   (SELECT count(*) FROM addon_price ap WHERE ap.meters_entitlement_id = e.id)::int AS addon_prices,
   (SELECT count(*) FROM addon_entitlement ae WHERE ae.entitlement_id = e.id)::int AS addon_grants,
-  (SELECT count(*) FROM voucher_entitlement_grant vg WHERE vg.entitlement_id = e.id)::int AS boost_grants
+  (SELECT count(*) FROM voucher_entitlement_grant vg WHERE vg.entitlement_id = e.id)::int AS boost_grants,
+  (SELECT count(*) FROM entitlement_source es WHERE es.source_entitlement_id = e.id)::int AS combined_entitlements
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.slug = $2
@@ -30,17 +31,19 @@ type CountEntitlementReferencesParams struct {
 }
 
 type CountEntitlementReferencesRow struct {
-	LicenseGrants int32 `json:"license_grants"`
-	LicensePrices int32 `json:"license_prices"`
-	AddonPrices   int32 `json:"addon_prices"`
-	AddonGrants   int32 `json:"addon_grants"`
-	BoostGrants   int32 `json:"boost_grants"`
+	LicenseGrants        int32 `json:"license_grants"`
+	LicensePrices        int32 `json:"license_prices"`
+	AddonPrices          int32 `json:"addon_prices"`
+	AddonGrants          int32 `json:"addon_grants"`
+	BoostGrants          int32 `json:"boost_grants"`
+	CombinedEntitlements int32 `json:"combined_entitlements"`
 }
 
 // What still holds an entitlement a delete was refused for: every foreign key
-// onto entitlement that restricts the delete. Its usage is not among them:
-// entitlement_usage follows the entitlement out
-// (20261012000000_entitlement_usage_follows_its_entitlement.sql).
+// onto entitlement that restricts the delete, and the combined entitlements it
+// is a source of (a link row cascades, so the delete use case refuses on it
+// itself). Its usage is not among them: entitlement_usage follows the
+// entitlement out (20261012000000_entitlement_usage_follows_its_entitlement.sql).
 func (q *Queries) CountEntitlementReferences(ctx context.Context, arg CountEntitlementReferencesParams) (CountEntitlementReferencesRow, error) {
 	row := q.db.QueryRow(ctx, countEntitlementReferences, arg.OrganizationID, arg.Slug)
 	var i CountEntitlementReferencesRow
@@ -50,6 +53,7 @@ func (q *Queries) CountEntitlementReferences(ctx context.Context, arg CountEntit
 		&i.AddonPrices,
 		&i.AddonGrants,
 		&i.BoostGrants,
+		&i.CombinedEntitlements,
 	)
 	return i, err
 }
@@ -57,13 +61,14 @@ func (q *Queries) CountEntitlementReferences(ctx context.Context, arg CountEntit
 const createEntitlement = `-- name: CreateEntitlement :one
 INSERT INTO entitlement (name, slug, description, type, aggregation_method, organization_id, icon,
                          unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing,
-                         display_order, warning_threshold_percent, reset_period, reset_anchor)
+                         display_order, warning_threshold_percent, reset_period, reset_anchor, usage_source)
 VALUES ($1, $2, $3, $4, $5, $6, $7,
         $8, $9, $10, $11,
         $12, $13, $14,
         $15,
-        $16, $17)
-RETURNING id, name, slug, description, type, aggregation_method, organization_id, icon, unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing, display_order, warning_threshold_percent, reset_period, reset_anchor, created_at, updated_at
+        $16, $17,
+        COALESCE($18::entitlement_usage_source, 'CALCULATED_USAGE'))
+RETURNING id, name, slug, description, type, aggregation_method, organization_id, icon, unit_singular, unit_plural, sale_unit_singular, sale_unit_plural, sale_unit_factor, user_facing, display_order, warning_threshold_percent, reset_period, reset_anchor, created_at, updated_at, usage_source
 `
 
 type CreateEntitlementParams struct {
@@ -84,8 +89,11 @@ type CreateEntitlementParams struct {
 	WarningThresholdPercent int16                   `json:"warning_threshold_percent"`
 	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
 	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
+	UsageSource             *EntitlementUsageSource `json:"usage_source"`
 }
 
+// usage_source is the column's default (CALCULATED_USAGE) when the caller names
+// none: a writer that knows nothing of combined entitlements keeps working.
 func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementParams) (Entitlement, error) {
 	row := q.db.QueryRow(ctx, createEntitlement,
 		arg.Name,
@@ -105,6 +113,7 @@ func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementPa
 		arg.WarningThresholdPercent,
 		arg.ResetPeriod,
 		arg.ResetAnchor,
+		arg.UsageSource,
 	)
 	var i Entitlement
 	err := row.Scan(
@@ -128,6 +137,7 @@ func (q *Queries) CreateEntitlement(ctx context.Context, arg CreateEntitlementPa
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UsageSource,
 	)
 	return i, err
 }
@@ -137,7 +147,7 @@ DELETE
 FROM entitlement e
 WHERE e.slug = $1
   AND e.organization_id = $2
-RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at
+RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at, e.usage_source
 `
 
 type DeleteEntitlementParams struct {
@@ -169,8 +179,25 @@ func (q *Queries) DeleteEntitlement(ctx context.Context, arg DeleteEntitlementPa
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UsageSource,
 	)
 	return i, err
+}
+
+const deleteEntitlementSources = `-- name: DeleteEntitlementSources :exec
+DELETE FROM entitlement_source es
+WHERE es.organization_id = $1
+  AND es.combined_entitlement_id = $2
+`
+
+type DeleteEntitlementSourcesParams struct {
+	OrganizationID        uuid.UUID `json:"organization_id"`
+	CombinedEntitlementID uuid.UUID `json:"combined_entitlement_id"`
+}
+
+func (q *Queries) DeleteEntitlementSources(ctx context.Context, arg DeleteEntitlementSourcesParams) error {
+	_, err := q.db.Exec(ctx, deleteEntitlementSources, arg.OrganizationID, arg.CombinedEntitlementID)
+	return err
 }
 
 const getEntitlement = `-- name: GetEntitlement :one
@@ -193,7 +220,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.usage_source
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.slug = $2
@@ -228,6 +256,7 @@ func (q *Queries) GetEntitlement(ctx context.Context, arg GetEntitlementParams) 
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UsageSource,
 	)
 	return i, err
 }
@@ -252,7 +281,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.usage_source
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.slug = $2
@@ -287,6 +317,7 @@ func (q *Queries) GetEntitlementBySlug(ctx context.Context, arg GetEntitlementBy
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UsageSource,
 	)
 	return i, err
 }
@@ -311,7 +342,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.usage_source
 FROM entitlement e
 WHERE e.organization_id = $1
 `
@@ -351,6 +383,7 @@ func (q *Queries) GetEntitlements(ctx context.Context, organizationID uuid.UUID)
 			&i.ResetAnchor,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.UsageSource,
 		); err != nil {
 			return nil, err
 		}
@@ -382,7 +415,8 @@ SELECT e.id,
        e.reset_period,
        e.reset_anchor,
        e.created_at,
-       e.updated_at
+       e.updated_at,
+       e.usage_source
 FROM entitlement e
 WHERE (NOT $1::boolean OR e.type <> 'NUMBER_AI_CREDIT')
  AND e.organization_id = $2
@@ -443,6 +477,7 @@ func (q *Queries) GetEntitlementsByCursor(ctx context.Context, arg GetEntitlemen
 			&i.ResetAnchor,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.UsageSource,
 		); err != nil {
 			return nil, err
 		}
@@ -452,6 +487,236 @@ func (q *Queries) GetEntitlementsByCursor(ctx context.Context, arg GetEntitlemen
 		return nil, err
 	}
 	return items, nil
+}
+
+const insertEntitlementSource = `-- name: InsertEntitlementSource :exec
+INSERT INTO entitlement_source (organization_id, combined_entitlement_id, source_entitlement_id, weight)
+VALUES ($1, $2, $3,
+        CAST($4::text AS NUMERIC))
+`
+
+type InsertEntitlementSourceParams struct {
+	OrganizationID        uuid.UUID `json:"organization_id"`
+	CombinedEntitlementID uuid.UUID `json:"combined_entitlement_id"`
+	SourceEntitlementID   uuid.UUID `json:"source_entitlement_id"`
+	Weight                string    `json:"weight"`
+}
+
+func (q *Queries) InsertEntitlementSource(ctx context.Context, arg InsertEntitlementSourceParams) error {
+	_, err := q.db.Exec(ctx, insertEntitlementSource,
+		arg.OrganizationID,
+		arg.CombinedEntitlementID,
+		arg.SourceEntitlementID,
+		arg.Weight,
+	)
+	return err
+}
+
+const listCombinedOfSource = `-- name: ListCombinedOfSource :many
+SELECT c.slug
+FROM entitlement_source es
+JOIN entitlement c ON c.id = es.combined_entitlement_id AND c.organization_id = es.organization_id
+JOIN entitlement s ON s.id = es.source_entitlement_id AND s.organization_id = es.organization_id
+WHERE es.organization_id = $1
+  AND s.slug = $2
+ORDER BY c.slug
+`
+
+type ListCombinedOfSourceParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	SourceSlug     string    `json:"source_slug"`
+}
+
+// The slugs of the combined entitlements an entitlement is a source of.
+func (q *Queries) ListCombinedOfSource(ctx context.Context, arg ListCombinedOfSourceParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listCombinedOfSource, arg.OrganizationID, arg.SourceSlug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return nil, err
+		}
+		items = append(items, slug)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCombinedSources = `-- name: ListCombinedSources :many
+SELECT c.id   AS combined_id,
+       c.slug AS combined_slug,
+       s.slug AS source_slug,
+       trim_scale(es.weight)::text AS weight
+FROM entitlement_source es
+JOIN entitlement c ON c.id = es.combined_entitlement_id AND c.organization_id = es.organization_id
+JOIN entitlement s ON s.id = es.source_entitlement_id AND s.organization_id = es.organization_id
+WHERE es.organization_id = $1
+  AND ($2::text IS NULL OR c.slug = $2)
+ORDER BY c.slug, s.slug
+`
+
+type ListCombinedSourcesParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	CombinedSlug   *string   `json:"combined_slug"`
+}
+
+type ListCombinedSourcesRow struct {
+	CombinedID   uuid.UUID `json:"combined_id"`
+	CombinedSlug string    `json:"combined_slug"`
+	SourceSlug   string    `json:"source_slug"`
+	Weight       string    `json:"weight"`
+}
+
+// The sources of the organization's combined entitlements, each with its weight
+// as exact text (trim_scale drops the zeros of NUMERIC(18,10): 0.4, not
+// 0.4000000000): every combined entitlement of the organization, or the one
+// named combined_slug. Alphabetical by source slug: nothing orders them in
+// storage.
+func (q *Queries) ListCombinedSources(ctx context.Context, arg ListCombinedSourcesParams) ([]ListCombinedSourcesRow, error) {
+	rows, err := q.db.Query(ctx, listCombinedSources, arg.OrganizationID, arg.CombinedSlug)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCombinedSourcesRow
+	for rows.Next() {
+		var i ListCombinedSourcesRow
+		if err := rows.Scan(
+			&i.CombinedID,
+			&i.CombinedSlug,
+			&i.SourceSlug,
+			&i.Weight,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockEntitlementForUpdate = `-- name: LockEntitlementForUpdate :one
+SELECT e.id, e.usage_source
+FROM entitlement e
+WHERE e.organization_id = $1
+  AND e.slug = $2
+FOR UPDATE
+`
+
+type LockEntitlementForUpdateParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slug           string    `json:"slug"`
+}
+
+type LockEntitlementForUpdateRow struct {
+	ID          uuid.UUID              `json:"id"`
+	UsageSource EntitlementUsageSource `json:"usage_source"`
+}
+
+// The entitlement's row, locked: taken before asking whether it is a source, so
+// the answer is read after any combined entitlement that was storing a link to
+// it has committed (READ COMMITTED sees what committed while the lock was waited
+// for).
+func (q *Queries) LockEntitlementForUpdate(ctx context.Context, arg LockEntitlementForUpdateParams) (LockEntitlementForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, lockEntitlementForUpdate, arg.OrganizationID, arg.Slug)
+	var i LockEntitlementForUpdateRow
+	err := row.Scan(&i.ID, &i.UsageSource)
+	return i, err
+}
+
+const lockSourceEntitlements = `-- name: LockSourceEntitlements :many
+SELECT e.id, e.slug, e.type, e.aggregation_method, e.usage_source, e.reset_period, e.reset_anchor
+FROM entitlement e
+WHERE e.organization_id = $1
+  AND e.slug = ANY ($2::text[])
+ORDER BY e.id
+FOR SHARE
+`
+
+type LockSourceEntitlementsParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	Slugs          []string  `json:"slugs"`
+}
+
+type LockSourceEntitlementsRow struct {
+	ID                uuid.UUID               `json:"id"`
+	Slug              string                  `json:"slug"`
+	Type              EntitlementType         `json:"type"`
+	AggregationMethod *AggregationMethod      `json:"aggregation_method"`
+	UsageSource       EntitlementUsageSource  `json:"usage_source"`
+	ResetPeriod       *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor       *EntitlementResetAnchor `json:"reset_anchor"`
+}
+
+// What a combined entitlement would sum, share-locked in id order until the
+// transaction ends: nobody changes a source's type, window or existence under
+// the write that checks them, and a source cannot adopt a reset period or be
+// deleted before this write has stored its link.
+func (q *Queries) LockSourceEntitlements(ctx context.Context, arg LockSourceEntitlementsParams) ([]LockSourceEntitlementsRow, error) {
+	rows, err := q.db.Query(ctx, lockSourceEntitlements, arg.OrganizationID, arg.Slugs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LockSourceEntitlementsRow
+	for rows.Next() {
+		var i LockSourceEntitlementsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Slug,
+			&i.Type,
+			&i.AggregationMethod,
+			&i.UsageSource,
+			&i.ResetPeriod,
+			&i.ResetAnchor,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const setCombinedEntitlementWindow = `-- name: SetCombinedEntitlementWindow :exec
+UPDATE entitlement e
+SET reset_period = $1,
+    reset_anchor = $2,
+    updated_at   = now()
+WHERE e.id = $3
+  AND e.organization_id = $4
+  AND e.usage_source = 'COMBINED_USAGE'
+`
+
+type SetCombinedEntitlementWindowParams struct {
+	ResetPeriod    *EntitlementResetPeriod `json:"reset_period"`
+	ResetAnchor    *EntitlementResetAnchor `json:"reset_anchor"`
+	ID             uuid.UUID               `json:"id"`
+	OrganizationID uuid.UUID               `json:"organization_id"`
+}
+
+// A combined entitlement's window is the one its sources share: derived, not
+// chosen. It is rewritten with the sources, past UpdateEntitlement's one-way
+// door, because nothing is stored for a combined entitlement that a new window
+// could orphan.
+func (q *Queries) SetCombinedEntitlementWindow(ctx context.Context, arg SetCombinedEntitlementWindowParams) error {
+	_, err := q.db.Exec(ctx, setCombinedEntitlementWindow,
+		arg.ResetPeriod,
+		arg.ResetAnchor,
+		arg.ID,
+		arg.OrganizationID,
+	)
+	return err
 }
 
 const updateEntitlement = `-- name: UpdateEntitlement :one
@@ -472,7 +737,7 @@ SET name               = $1,
     updated_at         = now()
 WHERE e.slug = $14
   AND e.organization_id = $15
-RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at
+RETURNING e.id, e.name, e.slug, e.description, e.type, e.aggregation_method, e.organization_id, e.icon, e.unit_singular, e.unit_plural, e.sale_unit_singular, e.sale_unit_plural, e.sale_unit_factor, e.user_facing, e.display_order, e.warning_threshold_percent, e.reset_period, e.reset_anchor, e.created_at, e.updated_at, e.usage_source
 `
 
 type UpdateEntitlementParams struct {
@@ -538,6 +803,7 @@ func (q *Queries) UpdateEntitlement(ctx context.Context, arg UpdateEntitlementPa
 		&i.ResetAnchor,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.UsageSource,
 	)
 	return i, err
 }

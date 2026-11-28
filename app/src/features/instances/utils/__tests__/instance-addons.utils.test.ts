@@ -218,6 +218,24 @@ describe('what a change did to the effective values', () => {
     ).toEqual([{ after: number(20), before: number(10), entitlementSlug: 'seats' }]);
   });
 
+  // A combined entitlement is computed from its sources, so its limit follows theirs: an add-on
+  // that raises a source raises the sum, and the reader is told so like any other effective limit.
+  it('lists a combined entitlement whose limit followed the sources an add-on changed', () => {
+    const combinedUsage = (limit: number) =>
+      ({
+        ...usage('credits', number(limit)),
+        sources: [
+          { entitlementSlug: 'firecrawl-credits', limit, usage: 0, weight: '1' },
+        ],
+      }) as EntitlementUsage;
+
+    expect(
+      diffEffectiveValues([combinedUsage(1000)], [combinedUsage(1500)]),
+    ).toEqual([
+      { after: number(1500), before: number(1000), entitlementSlug: 'credits' },
+    ]);
+  });
+
   it('compares the limit and not the counter, which moves with the usage', () => {
     const before = usage('seats', number(10));
     const after = { ...before, value: number(9) } as EntitlementUsage;

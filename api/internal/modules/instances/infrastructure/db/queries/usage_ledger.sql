@@ -381,7 +381,24 @@ SELECT
            '00000000-0000-0000-0000-000000000000')::uuid AS instance_id,
   coalesce((SELECT e.id FROM entitlement e
              WHERE e.organization_id = sqlc.arg(organization_id) AND e.slug = sqlc.arg(entitlement_slug)),
-           '00000000-0000-0000-0000-000000000000')::uuid AS entitlement_id;
+           '00000000-0000-0000-0000-000000000000')::uuid AS entitlement_id,
+  -- Whether that entitlement sums others' usage instead of holding its own: a
+  -- combined entitlement has no history, the sources' is theirs. false for a
+  -- slug the organization does not have.
+  coalesce((SELECT e.usage_source = 'COMBINED_USAGE' FROM entitlement e
+             WHERE e.organization_id = sqlc.arg(organization_id) AND e.slug = sqlc.arg(entitlement_slug)),
+           false)::boolean AS entitlement_combined;
+
+
+-- name: GetCombinedEntitlementSlug :one
+-- The slug of the entitlement an ID names, when it sums others' usage instead of
+-- holding its own; an empty slug for any other, and for an ID that names nothing:
+-- a deleted entitlement's reports are kept and its ID still reaches them, a
+-- combined one never had any.
+SELECT coalesce((SELECT e.slug FROM entitlement e
+                  WHERE e.organization_id = sqlc.arg(organization_id)
+                    AND e.id = sqlc.arg(entitlement_id)
+                    AND e.usage_source = 'COMBINED_USAGE'), '')::text AS slug;
 
 
 -- name: ListPairUsageReports :many

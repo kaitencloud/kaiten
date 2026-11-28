@@ -9,11 +9,13 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/combined"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/grouprefs"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/sourcerefs"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
@@ -66,6 +68,9 @@ func (r *CommandRepository) GetEntitlement(ctx context.Context, slug string, org
 	entitlement := dbmap.ToEntitlement(&result)
 	entitlement.EntitlementGroups, err = grouprefs.LoadForEntitlement(ctx, queries, slug, organizationID)
 	if err != nil {
+		return nil, err
+	}
+	if err := sourcerefs.Attach(ctx, queries, entitlement, organizationID); err != nil {
 		return nil, err
 	}
 
@@ -145,4 +150,57 @@ func (r *CommandRepository) RemoveEntitlementFromGroup(ctx context.Context, grou
 		EntitlementSlug: entitlementSlug,
 		OrganizationID:  organizationID,
 	})
+}
+
+// ReplaceSources makes sources the whole of what a combined entitlement sums,
+// and its window the one they share. The window is rewritten past
+// UpdateEntitlement's one-way door: nothing is stored for a combined
+// entitlement that a new window could orphan.
+func (r *CommandRepository) ReplaceSources(ctx context.Context, organizationID uuid.UUID, combinedID uuid.UUID, resolved *combined.Resolved) error {
+	queries := r.q(ctx)
+
+	if err := queries.DeleteEntitlementSources(ctx, db.DeleteEntitlementSourcesParams{
+		OrganizationID: organizationID, CombinedEntitlementID: combinedID,
+	}); err != nil {
+		return err
+	}
+	for _, source := range resolved.Sources {
+		if err := queries.InsertEntitlementSource(ctx, db.InsertEntitlementSourceParams{
+			OrganizationID: organizationID, CombinedEntitlementID: combinedID,
+			SourceEntitlementID: source.ID, Weight: source.Weight.String(),
+		}); err != nil {
+			return err
+		}
+	}
+
+	var resetPeriod *db.EntitlementResetPeriod
+	if resolved.ResetPeriod != nil {
+		rp := db.EntitlementResetPeriod(*resolved.ResetPeriod)
+		resetPeriod = &rp
+	}
+	var resetAnchor *db.EntitlementResetAnchor
+	if resolved.ResetAnchor != nil {
+		ra := db.EntitlementResetAnchor(*resolved.ResetAnchor)
+		resetAnchor = &ra
+	}
+
+	return queries.SetCombinedEntitlementWindow(ctx, db.SetCombinedEntitlementWindowParams{
+		ID: combinedID, OrganizationID: organizationID, ResetPeriod: resetPeriod, ResetAnchor: resetAnchor,
+	})
+}
+
+// CombinedOf is the slugs of the combined entitlements the entitlement is a
+// source of, read once its row is locked: a combined entitlement that was
+// storing a link to it has committed or has not read it yet.
+func (r *CommandRepository) CombinedOf(ctx context.Context, organizationID uuid.UUID, slug string) ([]string, error) {
+	queries := r.q(ctx)
+
+	if _, err := queries.LockEntitlementForUpdate(ctx, db.LockEntitlementForUpdateParams{OrganizationID: organizationID, Slug: slug}); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, kaitenerrors.NotFound("UpdateEntitlement.NotFound", fmt.Sprintf("Entitlement with slug %q not found", slug))
+		}
+		return nil, err
+	}
+
+	return queries.ListCombinedOfSource(ctx, db.ListCombinedOfSourceParams{OrganizationID: organizationID, SourceSlug: slug})
 }
