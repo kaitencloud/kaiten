@@ -51,8 +51,8 @@ test.describe('a combined entitlement on an instance', () => {
     await page.getByRole('button', { name: 'Sources of Credits' }).click();
     const sources = page.getByTestId('combined-sources');
     await expect(sources.getByRole('listitem')).toHaveText([
-      'Firecrawl Credits: 300 of 1,000 × 0.4 = 120 of 400',
       'AI Credits: 100 of 1,000 × 0.6 = 60 of 600',
+      'Firecrawl Credits: 300 of 1,000 × 0.4 = 120 of 400',
     ]);
     await expect(page.getByRole('dialog')).toContainText(
       'Nothing is enforced on the sum',
@@ -95,6 +95,6 @@ test.describe('a combined entitlement on an instance', () => {
     // The figures are grouped and separated as a French reader writes them.
     await expect(
       page.getByTestId('combined-sources').getByRole('listitem').first(),
-    ).toHaveText(/^Firecrawl Credits : 300 sur 1\s000 × 0,4 = 120 sur 400$/);
+    ).toHaveText(/^AI Credits : 100 sur 1\s000 × 0,6 = 60 sur 600$/);
   });
 });

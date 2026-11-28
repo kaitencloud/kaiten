@@ -2,6 +2,11 @@ import { describe, expect, it } from 'vite-plus/test';
 import type { Entitlement } from '@/api-client';
 import { createMockHandlers, undeclaredApiRequest } from '@/e2e/msw/handlers';
 import type { E2EMswConfig } from '../../e2e/app/_support/contracts/msw-slots';
+import {
+  createCombinedEntitlementModel,
+  createMonthlyCombinedEntitlementModel,
+} from '../../e2e/app/entitlements/entitlements.scenarios';
+import { createCombinedUsageInstancesModel } from '../../e2e/app/instances/instances.scenarios';
 import { EntitlementAppModel } from '../../e2e/app/_support/model/entitlement-app-model';
 import { server } from './msw-server';
 
@@ -510,5 +515,65 @@ describe('a combined entitlement, as the mocks keep it', () => {
 
     expect((await send('DELETE', '/entitlements/credits')).status).toBe(204);
     expect((await send('DELETE', '/entitlements/firecrawl-credits')).status).toBe(204);
+  });
+});
+
+describe('a combined entitlement on an instance, as the mocks compute it', () => {
+  const usageOf = async (catalogue = createCombinedEntitlementModel) => {
+    const instances = createCombinedUsageInstancesModel();
+    const entitlements = catalogue();
+    server.use(
+      ...createMockHandlers(
+        {
+          entitlements: entitlements.serializeForMsw(),
+          instances: instances.serializeForMsw(),
+        },
+        'off',
+        undefined,
+        true,
+      ),
+      undeclaredApiRequest,
+    );
+    const rows = (await (
+      await send('GET', '/instances/nagare-prod/entitlements/usage')
+    ).json()) as Array<Record<string, any>>;
+
+    return (slug: string) =>
+      rows.find((row) => row.entitlementSlug === slug) as Record<string, any>;
+  };
+
+  it('appends the weighted sum of what the instance is granted, after the stored rows', async () => {
+    const row = await usageOf();
+    const credits = row('credits');
+
+    expect(credits).toMatchObject({
+      entitlementId: 'entitlement-credits',
+      limit: { type: 'number', value: 1000 },
+      limitCapExceededOveragePercent: 0,
+      source: 'license',
+      sources: [
+        { entitlementSlug: 'ai-credits', limit: 1000, usage: 100, weight: '0.6' },
+        { entitlementSlug: 'firecrawl-credits', limit: 1000, usage: 300, weight: '0.4' },
+      ],
+      value: { type: 'number', value: 180 },
+    });
+    expect(credits.provenance).toBeUndefined();
+    expect(credits.reserved).toBeUndefined();
+  });
+
+  it('is unlimited as soon as one source is, and sums the usage all the same', async () => {
+    const capacity = (await usageOf())('capacity');
+
+    expect(capacity.limit.value).toBe(-1);
+    expect(capacity.limitCapExceededOveragePercent).toBe(-1);
+    expect(capacity.value.value).toBe(12);
+  });
+
+  it('gives no row to a combined entitlement none of whose sources is granted', async () => {
+    // Throughput sums two monthly counters that Nagare Production is not granted.
+    const row = await usageOf(createMonthlyCombinedEntitlementModel);
+
+    expect(row('throughput')).toBeUndefined();
+    expect(row('seats')).toBeDefined();
   });
 });

@@ -135,6 +135,11 @@ export function createMockHandlers(
       }
     });
   }
+  // The combined entitlements an instance reads are computed from the catalogue of the
+  // entitlements, as the API does when it serves the usage.
+  if (instances && entitlements) {
+    instances.setEntitlementCatalogue(() => entitlements.listEntitlements());
+  }
   // The preview of a license invoice names add-ons, instances and vouchers, which are
   // billing's and the instances': it reads them from the slots this page serves.
   if (licenses && (billing || instances)) {

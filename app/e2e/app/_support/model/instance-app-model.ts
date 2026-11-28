@@ -7,6 +7,7 @@ import type {
   InstanceWritable,
   Customer,
   DeploymentZone,
+  Entitlement,
   EntitlementUsage,
   Instance,
   License,
@@ -43,6 +44,7 @@ import {
   type InstanceUsageHistorySeed,
   type SerializedInstanceUsageHistory,
 } from './instance-usage-history';
+import { withCombinedUsage } from './instance-combined-usage';
 import { listLicenseFamilyViews } from './license-families';
 
 type CustomerListEntry =
@@ -121,6 +123,7 @@ export class InstanceAppModel {
   usageHistory: InstanceUsageHistory;
   entitlementExceptions: InstanceEntitlementExceptions;
   private readonly errors = new ErrorInjector<InstanceErrorOp>();
+  private entitlementCatalogue?: () => Entitlement[];
 
   /**
    * Arm the next call to `op` to fail with the given HTTP status. One-shot.
@@ -310,12 +313,19 @@ export class InstanceAppModel {
     const license = this.licenses.find(
       (item) => item.id === instance.licenseId,
     );
-    return this.entitlementExceptions.apply(
+    const usages = this.entitlementExceptions.apply(
       instanceSlug,
       this.entitlementUsagesByInstance[instanceSlug] ?? [],
       Date.now(),
       { licenseId: instance.licenseId, licenseSlug: license?.slug ?? '' },
     );
+    // The combined entitlements are the entitlements slot's: nothing is stored on them.
+    return withCombinedUsage(usages, this.entitlementCatalogue?.() ?? []);
+  }
+
+  /** Where the combined entitlements of the instances are read, once the page serves them. */
+  setEntitlementCatalogue(catalogue: () => Entitlement[]) {
+    this.entitlementCatalogue = catalogue;
   }
 
   /**

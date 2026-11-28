@@ -785,7 +785,7 @@ export function createProvenanceInstancesModel() {
 
 /**
  * An instance whose license grants the counters behind two combined entitlements, which the
- * API appends to its usage as it reads: `credits`, the sum of the Firecrawl credits at 0.4
+ * API appends to its usage as it reads, and the mocks compute from the entitlements slot: `credits`, the sum of the Firecrawl credits at 0.4
  * and the AI credits at 0.6 (the example of the ADR: 300 of 1,000 and 100 of 1,000 count for
  * 120 of 400 and 60 of 600, which is 180 of 1,000), and `capacity`, the seats at 2 and the
  * storage at 1, unlimited as soon as the storage is. A combined row has no license grant, no
@@ -872,40 +872,6 @@ export function createCombinedUsageInstancesModel() {
         fromGrant('entitlement-ai-credits', 'ai-credits', ai, 100),
         fromGrant('entitlement-seats', 'seats', seats, 4),
         fromGrant('entitlement-storage-gb', 'storage-gb', storage, 4),
-        // The combined rows: computed by the API, with the detail per source and nothing else.
-        counter('entitlement-credits', 'credits', {
-          limit: { type: 'number', value: 1_000 },
-          limitCapExceededOveragePercent: 0,
-          sources: [
-            {
-              entitlementSlug: 'firecrawl-credits',
-              limit: 1_000,
-              usage: 300,
-              weight: '0.4',
-            },
-            {
-              entitlementSlug: 'ai-credits',
-              limit: 1_000,
-              usage: 100,
-              weight: '0.6',
-            },
-          ],
-          value: { type: 'number', value: 180 },
-        }),
-        counter('entitlement-capacity', 'capacity', {
-          limit: { type: 'number', value: -1 },
-          limitCapExceededOveragePercent: -1,
-          sources: [
-            { entitlementSlug: 'seats', limit: 10, usage: 4, weight: '2' },
-            {
-              entitlementSlug: 'storage-gb',
-              limit: -1,
-              usage: 4,
-              weight: '1',
-            },
-          ],
-          value: { type: 'number', value: 12 },
-        }),
       ],
     },
     instances: [
