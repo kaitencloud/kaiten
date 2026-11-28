@@ -176,6 +176,14 @@ type EntitlementUsage struct {
 	LimitCapExceededOveragePercent *int16      `json:"limitCapExceededOveragePercent,omitempty" doc:"How far above limit usage is still accepted, in percent: -1 unlimited, 0 a hard limit. Absent for BOOLEAN and CONFIG."`
 	Source                         string      `json:"source" enum:"license,addon,exception" doc:"license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"`
 	Provenance                     *Provenance `json:"provenance,omitempty" doc:"What the licence, the add-ons and the boosts each contribute"`
+	// ResourceKey names the resource Value counts when the usage is read or
+	// reported for one: only on the answers of the resource routes, and on the
+	// events a resource's report raises. The entitlement's own usage (the one row
+	// per entitlement of every other read) carries Resources instead.
+	ResourceKey *string `json:"resourceKey,omitempty" doc:"The resource this usage counts: set on a resource's own usage and on the events of its reports, absent on the usage of an entitlement."`
+	// Resources summarises the counters behind a RESOURCE entitlement's usage:
+	// Value is the highest of them, Limit the limit of each.
+	Resources *UsageResources `json:"resources,omitempty" doc:"Only on a RESOURCE entitlement: value is its highest counter and limit the limit of each resource; this says how many resources hold a counter and how many have reached the limit. The detail per resource is listEntitlementResources."`
 }
 
 type AuditTrail struct {

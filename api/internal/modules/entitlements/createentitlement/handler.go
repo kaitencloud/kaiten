@@ -75,6 +75,18 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 		return nil, kaitenerrors.UnprocessableEntity("CreateEntitlement.AiCreditPoolRequiresSum", err.Error())
 	}
 
+	// Absent is INSTANCE, which is also what the column holds for a type that
+	// has no scope: the API never says so for BOOLEAN and CONFIG.
+	resolvedLimitScope := schema.LimitScopeInstance
+	if err := schema.ValidateLimitScope(request.Type, request.LimitScope); errors.Is(err, schema.ErrAICreditPoolLimitScope) {
+		return nil, kaitenerrors.UnprocessableEntity("CreateEntitlement.AiCreditPoolRequiresInstanceScope", err.Error())
+	} else if err != nil {
+		return nil, kaitenerrors.Validation("CreateEntitlement.InvalidLimitScope", err.Error())
+	}
+	if request.LimitScope != nil {
+		resolvedLimitScope = *request.LimitScope
+	}
+
 	if err := schema.ValidateTypeConfiguration(request.Type, resolvedAggregationMethod); err != nil {
 		return nil, kaitenerrors.Validation("CreateEntitlement.InvalidTypeConfiguration", err.Error())
 	}
@@ -143,6 +155,7 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 		Description:             request.Description,
 		Type:                    request.Type,
 		AggregationMethod:       resolvedAggregationMethod,
+		LimitScope:              resolvedLimitScope,
 		Icon:                    request.Icon,
 		UnitSingular:            request.UnitSingular,
 		UnitPlural:              request.UnitPlural,

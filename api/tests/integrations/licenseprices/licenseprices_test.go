@@ -266,6 +266,47 @@ func TestCreateMeteredLicensePrice(t *testing.T) {
 	})
 }
 
+// An invoice has no line per resource, so no price meters an entitlement that
+// counts per resource: neither a price created on one, nor an existing price
+// re-pointed at one.
+func TestMeteredLicensePrice_PerResourceEntitlement(t *testing.T) {
+	t.Run("WhenTheEntitlementIsPerResource_MeteredPriceAnswers422UnsupportedLimitScope", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		slug := newVersion(t, "Pro", schema.Draft)
+		path := "/api/licenses/" + slug + "/prices"
+		newResourceEntitlement(t, "sources")
+		// Soft, so that an OVERAGE price could be billed were the scope no obstacle.
+		grant(t, slug, "sources", 4, 50)
+
+		for _, model := range []string{"USAGE_BASED", "OVERAGE"} {
+			require.Equal(t, "CreateLicensePrice.UnsupportedLimitScope",
+				problemCode(t, fiber.StatusUnprocessableEntity, "POST", path, metered(model, "sources", "1")), model)
+		}
+
+		// What the refusal is about is the meter, not the entitlement: a flat fee
+		// beside it is an ordinary price.
+		createPrice(t, slug, flatFee("2900", "MONTHLY"))
+		require.Len(t, listPrices(t, slug, ""), 1, "the refused prices were not written")
+	})
+
+	t.Run("WhenAPriceIsRepointedAtAPerResourceEntitlement_Answers422AndKeepsItsMeter", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		slug := newVersion(t, "Pro", schema.Draft)
+		newEntitlement(t, "tokens", "MONTH", 0)
+		grant(t, slug, "tokens", 1000, 50)
+		newResourceEntitlement(t, "sources")
+		grant(t, slug, "sources", 4, 50)
+		price := createPrice(t, slug, metered("USAGE_BASED", "tokens", "1"))
+
+		require.Equal(t, "UpdateLicensePrice.UnsupportedLimitScope", problemCode(t, fiber.StatusUnprocessableEntity,
+			"PATCH", "/api/licenses/"+slug+"/prices/"+price.ID.String(), map[string]any{"meteredEntitlementSlug": "sources"}))
+
+		read := commonfixture.AssertJSONResponse[prices.Price](t,
+			call(t, "GET", "/api/licenses/"+slug+"/prices/"+price.ID.String(), nil), fiber.StatusOK)
+		require.Equal(t, "tokens", read.Metered.EntitlementSlug)
+	})
+}
+
 func TestListLicensePrices(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
 	slug := newVersion(t, "Pro", schema.Draft)

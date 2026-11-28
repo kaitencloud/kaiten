@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/database/pgtime"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
@@ -21,6 +22,12 @@ import (
 // the pair's lock: the instant it is dated by, the effective limit at that
 // instant and the current (possibly absent) usage value. It is the single
 // result type returned by QueryRepository.GetEntitlementUsageContext.
+//
+// ResourceKey is the resource the report counts for -- nil on the entitlement's
+// own route -- and LimitScope what the entitlement's limit applies to: the report
+// path refuses the pair of them that disagree before it reads anything else.
+// UsageValue and PeriodStart are the counter the report folds into, which is the
+// resource's when ResourceKey is set and the pair's otherwise.
 type UsageContext struct {
 	InstanceID              uuid.UUID
 	LicenseID               uuid.UUID
@@ -28,6 +35,8 @@ type UsageContext struct {
 	EntitlementID           uuid.UUID
 	EntitlementSlug         string
 	EntitlementType         db.EntitlementType
+	LimitScope              db.EntitlementLimitScope
+	ResourceKey             *string
 	AggregationMethod       *db.AggregationMethod
 	WarningThresholdPercent int32
 	ResetPeriod             *period.ResetPeriod
@@ -96,7 +105,11 @@ func contextNotFound(instanceSlug, entitlementSlug string) error {
 //     first report before an entitlement_usage row exists.
 //  3. StampReportInstant — reads the clock the report is dated by, now that the lock is
 //     held, and makes it the instant the effective entitlement is evaluated at.
-func (r *QueryRepository) LockPair(ctx context.Context, instanceSlug, entitlementSlug string, organizationID uuid.UUID) (*UsageContext, error) {
+//
+// The lock is the pair's whatever the resource: reports for two resources of one
+// instance and entitlement run one after the other, as two reports on one
+// entitlement do.
+func (r *QueryRepository) LockPair(ctx context.Context, instanceSlug, entitlementSlug string, resourceKey *string, organizationID uuid.UUID) (*UsageContext, error) {
 	queries := r.q(ctx)
 
 	ctx1, err := queries.GetEntitlementContextBySlug(ctx, db.GetEntitlementContextBySlugParams{
@@ -146,6 +159,8 @@ func (r *QueryRepository) LockPair(ctx context.Context, instanceSlug, entitlemen
 		EntitlementID:                  ctx1.EntitlementID,
 		EntitlementSlug:                ctx1.EntitlementSlug,
 		EntitlementType:                ctx1.EntitlementType,
+		LimitScope:                     ctx1.LimitScope,
+		ResourceKey:                    resourceKey,
 		AggregationMethod:              ctx1.AggregationMethod,
 		WarningThresholdPercent:        int32(ctx1.WarningThresholdPercent),
 		ResetPeriod:                    resetPeriod,
@@ -168,7 +183,8 @@ func (r *QueryRepository) LockPair(ctx context.Context, instanceSlug, entitlemen
 // granted at that instant, answers 404 .ContextNotFound -- then the counter
 // row, locked, when there is one. The limit is read under the lock rather
 // than with the slugs, so the report is gated on its entitlement as of the
-// instant it is dated by.
+// instant it is dated by. The counter is the resource's when the report names
+// one, the pair's otherwise.
 func (r *QueryRepository) LoadLimits(ctx context.Context, result *UsageContext, instanceSlug, entitlementSlug string, organizationID uuid.UUID) error {
 	queries := r.q(ctx)
 	done := effectivelookup.Time(ctx, effectivelookup.ReaderGate)
@@ -205,23 +221,50 @@ func (r *QueryRepository) LoadLimits(ctx context.Context, result *UsageContext, 
 		result.LimitCapExceededOveragePercent = int32(result.OveragePercent)
 	}
 
-	// Lock the usage row if it exists. ErrNoRows means first report — leave UsageValue nil.
-	usage, err := queries.GetEntitlementUsageContext(ctx, db.GetEntitlementUsageContextParams{
-		InstanceID:     result.InstanceID,
-		EntitlementID:  result.EntitlementID,
-		OrganizationID: organizationID,
-	})
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return err
+	// Lock the counter row if it exists. ErrNoRows means its first report — leave UsageValue nil.
+	var (
+		value       []byte
+		periodStart pgtype.Timestamp
+	)
+	if result.ResourceKey != nil {
+		resource, err := queries.GetEntitlementResourceUsageContext(ctx, db.GetEntitlementResourceUsageContextParams{
+			InstanceID:     result.InstanceID,
+			EntitlementID:  result.EntitlementID,
+			ResourceKey:    *result.ResourceKey,
+			OrganizationID: organizationID,
+		})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		value, periodStart = resource.Value, resource.PeriodStart
+	} else {
+		usage, err := queries.GetEntitlementUsageContext(ctx, db.GetEntitlementUsageContextParams{
+			InstanceID:     result.InstanceID,
+			EntitlementID:  result.EntitlementID,
+			OrganizationID: organizationID,
+		})
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		value, periodStart = usage.Value, usage.PeriodStart
 	}
-	if err == nil {
-		result.UsageValue = usage.Value
-		if usage.PeriodStart.Valid {
-			periodStart := usage.PeriodStart.Time.UTC()
-			result.PeriodStart = &periodStart
+	if value != nil {
+		result.UsageValue = value
+		if periodStart.Valid {
+			start := periodStart.Time.UTC()
+			result.PeriodStart = &start
 		}
 	}
 	return nil
+}
+
+// CountResources is how many counters the pair holds, read under its lock: what
+// the ceiling of resources counts.
+func (r *QueryRepository) CountResources(ctx context.Context, instanceID, entitlementID uuid.UUID) (int64, error) {
+	return r.q(ctx).CountEntitlementResources(ctx, db.CountEntitlementResourcesParams{
+		InstanceID:    instanceID,
+		EntitlementID: entitlementID,
+	})
 }
 
 func (r *QueryRepository) EntitlementType(ctx context.Context, organizationID uuid.UUID, slug string) (string, error) {

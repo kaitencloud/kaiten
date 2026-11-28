@@ -42,6 +42,10 @@ type Deps struct {
 	// (KAITEN_USAGE_IDEMPOTENCY_WINDOW). Zero or less means
 	// DefaultIdempotencyWindow.
 	IdempotencyWindow time.Duration
+	// MaxResources is the most resources one instance may hold a counter for, per
+	// entitlement that counts per resource (KAITEN_USAGE_MAX_RESOURCES). Zero or
+	// less means DefaultMaxResources.
+	MaxResources int
 }
 
 // DefaultIdempotencyWindow is 35 days: reports are dated on receipt, so a
@@ -49,6 +53,11 @@ type Deps struct {
 // re-sent after an incident) must be recognized across a whole monthly period
 // plus margin.
 const DefaultIdempotencyWindow = 35 * 24 * time.Hour
+
+// DefaultMaxResources is how many resources one instance may hold a counter for
+// under one entitlement: each report reads them under the pair's lock, so the
+// ceiling is also what bounds a report's cost.
+const DefaultMaxResources = 10_000
 
 // idempotencyLookahead bounds the key lookup above the report's instant: a
 // key accepted "in the future" only exists if the clock stepped back, and the
@@ -82,7 +91,9 @@ type UseCase struct {
 	outbox              *outbox.ScopedRepository
 	maxRolloverClosures int
 	idempotencyWindow   time.Duration
+	maxResources        int
 	rolloverCapExceeded metric.Int64Counter
+	ceilingReached      metric.Int64Counter
 	ledgerUnavailable   metric.Int64Counter
 	idempotentReplays   metric.Int64Counter
 	idempotencyConflict metric.Int64Counter
@@ -109,6 +120,10 @@ func NewUseCase(deps Deps) *UseCase {
 	if idempotencyWindow <= 0 {
 		idempotencyWindow = DefaultIdempotencyWindow
 	}
+	maxResources := deps.MaxResources
+	if maxResources <= 0 {
+		maxResources = DefaultMaxResources
+	}
 
 	meter := otel.GetMeterProvider().Meter(usageReportMeter)
 	rolloverCapExceeded, err := meter.Int64Counter(
@@ -118,6 +133,14 @@ func NewUseCase(deps Deps) *UseCase {
 	)
 	if err != nil {
 		slog.Warn("failed to register usage report metric", "metric", "rollover_cap_exceeded", "error", err)
+	}
+	ceilingReached, err := meter.Int64Counter(
+		"kaiten.usage.report.resource_ceiling_reached",
+		metric.WithDescription("Usage reports refused because they would open a resource past the ceiling of resources an entitlement may count on an instance"),
+		metric.WithUnit("{report}"),
+	)
+	if err != nil {
+		slog.Warn("failed to register usage report metric", "metric", "resource_ceiling_reached", "error", err)
 	}
 	idempotentReplays, err := meter.Int64Counter(
 		"kaiten.usage.report.idempotent_replays",
@@ -174,7 +197,9 @@ func NewUseCase(deps Deps) *UseCase {
 		outbox:              outbox.NewScopedRepository(deps.Uof),
 		maxRolloverClosures: maxRolloverClosures,
 		idempotencyWindow:   idempotencyWindow,
+		maxResources:        maxResources,
 		rolloverCapExceeded: rolloverCapExceeded,
+		ceilingReached:      ceilingReached,
 		ledgerUnavailable:   ledgerUnavailable,
 		idempotentReplays:   idempotentReplays,
 		idempotencyConflict: idempotencyConflict,

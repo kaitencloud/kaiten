@@ -59,6 +59,7 @@ func (e *Effect) rollover(st *State) {
 			EntitlementID:     st.Pair.EntitlementID,
 			EntitlementSlug:   st.Pair.EntitlementSlug,
 			InstanceID:        st.Pair.InstanceID,
+			ResourceKey:       st.Pair.ResourceKey,
 			Value:             c.Value,
 			EventCount:        c.EventCount,
 			ClosedPeriodStart: c.ClosedPeriodStart,
@@ -86,6 +87,7 @@ func (e *Effect) crossings(st *State, warningPercent int32, before, after float6
 				Threshold:       c.Boundary,
 				Value:           after,
 				Overage:         after - c.Boundary,
+				ResourceKey:     st.Pair.ResourceKey,
 			})
 		case usage.Warning:
 			e.emit(instanceevents.InstanceEntitlementUsageWarningThresholdReached, InstanceEntitlementUsageWarningThresholdReached{
@@ -93,6 +95,7 @@ func (e *Effect) crossings(st *State, warningPercent int32, before, after float6
 				Threshold:       st.Limit.Threshold,
 				Boundary:        c.Boundary,
 				Value:           after,
+				ResourceKey:     st.Pair.ResourceKey,
 			})
 		}
 	}

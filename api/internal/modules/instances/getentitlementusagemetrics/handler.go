@@ -45,6 +45,7 @@ type InstanceEntitlementValueGet struct {
 	Value           schema.EntitlementValue `json:"value" doc:"Resolved entitlement value at read time"`
 	Timestamp       time.Time               `json:"timestamp" doc:"When the value was read"`
 	EntitlementSlug string                  `json:"entitlement_slug" doc:"URL-friendly identifier of the entitlement"`
+	ResourceKey     *string                 `json:"resourceKey,omitempty" doc:"The resource whose usage was read. Absent when the entitlement's own usage was read."`
 }
 
 func NewUseCase(deps Deps) *UseCase {

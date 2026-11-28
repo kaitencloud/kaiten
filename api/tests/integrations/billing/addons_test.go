@@ -326,6 +326,23 @@ func TestAddonBilling(t *testing.T) {
 		require.EqualValues(t, 5600, renewal.Total)
 	})
 
+	// An invoice has no line per resource: an entitlement that counts per
+	// resource is metered by no add-on's price either.
+	t.Run("AMeteredAddonPrice_RefusesAPerResourceEntitlement", func(t *testing.T) {
+		t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+		commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/entitlements", map[string]any{
+			"name": "sources", "slug": "sources", "description": "sources", "type": "NUMBER", "aggregationMethod": "SUM",
+			"resetPeriod": "MONTH", "limitScope": "RESOURCE",
+		}), fiber.StatusCreated)
+		addon := newAddon(t, map[string]any{"name": "Source pack", "slug": "source-pack"})
+		addonGrant(t, addon.Slug, "sources", 4, "ADD")
+
+		for _, model := range []string{"USAGE_BASED", "OVERAGE"} {
+			require.Equal(t, "CreateAddonPrice.UnsupportedLimitScope", problemCode(t, fiber.StatusUnprocessableEntity, "POST",
+				"/api/addons/"+addon.Slug+"/prices", metered(model, "sources", "50")), model)
+		}
+	})
+
 	// §10.4, §8.2 rule 4 (PR20-03): an add-on's metered price bills the
 	// usage of its attachment's window, under the add-on's ids.
 	t.Run("AMeteredAddon_BillsTheUsageOfItsWindow", func(t *testing.T) {

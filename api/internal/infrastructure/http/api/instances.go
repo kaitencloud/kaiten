@@ -7,16 +7,19 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/aihistory"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteentitlementresource"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportorganizationusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementresourceusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstances"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listentitlementresources"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listorganizationaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
@@ -26,16 +29,17 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/updateintegrations"
 )
 
-// registerInstances publishes the instances module's twenty-one operations and the
-// fourteen webhook declarations they carry -- the largest webhook surface in the
+// registerInstances publishes the instances module's twenty-five operations and the
+// fifteen webhook declarations they carry -- the largest webhook surface in the
 // tree, because an instance's entitlement usage is what customers integrate
-// against.
+// against. Four of the operations are the resources of an entitlement that counts
+// per resource: the report, the read and the deletion of one, and the list.
 //
 // getentitlementusagemetrics declares one despite being a read: the event is a
 // read-audit signal, which is a state change from the subscriber's point of view
 // even though it is not one here.
 //
-// Every one of the twenty-one is handed the same value -- the facade's instances
+// Every one of the twenty-five is handed the same value -- the facade's instances
 // surface -- and each takes it as its own one-method interface, so what an operation
 // can reach is what it named.
 func registerInstances(core huma.API, app kaiten.Instances) {
@@ -56,11 +60,16 @@ func registerInstances(core huma.API, app kaiten.Instances) {
 	updateinstance.RegisterEndpoint(core, app)
 	updateinstance.RegisterWebhook(core)
 	reportentitlementusagemetric.RegisterEndpoint(core, app)
+	reportentitlementusagemetric.RegisterResourceEndpoint(core, app)
 	refundaiinference.RegisterEndpoint(core, app)
 	reportentitlementusagemetric.RegisterWebhook(core)
 	getentitlementusagemetrics.RegisterEndpoint(core, app)
 	getentitlementusagemetrics.RegisterWebhook(core)
 	getentitlementsusagemetrics.RegisterEndpoint(core, app)
+	getentitlementresourceusage.RegisterEndpoint(core, app)
+	listentitlementresources.RegisterEndpoint(core, app)
+	deleteentitlementresource.RegisterEndpoint(core, app)
+	deleteentitlementresource.RegisterWebhook(core)
 	getaudittrails.RegisterEndpoint(core, app)
 	listusagereports.RegisterEndpoint(core, app)
 	exportusagereports.RegisterEndpoint(core, app)

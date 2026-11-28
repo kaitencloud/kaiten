@@ -9,6 +9,16 @@ enum EntitlementType {
 }
 
 """
+What an entitlement's limit applies to: the instance as a whole (one counter per
+instance), or each resource the instance holds a counter for (one counter per
+resource, every one measured against the same limit).
+"""
+enum EntitlementLimitScope {
+  INSTANCE
+  RESOURCE
+}
+
+"""
 Cadence at which usage automatically resets for a NUMBER entitlement.
 """
 enum EntitlementResetPeriod {
@@ -50,6 +60,13 @@ type Entitlement {
   slug: String!
   description: String
   type: EntitlementType
+
+  """
+  What the limit applies to (NUMBER family only; null for BOOLEAN and CONFIG).
+  A RESOURCE entitlement counts per resource, and its usage reads as its
+  highest counter. Immutable.
+  """
+  limitScope: EntitlementLimitScope
 
   """
   Optional icon, stored as a provider-namespaced token (provider:name).

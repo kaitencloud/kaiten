@@ -48,6 +48,63 @@ func (q *Queries) AcceptEntitlementUsage(ctx context.Context, arg AcceptEntitlem
 	return report_seq, err
 }
 
+const countEntitlementResources = `-- name: CountEntitlementResources :one
+SELECT count(*)::bigint AS count
+FROM entitlement_resource_usage ru
+WHERE ru.instance_id = $1
+  AND ru.entitlement_id = $2
+`
+
+type CountEntitlementResourcesParams struct {
+	InstanceID    uuid.UUID `json:"instance_id"`
+	EntitlementID uuid.UUID `json:"entitlement_id"`
+}
+
+// How many counters the pair holds, stale windows included: what the ceiling of
+// resources counts. Read under the pair's advisory lock, so a report cannot
+// slip a resource in between this count and its own insert.
+func (q *Queries) CountEntitlementResources(ctx context.Context, arg CountEntitlementResourcesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countEntitlementResources, arg.InstanceID, arg.EntitlementID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteEntitlementResourceUsage = `-- name: DeleteEntitlementResourceUsage :one
+DELETE FROM entitlement_resource_usage ru
+WHERE ru.entitlement_id = $1
+  AND ru.instance_id = $2
+  AND ru.resource_key = $3
+  AND ru.organization_id = $4
+RETURNING ru.value, ru.period_start
+`
+
+type DeleteEntitlementResourceUsageParams struct {
+	EntitlementID  uuid.UUID `json:"entitlement_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+	ResourceKey    string    `json:"resource_key"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+type DeleteEntitlementResourceUsageRow struct {
+	Value       []byte           `json:"value"`
+	PeriodStart pgtype.Timestamp `json:"period_start"`
+}
+
+// Forgets one resource's counter and says what it held. No row: the resource
+// had no counter, and the caller has nothing to announce.
+func (q *Queries) DeleteEntitlementResourceUsage(ctx context.Context, arg DeleteEntitlementResourceUsageParams) (DeleteEntitlementResourceUsageRow, error) {
+	row := q.db.QueryRow(ctx, deleteEntitlementResourceUsage,
+		arg.EntitlementID,
+		arg.InstanceID,
+		arg.ResourceKey,
+		arg.OrganizationID,
+	)
+	var i DeleteEntitlementResourceUsageRow
+	err := row.Scan(&i.Value, &i.PeriodStart)
+	return i, err
+}
+
 const getDatabaseNow = `-- name: GetDatabaseNow :one
 SELECT date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now
 `
@@ -154,7 +211,8 @@ SELECT
   e.warning_threshold_percent,
   e.reset_period,
   e.reset_anchor,
-  l.slug              AS license_slug
+  l.slug              AS license_slug,
+  e.limit_scope
 FROM instance i
 JOIN entitlement e
   ON e.slug            = $1
@@ -183,6 +241,7 @@ type GetEntitlementContextBySlugRow struct {
 	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
 	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
 	LicenseSlug             *string                 `json:"license_slug"`
+	LimitScope              EntitlementLimitScope   `json:"limit_scope"`
 }
 
 // Resolves instance/entitlement slugs, in a single round-trip, without
@@ -207,7 +266,47 @@ func (q *Queries) GetEntitlementContextBySlug(ctx context.Context, arg GetEntitl
 		&i.ResetPeriod,
 		&i.ResetAnchor,
 		&i.LicenseSlug,
+		&i.LimitScope,
 	)
+	return i, err
+}
+
+const getEntitlementResourceUsageContext = `-- name: GetEntitlementResourceUsageContext :one
+SELECT
+  ru.value,
+  ru.period_start
+FROM entitlement_resource_usage ru
+WHERE ru.instance_id = $1
+  AND ru.entitlement_id = $2
+  AND ru.resource_key = $3
+  AND ru.organization_id = $4
+  FOR UPDATE OF ru
+`
+
+type GetEntitlementResourceUsageContextParams struct {
+	InstanceID     uuid.UUID `json:"instance_id"`
+	EntitlementID  uuid.UUID `json:"entitlement_id"`
+	ResourceKey    string    `json:"resource_key"`
+	OrganizationID uuid.UUID `json:"organization_id"`
+}
+
+type GetEntitlementResourceUsageContextRow struct {
+	Value       []byte           `json:"value"`
+	PeriodStart pgtype.Timestamp `json:"period_start"`
+}
+
+// One resource's counter, row-locked, read under the pair's advisory lock as
+// GetEntitlementUsageContext reads the pair's. No row means the resource's first
+// report.
+func (q *Queries) GetEntitlementResourceUsageContext(ctx context.Context, arg GetEntitlementResourceUsageContextParams) (GetEntitlementResourceUsageContextRow, error) {
+	row := q.db.QueryRow(ctx, getEntitlementResourceUsageContext,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.ResourceKey,
+		arg.OrganizationID,
+	)
+	var i GetEntitlementResourceUsageContextRow
+	err := row.Scan(&i.Value, &i.PeriodStart)
 	return i, err
 }
 
@@ -302,29 +401,46 @@ SELECT
   iee.license_entitlement_id,
   iee.provenance,
   iee.source,
-  eu.value          AS usage_value,
-  eu.period_start,
+  (CASE WHEN $1::text IS NULL THEN eu.value ELSE ru.value END)::jsonb AS usage_value,
+  (CASE WHEN $1::text IS NULL THEN eu.period_start ELSE ru.period_start END)::timestamp(3) AS period_start,
   e.slug            AS entitlement_slug,
   l.slug            AS license_slug,
   date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
   coalesce(ib.status::text, '')::text AS billing_status,
   ib.anchor_at      AS billing_anchor_at,
   ib.live_ended_at,
- (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
+ (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved,
+  e.limit_scope,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rc
+      WHERE rc.instance_id = i.id AND rc.entitlement_id = e.id)
+  ELSE 0 END::bigint AS resource_count,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rl
+      WHERE rl.instance_id = i.id AND rl.entitlement_id = e.id
+        AND rl.period_start IS NOT DISTINCT FROM eu.period_start
+        AND (iee.value->>'value')::numeric >= 0
+        AND (rl.value->>'value')::numeric >= (iee.value->>'value')::numeric)
+  ELSE 0 END::bigint AS resources_at_limit
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
-  ON i.slug            = $1
- AND i.organization_id = $2
+  ON i.slug            = $2
+ AND i.organization_id = $3
 LEFT JOIN entitlement e
-  ON e.slug            = $3
- AND e.organization_id = $2
+  ON e.slug            = $4
+ AND e.organization_id = $3
 LEFT JOIN instance_effective_entitlement iee
   ON iee.instance_id    = i.id
  AND iee.entitlement_id = e.id
 LEFT JOIN entitlement_usage eu
   ON eu.instance_id    = i.id
  AND eu.entitlement_id = e.id
- AND eu.organization_id = $2
+ AND eu.organization_id = $3
+LEFT JOIN entitlement_resource_usage ru
+  ON ru.instance_id    = i.id
+ AND ru.entitlement_id = e.id
+ AND ru.organization_id = $3
+ AND ru.resource_key   = $1::text
 LEFT JOIN "license" l
   ON l.id = i.license_id
 LEFT JOIN instance_billing ib
@@ -333,6 +449,7 @@ LEFT JOIN instance_billing ib
 `
 
 type GetEntitlementUsageForInstanceOrDefaultParams struct {
+	ResourceKey     *string   `json:"resource_key"`
 	InstanceSlug    string    `json:"instance_slug"`
 	OrganizationID  uuid.UUID `json:"organization_id"`
 	EntitlementSlug string    `json:"entitlement_slug"`
@@ -361,6 +478,9 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
 	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
 	Reserved                pgtype.Numeric          `json:"reserved"`
+	LimitScope              *EntitlementLimitScope  `json:"limit_scope"`
+	ResourceCount           int64                   `json:"resource_count"`
+	ResourcesAtLimit        int64                   `json:"resources_at_limit"`
 }
 
 // Returns one row always. Nullable fields are nil when the entity is not found;
@@ -369,9 +489,18 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 // now is folded in here too, instead of a separate GetDatabaseNow
 // round trip -- it does not depend on any of the LEFT JOINs below, so it is
 // always populated even when the instance/entitlement/usage row is not found.
+// With a resource_key, usage_value and period_start are that resource's counter
+// (NULL when it holds none); without one they are the pair row's, which for a
+// RESOURCE entitlement is the summary of its highest counter. resource_count and
+// resources_at_limit are as in GetEntitlementsUsageForInstanceWithFallback.
 // The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, arg GetEntitlementUsageForInstanceOrDefaultParams) (GetEntitlementUsageForInstanceOrDefaultRow, error) {
-	row := q.db.QueryRow(ctx, getEntitlementUsageForInstanceOrDefault, arg.InstanceSlug, arg.OrganizationID, arg.EntitlementSlug)
+	row := q.db.QueryRow(ctx, getEntitlementUsageForInstanceOrDefault,
+		arg.ResourceKey,
+		arg.InstanceSlug,
+		arg.OrganizationID,
+		arg.EntitlementSlug,
+	)
 	var i GetEntitlementUsageForInstanceOrDefaultRow
 	err := row.Scan(
 		&i.InstanceID,
@@ -396,6 +525,9 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.BillingAnchorAt,
 		&i.LiveEndedAt,
 		&i.Reserved,
+		&i.LimitScope,
+		&i.ResourceCount,
+		&i.ResourcesAtLimit,
 	)
 	return i, err
 }
@@ -422,7 +554,19 @@ SELECT
   ib.anchor_at      AS billing_anchor_at,
   ib.live_ended_at,
  (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE (NOT $1::boolean OR e.type <> 'NUMBER_AI_CREDIT')
- AND a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
+ AND a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved,
+  e.limit_scope,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rc
+      WHERE rc.instance_id = i.id AND rc.entitlement_id = e.id)
+  ELSE 0 END::bigint AS resource_count,
+  CASE WHEN e.limit_scope = 'RESOURCE' THEN
+    (SELECT count(*) FROM entitlement_resource_usage rl
+      WHERE rl.instance_id = i.id AND rl.entitlement_id = e.id
+        AND rl.period_start IS NOT DISTINCT FROM eu.period_start
+        AND (iee.value->>'value')::numeric >= 0
+        AND (rl.value->>'value')::numeric >= (iee.value->>'value')::numeric)
+  ELSE 0 END::bigint AS resources_at_limit
 FROM instance i
 JOIN instance_effective_entitlement iee
   ON iee.instance_id = i.id
@@ -469,6 +613,9 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
 	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
 	Reserved                pgtype.Numeric          `json:"reserved"`
+	LimitScope              EntitlementLimitScope   `json:"limit_scope"`
+	ResourceCount           int64                   `json:"resource_count"`
+	ResourcesAtLimit        int64                   `json:"resources_at_limit"`
 }
 
 // One row per entitlement the instance is granted, read through
@@ -476,6 +623,12 @@ type GetEntitlementsUsageForInstanceWithFallbackRow struct {
 // entitlement value. now is the same database-time value on every returned
 // row: folded into this query instead of a separate GetDatabaseNow round
 // trip, since every row in one call already agrees on "now" by construction.
+// For a RESOURCE entitlement usage_value is the pair row's summary -- the
+// highest counter of its window -- and resource_count and resources_at_limit
+// describe the counters behind it; both are 0 for any other entitlement.
+// ponytail: those two read the pair's resources, up to usage.max_resources rows
+// (10000 by default), on every read of a RESOURCE entitlement. A count kept on
+// the pair row and moved by the report would make them O(1).
 // The subscription a BILLING_PERIOD window follows (§6.7 rule 5).
 func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Context, arg GetEntitlementsUsageForInstanceWithFallbackParams) ([]GetEntitlementsUsageForInstanceWithFallbackRow, error) {
 	rows, err := q.db.Query(ctx, getEntitlementsUsageForInstanceWithFallback, arg.HideAi, arg.OrganizationID, arg.InstanceID)
@@ -507,7 +660,64 @@ func (q *Queries) GetEntitlementsUsageForInstanceWithFallback(ctx context.Contex
 			&i.BillingAnchorAt,
 			&i.LiveEndedAt,
 			&i.Reserved,
+			&i.LimitScope,
+			&i.ResourceCount,
+			&i.ResourcesAtLimit,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listEntitlementResources = `-- name: ListEntitlementResources :many
+SELECT ru.resource_key, ru.value, ru.period_start
+FROM entitlement_resource_usage ru
+WHERE ru.organization_id = $1
+  AND ru.instance_id = $2
+  AND ru.entitlement_id = $3
+  AND ($4::text IS NULL OR ru.resource_key > $4::text)
+ORDER BY ru.resource_key
+LIMIT $5
+`
+
+type ListEntitlementResourcesParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	InstanceID     uuid.UUID `json:"instance_id"`
+	EntitlementID  uuid.UUID `json:"entitlement_id"`
+	AfterKey       *string   `json:"after_key"`
+	LimitPlusOne   int32     `json:"limit_plus_one"`
+}
+
+type ListEntitlementResourcesRow struct {
+	ResourceKey string           `json:"resource_key"`
+	Value       []byte           `json:"value"`
+	PeriodStart pgtype.Timestamp `json:"period_start"`
+}
+
+// One page of a pair's counters, in resource_key order (bytewise: the column is
+// COLLATE "C"), through the primary key. after_key is the last key of the
+// previous page; NULL on the first. Pass limit_plus_one = the page size + 1.
+func (q *Queries) ListEntitlementResources(ctx context.Context, arg ListEntitlementResourcesParams) ([]ListEntitlementResourcesRow, error) {
+	rows, err := q.db.Query(ctx, listEntitlementResources,
+		arg.OrganizationID,
+		arg.InstanceID,
+		arg.EntitlementID,
+		arg.AfterKey,
+		arg.LimitPlusOne,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListEntitlementResourcesRow
+	for rows.Next() {
+		var i ListEntitlementResourcesRow
+		if err := rows.Scan(&i.ResourceKey, &i.Value, &i.PeriodStart); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -534,6 +744,33 @@ type LockEntitlementUsageParams struct {
 // entitlement_usage row exists. A row-level FOR UPDATE lock cannot cover that case.
 func (q *Queries) LockEntitlementUsage(ctx context.Context, arg LockEntitlementUsageParams) error {
 	_, err := q.db.Exec(ctx, lockEntitlementUsage, arg.InstanceID, arg.EntitlementID)
+	return err
+}
+
+const refreshEntitlementResourceSummary = `-- name: RefreshEntitlementResourceSummary :exec
+UPDATE entitlement_usage eu
+SET value = coalesce((SELECT ru.value
+                        FROM entitlement_resource_usage ru
+                       WHERE ru.entitlement_id = eu.entitlement_id
+                         AND ru.instance_id = eu.instance_id
+                         AND ru.period_start IS NOT DISTINCT FROM eu.period_start
+                       ORDER BY (ru.value->>'value')::numeric DESC, ru.resource_key
+                       LIMIT 1),
+                     '{"type":"number","value":0,"event_count":0}'::jsonb)
+WHERE eu.entitlement_id = $1
+  AND eu.instance_id = $2
+`
+
+type RefreshEntitlementResourceSummaryParams struct {
+	EntitlementID uuid.UUID `json:"entitlement_id"`
+	InstanceID    uuid.UUID `json:"instance_id"`
+}
+
+// The pair's summary after a resource was deleted: the highest counter that is
+// left in the window the row already holds. The window and report_seq stay: a
+// delete is not a report.
+func (q *Queries) RefreshEntitlementResourceSummary(ctx context.Context, arg RefreshEntitlementResourceSummaryParams) error {
+	_, err := q.db.Exec(ctx, refreshEntitlementResourceSummary, arg.EntitlementID, arg.InstanceID)
 	return err
 }
 
@@ -568,6 +805,59 @@ func (q *Queries) ReportEntitlementUsage(ctx context.Context, arg ReportEntitlem
 	return err
 }
 
+const settleEntitlementResourceUsage = `-- name: SettleEntitlementResourceUsage :one
+INSERT INTO entitlement_usage (entitlement_id, instance_id, organization_id, value, period_start, report_seq)
+SELECT $1, $2, $3,
+       coalesce((SELECT ru.value
+                   FROM entitlement_resource_usage ru
+                  WHERE ru.entitlement_id = $1
+                    AND ru.instance_id = $2
+                    AND ru.period_start IS NOT DISTINCT FROM $4::timestamp
+                  ORDER BY (ru.value->>'value')::numeric DESC, ru.resource_key
+                  LIMIT 1),
+                '{"type":"number","value":0,"event_count":0}'::jsonb),
+       $4::timestamp,
+       $5::bigint
+ON CONFLICT (entitlement_id, instance_id)
+  DO UPDATE SET value        = EXCLUDED.value,
+                period_start = EXCLUDED.period_start,
+                report_seq   = entitlement_usage.report_seq + $5::bigint
+RETURNING report_seq
+`
+
+type SettleEntitlementResourceUsageParams struct {
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	PeriodStart    pgtype.Timestamp `json:"period_start"`
+	SeqStep        int64            `json:"seq_step"`
+}
+
+// The pair's row after a resource write, in the same transaction and under the
+// same lock: the highest counter among the resources that sit in the window the
+// write landed in (the counter's own row, so its exact float), and report_seq
+// moved by seq_step -- 1 for an accepted report, 0 for the rollover reset a
+// refused report still persists. A pair's first accepted report creates the row
+// at 1, as AcceptEntitlementUsage does. The pair's row is what every reader of
+// entitlement_usage reads, which is why a RESOURCE entitlement keeps one: it
+// reads as its highest counter.
+// ponytail: this sorts the pair's resources, up to usage.max_resources (10000 by
+// default), under the pair's lock on every report. Past that, keep the highest
+// counter incrementally, or index (entitlement_id, instance_id, period_start,
+// value) -- the lock stays the same.
+func (q *Queries) SettleEntitlementResourceUsage(ctx context.Context, arg SettleEntitlementResourceUsageParams) (int64, error) {
+	row := q.db.QueryRow(ctx, settleEntitlementResourceUsage,
+		arg.EntitlementID,
+		arg.InstanceID,
+		arg.OrganizationID,
+		arg.PeriodStart,
+		arg.SeqStep,
+	)
+	var report_seq int64
+	err := row.Scan(&report_seq)
+	return report_seq, err
+}
+
 const stampReportInstant = `-- name: StampReportInstant :one
 SELECT c.now,
        set_config('kaiten.entitlement_effective_at', to_char(c.now, 'YYYY-MM-DD HH24:MI:SS.MS'), true)::text AS effective_at
@@ -590,4 +880,36 @@ func (q *Queries) StampReportInstant(ctx context.Context) (StampReportInstantRow
 	var i StampReportInstantRow
 	err := row.Scan(&i.Now, &i.EffectiveAt)
 	return i, err
+}
+
+const upsertEntitlementResourceUsage = `-- name: UpsertEntitlementResourceUsage :exec
+INSERT INTO entitlement_resource_usage (entitlement_id, instance_id, resource_key, organization_id, value, period_start)
+VALUES ($1, $2, $3, $4,
+        $5, $6)
+ON CONFLICT (entitlement_id, instance_id, resource_key)
+  DO UPDATE SET value = EXCLUDED.value, period_start = EXCLUDED.period_start
+`
+
+type UpsertEntitlementResourceUsageParams struct {
+	EntitlementID  uuid.UUID        `json:"entitlement_id"`
+	InstanceID     uuid.UUID        `json:"instance_id"`
+	ResourceKey    string           `json:"resource_key"`
+	OrganizationID uuid.UUID        `json:"organization_id"`
+	Value          []byte           `json:"value"`
+	PeriodStart    pgtype.Timestamp `json:"period_start"`
+}
+
+// Writes one resource's counter: an accepted report's, or the rollover reset a
+// refused report still persists. period_start is NULL for a lifetime
+// entitlement and the window's start for a periodic one.
+func (q *Queries) UpsertEntitlementResourceUsage(ctx context.Context, arg UpsertEntitlementResourceUsageParams) error {
+	_, err := q.db.Exec(ctx, upsertEntitlementResourceUsage,
+		arg.EntitlementID,
+		arg.InstanceID,
+		arg.ResourceKey,
+		arg.OrganizationID,
+		arg.Value,
+		arg.PeriodStart,
+	)
+	return err
 }

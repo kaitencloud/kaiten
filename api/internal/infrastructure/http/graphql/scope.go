@@ -98,8 +98,10 @@ var typeScopes = map[string]string{
 	"EntitlementException": listentitlementexceptions.RequiredScope,
 	"EntitlementPage":      getentitlements.RequiredScope,
 	"EntitlementUsage":     getentitlementsusagemetrics.RequiredScope,
-	"Instance":             getinstance.RequiredScope,
-	"InstanceAddon":        listinstanceaddons.RequiredScope,
+	// The counters behind a RESOURCE entitlement's usage, read with it.
+	"EntitlementUsageResources": getentitlementsusagemetrics.RequiredScope,
+	"Instance":                  getinstance.RequiredScope,
+	"InstanceAddon":             listinstanceaddons.RequiredScope,
 	// Billing data: an instance list that selects it needs read:billing too,
 	// so the console fetches it in a document of its own (§13.14).
 	"InstanceBillingSummary": getinstancebilling.RequiredScope,

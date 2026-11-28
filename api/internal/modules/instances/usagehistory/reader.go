@@ -30,6 +30,8 @@ type PairQuery struct {
 	// the first.
 	AfterSeq      int64
 	TransactionID *string
+	// ResourceKey narrows the pair's reports to one resource's.
+	ResourceKey *string
 }
 
 // ListPair reads up to limit reports after q.AfterSeq, in report_seq order,
@@ -43,6 +45,7 @@ func (r *Reader) ListPair(ctx context.Context, q PairQuery, limit int32) ([]Usag
 		ToAt:           timestamp(q.Range.To),
 		AfterSeq:       q.AfterSeq,
 		TransactionID:  q.TransactionID,
+		ResourceKey:    q.ResourceKey,
 		PageSize:       limit + 1,
 	})
 	if err != nil {

@@ -367,7 +367,8 @@ func TestExportUsageReports(t *testing.T) {
 		require.Empty(t, lines[3])
 		org := testDb.DefaultData.OrganizationID.String()
 		require.True(t, strings.HasPrefix(lines[1], org+","+instance.ID.String()+","+entitlement.ID.String()+",1,"), lines[1])
-		require.True(t, strings.HasSuffix(lines[1], `,'-cmd,"{""note"":""a,b\""c""}"`), "formula-safe key, RFC 4180 quoting: %s", lines[1])
+		require.True(t, strings.HasSuffix(lines[1], `,'-cmd,"{""note"":""a,b\""c""}",`), "formula-safe key, RFC 4180 quoting, and no resource: %s", lines[1])
+		require.True(t, strings.HasSuffix(lines[0], ",properties,resource_key"), "the resource is the last column: %s", lines[0])
 		require.Contains(t, lines[2], ",2.5,5,7.5,2.5,", "reported, before, after and delta")
 	})
 

@@ -18,6 +18,7 @@ type InstanceEntitlementUsageReportAccepted struct {
 	Behavior        Behavior                 `json:"behavior" enum:"append,set" doc:"Report behavior: append folds the value into the stored total, set overwrites it"`
 	EventCount      int32                    `json:"event_count" doc:"Number of reports folded into the current usage window, including this one"`
 	Status          events.UsageReportStatus `json:"status" enum:"ACCEPTED,REJECTED" doc:"Whether the report was persisted"`
+	ResourceKey     *string                  `json:"resourceKey,omitempty" doc:"The resource the report was sent for. Absent for an entitlement that counts per instance."`
 }
 
 // InstanceEntitlementCapExceeded is the outbox payload for
@@ -27,6 +28,7 @@ type InstanceEntitlementCapExceeded struct {
 	Threshold       float64 `json:"threshold" doc:"The entitlement cap"`
 	Value           float64 `json:"value" doc:"Current usage value, including overage"`
 	Overage         float64 `json:"overage" doc:"Amount by which usage exceeds the cap"`
+	ResourceKey     *string `json:"resourceKey,omitempty" doc:"The resource the report was sent for. Absent for an entitlement that counts per instance."`
 }
 
 // InstanceEntitlementUsageWarningThresholdReached is the outbox payload for
@@ -36,6 +38,7 @@ type InstanceEntitlementUsageWarningThresholdReached struct {
 	Threshold       float64 `json:"threshold" doc:"The entitlement cap"`
 	Boundary        float64 `json:"boundary" doc:"Usage value at which the warning fires (cap * warningThresholdPercent / 100)"`
 	Value           float64 `json:"value" doc:"Current usage value"`
+	ResourceKey     *string `json:"resourceKey,omitempty" doc:"The resource the report was sent for. Absent for an entitlement that counts per instance."`
 }
 
 // InstanceEntitlementUsagePeriodRolledOver is the outbox payload for
@@ -57,6 +60,10 @@ type InstanceEntitlementUsagePeriodRolledOver struct {
 	// follows, a lifetime counter that adopted a reset, a licence start --
 	// and PERIOD_ENDED otherwise, synthetic closures included (§6.7 rule 6).
 	Reason string `json:"reason" enum:"PERIOD_ENDED,ANCHOR_CHANGED"`
+	// ResourceKey is the resource whose counter this window closed, for an
+	// entitlement that counts per resource: each resource closes its own window,
+	// on its own next report.
+	ResourceKey *string `json:"resourceKey,omitempty" doc:"The resource whose usage window this closed. Absent for an entitlement that counts per instance."`
 }
 
 type InstanceAIModelUsageUnauthorized struct {

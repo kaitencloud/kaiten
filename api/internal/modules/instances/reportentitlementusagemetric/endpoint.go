@@ -34,6 +34,9 @@ var transactionIDPattern = regexp.MustCompile(`^[A-Za-z0-9._:-]{1,128}$`)
 // idempotencyKeyLocation is where a refusal of the key points (errors[].location).
 const idempotencyKeyLocation = "header.Idempotency-Key"
 
+// resourceKeyLocation is where a refusal of the resource key points.
+const resourceKeyLocation = "path.resourceKey"
+
 type Request struct {
 	InstanceSlug    string `path:"instanceSlug" doc:"Instance slug" example:"instance-slug"`
 	EntitlementSlug string `path:"entitlementSlug" doc:"Entitlement slug" example:"entitlement-slug"`
@@ -109,7 +112,7 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 		Method:      "POST",
 		Path:        "/instances/{instanceSlug}/entitlements/{entitlementSlug}/usage",
 		Summary:     "Report entitlement usage metric for an instance",
-		Description: "Report a usage metric for a specific entitlement in a given instance, with optional metadata. The server dates every report on receipt; the request carries no timestamp. Numeric reports use Idempotency-Key for safe retries; without one, numeric reports sent twice count twice. AI usage uses value.transactionId for immutable reserve/commit phase replay and refuses Idempotency-Key with 422 ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported.",
+		Description: "Report a usage metric for a specific entitlement in a given instance, with optional metadata. The server dates every report on receipt; the request carries no timestamp. Numeric reports use Idempotency-Key for safe retries; without one, numeric reports sent twice count twice. AI usage uses value.transactionId for immutable reserve/commit phase replay and refuses Idempotency-Key with 422 ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported. An entitlement whose limitScope is RESOURCE counts per resource and is reported on reportEntitlementResourceUsageMetric: this route answers it 422 ReportEntitlementUsageMetric.ResourceKeyRequired.",
 		Tags:        []string{"instances"},
 		Errors: []int{
 			http.StatusBadRequest,
@@ -127,67 +130,97 @@ func RegisterEndpoint(api huma.API, app Reporter) {
 			return nil, err
 		}
 
-		behavior := Behavior(request.Body.Behavior)
-		if request.Body.Value.AI != nil && behavior == "" {
-			behavior = BehaviorAppend
-		}
-		if request.Body.Value.AI == nil && behavior != BehaviorAppend && behavior != BehaviorSet {
-			return nil, apierrors.UnprocessableEntity(
-				"ReportEntitlementUsageMetric.InvalidBehavior",
-				"behavior must be one of: append, set",
-			)
-		}
-
-		if request.Body.Value.Number == nil && request.Body.Value.AI == nil {
-			return nil, apierrors.UnprocessableEntity(
-				"ReportEntitlementUsageMetric.InvalidValueType",
-				"value must be a number or ai_usage input for usage reporting",
-			)
-		}
-
-		// An absent header is no key. A header sent empty is a malformed key,
-		// not an absent one (S01-084): Huma binds both to "", so the raw
-		// request tells them apart.
-		if request.Body.Value.AI != nil && request.idempotencyKeySent {
-			return nil, apierrors.UnprocessableEntityWithErrors("ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported", "AI usage uses value.transactionId for phase replay; do not send Idempotency-Key", &apierrors.ErrorDetail{Message: "use value.transactionId instead", Location: idempotencyKeyLocation})
-		}
-		var transactionID *string
-		if key := request.IdempotencyKey; request.idempotencyKeySent {
-			if !transactionIDPattern.MatchString(key) {
-				return nil, apierrors.UnprocessableEntityWithErrors(
-					"ReportEntitlementUsageMetric.InvalidTransactionId",
-					"Idempotency-Key must be 1 to 128 characters of letters, digits, '.', '_', ':' and '-'",
-					&apierrors.ErrorDetail{Message: "the key's format", Location: idempotencyKeyLocation, Value: key},
-				)
-			}
-			transactionID = &key
-		}
-
-		command := &Command{
-			AI:            request.Body.Value.AI,
-			Behavior:      behavior,
-			Metadata:      request.Body.Metadata,
-			TransactionID: transactionID,
-		}
-
-		if request.Body.Value.Number != nil {
-			command.Value = request.Body.Value.Number.Value
-		}
-		result, err := app.ReportEntitlementUsage(
-			ctx, cl, request.InstanceSlug, request.EntitlementSlug, command)
-		if err != nil {
-			return nil, err
-		}
-
-		response := &Response{
-			Body:            reported(result.Usage, result.Replayed, transactionID),
-			MetadataDropped: result.MetadataDropped,
-		}
-		if result.Replayed {
-			response.IdempotentReplayed = "true"
-		}
-		return response, nil
+		return report(ctx, app, cl, reportInput{
+			instanceSlug:       request.InstanceSlug,
+			entitlementSlug:    request.EntitlementSlug,
+			resourceKey:        nil,
+			idempotencyKey:     request.IdempotencyKey,
+			idempotencyKeySent: request.idempotencyKeySent,
+			body:               request.Body,
+		})
 	})
+}
+
+// reportInput is what both routes hand to report: the same report, addressed
+// to an entitlement or to one resource of it.
+type reportInput struct {
+	instanceSlug, entitlementSlug string
+	// resourceKey is nil on the entitlement's own route. The resource route has
+	// checked its format.
+	resourceKey *string
+	// idempotencyKeySent is whether the header was sent at all, which
+	// idempotencyKey alone cannot say.
+	idempotencyKey     string
+	idempotencyKeySent bool
+	body               ReportEntitlementUsageBody
+}
+
+// report checks what is checkable without reading the pair -- the behavior, the
+// value's type and the idempotency key -- and hands the report to the facade.
+// Both routes run it, so a resource's report is refused and answered exactly as
+// the entitlement's own is.
+func report(ctx context.Context, app Reporter, cl caller.OrganizationCaller, in reportInput) (*Response, error) {
+	behavior := Behavior(in.body.Behavior)
+	if in.body.Value.AI != nil && behavior == "" {
+		behavior = BehaviorAppend
+	}
+	if in.body.Value.AI == nil && behavior != BehaviorAppend && behavior != BehaviorSet {
+		return nil, apierrors.UnprocessableEntity(
+			"ReportEntitlementUsageMetric.InvalidBehavior",
+			"behavior must be one of: append, set",
+		)
+	}
+
+	if in.body.Value.Number == nil && in.body.Value.AI == nil {
+		return nil, apierrors.UnprocessableEntity(
+			"ReportEntitlementUsageMetric.InvalidValueType",
+			"value must be a number or ai_usage input for usage reporting",
+		)
+	}
+
+	// An absent header is no key. A header sent empty is a malformed key,
+	// not an absent one (S01-084): Huma binds both to "", so the raw
+	// request tells them apart.
+	if in.body.Value.AI != nil && in.idempotencyKeySent {
+		return nil, apierrors.UnprocessableEntityWithErrors("ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported", "AI usage uses value.transactionId for phase replay; do not send Idempotency-Key", &apierrors.ErrorDetail{Message: "use value.transactionId instead", Location: idempotencyKeyLocation})
+	}
+	var transactionID *string
+	if key := in.idempotencyKey; in.idempotencyKeySent {
+		if !transactionIDPattern.MatchString(key) {
+			return nil, apierrors.UnprocessableEntityWithErrors(
+				"ReportEntitlementUsageMetric.InvalidTransactionId",
+				"Idempotency-Key must be 1 to 128 characters of letters, digits, '.', '_', ':' and '-'",
+				&apierrors.ErrorDetail{Message: "the key's format", Location: idempotencyKeyLocation, Value: key},
+			)
+		}
+		transactionID = &key
+	}
+
+	command := &Command{
+		AI:            in.body.Value.AI,
+		Behavior:      behavior,
+		Metadata:      in.body.Metadata,
+		TransactionID: transactionID,
+		ResourceKey:   in.resourceKey,
+	}
+
+	if in.body.Value.Number != nil {
+		command.Value = in.body.Value.Number.Value
+	}
+	result, err := app.ReportEntitlementUsage(
+		ctx, cl, in.instanceSlug, in.entitlementSlug, command)
+	if err != nil {
+		return nil, err
+	}
+
+	response := &Response{
+		Body:            reported(result.Usage, result.Replayed, transactionID),
+		MetadataDropped: result.MetadataDropped,
+	}
+	if result.Replayed {
+		response.IdempotentReplayed = "true"
+	}
+	return response, nil
 }
 
 // RegisterWebhook declares the six webhook contracts the usage-report path

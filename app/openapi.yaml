@@ -5039,6 +5039,14 @@ components:
             - 123e4567-e89b-12d3-a456-426614174000
           readOnly: true
           type: string
+        limitScope:
+          description: "What the limit applies to (NUMBER only; absent for BOOLEAN and CONFIG). INSTANCE (the default): one counter per instance, measured against the limit. RESOURCE: one counter per resource of the instance, each measured against the same limit -- usage is then reported, read and deleted per resource under /instances/{instanceSlug}/entitlements/{entitlementSlug}/resources, and the entitlement's own usage reads as its highest counter. A NUMBER_AI_CREDIT pool is always INSTANCE, and a metered or overage price cannot meter a RESOURCE entitlement. Immutable once created -- a full-replace PUT may omit it or echo back the stored value."
+          enum:
+            - INSTANCE
+            - RESOURCE
+          examples:
+            - RESOURCE
+          type: string
         name:
           description: Name of the entitlement
           examples:
@@ -5217,6 +5225,14 @@ components:
           examples:
             - 123e4567-e89b-12d3-a456-426614174000
           readOnly: true
+          type: string
+        limitScope:
+          description: "What the limit applies to (NUMBER only; absent for BOOLEAN and CONFIG). INSTANCE (the default): one counter per instance, measured against the limit. RESOURCE: one counter per resource of the instance, each measured against the same limit -- usage is then reported, read and deleted per resource under /instances/{instanceSlug}/entitlements/{entitlementSlug}/resources, and the entitlement's own usage reads as its highest counter. A NUMBER_AI_CREDIT pool is always INSTANCE, and a metered or overage price cannot meter a RESOURCE entitlement. Immutable once created -- a full-replace PUT may omit it or echo back the stored value."
+          enum:
+            - INSTANCE
+            - RESOURCE
+          examples:
+            - RESOURCE
           type: string
         name:
           description: Name of the entitlement
@@ -5563,6 +5579,33 @@ components:
         - entitlementName
         - entitlementType
       type: object
+    EntitlementResource:
+      additionalProperties: false
+      properties:
+        currentPeriodEnd:
+          description: End of the current usage window (exclusive). Absent for a lifetime entitlement (no configured reset period).
+          examples:
+            - "2026-04-01T00:00:00Z"
+          format: date-time
+          type: string
+        currentPeriodStart:
+          description: Start of the current usage window (inclusive). Absent for a lifetime entitlement (no configured reset period).
+          examples:
+            - "2026-03-01T00:00:00Z"
+          format: date-time
+          type: string
+        resourceKey:
+          description: "The vendor's own identifier for the object: 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively."
+          examples:
+            - stigg
+          type: string
+        value:
+          $ref: "#/components/schemas/NumberEntitlementValue"
+          description: "The resource's counter in the current usage window: zero when its last report was in a window that has since closed."
+      required:
+        - resourceKey
+        - value
+      type: object
     EntitlementUsage:
       additionalProperties: false
       properties:
@@ -5623,6 +5666,12 @@ components:
         reserved:
           description: Open, unexpired reserved credits; present only on AI credit pools
           type: string
+        resourceKey:
+          description: "The resource this usage counts: set on a resource's own usage and on the events of its reports, absent on the usage of an entitlement."
+          type: string
+        resources:
+          $ref: "#/components/schemas/UsageResources"
+          description: "Only on a RESOURCE entitlement: value is its highest counter and limit the limit of each resource; this says how many resources hold a counter and how many have reached the limit. The detail per resource is listEntitlementResources."
         source:
           description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"
           enum:
@@ -5718,6 +5767,12 @@ components:
         reserved:
           description: Open, unexpired reserved credits; present only on AI credit pools
           type: string
+        resourceKey:
+          description: "The resource this usage counts: set on a resource's own usage and on the events of its reports, absent on the usage of an entitlement."
+          type: string
+        resources:
+          $ref: "#/components/schemas/UsageResources"
+          description: "Only on a RESOURCE entitlement: value is its highest counter and limit the limit of each resource; this says how many resources hold a counter and how many have reached the limit. The detail per resource is listEntitlementResources."
         source:
           description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does"
           enum:
@@ -7356,6 +7411,9 @@ components:
           description: Amount by which usage exceeds the cap
           format: double
           type: number
+        resourceKey:
+          description: The resource the report was sent for. Absent for an entitlement that counts per instance.
+          type: string
         threshold:
           description: The entitlement cap
           format: double
@@ -7377,6 +7435,52 @@ components:
         - overage
       type: object
       x-kaiten-payload: "#/components/schemas/InstanceEntitlementCapExceeded"
+    InstanceEntitlementResourceDeletedDelivered:
+      additionalProperties: false
+      properties:
+        checkoutSessionId:
+          description: "With via checkout_session: the session"
+          format: uuid
+          type: string
+        customerSessionId:
+          description: "With via customer_session: the session"
+          format: uuid
+          type: string
+        entitlement_id:
+          description: Unique identifier for the entitlement
+          type: string
+        entitlement_slug:
+          description: URL-friendly identifier of the entitlement
+          type: string
+        event_count:
+          description: Number of reports folded into that counter
+          format: int32
+          type: integer
+        instance_id:
+          description: Unique identifier for the instance the resource was counted on
+          type: string
+        resourceKey:
+          description: The resource whose counter was forgotten
+          type: string
+        value:
+          description: "The counter as it was stored when the resource was deleted: for a periodic entitlement, the value of the usage window the resource last reported in"
+          format: double
+          type: number
+        via:
+          description: "customer_session: written through a kst_ customer session, under the vendor principal that minted it. checkout_session: written by an anonymous checkout, under system:kaiten. Absent otherwise"
+          enum:
+            - customer_session
+            - checkout_session
+          type: string
+      required:
+        - entitlement_id
+        - entitlement_slug
+        - instance_id
+        - resourceKey
+        - value
+        - event_count
+      type: object
+      x-kaiten-payload: "#/components/schemas/InstanceEntitlementResourceDeleted"
     InstanceEntitlementUsagePeriodRolledOverDelivered:
       additionalProperties: false
       properties:
@@ -7416,6 +7520,9 @@ components:
           enum:
             - PERIOD_ENDED
             - ANCHOR_CHANGED
+          type: string
+        resourceKey:
+          description: The resource whose usage window this closed. Absent for an entitlement that counts per instance.
           type: string
         value:
           format: double
@@ -7463,6 +7570,9 @@ components:
           description: Number of reports folded into the current usage window, including this one
           format: int32
           type: integer
+        resourceKey:
+          description: The resource the report was sent for. Absent for an entitlement that counts per instance.
+          type: string
         status:
           description: Whether the report was persisted
           enum:
@@ -7504,6 +7614,9 @@ components:
           type: string
         entitlement_slug:
           description: URL-friendly identifier of the entitlement
+          type: string
+        resourceKey:
+          description: The resource the report was sent for. Absent for an entitlement that counts per instance.
           type: string
         threshold:
           description: The entitlement cap
@@ -7551,6 +7664,9 @@ components:
           type: string
         organization_id:
           description: Unique identifier for the owning organization
+          type: string
+        resourceKey:
+          description: The resource whose usage was read. Absent when the entitlement's own usage was read.
           type: string
         timestamp:
           description: When the value was read
@@ -11542,6 +11658,23 @@ components:
         - items
         - hasMore
       type: object
+    PageEntitlementResource:
+      additionalProperties: false
+      properties:
+        hasMore:
+          description: Whether more rows exist beyond this page.
+          type: boolean
+        items:
+          items:
+            $ref: "#/components/schemas/EntitlementResource"
+          type: array
+        nextCursor:
+          description: Opaque cursor for the next page. Absent when hasMore is false.
+          type: string
+      required:
+        - items
+        - hasMore
+      type: object
     PageFeatureFlag:
       additionalProperties: false
       properties:
@@ -12626,6 +12759,13 @@ components:
             - enum:
                 - null
               type: "null"
+        resources:
+          description: "Only on an entitlement that counts per resource: currentValue is its highest counter, and this says how many resources hold a counter and how many have reached the limit. Null for every other entitlement."
+          oneOf:
+            - $ref: "#/components/schemas/UsageResources"
+            - enum:
+                - null
+              type: "null"
         slug:
           examples:
             - seats
@@ -12660,6 +12800,7 @@ components:
         - currentPeriodEnd
         - source
         - provenance
+        - resources
       type: object
     PortalInstance:
       additionalProperties: false
@@ -15576,6 +15717,12 @@ components:
         reserved:
           description: Open, unexpired reserved credits; present only on AI credit pools
           type: string
+        resourceKey:
+          description: "The resource this usage counts: set on a resource's own usage and on the events of its reports, absent on the usage of an entitlement."
+          type: string
+        resources:
+          $ref: "#/components/schemas/UsageResources"
+          description: "Only on a RESOURCE entitlement: value is its highest counter and limit the limit of each resource; this says how many resources hold a counter and how many have reached the limit. The detail per resource is listEntitlementResources."
         source:
           description: "license: the licence grants it (add-ons, boosts and an exception may change it); addon: an add-on attached does; exception: only the instance's exception does. Null on numeric journal replay; AI phase replay preserves its original snapshot."
           enum:
@@ -17879,6 +18026,11 @@ components:
           examples:
             - "600"
           type: string
+        resourceKey:
+          description: The resource the report counted for, when the entitlement counts per resource (limitScope RESOURCE). Absent otherwise. A resource's reports keep the pair's reportSeq, so the reports of one resource are not contiguous in it.
+          examples:
+            - stigg
+          type: string
         transactionId:
           description: The report's idempotency key; null when it was sent without one
           examples:
@@ -17945,6 +18097,25 @@ components:
           type: integer
       required:
         - items
+      type: object
+    UsageResources:
+      additionalProperties: false
+      properties:
+        atLimit:
+          description: "How many of them have reached the limit in their current usage window: a counter at or above the limit. 0 when the limit is unlimited (-1)."
+          examples:
+            - 2
+          format: int32
+          type: integer
+        count:
+          description: How many resources hold a counter for this entitlement on this instance, whatever their usage window. This is what the ceiling of resources (KAITEN_USAGE_MAX_RESOURCES) counts.
+          examples:
+            - 6
+          format: int32
+          type: integer
+      required:
+        - count
+        - atLimit
       type: object
     User:
       additionalProperties: false
@@ -27069,6 +27240,374 @@ paths:
       summary: List all entitlements usage metrics
       tags:
         - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/resources:
+    get:
+      description: "Returns a cursor-paginated page of the resources of an entitlement whose limitScope is RESOURCE that hold a counter on the instance, in resourceKey order (bytewise). Each carries its counter in the current usage window: zero when its last report was in a window that has since closed. The limit every one of them is measured against is the entitlement's own, read on getEntitlementUsageMetrics, with how many resources there are and how many have reached it. A resource a report has not created, or that was deleted, is not listed. The entitlement need not be granted to the instance any more: resources outlive a licence change. An entitlement whose limitScope is INSTANCE answers 422 ListEntitlementResources.NotPerResource."
+      operationId: listEntitlementResources
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - instance-slug
+            type: string
+        - description: Slug of an entitlement whose limitScope is RESOURCE
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Slug of an entitlement whose limitScope is RESOURCE
+            examples:
+              - sources-per-competitor
+            type: string
+        - description: Opaque pagination cursor from a previous response's nextCursor
+          explode: false
+          in: query
+          name: cursor
+          schema:
+            description: Opaque pagination cursor from a previous response's nextCursor
+            type: string
+        - description: Maximum number of resources to return (default 50, max 200)
+          explode: false
+          in: query
+          name: limit
+          schema:
+            description: Maximum number of resources to return (default 50, max 200)
+            format: int32
+            maximum: 200
+            minimum: 1
+            type: integer
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageEntitlementResource"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: List the resources that hold a counter for an entitlement
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/resources/{resourceKey}:
+    delete:
+      description: "Forgets the counter of one resource of an entitlement whose limitScope is RESOURCE, when the object it counted for is deleted in the vendor's product: the resource no longer counts toward the ceiling of resources, and the entitlement's usage is its highest counter among the resources that are left. The resource's past reports stay in the usage history, which gains no row; an INSTANCE_ENTITLEMENT_RESOURCE_DELETED event announces the deletion. It answers 204 whether or not the resource held a counter, and then publishes nothing: deleting twice is safe. Reporting for the resource again starts a new counter at zero. The entitlement need not be granted to the instance any more. An entitlement whose limitScope is INSTANCE answers 422 DeleteEntitlementResource.NotPerResource."
+      operationId: deleteEntitlementResource
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - instance-slug
+            type: string
+        - description: Slug of an entitlement whose limitScope is RESOURCE
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Slug of an entitlement whose limitScope is RESOURCE
+            examples:
+              - sources-per-competitor
+            type: string
+        - description: "The resource: the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively, and neither . nor .. . It must contain no personal data: anyone who can read the instance can read it. Percent-escapes in the segment are decoded once. A key that does not match answers 422 DeleteEntitlementResource.InvalidResourceKey."
+          in: path
+          name: resourceKey
+          required: true
+          schema:
+            description: "The resource: the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively, and neither . nor .. . It must contain no personal data: anyone who can read the instance can read it. Percent-escapes in the segment are decoded once. A key that does not match answers 422 DeleteEntitlementResource.InvalidResourceKey."
+            examples:
+              - stigg
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Forget one resource of an entitlement
+      tags:
+        - instances
+  /instances/{instanceSlug}/entitlements/{entitlementSlug}/resources/{resourceKey}/usage:
+    get:
+      description: "Retrieve one resource's usage against the limit of an entitlement whose limitScope is RESOURCE: value is the resource's counter in the current usage window, limit the entitlement's, and resourceKey names the resource. A resource nothing was reported for reads 0, so that a check before creating one works. The entitlement must be granted to the instance, as for getEntitlementUsageMetrics, which reads the entitlement's own usage: its highest counter. An entitlement whose limitScope is INSTANCE answers 422 GetEntitlementResourceUsage.NotPerResource."
+      operationId: getEntitlementResourceUsageMetrics
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - instance-slug
+            type: string
+        - description: Slug of an entitlement whose limitScope is RESOURCE
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Slug of an entitlement whose limitScope is RESOURCE
+            examples:
+              - sources-per-competitor
+            type: string
+        - description: "The resource: the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively, and neither . nor .. . It must contain no personal data: anyone who can read the instance can read it. Percent-escapes in the segment are decoded once. A key that does not match answers 422 GetEntitlementResourceUsage.InvalidResourceKey."
+          in: path
+          name: resourceKey
+          required: true
+          schema:
+            description: "The resource: the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively, and neither . nor .. . It must contain no personal data: anyone who can read the instance can read it. Percent-escapes in the segment are decoded once. A key that does not match answers 422 GetEntitlementResourceUsage.InvalidResourceKey."
+            examples:
+              - stigg
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntitlementUsage"
+          description: OK
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+      security:
+        - bearerAuth:
+            - read:instances
+      summary: Get one resource's usage metrics for an instance
+      tags:
+        - instances
+    post:
+      description: "Report a usage metric for one resource of an entitlement whose limitScope is RESOURCE: one counter per resource of the instance, each measured against the entitlement's limit. Same body, headers and answers as reportEntitlementUsageMetric, with the counter, the limit gate and the usage window those of the resource: the answer's value is the resource's counter and its resourceKey names it. A resource needs no declaring; its first accepted report creates its counter, and a refused one creates nothing. A report that would open a resource past the ceiling of resources an entitlement may count on an instance (KAITEN_USAGE_MAX_RESOURCES, 10000 by default) answers 422 ReportEntitlementUsageMetric.ResourceLimitReached. An entitlement whose limitScope is INSTANCE answers 422 ReportEntitlementUsageMetric.ResourceKeyNotAllowed. Only numeric values are accepted here: an AI credit pool counts per instance. Add and remove with append and 1 and -1; set writes the absolute count, which corrects a drift."
+      operationId: reportEntitlementResourceUsageMetric
+      parameters:
+        - description: Instance slug
+          in: path
+          name: instanceSlug
+          required: true
+          schema:
+            description: Instance slug
+            examples:
+              - instance-slug
+            type: string
+        - description: Slug of an entitlement whose limitScope is RESOURCE
+          in: path
+          name: entitlementSlug
+          required: true
+          schema:
+            description: Slug of an entitlement whose limitScope is RESOURCE
+            examples:
+              - sources-per-competitor
+            type: string
+        - description: "The vendor's own identifier for the object this usage counts for: 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively (Stigg and stigg are two resources), and neither . nor .. . The resource needs no declaring: its first accepted report creates its counter. It must contain no personal data: anyone who can read the instance can read it, as with a report's metadata. Percent-escapes in the segment are decoded once (comp%3A123 is comp:123). A key that does not match answers 422 ReportEntitlementUsageMetric.InvalidResourceKey."
+          in: path
+          name: resourceKey
+          required: true
+          schema:
+            description: "The vendor's own identifier for the object this usage counts for: 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively (Stigg and stigg are two resources), and neither . nor .. . The resource needs no declaring: its first accepted report creates its counter. It must contain no personal data: anyone who can read the instance can read it, as with a report's metadata. Percent-escapes in the segment are decoded once (comp%3A123 is comp:123). A key that does not match answers 422 ReportEntitlementUsageMetric.InvalidResourceKey."
+            examples:
+              - stigg
+            type: string
+        - description: "Optional idempotency key: the id of the business event this report counts, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance, the entitlement and the resource: one business event may feed two resources under one key, as it may feed two entitlements. Stored and read back as transactionId."
+          in: header
+          name: Idempotency-Key
+          schema:
+            description: "Optional idempotency key: the id of the business event this report counts, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A report sent again with the same key and the same behavior and value within KAITEN_USAGE_IDEMPOTENCY_WINDOW (35 days by default) is applied once: the retry answers 200 with the original response and the Idempotent-Replayed header, and changes nothing. The same key with another behavior or value answers 409 ReportEntitlementUsageMetric.TransactionIdReused. A rejected report does not consume its key. Scoped to the instance, the entitlement and the resource: one business event may feed two resources under one key, as it may feed two entitlements. Stored and read back as transactionId."
+            examples:
+              - source-created:9f2c
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReportEntitlementUsageBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportedEntitlementUsage"
+          description: OK
+          headers:
+            Idempotent-Replayed:
+              schema:
+                description: true on numeric Idempotency-Key replay or AI value.transactionId phase replay; nothing was counted again
+                type: string
+            Kaiten-Metadata-Dropped:
+              schema:
+                description: too_large when the report's metadata was above 4 KiB and was not stored; the report itself was counted
+                type: string
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Bad Request
+        "401":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unauthorized
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Forbidden
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Not Found
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Conflict
+        "422":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Unprocessable Entity
+        "500":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Internal Server Error
+        "503":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Problem"
+          description: Service Unavailable
+          headers:
+            Retry-After:
+              description: Seconds to wait before retrying, when a dependency (a payment provider) could not be reached
+              schema:
+                minimum: 0
+                type: integer
+      security:
+        - bearerAuth:
+            - write:instances
+      summary: Report usage for one resource of an entitlement
+      tags:
+        - instances
   /instances/{instanceSlug}/entitlements/{entitlementSlug}/usage:
     get:
       description: Retrieve the usage metrics for a specific entitlement in a given instance
@@ -27142,7 +27681,7 @@ paths:
       tags:
         - instances
     post:
-      description: Report a usage metric for a specific entitlement in a given instance, with optional metadata. The server dates every report on receipt; the request carries no timestamp. Numeric reports use Idempotency-Key for safe retries; without one, numeric reports sent twice count twice. AI usage uses value.transactionId for immutable reserve/commit phase replay and refuses Idempotency-Key with 422 ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported.
+      description: "Report a usage metric for a specific entitlement in a given instance, with optional metadata. The server dates every report on receipt; the request carries no timestamp. Numeric reports use Idempotency-Key for safe retries; without one, numeric reports sent twice count twice. AI usage uses value.transactionId for immutable reserve/commit phase replay and refuses Idempotency-Key with 422 ReportEntitlementUsageMetric.AiIdempotencyKeyUnsupported. An entitlement whose limitScope is RESOURCE counts per resource and is reported on reportEntitlementResourceUsageMetric: this route answers it 422 ReportEntitlementUsageMetric.ResourceKeyRequired."
       operationId: reportEntitlementUsageMetric
       parameters:
         - description: Instance slug
@@ -27583,6 +28122,16 @@ paths:
             description: Only the report sent with this idempotency key
             maxLength: 128
             type: string
+        - description: "Only the reports of this resource, for an entitlement that counts per resource (limitScope RESOURCE): the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A key that names no resource of the pair matches nothing."
+          explode: false
+          in: query
+          name: resourceKey
+          schema:
+            description: "Only the reports of this resource, for an entitlement that counts per resource (limitScope RESOURCE): the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A key that names no resource of the pair matches nothing."
+            examples:
+              - stigg
+            maxLength: 128
+            type: string
       responses:
         "200":
           content:
@@ -27679,6 +28228,16 @@ paths:
             description: "csv (the default): RFC 4180 with a header row. json: NDJSON, one report per line, in the shape listUsageReports returns. Anything else answers 422 ExportUsageReports.InvalidFormat."
             examples:
               - csv
+            type: string
+        - description: "Only the reports of this resource, for an entitlement that counts per resource (limitScope RESOURCE): the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A key that names no resource of the pair matches nothing."
+          explode: false
+          in: query
+          name: resourceKey
+          schema:
+            description: "Only the reports of this resource, for an entitlement that counts per resource (limitScope RESOURCE): the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A key that names no resource of the pair matches nothing."
+            examples:
+              - stigg
+            maxLength: 128
             type: string
       responses:
         "200":
@@ -39833,6 +40392,47 @@ webhooks:
         "200":
           description: Webhook processed successfully
       summary: Instance entitlement maximum exceeded
+      tags:
+        - webhooks
+        - instances
+  com.kaiten.instance.entitlement.v1.resource_deleted:
+    post:
+      description: Triggered when the counter of one resource of an entitlement that counts per resource is deleted. It is not published when the resource held no counter.
+      operationId: onInstanceEntitlementResourceDeleted
+      requestBody:
+        content:
+          application/json:
+            schema:
+              additionalProperties: false
+              properties:
+                data:
+                  $ref: "#/components/schemas/InstanceEntitlementResourceDeletedDelivered"
+                headers:
+                  $ref: "#/components/schemas/EventHeaders"
+                name:
+                  description: Event name
+                  enum:
+                    - INSTANCE_ENTITLEMENT_RESOURCE_DELETED
+                  examples:
+                    - INSTANCE_ENTITLEMENT_RESOURCE_DELETED
+                  type: string
+                type:
+                  description: Event type
+                  enum:
+                    - com.kaiten.instance.entitlement.v1.resource_deleted
+                  examples:
+                    - com.kaiten.instance.entitlement.v1.resource_deleted
+                  type: string
+              required:
+                - name
+                - type
+                - data
+              type: object
+        required: true
+      responses:
+        "200":
+          description: Webhook processed successfully
+      summary: Instance Entitlement Resource Deleted Webhook
       tags:
         - webhooks
         - instances

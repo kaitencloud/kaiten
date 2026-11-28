@@ -58,6 +58,7 @@ func RegisterEndpoint(api huma.API, app Creator) {
 			Description:             request.Body.Description,
 			Type:                    *request.Body.Type,
 			AggregationMethod:       request.Body.AggregationMethod,
+			LimitScope:              request.Body.LimitScope,
 			Slug:                    slug,
 			GroupSlugs:              request.Body.GroupSlugs,
 			Icon:                    request.Body.Icon,

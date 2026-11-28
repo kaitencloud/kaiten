@@ -388,6 +388,13 @@ type Usage struct {
 	// on receipt and a buffered report replayed late must still be recognized
 	// across a whole monthly period plus margin. At least 24 hours.
 	IdempotencyWindow time.Duration `mapstructure:"idempotency_window" validate:"gte=24h"`
+	// MaxResources is the most resources one instance may hold a counter for, per
+	// entitlement that counts per resource (limitScope RESOURCE). A report that
+	// would open one more is refused with a 422; the counters already there keep
+	// counting, and deleting one frees its place. Each report of such an
+	// entitlement reads its resources under the pair's lock, so this also bounds
+	// what a report costs. 10,000 by default.
+	MaxResources int `mapstructure:"max_resources" validate:"gt=0"`
 }
 
 // UsageLedger keeps the usage journal: its monthly partitions, and how long its
@@ -475,6 +482,7 @@ var settings = []struct {
 	{"connectors.vault_base_path", "VAULT_CONNECTORS_BASE_PATH", "kaiten/connectors", false},
 	{"usage.rollover_max_closures", "KAITEN_USAGE_ROLLOVER_MAX_CLOSURES", 100000, false},
 	{"usage.idempotency_window", "KAITEN_USAGE_IDEMPOTENCY_WINDOW", "840h", false},
+	{"usage.max_resources", "KAITEN_USAGE_MAX_RESOURCES", 10000, false},
 	{"usage_ledger.maintenance.interval", "KAITEN_USAGE_LEDGER_MAINTENANCE_INTERVAL", "24h", false},
 	{"usage_ledger.retention_months", "KAITEN_USAGE_LEDGER_RETENTION_MONTHS", 18, false},
 	{"usage_ledger.max_retention_months", "KAITEN_USAGE_LEDGER_MAX_RETENTION_MONTHS", 18, false},

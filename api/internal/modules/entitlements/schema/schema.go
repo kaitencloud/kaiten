@@ -28,6 +28,20 @@ func IsNumberFamily(t Type) bool {
 	return t == Number || t == NumberAICredit
 }
 
+// LimitScope says what an entitlement's limit applies to: the instance as a
+// whole, or each resource the instance holds a counter for.
+type LimitScope string
+
+const (
+	// LimitScopeInstance is one counter per instance, measured against the limit.
+	// It is what every entitlement was before the scope existed, and the only
+	// scope of a NUMBER_AI_CREDIT pool.
+	LimitScopeInstance LimitScope = "INSTANCE"
+	// LimitScopeResource is one counter per resource of the instance, each
+	// measured against the same limit. NUMBER only.
+	LimitScopeResource LimitScope = "RESOURCE"
+)
+
 type AggregationMethod string
 
 const (
@@ -48,7 +62,9 @@ const (
 // GroupSlugs when building a response, so it stays correctly absent from
 // JSON output regardless. Slug is accepted on create but not settable
 // through update-entitlement -- its handler rejects it being present and
-// different from the current slug with a 422.
+// different from the current slug with a 422. LimitScope is immutable like Type
+// and AggregationMethod -- a PUT may omit it or echo the stored value -- and the
+// API returns it for the NUMBER family only.
 type Entitlement struct {
 	ID                uuid.UUID                  `json:"id" readOnly:"true" doc:"Unique identifier for the entitlement" example:"123e4567-e89b-12d3-a456-426614174000"`
 	Name              string                     `json:"name" doc:"Name of the entitlement" example:"Basic Plan" minLength:"1"`
@@ -56,6 +72,7 @@ type Entitlement struct {
 	Description       *string                    `json:"description" doc:"Description of the entitlement" example:"Basic subscription plan with limited features"`
 	Type              *Type                      `json:"type,omitempty" doc:"Type of the entitlement" enum:"BOOLEAN,NUMBER,CONFIG,NUMBER_AI_CREDIT" example:"NUMBER"`
 	AggregationMethod *AggregationMethod         `json:"aggregationMethod,omitempty" doc:"Method used to fold each reported usage value into the stored total (NUMBER only). Defaults to SUM." enum:"COUNT,SUM,AVERAGE,MIN,MAX,LATEST" example:"SUM"`
+	LimitScope        *LimitScope                `json:"limitScope,omitempty" doc:"What the limit applies to (NUMBER only; absent for BOOLEAN and CONFIG). INSTANCE (the default): one counter per instance, measured against the limit. RESOURCE: one counter per resource of the instance, each measured against the same limit -- usage is then reported, read and deleted per resource under /instances/{instanceSlug}/entitlements/{entitlementSlug}/resources, and the entitlement's own usage reads as its highest counter. A NUMBER_AI_CREDIT pool is always INSTANCE, and a metered or overage price cannot meter a RESOURCE entitlement. Immutable once created -- a full-replace PUT may omit it or echo back the stored value." enum:"INSTANCE,RESOURCE" example:"RESOURCE"`
 	GroupSlugs        []string                   `json:"groupSlugs,omitempty" writeOnly:"true" doc:"Groups associated with this entitlement, identified by slug"`
 	EntitlementGroups []*EntitlementGroupSummary `json:"entitlementGroups,omitempty" readOnly:"true" doc:"Groups associated with this entitlement"`
 	Icon              *string                    `json:"icon,omitempty" doc:"Optional icon, stored as a provider-namespaced token (provider:name). Decoupled from any specific icon library." example:"lucide:rocket" pattern:"^[a-z0-9]+:[a-z0-9]+(-[a-z0-9]+)*$" maxLength:"64"`

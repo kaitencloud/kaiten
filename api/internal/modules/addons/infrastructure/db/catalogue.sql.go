@@ -368,7 +368,7 @@ func (q *Queries) GetAddonFamilyBySlug(ctx context.Context, arg GetAddonFamilyBy
 }
 
 const getAddonPricingEntitlement = `-- name: GetAddonPricingEntitlement :one
-SELECT e.id, e.type, e.reset_period, e.aggregation_method,
+SELECT e.id, e.type, e.limit_scope, e.reset_period, e.aggregation_method,
        coalesce(e.sale_unit_factor::text, '')::text AS sale_unit_factor,
        ae.value AS grant_value, ae.limit_cap_exceeded_overage_percent AS grant_overage_percent
 FROM entitlement e
@@ -387,6 +387,7 @@ type GetAddonPricingEntitlementParams struct {
 type GetAddonPricingEntitlementRow struct {
 	ID                  uuid.UUID               `json:"id"`
 	Type                EntitlementType         `json:"type"`
+	LimitScope          EntitlementLimitScope   `json:"limit_scope"`
 	ResetPeriod         *EntitlementResetPeriod `json:"reset_period"`
 	AggregationMethod   *AggregationMethod      `json:"aggregation_method"`
 	SaleUnitFactor      string                  `json:"sale_unit_factor"`
@@ -401,6 +402,7 @@ func (q *Queries) GetAddonPricingEntitlement(ctx context.Context, arg GetAddonPr
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
+		&i.LimitScope,
 		&i.ResetPeriod,
 		&i.AggregationMethod,
 		&i.SaleUnitFactor,

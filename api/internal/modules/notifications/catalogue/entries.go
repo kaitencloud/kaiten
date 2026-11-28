@@ -573,6 +573,11 @@ type instancePayload struct {
 	// response is camelCase, the threshold and rollover events are snake_case.
 	EntitlementSlug      string `json:"entitlementSlug"`
 	EntitlementSlugSnake string `json:"entitlement_slug"`
+	// The resource an entitlement that counts per resource raised the event for.
+	// New names are camelCase, and the snake_case spelling is read too: the
+	// payload is written by whichever version of the producer ran at the time.
+	ResourceKey      string `json:"resourceKey"`
+	ResourceKeySnake string `json:"resource_key"`
 
 	// instance is the instance the audit row names, as it exists now. Every
 	// producer of these events records one, and audit_trail.instance_id is set
@@ -640,6 +645,18 @@ func (p instancePayload) entitlement() string {
 	return "usage"
 }
 
+// resource is the resource the event was raised for, "" for an entitlement that
+// counts per instance.
+func (p instancePayload) resource() string {
+	for _, candidate := range []string{p.ResourceKey, p.ResourceKeySnake} {
+		if candidate != "" {
+			return candidate
+		}
+	}
+
+	return ""
+}
+
 func renderInstance(titleFormat, bodyFormat string) Renderer {
 	return func(payload []byte, refs Refs) Rendered {
 		decoded := decodeInstance(payload, refs.Instance)
@@ -687,13 +704,21 @@ func renderInstanceLifecycle(payload []byte, refs Refs) Rendered {
 }
 
 // renderEntitlement is the usage events: they open the instance's usage tab,
-// which is where the number the notification is about is shown.
+// which is where the number the notification is about is shown. An entitlement
+// that counts per resource raises one event per resource, each of them about the
+// same entitlement and instance: the title names the resource, or the bell would
+// hold several identical lines.
 func renderEntitlement(titleFormat string) Renderer {
 	return func(payload []byte, refs Refs) Rendered {
 		decoded := decodeInstance(payload, refs.Instance)
 
+		title := fmt.Sprintf(titleFormat, decoded.displayName(), decoded.entitlement())
+		if resource := decoded.resource(); resource != "" {
+			title += fmt.Sprintf(" (resource %s)", resource)
+		}
+
 		return Rendered{
-			Title:     fmt.Sprintf(titleFormat, decoded.displayName(), decoded.entitlement()),
+			Title:     title,
 			ActionURL: decoded.page(instanceEntitlementsTab),
 		}
 	}

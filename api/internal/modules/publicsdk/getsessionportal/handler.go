@@ -86,6 +86,7 @@ type PortalEntitlement struct {
 	CurrentPeriodEnd               *time.Time                       `json:"currentPeriodEnd" doc:"The usage window's end; null for a lifetime quota"`
 	Source                         string                           `json:"source" enum:"license,addon,exception" doc:"license: the licence grants it; addon: an add-on does; exception: only the vendor's exception for this instance does"`
 	Provenance                     *instanceschema.Provenance       `json:"provenance" doc:"What the licence, the add-ons and the boosts each contribute"`
+	Resources                      *instanceschema.UsageResources   `json:"resources" doc:"Only on an entitlement that counts per resource: currentValue is its highest counter, and this says how many resources hold a counter and how many have reached the limit. Null for every other entitlement."`
 }
 
 // PortalPaymentMethod is the payment method's labels, as the provider gave
@@ -353,7 +354,7 @@ func entitlementFrom(usage instanceschema.EntitlementUsage, named db.ListPortalE
 		Slug: usage.EntitlementSlug, Name: named.Name, Type: named.Type, LimitValue: usage.Limit,
 		CurrentValue: nil, Unlimited: false, LimitCapExceededOveragePercent: nil, MaximumAllowedUsage: nil, PercentageUsed: nil,
 		CurrentPeriodStart: usage.CurrentPeriodStart, CurrentPeriodEnd: usage.CurrentPeriodEnd,
-		Source: usage.Source, Provenance: usage.Provenance,
+		Source: usage.Source, Provenance: usage.Provenance, Resources: usage.Resources,
 	}
 	if usage.Value.Number == nil {
 		return out

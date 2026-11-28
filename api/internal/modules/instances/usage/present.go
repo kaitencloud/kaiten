@@ -25,6 +25,9 @@ type Gauge struct {
 	Counter      Counter
 	Window       Window
 	Reserved     *string
+	// ResourceKey is the resource Counter counts, for the usage of one resource
+	// of a RESOURCE entitlement; nil for an entitlement's own usage.
+	ResourceKey *string
 }
 
 // ErrMissingLicenseValue is returned by Present for a BOOLEAN or CONFIG
@@ -52,6 +55,7 @@ func Present(g Gauge) (*schema.EntitlementUsage, error) {
 		LicenseSlug:     g.LicenseSlug,
 		Limit:           limit,
 		Reserved:        g.Reserved,
+		ResourceKey:     g.ResourceKey,
 	}
 	if !g.NumberFamily {
 		if limit == nil {

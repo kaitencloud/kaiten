@@ -70,11 +70,17 @@ func (d Draft) Shape(operation string) (money.Currency, decimal.Decimal, error) 
 
 // Meters checks the entitlement a metered draft would meter, read with the
 // version's grant of it, and returns the sale-unit factor to snapshot:
+//   - one counter per instance: an invoice has no line per resource, so a
+//     RESOURCE entitlement is never metered;
 //   - only a flow is metered: a reset period, SUM or COUNT, a NUMBER type;
 //   - the version must grant it;
 //   - an OVERAGE price needs a grant whose overage can be reached;
 //   - no other ACTIVE price of the version may meter it (otherMeters).
 func Meters(operation string, d Draft, entitlement db.GetPricingEntitlementRow, otherMeters int32) (string, error) {
+	if entitlement.LimitScope == db.EntitlementLimitScopeRESOURCE {
+		return "", kaitenerrors.UnprocessableEntity(operation+".UnsupportedLimitScope",
+			"an entitlement that counts per resource cannot be metered: an invoice has no line per resource")
+	}
 	if entitlement.ResetPeriod == nil {
 		return "", kaitenerrors.UnprocessableEntity(operation+".EntitlementIsStock",
 			"only an entitlement with a reset period can be metered: a lifetime counter is a stock, sold as an add-on")

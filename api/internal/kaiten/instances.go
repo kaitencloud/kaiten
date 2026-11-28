@@ -7,11 +7,13 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/aihistory"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createintegrations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteentitlementresource"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteinstance"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/deleteintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportorganizationusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/exportusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getaudittrails"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementresourceusage"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getinstance"
@@ -19,6 +21,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getintegrations"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listaireservations"
+	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listentitlementresources"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listorganizationaiinferences"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/listusagereports"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/patchinstance"
@@ -202,6 +205,48 @@ func (i Instances) ListEntitlementUsage(
 	}
 
 	return i.uc.GetEntitlementsUsageMetrics.Execute(bindOrganization(ctx, cl), instanceSlug)
+}
+
+// GetEntitlementResourceUsage reads one resource's usage under an entitlement that
+// counts per resource. It emits a read-audit event, like GetEntitlementUsage.
+func (i Instances) GetEntitlementResourceUsage(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug, entitlementSlug, resourceKey string,
+) (*instanceschema.EntitlementUsage, error) {
+	if err := cl.Require(getentitlementresourceusage.RequiredScope); err != nil {
+		return nil, err
+	}
+
+	return i.uc.GetEntitlementResourceUsage.Execute(
+		bindOrganization(ctx, cl), instanceSlug, entitlementSlug, resourceKey,
+	)
+}
+
+// ListEntitlementResources reads one page of the resources that hold a counter
+// under an entitlement that counts per resource. A read only: no event.
+func (i Instances) ListEntitlementResources(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug, entitlementSlug string, limit int32, cursor *string,
+) (pagination.Page[instanceschema.EntitlementResource], error) {
+	if err := cl.Require(listentitlementresources.RequiredScope); err != nil {
+		return pagination.Page[instanceschema.EntitlementResource]{}, err
+	}
+
+	return i.uc.ListEntitlementResources.Execute(
+		bindOrganization(ctx, cl), instanceSlug, entitlementSlug, limit, cursor,
+	)
+}
+
+// DeleteEntitlementResource forgets one resource's counter, when the object it
+// counted for is gone. It writes no journal row; it is idempotent.
+func (i Instances) DeleteEntitlementResource(
+	ctx context.Context, cl caller.OrganizationCaller, instanceSlug, entitlementSlug, resourceKey string,
+) error {
+	if err := cl.Require(deleteentitlementresource.RequiredScope); err != nil {
+		return err
+	}
+
+	return i.uc.DeleteEntitlementResource.Execute(
+		bindOrganization(ctx, cl), instanceSlug, entitlementSlug, resourceKey,
+	)
 }
 
 // ListAuditTrails reads an instance's audit trail, filtered and paginated.

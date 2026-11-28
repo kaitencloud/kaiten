@@ -28,6 +28,7 @@ type Request struct {
 	AfterSeq        int64     `query:"afterSeq" doc:"Return the reports after this reportSeq: the nextAfterSeq of the previous page" minimum:"0"`
 	Limit           int32     `query:"limit" doc:"Maximum number of reports to return (default 100, max 500)" minimum:"1" maximum:"500"`
 	TransactionID   string    `query:"transactionId" doc:"Only the report sent with this idempotency key" maxLength:"128"`
+	ResourceKey     string    `query:"resourceKey" doc:"Only the reports of this resource, for an entitlement that counts per resource (limitScope RESOURCE): the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A key that names no resource of the pair matches nothing." maxLength:"128" example:"stigg"`
 }
 
 type Response struct {
@@ -65,6 +66,9 @@ func RegisterEndpoint(api huma.API, app Lister) {
 		}
 		if request.TransactionID != "" {
 			q.TransactionID = &request.TransactionID
+		}
+		if request.ResourceKey != "" {
+			q.ResourceKey = &request.ResourceKey
 		}
 
 		page, err := app.ListUsageReports(ctx, cl, request.InstanceSlug, request.EntitlementSlug, q)

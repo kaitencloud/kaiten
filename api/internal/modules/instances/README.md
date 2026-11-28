@@ -223,6 +223,7 @@ The shared configuration loader accepts:
 | Variable | Default |
 | --- | --- |
 | `KAITEN_USAGE_IDEMPOTENCY_WINDOW` | `840h` (minimum `24h`) |
+| `KAITEN_USAGE_MAX_RESOURCES` | `10000`: resources one instance may count per [per-resource entitlement](#per-resource-entitlements) |
 | `KAITEN_AI_RESERVATION_DEFAULT_TTL` | `10m` |
 | `KAITEN_AI_RESERVATION_MAX_TTL` | `1h` |
 | `KAITEN_AI_FLAG_CACHE_TTL` | `30s` |
@@ -422,3 +423,72 @@ The same holds for a database that applied this branch's own earlier
 `20261024173426_ai_credits.sql`: goose has that version recorded with no file
 behind it, and reads `20261110000000` as pending over tables that already exist.
 Such a database needs the same reviewed path, not an automatic migration.
+
+## Per-resource entitlements
+
+Everything above is about credit pools, which count per instance. A `NUMBER`
+entitlement can instead count **per resource** (`limitScope: RESOURCE`, set at
+creation and immutable): the instance holds one counter for each object its
+customer creates in the vendor's product, every one measured against the one
+limit the licence grants. "Four sources per competitor" is four for Stigg, four
+for Paid, each apart.
+
+| Method and path (under `/instances/{instanceSlug}/entitlements/{entitlementSlug}`) | Scope | What it does |
+| --- | --- | --- |
+| `POST /resources/{resourceKey}/usage` | `write:instances` | The entitlement's report, for one resource: same body, headers and answers |
+| `GET /resources/{resourceKey}/usage` | `read:instances` | One resource's usage against the limit; a resource nothing was reported for reads 0 |
+| `GET /resources` | `read:instances` | The resources that hold a counter, by cursor, in key order (bytewise) |
+| `DELETE /resources/{resourceKey}` | `write:instances` | Forgets the counter, when the object is gone; 204 even if there was none |
+
+A resource is a key the vendor chooses: 1 to 128 characters of `[A-Za-z0-9._:-]`,
+matched exactly and case-sensitively, never `.` or `..` (HTTP clients and proxies
+normalize dot segments away). It is not declared: its first accepted report
+creates the counter, and a refused one creates nothing. Kaiten stores nothing
+else about it, so it must carry no personal data. A path segment is read
+percent-decoded once (`comp%3A123` is `comp:123`).
+
+**What the report does** is what it does on any entitlement, per resource: the
+entitlement's aggregation method folds the value into the resource's counter,
+the gate compares it with the limit, each resource has its own window start,
+and `Idempotency-Key` is scoped to the instance, the entitlement **and the
+resource**. The limit is the effective one -- licence, add-ons, boosts and
+exception -- and raising it raises it for every resource.
+
+**Refusals** (all 422 unless said): `ReportEntitlementUsageMetric.ResourceKeyRequired`
+(the entitlement's own report route on a `RESOURCE` entitlement),
+`.ResourceKeyNotAllowed` (a resource route on an `INSTANCE` one),
+`.InvalidResourceKey`, and `.ResourceLimitReached` when a report would open a
+resource past `KAITEN_USAGE_MAX_RESOURCES` (the counters already there keep
+counting; deleting one frees its place). The read, list and delete answer
+`NotPerResource` on an `INSTANCE` entitlement. A metered or overage price cannot
+meter a `RESOURCE` entitlement (`CreateLicensePrice.UnsupportedLimitScope`,
+`UpdateLicensePrice.UnsupportedLimitScope`, `CreateAddonPrice.UnsupportedLimitScope`):
+an invoice has no line per resource. A seeder's `WriteSnapshot` refuses one too.
+
+**Storage.** One counter per `(entitlement, instance, resource)` in
+`entitlement_resource_usage`. The pair's `entitlement_usage` row stays the
+entitlement's own row: the report path rewrites it, in the same transaction and
+under the same pair lock, as the **highest counter among the resources in the
+window the write landed in**, and it keeps the pair's one `report_seq`. So every
+reader of that row -- the gauges, the dashboard, the targeting facts, the quota
+check of a plan change, the customer portal -- reads the resource closest to its
+limit, and the entitlement's usage carries a `resources` block (`count`, and
+`atLimit` among the counters of the current window). `usage_ledger` gains a
+nullable `resource_key`; a resource's reports keep the pair's `reportSeq`, so
+the journal's key does not change, and the list and the exports take a
+`resourceKey` filter and a `resource_key` column. Reports of two resources of one
+instance and entitlement run one after the other, under the pair's lock, as two
+reports on one entitlement do.
+
+Each report of such an entitlement sorts the pair's resources, up to the
+ceiling, under that lock, and a read counts them: `ponytail:` comments on the
+queries name the upgrade path (a counter moved by the report) if an
+entitlement ever gets hot.
+
+**Events.** The usage events keep their names and gain `resourceKey`, absent for
+an entitlement that counts per instance: report accepted and rejected, the cap,
+the warning threshold, `USAGE_REACHED` (the resource's own usage) and the period
+rollover, which closes each resource's window on that resource's next report.
+`INSTANCE_ENTITLEMENT_RESOURCE_DELETED` announces a deletion that removed a
+counter; it writes no journal row and does not move `report_seq`. A notification
+of one of these events names the resource.

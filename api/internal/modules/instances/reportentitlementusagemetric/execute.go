@@ -81,7 +81,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 	var eff *Effect
 	var reportedAt time.Time
 	err = h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
-		st, err := h.load(ctx, user.OrganizationID, instanceSlug, entitlementSlug)
+		st, err := h.load(ctx, user.OrganizationID, instanceSlug, entitlementSlug, command.ResourceKey)
 		if err != nil {
 			if errors.Is(err, usage.ErrRolloverLimitExceeded) {
 				h.rolloverCapExceeded.Add(ctx, 1)
@@ -103,7 +103,7 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 			return nil
 		}
 		if command.AI == nil && command.TransactionID != nil {
-			original, err := h.queryRepo.FindReportByTransactionID(ctx, user.OrganizationID, st.Pair.InstanceID, st.Pair.EntitlementID, *command.TransactionID, command.Value, st.Now.Add(-h.idempotencyWindow), st.Now.Add(idempotencyLookahead))
+			original, err := h.queryRepo.FindReportByTransactionID(ctx, user.OrganizationID, st.Pair.InstanceID, st.Pair.EntitlementID, st.Pair.ResourceKey, *command.TransactionID, command.Value, st.Now.Add(-h.idempotencyWindow), st.Now.Add(idempotencyLookahead))
 			if err != nil {
 				return err
 			}
@@ -115,12 +115,15 @@ func (h *UseCase) executeReport(ctx context.Context, instanceSlug, entitlementSl
 				}
 				outcome = "replayed"
 				h.idempotentReplays.Add(ctx, 1)
-				result = &Result{Usage: original.response(st.Pair.EntitlementID, st.Pair.EntitlementSlug), Replayed: true}
+				result = &Result{Usage: original.response(st.Pair.EntitlementID, st.Pair.EntitlementSlug, st.Pair.ResourceKey), Replayed: true}
 				return nil
 			}
 		}
 		if command.AI == nil {
 			if err := h.queryRepo.LoadLimits(ctx, st.Pair, instanceSlug, entitlementSlug, user.OrganizationID); err != nil {
+				return err
+			}
+			if err := h.refuseBeyondCeiling(ctx, st.Pair); err != nil {
 				return err
 			}
 		}

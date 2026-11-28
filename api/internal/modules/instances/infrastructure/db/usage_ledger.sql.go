@@ -17,14 +17,14 @@ INSERT INTO usage_ledger (organization_id, instance_id, entitlement_id, license_
                           report_seq, reported_at, window_start, window_end,
                           behavior, aggregation_method,
                           reported_value, value_before, value_after, event_count_after,
-                          limit_value, overage_percent, transaction_id, properties)
+                          limit_value, overage_percent, transaction_id, properties, resource_key)
 VALUES ($1, $2, $3, $4,
         $5, $6, $7, $8,
         $9, $10,
         $11::text::numeric, $12::text::numeric,
         $13::text::numeric, $14,
         $15::text::numeric, $16,
-        $17, $18)
+        $17, $18, $19)
 `
 
 type AppendUsageLedgerParams struct {
@@ -46,12 +46,14 @@ type AppendUsageLedgerParams struct {
 	OveragePercent    int16               `json:"overage_percent"`
 	TransactionID     *string             `json:"transaction_id"`
 	Properties        []byte              `json:"properties"`
+	ResourceKey       *string             `json:"resource_key"`
 }
 
 // One row per ACCEPTED report, written by the report transaction right after
 // AcceptEntitlementUsage and under the same lock. The NUMERIC values arrive as
 // decimal strings formatted from the float64 counter, so value_after -
-// value_before is exact.
+// value_before is exact. resource_key is the resource a RESOURCE entitlement's
+// report counted for, NULL for any other; report_seq is the pair's either way.
 func (q *Queries) AppendUsageLedger(ctx context.Context, arg AppendUsageLedgerParams) error {
 	_, err := q.db.Exec(ctx, appendUsageLedger,
 		arg.OrganizationID,
@@ -72,6 +74,7 @@ func (q *Queries) AppendUsageLedger(ctx context.Context, arg AppendUsageLedgerPa
 		arg.OveragePercent,
 		arg.TransactionID,
 		arg.Properties,
+		arg.ResourceKey,
 	)
 	return err
 }
@@ -196,6 +199,10 @@ type CheckUsageLedgerInvariantsRow struct {
 // 0 stands for "none" in the seq columns (a report_seq is at least 1), and -1
 // for "no counter" in counter_seq.
 //
+// It reads a pair as one counter, which holds for every pair billing seals: no
+// price can meter a RESOURCE entitlement, whose resources would each chain their
+// own values over the pair's one report_seq.
+//
 // The chain is checked over pred and in_range, between consecutive reports
 // only (a gap is the sequence invariant's to report): a row's value_before
 // must be the previous row's value_after when both are in one window, and the
@@ -251,8 +258,9 @@ WHERE ul.organization_id = $2
   AND ul.instance_id = $3
   AND ul.entitlement_id = $4
   AND ul.transaction_id = $5
-  AND ul.reported_at >= $6
-  AND ul.reported_at < $7
+  AND ul.resource_key IS NOT DISTINCT FROM $6::text
+  AND ul.reported_at >= $7
+  AND ul.reported_at < $8
 ORDER BY ul.reported_at DESC
 LIMIT 1
 `
@@ -263,6 +271,7 @@ type FindUsageReportByTransactionIDParams struct {
 	InstanceID     uuid.UUID        `json:"instance_id"`
 	EntitlementID  uuid.UUID        `json:"entitlement_id"`
 	TransactionID  *string          `json:"transaction_id"`
+	ResourceKey    *string          `json:"resource_key"`
 	NotBefore      pgtype.Timestamp `json:"not_before"`
 	NotAfter       pgtype.Timestamp `json:"not_after"`
 }
@@ -288,6 +297,12 @@ type FindUsageReportByTransactionIDRow struct {
 // values as NUMERIC, so 10 and 10.0 are the same report. not_after is a day
 // past the report's own instant: it keeps the scan off empty future
 // partitions while tolerating a clock that stepped back.
+// A key belongs to its resource: the same key sent for two resources of one
+// pair is two reports, as it is for two entitlements. NULL matches NULL, so an
+// entitlement with no resources looks its keys up as it always did.
+// ponytail: the index below has no resource_key, so a key shared by N resources
+// is read N rows deep before this filter. Add the column to the index if one
+// event feeding thousands of resources ever becomes usual.
 func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUsageReportByTransactionIDParams) (FindUsageReportByTransactionIDRow, error) {
 	row := q.db.QueryRow(ctx, findUsageReportByTransactionID,
 		arg.Value,
@@ -295,6 +310,7 @@ func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUs
 		arg.InstanceID,
 		arg.EntitlementID,
 		arg.TransactionID,
+		arg.ResourceKey,
 		arg.NotBefore,
 		arg.NotAfter,
 	)
@@ -329,7 +345,9 @@ type GetPairReportSeqParams struct {
 }
 
 // The pair's report counter, 0 before its first report. Read by Seal under
-// the pair's lock.
+// the pair's lock. A RESOURCE entitlement's pair has one too, shared by its
+// resources; billing never reads it, since no price can meter such an entitlement
+// (CreateLicensePrice.UnsupportedLimitScope).
 func (q *Queries) GetPairReportSeq(ctx context.Context, arg GetPairReportSeqParams) (int64, error) {
 	row := q.db.QueryRow(ctx, getPairReportSeq, arg.InstanceID, arg.EntitlementID)
 	var report_seq int64
@@ -452,7 +470,7 @@ SELECT ul.organization_id, ul.instance_id, ul.entitlement_id, ul.license_id,
              ELSE trim_scale(GREATEST(0, ul.value_after - ul.limit_value) - GREATEST(0, ul.value_before - ul.limit_value))
         END)::text AS overage_delta,
        ul.event_count_after, coalesce(ul.limit_value::text, '')::text AS limit_value, ul.overage_percent,
-       ul.transaction_id, ul.properties
+       ul.transaction_id, ul.properties, ul.resource_key
 FROM usage_ledger ul
 WHERE ul.organization_id = $1
   AND ul.reported_at >= $2
@@ -500,6 +518,7 @@ type ListOrganizationUsageReportsRow struct {
 	OveragePercent    int16            `json:"overage_percent"`
 	TransactionID     *string          `json:"transaction_id"`
 	Properties        []byte           `json:"properties"`
+	ResourceKey       *string          `json:"resource_key"`
 }
 
 // One page of an organization's journal, every pair or a filtered few, in
@@ -547,6 +566,7 @@ func (q *Queries) ListOrganizationUsageReports(ctx context.Context, arg ListOrga
 			&i.OveragePercent,
 			&i.TransactionID,
 			&i.Properties,
+			&i.ResourceKey,
 		); err != nil {
 			return nil, err
 		}
@@ -570,7 +590,7 @@ SELECT ul.organization_id, ul.instance_id, ul.entitlement_id, ul.license_id,
              ELSE trim_scale(GREATEST(0, ul.value_after - ul.limit_value) - GREATEST(0, ul.value_before - ul.limit_value))
         END)::text AS overage_delta,
        ul.event_count_after, coalesce(ul.limit_value::text, '')::text AS limit_value, ul.overage_percent,
-       ul.transaction_id, ul.properties
+       ul.transaction_id, ul.properties, ul.resource_key
 FROM usage_ledger ul
 WHERE ul.organization_id = $1
   AND ul.instance_id = $2
@@ -579,8 +599,9 @@ WHERE ul.organization_id = $1
   AND ul.reported_at < $5
   AND ul.report_seq > $6
   AND ($7::text IS NULL OR ul.transaction_id = $7::text)
+  AND ($8::text IS NULL OR ul.resource_key = $8::text)
 ORDER BY ul.report_seq
-LIMIT $8
+LIMIT $9
 `
 
 type ListPairUsageReportsParams struct {
@@ -591,6 +612,7 @@ type ListPairUsageReportsParams struct {
 	ToAt           pgtype.Timestamp `json:"to_at"`
 	AfterSeq       int64            `json:"after_seq"`
 	TransactionID  *string          `json:"transaction_id"`
+	ResourceKey    *string          `json:"resource_key"`
 	PageSize       int32            `json:"page_size"`
 }
 
@@ -615,6 +637,7 @@ type ListPairUsageReportsRow struct {
 	OveragePercent    int16            `json:"overage_percent"`
 	TransactionID     *string          `json:"transaction_id"`
 	Properties        []byte           `json:"properties"`
+	ResourceKey       *string          `json:"resource_key"`
 }
 
 // One page of a pair's journal, in report_seq order, through the primary key.
@@ -622,6 +645,8 @@ type ListPairUsageReportsRow struct {
 // cast hides its nullability from sqlc); delta and overage_delta are computed
 // here, in NUMERIC, so they are as exact as the columns. trim_scale drops the
 // trailing zeros a subtraction of two scales leaves (2.5 - 0.5 is 2, not 2.0).
+// resource_key narrows the pair's journal to one resource's reports; they keep
+// the pair's report_seq, so a filtered page is not contiguous in it.
 func (q *Queries) ListPairUsageReports(ctx context.Context, arg ListPairUsageReportsParams) ([]ListPairUsageReportsRow, error) {
 	rows, err := q.db.Query(ctx, listPairUsageReports,
 		arg.OrganizationID,
@@ -631,6 +656,7 @@ func (q *Queries) ListPairUsageReports(ctx context.Context, arg ListPairUsageRep
 		arg.ToAt,
 		arg.AfterSeq,
 		arg.TransactionID,
+		arg.ResourceKey,
 		arg.PageSize,
 	)
 	if err != nil {
@@ -661,6 +687,7 @@ func (q *Queries) ListPairUsageReports(ctx context.Context, arg ListPairUsageRep
 			&i.OveragePercent,
 			&i.TransactionID,
 			&i.Properties,
+			&i.ResourceKey,
 		); err != nil {
 			return nil, err
 		}

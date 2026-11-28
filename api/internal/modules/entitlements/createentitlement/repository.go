@@ -18,11 +18,14 @@ import (
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
+// CreateEntitlementInput is what CreateEntitlement stores. An empty LimitScope is
+// INSTANCE, the column's default, for a caller that knows nothing of scopes.
 type CreateEntitlementInput struct {
 	Name                    string
 	Description             *string
 	Type                    schema.Type
 	AggregationMethod       *schema.AggregationMethod
+	LimitScope              schema.LimitScope
 	Slug                    string
 	Icon                    *string
 	UnitSingular            *string
@@ -84,6 +87,11 @@ func (r *CommandRepository) CreateEntitlement(ctx context.Context, input CreateE
 		dbResetAnchor = &ra
 	}
 
+	limitScope := db.EntitlementLimitScopeINSTANCE
+	if input.LimitScope != "" {
+		limitScope = db.EntitlementLimitScope(input.LimitScope)
+	}
+
 	params := db.CreateEntitlementParams{
 		Name:              input.Name,
 		Slug:              input.Slug,
@@ -103,6 +111,7 @@ func (r *CommandRepository) CreateEntitlement(ctx context.Context, input CreateE
 		WarningThresholdPercent: int16(input.WarningThresholdPercent),
 		ResetPeriod:             dbResetPeriod,
 		ResetAnchor:             dbResetAnchor,
+		LimitScope:              limitScope,
 	}
 
 	entitlement, err := r.q(ctx).CreateEntitlement(ctx, params)

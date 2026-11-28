@@ -46,6 +46,9 @@ type LedgerEntry struct {
 	OveragePercent int32
 	TransactionID  *string
 	Properties     []byte
+	// ResourceKey is the resource the report counted for, nil for an entitlement
+	// that counts per instance. ReportSeq is the pair's either way.
+	ResourceKey *string
 }
 
 // AcceptEntitlementUsage writes the counter of an ACCEPTED report and returns
@@ -91,6 +94,7 @@ func (r *CommandRepository) AppendUsageLedger(ctx context.Context, e LedgerEntry
 		OveragePercent:    int16(overagePercent),
 		TransactionID:     e.TransactionID,
 		Properties:        e.Properties,
+		ResourceKey:       e.ResourceKey,
 	})
 }
 
@@ -132,8 +136,10 @@ type AcceptedReport struct {
 // FindReportByTransactionID returns the report the pair accepted under
 // transactionID within [notBefore, notAfter), or nil when there is none.
 // value is the incoming report's value, compared as NUMERIC (SameValue).
+// resourceKey scopes the key to its resource: nil finds the reports of an
+// entitlement that counts per instance, and only those.
 func (r *QueryRepository) FindReportByTransactionID(
-	ctx context.Context, organizationID, instanceID, entitlementID uuid.UUID,
+	ctx context.Context, organizationID, instanceID, entitlementID uuid.UUID, resourceKey *string,
 	transactionID string, value float64, notBefore, notAfter time.Time,
 ) (*AcceptedReport, error) {
 	row, err := r.q(ctx).FindUsageReportByTransactionID(ctx, db.FindUsageReportByTransactionIDParams{
@@ -142,6 +148,7 @@ func (r *QueryRepository) FindReportByTransactionID(
 		InstanceID:     instanceID,
 		EntitlementID:  entitlementID,
 		TransactionID:  &transactionID,
+		ResourceKey:    resourceKey,
 		NotBefore:      pgtype.Timestamp{Time: notBefore, Valid: true},
 		NotAfter:       pgtype.Timestamp{Time: notAfter, Valid: true},
 	})
@@ -177,10 +184,11 @@ func (r *QueryRepository) FindReportByTransactionID(
 // were then, not as they are now. The journal stores neither source nor
 // provenance, so a replay answers both null (V31-55): Source stays empty, and
 // the endpoint publishes it as null.
-func (a *AcceptedReport) response(entitlementID uuid.UUID, entitlementSlug string) *entitlementUsageSchema.EntitlementUsage {
+func (a *AcceptedReport) response(entitlementID uuid.UUID, entitlementSlug string, resourceKey *string) *entitlementUsageSchema.EntitlementUsage {
 	return &entitlementUsageSchema.EntitlementUsage{
 		EntitlementID:   entitlementID,
 		EntitlementSlug: entitlementSlug,
+		ResourceKey:     resourceKey,
 		LicenseID:       a.LicenseID,
 		LicenseSlug:     a.LicenseSlug,
 		Value: entitlementUsageSchema.EntitlementValue{

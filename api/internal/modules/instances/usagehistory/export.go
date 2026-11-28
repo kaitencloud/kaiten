@@ -39,7 +39,7 @@ var csvHeader = []string{
 	"organization_id", "instance_id", "entitlement_id", "report_seq", "reported_at",
 	"behavior", "aggregation_method", "reported_value", "value_before", "value_after",
 	"delta", "overage_delta", "event_count_after", "window_start", "window_end",
-	"limit_value", "overage_percent", "license_id", "transaction_id", "properties",
+	"limit_value", "overage_percent", "license_id", "transaction_id", "properties", "resource_key",
 }
 
 // ParseFormat reads the format query parameter; "" is csv.
@@ -163,20 +163,20 @@ func (ndjsonEncoder) flush() error               { return nil }
 // csvEncoder writes RFC 4180 CSV, LF-terminated, with csvHeader's columns.
 type csvEncoder struct {
 	w      *csv.Writer
-	record [20]string
+	record [21]string
 }
 
 func (e *csvEncoder) header() error { return e.w.Write(csvHeader) }
 
 func (e *csvEncoder) row(r *UsageReport) error {
-	e.record = [20]string{
+	e.record = [21]string{
 		r.organizationID.String(), r.InstanceID.String(), r.EntitlementID.String(),
 		strconv.FormatInt(r.ReportSeq, 10), r.ReportedAt.Format(timeLayout),
 		r.Behavior, r.AggregationMethod, r.ReportedValue, r.ValueBefore, r.ValueAfter,
 		r.Delta, r.OverageDelta, strconv.FormatInt(int64(r.EventCountAfter), 10),
 		formatTime(r.WindowStart), formatTime(r.WindowEnd),
 		deref(r.LimitValue), formatPercent(r.OveragePercent), r.LicenseID.String(),
-		textCell(deref(r.TransactionID)), textCell(compactJSON(r.Properties)),
+		textCell(deref(r.TransactionID)), textCell(compactJSON(r.Properties)), textCell(deref(r.ResourceKey)),
 	}
 	return e.w.Write(e.record[:])
 }

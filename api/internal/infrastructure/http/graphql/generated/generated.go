@@ -228,6 +228,7 @@ type ComplexityRoot struct {
 		EntitlementGroups       func(childComplexity int) int
 		ID                      func(childComplexity int) int
 		Icon                    func(childComplexity int) int
+		LimitScope              func(childComplexity int) int
 		Name                    func(childComplexity int) int
 		ResetAnchor             func(childComplexity int) int
 		ResetPeriod             func(childComplexity int) int
@@ -278,8 +279,15 @@ type ComplexityRoot struct {
 		Limit                          func(childComplexity int) int
 		LimitCapExceededOveragePercent func(childComplexity int) int
 		Provenance                     func(childComplexity int) int
+		ResourceKey                    func(childComplexity int) int
+		Resources                      func(childComplexity int) int
 		Source                         func(childComplexity int) int
 		Value                          func(childComplexity int) int
+	}
+
+	EntitlementUsageResources struct {
+		AtLimit func(childComplexity int) int
+		Count   func(childComplexity int) int
 	}
 
 	Instance struct {
@@ -1371,6 +1379,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Entitlement.Icon(childComplexity), true
+	case "Entitlement.limitScope":
+		if e.ComplexityRoot.Entitlement.LimitScope == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Entitlement.LimitScope(childComplexity), true
 	case "Entitlement.name":
 		if e.ComplexityRoot.Entitlement.Name == nil {
 			break
@@ -1603,6 +1617,18 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EntitlementUsage.Provenance(childComplexity), true
+	case "EntitlementUsage.resourceKey":
+		if e.ComplexityRoot.EntitlementUsage.ResourceKey == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementUsage.ResourceKey(childComplexity), true
+	case "EntitlementUsage.resources":
+		if e.ComplexityRoot.EntitlementUsage.Resources == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementUsage.Resources(childComplexity), true
 	case "EntitlementUsage.source":
 		if e.ComplexityRoot.EntitlementUsage.Source == nil {
 			break
@@ -1615,6 +1641,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EntitlementUsage.Value(childComplexity), true
+
+	case "EntitlementUsageResources.atLimit":
+		if e.ComplexityRoot.EntitlementUsageResources.AtLimit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementUsageResources.AtLimit(childComplexity), true
+	case "EntitlementUsageResources.count":
+		if e.ComplexityRoot.EntitlementUsageResources.Count == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementUsageResources.Count(childComplexity), true
 
 	case "Instance.addons":
 		if e.ComplexityRoot.Instance.Addons == nil {
@@ -3411,6 +3450,16 @@ enum EntitlementType {
 }
 
 """
+What an entitlement's limit applies to: the instance as a whole (one counter per
+instance), or each resource the instance holds a counter for (one counter per
+resource, every one measured against the same limit).
+"""
+enum EntitlementLimitScope {
+  INSTANCE
+  RESOURCE
+}
+
+"""
 Cadence at which usage automatically resets for a NUMBER entitlement.
 """
 enum EntitlementResetPeriod {
@@ -3452,6 +3501,13 @@ type Entitlement {
   slug: String!
   description: String
   type: EntitlementType
+
+  """
+  What the limit applies to (NUMBER family only; null for BOOLEAN and CONFIG).
+  A RESOURCE entitlement counts per resource, and its usage reads as its
+  highest counter. Immutable.
+  """
+  limitScope: EntitlementLimitScope
 
   """
   Optional icon, stored as a provider-namespaced token (provider:name).
@@ -3748,6 +3804,24 @@ enum EntitlementUsageSource {
 }
 
 """
+The counters behind a RESOURCE entitlement's usage, which its value (the
+highest of them) hides.
+"""
+type EntitlementUsageResources {
+  """
+  How many resources hold a counter for this entitlement on this instance,
+  whatever their usage window.
+  """
+  count: Int!
+
+  """
+  How many of them have reached the limit in their current usage window; 0
+  when the limit is unlimited.
+  """
+  atLimit: Int!
+}
+
+"""
 Current usage of an entitlement on an instance. One row per license grant:
 NUMBER entitlements carry the accumulated usage (zeroed when nothing has been
 reported yet); other types carry the license value.
@@ -3795,6 +3869,19 @@ type EntitlementUsage {
   contribute, as the REST gauge read returns it.
   """
   provenance: Map
+
+  """
+  The resource this usage counts. Null on an entitlement's own usage, which is
+  the only usage this type carries today.
+  """
+  resourceKey: String
+
+  """
+  Only on a RESOURCE entitlement: value is its highest counter and limit the
+  limit of each resource; this says how many resources hold a counter and how
+  many have reached the limit.
+  """
+  resources: EntitlementUsageResources
 }
 
 extend type Instance {
@@ -4722,6 +4809,8 @@ func (ec *executionContext) childFields_Entitlement(ctx context.Context, field g
 		return ec.fieldContext_Entitlement_description(ctx, field)
 	case "type":
 		return ec.fieldContext_Entitlement_type(ctx, field)
+	case "limitScope":
+		return ec.fieldContext_Entitlement_limitScope(ctx, field)
 	case "icon":
 		return ec.fieldContext_Entitlement_icon(ctx, field)
 	case "unitSingular":
@@ -4826,8 +4915,22 @@ func (ec *executionContext) childFields_EntitlementUsage(ctx context.Context, fi
 		return ec.fieldContext_EntitlementUsage_limitCapExceededOveragePercent(ctx, field)
 	case "provenance":
 		return ec.fieldContext_EntitlementUsage_provenance(ctx, field)
+	case "resourceKey":
+		return ec.fieldContext_EntitlementUsage_resourceKey(ctx, field)
+	case "resources":
+		return ec.fieldContext_EntitlementUsage_resources(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type EntitlementUsage", field.Name)
+}
+
+func (ec *executionContext) childFields_EntitlementUsageResources(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "count":
+		return ec.fieldContext_EntitlementUsageResources_count(ctx, field)
+	case "atLimit":
+		return ec.fieldContext_EntitlementUsageResources_atLimit(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type EntitlementUsageResources", field.Name)
 }
 
 func (ec *executionContext) childFields_Instance(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
@@ -8947,6 +9050,29 @@ func (ec *executionContext) fieldContext_Entitlement_type(_ context.Context, fie
 	return graphql.NewScalarFieldContext("Entitlement", field, false, false, errors.New("field of type EntitlementType does not have child fields"))
 }
 
+func (ec *executionContext) _Entitlement_limitScope(ctx context.Context, field graphql.CollectedField, obj *schema5.Entitlement) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Entitlement_limitScope(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.LimitScope, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *schema5.LimitScope) graphql.Marshaler {
+			return ec.marshalOEntitlementLimitScope2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐLimitScope(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Entitlement_limitScope(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Entitlement", field, false, false, errors.New("field of type EntitlementLimitScope does not have child fields"))
+}
+
 func (ec *executionContext) _Entitlement_icon(ctx context.Context, field graphql.CollectedField, obj *schema5.Entitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9883,6 +10009,107 @@ func (ec *executionContext) _EntitlementUsage_provenance(ctx context.Context, fi
 }
 func (ec *executionContext) fieldContext_EntitlementUsage_provenance(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, true, true, errors.New("field of type Map does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementUsage_resourceKey(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementUsage_resourceKey(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.ResourceKey, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *string) graphql.Marshaler {
+			return ec.marshalOString2ᚖstring(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementUsage_resourceKey(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementUsage", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementUsage_resources(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementUsage_resources(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Resources, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *schema2.UsageResources) graphql.Marshaler {
+			return ec.marshalOEntitlementUsageResources2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐUsageResources(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementUsage_resources(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitlementUsage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_EntitlementUsageResources(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
+func (ec *executionContext) _EntitlementUsageResources_count(ctx context.Context, field graphql.CollectedField, obj *schema2.UsageResources) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementUsageResources_count(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Count, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementUsageResources_count(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementUsageResources", field, false, false, errors.New("field of type Int does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementUsageResources_atLimit(ctx context.Context, field graphql.CollectedField, obj *schema2.UsageResources) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementUsageResources_atLimit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.AtLimit, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v int32) graphql.Marshaler {
+			return ec.marshalNInt2int32(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementUsageResources_atLimit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementUsageResources", field, false, false, errors.New("field of type Int does not have child fields"))
 }
 
 func (ec *executionContext) _Instance_id(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
@@ -17577,6 +17804,11 @@ func (ec *executionContext) _Entitlement(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
+		case "limitScope":
+			out.Values[i] = ec._Entitlement_limitScope(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "icon":
 			out.Values[i] = ec._Entitlement_icon(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -18041,6 +18273,59 @@ func (ec *executionContext) _EntitlementUsage(ctx context.Context, sel ast.Selec
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "resourceKey":
+			out.Values[i] = ec._EntitlementUsage_resourceKey(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		case "resources":
+			out.Values[i] = ec._EntitlementUsage_resources(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
+var entitlementUsageResourcesImplementors = []string{"EntitlementUsageResources"}
+
+func (ec *executionContext) _EntitlementUsageResources(ctx context.Context, sel ast.SelectionSet, obj *schema2.UsageResources) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entitlementUsageResourcesImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntitlementUsageResources")
+		case "count":
+			out.Values[i] = ec._EntitlementUsageResources_count(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "atLimit":
+			out.Values[i] = ec._EntitlementUsageResources_atLimit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -22830,6 +23115,25 @@ func (ec *executionContext) marshalOEntitlementGroupSummary2ᚕᚖgithubᚗcom�
 	return ret
 }
 
+func (ec *executionContext) unmarshalOEntitlementLimitScope2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐLimitScope(ctx context.Context, v any) (*schema5.LimitScope, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := schema5.LimitScope(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOEntitlementLimitScope2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐLimitScope(ctx context.Context, sel ast.SelectionSet, v *schema5.LimitScope) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
+	return res
+}
+
 func (ec *executionContext) unmarshalOEntitlementResetAnchor2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋperiodᚐResetAnchor(ctx context.Context, v any) (*period.ResetAnchor, error) {
 	if v == nil {
 		return nil, nil
@@ -22885,6 +23189,13 @@ func (ec *executionContext) marshalOEntitlementType2ᚖgithubᚗcomᚋkaitenclou
 	_ = ctx
 	res := graphql.MarshalString(string(*v))
 	return res
+}
+
+func (ec *executionContext) marshalOEntitlementUsageResources2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐUsageResources(ctx context.Context, sel ast.SelectionSet, v *schema2.UsageResources) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	return ec._EntitlementUsageResources(ctx, sel, v)
 }
 
 func (ec *executionContext) unmarshalOFloat2ᚖfloat64(ctx context.Context, v any) (*float64, error) {

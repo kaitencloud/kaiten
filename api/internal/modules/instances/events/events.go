@@ -44,4 +44,11 @@ var (
 	// (IsSynthetic=true). This is the only historical representation of a
 	// closed bucket in v1; there is no separate usage-history table.
 	InstanceEntitlementUsagePeriodRolledOver = events.New("INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER", "com.kaiten.instance.entitlement.v1.usage_period_rolled_over")
+
+	// InstanceEntitlementResourceDeleted fires when a resource's counter is
+	// forgotten -- the object it counted for was deleted in the vendor's product --
+	// and only when there was a counter to forget: deleting a resource nothing was
+	// reported for is not a change. It is not a report: the usage journal keeps the
+	// resource's past reports and gains no row.
+	InstanceEntitlementResourceDeleted = events.New("INSTANCE_ENTITLEMENT_RESOURCE_DELETED", "com.kaiten.instance.entitlement.v1.resource_deleted")
 )

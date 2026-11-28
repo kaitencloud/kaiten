@@ -313,6 +313,7 @@ SELECT e.id,
        e.slug,
        e.name,
        e.type,
+       e.limit_scope,
        e.aggregation_method,
        e.reset_period,
        coalesce(e.sale_unit_factor::text, '')::text AS sale_unit_factor,
@@ -340,6 +341,7 @@ type GetPricingEntitlementRow struct {
 	Slug                string                  `json:"slug"`
 	Name                string                  `json:"name"`
 	Type                EntitlementType         `json:"type"`
+	LimitScope          EntitlementLimitScope   `json:"limit_scope"`
 	AggregationMethod   *AggregationMethod      `json:"aggregation_method"`
 	ResetPeriod         *EntitlementResetPeriod `json:"reset_period"`
 	SaleUnitFactor      string                  `json:"sale_unit_factor"`
@@ -360,6 +362,7 @@ func (q *Queries) GetPricingEntitlement(ctx context.Context, arg GetPricingEntit
 		&i.Slug,
 		&i.Name,
 		&i.Type,
+		&i.LimitScope,
 		&i.AggregationMethod,
 		&i.ResetPeriod,
 		&i.SaleUnitFactor,

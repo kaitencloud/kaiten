@@ -60,6 +60,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 			Description:             request.Body.Description,
 			Type:                    request.Body.Type,
 			AggregationMethod:       request.Body.AggregationMethod,
+			LimitScope:              request.Body.LimitScope,
 			GroupSlugs:              request.Body.GroupSlugs,
 			Icon:                    request.Body.Icon,
 			UnitSingular:            request.Body.UnitSingular,

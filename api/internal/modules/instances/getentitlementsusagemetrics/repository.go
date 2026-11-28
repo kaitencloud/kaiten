@@ -85,6 +85,9 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 
 		var resolvedValue entitlementUsageSchema.EntitlementValue
 		var currentPeriodStart, currentPeriodEnd *time.Time
+		// closedWindow: the counter read belongs to a usage window that has
+		// closed, so the value is zero and nothing is at its limit.
+		closedWindow := false
 
 		if e.EntitlementType == db.EntitlementTypeNUMBER || e.EntitlementType == db.EntitlementTypeNUMBERAICREDIT {
 			var stored *entitlementvalue.NumberUsageValue
@@ -113,6 +116,7 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 				}
 				usage = entitlementvalue.ResolveCurrentWindowUsage(stored, storedPeriodStart, window)
 				currentPeriodStart, currentPeriodEnd = &window.Start, &window.End
+				closedWindow = storedPeriodStart == nil || !storedPeriodStart.Equal(window.Start)
 			}
 
 			resolvedValue = entitlementUsageSchema.EntitlementValue{
@@ -142,6 +146,12 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 			text := decimal.NewFromBigInt(e.Reserved.Int, e.Reserved.Exp).String()
 			reserved = &text
 		}
+		// A RESOURCE entitlement reads as its highest counter -- the pair's row
+		// is its summary -- and says how many counters stand behind it.
+		var resources *entitlementUsageSchema.UsageResources
+		if e.LimitScope == db.EntitlementLimitScopeRESOURCE {
+			resources = entitlementUsageSchema.NewUsageResources(e.ResourceCount, e.ResourcesAtLimit, closedWindow)
+		}
 		result = append(result, entitlementUsageSchema.EntitlementUsage{
 			Reserved:                       reserved,
 			EntitlementID:                  e.EntitlementID,
@@ -155,6 +165,7 @@ func MapUsageRows(rows []db.GetEntitlementsUsageForInstanceWithFallbackRow) ([]e
 			LimitCapExceededOveragePercent: e.EffectiveOveragePercent,
 			Source:                         e.Source,
 			Provenance:                     provenance,
+			Resources:                      resources,
 		})
 	}
 	return result, nil

@@ -10,6 +10,7 @@ type Command struct {
 	Description             *string                   `json:"description"`
 	Type                    schema.Type               `json:"type"`
 	AggregationMethod       *schema.AggregationMethod `json:"aggregationMethod,omitempty"`
+	LimitScope              *schema.LimitScope        `json:"limitScope,omitempty"`
 	Slug                    *string                   `json:"slug,omitempty"`
 	GroupSlugs              []string                  `json:"groupSlugs,omitempty"`
 	Icon                    *string                   `json:"icon,omitempty"`

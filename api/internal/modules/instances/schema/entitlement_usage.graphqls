@@ -9,6 +9,24 @@ enum EntitlementUsageSource {
 }
 
 """
+The counters behind a RESOURCE entitlement's usage, which its value (the
+highest of them) hides.
+"""
+type EntitlementUsageResources {
+  """
+  How many resources hold a counter for this entitlement on this instance,
+  whatever their usage window.
+  """
+  count: Int!
+
+  """
+  How many of them have reached the limit in their current usage window; 0
+  when the limit is unlimited.
+  """
+  atLimit: Int!
+}
+
+"""
 Current usage of an entitlement on an instance. One row per license grant:
 NUMBER entitlements carry the accumulated usage (zeroed when nothing has been
 reported yet); other types carry the license value.
@@ -56,6 +74,19 @@ type EntitlementUsage {
   contribute, as the REST gauge read returns it.
   """
   provenance: Map
+
+  """
+  The resource this usage counts. Null on an entitlement's own usage, which is
+  the only usage this type carries today.
+  """
+  resourceKey: String
+
+  """
+  Only on a RESOURCE entitlement: value is its highest counter and limit the
+  limit of each resource; this says how many resources hold a counter and how
+  many have reached the limit.
+  """
+  resources: EntitlementUsageResources
 }
 
 extend type Instance {

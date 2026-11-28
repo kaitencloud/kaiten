@@ -33,13 +33,21 @@ type Snapshot struct {
 // It applies no threshold, and when the stored row belongs to an older window
 // it starts the current one without emitting the rollover events a report
 // would: a seeder states the counter outright.
+//
+// It refuses an entitlement that counts per resource, as a report to its own
+// route does: a snapshot names no resource, and writing the pair's row would
+// overwrite the summary of the resources behind it and journal a report that
+// counted for none of them.
 func WriteSnapshot(ctx context.Context, uof *uow.UnitOfWork, s Snapshot) error {
 	queryRepo := NewQueryRepository(uof)
 	commandRepo := NewCommandRepository(uof)
 
 	return uof.Transact(ctx, func(ctx context.Context) error {
-		usageCtx, err := queryRepo.LockPair(ctx, s.InstanceSlug, s.EntitlementSlug, s.OrganizationID)
+		usageCtx, err := queryRepo.LockPair(ctx, s.InstanceSlug, s.EntitlementSlug, nil, s.OrganizationID)
 		if err != nil {
+			return err
+		}
+		if err := refuseWrongRoute(usageCtx); err != nil {
 			return err
 		}
 		if err := queryRepo.LoadLimits(ctx, usageCtx, s.InstanceSlug, s.EntitlementSlug, s.OrganizationID); err != nil {

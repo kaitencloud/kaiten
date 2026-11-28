@@ -2,16 +2,19 @@ package reportentitlementusagemetric
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	entitlementvalue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/value"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
 
-// apply is the one impure step of a report: the pair's single counter
-// upsert, then every event of the effect in one round trip. Whatever every
-// report has to do when it writes -- a journal row, a sequence number --
-// belongs here, right after the upsert, so every kind inherits it.
+// apply is the one impure step of a report: the counter's single upsert, then
+// every event of the effect in one round trip. The counter is the pair's, or the
+// resource's when the report names one -- and then the pair's row is rewritten
+// from its resources in the same breath, which is where report_seq moves.
+// Whatever every report has to do when it writes -- a journal row, a sequence
+// number -- belongs here, right after the upsert, so every kind inherits it.
 //
 // Outbox rows go through CreateOutboxEvents in one batch regardless of how
 // many windows a rollover closed: a dormant HOUR/DAY entitlement can produce
@@ -28,7 +31,7 @@ func (h *UseCase) apply(ctx context.Context, st *State, eff *Effect) error {
 			return err
 		}
 		if eff.Accepted {
-			seq, err := h.commandRepo.AcceptEntitlementUsage(ctx, st.Pair.InstanceID, st.Pair.EntitlementID, value, st.OrganizationID, st.Resolution.Window.Start)
+			seq, err := h.acceptCounter(ctx, st, value)
 			if err != nil {
 				return err
 			}
@@ -45,6 +48,7 @@ func (h *UseCase) apply(ctx context.Context, st *State, eff *Effect) error {
 				Behavior: eff.Behavior, AggregationMethod: st.AggregationMethod, ReportedValue: eff.ReportedValue,
 				ValueBefore: st.Resolution.Current.Value, ValueAfter: eff.Counter.Value, EventCountAfter: eff.Counter.EventCount,
 				Threshold: st.Limit.Threshold, OveragePercent: st.Limit.OveragePercent, TransactionID: st.TransactionID, Properties: st.Properties,
+				ResourceKey: st.Pair.ResourceKey,
 			})
 			if err != nil {
 				if kaitenerrors.IsMissingPartition(err, usageLedgerTable) {
@@ -53,7 +57,7 @@ func (h *UseCase) apply(ctx context.Context, st *State, eff *Effect) error {
 				}
 				return err
 			}
-		} else if err := h.commandRepo.ReportEntitlementUsage(ctx, st.Pair.InstanceID, st.Pair.EntitlementID, value, st.OrganizationID, st.Resolution.Window.Start); err != nil {
+		} else if err := h.resetCounter(ctx, st, value); err != nil {
 			return err
 		}
 
@@ -70,4 +74,49 @@ func (h *UseCase) apply(ctx context.Context, st *State, eff *Effect) error {
 		).At(st.Now)
 	}
 	return h.outbox.CreateOutboxEvents(ctx, messages)
+}
+
+// acceptCounter writes the counter of an ACCEPTED report and returns the pair's
+// new report_seq.
+func (h *UseCase) acceptCounter(ctx context.Context, st *State, value []byte) (int64, error) {
+	pair := st.Pair
+	if pair.ResourceKey != nil {
+		return h.commandRepo.AcceptResourceUsage(ctx, pair.InstanceID, pair.EntitlementID, *pair.ResourceKey, value, st.OrganizationID, st.Resolution.Window.Start)
+	}
+	return h.commandRepo.AcceptEntitlementUsage(ctx, pair.InstanceID, pair.EntitlementID, value, st.OrganizationID, st.Resolution.Window.Start)
+}
+
+// resetCounter writes the rollover reset a refused report still persists, and
+// counts no report.
+func (h *UseCase) resetCounter(ctx context.Context, st *State, value []byte) error {
+	pair := st.Pair
+	if pair.ResourceKey != nil {
+		return h.commandRepo.ResetResourceUsage(ctx, pair.InstanceID, pair.EntitlementID, *pair.ResourceKey, value, st.OrganizationID, st.Resolution.Window.Start)
+	}
+	return h.commandRepo.ReportEntitlementUsage(ctx, pair.InstanceID, pair.EntitlementID, value, st.OrganizationID, st.Resolution.Window.Start)
+}
+
+// refuseBeyondCeiling answers 422 to the report that would open one resource
+// more than the instance may hold for this entitlement. A resource that already
+// has its counter, and any report of an entitlement that counts per instance,
+// pass: the ceiling is on how many resources there are, never on how often one
+// reports. The count runs under the pair's lock, so no concurrent report can
+// open a resource between it and this report's own write.
+func (h *UseCase) refuseBeyondCeiling(ctx context.Context, pair *UsageContext) error {
+	if pair.ResourceKey == nil || pair.UsageValue != nil {
+		return nil
+	}
+	count, err := h.queryRepo.CountResources(ctx, pair.InstanceID, pair.EntitlementID)
+	if err != nil {
+		return err
+	}
+	if count < int64(h.maxResources) {
+		return nil
+	}
+	h.ceilingReached.Add(ctx, 1)
+	return kaitenerrors.UnprocessableEntityWithErrors(
+		"ReportEntitlementUsageMetric.ResourceLimitReached",
+		fmt.Sprintf("this instance already holds the most resources an entitlement may count (%d): delete one that no longer exists, or report for one that does", h.maxResources),
+		&kaitenerrors.ErrorDetail{Message: "a resource this entitlement does not count yet", Location: resourceKeyLocation, Value: *pair.ResourceKey},
+	)
 }

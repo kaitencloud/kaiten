@@ -1,9 +1,11 @@
 package featureflags_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
+	"github.com/gofiber/fiber/v3"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,11 +14,17 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/customers/createcustomer"
 	customerschema "github.com/kaitencloud/kaiten/api/internal/modules/customers/schema"
 	customertargetingfacts "github.com/kaitencloud/kaiten/api/internal/modules/customers/targetingfacts"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/createentitlement"
+	entitlementschema "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/createinstance"
 	instanceschema "github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/associateentitlementwithlicense"
 	"github.com/kaitencloud/kaiten/api/internal/modules/licenses/createlicense"
 	licenseschema "github.com/kaitencloud/kaiten/api/internal/modules/licenses/schema"
+	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
+	"github.com/kaitencloud/kaiten/api/internal/shared/ptr"
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
+	commonfixture "github.com/kaitencloud/kaiten/api/tests/integrations"
 )
 
 func newTargetingCustomer(t *testing.T, name string) *customerschema.Customer {
@@ -205,4 +213,59 @@ func TestGetTargetingFactsByCustomerSlug_UnknownKeyResolvesToNothing(t *testing.
 	)
 	require.NoError(t, err)
 	assert.Empty(t, rows)
+}
+
+// An entitlement that counts per resource reads, to a rule, as its highest
+// counter: a rule cannot name one resource, an evaluation carries none, and
+// "usage" is then the figure closest to the limit.
+func TestGetTargetingFacts_APerResourceEntitlementIsItsHighestCounter(t *testing.T) {
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	customer := newTargetingCustomer(t, "Per Resource Co")
+	license := newTargetingLicense(t, "Per Resource Plan")
+	instance := newTargetingInstance(t, "Per Resource Instance", customer, license)
+
+	entitlement, err := createentitlement.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB)).CreateEntitlement(
+		t.Context(),
+		createentitlement.CreateEntitlementInput{
+			Name: "Sources per competitor", Slug: "sources-per-competitor", Type: entitlementschema.Number,
+			AggregationMethod: ptr.To(entitlementschema.Sum), LimitScope: entitlementschema.LimitScopeResource,
+		},
+		testDb.DefaultData.OrganizationID,
+	)
+	require.NoError(t, err)
+	_, err = associateentitlementwithlicense.NewCommandRepository(uow.NewUnitOfWork(testServer.Dependencies.DB), aiusage.Policy{}).
+		AssociateEntitlementToLicense(t.Context(), license.Slug, &associateentitlementwithlicense.Command{
+			EntitlementSlug: entitlement.Slug, Value: map[string]any{"type": "number", "value": 4},
+		}, testDb.DefaultData.UserID, testDb.DefaultData.OrganizationID)
+	require.NoError(t, err)
+	for key, value := range map[string]float64{"stigg": 2, "paid": 4, "schematic": 3} {
+		req := commonfixture.NewJSONRequest(t, "POST",
+			"/api/instances/"+instance.Slug+"/entitlements/"+entitlement.Slug+"/resources/"+key+"/usage",
+			map[string]any{"value": map[string]any{"type": "number", "value": value}, "behavior": "append"})
+		resp, err := testServer.App.Test(req, fiber.TestConfig{})
+		require.NoError(t, err)
+		require.Equal(t, fiber.StatusOK, resp.StatusCode)
+		commonfixture.MustCloseBody(t, resp.Body)
+	}
+
+	for name, read := range map[string]func() ([]customertargetingfacts.TargetingFact, error){
+		"by customer": func() ([]customertargetingfacts.TargetingFact, error) {
+			return customertargetingfacts.New(testServer.Dependencies.DB).GetTargetingFactsByCustomerSlug(t.Context(), testDb.DefaultData.OrganizationID, customer.Slug)
+		},
+		"by instance": func() ([]customertargetingfacts.TargetingFact, error) {
+			return customertargetingfacts.New(testServer.Dependencies.DB).GetTargetingFactsByInstance(t.Context(), testDb.DefaultData.OrganizationID, instance.ID)
+		},
+	} {
+		facts, err := read()
+		require.NoError(t, err, name)
+		require.Len(t, facts, 1, name)
+		require.NotNil(t, facts[0].EntitlementSlug)
+		assert.Equal(t, entitlement.Slug, *facts[0].EntitlementSlug, name)
+		assert.JSONEq(t, `{"type":"number","value":4}`, string(facts[0].LimitValue), name)
+		var usage struct {
+			Value float64 `json:"value"`
+		}
+		require.NoError(t, json.Unmarshal(facts[0].UsageValue, &usage), name)
+		assert.Equal(t, 4.0, usage.Value, "%s: the highest counter, the one closest to the limit", name)
+	}
 }

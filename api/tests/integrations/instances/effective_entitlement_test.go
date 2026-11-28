@@ -37,6 +37,11 @@ import (
 // legacy queries below read those as the identity case has them -- the
 // grant's own percent and id, a provenance of the licence layer alone, the
 // source license, no subscription -- in the new queries' positions.
+//
+// They have also gained the entitlement's limit scope and what stands behind a
+// RESOURCE entitlement's usage (resource_count, resources_at_limit). Every
+// entitlement these fixtures create counts per instance, which is the identity
+// case: its own scope, and no resources.
 
 // identityProvenance is the view's provenance of a licence grant that no add-on
 // and no boost changes: the licence layer alone.
@@ -68,7 +73,10 @@ SELECT
   ''::text AS billing_status,
   NULL::timestamp AS billing_anchor_at,
   NULL::timestamp AS live_ended_at,
-  0::numeric AS reserved
+  0::numeric AS reserved,
+  e.limit_scope,
+  0::bigint AS resource_count,
+  0::bigint AS resources_at_limit
 FROM instance i
 JOIN license_entitlement le
   ON le.license_id = i.license_id
@@ -114,7 +122,10 @@ SELECT
   ''::text AS billing_status,
   NULL::timestamp AS billing_anchor_at,
   NULL::timestamp AS live_ended_at,
-  0::numeric AS reserved
+  0::numeric AS reserved,
+  e.limit_scope,
+  0::bigint AS resource_count,
+  0::bigint AS resources_at_limit
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -149,7 +160,8 @@ SELECT
   e.warning_threshold_percent,
   e.reset_period,
   e.reset_anchor,
-  l.slug              AS license_slug
+  l.slug              AS license_slug,
+  e.limit_scope
 FROM instance i
 JOIN entitlement e
   ON e.slug            = $1
@@ -351,7 +363,7 @@ func TestEffectiveEntitlementReadersAreUnchanged(t *testing.T) {
 				want := legacyRows[db.GetEntitlementUsageForInstanceOrDefaultRow](t, legacyEntitlementUsageForInstanceOrDefault,
 					instanceSlug, org, entitlementSlug)
 				got, err := instancesDB.GetEntitlementUsageForInstanceOrDefault(ctx, db.GetEntitlementUsageForInstanceOrDefaultParams{
-					OrganizationID: org, InstanceSlug: instanceSlug, EntitlementSlug: entitlementSlug,
+					ResourceKey: nil, OrganizationID: org, InstanceSlug: instanceSlug, EntitlementSlug: entitlementSlug,
 				})
 				require.NoError(t, err)
 				require.Len(t, want, 1)

@@ -64,6 +64,7 @@ func ToEntitlement(entitlement *db.Entitlement) *schema.Entitlement {
 		Description:             entitlement.Description,
 		Type:                    &t,
 		AggregationMethod:       aggregationMethod,
+		LimitScope:              ToLimitScope(entitlement),
 		Icon:                    entitlement.Icon,
 		UnitSingular:            entitlement.UnitSingular,
 		UnitPlural:              entitlement.UnitPlural,
@@ -78,6 +79,18 @@ func ToEntitlement(entitlement *db.Entitlement) *schema.Entitlement {
 		CreatedAt:               entitlement.CreatedAt.Time,
 		UpdatedAt:               entitlement.UpdatedAt.Time,
 	}
+}
+
+// ToLimitScope is the limitScope an entitlement answers with: its stored scope
+// for the NUMBER family, nil for BOOLEAN and CONFIG, which have no counter to
+// scope. The column holds INSTANCE for those too (NOT NULL DEFAULT), and the API
+// never says so.
+func ToLimitScope(entitlement *db.Entitlement) *schema.LimitScope {
+	if !schema.IsNumberFamily(schema.Type(entitlement.Type)) {
+		return nil
+	}
+	scope := schema.LimitScope(entitlement.LimitScope)
+	return &scope
 }
 
 // ToEntitlementType converts a stored entitlement_type into its schema

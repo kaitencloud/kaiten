@@ -127,6 +127,16 @@ func newEntitlement(t *testing.T, slug, resetPeriod string, saleUnitFactor float
 	commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/entitlements", payload), fiber.StatusCreated)
 }
 
+// newResourceEntitlement creates a NUMBER entitlement that counts per resource:
+// SUM, monthly, so that nothing but its scope stops a price from metering it.
+func newResourceEntitlement(t *testing.T, slug string) {
+	t.Helper()
+	commonfixture.AssertJSONResponse[map[string]any](t, call(t, "POST", "/api/entitlements", map[string]any{
+		"name": slug, "slug": slug, "description": slug, "type": "NUMBER", "aggregationMethod": "SUM",
+		"resetPeriod": "MONTH", "limitScope": "RESOURCE",
+	}), fiber.StatusCreated)
+}
+
 // grant gives the version the entitlement with limit and overage percent.
 func grant(t *testing.T, licenseSlug, entitlementSlug string, limit float64, overagePercent int32) {
 	t.Helper()

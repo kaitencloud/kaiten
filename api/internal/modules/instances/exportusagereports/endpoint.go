@@ -29,7 +29,8 @@ type Request struct {
 	To              time.Time `query:"to" doc:"End of the range, exclusive (RFC 3339). Defaults to now. At most 366 days after from."`
 	// Format is checked by the handler rather than as an enum, so that an
 	// unknown one answers the documented ExportUsageReports.InvalidFormat.
-	Format string `query:"format" doc:"csv (the default): RFC 4180 with a header row. json: NDJSON, one report per line, in the shape listUsageReports returns. Anything else answers 422 ExportUsageReports.InvalidFormat." example:"csv"`
+	Format      string `query:"format" doc:"csv (the default): RFC 4180 with a header row. json: NDJSON, one report per line, in the shape listUsageReports returns. Anything else answers 422 ExportUsageReports.InvalidFormat." example:"csv"`
+	ResourceKey string `query:"resourceKey" doc:"Only the reports of this resource, for an entitlement that counts per resource (limitScope RESOURCE): the vendor's own identifier for the object, 1 to 128 characters of [A-Za-z0-9._:-], matched exactly and case-sensitively. A key that names no resource of the pair matches nothing." maxLength:"128" example:"stigg"`
 }
 
 func RegisterEndpoint(api huma.API, app Exporter) {
@@ -65,6 +66,9 @@ func RegisterEndpoint(api huma.API, app Exporter) {
 		}
 		if !request.To.IsZero() {
 			q.To = &request.To
+		}
+		if request.ResourceKey != "" {
+			q.ResourceKey = &request.ResourceKey
 		}
 
 		export, err := app.ExportUsageReports(ctx, cl, request.InstanceSlug, request.EntitlementSlug, q)
