@@ -21,7 +21,7 @@ The entitlements are the second entry of the Catalog section of the side navigat
 ```txt
 app/src/features/entitlements/
 ├── index.ts
-├── queries/                  # entitlements and groups query options
+├── queries/                  # entitlements and groups query options, the PUT on a fresh read, the usage invalidation
 ├── hooks/                    # mutation hooks, useEntitlementLicenseLinks
 ├── utils/entitlement-writable.ts # complete PUT, unit normalization and the sources body
 └── components/
@@ -61,7 +61,7 @@ Invalidation:
 
 - Creating an entitlement inserts it at the head of the cached list, then invalidates the list.
 - Updating one invalidates the list, that entitlement, and the license entitlement queries (`getLicenseEntitlements`).
-- Creating a combined entitlement, or saving one, also invalidates the usage metrics of every instance (`getEntitlementsUsageMetrics`): nothing is stored for the sum, so a new one, or new sources or weights, change what every instance reads at once.
+- Creating a combined entitlement, saving one, or deleting one also invalidates the usage metrics of every instance (`getEntitlementsUsageMetrics`, through `invalidateInstanceUsage` in `queries/entitlement-usage-invalidation.ts`): nothing is stored for the sum, so a new one, new sources or weights, or its deletion, change what every instance reads at once. Any other entitlement has a counter, which a delete refuses to leave behind.
 - Creating a group inserts it in the cached groups list, then invalidates it.
 
 `utils/entitlement-writable.ts` owns `conditionUnitFields` and `entitlementToUpdateBody`. The latter rebuilds a complete `EntitlementWritable` from a stored entitlement. Every partial edit uses it (rename in the detail header, icon dialog, inline groups), because the PUT replaces the whole entitlement and would otherwise wipe the other fields. That includes the early-warning threshold, which no screen edits: the API stores 0 (the warning off) for a numeric entitlement sent without one, so the stored value is echoed back by every update, the form's included. It also echoes where the usage of a numeric entitlement comes from (`usageSource`) and, for a combined one, its `sources` with their weights (`sourcesToBody`): the PUT replaces the sources as a whole and refuses a combined entitlement that names none, so a rename that left them out would fail. A combined entitlement sends no window and no threshold, which the API derives or refuses; a boolean or a config entitlement sends neither `usageSource` nor `sources` (the API answers 400 to them). Form schemas, inferred types, defaults and options stay in `components/form/entitlement-form.shared.ts`.
@@ -118,7 +118,7 @@ The table shows the shared `DataTable` empty row ("No results") and keeps the cr
 ## Tests
 
 - A delete that billing refuses has an end-to-end spec of its own, `delete-refusal`, in the pack described below, and so does a combined entitlement that sums the one deleted.
-- Unit tests live in `__tests__/` inside `components/form/`, `components/groups/` and `components/entitlement-detail/`. They cover form/schema/reset rules, the sources of a combined entitlement (schema, defaults, body, the lines and what each offers), complete PUT builders, group editing, detail cards (the Sources card included) and detail aggregates. Stories are colocated in each component group's `stories/` folder.
+- Unit tests live in `__tests__/` inside `components/form/`, `components/groups/`, `components/table/` and `components/entitlement-detail/`. They cover form/schema/reset rules, the sources of a combined entitlement (schema, defaults, body, the lines and what each offers), complete PUT builders, group editing, the delete of a combined entitlement (the instances' usage is read again), detail cards (the Sources card included) and detail aggregates. Stories are colocated in each component group's `stories/` folder.
 - Stories open in Storybook (`pnpm run storybook` from `app/`): `Features/Entitlements/EntitlementTable` (`Default`, `Empty`), `Features/Entitlements/EntitlementFormDialog` (`CreateNumberEntitlement`, `EditBooleanEntitlement`, `EditNumberEntitlementWithUnits`) and `Features/Entitlements/EntitlementDetailPageContent` (`Overview`). None has a `play` function. `pnpm run test:stories` renders the table stories only: `app/vite.config.ts` excludes the form dialog and detail stories, because the end-to-end pack covers them.
 - End to end, run with `pnpm run test:e2e:app` from `app/`: the pack `app/e2e/app/entitlements/` has one spec per intention (`combined`, `create`, `delete`, `delete-refusal`, `display-order`, `errors`, `icon`, `read`, `recovery`, `reset-period`, `slug`, `units`, `user-facing`, `warning-threshold`) and its test data in `entitlements.scenarios.ts`. It runs on `app/e2e/app/_support/model/entitlement-app-model.ts` and the mocks in `app/e2e/app/_support/mocks/install-entitlement-app-mocks.ts`; the rules of a combined entitlement the mocks refuse by are in `entitlement-combined.ts` beside the model, in the order and with the codes of the API. The accessibility spec also visits the list.
 

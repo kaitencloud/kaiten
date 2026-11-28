@@ -302,7 +302,7 @@ func (h *UseCase) checkSources(
 	if err != nil {
 		return nil, err
 	}
-	resolved, err := combined.Resolve(ctx, h.repo.q(ctx), h.deps.AIPolicy, organizationID, operation, sources)
+	resolved, err := combined.Resolve(ctx, h.repo.q(ctx), h.deps.AIPolicy, organizationID, operation, sources, current.Sources)
 	if err != nil {
 		return nil, err
 	}

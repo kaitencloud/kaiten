@@ -390,6 +390,17 @@ SELECT
            false)::boolean AS entitlement_combined;
 
 
+-- name: GetCombinedEntitlementSlug :one
+-- The slug of the entitlement an ID names, when it sums others' usage instead of
+-- holding its own; an empty slug for any other, and for an ID that names nothing:
+-- a deleted entitlement's reports are kept and its ID still reaches them, a
+-- combined one never had any.
+SELECT coalesce((SELECT e.slug FROM entitlement e
+                  WHERE e.organization_id = sqlc.arg(organization_id)
+                    AND e.id = sqlc.arg(entitlement_id)
+                    AND e.usage_source = 'COMBINED_USAGE'), '')::text AS slug;
+
+
 -- name: ListPairUsageReports :many
 -- One page of a pair's journal, in report_seq order, through the primary key.
 -- Decimals come out as their exact text, limit_value as '' when unlimited (a

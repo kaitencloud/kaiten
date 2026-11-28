@@ -317,6 +317,29 @@ func (q *Queries) FindUsageReportByTransactionID(ctx context.Context, arg FindUs
 	return i, err
 }
 
+const getCombinedEntitlementSlug = `-- name: GetCombinedEntitlementSlug :one
+SELECT coalesce((SELECT e.slug FROM entitlement e
+                  WHERE e.organization_id = $1
+                    AND e.id = $2
+                    AND e.usage_source = 'COMBINED_USAGE'), '')::text AS slug
+`
+
+type GetCombinedEntitlementSlugParams struct {
+	OrganizationID uuid.UUID `json:"organization_id"`
+	EntitlementID  uuid.UUID `json:"entitlement_id"`
+}
+
+// The slug of the entitlement an ID names, when it sums others' usage instead of
+// holding its own; an empty slug for any other, and for an ID that names nothing:
+// a deleted entitlement's reports are kept and its ID still reaches them, a
+// combined one never had any.
+func (q *Queries) GetCombinedEntitlementSlug(ctx context.Context, arg GetCombinedEntitlementSlugParams) (string, error) {
+	row := q.db.QueryRow(ctx, getCombinedEntitlementSlug, arg.OrganizationID, arg.EntitlementID)
+	var slug string
+	err := row.Scan(&slug)
+	return slug, err
+}
+
 const getPairReportSeq = `-- name: GetPairReportSeq :one
 SELECT coalesce((SELECT eu.report_seq FROM entitlement_usage eu
                   WHERE eu.instance_id = $1

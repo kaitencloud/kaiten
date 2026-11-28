@@ -332,6 +332,63 @@ func TestCreateCombinedEntitlement_ACreditPoolIsASource(t *testing.T) {
 	})
 }
 
+// A credit pool a combined entitlement already sums is not new AI activity: while AI is off the
+// entitlement stays editable, which the console needs, since every edit of it names its sources
+// again. Adding a pool, or changing what one counts for, still asks for AI, as the vouchers'
+// grants do: an exact echo is preserved, a change is refused.
+func TestUpdateCombinedEntitlement_WhenAIIsOff(t *testing.T) {
+	aiServer := tests.NewTestServer(testDb, tests.TestServerOptions{PlatformFlags: aitest.Flags(true)})
+	t.Cleanup(func() { require.NoError(t, aiServer.Close()) })
+	t.Cleanup(func() { require.NoError(t, testDb.Reset()) })
+	create := func(payload schema.Entitlement) schema.Entitlement {
+		return commonfixture.AssertJSONResponse[schema.Entitlement](t, send(t, aiServer.App, "POST", "/api/entitlements", payload), fiber.StatusCreated)
+	}
+	create(schema.Entitlement{Name: "Firecrawl", Slug: "firecrawl-credits", Type: ptr.To(schema.Number), AggregationMethod: ptr.To(schema.Sum)})
+	create(schema.Entitlement{Name: "Pages", Slug: "scraped-pages", Type: ptr.To(schema.Number), AggregationMethod: ptr.To(schema.Sum)})
+	create(schema.Entitlement{Name: "AI", Slug: "ai-credits", Type: ptr.To(schema.NumberAICredit), AggregationMethod: ptr.To(schema.Sum)})
+	credits := create(combinedPayload("credits", src("firecrawl-credits", "0.4"), src("ai-credits", "0.6")))
+	pages := create(combinedPayload("pages", src("firecrawl-credits", "1"), src("scraped-pages", "1")))
+
+	t.Run("ARenameThatEchoesTheSourcesIsAccepted", func(t *testing.T) {
+		body := putBody(&credits, credits.Sources...)
+		body["name"], body["userFacing"] = "Renamed", true
+
+		require.Equal(t, fiber.StatusNoContent, put(t, "credits", body).StatusCode)
+
+		renamed := getEntitlement(t, "credits")
+		assert.Equal(t, "Renamed", renamed.Name)
+		assert.Equal(t, []string{"ai-credits=0.6", "firecrawl-credits=0.4"}, sourceSlugs(renamed.Sources))
+	})
+
+	t.Run("AnEchoWrittenOtherwiseIsTheSameWeight", func(t *testing.T) {
+		body := putBody(&credits, src("ai-credits", "0.60"), src("firecrawl-credits", "0.4"))
+
+		require.Equal(t, fiber.StatusNoContent, put(t, "credits", body).StatusCode)
+	})
+
+	t.Run("AnotherSourcesWeightIsStillAnEdit", func(t *testing.T) {
+		body := putBody(&credits, src("ai-credits", "0.6"), src("firecrawl-credits", "0.5"))
+
+		require.Equal(t, fiber.StatusNoContent, put(t, "credits", body).StatusCode)
+
+		assert.Equal(t, []string{"ai-credits=0.6", "firecrawl-credits=0.5"}, sourceSlugs(getEntitlement(t, "credits").Sources))
+	})
+
+	t.Run("APoolItDidNotSumIsRefusedWithTheUsualAnswer", func(t *testing.T) {
+		refused := problemOf(t, put(t, "pages", putBody(&pages, src("ai-credits", "1"), src("firecrawl-credits", "1"))), fiber.StatusForbidden)
+
+		assert.Equal(t, "AIUsage.Disabled", refused.Code)
+		assert.Equal(t, []string{"firecrawl-credits=1", "scraped-pages=1"}, sourceSlugs(getEntitlement(t, "pages").Sources), "nothing was written")
+	})
+
+	t.Run("WhatThePoolCountsForIsNotChangedWithoutAI", func(t *testing.T) {
+		refused := problemOf(t, put(t, "credits", putBody(&credits, src("ai-credits", "0.7"), src("firecrawl-credits", "0.5"))), fiber.StatusForbidden)
+
+		assert.Equal(t, "AIUsage.Disabled", refused.Code)
+		assert.Equal(t, []string{"ai-credits=0.6", "firecrawl-credits=0.5"}, sourceSlugs(getEntitlement(t, "credits").Sources), "nothing was written")
+	})
+}
+
 func TestCreateCombinedEntitlement_Refusals(t *testing.T) {
 	create := func(t *testing.T, payload schema.Entitlement, status int) kaitenerrors.Problem {
 		t.Helper()

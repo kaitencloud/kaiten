@@ -109,9 +109,14 @@ export const entitlementFormSchema = zEntitlementWritable
     // holds whatever the type: it is dropped from the request for any other.
     usageSource: zEntitlementWritable.shape.usageSource.unwrap(),
     // Checked below, and only for a combined entitlement: a line left blank on a
-    // calculated one is not an error, it is a line nobody sees.
+    // calculated one is not an error, it is a line nobody sees. The line is the generated
+    // one with its two fields loosened to plain strings, so that a blank one is told in the
+    // words of the locales and not the validator's.
     sources: z.array(
-      z.object({ entitlementSlug: z.string(), weight: z.string() }),
+      zEntitlementSource.extend({
+        entitlementSlug: z.string(),
+        weight: z.string(),
+      }),
     ),
     unitSingular: unitLabelSchema,
     unitPlural: unitLabelSchema,
@@ -127,11 +132,14 @@ export const entitlementFormSchema = zEntitlementWritable
     resetAnchor: resetAnchorSchema,
   })
   .superRefine((values, ctx) => {
-    if (isCombinedFormValues(values)) {
+    const combined = isCombinedFormValues(values);
+    if (combined) {
       addSourceIssues(values.sources, ctx);
     }
 
-    if (hasBillingPeriodOnWrongCadence(values)) {
+    // A combined entitlement shows no reset period and sends none: the pair it may still
+    // hold, from before it was combined, is not read.
+    if (!combined && hasBillingPeriodOnWrongCadence(values)) {
       ctx.addIssue({
         code: 'custom',
         path: ['resetAnchor'],

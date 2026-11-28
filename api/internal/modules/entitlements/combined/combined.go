@@ -79,10 +79,24 @@ func RefuseWarningThreshold(operation string, warningThresholdPercent *int32) er
 //     (.SourceWindowMismatch, 422).
 //
 // An entitlement the organization does not have is .SourceNotFound (404).
+//
+// stored is what the entitlement sums already, none on creation. A credit pool in
+// it, counted at the weight it has, is kept and not new AI activity: the
+// entitlement stays editable while AI is off, which the console needs since every
+// edit of it names its sources again. Adding a pool, or counting one at another
+// weight, asks for AI.
 func Resolve(
 	ctx context.Context, q *db.Queries, policy aiusage.Policy, organizationID uuid.UUID,
-	operation string, sources []schema.ParsedSource,
+	operation string, sources []schema.ParsedSource, stored []schema.EntitlementSource,
 ) (*Resolved, error) {
+	// What the entitlement sums already, as a voucher keeps the AI grants it holds: by slug.
+	kept := make(map[string]decimal.Decimal, len(stored))
+	for _, source := range stored {
+		if weight, err := decimal.NewFromString(source.Weight); err == nil {
+			kept[source.EntitlementSlug] = weight
+		}
+	}
+
 	slugs := make([]string, len(sources))
 	for i, source := range sources {
 		slugs[i] = source.EntitlementSlug
@@ -103,8 +117,10 @@ func Resolve(
 		if !found {
 			return nil, kaitenerrors.NotFoundf(operation+".SourceNotFound", "source entitlement %q not found", named.EntitlementSlug)
 		}
-		if err := policy.RequireType(ctx, string(row.Type)); err != nil {
-			return nil, err
+		if weight, preserved := kept[row.Slug]; !preserved || !weight.Equal(named.Weight) {
+			if err := policy.RequireType(ctx, string(row.Type)); err != nil {
+				return nil, err
+			}
 		}
 		if row.Type != db.EntitlementTypeNUMBER && row.Type != db.EntitlementTypeNUMBERAICREDIT {
 			return nil, kaitenerrors.UnprocessableEntityf(operation+".SourceUnsupportedType",

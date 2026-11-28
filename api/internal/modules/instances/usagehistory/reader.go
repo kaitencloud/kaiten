@@ -141,6 +141,20 @@ func (r *Reader) ResolveSlugs(ctx context.Context, organizationID uuid.UUID, ins
 	return pair.InstanceID, pair.EntitlementID, pair.EntitlementCombined, nil
 }
 
+// CombinedSlug is the slug of the entitlement id names when it sums others'
+// usage, and "" for any other, and for an ID that names nothing: the reports of
+// a deleted entitlement survive it, and its ID still reaches them.
+func (r *Reader) CombinedSlug(ctx context.Context, organizationID, entitlementID uuid.UUID) (string, error) {
+	slug, err := r.queries.GetCombinedEntitlementSlug(ctx, db.GetCombinedEntitlementSlugParams{
+		OrganizationID: organizationID,
+		EntitlementID:  entitlementID,
+	})
+	if err != nil {
+		return "", fmt.Errorf("read the entitlement an ID names: %w", err)
+	}
+	return slug, nil
+}
+
 // RefuseCombined refuses the history of a combined entitlement, with
 // <operation>.EntitlementIsCombined (422): its usage is the sum of its sources',
 // computed when read, and nothing is journaled for it. The history is theirs.

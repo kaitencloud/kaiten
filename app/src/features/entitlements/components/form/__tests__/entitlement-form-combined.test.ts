@@ -170,6 +170,28 @@ describe('the schema of the form, for a combined entitlement', () => {
     },
   );
 
+  // The form shows no reset period for a combined entitlement, and its body sends none: a pair
+  // set before choosing to combine must not refuse a form that has no field to show why.
+  it('does not read the reset fields it hides', () => {
+    const hidden = { resetAnchor: 'BILLING_PERIOD', resetPeriod: 'WEEK' } as const;
+
+    expect(issuesOf({ ...validCombined(), ...hidden })).toEqual([]);
+    // Shown, on a calculated number, the same pair is still refused, on its anchor.
+    expect(
+      issuesOf({
+        ...validCombined(),
+        ...hidden,
+        sources: [],
+        usageSource: 'CALCULATED_USAGE',
+      }),
+    ).toEqual([
+      {
+        message: 'Pages.Entitlements.Mutation.Form.Errors.resetAnchorCadence',
+        path: 'resetAnchor',
+      },
+    ]);
+  });
+
   // A line left blank on an entitlement that is not combined is a line nobody sees.
   it.each([
     ['a calculated number', { usageSource: 'CALCULATED_USAGE' }],

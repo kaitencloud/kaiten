@@ -40,7 +40,7 @@ func RegisterEndpoint(api huma.API, app Exporter) {
 		Method:      http.MethodGet,
 		Path:        "/usage/reports/export",
 		Summary:     "Export the organization's usage reports",
-		Description: "Streams every usage report of the organization in the range, across instances and entitlements, as CSV or NDJSON, ordered by reportedAt. Filters narrow it to one instance or one entitlement, including deleted ones by ID. Use it to keep the usage history before deleting the organization.",
+		Description: "Streams every usage report of the organization in the range, across instances and entitlements, as CSV or NDJSON, ordered by reportedAt. Filters narrow it to one instance or one entitlement, including deleted ones by ID. A combined entitlement has no history of its own, its usage being computed from its sources': naming one, by slug or by ID, answers 422 ExportUsageReports.EntitlementIsCombined. Use it to keep the usage history before deleting the organization.",
 		Tags:        []string{"instances"},
 		Responses:   usagehistory.ExportResponses(),
 		Errors: []int{

@@ -261,11 +261,21 @@ func TestCombinedEntitlement_IsNeverGrantedMeteredOrBoosted(t *testing.T) {
 		refused(t, "POST", "/api/addons/"+addon.Slug+"/prices", metered("USAGE_BASED", "credits", "0.5"), "CreateAddonPrice.EntitlementIsCombined")
 	})
 
-	t.Run("AVoucherBoost", func(t *testing.T) {
-		refused(t, "POST", "/api/vouchers", map[string]any{
+	boost := func(slug string) map[string]any {
+		return map[string]any{
 			"name": "Boost", "voucherType": "ENTITLEMENT_BOOST", "duration": "FOREVER",
-			"grants": []map[string]any{{"entitlementSlug": "credits", "modifierType": "MULTIPLY", "modifierValue": "3"}},
-		}, "CreateVoucher.EntitlementIsCombined")
+			"grants": []map[string]any{{"entitlementSlug": slug, "modifierType": "MULTIPLY", "modifierValue": "3"}},
+		}
+	}
+
+	t.Run("AVoucherBoost", func(t *testing.T) {
+		refused(t, "POST", "/api/vouchers", boost("credits"), "CreateVoucher.EntitlementIsCombined")
+	})
+
+	t.Run("AVoucherBoostOnUpdate", func(t *testing.T) {
+		draft := newVoucher(t, boost("firecrawl-credits"))
+
+		refused(t, "PUT", "/api/vouchers/"+draft.ID.String(), boost("credits"), "UpdateVoucher.EntitlementIsCombined")
 	})
 
 	t.Run("ItsSourcesAreStillGrantedAndBoostedAsBefore", func(t *testing.T) {

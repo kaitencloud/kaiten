@@ -73,6 +73,17 @@ func (u *UseCase) Execute(ctx context.Context, q Query) (*usagehistory.Export, e
 			return nil, err
 		}
 	}
+	// A slug was checked above; an ID alone is checked here, and one that names no
+	// entitlement is a deleted one, whose reports are kept.
+	if q.EntitlementSlug == "" && entitlementID != nil {
+		slug, err := u.reader.CombinedSlug(ctx, user.OrganizationID, *entitlementID)
+		if err != nil {
+			return nil, err
+		}
+		if slug != "" {
+			return nil, usagehistory.RefuseCombined(operation, slug)
+		}
+	}
 
 	now, err := u.reader.Now(ctx)
 	if err != nil {

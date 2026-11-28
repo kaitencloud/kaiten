@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -91,6 +92,7 @@ func readsAs(t *testing.T, usage instanceschema.EntitlementUsage, used, limit fl
 
 // creditsWorld is the ADR's: two sources, 1000 granted on each, counted at 0.4 and 0.6.
 type creditsWorld struct {
+	credits  entitlementschema.Entitlement
 	license  *licenseschema.License
 	instance *instanceschema.Instance
 }
@@ -99,11 +101,11 @@ func newCreditsWorld(t *testing.T) creditsWorld {
 	t.Helper()
 	newSourceEntitlement(t, "firecrawl-credits")
 	newSourceEntitlement(t, "scraped-pages")
-	newCombinedEntitlement(t, "credits", source("firecrawl-credits", "0.4"), source("scraped-pages", "0.6"))
+	credits := newCombinedEntitlement(t, "credits", source("firecrawl-credits", "0.4"), source("scraped-pages", "0.6"))
 	license := newLicense(t)
 	assignEntitlementToLicense(t, license.Slug, "firecrawl-credits", 1000)
 	assignEntitlementToLicense(t, license.Slug, "scraped-pages", 1000)
-	return creditsWorld{license: license, instance: newInstanceOn(t, license)}
+	return creditsWorld{credits: credits, license: license, instance: newInstanceOn(t, license)}
 }
 
 func TestCombinedUsage_ReadsAsTheWeightedSumOfItsSources(t *testing.T) {
@@ -263,25 +265,42 @@ func TestCombinedUsage_HasNoHistoryOfItsOwn(t *testing.T) {
 	world := newCreditsWorld(t)
 	mustReport(t, world.instance.Slug, "firecrawl-credits", 300)
 	base := "/api/instances/" + world.instance.Slug + "/entitlements/"
+	organization := "/api/usage/reports/export?"
 
-	for name, path := range map[string]string{
-		"the list":    base + "credits/usage/reports",
-		"the export":  base + "credits/usage/reports/export",
-		"the org one": "/api/usage/reports/export?" + url.Values{"entitlementSlug": {"credits"}}.Encode(),
+	// Each route answers under its own operation's code. The two exports share theirs; the
+	// organization's names the entitlement by its slug or by its ID, which also reaches a
+	// deleted entitlement, whose reports are kept: a combined one has none to keep.
+	for name, route := range map[string]struct{ path, code string }{
+		"the list":                    {base + "credits/usage/reports", "ListUsageReports.EntitlementIsCombined"},
+		"the export":                  {base + "credits/usage/reports/export", "ExportUsageReports.EntitlementIsCombined"},
+		"the organization's by slug":  {organization + url.Values{"entitlementSlug": {"credits"}}.Encode(), "ExportUsageReports.EntitlementIsCombined"},
+		"the organization's by ID":    {organization + url.Values{"entitlementId": {world.credits.ID.String()}}.Encode(), "ExportUsageReports.EntitlementIsCombined"},
+		"the organization's, by both": {organization + url.Values{"entitlementSlug": {"credits"}, "entitlementId": {world.credits.ID.String()}}.Encode(), "ExportUsageReports.EntitlementIsCombined"},
 	} {
 		t.Run(name, func(t *testing.T) {
-			resp, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "GET", path, nil), fiber.TestConfig{})
+			resp, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "GET", route.path, nil), fiber.TestConfig{})
 			require.NoError(t, err)
 			t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
 
 			problem := commonfixture.AssertJSONResponse[kaitenerrors.Problem](t, resp, fiber.StatusUnprocessableEntity)
 
-			assert.Contains(t, problem.Code, ".EntitlementIsCombined")
+			assert.Equal(t, route.code, problem.Code)
+			assert.Contains(t, problem.Detail, "credits")
 		})
 	}
 
 	t.Run("TheSourcesHistoryIsStillTheirs", func(t *testing.T) {
 		resp, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "GET", base+"firecrawl-credits/usage/reports", nil), fiber.TestConfig{})
+		require.NoError(t, err)
+		t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
+		require.Equal(t, fiber.StatusOK, resp.StatusCode)
+	})
+
+	// The ID of an entitlement that is gone names the reports it left behind: only a combined
+	// one, which never had any, is refused.
+	t.Run("AnIDThatNamesNoEntitlementIsStillExported", func(t *testing.T) {
+		query := url.Values{"entitlementId": {uuid.NewString()}}
+		resp, err := testServer.App.Test(commonfixture.NewJSONRequest(t, "GET", organization+query.Encode(), nil), fiber.TestConfig{})
 		require.NoError(t, err)
 		t.Cleanup(func() { commonfixture.MustCloseBody(t, resp.Body) })
 		require.Equal(t, fiber.StatusOK, resp.StatusCode)

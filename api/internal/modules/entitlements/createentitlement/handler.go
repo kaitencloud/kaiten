@@ -200,7 +200,7 @@ func (h *UseCase) persistEntitlement(ctx context.Context, orgID uuid.UUID, input
 		var resolved *combined.Resolved
 		if input.UsageSource != nil && *input.UsageSource == schema.CombinedUsage {
 			var err error
-			if resolved, err = combined.Resolve(ctx, h.repo.q(ctx), h.deps.AIPolicy, orgID, operation, input.Sources); err != nil {
+			if resolved, err = combined.Resolve(ctx, h.repo.q(ctx), h.deps.AIPolicy, orgID, operation, input.Sources, nil); err != nil {
 				return err
 			}
 			if err := resolved.CheckWindow(operation, input.ResetPeriod, input.ResetAnchor); err != nil {
