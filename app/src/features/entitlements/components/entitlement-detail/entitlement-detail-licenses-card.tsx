@@ -13,6 +13,8 @@ import {
 const PREVIEW_SIZE = 5;
 
 type EntitlementDetailLicensesCardProps = {
+  /** A combined entitlement is granted through its sources, never by a license itself. */
+  combined?: boolean;
   isLoading: boolean;
   isUsageLoading: boolean;
   licenseAggregates: LicenseAggregate[];
@@ -97,6 +99,7 @@ function LicenseRow({
 }
 
 export function EntitlementDetailLicensesCard({
+  combined = false,
   isLoading,
   isUsageLoading,
   licenseAggregates,
@@ -127,10 +130,14 @@ export function EntitlementDetailLicensesCard({
           )}
         </DetailCard.Title>
         <DetailCard.Description>
-          {t(
-            'Pages.Entitlements.Detail.Overview.licenses.description',
-            'What each license grants for this entitlement.',
-          )}
+          {combined
+            ? t(
+                'Pages.Entitlements.Detail.Overview.licenses.descriptionCombined',
+              )
+            : t(
+                'Pages.Entitlements.Detail.Overview.licenses.description',
+                'What each license grants for this entitlement.',
+              )}
         </DetailCard.Description>
       </DetailCard.Header>
       <DetailCard.Content>
@@ -140,10 +147,12 @@ export function EntitlementDetailLicensesCard({
           </p>
         ) : shown.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            {t(
-              'Pages.Entitlements.Detail.Overview.licenses.empty',
-              'No license grants this entitlement yet.',
-            )}
+            {combined
+              ? t('Pages.Entitlements.Detail.Overview.licenses.emptyCombined')
+              : t(
+                  'Pages.Entitlements.Detail.Overview.licenses.empty',
+                  'No license grants this entitlement yet.',
+                )}
           </p>
         ) : (
           <ul className="grid gap-3">

@@ -10,6 +10,7 @@ import { AggregationMethodDisplay } from '../display/aggregation-method-display'
 import { EntitlementGroupsInlineEditorCell } from '../groups/entitlement-groups-inline-editor-cell';
 import { EntitlementTableActions } from './entitlement-table-actions';
 import { EntitlementTypeDisplay } from '../display/entitlement-type-display';
+import { UsageSourceDisplay } from '../display/usage-source-display';
 
 export function createEntitlementTableColumns(
   t: TFunction,
@@ -52,6 +53,14 @@ export function createEntitlementTableColumns(
         <EntitlementTypeDisplay
           entitlementType={row.original.type ?? 'BOOLEAN'}
         />
+      ),
+    },
+    {
+      accessorKey: 'usageSource',
+      enableSorting: false,
+      header: t('Pages.Entitlements.Table.Columns.usageSource', 'Usage source'),
+      cell: ({ row }) => (
+        <UsageSourceDisplay usageSource={row.original.usageSource} />
       ),
     },
     {

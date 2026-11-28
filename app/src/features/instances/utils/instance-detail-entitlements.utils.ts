@@ -11,7 +11,16 @@ import {
   isSoftLimit,
 } from '@/domains/entitlement-usage';
 import type { ServedProvenance } from './entitlement-provenance.utils';
-import { buildUsageOnlyRow } from './usage-only-entitlement-row';
+import {
+  type InstanceCombinedSource,
+  isCombinedRow,
+  nameSources,
+  readUsageSource,
+} from './combined-usage';
+import {
+  buildCatalogueLookups,
+  buildUsageOnlyRow,
+} from './usage-only-entitlement-row';
 
 export type InstanceEntitlementGroup = {
   id: string;
@@ -53,6 +62,12 @@ export type InstanceEntitlementRow = {
   // What the license, the add-ons and the vouchers each contribute to the effective
   // value, as the API sends it. Absent when the API sent none.
   provenance?: ServedProvenance | null;
+  // Where the usage of a counter comes from. A combined one is the weighted sum of its
+  // sources, computed when it is read: nothing is reported on it, it is granted by no
+  // license, and nothing is enforced on it.
+  usageSource?: Entitlement['usageSource'] | null;
+  // What each source of a combined row contributes, before its weight, as the API sends it.
+  sources?: InstanceCombinedSource[] | null;
 };
 
 export const isSoftLimitEntitlement = (entitlement: InstanceEntitlementRow) =>
@@ -101,28 +116,13 @@ export const buildEntitlementsRows = (
   unknownEntitlementLabel: string,
   entitlements: Entitlement[] = [],
 ): InstanceEntitlementRow[] => {
-  const iconBySlug = new Map(
-    entitlements.flatMap((entitlement) =>
-      entitlement.slug ? [[entitlement.slug, entitlement.icon ?? null]] : [],
-    ),
-  );
-  const nameBySlug = new Map(
-    entitlements.flatMap((entitlement) =>
-      entitlement.slug ? [[entitlement.slug, entitlement.name]] : [],
-    ),
-  );
+  const { iconBySlug, nameBySlug, typeBySlug, usageSourceBySlug } =
+    buildCatalogueLookups(entitlements);
   const iconByName = new Map(
     entitlements.map((entitlement) => [
       entitlement.name,
       entitlement.icon ?? null,
     ]),
-  );
-  const catalogueTypeBySlug = new Map<string, NonNullable<Entitlement['type']>>(
-    entitlements.flatMap((entitlement) =>
-      entitlement.slug && entitlement.type
-        ? [[entitlement.slug, entitlement.type]]
-        : [],
-    ),
   );
   const catalogueTypeByName = new Map<string, NonNullable<Entitlement['type']>>(
     entitlements.flatMap((entitlement) =>
@@ -178,10 +178,12 @@ export const buildEntitlementsRows = (
           : 'BOOLEAN',
       catalogueEntitlementType:
         (entitlement.entitlementSlug
-          ? catalogueTypeBySlug.get(entitlement.entitlementSlug)
+          ? typeBySlug.get(entitlement.entitlementSlug)
           : undefined) ??
         catalogueTypeByName.get(entitlement.entitlementName) ??
-        (entitlement.entitlementType === 'NUMBER_AI_CREDIT' ? 'NUMBER_AI_CREDIT' : null),
+        (entitlement.entitlementType === 'NUMBER_AI_CREDIT'
+          ? 'NUMBER_AI_CREDIT'
+          : null),
       value:
         usage?.value?.type === 'number' ? (usage.value.value as number) : 0,
       currentPeriodStart: usage?.currentPeriodStart ?? null,
@@ -200,6 +202,12 @@ export const buildEntitlementsRows = (
             : null,
       source: usage?.source ?? 'license',
       provenance: usage?.provenance ?? null,
+      usageSource: readUsageSource(
+        usage,
+        entitlement.entitlementSlug,
+        usageSourceBySlug,
+      ),
+      sources: nameSources(usage, nameBySlug),
     } as const;
   });
 
@@ -209,7 +217,8 @@ export const buildEntitlementsRows = (
       buildUsageOnlyRow(usage, {
         iconBySlug,
         nameBySlug,
-        typeBySlug: catalogueTypeBySlug,
+        typeBySlug,
+        usageSourceBySlug,
       }),
     );
 
@@ -263,10 +272,17 @@ const getEntitlementCeiling = (entitlement: InstanceEntitlementRow) =>
       )
     : null;
 
+// A combined row is never on a wall: nothing is enforced on a sum, which reads above its
+// limit when the sources are soft, so it does not count as a limit that was reached. The
+// sources each have their own row, and their own wall.
 export const isEntitlementExhausted = (entitlement: InstanceEntitlementRow) => {
   const ceiling = getEntitlementCeiling(entitlement);
 
-  return ceiling !== null && entitlement.value >= ceiling;
+  return (
+    !isCombinedRow(entitlement) &&
+    ceiling !== null &&
+    entitlement.value >= ceiling
+  );
 };
 
 export const isEntitlementEnabled = (entitlement: InstanceEntitlementRow) =>

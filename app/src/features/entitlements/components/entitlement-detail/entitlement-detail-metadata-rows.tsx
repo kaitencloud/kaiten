@@ -1,11 +1,13 @@
 import { Badge } from '@/components/ui/badge';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement } from '@/api-client';
+import { isCombinedEntitlement } from '@/domains/entitlement-usage';
 import { DetailCard } from '@/functionals/detail-card';
 import {
   ResetAnchorDisplay,
   ResetPeriodDisplay,
 } from '../display/reset-period-display';
+import { UsageSourceDisplay } from '../display/usage-source-display';
 
 // Extra General card rows for the customer-facing presentation attributes
 // (visibility flag + measurement units) and the usage-window cadence. Kept out
@@ -42,6 +44,51 @@ export function UserFacingRow({ entitlement }: { entitlement: Entitlement }) {
   );
 }
 
+// Where the usage of a number comes from: reported by the code of the vendor, or the
+// weighted sum of other entitlements. A flag and a configuration have no usage.
+export function UsageSourceRow({ entitlement }: { entitlement: Entitlement }) {
+  const { t } = useTranslation();
+
+  if (!entitlement.usageSource) {
+    return null;
+  }
+
+  return (
+    <DetailCard.Row
+      label={t(
+        'Pages.Entitlements.Detail.Overview.general.fields.usageSource',
+        'Usage source',
+      )}
+      value={<UsageSourceDisplay usageSource={entitlement.usageSource} />}
+    />
+  );
+}
+
+// Each label with its English default, written out in full so that a key that does not
+// exist fails the check of the keys.
+const RESET_LABELS = {
+  derived: {
+    anchor: [
+      'Pages.Entitlements.Detail.Overview.general.fields.resetAnchorDerived',
+      'Window aligned on (from its sources)',
+    ],
+    period: [
+      'Pages.Entitlements.Detail.Overview.general.fields.resetPeriodDerived',
+      'Usage resets (from its sources)',
+    ],
+  },
+  own: {
+    anchor: [
+      'Pages.Entitlements.Detail.Overview.general.fields.resetAnchor',
+      'Window aligned on',
+    ],
+    period: [
+      'Pages.Entitlements.Detail.Overview.general.fields.resetPeriod',
+      'Usage resets',
+    ],
+  },
+} as const;
+
 // The cadence and its phase are catalogue attributes, so they belong on the
 // entitlement card. The *current* window is not: it is phased per instance
 // when the anchor is LICENSE_START, so a single window shown here would be
@@ -56,21 +103,20 @@ export function ResetPeriodRows({ entitlement }: { entitlement: Entitlement }) {
     return null;
   }
 
+  // A combined entitlement takes the window its sources share: it is theirs, said so.
+  const labels = isCombinedEntitlement(entitlement)
+    ? RESET_LABELS.derived
+    : RESET_LABELS.own;
+
   return (
     <>
       <DetailCard.Row
-        label={t(
-          'Pages.Entitlements.Detail.Overview.general.fields.resetPeriod',
-          'Usage resets',
-        )}
+        label={t(...labels.period)}
         value={<ResetPeriodDisplay resetPeriod={entitlement.resetPeriod} />}
       />
       {entitlement.resetPeriod ? (
         <DetailCard.Row
-          label={t(
-            'Pages.Entitlements.Detail.Overview.general.fields.resetAnchor',
-            'Window aligned on',
-          )}
+          label={t(...labels.anchor)}
           value={<ResetAnchorDisplay resetAnchor={entitlement.resetAnchor} />}
         />
       ) : null}

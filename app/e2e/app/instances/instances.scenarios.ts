@@ -784,6 +784,148 @@ export function createProvenanceInstancesModel() {
 }
 
 /**
+ * An instance whose license grants the counters behind two combined entitlements, which the
+ * API appends to its usage as it reads: `credits`, the sum of the Firecrawl credits at 0.4
+ * and the AI credits at 0.6 (the example of the ADR: 300 of 1,000 and 100 of 1,000 count for
+ * 120 of 400 and 60 of 600, which is 180 of 1,000), and `capacity`, the seats at 2 and the
+ * storage at 1, unlimited as soon as the storage is. A combined row has no license grant, no
+ * provenance and no history of its own: its sources have them. The catalogue that names them
+ * is the one of `createCombinedEntitlementModel` (entitlements slot).
+ */
+export function createCombinedUsageInstancesModel() {
+  const nagare = buildCustomer({
+    id: 'customer-nagare',
+    name: 'Nagare',
+    slug: 'nagare',
+  });
+  const pro = buildLicense({
+    description: 'Pro plan',
+    id: 'license-pro',
+    lifecycleState: 'PUBLISHED',
+    name: 'Pro',
+    slug: 'pro',
+    type: 'PAID',
+    version: '2026.1',
+  });
+  const grant = (
+    entitlementName: string,
+    entitlementSlug: string,
+    value: LicenseEntitlement['value'],
+  ) =>
+    buildLicenseEntitlement({
+      entitlementName,
+      entitlementSlug,
+      licenseId: pro.id,
+      licenseSlug: 'pro',
+      value,
+    });
+  const firecrawl = grant('Firecrawl Credits', 'firecrawl-credits', {
+    type: 'number',
+    value: 1_000,
+  });
+  const ai = grant('AI Credits', 'ai-credits', {
+    type: 'number',
+    value: 1_000,
+  });
+  const seats = grant('Seats', 'seats', { type: 'number', value: 10 });
+  const storage = grant('Storage GB', 'storage-gb', {
+    type: 'number',
+    value: -1,
+  });
+  const counter = (
+    entitlementId: string,
+    entitlementSlug: string,
+    served: Pick<EntitlementUsage, 'limit' | 'value'> &
+      Partial<EntitlementUsage>,
+  ): EntitlementUsage => ({
+    entitlementId,
+    entitlementSlug,
+    licenseId: pro.id,
+    licenseSlug: 'pro',
+    source: 'license',
+    ...served,
+  });
+  const fromGrant = (
+    entitlementId: string,
+    entitlementSlug: string,
+    granted: LicenseEntitlement,
+    used: number,
+  ) =>
+    counter(entitlementId, entitlementSlug, {
+      limit: granted.value,
+      limitCapExceededOveragePercent:
+        granted.value.type === 'number' && granted.value.value === -1 ? -1 : 0,
+      provenance: identityProvenance(granted),
+      value: { type: 'number', value: used },
+    });
+
+  return new InstanceAppModel({
+    customers: [nagare],
+    entitlementUsagesByInstance: {
+      'nagare-prod': [
+        fromGrant(
+          'entitlement-firecrawl-credits',
+          'firecrawl-credits',
+          firecrawl,
+          300,
+        ),
+        fromGrant('entitlement-ai-credits', 'ai-credits', ai, 100),
+        fromGrant('entitlement-seats', 'seats', seats, 4),
+        fromGrant('entitlement-storage-gb', 'storage-gb', storage, 4),
+        // The combined rows: computed by the API, with the detail per source and nothing else.
+        counter('entitlement-credits', 'credits', {
+          limit: { type: 'number', value: 1_000 },
+          limitCapExceededOveragePercent: 0,
+          sources: [
+            {
+              entitlementSlug: 'firecrawl-credits',
+              limit: 1_000,
+              usage: 300,
+              weight: '0.4',
+            },
+            {
+              entitlementSlug: 'ai-credits',
+              limit: 1_000,
+              usage: 100,
+              weight: '0.6',
+            },
+          ],
+          value: { type: 'number', value: 180 },
+        }),
+        counter('entitlement-capacity', 'capacity', {
+          limit: { type: 'number', value: -1 },
+          limitCapExceededOveragePercent: -1,
+          sources: [
+            { entitlementSlug: 'seats', limit: 10, usage: 4, weight: '2' },
+            {
+              entitlementSlug: 'storage-gb',
+              limit: -1,
+              usage: 4,
+              weight: '1',
+            },
+          ],
+          value: { type: 'number', value: 12 },
+        }),
+      ],
+    },
+    instances: [
+      buildInstance({
+        customerId: nagare.id,
+        customerSlug: 'nagare',
+        description: 'Nagare production environment',
+        id: 'instance-nagare-prod',
+        licenseId: pro.id,
+        licenseSlug: 'pro',
+        name: 'Nagare Production',
+        slug: 'nagare-prod',
+      }),
+    ],
+    licenseEntitlements: [firecrawl, ai, seats, storage],
+    licenses: [pro],
+  });
+}
+
+/**
  * More instances than a page of the lists holds, for the Billing column read a page
  * at a time: `count` instances of one customer, on one license version that is on
  * sale, named in the order they come in. Every fifth has never been subscribed, every

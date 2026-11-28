@@ -2,6 +2,7 @@ import { formOptions, useStore } from '@tanstack/react-form';
 import { useTranslation } from 'react-i18next';
 import type { Entitlement, EntitlementUsage } from '@/api-client';
 import { isAiEntitlement, useAiAccess } from '@/domains/ai-credits';
+import { isGrantableEntitlement } from '@/domains/entitlement-usage';
 import FormField from '@/components/form/fields/form-field';
 import FormControl from '@/components/form/form-control';
 import {
@@ -36,8 +37,12 @@ export const ExceptionFields = withForm({
           (item) =>
             item.slug === values.entitlementSlug && isAiEntitlement(item.type),
         ));
+    // An exception changes what an instance is granted: a combined entitlement is computed
+    // from its sources, which are what an exception targets, and the API refuses it.
     const choices = entitlements.filter(
-      (item) => aiAccess.available || !isAiEntitlement(item.type),
+      (item) =>
+        isGrantableEntitlement(item) &&
+        (aiAccess.available || !isAiEntitlement(item.type)),
     );
     function renderChoice(item: Entitlement) {
       return item.slug ? (

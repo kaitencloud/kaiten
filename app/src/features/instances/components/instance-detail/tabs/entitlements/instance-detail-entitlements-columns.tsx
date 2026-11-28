@@ -13,7 +13,9 @@ import {
 } from '@/domains/entitlement-usage';
 import type { ColumnDef } from '@/functionals/table';
 import { formatUsageWindowBound } from '@/lib/detail';
+import { isCombinedRow } from '../../../../utils/combined-usage';
 import type { useInstanceDetail } from '../../instance-detail-context';
+import { CombinedSourcesBreakdown } from './combined-sources-breakdown';
 import {
   AddonSourceHint,
   EntitlementLimitFigure,
@@ -52,18 +54,25 @@ function buildTypeColumn(t: TranslateFn): EntitlementColumn {
       'Pages.Customers.Instances.Detail.entitlements.table.headers.type',
     ),
     cell: ({ row }) => (
-      <Badge
-        variant={
-          row.original.entitlementType === 'NUMBER' ? 'outline' : 'secondary'
-        }
-      >
-        {t(
-          `Pages.Entitlements.EntitlementTypes.${
-            row.original.catalogueEntitlementType ??
-            row.original.entitlementType
-          }`,
-        )}
-      </Badge>
+      <span className="flex flex-wrap items-center gap-1">
+        <Badge
+          variant={
+            row.original.entitlementType === 'NUMBER' ? 'outline' : 'secondary'
+          }
+        >
+          {t(
+            `Pages.Entitlements.EntitlementTypes.${
+              row.original.catalogueEntitlementType ??
+              row.original.entitlementType
+            }`,
+          )}
+        </Badge>
+        {isCombinedRow(row.original) ? (
+          <Badge variant="secondary">
+            {t('Pages.Entitlements.UsageSources.COMBINED_USAGE')}
+          </Badge>
+        ) : null}
+      </span>
     ),
   };
 }
@@ -80,9 +89,17 @@ function buildUsageColumn(t: TranslateFn, locale: string): EntitlementColumn {
     cell: ({ row }) => {
       if (row.original.entitlementType === 'BOOLEAN') {
         return row.original.enabled ? (
-          <CheckCircle role="img" aria-label={t('Pages.EntitlementExceptions.enabled')} className="ml-auto size-4 text-success-subtle-foreground" />
+          <CheckCircle
+            role="img"
+            aria-label={t('Pages.EntitlementExceptions.enabled')}
+            className="ml-auto size-4 text-success-subtle-foreground"
+          />
         ) : (
-          <XCircle role="img" aria-label={t('Pages.EntitlementExceptions.disabled')} className="ml-auto size-4 text-muted-foreground" />
+          <XCircle
+            role="img"
+            aria-label={t('Pages.EntitlementExceptions.disabled')}
+            className="ml-auto size-4 text-muted-foreground"
+          />
         );
       }
 
@@ -127,6 +144,11 @@ function buildThresholdColumn(
         <EntitlementProvenanceLayers
           provenance={row.original.provenance}
           name={row.original.entitlementName}
+        />
+        <CombinedSourcesBreakdown
+          locale={locale}
+          name={row.original.entitlementName}
+          sources={row.original.sources}
         />
       </span>
     ),
@@ -211,9 +233,10 @@ function buildStatusColumn(t: TranslateFn): EntitlementColumn {
   };
 }
 
-// The usage reports are a counter's: a flag or a configuration reports none. The
-// link opens the drawer the URL controls, over the tab, and a click on the row
-// elsewhere still leads to the entitlement.
+// The usage reports are a counter's: a flag or a configuration reports none, and nor does a
+// combined entitlement, which is computed from its sources: the history is theirs, each on
+// its own row, and the API refuses it for the sum. The link opens the drawer the URL
+// controls, over the tab, and a click on the row elsewhere still leads to the entitlement.
 function buildHistoryColumn(
   t: TranslateFn,
   instanceSlug: string,
@@ -226,6 +249,7 @@ function buildHistoryColumn(
     enableSorting: false,
     cell: ({ row }) =>
       row.original.entitlementType === 'NUMBER' &&
+      !isCombinedRow(row.original) &&
       row.original.entitlementSlug ? (
         <Button
           aria-label={t(

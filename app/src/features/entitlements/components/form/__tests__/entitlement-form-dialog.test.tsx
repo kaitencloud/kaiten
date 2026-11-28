@@ -7,7 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { testI18n } from '@/__tests__/test-i18n';
 import { server } from '@/__tests__/msw-server';
 import type { Entitlement } from '@/api-client';
-import { handleListEntitlementGroups } from '@/api-client/msw.gen';
+import { handleListEntitlementGroups, handleListEntitlements } from '@/api-client/msw.gen';
+import { HttpResponse } from 'msw/http';
 import en from '@/lib/i18n/locales/en';
 import '@/lib/api/bootstrap';
 import { EntitlementFormDialog } from '../entitlement-form-dialog';
@@ -99,5 +100,36 @@ describe('ordinary entitlement dialogs retain their existing dismissal', () => {
     await person.keyboard('{Escape}');
     await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+});
+
+describe('the dialog of a combined entitlement', () => {
+  const combined: Entitlement = {
+    ...entitlement, type: 'NUMBER', id: 'total', name: 'Total', slug: 'total', usageSource: 'COMBINED_USAGE',
+    resetAnchor: 'CALENDAR', resetPeriod: 'MONTH', warningThresholdPercent: 0,
+    sources: [{ entitlementSlug: 'ai-credits', weight: '0.6' }, { entitlementSlug: 'firecrawl-credits', weight: '0.4' }],
+  };
+  const source = (slug: string, name: string): Entitlement => ({
+    ...entitlement, type: 'NUMBER', id: slug, name, slug, resetAnchor: 'CALENDAR', resetPeriod: 'MONTH',
+  });
+
+  it('fixes where the usage comes from, keeps the sources open and asks for no window of its own', async () => {
+    server.use(handleListEntitlements(() => HttpResponse.json({
+      hasMore: false, items: [source('ai-credits', 'AI Credits'), source('firecrawl-credits', 'Firecrawl Credits'), combined],
+    })));
+    const person = userEvent.setup();
+    render(<DialogHarness onClose={vi.fn()} definition={combined} />);
+
+    await person.click(await screen.findByRole('button', { name: 'Next' }));
+
+    expect(await screen.findByRole('combobox', { name: /^Usage source/ })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: /^Usage source/ })).toHaveTextContent('Combined');
+    expect(await screen.findAllByRole('group', { name: /^Source \d+$/ })).toHaveLength(2);
+    expect(within(screen.getByRole('group', { name: 'Source 1' })).getByLabelText('Weight')).toHaveValue('0.6');
+    expect(within(screen.getByRole('group', { name: 'Source 2' })).getByLabelText('Weight')).toHaveValue('0.4');
+    // The window is the sources', said and not asked.
+    expect(screen.getByTestId('combined-window')).toHaveTextContent('Every month');
+    expect(screen.queryByRole('combobox', { name: /^Reset period/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('combined-revalue-hint')).not.toBeInTheDocument();
   });
 });

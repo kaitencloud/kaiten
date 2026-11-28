@@ -1,10 +1,12 @@
 import type {
+  Entitlement,
   EntitlementUsage,
   Instance,
   License,
   LicenseEntitlement,
 } from '@/api-client';
 import {
+  combineGrants,
   getLicenseEntitlementOveragePercent,
   getUsageRatio,
   getUsageStatus,
@@ -81,6 +83,72 @@ export function buildLinkedLicenseMappings(
     if (mapping) {
       mappings.push({ license, mapping });
     }
+  }
+
+  return mappings;
+}
+
+/**
+ * What each license grants of a combined entitlement, which no license grants itself:
+ * the weighted sum of what it grants of its sources, as the API computes the limit of
+ * an instance (`combineGrants`). A license that grants none of them is not linked.
+ * The result takes the shape of a grant, so that the saturation, the at-risk instances
+ * and the rankings of the page read it as they read any other: a hard cap, or none when
+ * a granted source is unlimited, since nothing is enforced on the sum.
+ */
+export function buildCombinedLicenseMappings(
+  entitlement: Entitlement,
+  licenseEntitlementsQueries: Array<{ data?: unknown }>,
+  licensesWithSlug: LicenseWithSlug[],
+) {
+  const entitlementSlug = entitlement.slug;
+  const sources = entitlement.sources ?? [];
+  if (!entitlementSlug || sources.length === 0) {
+    return [] as LinkedLicenseMapping[];
+  }
+
+  const mappings: LinkedLicenseMapping[] = [];
+
+  for (const [index, license] of licensesWithSlug.entries()) {
+    const page = licenseEntitlementsQueries[index]?.data as
+      | { items?: LicenseEntitlement[] }
+      | undefined;
+    const grants = new Map(
+      (page?.items ?? []).flatMap((row) =>
+        row.entitlementSlug && row.value?.type === 'number'
+          ? [[row.entitlementSlug, row] as const]
+          : [],
+      ),
+    );
+    const combined = combineGrants(sources, (slug) => {
+      const grant = grants.get(slug);
+
+      return grant?.value.type === 'number' ? grant.value.value : undefined;
+    });
+    const granted = sources.flatMap(({ entitlementSlug: slug }) => {
+      const grant = grants.get(slug);
+
+      return grant ? [grant] : [];
+    });
+
+    if (!combined || granted.length === 0) {
+      continue;
+    }
+
+    mappings.push({
+      license,
+      mapping: {
+        ...granted[0],
+        entitlementName: entitlement.name,
+        entitlementSlug,
+        entitlementType: 'NUMBER',
+        limitCapExceededOveragePercent: combined.unlimited ? -1 : 0,
+        updatedAt: granted
+          .map(({ updatedAt }) => updatedAt)
+          .reduce((latest, at) => (at > latest ? at : latest)),
+        value: { type: 'number', value: Number(combined.limit) },
+      },
+    });
   }
 
   return mappings;

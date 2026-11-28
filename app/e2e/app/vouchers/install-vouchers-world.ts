@@ -14,14 +14,15 @@ import {
  * The three slots of the vouchers world: what the instances are entitled to, the
  * licenses and the catalogue of entitlements the vouchers name, and the billing slot
  * that holds the vouchers and what each instance redeemed of them. A spec that needs the
- * billing to be something else passes its own.
+ * billing to be something else, or the catalogue of entitlements to be, passes its own.
  */
 export async function installVouchersWorld(
   page: Page,
   billing = createVouchersBillingModel(),
+  licenses = createVouchersLicensesModel(),
 ) {
   await installFeatureFlagAppMocks(page, createFeatureFlagsListModel());
   await installInstanceAppMocks(page, createVouchersInstancesModel());
-  await installLicenseAppMocks(page, createVouchersLicensesModel());
+  await installLicenseAppMocks(page, licenses);
   await installBillingAppMocks(page, billing);
 }

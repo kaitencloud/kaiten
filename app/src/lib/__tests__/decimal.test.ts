@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vite-plus/test';
 import {
   addDecimalStrings,
+  canonicalDecimal,
   floorDecimalAtZero,
   formatDecimalQuantity,
   isDecimalString,
+  multiplyDecimalStrings,
 } from '../decimal';
 
 describe('addDecimalStrings', () => {
@@ -23,6 +25,47 @@ describe('addDecimalStrings', () => {
   it('reads what is not a decimal as zero', () => {
     expect(addDecimalStrings('abc', '5')).toBe('5');
     expect(addDecimalStrings('', '')).toBe('0');
+  });
+});
+
+describe('multiplyDecimalStrings', () => {
+  it.each([
+    ['0.4', '1000', '400'],
+    ['0.6', '1000', '600'],
+    // A float writes 1.2000000000000002.
+    ['0.4', '3', '1.2'],
+    ['1.50', '2', '3'],
+    ['0.0000000001', '0.0000000001', '0.00000000000000000001'],
+    ['12345678.1234567891', '1', '12345678.1234567891'],
+    // Beyond 2^53: a float would round these.
+    ['9007199254740993', '2', '18014398509481986'],
+    ['0', '5', '0'],
+    ['-0.5', '4', '-2'],
+  ])('multiplies %s by %s exactly, to %s', (left, right, product) => {
+    expect(multiplyDecimalStrings(left, right)).toBe(product);
+  });
+
+  it('reads what is not a decimal as zero', () => {
+    expect(multiplyDecimalStrings('abc', '5')).toBe('0');
+    expect(multiplyDecimalStrings('', '')).toBe('0');
+  });
+});
+
+describe('canonicalDecimal', () => {
+  it.each([
+    ['0.40', '0.4'],
+    ['1.0', '1'],
+    ['007', '7'],
+    ['0.0', '0'],
+    ['2.50', '2.5'],
+    ['10', '10'],
+  ])('writes %s as %s', (text, canonical) => {
+    expect(canonicalDecimal(text)).toBe(canonical);
+  });
+
+  it('returns what is not a decimal as it came', () => {
+    expect(canonicalDecimal('abc')).toBe('abc');
+    expect(canonicalDecimal('')).toBe('');
   });
 });
 

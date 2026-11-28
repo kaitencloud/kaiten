@@ -1,8 +1,10 @@
 import { useNavigate } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { isCombinedEntitlement } from '@/domains/entitlement-usage';
 import { useEntitlementDetailContext } from './entitlement-detail-context';
 import { EntitlementDetailGeneralCard } from './entitlement-detail-general-card';
 import { EntitlementDetailLicensesCard } from './entitlement-detail-licenses-card';
+import { EntitlementDetailSourcesCard } from './entitlement-detail-sources-card';
 import type { EntitlementAuditFields } from './entitlement-detail-overview.types';
 
 export function EntitlementDetailOverviewTab() {
@@ -41,12 +43,16 @@ export function EntitlementDetailOverviewTab() {
         onEdit={handleEdit}
       />
       <EntitlementDetailLicensesCard
+        combined={isCombinedEntitlement(entitlement)}
         isLoading={isLoading}
         isUsageLoading={isUsageLoading}
         licenseAggregates={licenseAggregates}
         linkedLicenseMappings={linkedLicenseMappings}
         locale={locale}
       />
+      {isCombinedEntitlement(entitlement) ? (
+        <EntitlementDetailSourcesCard entitlement={entitlement} />
+      ) : null}
     </div>
   );
 }

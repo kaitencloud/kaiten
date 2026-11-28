@@ -166,6 +166,102 @@ export class EntitlementFormDriver {
     await this.page.getByRole('option', { name: label, exact: true }).click();
   }
 
+  // Where the usage of a NUMBER entitlement comes from: calculated, or combined.
+  usageSourceTrigger(): Locator {
+    return this.page
+      .locator('[data-field-name="usageSource"]')
+      .getByRole('combobox');
+  }
+
+  async selectUsageSource(label: 'Calculated' | 'Combined') {
+    await this.usageSourceTrigger().click();
+    await this.page.getByRole('option', { name: label, exact: true }).click();
+  }
+
+  /** The aggregation method of a NUMBER entitlement: greyed, on Sum, for a combined one. */
+  aggregationTrigger(): Locator {
+    return this.page
+      .locator('[data-field-name="aggregationMethod"]')
+      .getByRole('combobox');
+  }
+
+  // --- The sources of a combined entitlement ---------------------------------------
+
+  sourceRows(): Locator {
+    return this.page.getByTestId('entitlement-source-row');
+  }
+
+  /** One line of the sources, by its position from 1. */
+  sourceRow(position: number): Locator {
+    return this.page.getByRole('group', { name: `Source ${position}` });
+  }
+
+  private sourceTrigger(position: number): Locator {
+    return this.sourceRow(position).getByRole('button', {
+      name: /^Entitlement/,
+    });
+  }
+
+  /** What a line shows as its entitlement: its name, or the prompt while nothing is chosen. */
+  sourceEntitlement(position: number): Locator {
+    return this.sourceTrigger(position);
+  }
+
+  /** The lists of entitlements a line offers, one while it is open and none once it has left. */
+  private sourceLists(): Locator {
+    return this.page.getByRole('listbox', { name: 'Search entitlements' });
+  }
+
+  async chooseSource(position: number, name: string) {
+    await this.sourceTrigger(position).click();
+    await this.sourceLists()
+      .last()
+      .getByRole('option', { exact: true, name })
+      .click();
+    await expect(this.sourceLists()).toHaveCount(0);
+  }
+
+  /** The entitlements the picker of a line offers. */
+  async offeredSources(position: number): Promise<string[]> {
+    await this.sourceTrigger(position).click();
+    const names = await this.sourceLists()
+      .last()
+      .getByRole('option')
+      .allInnerTexts();
+    await this.page.keyboard.press('Escape');
+    await expect(this.sourceLists()).toHaveCount(0);
+
+    return names.map((name) => name.trim()).sort();
+  }
+
+  sourceWeight(position: number): Locator {
+    return this.sourceRow(position).getByLabel('Weight');
+  }
+
+  async setSourceWeight(position: number, weight: string) {
+    await this.sourceWeight(position).fill(weight);
+  }
+
+  addSourceButton(): Locator {
+    return this.page.getByRole('button', { name: 'Add a source' });
+  }
+
+  removeSourceButton(position: number): Locator {
+    return this.page.getByRole('button', {
+      name: `Remove source ${position}`,
+    });
+  }
+
+  /** The window the sources share, which the API derives and the form cannot choose. */
+  combinedWindow(): Locator {
+    return this.page.getByTestId('combined-window');
+  }
+
+  /** What is said before the button that saves new sources or weights. */
+  revalueHint(): Locator {
+    return this.page.getByTestId('combined-revalue-hint');
+  }
+
   /** The offer to take back what was typed and not sent (creation page only). */
   recoveryOffer(): Locator {
     return this.page

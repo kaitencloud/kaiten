@@ -14,7 +14,9 @@ import { NumberInput } from '@/components/ui/number-input';
 import { cn } from '@/lib/utils';
 import { EntitlementResetPeriodFields } from './entitlement-reset-period-fields';
 import { EntitlementSlugField } from './entitlement-slug-field';
+import { EntitlementSourcesFields } from './entitlement-sources-fields';
 import { EntitlementUnitFields } from './entitlement-unit-fields';
+import { EntitlementUsageSourceField } from './entitlement-usage-source-field';
 
 type EntitlementSelectOption = {
   label: string;
@@ -203,10 +205,24 @@ export function EntitlementTypeFields({
           )}
         </form.AppField>
       )}
-      <form.Subscribe selector={(state: any) => state.values.type}>
-        {(type: string) =>
+      <form.Subscribe
+        selector={(state: any) => [state.values.type, state.values.usageSource]}
+      >
+        {([type, usageSource]: string[]) =>
           type === 'NUMBER' || (aiEnabled && type === 'NUMBER_AI_CREDIT') ? (
             <>
+              {type === 'NUMBER' ? (
+                <EntitlementUsageSourceField
+                  entitlement={entitlement}
+                  form={form}
+                />
+              ) : null}
+              {type === 'NUMBER' && usageSource === 'COMBINED_USAGE' ? (
+                <EntitlementSourcesFields
+                  entitlement={entitlement}
+                  form={form}
+                />
+              ) : null}
               {type === 'NUMBER_AI_CREDIT' ? (
                 !entitlement ? (
                   <p className="text-sm text-muted-foreground">
@@ -231,7 +247,10 @@ export function EntitlementTypeFields({
                       getOptionLabel={(option: unknown) =>
                         t(getSelectOptionLabel(option))
                       }
-                      disabled={Boolean(entitlement)}
+                      // A combined entitlement is always summed: shown, and greyed.
+                      disabled={
+                        Boolean(entitlement) || usageSource === 'COMBINED_USAGE'
+                      }
                     />
                   )}
                 </form.AppField>
@@ -262,10 +281,12 @@ export function EntitlementTypeFields({
                   )}
                 </form.AppField>
               ) : null}
-              <EntitlementResetPeriodFields
-                entitlement={entitlement}
-                form={form}
-              />
+              {type === 'NUMBER' && usageSource === 'COMBINED_USAGE' ? null : (
+                <EntitlementResetPeriodFields
+                  entitlement={entitlement}
+                  form={form}
+                />
+              )}
               {type === 'NUMBER_AI_CREDIT' ? (
                 <form.Subscribe
                   selector={(state: any) => [

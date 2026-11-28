@@ -2,6 +2,7 @@ import { useAiAccess, isAiEntitlement } from '@/domains/ai-credits';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getEntitlementSlug } from '@/domains/billing';
+import { isGrantableEntitlement } from '@/domains/entitlement-usage';
 import {
   addonGrantsQueryOptions,
   addonQueryOptions,
@@ -48,8 +49,12 @@ export function useAddonGrants(addonSlug: string) {
   const available = useMemo(() => {
     const granted = new Set(grants.map((grant) => grant.entitlementSlug));
 
+    // A combined entitlement is computed from its sources, which are what an add-on
+    // grants: it is never offered, and the API refuses it.
     return entitlements.filter(
-      (entitlement) => !granted.has(getEntitlementSlug(entitlement)),
+      (entitlement) =>
+        !granted.has(getEntitlementSlug(entitlement)) &&
+        isGrantableEntitlement(entitlement),
     );
   }, [entitlements, grants]);
 

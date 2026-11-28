@@ -18,7 +18,7 @@ import {
   createVouchersLicensesModel,
 } from '../vouchers/vouchers.scenarios';
 import { BILLED_NOW } from '../billing/billed-instances';
-import type { EntitlementException } from '@/api-client';
+import type { Entitlement, EntitlementException } from '@/api-client';
 
 const BASE = '/customers/instances/initech-prod/entitlements';
 const SSO = buildEntitlement({ name: 'SSO', slug: 'sso', type: 'BOOLEAN' });
@@ -39,11 +39,40 @@ const row = (
   revokedAt: null,
   ...overrides,
 });
-async function install(page: Page, rows: EntitlementException[] = []) {
+// Two counters the license may grant, and the combined entitlement that sums them: a
+// customer reads "Credits", and an exception targets the counters behind it.
+const FIRECRAWL = buildEntitlement({
+  aggregationMethod: 'SUM',
+  name: 'Firecrawl Credits',
+  slug: 'firecrawl-credits',
+});
+const AI = buildEntitlement({
+  aggregationMethod: 'SUM',
+  name: 'AI Credits',
+  slug: 'ai-credits',
+});
+const CREDITS: Entitlement = {
+  ...buildEntitlement({
+    aggregationMethod: 'SUM',
+    name: 'Credits',
+    slug: 'credits',
+  }),
+  sources: [
+    { entitlementSlug: 'ai-credits', weight: '0.6' },
+    { entitlementSlug: 'firecrawl-credits', weight: '0.4' },
+  ],
+  usageSource: 'COMBINED_USAGE',
+};
+
+async function install(
+  page: Page,
+  rows: EntitlementException[] = [],
+  extraEntitlements: Entitlement[] = [],
+) {
   const licenseState = createVouchersLicensesModel().serializeForMsw();
   const license = licenseState.licenses.find((item) => item.slug === 'pro')!;
   const grant = buildGrant({ entitlement: SSO, license, value: true });
-  licenseState.entitlements.push(SSO);
+  licenseState.entitlements.push(SSO, ...extraEntitlements);
   licenseState.pricing.grants.push(grant);
   const licenses = LicenseAppModel.fromSerialized(licenseState);
 
@@ -177,4 +206,30 @@ test('shows the public exception layer without its private reason', async ({
   await expect(layers).toContainText('Exception');
   await expect(layers).toContainText('Disabled');
   await expect(layers).not.toContainText('Private evaluation reason');
+});
+
+// A combined entitlement is computed from its sources, which are what an exception changes:
+// the sum follows. The API refuses an exception on it, so the picker does not offer it.
+test('offers no combined entitlement for an exception, only the entitlements it sums', async ({
+  page,
+}) => {
+  await install(page, [], [FIRECRAWL, AI, CREDITS]);
+  await page.goto(`${BASE}/exceptions/new`);
+  await page
+    .getByRole('dialog')
+    .getByRole('combobox', { name: 'Entitlement', exact: true })
+    .click();
+
+  await expect(
+    page.getByRole('option', { name: 'SSO', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('option', { name: 'Firecrawl Credits', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('option', { name: 'AI Credits', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole('option', { name: 'Credits', exact: true }),
+  ).toHaveCount(0);
 });

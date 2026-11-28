@@ -2102,6 +2102,15 @@ export default {
                 'Visual overview of entitlement consumption for this instance',
               currentWindow: 'Current window: {{start}} → {{end}}',
             },
+            combined: {
+              trigger: 'Sources',
+              triggerName: 'Sources of {{name}}',
+              title: 'Computed from its sources',
+              source:
+                '{{name}}: {{usage}} of {{limit}} × {{weight}} = {{counted}} of {{countedLimit}}',
+              unlimited: 'unlimited',
+              hint: 'Computed when it is read, for display only. Nothing is enforced on the sum: each source keeps its own limit.',
+            },
             provenance: {
               title: 'How this limit is composed',
               trigger:
@@ -2894,6 +2903,19 @@ export default {
           'Set a limit first: an unlimited grant has nothing to exceed.',
         allAttachedHint:
           'Every entitlement in the catalog is already attached to this license.',
+        Computed: {
+          title: 'Computed entitlements',
+          description:
+            'A combined entitlement is not granted: it is the weighted sum of the sources this version grants, computed when it is read. Change the grants of its sources to change what it comes to.',
+          Columns: {
+            entitlement: 'Entitlement',
+            limit: 'Limit',
+            parts: 'Computed from',
+          },
+          unlimited: 'Unlimited',
+          part: '{{weight}} × {{name}} ({{grant}})',
+          partUnlimited: '{{weight}} × {{name}} (unlimited)',
+        },
         thresholdError: 'Threshold must be an integer or Unlimited',
         configError: 'Configuration must be valid JSON',
         overagePercentPlaceholder: 'e.g. 10',
@@ -3358,6 +3380,7 @@ export default {
           description: 'Description',
           groups: 'Groups',
           type: 'Type',
+          usageSource: 'Usage source',
           aggregationMethod: 'Aggregation Method',
         },
       },
@@ -3395,6 +3418,11 @@ export default {
             saleUnitFactorValue: 'Base units per sale unit',
             resetPeriod: 'Usage resets',
             resetAnchor: 'Window aligned on',
+            usageSource: 'Usage source',
+            sources: 'Sources',
+            sourceEntitlement: 'Entitlement',
+            sourceWeight: 'Weight',
+            combinedWindow: 'Usage window',
           },
           Placeholders: {
             name: 'Entitlement name',
@@ -3412,6 +3440,10 @@ export default {
             saleUnitFactor: '3',
             resetPeriod: 'Select a reset cadence',
             resetAnchor: 'Select a window alignment',
+            usageSource: 'Select a usage source',
+            sourceEntitlement: 'Choose an entitlement',
+            sourceEntitlementSearch: 'Search entitlements',
+            sourceWeight: '1',
           },
           Descriptions: {
             name: 'The name of the entitlement',
@@ -3429,7 +3461,7 @@ export default {
             aggregationMethod: 'How multiple usage events are combined',
             icon: 'Pick an icon to represent this entitlement',
             userFacing:
-              'Display this entitlement in customer-facing components such as plan and pricing pages',
+              'Display this entitlement in customer-facing components such as plan and pricing pages, and in the customer portal',
             displayOrder:
               'Sort order in customer-facing components (lower values appear first)',
             resetPeriod:
@@ -3442,6 +3474,15 @@ export default {
               'The alignment is fixed with the cadence once set: usage already counted belongs to windows that another alignment would cut differently.',
             resetPeriodLatest:
               'The Latest aggregation keeps only the most recent value, so it cannot be combined with a reset period.',
+            usageSource:
+              'Calculated: your code reports the usage and Kaiten folds each report. Combined: the weighted sum of the usage of other entitlements, computed when it is read and for display only. It can’t be changed afterwards.',
+            usageSourceLocked:
+              'Set when the entitlement was created. It can’t be changed.',
+            sources:
+              'The entitlements this one sums, each with a weight: one unit of a source is worth that many units here. Weights do not have to add up to 1. To show customers one figure, turn off “User facing” on the sources and turn it on here.',
+            combinedWindow:
+              'A combined entitlement takes the usage window its sources share. It can’t be chosen.',
+            combinedWindowEmpty: 'Choose the sources to see the window.',
           },
           Icon: {
             trigger: 'Choose icon',
@@ -3477,12 +3518,29 @@ export default {
               'The billing date needs a monthly or yearly cadence. Choose another alignment or another cadence.',
             slugConflict:
               'Another entitlement of the organization already has this slug. Choose another one.',
+            sourcesMin: 'Choose at least two entitlements to sum.',
+            sourceRequired: 'Choose an entitlement.',
+            sourceDuplicate: 'Each entitlement can be summed once.',
+            sourceWeight:
+              'Enter a weight greater than 0, with at most 8 digits before the point and 10 after.',
           },
           Refusals: {
             immutableResetAnchor:
               'The alignment of the usage windows was set once and cannot be changed. Close the form and open the entitlement again to see what it holds now.',
             immutableResetPeriod:
               'The reset cadence was set once and can be neither changed nor removed. Close the form and open the entitlement again to see what it holds now.',
+            sourceWindowMismatch:
+              'The sources do not share one usage window. A combined entitlement sums sources that reset on the same cadence and alignment, or that are all lifetime counters.',
+            sourceUnsupportedAggregation:
+              'A source must be aggregated by Sum or Count: a weighted sum of an average, a minimum, a maximum or a latest value means nothing.',
+            sourceIsCombined:
+              'A source cannot be a combined entitlement itself: a combined entitlement cannot sum another.',
+            sourceUnsupportedType:
+              'A source must be a Number or a Credits entitlement.',
+            sourceNotFound:
+              'One of the sources does not exist any more. Choose another one.',
+            sourceWindowLocked:
+              'This entitlement is a source of a combined entitlement, whose sources share one usage window, so it cannot take a reset cadence. Remove it from the combined entitlement first, or keep it a lifetime counter.',
           },
           Notices: {
             resetAnchorBackToCalendar:
@@ -3491,6 +3549,8 @@ export default {
           Hints: {
             resetAnchorBillingPeriod:
               'With the billing date, windows follow the billing date of an instance with a live subscription, and the license start date otherwise. When the billing date changes, for instance when a trial converts, a customer subscribes again or a subscription is canceled, the current window closes early and the usage counts from zero in the next one.',
+            combinedRevalue:
+              'Saving re-values the present. Usage and limit are computed when they are read, so a new source or weight changes what every customer reads at once, the current window included.',
           },
           Steps: {
             identity: 'Entitlement information',
@@ -3503,6 +3563,9 @@ export default {
           updateButton: 'Update Entitlement',
           createSuccess: 'Entitlement created successfully',
           updateSuccess: 'Entitlement updated successfully',
+          sourceRow: 'Source {{position}}',
+          removeSource: 'Remove source {{position}}',
+          addSource: 'Add a source',
         },
       },
       Detail: {
@@ -3513,6 +3576,7 @@ export default {
           linkedLicenses: {
             label: 'Linked licenses',
             helper: 'Licenses containing this entitlement',
+            helperCombined: 'Licenses granting a source',
           },
           licenseAlerts: {
             label: 'License alerts',
@@ -3610,8 +3674,11 @@ export default {
               name: 'Name',
               type: 'Type',
               aggregationMethod: 'Aggregation Method',
+              usageSource: 'Usage source',
               resetPeriod: 'Usage resets',
+              resetPeriodDerived: 'Usage resets (from its sources)',
               resetAnchor: 'Window aligned on',
+              resetAnchorDerived: 'Window aligned on (from its sources)',
               baseUnit: 'Base unit',
               saleUnit: 'Sale unit',
               calculation: 'Calculation',
@@ -3635,10 +3702,26 @@ export default {
             title: 'Linked licenses',
             description: 'What each license grants for this entitlement.',
             empty: 'No license grants this entitlement yet.',
+            descriptionCombined:
+              'What each license grants of the sources of this entitlement, summed with their weights.',
+            emptyCombined:
+              'No license grants a source of this entitlement yet.',
             instances_one: 'instance',
             instances_other: 'instances',
             more_one: 'Show {{count}} more license',
             more_other: 'Show {{count}} more licenses',
+          },
+          sources: {
+            title: 'Sources',
+            description:
+              'Usage and limit are computed when they are read, as the weighted sum of these entitlements. Nothing is stored for the sum and nothing is enforced on it: each source keeps its own limit.',
+            empty: 'This entitlement has no sources.',
+            columns: {
+              name: 'Entitlement',
+              slug: 'Slug',
+              weight: 'Weight',
+              unit: 'Unit',
+            },
           },
           contract: {
             title: 'Computation Contract',
@@ -3673,6 +3756,10 @@ export default {
         MIN: 'Minimum',
         MAX: 'Maximum',
         LATEST: 'Latest',
+      },
+      UsageSources: {
+        CALCULATED_USAGE: 'Calculated',
+        COMBINED_USAGE: 'Combined',
       },
       ResetPeriods: {
         NONE: 'Never (lifetime)',
@@ -7630,6 +7717,9 @@ export default {
           addonGrants_other: 'Granted by {{count}} add-ons',
           boostGrants_one: 'Granted by {{count}} voucher boost',
           boostGrants_other: 'Granted by {{count}} voucher boosts',
+          combinedEntitlements_one: 'Summed by {{count}} combined entitlement',
+          combinedEntitlements_other:
+            'Summed by {{count}} combined entitlements',
         },
         removeFirst:
           'Remove these references, then delete the entitlement again.',

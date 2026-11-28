@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { HttpResponse } from 'msw/http';
 import type { ReactNode } from 'react';
@@ -10,6 +10,7 @@ import type { Entitlement } from '@/api-client';
 import {
   handleCreateEntitlement,
   handleListEntitlementGroups,
+  handleListEntitlements,
 } from '@/api-client/msw.gen';
 import '@/lib/api/bootstrap';
 import en from '@/lib/i18n/locales/en';
@@ -138,6 +139,47 @@ describe('the creation page of an entitlement, and what it keeps', () => {
     await person.click(screen.getByRole('button', { name: 'Previous' }));
     expect(nameField()).toHaveValue('Storage Reads');
     expect(screen.getByLabelText('Description')).toHaveValue('Reads per period');
+  });
+
+  // A combined creation stores more than a name: where the usage comes from, and the lines of
+  // sources with their weights, an array of objects the form has to give back as it was.
+  it('offers back a half-filled combined creation: the usage source and the lines of sources', async () => {
+    server.use(
+      handleListEntitlements(() =>
+        HttpResponse.json({ hasMore: false, items: [] }),
+      ),
+    );
+    const person = user();
+    const first = render(page());
+    await person.type(nameField(), 'Credits');
+    await person.click(screen.getByRole('button', { name: 'Next' }));
+    await person.click(screen.getByRole('combobox', { name: /^Usage source/ }));
+    await person.click(await screen.findByRole('option', { name: 'Combined' }));
+    const weight = within(
+      await screen.findByRole('group', { name: 'Source 1' }),
+    ).getByLabelText('Weight');
+    await person.clear(weight);
+    await person.type(weight, '2.5');
+    await elapse();
+    first.unmount();
+
+    render(page());
+    await person.click(await screen.findByRole('button', { name: 'Resume' }));
+
+    expect(
+      await screen.findByRole('combobox', { name: /^Usage source/ }),
+    ).toHaveTextContent('Combined');
+    expect(screen.getAllByRole('group', { name: /^Source \d+$/ })).toHaveLength(2);
+    expect(
+      within(screen.getByRole('group', { name: 'Source 1' })).getByLabelText(
+        'Weight',
+      ),
+    ).toHaveValue('2.5');
+    expect(
+      within(screen.getByRole('group', { name: 'Source 2' })).getByLabelText(
+        'Weight',
+      ),
+    ).toHaveValue('1');
   });
 
   it('starts over on a blank form', async () => {

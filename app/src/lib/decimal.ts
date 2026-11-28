@@ -57,6 +57,28 @@ export function addDecimalStrings(left: string, right: string): string {
   });
 }
 
+/**
+ * The product of two decimal strings, exact, without trailing zeros: a weight
+ * times a grant, `0.4` times `3` is `1.2`, which a float would write as
+ * `1.2000000000000002`. A text that is not a decimal counts as zero.
+ */
+export function multiplyDecimalStrings(left: string, right: string): string {
+  const a = parse(left) ?? { digits: 0n, scale: 0 };
+  const b = parse(right) ?? { digits: 0n, scale: 0 };
+
+  return write({ digits: a.digits * b.digits, scale: a.scale + b.scale });
+}
+
+/**
+ * A decimal string as the API writes it back: no trailing zero after the point and
+ * no leading zero, `0.40` is `0.4`. What is not a decimal is returned as it came.
+ */
+export function canonicalDecimal(text: string): string {
+  const parts = parse(text);
+
+  return parts === null ? text : write(parts);
+}
+
 /** A decimal string with a negative value read as zero: a window floors at 0. */
 export function floorDecimalAtZero(text: string): string {
   const parts = parse(text);

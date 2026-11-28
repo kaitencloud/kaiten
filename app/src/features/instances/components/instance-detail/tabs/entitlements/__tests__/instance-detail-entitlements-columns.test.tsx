@@ -297,4 +297,79 @@ describe('history column', () => {
       expect(screen.queryByRole('link')).toBeNull();
     },
   );
+
+  // The usage of a combined entitlement is computed from its sources: nothing is reported on it,
+  // and the API refuses its history (422). The history is the sources', each on its own row.
+  it('offers no history for a combined entitlement, whose sources have it', () => {
+    const column = historyColumn({ history });
+    if (!column?.cell || typeof column.cell !== 'function') {
+      throw new Error('the history column has no cell renderer');
+    }
+
+    render(
+      <>
+        {column.cell({
+          row: { original: row({ usageSource: 'COMBINED_USAGE' }) },
+        } as never)}
+      </>,
+    );
+
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+});
+
+describe('type column', () => {
+  it('says that a number is combined, beside its type', () => {
+    renderCell('entitlementType', row({ usageSource: 'COMBINED_USAGE' }));
+
+    expect(
+      screen.getByText('Pages.Entitlements.EntitlementTypes.NUMBER'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('Pages.Entitlements.UsageSources.COMBINED_USAGE'),
+    ).toBeInTheDocument();
+  });
+
+  it('says nothing more of a number that is calculated, which is every other', () => {
+    renderCell('entitlementType', row({ usageSource: 'CALCULATED_USAGE' }));
+
+    expect(
+      screen.queryByText('Pages.Entitlements.UsageSources.COMBINED_USAGE'),
+    ).not.toBeInTheDocument();
+  });
+});
+
+describe('threshold column of a combined entitlement', () => {
+  const sources = [
+    {
+      entitlementName: 'Firecrawl Credits',
+      entitlementSlug: 'firecrawl-credits',
+      limit: 1000,
+      usage: 300,
+      weight: '0.4',
+    },
+  ];
+
+  it('opens how it is made, from its sources, beside the limit', () => {
+    renderThresholdCell(
+      row({ sources, threshold: 400, usageSource: 'COMBINED_USAGE' }),
+    );
+
+    expect(
+      screen.getByRole('button', {
+        name: 'Pages.Customers.Instances.Detail.entitlements.combined.triggerName',
+      }),
+    ).toBeInTheDocument();
+    expect(screen.getByText('400')).toBeInTheDocument();
+  });
+
+  it('offers nothing of the kind for a counter that is not combined', () => {
+    renderThresholdCell(row({ threshold: 400 }));
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Pages.Customers.Instances.Detail.entitlements.combined.triggerName',
+      }),
+    ).not.toBeInTheDocument();
+  });
 });

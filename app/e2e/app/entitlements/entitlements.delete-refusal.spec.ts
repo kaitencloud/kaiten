@@ -3,6 +3,7 @@ import { delayRequests } from '../_support/assertions/requests';
 import { EntitlementsListDriver } from '../_support/drivers/entitlements-list.driver';
 import { installEntitlementAppMocks } from '../_support/mocks/install-entitlement-app-mocks';
 import {
+  createCombinedEntitlementModel,
   createReferencedEntitlementModel,
   createReferencedLastEntitlementModel,
 } from './entitlements.scenarios';
@@ -119,5 +120,56 @@ test.describe('deleting an entitlement that is still in use', () => {
     await expect(
       page.getByRole('dialog', { name: 'This entitlement cannot be deleted' }),
     ).toHaveCount(0);
+  });
+});
+
+// A combined entitlement sums its sources: deleting one that is still summed would leave
+// the sum with a source that is not there, so the API keeps it and names the combined
+// entitlement. The combined one itself, which nothing references, is deleted as any other.
+test.describe('deleting an entitlement that a combined entitlement sums', () => {
+  test('is refused, with the combined entitlement that sums it, and can be taken off it first', async ({
+    page,
+  }) => {
+    const list = new EntitlementsListDriver(page);
+    await installEntitlementAppMocks(page, createCombinedEntitlementModel());
+
+    await list.goto();
+    await list.openDeleteDialog('Firecrawl Credits');
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+
+    const refusal = page.getByRole('dialog', {
+      name: 'This entitlement cannot be deleted',
+    });
+    await expect(refusal).toBeVisible();
+    // The API names the combined entitlement that sums it, in its own words.
+    await expect(refusal).toContainText('it is a source of credits');
+    await expect(
+      refusal.getByTestId('deletion-refusal-references').getByRole('listitem'),
+    ).toHaveText(['Summed by 1 combined entitlement']);
+    // Editing the combined entitlement takes it off: nothing that stays for good holds it.
+    await expect(refusal).toContainText(
+      'Remove these references, then delete the entitlement again.',
+    );
+    await expect(refusal).not.toContainText('turn off “User facing”');
+    await expect(page.locator('[data-sonner-toast]')).toHaveCount(0);
+    await list.expectEntitlementVisible('Firecrawl Credits');
+  });
+
+  test('deletes the combined entitlement itself, which nothing sums', async ({
+    page,
+  }) => {
+    const list = new EntitlementsListDriver(page);
+    await installEntitlementAppMocks(page, createCombinedEntitlementModel());
+
+    await list.goto();
+    await list.openDeleteDialog('Credits');
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click();
+
+    await list.expectEntitlementHidden('Credits');
+    await expect(
+      page.getByRole('dialog', { name: 'This entitlement cannot be deleted' }),
+    ).toHaveCount(0);
+    // Its sources are free again.
+    await list.expectEntitlementVisible('Firecrawl Credits');
   });
 });

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCanPerform } from '@/domains/billing';
 import { licenseQueryOptions } from '../../queries';
+import { LicenseComputedEntitlementsCard } from '../entitlements/license-computed-entitlements-card';
 import {
   type EntitlementUserFacingControl,
   LicenseEntitlementsCard,
@@ -56,6 +57,11 @@ export function LicenseOverviewTab({
         onDeleteEntitlement={grants.onDeleteEntitlement}
         readOnly={!mayWrite}
         userFacing={entitlementUserFacing}
+      />
+
+      <LicenseComputedEntitlementsCard
+        entitlements={grants.entitlements}
+        rows={grants.rows}
       />
 
       {frozen ? (

@@ -10,7 +10,10 @@ import {
   createBillingDisabledModel,
   createSubscriptionsModel,
 } from '../billing/billing.scenarios';
-import { createBilledInstancesModel } from './instances.scenarios';
+import {
+  createBilledInstancesModel,
+  createCombinedUsageInstancesModel,
+} from './instances.scenarios';
 
 // What an instance reported for one of its counters, in the order it was
 // accepted, read where the counter is. It belongs to the instances and not to
@@ -55,6 +58,25 @@ test.describe('the usage history of an entitlement', () => {
     expect(reads).toHaveLength(2);
     expect(searchOf(reads[0]).has('afterSeq')).toBe(false);
     expect(searchOf(reads[1]).get('afterSeq')).toBe('100');
+  });
+
+  // The usage of a combined entitlement is computed from its sources when it is read: nothing
+  // is reported on it, so there is no history, and the API refuses to list or export it (422).
+  test('is not offered for a combined entitlement, whose history is the history of its sources', async ({
+    page,
+  }) => {
+    const history = new UsageHistoryDriver(page);
+    await installInstanceAppMocks(page, createCombinedUsageInstancesModel());
+
+    await history.gotoEntitlements('nagare-prod');
+    await expect(history.link('Firecrawl Credits')).toBeVisible();
+    await expect(history.link('credits')).toHaveCount(0);
+    await expect(history.link('capacity')).toHaveCount(0);
+
+    // Its address opens no drawer either, and leaves the page as it was.
+    await history.gotoEntitlements('nagare-prod', '?history=credits');
+    await expect(page).toHaveURL(/\/entitlements$/);
+    await expect(history.drawer()).toHaveCount(0);
   });
 
   test('marks the report where the limit in force changed, and shows what the instance sent with a report', async ({

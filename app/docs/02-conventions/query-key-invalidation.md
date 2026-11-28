@@ -46,7 +46,9 @@ await queryClient.invalidateQueries({ queryKey: [{ _id }] });
 ```
 
 `useEntitlementFormMutations` (`app/src/features/entitlements/hooks/`) reaches the same
-goal with a `predicate` on `_id` for the entitlements of every license.
+goal with a `predicate` on `_id` for the entitlements of every license, and for the usage
+metrics of every instance when a combined entitlement is created or saved (its sum is
+computed when it is read, so new sources or weights change what each instance shows).
 
 ## Names of the generated functions
 

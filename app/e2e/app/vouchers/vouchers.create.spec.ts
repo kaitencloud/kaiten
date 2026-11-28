@@ -7,9 +7,14 @@ import { expect, expectToast, test } from '../_support/app-test';
 import { recordGraphQL, recordWrites } from '../_support/assertions/requests';
 import { VoucherDetailDriver } from '../_support/drivers/voucher-detail.driver';
 import { VoucherWizardDriver } from '../_support/drivers/voucher-wizard.driver';
+import { buildEntitlement } from '../_support/fixtures';
+import { LicenseAppModel } from '../_support/model/license-app-model';
 import { BILLED_NOW } from '../billing/billed-instances';
 import { installVouchersWorld } from './install-vouchers-world';
-import { createVouchersBillingModel } from './vouchers.scenarios';
+import {
+  createVouchersBillingModel,
+  createVouchersLicensesModel,
+} from './vouchers.scenarios';
 
 // The wizard that makes a voucher: the kind, the offer, who may redeem it and how often, and a
 // review in plain language that publishes it. A voucher is created as a draft and then
@@ -372,6 +377,54 @@ test.describe('the offer of a boost', () => {
     await expect(wizard.timesField()).toHaveAccessibleName(
       /Number of billing periods/,
     );
+  });
+});
+
+// A combined entitlement is computed from its sources, which are what a boost changes: the
+// sum follows them, and the API refuses a boost of the sum itself. The catalogue is the one
+// of the world, with a combined entitlement and the two it sums added to it, so the world is
+// installed here and not by the `beforeEach` of the blocks around.
+test.describe('a combined entitlement and the offer of a boost', () => {
+  test('is not offered, only the entitlements it sums', async ({ page }) => {
+    await page.clock.setFixedTime(new Date(BILLED_NOW));
+    const licenses = createVouchersLicensesModel().serializeForMsw();
+    licenses.entitlements.push(
+      buildEntitlement({
+        aggregationMethod: 'SUM',
+        name: 'Guest Seats',
+        slug: 'guest-seats',
+      }),
+      {
+        ...buildEntitlement({
+          aggregationMethod: 'SUM',
+          name: 'Total Seats',
+          slug: 'total-seats',
+        }),
+        sources: [
+          { entitlementSlug: 'guest-seats', weight: '1' },
+          { entitlementSlug: 'seats', weight: '1' },
+        ],
+        usageSource: 'COMBINED_USAGE',
+      },
+    );
+    await installVouchersWorld(
+      page,
+      undefined,
+      LicenseAppModel.fromSerialized(licenses),
+    );
+    const wizard = new VoucherWizardDriver(page);
+    await wizard.goto();
+    await wizard.startAs('Boost', 'More seats');
+
+    await wizard.addChange().click();
+    expect((await wizard.offeredEntitlements(0)).sort()).toEqual([
+      'Advanced Analytics',
+      'Branding',
+      'Guest Seats',
+      'Seats',
+      'Storage',
+      'Tokens',
+    ]);
   });
 });
 

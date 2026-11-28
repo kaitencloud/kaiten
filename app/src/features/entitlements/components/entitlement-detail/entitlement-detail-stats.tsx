@@ -10,6 +10,8 @@ import {
 import type { EntitlementDetailMetrics } from './entitlement-detail-overview.types';
 
 type EntitlementDetailStatsProps = {
+  /** A combined entitlement is linked to the licenses that grant its sources. */
+  combined?: boolean;
   isLoading: boolean;
   isUsageLoading: boolean;
   locale: string;
@@ -19,6 +21,7 @@ type EntitlementDetailStatsProps = {
 // The strip is the one home of every count on the page: the overview below
 // lists the licenses behind them rather than repeating the numbers.
 export function EntitlementDetailStats({
+  combined = false,
   isLoading,
   isUsageLoading,
   locale,
@@ -45,10 +48,12 @@ export function EntitlementDetailStats({
           {formatMetricCount(metrics.linkedLicenses, isLoading, locale)}
         </StatCard.Value>
         <StatCard.Helper>
-          {t(
-            'Pages.Entitlements.Detail.stats.linkedLicenses.helper',
-            'Licenses containing this entitlement',
-          )}
+          {combined
+            ? t('Pages.Entitlements.Detail.stats.linkedLicenses.helperCombined')
+            : t(
+                'Pages.Entitlements.Detail.stats.linkedLicenses.helper',
+                'Licenses containing this entitlement',
+              )}
         </StatCard.Helper>
       </StatCard>
 

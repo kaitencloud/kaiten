@@ -8,26 +8,62 @@ import type { FormRecovery } from '@/functionals/form-recovery';
 import { useAppForm } from '@/hooks/form';
 import { getApiErrorMessage } from '@/lib/errors';
 import { useEntitlementFormMutations } from '../../hooks';
-import { conditionUnitFields } from '../../utils/entitlement-writable';
+import {
+  conditionUnitFields,
+  isNumberFamily,
+  sourcesToBody,
+} from '../../utils/entitlement-writable';
 import {
   type EntitlementFormValues,
   entitlementFormSchema,
   getEntitlementFormDefaults,
+  isCombinedFormValues,
 } from './entitlement-form.shared';
 import { resolveResetFields } from './entitlement-reset-period.shared';
 import { toOptionalSlug } from './entitlement-slug.shared';
 
-type RefusedField = 'resetAnchor' | 'resetPeriod' | 'slug';
+type RefusedField = 'resetAnchor' | 'resetPeriod' | 'slug' | 'sources';
 
 type Refusal = { field?: RefusedField; messageKey: string };
 
-// The refusals of the API about the slug and the reset pair, by their code. The API names the
-// field in prose, in `detail`, and does not locate it, and its words are English
+const FORM = 'Pages.Entitlements.Mutation.Form';
+
+// What the API refuses in the sources of a combined entitlement, by the end of its code:
+// a create and an update refuse the same things, in the same words. They are about what
+// the person chose, so they are shown on the sources, which they can change.
+const SOURCE_REFUSALS: Record<string, string> = {
+  CombinedSourceDuplicate: `${FORM}.Errors.sourceDuplicate`,
+  CombinedSourceWeightInvalid: `${FORM}.Errors.sourceWeight`,
+  CombinedSourcesRequired: `${FORM}.Errors.sourcesMin`,
+  CombinedWindowMismatch: `${FORM}.Refusals.sourceWindowMismatch`,
+  SourceIsCombined: `${FORM}.Refusals.sourceIsCombined`,
+  SourceNotFound: `${FORM}.Refusals.sourceNotFound`,
+  SourceUnsupportedAggregation: `${FORM}.Refusals.sourceUnsupportedAggregation`,
+  SourceUnsupportedType: `${FORM}.Refusals.sourceUnsupportedType`,
+  SourceWindowMismatch: `${FORM}.Refusals.sourceWindowMismatch`,
+};
+
+// The refusals of the API about the slug, the reset pair and the sources, by their code. The
+// API names the field in prose, in `detail`, and does not locate it, and its words are English
 // and its own: each code has a sentence of the locales. A refusal of what the person
 // chose is shown on its field. One about a field that is read-only is shown above the
 // buttons (`field` absent): the form sends the pair it read back, so the person cannot
 // change it to mend it, and a refusal pinned to a disabled control would never go.
 const REFUSALS: Record<string, Refusal> = {
+  ...Object.fromEntries(
+    ['CreateEntitlement', 'UpdateEntitlement'].flatMap((operation) =>
+      Object.entries(SOURCE_REFUSALS).map(([code, messageKey]) => [
+        `${operation}.${code}`,
+        { field: 'sources', messageKey } satisfies Refusal,
+      ]),
+    ),
+  ),
+  // An entitlement that a combined one sums cannot take a reset period of its own: the
+  // lifetime counter that adopts one is refused. It is shown above the buttons, as the
+  // other refusals about the window are, and the cadence can be taken back.
+  'UpdateEntitlement.SourceWindowLocked': {
+    messageKey: `${FORM}.Refusals.sourceWindowLocked`,
+  },
   'CreateEntitlement.SlugConflict': {
     field: 'slug',
     messageKey: 'Pages.Entitlements.Mutation.Form.Errors.slugConflict',
@@ -59,6 +95,7 @@ const entitlementFormValuesToBody = (
   value: EntitlementFormValues,
   entitlement?: Entitlement,
 ): EntitlementWritable => {
+  const combined = isCombinedFormValues(value);
   const body: EntitlementWritable = {
     ...value,
     groupSlugs: value.groupSlugs?.filter(Boolean) ?? [],
@@ -69,9 +106,30 @@ const entitlementFormValuesToBody = (
     // the API already stored rather than letting this full-replace PUT
     // read as an attempted change.
     ...resolveResetFields(value, entitlement),
+    // The lines of the form are not the sources of a request: only a combined
+    // entitlement names any, and the API refuses them on another.
+    sources: combined ? sourcesToBody(value.sources) : undefined,
   };
-  if (body.type !== 'NUMBER' && body.type !== 'NUMBER_AI_CREDIT') {
+  if (!isNumberFamily(body.type)) {
     body.aggregationMethod = undefined;
+    body.warningThresholdPercent = undefined;
+  }
+  // Only a number says where its usage comes from, and only a NUMBER can have it
+  // combined: the API answers 400 to a flag or a configuration that names it, and to
+  // a credit pool that names the other, which a type changed on the form leaves behind.
+  body.usageSource = !isNumberFamily(body.type)
+    ? undefined
+    : combined
+      ? 'COMBINED_USAGE'
+      : 'CALCULATED_USAGE';
+  if (combined) {
+    // A combined entitlement is a SUM that takes the window of its sources, which the
+    // API derives from them and refuses a value that is not theirs: it sends none,
+    // on creation and on every edit, since the edit may move the sources to another
+    // window. Nothing crosses on a sum, so there is no threshold to warn at either.
+    body.aggregationMethod = 'SUM';
+    body.resetPeriod = undefined;
+    body.resetAnchor = undefined;
     body.warningThresholdPercent = undefined;
   }
   conditionUnitFields(body);
@@ -126,8 +184,10 @@ export const useEntitlementMutationForm = (
     },
     listeners: {
       onChange: ({ formApi }) => {
+        // A credit pool and a combined entitlement are always summed.
         if (
-          formApi.state.values.type === 'NUMBER_AI_CREDIT' &&
+          (formApi.state.values.type === 'NUMBER_AI_CREDIT' ||
+            isCombinedFormValues(formApi.state.values)) &&
           formApi.state.values.aggregationMethod !== 'SUM'
         )
           formApi.setFieldValue('aggregationMethod', 'SUM');

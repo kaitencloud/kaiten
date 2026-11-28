@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vite-plus/test';
 import { server } from '@/__tests__/msw-server';
 import type { Entitlement } from '@/api-client';
 import {
+  handleCreateEntitlement,
   handleGetEntitlement,
   handleListEntitlements,
   handleUpdateEntitlement,
@@ -223,5 +224,282 @@ describe('the form that edits an entitlement', () => {
     );
 
     expect(result.current.refusal).toBeNull();
+  });
+});
+
+// A combined entitlement (usageSource COMBINED_USAGE) sums other entitlements, its sources.
+// It is a SUM that takes the window its sources share, which the API derives and refuses a
+// value that is not theirs: the form sends none, on creation and on every edit, and nothing
+// of a threshold, since nothing crosses on a sum.
+describe('the form of a combined entitlement', () => {
+  const credits = {
+    ...opened,
+    description: 'The credits a customer reads',
+    id: 'entitlement-credits',
+    name: 'Credits',
+    resetAnchor: 'CALENDAR',
+    resetPeriod: 'MONTH',
+    slug: 'credits',
+    sources: [
+      { entitlementSlug: 'ai-credits', weight: '0.6' },
+      { entitlementSlug: 'firecrawl-credits', weight: '0.4' },
+    ],
+    usageSource: 'COMBINED_USAGE',
+    warningThresholdPercent: 0,
+  } as Entitlement;
+  const sources = [
+    { entitlementSlug: 'firecrawl-credits', weight: '0.40' },
+    { entitlementSlug: 'ai-credits', weight: '0.6' },
+  ];
+
+  it('creates it with its sources and the usage source, and sends no window, no threshold and nothing but a sum', async () => {
+    const created: unknown[] = [];
+    server.use(
+      handleCreateEntitlement(async ({ request }) => {
+        created.push(await request.json());
+
+        return HttpResponse.json(credits, { status: 201 });
+      }),
+    );
+    const onSuccess = vi.fn();
+    renderHook(() => useEntitlementMutationForm(undefined, onSuccess), {
+      wrapper,
+    });
+
+    await submit({
+      aggregationMethod: 'AVERAGE',
+      name: 'Credits',
+      resetAnchor: 'LICENSE_START',
+      resetPeriod: 'MONTH',
+      sources,
+      type: 'NUMBER',
+      usageSource: 'COMBINED_USAGE',
+      warningThresholdPercent: 50,
+    });
+
+    expect(created).toHaveLength(1);
+    expect(created[0]).toMatchObject({
+      aggregationMethod: 'SUM',
+      name: 'Credits',
+      // As the API writes a weight back: 0.40 is 0.4.
+      sources: [
+        { entitlementSlug: 'firecrawl-credits', weight: '0.4' },
+        { entitlementSlug: 'ai-credits', weight: '0.6' },
+      ],
+      type: 'NUMBER',
+      usageSource: 'COMBINED_USAGE',
+    });
+    for (const member of [
+      'resetPeriod',
+      'resetAnchor',
+      'warningThresholdPercent',
+    ]) {
+      expect(created[0]).not.toHaveProperty(member);
+    }
+    expect(onSuccess).toHaveBeenCalledWith(credits);
+  });
+
+  it('creates a calculated number as calculated, with no source, even if lines were left on the form', async () => {
+    const created: unknown[] = [];
+    server.use(
+      handleCreateEntitlement(async ({ request }) => {
+        created.push(await request.json());
+
+        return HttpResponse.json(opened, { status: 201 });
+      }),
+    );
+    renderHook(() => useEntitlementMutationForm(undefined, vi.fn()), {
+      wrapper,
+    });
+
+    await submit({
+      name: 'API Calls',
+      sources,
+      type: 'NUMBER',
+      usageSource: 'CALCULATED_USAGE',
+    });
+
+    expect(created[0]).toMatchObject({ usageSource: 'CALCULATED_USAGE' });
+    expect(created[0]).not.toHaveProperty('sources');
+  });
+
+  it.each([
+    ['a flag', 'BOOLEAN'],
+    ['a configuration', 'CONFIG'],
+  ] as const)(
+    'says nothing of where the usage of %s comes from, which the API refuses (400)',
+    async (_name, type) => {
+      const created: unknown[] = [];
+      server.use(
+        handleCreateEntitlement(async ({ request }) => {
+          created.push(await request.json());
+
+          return HttpResponse.json(opened, { status: 201 });
+        }),
+      );
+      renderHook(() => useEntitlementMutationForm(undefined, vi.fn()), {
+        wrapper,
+      });
+
+      await submit({ name: 'Support', type, usageSource: 'COMBINED_USAGE' });
+
+      expect(created[0]).not.toHaveProperty('usageSource');
+      expect(created[0]).not.toHaveProperty('sources');
+    },
+  );
+
+  it('does not let a credit pool be combined, which a type changed on the form would leave behind', async () => {
+    setAiAccessInputsForTest(queryClient, { capability: true, flag: true });
+    const created: unknown[] = [];
+    server.use(
+      handleCreateEntitlement(async ({ request }) => {
+        created.push(await request.json());
+
+        return HttpResponse.json(opened, { status: 201 });
+      }),
+    );
+    renderHook(() => useEntitlementMutationForm(undefined, vi.fn()), {
+      wrapper,
+    });
+
+    await submit({
+      name: 'Pool',
+      sources,
+      type: 'NUMBER_AI_CREDIT',
+      usageSource: 'COMBINED_USAGE',
+    });
+
+    expect(created[0]).toMatchObject({ usageSource: 'CALCULATED_USAGE' });
+    expect(created[0]).not.toHaveProperty('sources');
+  });
+
+  it('sends the new sources of an edit on top of the entitlement as the API holds it, and no window, which the sources may have moved', async () => {
+    stored = credits;
+    renderHook(() => useEntitlementMutationForm(credits), { wrapper });
+
+    await submit({
+      sources: [
+        { entitlementSlug: 'ai-credits', weight: '0.5' },
+        { entitlementSlug: 'firecrawl-credits', weight: '0.5' },
+      ],
+    });
+
+    expect(updates).toHaveLength(1);
+    expect(updates[0].entitlementSlug).toBe('credits');
+    expect(updates[0].body).toMatchObject({
+      aggregationMethod: 'SUM',
+      sources: [
+        { entitlementSlug: 'ai-credits', weight: '0.5' },
+        { entitlementSlug: 'firecrawl-credits', weight: '0.5' },
+      ],
+      usageSource: 'COMBINED_USAGE',
+    });
+    for (const member of ['resetPeriod', 'resetAnchor']) {
+      expect(updates[0].body).not.toHaveProperty(member);
+    }
+  });
+
+  it('keeps the sources that another tab saved when the edit is about something else', async () => {
+    renderHook(() => useEntitlementMutationForm(credits), { wrapper });
+    // The weights were changed elsewhere since the form opened.
+    stored = {
+      ...credits,
+      sources: [
+        { entitlementSlug: 'ai-credits', weight: '0.9' },
+        { entitlementSlug: 'firecrawl-credits', weight: '0.1' },
+      ],
+    };
+
+    await submit({ description: 'Another description' });
+
+    expect(updates[0].body).toMatchObject({
+      description: 'Another description',
+      sources: [
+        { entitlementSlug: 'ai-credits', weight: '0.9' },
+        { entitlementSlug: 'firecrawl-credits', weight: '0.1' },
+      ],
+    });
+  });
+
+  // A refusal about what the person chose is shown on the sources, in the words of the console,
+  // and not in a toast with the English of the API.
+  it.each([
+    ['UpdateEntitlement.SourceWindowMismatch', 'sourceWindowMismatch'],
+    ['UpdateEntitlement.CombinedWindowMismatch', 'sourceWindowMismatch'],
+    ['UpdateEntitlement.SourceIsCombined', 'sourceIsCombined'],
+    [
+      'UpdateEntitlement.SourceUnsupportedAggregation',
+      'sourceUnsupportedAggregation',
+    ],
+    ['UpdateEntitlement.SourceUnsupportedType', 'sourceUnsupportedType'],
+    ['UpdateEntitlement.SourceNotFound', 'sourceNotFound'],
+  ] as const)(
+    'shows the refusal %s on the sources',
+    async (code, sentence) => {
+      stored = credits;
+      renderHook(() => useEntitlementMutationForm(credits), { wrapper });
+      server.use(
+        handleUpdateEntitlement(() =>
+          HttpResponse.json(
+            { code, detail: 'The API says it in English', status: 422 },
+            { status: 422 },
+          ),
+        ),
+      );
+      const setFieldMeta = vi.fn();
+      const formApi = {
+        getFieldMeta: () => ({}),
+        getFieldValue: () => sources,
+        setFieldMeta,
+        store: { subscribe: () => ({ unsubscribe: vi.fn() }) },
+      };
+
+      await act(() =>
+        captured.options.onSubmit({
+          formApi,
+          value: { ...captured.options.defaultValues, sources },
+        }),
+      );
+
+      expect(setFieldMeta).toHaveBeenCalledWith('sources', expect.any(Function));
+      const [, update] = setFieldMeta.mock.calls[0];
+      expect(update({}).errorMap.onServer.message).toBe(
+        `Pages.Entitlements.Mutation.Form.Refusals.${sentence}`,
+      );
+      expect(toast.error).not.toHaveBeenCalled();
+    },
+  );
+
+  it('says that an entitlement a combined one sums cannot take a reset cadence above the buttons', async () => {
+    stored = opened;
+    const { result } = renderHook(() => useEntitlementMutationForm(opened), {
+      wrapper,
+    });
+    server.use(
+      handleUpdateEntitlement(() =>
+        HttpResponse.json(
+          {
+            code: 'UpdateEntitlement.SourceWindowLocked',
+            detail: 'entitlement "api-calls" is a source of credits',
+            status: 422,
+          },
+          { status: 422 },
+        ),
+      ),
+    );
+    const setFieldMeta = vi.fn();
+
+    await act(() =>
+      captured.options.onSubmit({
+        formApi: { getFieldMeta: () => ({}), setFieldMeta },
+        value: { ...captured.options.defaultValues, resetPeriod: 'MONTH' },
+      }),
+    );
+
+    expect(result.current.refusal).toBe(
+      'Pages.Entitlements.Mutation.Form.Refusals.sourceWindowLocked',
+    );
+    expect(setFieldMeta).not.toHaveBeenCalled();
+    expect(toast.error).not.toHaveBeenCalled();
   });
 });

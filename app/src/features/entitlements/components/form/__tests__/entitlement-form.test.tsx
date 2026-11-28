@@ -159,6 +159,7 @@ vi.mock('@/api-client/zod.gen', async (importOriginal) => {
       pick: () => schema,
       shape: {
         name: { min: () => ({}) },
+        usageSource: { unwrap: () => ({}) },
       },
     },
   };

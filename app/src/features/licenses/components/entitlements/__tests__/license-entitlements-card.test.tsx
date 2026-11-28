@@ -187,6 +187,44 @@ describe('LicenseEntitlementsCard', () => {
     ).toBeInTheDocument();
   });
 
+  // A combined entitlement is the weighted sum of its sources, computed when it is read: no license
+  // grants it, and the API refuses a grant of one. The dialog that adds a grant never offers it, so
+  // a version whose catalogue has nothing left but combined entitlements has nothing to add.
+  it('has nothing to add once the entitlements left are combined ones, which no license grants', () => {
+    const combined = {
+      id: 'entitlement-credits',
+      name: 'Credits',
+      slug: 'credits',
+      sources: [{ entitlementSlug: 'seats', weight: '1' }],
+      type: 'NUMBER',
+      usageSource: 'COMBINED_USAGE',
+    };
+    const props = {
+      onAddEntitlement: vi.fn(),
+      onDeleteEntitlement: vi.fn(),
+      onUpdateEntitlementGrant: vi.fn(),
+      rows,
+    };
+
+    const { rerender } = render(
+      <LicenseEntitlementsCard {...props} entitlements={[...entitlements, combined] as any[]} />,
+    );
+    expect(screen.getByRole('button', { name: 'Add entitlement' })).toBeDisabled();
+
+    // The same catalogue with one entitlement that is still free to grant: the button is back.
+    rerender(
+      <LicenseEntitlementsCard
+        {...props}
+        entitlements={[
+          ...entitlements,
+          combined,
+          { id: 'entitlement-exports', name: 'Exports', slug: 'exports', type: 'NUMBER' },
+        ] as any[]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Add entitlement' })).toBeEnabled();
+  });
+
   it('keeps inline edition behavior with save on enter for number entitlements', async () => {
     const user = userEvent.setup();
     const onUpdateEntitlementGrant = vi.fn().mockResolvedValue(undefined);
