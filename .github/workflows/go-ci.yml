@@ -1,20 +1,12 @@
 name: Go CI
 
 on:
+  # Every pull request, with no path filter. A workflow that a path filter skips
+  # reports no check at all, and a required check that never reports holds the
+  # pull request for good. The `changes` job below decides whether the API's
+  # jobs have anything to prove; a job skipped by its `if` reports success.
   pull_request:
     branches: [ "main", "feat/**", "fix/**", "chore/**" ]
-    paths:
-      - 'api/**'
-      # The console's GraphQL documents: the API holds a copy of each and pins
-      # what it costs, and a test fails when the two part ways.
-      - 'app/src/**/*.queries.ts'
-      # The committed OpenAPI documents, generated from api/: a hand edit to
-      # either one has to meet the codegen job, which regenerates both.
-      - 'app/openapi.yaml'
-      - 'app/platform-openapi.yaml'
-      # This workflow itself: a change to how the API is built, linted or tested
-      # (the Go version, the linter's) has to be proved by a run of it.
-      - '.github/workflows/go-ci.yml'
 
 concurrency:
   group: go-ci-api-${{ github.event.pull_request.number }}
@@ -34,10 +26,54 @@ env:
   LINT_GO_VERSION: "1.27.1"
 
 jobs:
+  # Whether the pull request touches the API: every other job runs only then.
+  changes:
+    name: Changes /api
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      api: ${{ steps.files.outputs.api }}
+    steps:
+      - name: Does the pull request touch the API?
+        id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          # Each file's path, and its old one when it moved. The API lists 3,000
+          # files at most: a pull request that big counts as touching the API.
+          files=$(gh api --paginate "repos/$REPOSITORY/pulls/$NUMBER/files" \
+            --jq '.[] | .filename, (.previous_filename // empty)')
+          api=false
+          if [ "$(printf '%s\n' "$files" | wc -l)" -ge 3000 ]; then
+            api=true
+          fi
+          while IFS= read -r file; do
+            case "$file" in
+              # The API itself.
+              api/*) api=true ;;
+              # The console's GraphQL documents: the API holds a copy of each
+              # and pins what it costs, and a test fails when the two part ways.
+              app/src/*.queries.ts) api=true ;;
+              # The committed OpenAPI documents, generated from api/: a hand edit
+              # to either one has to meet the codegen job, which regenerates both.
+              app/openapi.yaml | app/platform-openapi.yaml) api=true ;;
+              # This workflow: a change to how the API is built, linted or tested
+              # (the Go version, the linter's) has to be proved by a run of it.
+              .github/workflows/go-ci.yml) api=true ;;
+            esac
+          done <<<"$files"
+          echo "api=$api" >>"$GITHUB_OUTPUT"
+          echo "The pull request touches the API: $api"
+
   # A migration below main's newest breaks `migrate up` on databases that
   # already applied it: goose refuses a pending version lower than an applied one.
   migration-order:
     name: Migration order
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -50,6 +86,8 @@ jobs:
 
   lint:
     name: Lint & Build /api
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -191,6 +229,8 @@ jobs:
 
   codegen:
     name: Codegen up to date /api
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -259,6 +299,8 @@ jobs:
 
   test:
     name: ${{ matrix.mode.label }} (${{ matrix.shard.name }})
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:

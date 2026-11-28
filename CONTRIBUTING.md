@@ -192,8 +192,10 @@ Do not disclose an unpatched vulnerability through a public issue: follow
 
 Open the pull request against `main` and fill in the template. Keep it to one
 change, and attach screenshots or a short recording for a visible UI change. CI runs the workflows that match the paths you touched: `app-ci.yml` and
-`app-e2e.yml` for the frontend, `go-ci.yml` for the API, `charts-ci.yml` for the
-charts, `theme-ci.yml` for the theme, and `pre-commit-ci.yml` on every pull request.
+`app-e2e.yml` for the frontend, `charts-ci.yml` for the charts, `theme-ci.yml` for
+the theme, and `pre-commit-ci.yml` on every pull request. `go-ci.yml` runs on every
+pull request too, so that its checks report and can be required, and its jobs run
+only when the API, its OpenAPI documents or a `*.queries.ts` file changed.
 
 A pull request should explain:
 

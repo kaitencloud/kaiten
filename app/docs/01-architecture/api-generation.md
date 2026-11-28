@@ -300,7 +300,7 @@ beside the one it already had, which stays exactly as it was:
   `TestClientDocumentsRequireTheseScopes` in `api/internal/infrastructure/http/graphql/`),
   and `TestLegitimateQueriesHoldEveryConsoleDocument` fails when a document of
   `app/src` has no copy or differs from it. The copy, its variables and its scopes land
-  in the same commit as the document; the Go CI starts on any change to a
+  in the same commit as the document; the Go CI's jobs run on any change to a
   `*.queries.ts` file for that reason.
 - The enums of a GraphQL type are plain strings there (`status`, `providerKind`,
   `pricingType`, `billingModel`), where the REST contract has enums. The screen checks
