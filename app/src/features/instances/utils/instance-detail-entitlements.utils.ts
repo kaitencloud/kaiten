@@ -2,6 +2,7 @@ import type {
   Entitlement,
   EntitlementUsage,
   LicenseEntitlement,
+  UsageResources,
 } from '@/api-client';
 import {
   getLicenseEntitlementOveragePercent,
@@ -53,6 +54,10 @@ export type InstanceEntitlementRow = {
   // What the license, the add-ons and the vouchers each contribute to the effective
   // value, as the API sends it. Absent when the API sent none.
   provenance?: ServedProvenance | null;
+  // Only on an entitlement that counts per resource (limitScope RESOURCE): its `value` is then
+  // its highest counter, and this says how many resources hold a counter and how many are at
+  // the limit. The API sends it for those alone, so that its presence tells them apart.
+  resources?: UsageResources | null;
 };
 
 export const isSoftLimitEntitlement = (entitlement: InstanceEntitlementRow) =>
@@ -200,6 +205,7 @@ export const buildEntitlementsRows = (
             : null,
       source: usage?.source ?? 'license',
       provenance: usage?.provenance ?? null,
+      resources: usage?.resources ?? null,
     } as const;
   });
 
@@ -234,6 +240,21 @@ export const buildInstanceEntitlementGroupOptions = (
     left.label.localeCompare(right.label),
   );
 };
+
+/**
+ * The row a `?resources=` names: only an entitlement that counts per resource has a `resources`
+ * block, so any other slug opens nothing.
+ */
+export const findResourcesRow = <Row extends InstanceEntitlementRow>(
+  rows: readonly Row[],
+  entitlementSlug: string | undefined,
+): Row | undefined =>
+  entitlementSlug === undefined
+    ? undefined
+    : rows.find(
+        (row) =>
+          row.entitlementSlug === entitlementSlug && Boolean(row.resources),
+      );
 
 export const isEntitlementInGroup = (
   entitlement: InstanceEntitlementRow,

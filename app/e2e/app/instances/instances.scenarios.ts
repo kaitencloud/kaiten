@@ -3,6 +3,7 @@ import type {
   Instance,
   LicenseEntitlement,
   Provenance,
+  UsageReport,
 } from '@/api-client';
 import {
   buildCustomer,
@@ -16,6 +17,7 @@ import { BillingAppModel } from '../_support/model/billing-app-model';
 import { billingCapabilitiesProfiles } from '../_support/model/billing-capabilities';
 import { identityProvenance } from '../_support/model/effective-entitlement';
 import { InstanceAppModel } from '../_support/model/instance-app-model';
+import { stableUuid } from '../_support/model/stable-uuid';
 import {
   ACME_LEGACY_OPEN_INVOICE_ID,
   acmeProductionUsageReports,
@@ -871,4 +873,139 @@ export function createPagedBilledInstancesModels(count = 450) {
       licenses: [license],
     }),
   };
+}
+
+/**
+ * Nagare, which follows its competitors, on Pro. `sources-per-competitor` counts per
+ * resource (a competitor each) against a limit of four, and `api-calls` counts per instance
+ * beside it, as every entitlement did before. The production instance follows `competitors`
+ * of them (sixty, which is more than a page of the list of resources holds, the first three
+ * being the ones the journal knows): Stigg stands at 2, Schematic at 4, which is its limit,
+ * Paid at 3, and every other at 1. Four reports of the journal say how the first three got there. The usage row of `sources-per-competitor` holds
+ * no value of its own: the model reads it, and its `resources` block, off the counters.
+ */
+export function createResourcesInstancesModel({
+  competitors = 60,
+}: { competitors?: number } = {}) {
+  const nagare = buildCustomer({
+    id: 'customer-nagare',
+    name: 'Nagare',
+    slug: 'nagare',
+  });
+  const pro = buildLicense({
+    description: 'Pro plan',
+    id: 'license-pro',
+    lifecycleState: 'PUBLISHED',
+    name: 'Pro',
+    slug: 'pro',
+    type: 'PAID',
+    version: '2026.1',
+  });
+  const sources = buildLicenseEntitlement({
+    entitlementName: 'Sources per competitor',
+    entitlementSlug: 'sources-per-competitor',
+    licenseId: pro.id,
+    licenseSlug: 'pro',
+    value: { type: 'number', value: 4 },
+  });
+  const calls = buildLicenseEntitlement({
+    entitlementName: 'API calls',
+    entitlementSlug: 'api-calls',
+    licenseId: pro.id,
+    licenseSlug: 'pro',
+    value: { type: 'number', value: 1_000 },
+  });
+  const usage = (
+    grant: LicenseEntitlement,
+    value: number,
+  ): EntitlementUsage => ({
+    entitlementId: `entitlement-${grant.entitlementSlug}`,
+    entitlementSlug: grant.entitlementSlug ?? '',
+    licenseId: pro.id,
+    licenseSlug: 'pro',
+    limit: grant.value,
+    limitCapExceededOveragePercent: 0,
+    provenance: identityProvenance(grant),
+    source: 'license',
+    value: { type: 'number', value },
+  });
+  const named = [
+    { eventCount: 2, resourceKey: 'stigg', value: 2 },
+    { eventCount: 4, resourceKey: 'schematic', value: 4 },
+    { eventCount: 3, resourceKey: 'paid', value: 3 },
+  ];
+  const others = Array.from(
+    { length: Math.max(0, competitors - named.length) },
+    (_, index) => ({
+      eventCount: 1,
+      resourceKey: `competitor-${String(index + 1).padStart(2, '0')}`,
+      value: 1,
+    }),
+  );
+  const day = 24 * 60 * 60 * 1000;
+  const report = (
+    reportSeq: number,
+    resourceKey: string,
+    reportedValue: number,
+    valueBefore: number,
+    daysAgo: number,
+  ): UsageReport => ({
+    aggregationMethod: 'SUM',
+    behavior: 'append',
+    delta: String(reportedValue),
+    entitlementId: stableUuid('sources-per-competitor'),
+    eventCountAfter: reportSeq === 3 ? 2 : 1,
+    instanceId: stableUuid('nagare-production'),
+    licenseId: stableUuid(pro.id),
+    limitValue: '4',
+    overageDelta: '0',
+    overagePercent: 0,
+    properties: null,
+    reportSeq,
+    reportedAt: new Date(Date.now() - daysAgo * day).toISOString(),
+    reportedValue: String(reportedValue),
+    resourceKey,
+    transactionId: null,
+    valueAfter: String(valueBefore + reportedValue),
+    valueBefore: String(valueBefore),
+    windowEnd: null,
+    windowStart: null,
+  });
+
+  return new InstanceAppModel({
+    customers: [nagare],
+    entitlementUsagesByInstance: {
+      'nagare-production': [usage(sources, 0), usage(calls, 120)],
+    },
+    instances: [
+      buildInstance({
+        customerId: nagare.id,
+        customerSlug: 'nagare',
+        description: 'Nagare production environment',
+        id: 'instance-nagare-production',
+        licenseId: pro.id,
+        licenseSlug: 'pro',
+        name: 'Nagare Production',
+        slug: 'nagare-production',
+      }),
+    ],
+    licenseEntitlements: [sources, calls],
+    licenses: [pro],
+    perResource: { 'sources-per-competitor': { aggregationMethod: 'SUM' } },
+    resources: {
+      'nagare-production': {
+        'sources-per-competitor': [...named, ...others].slice(0, competitors),
+      },
+    },
+    usageReports: {
+      'nagare-production': {
+        'sources-per-competitor': [
+          report(1, 'stigg', 1, 0, 6),
+          report(2, 'schematic', 4, 0, 5),
+          report(3, 'stigg', 1, 1, 3),
+          report(4, 'paid', 3, 0, 2),
+        ],
+      },
+    },
+  });
 }

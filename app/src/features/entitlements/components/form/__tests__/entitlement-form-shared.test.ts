@@ -610,3 +610,78 @@ it.each(['BOOLEAN', 'CONFIG'] as const)('omits read-side warning zero from %s in
   expect(body.warningThresholdPercent).toBeUndefined();
   expect(JSON.stringify(body)).not.toContain('warningThresholdPercent');
 });
+
+// What the limit applies to: each resource of the instance has a counter against the same limit,
+// or the instance as a whole does. The number family has one, and it never changes.
+describe('what the limit applies to', () => {
+  const perResource: Entitlement = {
+    ...numberEntitlementWithUnits,
+    limitScope: 'RESOURCE',
+  };
+  const validBase = { ...initialEntitlementFormValues, name: 'Test' };
+
+  it('starts a new entitlement on one counter for each instance, as every entitlement was', () => {
+    expect(initialEntitlementFormValues.limitScope).toBe('INSTANCE');
+    expect(getEntitlementFormDefaults().limitScope).toBe('INSTANCE');
+  });
+
+  it('shows what an entitlement has, and nothing for the types that have none', () => {
+    expect(getEntitlementFormDefaults(perResource).limitScope).toBe('RESOURCE');
+    expect(
+      getEntitlementFormDefaults({ ...numberEntitlementWithUnits, limitScope: 'INSTANCE' })
+        .limitScope,
+    ).toBe('INSTANCE');
+    expect(
+      getEntitlementFormDefaults({ ...numberEntitlementWithUnits, type: 'BOOLEAN' })
+        .limitScope,
+    ).toBeUndefined();
+  });
+
+  it('takes the two values of the API, from its own schema, and no other', () => {
+    for (const limitScope of ['INSTANCE', 'RESOURCE']) {
+      expect(entitlementFormSchema.safeParse({ ...validBase, limitScope }).success).toBe(
+        true,
+      );
+    }
+    expect(
+      entitlementFormSchema.safeParse({ ...validBase, limitScope: 'PROJECT' }).success,
+    ).toBe(false);
+    // Left out is allowed: the type that has none, and a PUT that echoes nothing.
+    expect(
+      entitlementFormSchema.safeParse({ ...validBase, limitScope: undefined }).success,
+    ).toBe(true);
+  });
+
+  it('is echoed by an update of a number entitlement, the AI credit pool included', () => {
+    expect(entitlementToUpdateBody(perResource, { name: 'Renamed' }).limitScope).toBe(
+      'RESOURCE',
+    );
+    expect(
+      entitlementToUpdateBody({
+        ...numberEntitlementWithUnits,
+        limitScope: 'INSTANCE',
+        type: 'NUMBER_AI_CREDIT',
+      }).limitScope,
+    ).toBe('INSTANCE');
+  });
+
+  // The API refuses a scope on a Boolean or a Config entitlement (400), which it never returns for one.
+  it.each(['BOOLEAN', 'CONFIG'] as const)(
+    'is not sent for a %s entitlement',
+    (type) => {
+      const body = entitlementToUpdateBody({
+        ...numberEntitlementWithUnits,
+        limitScope: 'RESOURCE',
+        type,
+      });
+
+      expect(body).not.toHaveProperty('limitScope');
+    },
+  );
+
+  it('is left to the caller to override, as every field is', () => {
+    expect(entitlementToUpdateBody(perResource, { limitScope: 'INSTANCE' }).limitScope).toBe(
+      'INSTANCE',
+    );
+  });
+});

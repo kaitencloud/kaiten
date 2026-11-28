@@ -219,6 +219,10 @@ export const WEBHOOK_EVENTS = {
     type: 'com.kaiten.instance.entitlement_exception.v1.revoked',
     group: 'instance',
   },
+  INSTANCE_ENTITLEMENT_RESOURCE_DELETED: {
+    type: 'com.kaiten.instance.entitlement.v1.resource_deleted',
+    group: 'usage',
+  },
   INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER: {
     type: 'com.kaiten.instance.entitlement.v1.usage_period_rolled_over',
     group: 'usage',

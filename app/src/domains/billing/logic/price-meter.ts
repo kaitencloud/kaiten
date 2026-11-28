@@ -141,6 +141,10 @@ const isActive = (price: Pick<Price, 'status'>) => price.status === 'ACTIVE';
  * listed. An entitlement already metered by an active price is not offered a
  * second time, and an overage price on a license version needs a grant whose
  * overage can be reached.
+ *
+ * An entitlement that counts per resource (`limitScope` RESOURCE) is not listed either,
+ * not even disabled: it has one counter for each resource of an instance and an invoice
+ * has no line for each, so the API refuses a price on it (`UnsupportedLimitScope`).
  */
 export function getMeterOptions({
   editingPriceId,
@@ -171,7 +175,12 @@ export function getMeterOptions({
     const grant = grantBySlug.get(entitlementSlug);
     const isNumber =
       entitlement.type === 'NUMBER' || entitlement.type === 'NUMBER_AI_CREDIT';
-    if (!grant || !isNumber || metered.has(entitlementSlug)) {
+    if (
+      !grant ||
+      !isNumber ||
+      entitlement.limitScope === 'RESOURCE' ||
+      metered.has(entitlementSlug)
+    ) {
       return [];
     }
     const base = { entitlement, entitlementSlug };

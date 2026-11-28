@@ -33,7 +33,14 @@ export function UsageHistoryReports({
 }: UsageHistoryReportsProps) {
   const { t } = useTranslation();
   const { limitChanges, outsideRetention, query, reports } = history;
-  const columns = useUsageReportColumns({ limitChanges, showValue: true });
+  // Only the reports of an entitlement that counts per resource say which: the column
+  // is of no use to the others.
+  const showResource = reports.some((report) => report.resourceKey);
+  const columns = useUsageReportColumns({
+    limitChanges,
+    showResource,
+    showValue: true,
+  });
   const Icon = dataModelIcons.entitlement;
 
   if (query.isPending) {

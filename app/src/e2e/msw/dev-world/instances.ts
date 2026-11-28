@@ -196,8 +196,21 @@ export const createInstances = (
 // limits, Acme Production nears its seats, and Globex Production is past its
 // soft limit on API calls.
 const USAGE: Record<string, Record<string, number>> = {
-  'acme-production': { 'api-calls': 412_350, seats: 238, 'storage-gb': 3_120 },
-  'acme-us': { 'api-calls': 120_400, seats: 80, 'storage-gb': 900 },
+  // `sources-per-competitor` counts per resource: its figure is its highest counter (the
+  // ones below), which the other areas of the world read as the usage of the entitlement.
+  // The instances' model reads it off the counters itself.
+  'acme-production': {
+    'api-calls': 412_350,
+    seats: 238,
+    'sources-per-competitor': 4,
+    'storage-gb': 3_120,
+  },
+  'acme-us': {
+    'api-calls': 120_400,
+    seats: 80,
+    'sources-per-competitor': 1,
+    'storage-gb': 900,
+  },
   'acme-legacy': { 'api-calls': 18_200, seats: 40, 'storage-gb': 300 },
   'beta-staging': { 'api-calls': 1_000, seats: 3 },
   'globex-production': { 'api-calls': 104_200, seats: 50, 'storage-gb': 120 },
@@ -247,3 +260,38 @@ export const createEntitlementUsages = (
       return [slug, usages];
     }),
   );
+
+/**
+ * The entitlements that count per resource, and the counters each instance holds for them.
+ * Acme Production follows three competitors, Schematic being at the limit of four; Acme US
+ * follows one. The usage rows of the instances read their value and their `resources` off
+ * these counters, as the API computes them.
+ */
+export const createEntitlementResources = (entitlements: Entitlement[]) => ({
+  perResource: Object.fromEntries(
+    entitlements.flatMap((entitlement) =>
+      entitlement.limitScope === 'RESOURCE' && entitlement.slug
+        ? [
+            [
+              entitlement.slug,
+              { aggregationMethod: entitlement.aggregationMethod },
+            ],
+          ]
+        : [],
+    ),
+  ),
+  resources: {
+    'acme-production': {
+      'sources-per-competitor': [
+        { eventCount: 2, resourceKey: 'stigg', value: 2 },
+        { eventCount: 4, resourceKey: 'schematic', value: 4 },
+        { eventCount: 3, resourceKey: 'paid', value: 3 },
+      ],
+    },
+    'acme-us': {
+      'sources-per-competitor': [
+        { eventCount: 1, resourceKey: 'stigg', value: 1 },
+      ],
+    },
+  },
+});

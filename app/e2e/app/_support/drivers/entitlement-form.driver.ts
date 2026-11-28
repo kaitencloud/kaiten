@@ -166,6 +166,29 @@ export class EntitlementFormDriver {
     await this.page.getByRole('option', { name: label, exact: true }).click();
   }
 
+  // What the limit applies to is a base-ui Select too, reached through the FormItem.
+  limitScopeTrigger(): Locator {
+    return this.page
+      .locator('[data-field-name="limitScope"]')
+      .getByRole('combobox');
+  }
+
+  /** Open the choice of what the limit applies to and pick the option with the given visible label. */
+  async selectLimitScope(label: string) {
+    await this.limitScopeTrigger().click();
+    await this.page.getByRole('option', { name: label, exact: true }).click();
+  }
+
+  /** The type of the entitlement, which decides which fields the second step holds. */
+  typeTrigger(): Locator {
+    return this.page.locator('[data-field-name="type"]').getByRole('combobox');
+  }
+
+  async selectType(label: string) {
+    await this.typeTrigger().click();
+    await this.page.getByRole('option', { name: label, exact: true }).click();
+  }
+
   /** The offer to take back what was typed and not sent (creation page only). */
   recoveryOffer(): Locator {
     return this.page

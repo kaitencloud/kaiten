@@ -53,6 +53,19 @@ vi.mock('react-i18next', () => ({
       ) {
         return `Soft limit: usage is accepted up to ${options?.max} before being rejected.`;
       }
+      if (
+        key === 'Pages.Customers.Instances.Detail.entitlements.resources.summary'
+      ) {
+        return `${options?.count} resources, ${options?.atLimit} at limit`;
+      }
+      if (
+        key === 'Pages.Customers.Instances.Detail.entitlements.resources.highest'
+      ) {
+        return `Highest counter among ${options?.count} resources`;
+      }
+      if (key === 'Pages.Customers.Instances.Detail.entitlements.resources.none') {
+        return 'No resource yet';
+      }
       return key;
     },
   }),
@@ -297,4 +310,95 @@ describe('history column', () => {
       expect(screen.queryByRole('link')).toBeNull();
     },
   );
+});
+
+// The figure of an entitlement that counts per resource is its highest counter, which would
+// read as the instance's own count without the caption the API's `resources` block gives it.
+describe('usage column of an entitlement that counts per resource', () => {
+  const sources = (overrides: Partial<InstanceEntitlementRow> = {}) =>
+    row({
+      entitlementName: 'Sources per competitor',
+      entitlementSlug: 'sources-per-competitor',
+      resources: { atLimit: 2, count: 6 },
+      threshold: 4,
+      value: 4,
+      ...overrides,
+    });
+  const renderUsage = (
+    original: InstanceEntitlementRow,
+    options?: Parameters<typeof useEntitlementsColumns>[1],
+  ) => {
+    const { result } = renderHook(() =>
+      useEntitlementsColumns('en-US', options),
+    );
+    const column = result.current.find(
+      (candidate) =>
+        (candidate as { accessorKey?: string }).accessorKey === 'value',
+    );
+    if (!column?.cell || typeof column.cell !== 'function') {
+      throw new Error('the usage column has no cell renderer');
+    }
+
+    render(<>{column.cell({ row: { original } } as never)}</>);
+  };
+
+  it('says how many resources hold a counter and how many are at the limit, beside the highest counter', () => {
+    renderUsage(sources());
+
+    expect(screen.getByText('4')).toBeInTheDocument();
+    expect(screen.getByTestId('entitlement-resources-summary')).toHaveTextContent(
+      '6 resources, 2 at limit',
+    );
+    expect(screen.getByTestId('entitlement-resources-summary')).toHaveAttribute(
+      'title',
+      'Highest counter among 6 resources',
+    );
+  });
+
+  it('opens the list of the resources, over the same page, where the session may read it', () => {
+    renderUsage(sources(), { resources: { instanceSlug: 'globex-production' } });
+
+    const link = screen.getByRole('link', { name: '6 resources, 2 at limit' });
+    expect(link).toHaveAttribute(
+      'href',
+      '/customers/instances/$instanceSlug/entitlements',
+    );
+    expect(link).toHaveAttribute(
+      'data-search',
+      '{"resources":"sources-per-competitor"}',
+    );
+    expect(link).toHaveAttribute(
+      'data-params',
+      '{"instanceSlug":"globex-production"}',
+    );
+    // A click on it is its own, not the row's.
+    expect(link).toHaveAttribute('data-row-actions');
+  });
+
+  it('says it all the same, with nothing to open, where the session may not read the list', () => {
+    renderUsage(sources());
+
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(screen.getByTestId('entitlement-resources-summary')).toHaveTextContent(
+      '6 resources, 2 at limit',
+    );
+  });
+
+  it('says there is none yet, rather than a count of zero, for an entitlement nothing has been reported for', () => {
+    renderUsage(sources({ resources: { atLimit: 0, count: 0 }, value: 0 }), {
+      resources: { instanceSlug: 'globex-production' },
+    });
+
+    expect(screen.getByText('No resource yet')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+
+  it('says nothing for an entitlement that counts per instance', () => {
+    renderUsage(row({ resources: null }), {
+      resources: { instanceSlug: 'globex-production' },
+    });
+
+    expect(screen.queryByTestId('entitlement-resources-summary')).toBeNull();
+    expect(screen.queryByRole('link')).toBeNull();
+  });
 });

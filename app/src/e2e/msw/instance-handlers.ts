@@ -4,11 +4,14 @@ import {
   handleListEntitlementExceptions,
   handleRevokeEntitlementException,
   handleCreateInstance,
+  handleDeleteEntitlementResource,
   handleDeleteInstance,
   handleExportOrganizationUsageReports,
   handleExportUsageReports,
   handleGetCustomer,
+  handleGetEntitlementResourceUsageMetrics,
   handleGetEntitlementsUsageMetrics,
+  handleGetEntitlementUsageMetrics,
   handleGetInstance,
   handleGetInstances,
   handleGetLicense,
@@ -16,10 +19,12 @@ import {
   handleGetLicenses,
   handleListCustomers,
   handleListDeploymentZones,
+  handleListEntitlementResources,
   handleListLicenseFamilies,
   handleListReleases,
   handleListUsageReports,
   handlePatchInstance,
+  handleReportEntitlementResourceUsageMetric,
   handleUpdateInstance,
 } from '@/api-client/msw.gen';
 import type { InstanceAppModel } from '../../../e2e/app/_support/model/instance-app-model';
@@ -152,6 +157,84 @@ export const instanceHandlers = (
       HttpResponse.json(model.getEntitlementsUsageMetrics(params.instanceSlug)),
     ),
   ),
+  handleGetEntitlementUsageMetrics(
+    withErrorHandling('Unexpected instance mock error', ({ params }) =>
+      HttpResponse.json(
+        model.getEntitlementUsageMetrics(
+          params.instanceSlug,
+          params.entitlementSlug,
+        ),
+      ),
+    ),
+  ),
+  // The entitlements that count per resource: one counter for each resource of the
+  // instance, reported, read, listed and forgotten under the entitlement. What each
+  // answers is computed by the model from the counters (`InstanceEntitlementResources`).
+  handleReportEntitlementResourceUsageMetric(
+    withErrorHandling(
+      'Unexpected usage report mock error',
+      async ({ params, request }) => {
+        const { body, replayed } = model.reportResourceUsage(
+          params.instanceSlug,
+          params.entitlementSlug,
+          params.resourceKey,
+          await request.json(),
+          {
+            key: request.headers.get('Idempotency-Key') ?? undefined,
+            sent: request.headers.has('Idempotency-Key'),
+          },
+        );
+        persist();
+        return HttpResponse.json(body, {
+          headers: replayed ? { 'Idempotent-Replayed': 'true' } : undefined,
+        });
+      },
+    ),
+  ),
+  handleGetEntitlementResourceUsageMetrics(
+    withErrorHandling('Unexpected resource usage mock error', ({ params }) =>
+      HttpResponse.json(
+        model.getEntitlementResourceUsage(
+          params.instanceSlug,
+          params.entitlementSlug,
+          params.resourceKey,
+        ),
+      ),
+    ),
+  ),
+  handleListEntitlementResources(
+    withErrorHandling(
+      'Unexpected resources mock error',
+      ({ params, request }) => {
+        const query = new URL(request.url).searchParams;
+
+        return HttpResponse.json(
+          model.listEntitlementResources(
+            params.instanceSlug,
+            params.entitlementSlug,
+            {
+              cursor: optional(query.get('cursor')),
+              limit: optionalNumber(query.get('limit')),
+            },
+          ),
+        );
+      },
+    ),
+  ),
+  handleDeleteEntitlementResource(
+    withErrorHandling(
+      'Unexpected resource deletion mock error',
+      ({ params }) => {
+        model.deleteEntitlementResource(
+          params.instanceSlug,
+          params.entitlementSlug,
+          params.resourceKey,
+        );
+        persist();
+        return new HttpResponse(null, { status: 204 });
+      },
+    ),
+  ),
   handleGetInstance(
     withErrorHandling('Unexpected instance mock error', ({ params }) =>
       HttpResponse.json(model.getInstance(params.instanceSlug)),
@@ -202,6 +285,7 @@ export const instanceHandlers = (
             afterSeq: optionalNumber(query.get('afterSeq')),
             from: optional(query.get('from')),
             limit: optionalNumber(query.get('limit')),
+            resourceKey: optional(query.get('resourceKey')),
             to: optional(query.get('to')),
             transactionId: optional(query.get('transactionId')),
           }),
@@ -223,6 +307,7 @@ export const instanceHandlers = (
             {
               format: optional(query.get('format')),
               from: optional(query.get('from')),
+              resourceKey: optional(query.get('resourceKey')),
               to: optional(query.get('to')),
             },
           ),

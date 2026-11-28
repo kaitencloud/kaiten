@@ -59,7 +59,8 @@ app/src/domains/billing/
 │                     # feed the server pages is drawn with (paged-list/: the skeleton, the empty
 │                     # state, the foot), the invoices of one subject in a card (InvoicesCard),
 │                     # the period of a list (PeriodFilter), the columns of a table of usage
-│                     # reports (useUsageReportColumns), the menu of the export of the invoices
+│                     # reports (useUsageReportColumns, with the resource column of a
+│                     # per-resource entitlement on request), the menu of the export of the invoices
 │                     # (ExportInvoicesMenu, which says which filters of its screen the file
 │                     # leaves out), the dialog of a refusal to delete
 │                     # (DeletionRefusalDialog), the amount of a price (PriceAmount), what a metered price
@@ -278,7 +279,9 @@ page holds, or an export the API streams.
   `.create`, `.update`, `.revoke`: scopes of their own, `read:publishable_keys` and
   `write:publishable_keys`, which `features/publishable-keys` follows) and the anonymous
   checkouts the keys started, which the console only reads (`checkoutSessions.list`,
-  `.read`: `read:billing`, which `features/customers` follows).
+  `.read`: `read:billing`, which `features/customers` follows), and the resources an
+  entitlement that counts per resource holds on an instance (`entitlementResources.list`:
+  `read:instances`, which `features/instances` follows).
 
 ## Behaviour
 
@@ -584,7 +587,9 @@ page holds, or an export the API streams.
   has, a metered price is per sale unit, and none is ever added to another. What a
   metered price may measure is the domain's too (`price-meter`): the entitlements a
   version grants that are a flow, the stocks listed disabled with the way to sell them,
-  an entitlement already metered by an active price left out, and the words of what a
+  an entitlement already metered by an active price left out, an entitlement that counts
+  per resource (`limitScope` `RESOURCE`) left out too, since an invoice has no line per
+  resource and the API refuses it (`UnsupportedLimitScope`), and the words of what a
   price counts and bills above (`Features.Billing.Price.Meter`). A license version
   and an add-on version sell metered prices by the same rules, so the picker
   (`PriceMeterField`) and the cells of the table serve both; the allowance of an

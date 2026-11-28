@@ -117,6 +117,8 @@ export const AUDIT_EVENT_LABEL_KEYS = {
     'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED',
   INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED:
     'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED',
+  INSTANCE_ENTITLEMENT_RESOURCE_DELETED:
+    'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_RESOURCE_DELETED',
   INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER:
     'Features.AuditTrail.events.INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER',
   INSTANCE_ENTITLEMENT_USAGE_REACHED:
@@ -233,7 +235,11 @@ export const resolveEventReason = (
   payload: unknown,
   t: TFunction,
 ): string | null => {
-  if (eventName !== 'INSTANCE_UPDATED' || !payload || typeof payload !== 'object') {
+  if (
+    eventName !== 'INSTANCE_UPDATED' ||
+    !payload ||
+    typeof payload !== 'object'
+  ) {
     return null;
   }
   const reason = (payload as { licenseChangeReason?: unknown })

@@ -9,6 +9,10 @@ import {
  * what it does not. Nothing here is a secret, a code entered once or a file,
  * so `omit` is empty: every field is stored as typed.
  *
+ * `limitScope` is one of them, and it did not raise `version`: an input stored
+ * before it existed has no value for it, which is read as the initial one (INSTANCE),
+ * and what that input says stays true.
+ *
  * The steps are those of `EntitlementCreatePage`, by id and in its order; the
  * fields of each one are those its schema asks for (`getIdentityStepValues`
  * for the first), so that a restore lands on the first step with something to
@@ -32,6 +36,7 @@ export const entitlementRecovery = defineFormRecovery<EntitlementFormValues>({
     type: [
       'type',
       'aggregationMethod',
+      'limitScope',
       'warningThresholdPercent',
       'unitSingular',
       'unitPlural',
@@ -57,6 +62,7 @@ export const entitlementRecovery = defineFormRecovery<EntitlementFormValues>({
     aggregationMethod: {
       key: 'Pages.Entitlements.Mutation.Form.Labels.aggregationMethod',
     },
+    limitScope: { key: 'Pages.Entitlements.Mutation.Form.Labels.limitScope' },
     warningThresholdPercent: { key: 'AI.warningThreshold' },
     unitSingular: {
       key: 'Pages.Entitlements.Mutation.Form.Labels.unitSingular',

@@ -494,3 +494,62 @@ test('dev:mock answers every request of Plan & usage: the session, the portal, t
   );
   expect(errors).toEqual([]);
 });
+
+test('dev:mock counts an entitlement per resource: its figure is the highest counter, which a report and a deletion move', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.text().includes('[MSW] Unhandled API request:'))
+      errors.push(message.text());
+  });
+  const resources =
+    '/api/instances/acme-production/entitlements/sources-per-competitor/resources';
+  // The calls of the vendor's product, which the mocks of the page answer as the API does.
+  const report = (resource: string) =>
+    page.evaluate(async (path) => {
+      const response = await fetch(path, {
+        body: JSON.stringify({
+          behavior: 'append',
+          value: { type: 'number', value: 1 },
+        }),
+        headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+      });
+
+      return response.status;
+    }, `${resources}/${resource}/usage`);
+  const forget = (resource: string) =>
+    page.evaluate(async (path) => {
+      const response = await fetch(path, { method: 'DELETE' });
+
+      return response.status;
+    }, `${resources}/${resource}`);
+  const drawer = page.getByTestId('entitlement-resources');
+  const keys = drawer.locator('tbody tr td:first-child');
+  const summary = page
+    .getByRole('row')
+    .filter({ hasText: 'Sources per Competitor' })
+    .getByTestId('entitlement-resources-summary');
+
+  // Acme Production follows three competitors, one of them at the limit of 4: the row says
+  // so beside its figure, and the drawer lists them in the order of their keys.
+  await page.goto('/customers/instances/acme-production/entitlements');
+  await expect(summary).toHaveText('3 resources, 1 at limit');
+  await summary.click();
+  await expect(keys).toHaveText(['paid', 'schematic', 'stigg']);
+  // The vendor's product reports another competitor and forgets one: the figure and the list
+  // are computed from the counters again, and a reload keeps them.
+  expect(await report('ahrefs')).toBe(200);
+  expect(await forget('schematic')).toBe(204);
+  await page.goto(
+    '/customers/instances/acme-production/entitlements?resources=sources-per-competitor',
+  );
+  await expect(keys).toHaveText(['ahrefs', 'paid', 'stigg']);
+  await drawer.getByRole('button', { name: 'Close' }).first().click();
+  await expect(summary).toHaveText('3 resources, 0 at limit');
+
+  expect(errors).toEqual([]);
+});

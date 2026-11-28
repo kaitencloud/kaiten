@@ -72,6 +72,8 @@ type UsageReportColumnsOptions = {
   limitChanges: ReadonlySet<number>;
   /** The overage a report made, for the screen that bills it. */
   showOverage?: boolean;
+  /** The resource a report counted for, for the history of an entitlement that counts per resource. */
+  showResource?: boolean;
   /** The value as it was sent, for the screen that audits what an instance reported. */
   showValue?: boolean;
 };
@@ -81,12 +83,14 @@ type UsageReportColumnsOptions = {
  * report and when it came, how it moved the counter and from what to what, the
  * change, the limit in force (marked on the report where it moved) and the
  * transaction and properties the instance sent. The screen that bills asks for
- * the overage a report made, the one that audits for the value as sent: they are
- * the same reports, read for two purposes.
+ * the overage a report made, the one that audits for the value as sent, and the
+ * history of an entitlement that counts per resource for the resource each report
+ * counted for: they are the same reports, read for several purposes.
  */
 export function useUsageReportColumns({
   limitChanges,
   showOverage = false,
+  showResource = false,
   showValue = false,
 }: UsageReportColumnsOptions): ColumnDef<UsageReport>[] {
   const { i18n, t } = useTranslation();
@@ -110,6 +114,16 @@ export function useUsageReportColumns({
       enableSorting: false,
       header: t('Features.Billing.UsageReports.Columns.reportedAt'),
       id: 'reportedAt',
+    };
+    const resource: ColumnDef<UsageReport> = {
+      cell: ({ row }) => (
+        <span className="font-mono text-xs">
+          {row.original.resourceKey ?? '—'}
+        </span>
+      ),
+      enableSorting: false,
+      header: t('Features.Billing.UsageReports.Columns.resource'),
+      id: 'resource',
     };
     const behavior: ColumnDef<UsageReport> = {
       cell: ({ row }) => <BehaviorCell behavior={row.original.behavior} />,
@@ -196,6 +210,7 @@ export function useUsageReportColumns({
     return [
       report,
       reportedAt,
+      ...(showResource ? [resource] : []),
       behavior,
       ...(showValue ? [value] : []),
       counter,
@@ -205,5 +220,5 @@ export function useUsageReportColumns({
       transaction,
       properties,
     ];
-  }, [language, limitChanges, showOverage, showValue, t]);
+  }, [language, limitChanges, showOverage, showResource, showValue, t]);
 }

@@ -67,7 +67,9 @@ export const conditionUnitFields = (body: UnitFieldsCarrier): void => {
  * removal. Echoes the early-warning threshold unless the edit overrides it: the
  * API stores 0 (the warning off) for a numeric entitlement sent without one. Only a
  * numeric entitlement echoes it: the API returns 0 for every type but refuses any
- * threshold on the others, so a boolean or a config entitlement sends none.
+ * threshold on the others, so a boolean or a config entitlement sends none. The same
+ * goes for what the limit applies to (`limitScope`): only the number family has one,
+ * the API refuses it on the others, and it never changes, so an update carries the stored one.
  */
 export const entitlementToUpdateBody = (
   entitlement: Entitlement,
@@ -94,6 +96,7 @@ export const entitlementToUpdateBody = (
     resetAnchor: entitlement.resetAnchor,
     ...(isNumberFamily(entitlement.type)
       ? {
+          limitScope: entitlement.limitScope,
           warningThresholdPercent:
             entitlement.warningThresholdPercent ?? undefined,
         }
@@ -103,6 +106,7 @@ export const entitlementToUpdateBody = (
 
   if (!isNumberFamily(body.type)) {
     delete body.aggregationMethod;
+    delete body.limitScope;
     delete body.warningThresholdPercent;
   }
 

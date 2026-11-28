@@ -64,6 +64,7 @@ import { createPublishableKeys } from './publishable-keys';
 import { createVouchers } from './vouchers';
 import { createFeatureFlags } from './feature-flags';
 import {
+  createEntitlementResources,
   createEntitlementUsages,
   createInstances,
   INSTANCE_METADATA_FIELDS,
@@ -238,6 +239,7 @@ export function createDevMockConfig({
     metadataFields: INSTANCE_METADATA_FIELDS,
     retentionStart: createRetentionStart(),
     usageReports: createUsageReports(),
+    ...createEntitlementResources(world.entitlements),
   });
   // The API works out where the kept usage begins on each request, from its clock, so a
   // `from` set to the start it named is already behind it: this world moves on too.

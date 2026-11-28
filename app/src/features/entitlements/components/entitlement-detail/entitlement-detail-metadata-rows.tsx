@@ -42,6 +42,23 @@ export function UserFacingRow({ entitlement }: { entitlement: Entitlement }) {
   );
 }
 
+// What the limit applies to: the API says it for the number family only, so a Boolean
+// or a Config entitlement has no row. The words are those of the form's choice.
+export function LimitScopeRow({ entitlement }: { entitlement: Entitlement }) {
+  const { t } = useTranslation();
+
+  if (!entitlement.limitScope) {
+    return null;
+  }
+
+  return (
+    <DetailCard.Row
+      label={t('Pages.Entitlements.Detail.Overview.general.fields.limitScope')}
+      value={t(`Pages.Entitlements.LimitScopes.${entitlement.limitScope}`)}
+    />
+  );
+}
+
 // The cadence and its phase are catalogue attributes, so they belong on the
 // entitlement card. The *current* window is not: it is phased per instance
 // when the anchor is LICENSE_START, so a single window shown here would be

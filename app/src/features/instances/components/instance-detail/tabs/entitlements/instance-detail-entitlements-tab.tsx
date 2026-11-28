@@ -11,6 +11,7 @@ import { dataModelIcons } from '@/lib/data-model-icons';
 import {
   buildInstanceEntitlementGroupOptions,
   filterEntitlementsRowsByGroup,
+  findResourcesRow,
   getEntitlementsMetrics,
 } from '../../../../utils/instance-detail-entitlements.utils';
 import type { UsageHistoryRange } from '../../../../queries';
@@ -22,6 +23,7 @@ import {
   type InstanceEntitlementRow,
   useEntitlementsColumns,
 } from './instance-detail-entitlements-columns';
+import { EntitlementResourcesDrawer } from './resources';
 import { UsageHistoryDrawer } from './usage-history';
 
 // The same object on every render, for a tab opened with no period.
@@ -32,11 +34,17 @@ type InstanceDetailEntitlementsTabProps = {
   historyParam?: string;
   /** The period of that history, as the URL holds it (`?from=` and `?to=`); open ends are the API's defaults. */
   historyRange?: UsageHistoryRange;
+  /** The one resource that history is narrowed to (`?resource=`), for an entitlement that counts per resource. */
+  historyResource?: string;
+  /** The slug of the entitlement whose resources the URL lists (`?resources=`). */
+  resourcesParam?: string;
 };
 
 export const InstanceDetailEntitlementsTab = ({
   historyParam,
   historyRange = NO_PERIOD,
+  historyResource,
+  resourcesParam,
 }: InstanceDetailEntitlementsTabProps) => {
   const { i18n, t } = useTranslation();
   const locale = i18n.resolvedLanguage ?? 'en-US';
@@ -50,10 +58,18 @@ export const InstanceDetailEntitlementsTab = ({
   // The history is read with the scope of the instances, which the page itself
   // needs: a session that lacks it is not offered what it would be refused.
   const canViewHistory = useCanPerform('usageHistory.list');
-  const columns = useEntitlementsColumns(
-    locale,
-    canViewHistory ? { history: { instanceSlug } } : undefined,
-  );
+  // The same for the resources of an entitlement that counts per resource.
+  const canListResources = useCanPerform('entitlementResources.list');
+  const columns = useEntitlementsColumns(locale, {
+    history: canViewHistory ? { instanceSlug } : undefined,
+    resources: canListResources ? { instanceSlug } : undefined,
+  });
+  const resourcesRow = canListResources
+    ? findResourcesRow(
+        canonicalEntitlementsRows ?? entitlementsRows,
+        resourcesParam,
+      )
+    : undefined;
   const historyRow = findHistoryRow(
     canonicalEntitlementsRows ?? entitlementsRows,
     historyParam,
@@ -63,8 +79,7 @@ export const InstanceDetailEntitlementsTab = ({
   const liveTarget = (canonicalEntitlementsRows ?? entitlementsRows).find(
     (row) => row.entitlementSlug === historyParam,
   );
-  const needsEvidence =
-    canViewHistory && Boolean(historyParam) && !liveTarget;
+  const needsEvidence = canViewHistory && Boolean(historyParam) && !liveTarget;
   const evidence = useQuery({
     ...listUsageReportsOptions({
       path: { instanceSlug, entitlementSlug: historyParam ?? '' },
@@ -172,7 +187,7 @@ export const InstanceDetailEntitlementsTab = ({
           entitlementSlug={evidenceSlug}
           instanceName={instance.name}
           instanceSlug={instanceSlug}
-          // The drawer drops with it the period it was read for.
+          // The drawer drops with it the period it was read for, and the resource.
           onClose={() =>
             void navigate({
               params: { instanceSlug },
@@ -180,8 +195,17 @@ export const InstanceDetailEntitlementsTab = ({
                 ...previous,
                 from: undefined,
                 history: undefined,
+                resource: undefined,
                 to: undefined,
               }),
+              to: '/customers/instances/$instanceSlug/entitlements',
+            })
+          }
+          onClearResource={() =>
+            void navigate({
+              params: { instanceSlug },
+              replace: true,
+              search: (previous) => ({ ...previous, resource: undefined }),
               to: '/customers/instances/$instanceSlug/entitlements',
             })
           }
@@ -195,6 +219,35 @@ export const InstanceDetailEntitlementsTab = ({
             })
           }
           range={historyRange}
+          resource={historyResource}
+        />
+      ) : null}
+      {resourcesRow ? (
+        <EntitlementResourcesDrawer
+          canViewHistory={canViewHistory}
+          entitlementName={resourcesRow.entitlementName}
+          entitlementSlug={resourcesParam ?? ''}
+          instanceName={instance.name}
+          instanceSlug={instanceSlug}
+          limit={resourcesRow}
+          locale={locale}
+          onClose={() =>
+            void navigate({
+              params: { instanceSlug },
+              search: (previous) => ({ ...previous, resources: undefined }),
+              to: '/customers/instances/$instanceSlug/entitlements',
+            })
+          }
+        />
+      ) : null}
+      {resourcesParam !== undefined && !resourcesRow ? (
+        // A link to a list that is not one (a counter of the instance, an entitlement it does
+        // not have, a session that may not list them): the page opens as it is, with no drawer.
+        <Navigate
+          params={{ instanceSlug }}
+          replace
+          search={(previous) => ({ ...previous, resources: undefined })}
+          to="/customers/instances/$instanceSlug/entitlements"
         />
       ) : null}
       {historyParam !== undefined && !evidenceSlug && !evidencePending ? (
@@ -207,6 +260,7 @@ export const InstanceDetailEntitlementsTab = ({
             ...previous,
             from: undefined,
             history: undefined,
+            resource: undefined,
             to: undefined,
           })}
           to="/customers/instances/$instanceSlug/entitlements"

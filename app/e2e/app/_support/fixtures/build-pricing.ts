@@ -17,6 +17,7 @@ export function buildEntitlement({
   aggregationMethod,
   createdAt = CREATED_AT,
   id,
+  limitScope,
   name,
   resetPeriod,
   saleUnit,
@@ -27,6 +28,8 @@ export function buildEntitlement({
   aggregationMethod?: Entitlement['aggregationMethod'];
   createdAt?: string;
   id?: string;
+  /** What the limit applies to; the number family has one, and RESOURCE counts per resource. */
+  limitScope?: Entitlement['limitScope'];
   name: string;
   resetPeriod?: Entitlement['resetPeriod'];
   /** One sale unit is `factor` base units, named by `label` ("1k requests"). */
@@ -41,6 +44,7 @@ export function buildEntitlement({
     createdAt,
     description: null,
     id: id ?? `entitlement-${slug}`,
+    limitScope,
     name,
     resetAnchor: resetPeriod ? 'CALENDAR' : undefined,
     resetPeriod,

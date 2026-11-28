@@ -69,6 +69,7 @@ type EntitlementType = AddonEntitlement['entitlementType'];
 export type EntitlementFacts = Pick<
   Entitlement,
   | 'aggregationMethod'
+  | 'limitScope'
   | 'resetPeriod'
   | 'saleUnitFactor'
   | 'saleUnitPlural'
@@ -87,6 +88,7 @@ export const entitlementFactsOf = (
               entitlement.slug,
               {
                 aggregationMethod: entitlement.aggregationMethod,
+                limitScope: entitlement.limitScope,
                 resetPeriod: entitlement.resetPeriod,
                 saleUnitFactor: entitlement.saleUnitFactor,
                 saleUnitPlural: entitlement.saleUnitPlural,

@@ -16,8 +16,10 @@ import { SUBSCRIBABLE_WEBHOOK_EVENTS } from './webhook-events';
 //   vouchers are catalogue configuration, and checkout payloads carry the
 //   visitor's e-mail, so checkout stays an explicit choice.
 // - Usage alerts leaves out ENTITLEMENT_USAGE_REPORT_ACCEPTED (one per accepted
-//   report, and every delivered event counts against the `webhooks` quota) and
-//   INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER (routine).
+//   report, and every delivered event counts against the `webhooks` quota),
+//   INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER (routine) and
+//   INSTANCE_ENTITLEMENT_RESOURCE_DELETED (the vendor forgot a resource: a
+//   change it made, not an alert).
 
 export const WEBHOOK_EVENT_PRESET_IDS = [
   'instanceLifecycle',

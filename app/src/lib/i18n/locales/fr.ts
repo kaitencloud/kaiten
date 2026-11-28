@@ -2202,11 +2202,40 @@ export default {
                   'Aucun rapport n’a été accepté pendant cette période.',
               },
               loadMore: 'Charger plus de rapports',
+              resourceFilter: 'Ressource : {{resource}}',
+              clearResource: 'Afficher les rapports de toutes les ressources',
               OutsideRetention: {
                 title_one: 'Au-delà de votre rétention de {{count}} mois',
                 title_other: 'Au-delà de votre rétention de {{count}} mois',
                 titleUnknown: 'Au-delà de ce que votre organisation conserve',
                 showFrom: 'Afficher à partir du {{date}}',
+              },
+            },
+            resources: {
+              summary_one: '{{count}} ressource, {{atLimit}} à la limite',
+              summary_other: '{{count}} ressources, {{atLimit}} à la limite',
+              none: 'Aucune ressource pour l’instant',
+              highest_one: 'Le chiffre est le compteur de l’unique ressource',
+              highest_other:
+                'Le chiffre est le compteur le plus haut parmi {{count}} ressources',
+              title: 'Ressources',
+              description:
+                '{{entitlement}} sur {{instance}} : un compteur par ressource, chacun mesuré face à la même limite ({{limit}}).',
+              region: 'Ressources de {{entitlement}}',
+              loading: 'Chargement des ressources',
+              loadMore: 'Charger plus de ressources',
+              historyLabel:
+                'Historique d’usage de {{entitlement}} pour {{resource}}',
+              columns: {
+                resource: 'Ressource',
+                usage: 'Utilisation',
+                status: 'Statut',
+                reports: 'Rapports',
+              },
+              Empty: {
+                title: 'Aucune ressource',
+                description:
+                  'Aucune ressource ne détient de compteur pour ce droit. Le premier rapport accepté pour une ressource en crée un.',
               },
             },
           },
@@ -3431,6 +3460,7 @@ export default {
             groups: 'Groupes',
             type: 'Type',
             aggregationMethod: "Méthode d'agrégation",
+            limitScope: "La limite s'applique à",
             icon: 'Icône',
             userFacing: 'Visible côté client',
             displayOrder: "Ordre d'affichage",
@@ -3455,6 +3485,7 @@ export default {
             groupSearch: 'Rechercher des groupes',
             type: 'Sélectionner un type',
             aggregationMethod: "Sélectionner une méthode d'agrégation",
+            limitScope: "Choisir à quoi la limite s'applique",
             displayOrder: '0',
             unitSingular: 'siège',
             unitPlural: 'sièges',
@@ -3478,6 +3509,10 @@ export default {
             type: 'Le type de droit (Booléen, Nombre ou Config)',
             aggregationMethod:
               "Comment plusieurs événements d'utilisation sont combinés",
+            limitScope:
+              "Un compteur par instance mesure l'instance entière face à la limite. Un compteur par ressource donne à chaque ressource de l'instance (un concurrent, une source, un projet) son propre compteur face à la même limite, et aucun prix ne peut le mesurer. Ce choix ne pourra plus être modifié.",
+            limitScopeLocked:
+              'Défini à la création du droit, il ne peut plus changer.',
             icon: 'Choisissez une icône pour représenter ce droit',
             userFacing:
               'Affiche ce droit dans les composants destinés aux clients (pages de plans et tarifs)',
@@ -3664,6 +3699,7 @@ export default {
               name: 'Nom',
               type: 'Type',
               aggregationMethod: "Méthode d'agrégation",
+              limitScope: "La limite s'applique à",
               resetPeriod: "Remise à zéro de l'usage",
               resetAnchor: 'Fenêtre alignée sur',
               baseUnit: 'Unité de base',
@@ -3727,6 +3763,10 @@ export default {
         MIN: 'Minimum',
         MAX: 'Maximum',
         LATEST: 'Dernier',
+      },
+      LimitScopes: {
+        INSTANCE: 'Un compteur par instance',
+        RESOURCE: 'Un compteur par ressource',
       },
       ResetPeriods: {
         NONE: 'Jamais (à vie)',
@@ -7682,6 +7722,7 @@ export default {
         Columns: {
           report: 'Rapport',
           reportedAt: 'Reçu le',
+          resource: 'Ressource',
           behavior: 'Mode',
           value: 'Valeur',
           counter: 'Compteur',
@@ -7926,6 +7967,7 @@ export default {
         INSTANCE_ENTITLEMENT_EXCEPTION_CREATED: 'Exception de droit créée',
         INSTANCE_ENTITLEMENT_EXCEPTION_EXPIRED: 'Exception de droit expirée',
         INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED: 'Exception de droit révoquée',
+        INSTANCE_ENTITLEMENT_RESOURCE_DELETED: "Ressource d'un droit supprimée",
         INSTANCE_ENTITLEMENT_USAGE_PERIOD_ROLLED_OVER:
           "Nouvelle période d'usage",
         INSTANCE_ENTITLEMENT_USAGE_REACHED: 'Droit entièrement consommé',

@@ -7,6 +7,7 @@ import {
   buildAuditTrailEntitlementOptions,
   buildValueOverTimeGroupData,
   buildValueOverTimeGroupEntitlementOptions,
+  buildValueOverTimeNumericEntitlementOptions,
   buildValueOverTimeNumericGroupOptions,
   buildValueOverTimeData,
   doesAuditEntryMatchGroup,
@@ -452,6 +453,126 @@ describe('audit-trail utils', () => {
 
       expect(chartData).toHaveLength(1);
       expect(chartData[0]).not.toHaveProperty('groupTotal');
+    });
+  });
+
+  // An entitlement that counts per resource has one counter for each resource, and the events
+  // of its reports carry the counter of one of them: following "its value" over time, or adding
+  // it to the total of a group, would mix the counters of different resources.
+  describe('an entitlement that counts per resource in value-over-time', () => {
+    const GROUP = [{ id: 'group-usage', name: 'Usage', slug: 'usage' }];
+    const lifetimeRow: InstanceEntitlementRow = {
+      enabled: true,
+      entitlementGroups: GROUP,
+      entitlementId: 'ent-storage',
+      entitlementName: 'Storage',
+      entitlementSlug: 'storage-gb',
+      entitlementType: 'NUMBER',
+      limitCapExceededOveragePercent: 0,
+      threshold: 200,
+      value: 0,
+    };
+    const perResourceRow: InstanceEntitlementRow = {
+      enabled: true,
+      entitlementGroups: GROUP,
+      entitlementId: 'ent-sources',
+      entitlementName: 'Sources per competitor',
+      entitlementSlug: 'sources-per-competitor',
+      entitlementType: 'NUMBER',
+      limitCapExceededOveragePercent: 0,
+      resources: { atLimit: 1, count: 3 },
+      threshold: 4,
+      value: 4,
+    };
+    const reportOf = (
+      slug: string,
+      value: number,
+      day: string,
+      id: string,
+      resourceKey?: string,
+    ): AuditTrail => ({
+      actor: null,
+      eventName: 'ENTITLEMENT_USAGE_REPORT_ACCEPTED',
+      eventType: 'com.kaiten.instance.entitlement.v1.usage_report_accepted',
+      id,
+      instanceId: 'instance-1',
+      instanceSlug: 'acme-prod',
+      payload: { entitlement_slug: slug, resourceKey, type: 'NUMBER', value },
+      timestamp: `${day}T10:00:00.000Z`,
+    });
+
+    it('is not offered to follow, and is no member of the numeric entitlements of a group', () => {
+      const rows = [lifetimeRow, perResourceRow];
+
+      expect(
+        buildValueOverTimeNumericEntitlementOptions(rows).map(({ slug }) => slug),
+      ).toEqual(['storage-gb']);
+      expect(
+        buildValueOverTimeGroupEntitlementOptions(rows, 'usage').map(
+          ({ slug }) => slug,
+        ),
+      ).toEqual(['storage-gb']);
+      // The chart of the group is still offered: its other counters are numbers.
+      expect(buildValueOverTimeNumericGroupOptions(rows)).toEqual([
+        { label: 'Usage', value: 'usage' },
+      ]);
+      // A group of such entitlements alone has nothing to chart, so it is not offered.
+      expect(buildValueOverTimeNumericGroupOptions([perResourceRow])).toEqual([]);
+    });
+
+    it('adds nothing to the total of a group, which is of the counters that have one value', () => {
+      const chartData = buildValueOverTimeGroupData({
+        entries: [
+          reportOf('storage-gb', 5, '2026-03-24', '31'),
+          reportOf('sources-per-competitor', 4, '2026-03-24', '32', 'schematic'),
+          reportOf('sources-per-competitor', 3, '2026-03-25', '33', 'paid'),
+        ],
+        entitlementsRows: [lifetimeRow, perResourceRow],
+        groupSlug: 'usage',
+        locale: 'en-US',
+        visibleEntitlementSlugs: ['storage-gb', 'sources-per-competitor'],
+      });
+
+      expect(chartData.map((point) => point.groupTotal)).toEqual([5]);
+      expect(chartData[0]).not.toHaveProperty('sources-per-competitor');
+    });
+
+    it('leaves a group made of such entitlements alone with no chart', () => {
+      expect(
+        buildValueOverTimeGroupData({
+          entries: [reportOf('sources-per-competitor', 4, '2026-03-24', '34')],
+          entitlementsRows: [perResourceRow],
+          groupSlug: 'usage',
+          locale: 'en-US',
+          visibleEntitlementSlugs: ['sources-per-competitor'],
+        }),
+      ).toEqual([]);
+    });
+
+    it('skips an event that carries the counter of a resource, for an entitlement the chart does follow', () => {
+      // The counter of one resource is not the value of the entitlement it is reported for.
+      const withResource = buildValueOverTimeData({
+        entries: [
+          reportOf('api-calls', 12, '2026-03-24', '35'),
+          reportOf('api-calls', 99, '2026-03-25', '36', 'stigg'),
+        ],
+        entitlementSlug: 'api-calls',
+        locale: 'en-US',
+        numberEntitlementSlugs: new Set(['api-calls']),
+      });
+      const group = buildValueOverTimeGroupData({
+        entries: [
+          reportOf('storage-gb', 5, '2026-03-24', '37'),
+          reportOf('storage-gb', 99, '2026-03-25', '38', 'stigg'),
+        ],
+        entitlementsRows: [lifetimeRow],
+        groupSlug: 'usage',
+        locale: 'en-US',
+        visibleEntitlementSlugs: ['storage-gb'],
+      });
+
+      expect(withResource.map((point) => point.value)).toEqual([12]);
+      expect(group.map((point) => point['storage-gb'])).toEqual([5]);
     });
   });
 

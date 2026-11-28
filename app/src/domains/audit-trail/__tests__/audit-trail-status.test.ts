@@ -120,6 +120,8 @@ describe('event status', () => {
     ['PUBLISHABLE_KEY_REVOKED', 'read'],
     // So was a revoked exception.
     ['INSTANCE_ENTITLEMENT_EXCEPTION_REVOKED', 'read'],
+    // A resource the vendor forgot is a removal like any deletion, not an alert.
+    ['INSTANCE_ENTITLEMENT_RESOURCE_DELETED', 'read'],
     // A visitor bought, and the customer exists now; one who started or left did
     // nothing the API refused.
     ['CHECKOUT_SESSION_COMPLETED', 'accepted'],

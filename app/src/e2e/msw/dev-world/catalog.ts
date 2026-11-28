@@ -153,6 +153,19 @@ export const createEntitlements = (): Entitlement[] => [
     unitPlural: 'exports',
     unitSingular: 'export',
   }),
+  // One counter for each competitor an instance follows, each against the same limit.
+  buildEntitlement({
+    aggregationMethod: 'SUM',
+    description:
+      'Sources followed for each competitor, a counter for each competitor against the same limit',
+    displayOrder: 7,
+    limitScope: 'RESOURCE',
+    name: 'Sources per Competitor',
+    slug: 'sources-per-competitor',
+    type: 'NUMBER',
+    unitPlural: 'sources',
+    unitSingular: 'source',
+  }),
 ];
 
 type CommercialFields = Pick<
@@ -334,6 +347,7 @@ const GRANTS: Record<string, Record<string, Grant>> = {
     'api-calls': -1,
     'priority-support': true,
     seats: 250,
+    'sources-per-competitor': 4,
     'storage-gb': { overagePercent: 20, value: 5_000 },
   },
 };

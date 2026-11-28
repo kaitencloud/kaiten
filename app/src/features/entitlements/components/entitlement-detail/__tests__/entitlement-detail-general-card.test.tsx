@@ -72,6 +72,49 @@ describe('EntitlementDetailGeneralCard', () => {
     expect(screen.getByText('1 pack = 3 requests')).toBeInTheDocument();
   });
 
+  // The API says what the limit applies to for the number family only.
+  describe('what the limit applies to', () => {
+    const LABEL = 'Pages.Entitlements.Detail.Overview.general.fields.limitScope';
+
+    it.each(['INSTANCE', 'RESOURCE'] as const)(
+      'says %s, in the words of the form’s choice',
+      (limitScope) => {
+        renderCard({ ...numberEntitlement, limitScope });
+
+        expect(screen.getByText(LABEL)).toBeInTheDocument();
+        expect(
+          screen.getByText(`Pages.Entitlements.LimitScopes.${limitScope}`),
+        ).toBeInTheDocument();
+      },
+    );
+
+    it('says it for an AI credit pool too, which the API answers INSTANCE for', () => {
+      renderCard({
+        ...numberEntitlement,
+        limitScope: 'INSTANCE',
+        type: 'NUMBER_AI_CREDIT',
+      });
+
+      expect(
+        screen.getByText('Pages.Entitlements.LimitScopes.INSTANCE'),
+      ).toBeInTheDocument();
+    });
+
+    it.each(['BOOLEAN', 'CONFIG'] as const)(
+      'has no row for a %s entitlement, which the API says none of',
+      (type) => {
+        renderCard({
+          ...numberEntitlement,
+          aggregationMethod: undefined,
+          limitScope: undefined,
+          type,
+        });
+
+        expect(screen.queryByText(LABEL)).not.toBeInTheDocument();
+      },
+    );
+  });
+
   it('never surfaces the display order on the detail card', () => {
     renderCard(numberEntitlement);
 

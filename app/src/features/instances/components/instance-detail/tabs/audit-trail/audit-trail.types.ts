@@ -20,6 +20,11 @@ export type AuditPayload = {
   license_id?: string;
   organization_id?: string;
   reported_value?: number;
+  /**
+   * The resource the event counts for, when its entitlement counts per resource: its `value`
+   * is then that resource's counter, which is not the entitlement's own. Absent otherwise.
+   */
+  resourceKey?: string;
   threshold?: number;
   timestamp?: string;
   type?: string;

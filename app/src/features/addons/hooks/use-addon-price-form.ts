@@ -33,6 +33,7 @@ const REFUSAL_FIELDS = {
     'CreateAddonPrice.EntitlementNotGranted': 'meteredEntitlementSlug',
     'CreateAddonPrice.UnsupportedAggregation': 'meteredEntitlementSlug',
     'CreateAddonPrice.UnsupportedEntitlementType': 'meteredEntitlementSlug',
+    'CreateAddonPrice.UnsupportedLimitScope': 'meteredEntitlementSlug',
   },
   byLocation: {
     billingModel: 'billingModel',
