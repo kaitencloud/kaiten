@@ -364,16 +364,26 @@ func TestReportEntitlementResourceUsage_Ceiling(t *testing.T) {
 		require.Equal(t, map[string]float64{"b": 1}, resourceValues(t, instances[0].ID, entitlement.ID))
 	})
 
-	t.Run("WhenTheCeilingIsConfiguredAtItsDefault_TenThousandResourcesAreAllowed", func(t *testing.T) {
-		// The suite's server is built from a bare config: its ceiling is the code's default.
+	t.Run("WhenNoCeilingIsConfigured_TenThousandResourcesAreAllowedAndTheNextIsRefused", func(t *testing.T) {
+		// The suite's server is built from a bare config, so the ceiling it runs under is the
+		// code's default. 9 999 counters are written in SQL: reporting that many one by one
+		// would test the patience of the suite, not the ceiling.
 		instances := newInstances(t, 1)
 		entitlement := newResourceEntitlement(t)
 		assignHardLimit(t, instances[0].LicenseSlug, entitlement.Slug, 10)
+		_, err := testServer.Dependencies.DB.Exec(t.Context(), `
+			INSERT INTO entitlement_resource_usage (entitlement_id, instance_id, resource_key, organization_id, value, period_start)
+			SELECT $1, $2, 'seed' || n, $3, '{"type":"number","value":1,"event_count":1}'::jsonb, NULL
+			FROM generate_series(1, 9999) AS n`,
+			entitlement.ID, instances[0].ID, testDb.DefaultData.OrganizationID)
+		require.NoError(t, err)
 
-		for i := range 5 {
-			requireResourceReport(t, fiber.StatusOK, instances[0].Slug, entitlement.Slug, fmt.Sprintf("r%d", i), 1, "append")
-		}
-		require.Len(t, resourceRows(t, instances[0].ID, entitlement.ID), 5)
+		requireResourceReport(t, fiber.StatusOK, instances[0].Slug, entitlement.Slug, "the-ten-thousandth", 1, "append")
+		refused := reportResource(t, instances[0].Slug, entitlement.Slug, "the-next", 1, "append")
+		refused.requireProblem(t, fiber.StatusUnprocessableEntity, "ReportEntitlementUsageMetric.ResourceLimitReached")
+		require.Len(t, resourceRows(t, instances[0].ID, entitlement.ID), 10_000, "the refused resource has no counter")
+
+		requireResourceReport(t, fiber.StatusOK, instances[0].Slug, entitlement.Slug, "seed1", 1, "append")
 	})
 }
 

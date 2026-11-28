@@ -688,6 +688,73 @@ describe('the forgetting of a resource', () => {
   });
 });
 
+describe('an entitlement that counts per resource and that no license grants', () => {
+  // The API resolves the slug in the catalogue and does not ask for the grant on the list and
+  // the delete: a resource outlives the license that granted its entitlement, and the pair is
+  // there with no usage and no counter. A slug the world does not know is the 404.
+  const installUngranted = () => {
+    const world = createResourcesInstancesModel();
+
+    return install(
+      new InstanceAppModel({
+        customers: world.listCustomers(),
+        entitlementUsagesByInstance: { 'nagare-production': [] },
+        instances: world.listInstances(),
+        licenseEntitlements: [],
+        licenses: world.listLicenses(),
+        perResource: { 'sources-per-competitor': { aggregationMethod: 'SUM' } },
+      }),
+    );
+  };
+
+  it('lists an empty page and forgets what it never held, as the API does', async () => {
+    installUngranted();
+
+    const page = await send('GET', RESOURCES);
+    expect(page.status).toBe(200);
+    expect(await page.json()).toMatchObject({ hasMore: false, items: [] });
+    expect((await send('DELETE', `${RESOURCES}/stigg`)).status).toBe(204);
+  });
+
+  it('reads and counts nothing, since the usage and the limit are the grant', async () => {
+    installUngranted();
+
+    const read = await send('GET', `${RESOURCES}/stigg/usage`);
+    expect(read.status).toBe(404);
+    expect((await problem(read)).code).toBe(
+      'GetEntitlementResourceUsage.EntitlementNotAssigned',
+    );
+    const own = await send('GET', `${PAIR}/usage`);
+    expect((await problem(own)).code).toBe(
+      'GetEntitlementUsageMetrics.EntitlementNotAssigned',
+    );
+    const reported = await report('stigg', 1);
+    expect(reported.status).toBe(404);
+    expect((await problem(reported)).code).toBe(
+      'ReportEntitlementUsageMetric.ContextNotFound',
+    );
+  });
+
+  it('is still a 404 for a slug the world does not know', async () => {
+    installUngranted();
+
+    const list = await send(
+      'GET',
+      '/instances/nagare-production/entitlements/ghost/resources',
+    );
+    expect((await problem(list)).code).toBe(
+      'ListEntitlementResources.EntitlementNotFound',
+    );
+    const forget = await send(
+      'DELETE',
+      '/instances/nagare-production/entitlements/ghost/resources/stigg',
+    );
+    expect((await problem(forget)).code).toBe(
+      'DeleteEntitlementResource.ContextNotFound',
+    );
+  });
+});
+
 describe('the journal of a report of a resource', () => {
   // A report is dated on receipt and a read excludes what is dated at the instant it is made.
   beforeEach(() => {

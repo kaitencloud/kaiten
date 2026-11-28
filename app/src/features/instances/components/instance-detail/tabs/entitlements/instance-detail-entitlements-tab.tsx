@@ -79,7 +79,8 @@ export const InstanceDetailEntitlementsTab = ({
   const liveTarget = (canonicalEntitlementsRows ?? entitlementsRows).find(
     (row) => row.entitlementSlug === historyParam,
   );
-  const needsEvidence = canViewHistory && Boolean(historyParam) && !liveTarget;
+  const needsEvidence =
+    canViewHistory && Boolean(historyParam) && !liveTarget;
   const evidence = useQuery({
     ...listUsageReportsOptions({
       path: { instanceSlug, entitlementSlug: historyParam ?? '' },

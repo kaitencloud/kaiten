@@ -85,17 +85,9 @@ function buildUsageColumn(
     cell: ({ row }) => {
       if (row.original.entitlementType === 'BOOLEAN') {
         return row.original.enabled ? (
-          <CheckCircle
-            role="img"
-            aria-label={t('Pages.EntitlementExceptions.enabled')}
-            className="ml-auto size-4 text-success-subtle-foreground"
-          />
+          <CheckCircle role="img" aria-label={t('Pages.EntitlementExceptions.enabled')} className="ml-auto size-4 text-success-subtle-foreground" />
         ) : (
-          <XCircle
-            role="img"
-            aria-label={t('Pages.EntitlementExceptions.disabled')}
-            className="ml-auto size-4 text-muted-foreground"
-          />
+          <XCircle role="img" aria-label={t('Pages.EntitlementExceptions.disabled')} className="ml-auto size-4 text-muted-foreground" />
         );
       }
 

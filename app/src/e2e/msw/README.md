@@ -92,7 +92,12 @@ the highest counter in the window and its `resources` block is counted from them
 the delete (idempotent, no journal row) and the ceiling answer as the API does, with its codes
 (`instance-handlers.ts`: `handleReportEntitlementResourceUsageMetric` and its siblings), so that
 nothing the console shows of a resource is written by hand; `instance-resources-mocks.test.ts`
-reads that off the wire. `src/__tests__/billing-subscription-mocks.test.ts`,
+reads that off the wire. Which entitlements count per resource is what the instances' world is
+seeded with (`perResource`: in `dev:mock`, the ones its catalogue marks `RESOURCE`, so
+`sources-per-competitor`), because the slot keeps its own copy of the catalogue, the grants and the
+usage rows, as the `ai` slot keeps its own copy of the grants: an entitlement made on the
+entitlements pages in the same session has no usage row on an instance, whatever its scope, and
+counts nothing there. `src/__tests__/billing-subscription-mocks.test.ts`,
 `usage-history-mocks.test.ts`, `billing-refusal-mocks.test.ts`,
 `billing-addon-mocks.test.ts` and `billing-voucher-mocks.test.ts` read their answers off
 the wire.

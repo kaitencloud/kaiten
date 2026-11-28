@@ -235,11 +235,7 @@ export const resolveEventReason = (
   payload: unknown,
   t: TFunction,
 ): string | null => {
-  if (
-    eventName !== 'INSTANCE_UPDATED' ||
-    !payload ||
-    typeof payload !== 'object'
-  ) {
+  if (eventName !== 'INSTANCE_UPDATED' || !payload || typeof payload !== 'object') {
     return null;
   }
   const reason = (payload as { licenseChangeReason?: unknown })

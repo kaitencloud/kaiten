@@ -48,6 +48,31 @@ func TestRefuseWrongRoute(t *testing.T) {
 	}
 }
 
+// The ceiling of resources is 10 000 unless the deployment says otherwise: a use
+// case built with no setting, or one that is not a count, gets the default (the
+// integration suite's server is built from a bare config, so this is the ceiling
+// it runs under), and a setting is kept as it is.
+func TestMaxResourcesFallsBackToItsDefault(t *testing.T) {
+	tests := []struct {
+		name string
+		set  int
+		want int
+	}{
+		// The number the ADR settles on, written out so that moving it is a decision.
+		{"nothing set", 0, 10_000},
+		{"a negative count", -3, 10_000},
+		{"a count", 250, 250},
+		{"one", 1, 1},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewUseCase(Deps{MaxResources: tt.set}).maxResources; got != tt.want {
+				t.Fatalf("NewUseCase(Deps{MaxResources: %d}).maxResources = %d, want %d", tt.set, got, tt.want)
+			}
+		})
+	}
+}
+
 // The four payloads gain the resource without moving what they carried: absent
 // when there is none, spelled resourceKey when there is one.
 func TestEventPayloadsCarryResourceKey(t *testing.T) {

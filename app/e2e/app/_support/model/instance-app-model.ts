@@ -399,8 +399,11 @@ export class InstanceAppModel {
 
   /**
    * Where a pair stands for the routes of the resources: the instance has to exist, and the
-   * entitlement has to be one it uses, was granted, or keeps counters or a journal of (a
-   * resource outlives the license that granted its entitlement).
+   * entitlement has to be one it uses, was granted, keeps counters or a journal of, or counts
+   * per resource. The API resolves the slug in the catalogue and does not ask for the grant
+   * (a resource outlives the license that granted its entitlement), so an entitlement that
+   * counts per resource and that nothing grants is a pair with no usage: its list is empty and
+   * its delete answers 204, where only a slug the world does not know is a 404.
    */
   private lookupPair(
     instanceSlug: string,
@@ -418,6 +421,7 @@ export class InstanceAppModel {
     if (
       !usage &&
       !this.resources.holds(instanceSlug, entitlementSlug) &&
+      !this.resources.isPerResource(entitlementSlug) &&
       !this.usageHistory.hasPair(instanceSlug, entitlementSlug)
     ) {
       return { found: 'entitlement' };
