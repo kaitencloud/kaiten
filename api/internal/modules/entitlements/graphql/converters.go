@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
 )
@@ -14,7 +15,7 @@ var ErrMissingIdentity = errors.New("missing identity in context")
 // toEntitlementSchema converts a sqlc entitlement row (plus its resolved group
 // refs) to the wire schema. Pointer fields mirror the REST wire type so the
 // GraphQL binding reuses the exact same struct.
-func toEntitlementSchema(e db.Entitlement, groups []*schema.EntitlementGroupSummary) schema.Entitlement {
+func toEntitlementSchema(e db.Entitlement, groups []*schema.EntitlementGroupSummary, sources []schema.EntitlementSource) schema.Entitlement {
 	entitlementType := schema.Type(e.Type)
 	userFacing := e.UserFacing
 	displayOrder := e.DisplayOrder
@@ -38,6 +39,8 @@ func toEntitlementSchema(e db.Entitlement, groups []*schema.EntitlementGroupSumm
 		Description:             e.Description,
 		Type:                    &entitlementType,
 		AggregationMethod:       (*schema.AggregationMethod)(e.AggregationMethod),
+		UsageSource:             dbmap.ToUsageSource(entitlementType, e.UsageSource),
+		Sources:                 sources,
 		Icon:                    e.Icon,
 		UnitSingular:            e.UnitSingular,
 		UnitPlural:              e.UnitPlural,

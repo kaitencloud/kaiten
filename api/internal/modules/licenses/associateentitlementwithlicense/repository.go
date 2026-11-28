@@ -66,6 +66,10 @@ func (r *CommandRepository) AssociateEntitlementToLicense(ctx context.Context, l
 	if err := r.policy.RequireType(ctx, string(entitlement.Type)); err != nil {
 		return nil, err
 	}
+	if entitlement.Combined {
+		return nil, kaitenerrors.UnprocessableEntity("AssociateEntitlementToLicense.EntitlementIsCombined",
+			"a combined entitlement is not granted: grant its sources, and it reads as their weighted sum")
+	}
 
 	_, err = r.resolveLicenseSlug(ctx, licenseSlug, organizationID)
 	if err != nil {

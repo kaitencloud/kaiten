@@ -2609,6 +2609,37 @@ components:
         - status
         - held
       type: object
+    CombinedSourceUsage:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          description: Slug of the source entitlement
+          examples:
+            - firecrawl-credits
+          type: string
+        limit:
+          description: The source's own effective limit, before its weight; -1 means unlimited
+          examples:
+            - 1000
+          format: double
+          type: number
+        usage:
+          description: The source's own usage in the current window, before its weight
+          examples:
+            - 300
+          format: double
+          type: number
+        weight:
+          description: The rate one unit of the source is worth in the combined entitlement
+          examples:
+            - "0.4"
+          type: string
+      required:
+        - entitlementSlug
+        - weight
+        - usage
+        - limit
+      type: object
     Command:
       additionalProperties: false
       properties:
@@ -4978,7 +5009,7 @@ components:
       additionalProperties: false
       properties:
         aggregationMethod:
-          description: Method used to fold each reported usage value into the stored total (NUMBER only). Defaults to SUM.
+          description: Method used to fold each reported usage value into the stored total (NUMBER only). Defaults to SUM; a COMBINED_USAGE entitlement is always SUM.
           enum:
             - COUNT
             - SUM
@@ -5094,6 +5125,13 @@ components:
           minLength: 2
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
+        sources:
+          description: "The entitlements a COMBINED_USAGE entitlement sums, each with its weight: at least two, each named once; refused on a CALCULATED_USAGE entitlement. A source is a NUMBER or NUMBER_AI_CREDIT entitlement of the organization that is not itself combined, aggregated by SUM or COUNT, on the same resetPeriod and resetAnchor as the other sources, lifetime included; the combined entitlement takes that window, so its own resetPeriod and resetAnchor are derived, and a value sent for them must match it. A PUT replaces the sources as a whole. Changing the sources or a weight re-values the present for every instance, the current window included."
+          items:
+            $ref: "#/components/schemas/EntitlementSource"
+          type:
+            - array
+            - "null"
         type:
           description: Type of the entitlement
           enum:
@@ -5125,8 +5163,16 @@ components:
           format: date-time
           readOnly: true
           type: string
+        usageSource:
+          description: "Where the usage of a NUMBER or NUMBER_AI_CREDIT entitlement comes from; absent for BOOLEAN and CONFIG. CALCULATED_USAGE (the default): your code reports it, and Kaiten folds each report with aggregationMethod. COMBINED_USAGE (NUMBER only): the weighted sum of the usage of other entitlements, its sources, computed when it is read, for display only: a usage report on it is refused and nothing is enforced on the sum. Immutable once created."
+          enum:
+            - CALCULATED_USAGE
+            - COMBINED_USAGE
+          examples:
+            - CALCULATED_USAGE
+          type: string
         userFacing:
-          description: Whether this entitlement is displayed in customer-facing components (e.g. plan and pricing pages). Defaults to false.
+          description: "Whether this entitlement is displayed in customer-facing components: the public catalogue (plan and pricing pages) and the customer portal, which lists only the user-facing entitlements of an instance. Defaults to false."
           examples:
             - true
           type: boolean
@@ -5149,7 +5195,7 @@ components:
       additionalProperties: false
       properties:
         aggregationMethod:
-          description: Method used to fold each reported usage value into the stored total (NUMBER only). Defaults to SUM.
+          description: Method used to fold each reported usage value into the stored total (NUMBER only). Defaults to SUM; a COMBINED_USAGE entitlement is always SUM.
           enum:
             - COUNT
             - SUM
@@ -5273,6 +5319,13 @@ components:
           minLength: 2
           pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
           type: string
+        sources:
+          description: "The entitlements a COMBINED_USAGE entitlement sums, each with its weight: at least two, each named once; refused on a CALCULATED_USAGE entitlement. A source is a NUMBER or NUMBER_AI_CREDIT entitlement of the organization that is not itself combined, aggregated by SUM or COUNT, on the same resetPeriod and resetAnchor as the other sources, lifetime included; the combined entitlement takes that window, so its own resetPeriod and resetAnchor are derived, and a value sent for them must match it. A PUT replaces the sources as a whole. Changing the sources or a weight re-values the present for every instance, the current window included."
+          items:
+            $ref: "#/components/schemas/EntitlementSource"
+          type:
+            - array
+            - "null"
         type:
           description: Type of the entitlement
           enum:
@@ -5304,8 +5357,16 @@ components:
           format: date-time
           readOnly: true
           type: string
+        usageSource:
+          description: "Where the usage of a NUMBER or NUMBER_AI_CREDIT entitlement comes from; absent for BOOLEAN and CONFIG. CALCULATED_USAGE (the default): your code reports it, and Kaiten folds each report with aggregationMethod. COMBINED_USAGE (NUMBER only): the weighted sum of the usage of other entitlements, its sources, computed when it is read, for display only: a usage report on it is refused and nothing is enforced on the sum. Immutable once created."
+          enum:
+            - CALCULATED_USAGE
+            - COMBINED_USAGE
+          examples:
+            - CALCULATED_USAGE
+          type: string
         userFacing:
-          description: Whether this entitlement is displayed in customer-facing components (e.g. plan and pricing pages). Defaults to false.
+          description: "Whether this entitlement is displayed in customer-facing components: the public catalogue (plan and pricing pages) and the customer portal, which lists only the user-facing entitlements of an instance. Defaults to false."
           examples:
             - true
           type: boolean
@@ -5563,6 +5624,26 @@ components:
         - entitlementName
         - entitlementType
       type: object
+    EntitlementSource:
+      additionalProperties: false
+      properties:
+        entitlementSlug:
+          description: Slug of the source entitlement
+          examples:
+            - firecrawl-credits
+          maxLength: 100
+          minLength: 2
+          pattern: ^[a-z0-9][a-z0-9-]*[a-z0-9]$
+          type: string
+        weight:
+          description: "Conversion rate: one unit of the source is worth this many units of the combined entitlement. An exact decimal string, strictly positive, up to 8 integer digits and 10 decimals; 1 when omitted. Weights do not have to add up to 1."
+          examples:
+            - "0.4"
+          pattern: ^[0-9]{1,8}(\.[0-9]{1,10})?$
+          type: string
+      required:
+        - entitlementSlug
+      type: object
     EntitlementUsage:
       additionalProperties: false
       properties:
@@ -5630,6 +5711,11 @@ components:
             - addon
             - exception
           type: string
+        sources:
+          description: "Present on a COMBINED_USAGE entitlement only: the sources the instance is granted, each with its own usage and limit before its weight. value is the sum of weight × usage over them, limit the sum of weight × limit (-1 as soon as one is unlimited), and event_count the sum of theirs."
+          items:
+            $ref: "#/components/schemas/CombinedSourceUsage"
+          type: array
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
           discriminator:
@@ -5725,6 +5811,11 @@ components:
             - addon
             - exception
           type: string
+        sources:
+          description: "Present on a COMBINED_USAGE entitlement only: the sources the instance is granted, each with its own usage and limit before its weight. value is the sum of weight × usage over them, limit the sum of weight × limit (-1 as soon as one is unlimited), and event_count the sum of theirs."
+          items:
+            $ref: "#/components/schemas/CombinedSourceUsage"
+          type: array
         value:
           description: Resolved entitlement value, discriminated by the 'type' field
           discriminator:
@@ -15586,6 +15677,11 @@ components:
           type:
             - string
             - "null"
+        sources:
+          description: "Present on a COMBINED_USAGE entitlement only: the sources the instance is granted, each with its own usage and limit before its weight. value is the sum of weight × usage over them, limit the sum of weight × limit (-1 as soon as one is unlimited), and event_count the sum of theirs."
+          items:
+            $ref: "#/components/schemas/CombinedSourceUsage"
+          type: array
         transactionId:
           description: The Idempotency-Key this report was accepted under, echoed on the first answer and on every replay; null when the request carried none (always null for AI usage, whose phase key is ai.transactionId). A client can tell from it that the server honours the key.
           type:
@@ -16309,7 +16405,7 @@ components:
         customer:
           $ref: "#/components/schemas/PortalCustomer"
         entitlements:
-          description: "The instance's effective entitlements: its licence's, raised or added by add-ons and boosts"
+          description: "The instance's effective entitlements that are user-facing: its licence's, raised or added by add-ons and boosts, and the combined ones its sources make up as a total, without the sources. An entitlement that is not user-facing is not listed."
           items:
             $ref: "#/components/schemas/PortalEntitlement"
           type: array
@@ -24488,7 +24584,7 @@ paths:
       tags:
         - entitlements
     post:
-      description: Create a new entitlement with the provided details
+      description: "Create a new entitlement with the provided details. A NUMBER entitlement can be combined (usageSource COMBINED_USAGE): the weighted sum of the usage of at least two other entitlements, its sources, computed when it is read and for display only. Its sources must be NUMBER or NUMBER_AI_CREDIT entitlements that are not combined themselves, aggregated by SUM or COUNT, on the same resetPeriod and resetAnchor as each other (lifetime included), which the combined entitlement takes. A 422 names what a source or its weight breaks."
       operationId: create-entitlement
       requestBody:
         content:
@@ -24565,7 +24661,7 @@ paths:
         - entitlements
   /entitlements/{entitlementSlug}:
     delete:
-      description: "Delete an entitlement by its slug. Its usage is deleted with it. An entitlement that a license or an add-on still grants, a license or an add-on price still meters, or a voucher boost still grants is refused with a 409 that counts each: remove the grants first. A price and a voucher boost are never deleted, so the entitlement they hold stays."
+      description: "Delete an entitlement by its slug. Its usage is deleted with it. An entitlement that a license or an add-on still grants, a license or an add-on price still meters, a voucher boost still grants, or a combined entitlement still sums as one of its sources is refused with a 409 that counts each and names the combined entitlements: remove the grants and the sources first. A combined entitlement is deleted like any other, with its sources' links. A price and a voucher boost are never deleted, so the entitlement they hold stays."
       operationId: delete-entitlement
       parameters:
         - in: path
@@ -24677,7 +24773,7 @@ paths:
       tags:
         - entitlements
     put:
-      description: Update an existing entitlement with the provided details
+      description: "Update an existing entitlement with the provided details. A combined entitlement (usageSource COMBINED_USAGE) replaces its sources and weights as a whole, and a PUT without them is refused: the sources and weights can be edited, usageSource cannot. Changing them re-values the present: the usage and the limit every instance reads change at once, the current window included. A combined entitlement takes its resetPeriod and resetAnchor from its sources, and a PUT that moves them to sources on another window moves its window with them. Adopting a reset period on an entitlement that is a source is refused: remove it from the combined entitlement first."
       operationId: update-entitlement
       parameters:
         - in: path

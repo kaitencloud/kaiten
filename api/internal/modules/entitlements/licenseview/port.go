@@ -26,6 +26,9 @@ type Entitlement struct {
 	ID   uuid.UUID
 	Slug string
 	Type schema.Type
+	// Combined says it sums other entitlements' usage (usageSource
+	// COMBINED_USAGE): nothing grants it, its sources are what is granted.
+	Combined bool
 }
 
 // GroupRef names one entitlement group an entitlement (identified by slug)
@@ -70,9 +73,10 @@ func (p *port) GetBySlug(ctx context.Context, organizationID uuid.UUID, slug str
 		return nil, err
 	}
 	return &Entitlement{
-		ID:   row.ID,
-		Slug: row.Slug,
-		Type: entitlementType,
+		ID:       row.ID,
+		Slug:     row.Slug,
+		Type:     entitlementType,
+		Combined: row.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE,
 	}, nil
 }
 

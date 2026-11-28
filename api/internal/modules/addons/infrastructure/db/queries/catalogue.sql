@@ -241,7 +241,8 @@ WHERE organization_id = sqlc.arg(organization_id)
 -- The entitlement a metered add-on price names, with the version's grant of it.
 SELECT e.id, e.type, e.reset_period, e.aggregation_method,
        coalesce(e.sale_unit_factor::text, '')::text AS sale_unit_factor,
-       ae.value AS grant_value, ae.limit_cap_exceeded_overage_percent AS grant_overage_percent
+       ae.value AS grant_value, ae.limit_cap_exceeded_overage_percent AS grant_overage_percent,
+       e.usage_source
 FROM entitlement e
 LEFT JOIN addon_entitlement ae
   ON ae.entitlement_id = e.id AND ae.addon_id = sqlc.arg(addon_id) AND ae.organization_id = e.organization_id
@@ -259,7 +260,7 @@ WHERE p.addon_id = sqlc.arg(addon_id)
 
 
 -- name: GetEntitlementBySlug :one
-SELECT e.id, e.slug, e.type
+SELECT e.id, e.slug, e.type, e.usage_source
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.slug = sqlc.arg(slug);

@@ -39,7 +39,7 @@ func RegisterEndpoint(api huma.API, app Updater) {
 		Method:      http.MethodPut,
 		Path:        "/entitlements/{entitlementSlug}",
 		Summary:     "Update an entitlement",
-		Description: "Update an existing entitlement with the provided details",
+		Description: "Update an existing entitlement with the provided details. A combined entitlement (usageSource COMBINED_USAGE) replaces its sources and weights as a whole, and a PUT without them is refused: the sources and weights can be edited, usageSource cannot. Changing them re-values the present: the usage and the limit every instance reads change at once, the current window included. A combined entitlement takes its resetPeriod and resetAnchor from its sources, and a PUT that moves them to sources on another window moves its window with them. Adopting a reset period on an entitlement that is a source is refused: remove it from the combined entitlement first.",
 		Tags:        []string{"entitlements"},
 		Errors:      []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusForbidden, http.StatusNotFound, http.StatusConflict, http.StatusUnprocessableEntity, http.StatusInternalServerError},
 	}, RequiredScope, func(ctx context.Context, request *Request) (*struct{}, error) {
@@ -60,6 +60,8 @@ func RegisterEndpoint(api huma.API, app Updater) {
 			Description:             request.Body.Description,
 			Type:                    request.Body.Type,
 			AggregationMethod:       request.Body.AggregationMethod,
+			UsageSource:             request.Body.UsageSource,
+			Sources:                 request.Body.Sources,
 			GroupSlugs:              request.Body.GroupSlugs,
 			Icon:                    request.Body.Icon,
 			UnitSingular:            request.Body.UnitSingular,

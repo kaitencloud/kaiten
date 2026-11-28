@@ -82,6 +82,7 @@ SELECT e.id, e.name, e.type::text AS type
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.id = ANY ($2::uuid[])
+  AND e.user_facing
 `
 
 type ListPortalEntitlementNamesParams struct {
@@ -95,7 +96,9 @@ type ListPortalEntitlementNamesRow struct {
 	Type string    `json:"type"`
 }
 
-// The names and types of entitlements, for the portal's quotas.
+// The names and types of the entitlements the portal shows, for its quotas: the
+// user-facing ones, as the public catalogue lists them. An internal counter, a
+// source of a combined entitlement for one, never reaches the browser.
 func (q *Queries) ListPortalEntitlementNames(ctx context.Context, arg ListPortalEntitlementNamesParams) ([]ListPortalEntitlementNamesRow, error) {
 	rows, err := q.db.Query(ctx, listPortalEntitlementNames, arg.OrganizationID, arg.Ids)
 	if err != nil {

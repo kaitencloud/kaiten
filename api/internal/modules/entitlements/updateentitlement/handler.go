@@ -6,8 +6,11 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/combined"
 	entitlementEvents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/licenseview"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
@@ -16,6 +19,9 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
+
+// operation names the error codes this use case answers with.
+const operation = "UpdateEntitlement"
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
@@ -84,6 +90,15 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 				return kaitenerrors.Validation("UpdateEntitlement.ImmutableAggregationMethod", "aggregationMethod is immutable and cannot be changed after creation")
 			}
 		}
+		if command.UsageSource != nil {
+			if currentEntitlement.UsageSource == nil || *command.UsageSource != *currentEntitlement.UsageSource {
+				return kaitenerrors.Validation("UpdateEntitlement.ImmutableUsageSource", "usageSource is immutable and cannot be changed after creation")
+			}
+		}
+		// A combined entitlement's window is not its own to hold: it is derived
+		// from its sources every time they are written (see below), so the
+		// one-way door of the calculated one does not apply to it.
+		combinedEntitlement := currentEntitlement.UsageSource != nil && *currentEntitlement.UsageSource == schema.CombinedUsage
 		// Unlike Type/AggregationMethod above, reset_period/reset_anchor are
 		// optional even for NUMBER entitlements (nil = lifetime counter), so an
 		// omitted field can't be caught by a "required field" validation the
@@ -92,12 +107,12 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 		// attempted removal, not a reset to null, and is rejected the same as
 		// an attempted change. Before configured, any value (including nil, to
 		// stay lifetime) is allowed.
-		if currentEntitlement.ResetPeriod != nil {
+		if currentEntitlement.ResetPeriod != nil && !combinedEntitlement {
 			if command.ResetPeriod == nil || *command.ResetPeriod != *currentEntitlement.ResetPeriod {
 				return kaitenerrors.Validation("UpdateEntitlement.ImmutableResetPeriod", "resetPeriod is immutable once configured and cannot be changed or removed")
 			}
 		}
-		if currentEntitlement.ResetAnchor != nil {
+		if currentEntitlement.ResetAnchor != nil && !combinedEntitlement {
 			if command.ResetAnchor == nil || *command.ResetAnchor != *currentEntitlement.ResetAnchor {
 				return kaitenerrors.Validation("UpdateEntitlement.ImmutableResetAnchor", "resetAnchor is immutable once configured and cannot be changed or removed")
 			}
@@ -148,6 +163,11 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 			return kaitenerrors.Validation("UpdateEntitlement.InvalidResetConfiguration", err.Error())
 		}
 
+		resolvedSources, err := h.checkSources(ctx, command, currentEntitlement, combinedEntitlement, resolvedResetAnchor, user.OrganizationID)
+		if err != nil {
+			return err
+		}
+
 		// PUT is full-replace: an absent userFacing means not user facing.
 		resolvedUserFacing := false
 		if command.UserFacing != nil {
@@ -184,6 +204,11 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 		}, slug, user.OrganizationID)
 		if err != nil {
 			return err
+		}
+		if resolvedSources != nil {
+			if err := h.repo.ReplaceSources(ctx, user.OrganizationID, currentEntitlement.ID, resolvedSources); err != nil {
+				return err
+			}
 		}
 
 		if command.GroupSlugs != nil {
@@ -238,6 +263,55 @@ func (h *UseCase) Execute(ctx context.Context, command *Command, slug string) er
 	}
 
 	return nil
+}
+
+// checkSources is what a PUT asks of the sources. A combined entitlement names
+// them again, as a whole, and what they are is read under their lock: the
+// resolved sources, with the window they share, are what the write replaces
+// them with. Any other entitlement names none, and cannot adopt a reset period
+// while a combined entitlement sums it, which would break the window that one
+// shares.
+func (h *UseCase) checkSources(
+	ctx context.Context, command *Command, current *schema.Entitlement, combinedEntitlement bool,
+	resetAnchor *period.ResetAnchor, organizationID uuid.UUID,
+) (*combined.Resolved, error) {
+	if !combinedEntitlement {
+		if len(command.Sources) > 0 {
+			return nil, kaitenerrors.UnprocessableEntity(operation+".SourcesNotAllowed",
+				"sources are only allowed when usageSource is COMBINED_USAGE")
+		}
+		if command.ResetPeriod == nil || current.ResetPeriod != nil {
+			return nil, nil
+		}
+		combinedOf, err := h.repo.CombinedOf(ctx, organizationID, current.Slug)
+		if err != nil {
+			return nil, err
+		}
+		if len(combinedOf) > 0 {
+			return nil, kaitenerrors.UnprocessableEntityf(operation+".SourceWindowLocked",
+				"entitlement %q is a source of %s, whose sources share one window: remove it from them before giving it a reset period",
+				current.Slug, strings.Join(combinedOf, ", "))
+		}
+		return nil, nil
+	}
+
+	if err := combined.RefuseWarningThreshold(operation, command.WarningThresholdPercent); err != nil {
+		return nil, err
+	}
+	sources, err := combined.Parse(operation, command.Sources)
+	if err != nil {
+		return nil, err
+	}
+	resolved, err := combined.Resolve(ctx, h.repo.q(ctx), h.deps.AIPolicy, organizationID, operation, sources)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := resolved.CheckWindow(operation, command.ResetPeriod, resetAnchor); err != nil {
+		return nil, err
+	}
+
+	return resolved, nil
 }
 
 func normalizeGroupSlugs(groupSlugs []string) []string {

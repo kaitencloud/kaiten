@@ -975,7 +975,13 @@ SELECT
            '00000000-0000-0000-0000-000000000000')::uuid AS instance_id,
   coalesce((SELECT e.id FROM entitlement e
              WHERE e.organization_id = $1 AND e.slug = $3),
-           '00000000-0000-0000-0000-000000000000')::uuid AS entitlement_id
+           '00000000-0000-0000-0000-000000000000')::uuid AS entitlement_id,
+  -- Whether that entitlement sums others' usage instead of holding its own: a
+  -- combined entitlement has no history, the sources' is theirs. false for a
+  -- slug the organization does not have.
+  coalesce((SELECT e.usage_source = 'COMBINED_USAGE' FROM entitlement e
+             WHERE e.organization_id = $1 AND e.slug = $3),
+           false)::boolean AS entitlement_combined
 `
 
 type ResolveUsageReportPairParams struct {
@@ -985,8 +991,9 @@ type ResolveUsageReportPairParams struct {
 }
 
 type ResolveUsageReportPairRow struct {
-	InstanceID    uuid.UUID `json:"instance_id"`
-	EntitlementID uuid.UUID `json:"entitlement_id"`
+	InstanceID          uuid.UUID `json:"instance_id"`
+	EntitlementID       uuid.UUID `json:"entitlement_id"`
+	EntitlementCombined bool      `json:"entitlement_combined"`
 }
 
 // The instance and entitlement a usage history request names, in one round
@@ -996,7 +1003,7 @@ type ResolveUsageReportPairRow struct {
 func (q *Queries) ResolveUsageReportPair(ctx context.Context, arg ResolveUsageReportPairParams) (ResolveUsageReportPairRow, error) {
 	row := q.db.QueryRow(ctx, resolveUsageReportPair, arg.OrganizationID, arg.InstanceSlug, arg.EntitlementSlug)
 	var i ResolveUsageReportPairRow
-	err := row.Scan(&i.InstanceID, &i.EntitlementID)
+	err := row.Scan(&i.InstanceID, &i.EntitlementID, &i.EntitlementCombined)
 	return i, err
 }
 

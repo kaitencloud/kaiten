@@ -154,7 +154,8 @@ SELECT
   e.warning_threshold_percent,
   e.reset_period,
   e.reset_anchor,
-  l.slug              AS license_slug
+  l.slug              AS license_slug,
+  e.usage_source
 FROM instance i
 JOIN entitlement e
   ON e.slug            = $1
@@ -183,6 +184,7 @@ type GetEntitlementContextBySlugRow struct {
 	ResetPeriod             *EntitlementResetPeriod `json:"reset_period"`
 	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
 	LicenseSlug             *string                 `json:"license_slug"`
+	UsageSource             EntitlementUsageSource  `json:"usage_source"`
 }
 
 // Resolves instance/entitlement slugs, in a single round-trip, without
@@ -207,6 +209,7 @@ func (q *Queries) GetEntitlementContextBySlug(ctx context.Context, arg GetEntitl
 		&i.ResetPeriod,
 		&i.ResetAnchor,
 		&i.LicenseSlug,
+		&i.UsageSource,
 	)
 	return i, err
 }
@@ -310,7 +313,8 @@ SELECT
   coalesce(ib.status::text, '')::text AS billing_status,
   ib.anchor_at      AS billing_anchor_at,
   ib.live_ended_at,
- (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
+ (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved,
+  e.usage_source
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -361,6 +365,7 @@ type GetEntitlementUsageForInstanceOrDefaultRow struct {
 	BillingAnchorAt         pgtype.Timestamp        `json:"billing_anchor_at"`
 	LiveEndedAt             pgtype.Timestamp        `json:"live_ended_at"`
 	Reserved                pgtype.Numeric          `json:"reserved"`
+	UsageSource             *EntitlementUsageSource `json:"usage_source"`
 }
 
 // Returns one row always. Nullable fields are nil when the entity is not found;
@@ -396,6 +401,7 @@ func (q *Queries) GetEntitlementUsageForInstanceOrDefault(ctx context.Context, a
 		&i.BillingAnchorAt,
 		&i.LiveEndedAt,
 		&i.Reserved,
+		&i.UsageSource,
 	)
 	return i, err
 }

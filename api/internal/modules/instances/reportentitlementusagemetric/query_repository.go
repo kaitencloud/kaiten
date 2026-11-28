@@ -111,6 +111,13 @@ func (r *QueryRepository) LockPair(ctx context.Context, instanceSlug, entitlemen
 		return nil, err
 	}
 
+	// A combined entitlement is read, never reported on: it has no counter to
+	// fold a report into, and its sources are gated on their own.
+	if ctx1.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+		return nil, kaitenerrors.UnprocessableEntityf("ReportEntitlementUsageMetric.EntitlementIsCombined",
+			"entitlement %q is a combined entitlement: its usage is the weighted sum of its sources', computed when read; report on a source", entitlementSlug)
+	}
+
 	if err := queries.LockEntitlementUsage(ctx, db.LockEntitlementUsageParams{
 		InstanceID:    ctx1.InstanceID,
 		EntitlementID: ctx1.EntitlementID,

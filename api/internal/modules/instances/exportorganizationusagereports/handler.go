@@ -59,9 +59,12 @@ func (u *UseCase) Execute(ctx context.Context, q Query) (*usagehistory.Export, e
 
 	instanceID, entitlementID := q.InstanceID, q.EntitlementID
 	if q.InstanceSlug != "" || q.EntitlementSlug != "" {
-		bySlug, entitlementBySlug, err := u.reader.ResolveSlugs(ctx, user.OrganizationID, q.InstanceSlug, q.EntitlementSlug)
+		bySlug, entitlementBySlug, combined, err := u.reader.ResolveSlugs(ctx, user.OrganizationID, q.InstanceSlug, q.EntitlementSlug)
 		if err != nil {
 			return nil, err
+		}
+		if combined {
+			return nil, usagehistory.RefuseCombined(operation, q.EntitlementSlug)
 		}
 		if instanceID, err = filter(q.InstanceSlug, bySlug, instanceID, "InstanceNotFound", "instance"); err != nil {
 			return nil, err

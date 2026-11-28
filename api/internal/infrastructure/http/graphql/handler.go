@@ -32,6 +32,7 @@ import (
 	deploymentzonesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/graphql"
 	deploymentzonesdb "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/infrastructure/db"
 	deploymentzonereleaselink "github.com/kaitencloud/kaiten/api/internal/modules/deploymentzones/releaselink"
+	entitlementscatalogue "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	entitlementsGraphql "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/graphql"
 	entitlementsdb "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	instancesGraphql "github.com/kaitencloud/kaiten/api/internal/modules/instances/graphql"
@@ -306,7 +307,7 @@ func (h *Handler) newLoaders() *dataloader.Loaders {
 	customersGraphql.RegisterDataloaders(loaders, customersdb.New(h.pool))
 	deploymentzonesGraphql.RegisterDataloaders(loaders, deploymentzonesdb.New(h.pool))
 	entitlementsGraphql.RegisterDataloaders(loaders, entitlementsdb.New(h.pool), h.config.AIPolicy)
-	instancesGraphql.RegisterDataloaders(loaders, instancesdb.New(h.pool), h.config.AIPolicy)
+	instancesGraphql.RegisterDataloaders(loaders, instancesdb.New(h.pool), h.config.AIPolicy, entitlementscatalogue.NewCombined(h.pool))
 	licensesGraphql.RegisterDataloaders(loaders, licensesdb.New(h.pool), h.config.AIPolicy)
 	releasesGraphql.RegisterDataloaders(loaders, releaselink.New(h.pool), deploymentzonereleaselink.New(h.pool), instancereleaselink.New(h.pool))
 

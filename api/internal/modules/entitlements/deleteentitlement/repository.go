@@ -34,12 +34,42 @@ func (r *CommandRepository) q(ctx context.Context) *db.Queries {
 }
 
 func (r *CommandRepository) DeleteEntitlement(ctx context.Context, organizationID uuid.UUID, slug string) (*schema.Entitlement, error) {
+	queries := r.q(ctx)
+
+	// A source is refused here, not by a foreign key: the link rows cascade, so
+	// that deleting an organization, which cascades row by row, cannot fail on
+	// the source of a combined entitlement that is stored after it. The row is
+	// locked first, so that a combined entitlement that is storing a link to it
+	// is waited for and seen.
+	locked, err := queries.LockEntitlementForUpdate(ctx, db.LockEntitlementForUpdateParams{OrganizationID: organizationID, Slug: slug})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, kaitenerrors.NotFound("DeleteEntitlement.NotFound", fmt.Sprintf("Entitlement with slug %q not found", slug))
+		}
+		return nil, err
+	}
+	combinedOf, err := queries.ListCombinedOfSource(ctx, db.ListCombinedOfSourceParams{OrganizationID: organizationID, SourceSlug: slug})
+	if err != nil {
+		return nil, err
+	}
+	if len(combinedOf) > 0 {
+		return nil, errInUse
+	}
+
+	// What a combined entitlement sums goes with it: its event still says.
+	var sources []db.ListCombinedSourcesRow
+	if locked.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+		if sources, err = queries.ListCombinedSources(ctx, db.ListCombinedSourcesParams{OrganizationID: organizationID, CombinedSlug: &slug}); err != nil {
+			return nil, err
+		}
+	}
+
 	params := db.DeleteEntitlementParams{
 		Slug:           slug,
 		OrganizationID: organizationID,
 	}
 
-	result, err := r.q(ctx).DeleteEntitlement(ctx, params)
+	result, err := queries.DeleteEntitlement(ctx, params)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, kaitenerrors.NotFound("DeleteEntitlement.NotFound", fmt.Sprintf("Entitlement with slug %q not found", slug))
@@ -55,5 +85,10 @@ func (r *CommandRepository) DeleteEntitlement(ctx context.Context, organizationI
 		return nil, err
 	}
 
-	return dbmap.ToEntitlement(&result), nil
+	deleted := dbmap.ToEntitlement(&result)
+	if len(sources) > 0 {
+		deleted.Sources = dbmap.ToEntitlementSources(sources)
+	}
+
+	return deleted, nil
 }

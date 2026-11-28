@@ -8,6 +8,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/sourcerefs"
 	"github.com/kaitencloud/kaiten/api/internal/platform/principal"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 )
@@ -61,9 +62,14 @@ func newEntitlementBySlugBatchFn(queries *db.Queries, policy aiusage.Policy) dat
 		}
 		groups := groupsBySlug(groupRows)
 
+		sources, err := sourcerefs.ByCombinedSlug(ctx, queries, identity.OrganizationID)
+		if err != nil {
+			return fail(err)
+		}
+
 		bySlug := make(map[string]schema.Entitlement, len(entitlements))
 		for _, e := range entitlements {
-			bySlug[e.Slug] = toEntitlementSchema(e, groups[e.Slug])
+			bySlug[e.Slug] = toEntitlementSchema(e, groups[e.Slug], sources[e.Slug])
 		}
 
 		for i, key := range keys {

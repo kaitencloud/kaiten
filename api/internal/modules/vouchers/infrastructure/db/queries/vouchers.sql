@@ -139,7 +139,7 @@ WHERE organization_id = sqlc.arg(organization_id)
 
 
 -- name: GetBoostableEntitlement :one
-SELECT id, type
+SELECT id, type, usage_source
 FROM entitlement
 WHERE organization_id = sqlc.arg(organization_id)
   AND slug = sqlc.arg(slug);

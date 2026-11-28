@@ -155,6 +155,9 @@ models:
         resolver: true
       provenance:
         resolver: true
+  CombinedSourceUsage:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.CombinedSourceUsage
   InstanceStatus:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/instances/schema.InstanceStatus
@@ -272,6 +275,14 @@ models:
   EntitlementType:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema.Type
+  # Not EntitlementUsageSource: that one is where an instance's entitlement comes
+  # from (licence, add-on, exception).
+  UsageSource:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema.UsageSource
+  EntitlementSource:
+    model:
+      - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema.EntitlementSource
   EntitlementResetPeriod:
     model:
       - github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period.ResetPeriod

@@ -8,6 +8,7 @@ import (
 
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/effectivelookup"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/http/graphql/dataloader"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/getentitlementsusagemetrics"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -26,7 +27,7 @@ const (
 
 // RegisterDataloaders registers instance dataloaders to the shared loaders
 // container.
-func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, policy aiusage.Policy) {
+func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, policy aiusage.Policy, combined catalogue.CombinedReader) {
 	// Customer.instances / License.instances.
 	loaders.Register(InstancesByCustomerLoaderName, dataloaderLib.NewBatchedLoader(
 		newInstancesByCustomerBatchFn(queries),
@@ -41,7 +42,7 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, polic
 	// Instance.entitlementUsage -- what GET /instances/{slug}/entitlements
 	// returns.
 	loaders.Register(EntitlementUsageLoaderName, dataloaderLib.NewBatchedLoader(
-		newEntitlementUsageBatchFn(queries, policy),
+		newEntitlementUsageBatchFn(queries, policy, combined),
 	))
 }
 
@@ -50,11 +51,21 @@ func RegisterDataloaders(loaders *dataloader.Loaders, queries *db.Queries, polic
 // single-instance, so the batch iterates keys — still one SQL round-trip per
 // instance server-side.
 
-func newEntitlementUsageBatchFn(queries *db.Queries, policy aiusage.Policy) dataloaderLib.BatchFunc[uuid.UUID, []schema.EntitlementUsage] {
+func newEntitlementUsageBatchFn(queries *db.Queries, policy aiusage.Policy, combined catalogue.CombinedReader) dataloaderLib.BatchFunc[uuid.UUID, []schema.EntitlementUsage] {
 	return func(ctx context.Context, keys []uuid.UUID) []*dataloaderLib.Result[[]schema.EntitlementUsage] {
 		results := make([]*dataloaderLib.Result[[]schema.EntitlementUsage], len(keys))
 
 		organizationID, err := getOrganizationID(ctx)
+		if err != nil {
+			for i := range results {
+				results[i] = &dataloaderLib.Result[[]schema.EntitlementUsage]{Error: err}
+			}
+			return results
+		}
+
+		// The combined entitlements are read once for the batch: they are the
+		// organization's, not an instance's.
+		definitions, err := combined.Combined(ctx, organizationID)
 		if err != nil {
 			for i := range results {
 				results[i] = &dataloaderLib.Result[[]schema.EntitlementUsage]{Error: err}
@@ -79,6 +90,9 @@ func newEntitlementUsageBatchFn(queries *db.Queries, policy aiusage.Policy) data
 			// into GetEntitlementsUsageForInstanceWithFallback itself rather
 			// than a separate GetDatabaseNow round trip per batch.
 			usage, err := getentitlementsusagemetrics.MapUsageRows(rows)
+			if err == nil {
+				usage, err = getentitlementsusagemetrics.WithCombined(usage, definitions)
+			}
 			if err != nil {
 				results[i] = &dataloaderLib.Result[[]schema.EntitlementUsage]{Error: err}
 				continue

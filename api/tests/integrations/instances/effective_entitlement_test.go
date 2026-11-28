@@ -114,7 +114,8 @@ SELECT
   ''::text AS billing_status,
   NULL::timestamp AS billing_anchor_at,
   NULL::timestamp AS live_ended_at,
-  0::numeric AS reserved
+  0::numeric AS reserved,
+  e.usage_source
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = $1
@@ -149,7 +150,8 @@ SELECT
   e.warning_threshold_percent,
   e.reset_period,
   e.reset_anchor,
-  l.slug              AS license_slug
+  l.slug              AS license_slug,
+  e.usage_source
 FROM instance i
 JOIN entitlement e
   ON e.slug            = $1
@@ -192,7 +194,8 @@ SELECT e.id              AS entitlement_id,
        date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')::timestamp(3) AS now,
        ''::text AS billing_status,
        NULL::timestamp AS billing_anchor_at,
-       NULL::timestamp AS live_ended_at
+       NULL::timestamp AS live_ended_at,
+       e.usage_source
 FROM entitlement_group eg
 JOIN entitlement_group_membership egm ON egm.entitlement_group_id = eg.id
 JOIN entitlement e ON e.id = egm.entitlement_id

@@ -233,6 +233,48 @@ func (ns NullEntitlementType) Value() (driver.Value, error) {
 	return string(ns.EntitlementType), nil
 }
 
+type EntitlementUsageSource string
+
+const (
+	EntitlementUsageSourceCALCULATEDUSAGE EntitlementUsageSource = "CALCULATED_USAGE"
+	EntitlementUsageSourceCOMBINEDUSAGE   EntitlementUsageSource = "COMBINED_USAGE"
+)
+
+func (e *EntitlementUsageSource) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = EntitlementUsageSource(s)
+	case string:
+		*e = EntitlementUsageSource(s)
+	default:
+		return fmt.Errorf("unsupported scan type for EntitlementUsageSource: %T", src)
+	}
+	return nil
+}
+
+type NullEntitlementUsageSource struct {
+	EntitlementUsageSource EntitlementUsageSource `json:"entitlement_usage_source"`
+	Valid                  bool                   `json:"valid"` // Valid is true if EntitlementUsageSource is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullEntitlementUsageSource) Scan(value interface{}) error {
+	if value == nil {
+		ns.EntitlementUsageSource, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.EntitlementUsageSource.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullEntitlementUsageSource) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.EntitlementUsageSource), nil
+}
+
 type Entitlement struct {
 	ID                      uuid.UUID               `json:"id"`
 	Name                    string                  `json:"name"`
@@ -254,6 +296,7 @@ type Entitlement struct {
 	ResetAnchor             *EntitlementResetAnchor `json:"reset_anchor"`
 	CreatedAt               pgtype.Timestamp        `json:"created_at"`
 	UpdatedAt               pgtype.Timestamp        `json:"updated_at"`
+	UsageSource             EntitlementUsageSource  `json:"usage_source"`
 }
 
 type EntitlementGroup struct {

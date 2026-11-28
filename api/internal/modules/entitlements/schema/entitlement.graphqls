@@ -9,6 +9,36 @@ enum EntitlementType {
 }
 
 """
+Where the usage of a NUMBER or NUMBER_AI_CREDIT entitlement comes from.
+"""
+enum UsageSource {
+  """
+  The vendor's code reports it, and Kaiten folds each report with the
+  aggregation method. The default.
+  """
+  CALCULATED_USAGE
+  """
+  The weighted sum of the usage of other entitlements, its sources, computed
+  when it is read, for display only: nothing is stored for it and nothing is
+  enforced on it.
+  """
+  COMBINED_USAGE
+}
+
+"""
+One source of a combined entitlement: the entitlement whose usage it sums, and
+the rate one unit of that usage is worth.
+"""
+type EntitlementSource {
+  entitlementSlug: String!
+  """
+  Conversion rate, an exact decimal string: one unit of the source is worth this
+  many units of the combined entitlement.
+  """
+  weight: String!
+}
+
+"""
 Cadence at which usage automatically resets for a NUMBER entitlement.
 """
 enum EntitlementResetPeriod {
@@ -50,6 +80,18 @@ type Entitlement {
   slug: String!
   description: String
   type: EntitlementType
+
+  """
+  Where the usage comes from (NUMBER and NUMBER_AI_CREDIT only; null for
+  BOOLEAN and CONFIG). Immutable.
+  """
+  usageSource: UsageSource
+
+  """
+  What a COMBINED_USAGE entitlement sums, each source with its weight. Null for
+  any other entitlement.
+  """
+  sources: [EntitlementSource!]
 
   """
   Optional icon, stored as a provider-namespaced token (provider:name).

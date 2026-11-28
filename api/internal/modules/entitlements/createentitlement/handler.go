@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/uow"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/combined"
 	entitlementEvents "github.com/kaitencloud/kaiten/api/internal/modules/entitlements/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
@@ -21,6 +22,9 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/shared/slugutil"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
+
+// operation names the error codes this use case answers with.
+const operation = "CreateEntitlement"
 
 // Deps lists exactly what this handler needs, instead of the full
 // services.Container.
@@ -77,6 +81,11 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 
 	if err := schema.ValidateTypeConfiguration(request.Type, resolvedAggregationMethod); err != nil {
 		return nil, kaitenerrors.Validation("CreateEntitlement.InvalidTypeConfiguration", err.Error())
+	}
+
+	resolvedUsageSource, combinedSources, err := resolveUsageSource(request, resolvedAggregationMethod)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := schema.ValidateUnitsConfiguration(
@@ -154,6 +163,8 @@ func (h *UseCase) Execute(ctx context.Context, request *Command) (*schema.Entitl
 		WarningThresholdPercent: resolvedWarningThresholdPercent,
 		ResetPeriod:             request.ResetPeriod,
 		ResetAnchor:             resolvedResetAnchor,
+		UsageSource:             resolvedUsageSource,
+		Sources:                 combinedSources,
 	}
 
 	return dogfooding.EnforceAndPersist(ctx, h.deps.UsageReporter, user.OrganizationID, dogfooding.EntitlementEntitlementSlug,
@@ -184,9 +195,28 @@ func (h *UseCase) persistEntitlement(ctx context.Context, orgID uuid.UUID, input
 	var entitlement *schema.Entitlement
 
 	err := h.deps.Uof.Transact(ctx, func(ctx context.Context) error {
+		// A combined entitlement takes the window its sources share, read under
+		// their lock; a caller that names one names that one.
+		var resolved *combined.Resolved
+		if input.UsageSource != nil && *input.UsageSource == schema.CombinedUsage {
+			var err error
+			if resolved, err = combined.Resolve(ctx, h.repo.q(ctx), h.deps.AIPolicy, orgID, operation, input.Sources); err != nil {
+				return err
+			}
+			if err := resolved.CheckWindow(operation, input.ResetPeriod, input.ResetAnchor); err != nil {
+				return err
+			}
+			input.ResetPeriod, input.ResetAnchor = resolved.ResetPeriod, resolved.ResetAnchor
+		}
+
 		createdEntitlement, err := h.repo.CreateEntitlement(ctx, input, orgID)
 		if err != nil {
 			return err
+		}
+		if resolved != nil {
+			if err := h.repo.AddSources(ctx, orgID, createdEntitlement.ID, resolved.Sources); err != nil {
+				return err
+			}
 		}
 
 		for _, groupSlug := range normalizeGroupSlugs(groupSlugs) {
@@ -215,6 +245,48 @@ func (h *UseCase) persistEntitlement(ctx context.Context, orgID uuid.UUID, input
 	}
 
 	return entitlement, nil
+}
+
+// resolveUsageSource settles where the usage of the new entitlement comes from,
+// and checks what that asks of the request: a NUMBER-family entitlement is
+// calculated unless it says combined, BOOLEAN and CONFIG have no usage to say
+// the source of. A combined entitlement is a SUM, shows no warning, and names
+// its sources; any other refuses sources. What the sources are is checked in
+// the transaction, under their lock.
+func resolveUsageSource(request *Command, aggregationMethod *schema.AggregationMethod) (*schema.UsageSource, []schema.ParsedSource, error) {
+	if err := schema.ValidateUsageSourceConfiguration(request.Type, request.UsageSource); err != nil {
+		return nil, nil, kaitenerrors.Validation(operation+".InvalidUsageSourceConfiguration", err.Error())
+	}
+
+	var usageSource *schema.UsageSource
+	if schema.IsNumberFamily(request.Type) {
+		usageSource = ptr.To(schema.CalculatedUsage)
+		if request.UsageSource != nil {
+			usageSource = request.UsageSource
+		}
+	}
+
+	if usageSource == nil || *usageSource != schema.CombinedUsage {
+		if len(request.Sources) > 0 {
+			return nil, nil, kaitenerrors.UnprocessableEntity(operation+".SourcesNotAllowed",
+				"sources are only allowed when usageSource is COMBINED_USAGE")
+		}
+		return usageSource, nil, nil
+	}
+
+	if aggregationMethod == nil || *aggregationMethod != schema.Sum {
+		return nil, nil, kaitenerrors.UnprocessableEntity(operation+".CombinedAggregationMustBeSum",
+			"a combined entitlement is always aggregated by SUM: omit aggregationMethod or send SUM")
+	}
+	if err := combined.RefuseWarningThreshold(operation, request.WarningThresholdPercent); err != nil {
+		return nil, nil, err
+	}
+	sources, err := combined.Parse(operation, request.Sources)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return usageSource, sources, nil
 }
 
 func normalizeGroupSlugs(groupSlugs []string) []string {

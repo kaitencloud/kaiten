@@ -9,9 +9,32 @@ enum EntitlementUsageSource {
 }
 
 """
+What one source of a combined entitlement reads on its own, before its weight:
+the detail of the sum.
+"""
+type CombinedSourceUsage {
+  entitlementSlug: String!
+  """
+  The rate one unit of the source is worth in the combined entitlement, an exact
+  decimal string.
+  """
+  weight: String!
+  """
+  The source's own usage in its current window.
+  """
+  usage: Float!
+  """
+  The source's own effective limit; -1 means unlimited.
+  """
+  limit: Float!
+}
+
+"""
 Current usage of an entitlement on an instance. One row per license grant:
 NUMBER entitlements carry the accumulated usage (zeroed when nothing has been
-reported yet); other types carry the license value.
+reported yet); other types carry the license value. A combined entitlement
+(COMBINED_USAGE) has one too, as soon as one of its sources is granted: the
+weighted sum of its sources', computed when read.
 """
 type EntitlementUsage {
   entitlementId: UUID!
@@ -56,6 +79,12 @@ type EntitlementUsage {
   contribute, as the REST gauge read returns it.
   """
   provenance: Map
+
+  """
+  A combined entitlement's sources the instance is granted, each with its own
+  usage and limit before its weight. Null for any other entitlement.
+  """
+  sources: [CombinedSourceUsage!]
 }
 
 extend type Instance {

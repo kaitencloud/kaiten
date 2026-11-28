@@ -319,7 +319,8 @@ SELECT e.id,
        e.sale_unit_singular,
        e.sale_unit_plural,
        le.value                 AS grant_value,
-       le.limit_cap_exceeded_overage_percent AS grant_overage_percent
+       le.limit_cap_exceeded_overage_percent AS grant_overage_percent,
+       e.usage_source
 FROM entitlement e
 LEFT JOIN license_entitlement le
   ON le.entitlement_id = e.id
@@ -347,6 +348,7 @@ type GetPricingEntitlementRow struct {
 	SaleUnitPlural      *string                 `json:"sale_unit_plural"`
 	GrantValue          []byte                  `json:"grant_value"`
 	GrantOveragePercent *int16                  `json:"grant_overage_percent"`
+	UsageSource         EntitlementUsageSource  `json:"usage_source"`
 }
 
 // The entitlement a metered price would meter, with the version's grant of it
@@ -367,6 +369,7 @@ func (q *Queries) GetPricingEntitlement(ctx context.Context, arg GetPricingEntit
 		&i.SaleUnitPlural,
 		&i.GrantValue,
 		&i.GrantOveragePercent,
+		&i.UsageSource,
 	)
 	return i, err
 }

@@ -370,7 +370,8 @@ func (q *Queries) GetAddonFamilyBySlug(ctx context.Context, arg GetAddonFamilyBy
 const getAddonPricingEntitlement = `-- name: GetAddonPricingEntitlement :one
 SELECT e.id, e.type, e.reset_period, e.aggregation_method,
        coalesce(e.sale_unit_factor::text, '')::text AS sale_unit_factor,
-       ae.value AS grant_value, ae.limit_cap_exceeded_overage_percent AS grant_overage_percent
+       ae.value AS grant_value, ae.limit_cap_exceeded_overage_percent AS grant_overage_percent,
+       e.usage_source
 FROM entitlement e
 LEFT JOIN addon_entitlement ae
   ON ae.entitlement_id = e.id AND ae.addon_id = $1 AND ae.organization_id = e.organization_id
@@ -392,6 +393,7 @@ type GetAddonPricingEntitlementRow struct {
 	SaleUnitFactor      string                  `json:"sale_unit_factor"`
 	GrantValue          []byte                  `json:"grant_value"`
 	GrantOveragePercent *int16                  `json:"grant_overage_percent"`
+	UsageSource         EntitlementUsageSource  `json:"usage_source"`
 }
 
 // The entitlement a metered add-on price names, with the version's grant of it.
@@ -406,12 +408,13 @@ func (q *Queries) GetAddonPricingEntitlement(ctx context.Context, arg GetAddonPr
 		&i.SaleUnitFactor,
 		&i.GrantValue,
 		&i.GrantOveragePercent,
+		&i.UsageSource,
 	)
 	return i, err
 }
 
 const getEntitlementBySlug = `-- name: GetEntitlementBySlug :one
-SELECT e.id, e.slug, e.type
+SELECT e.id, e.slug, e.type, e.usage_source
 FROM entitlement e
 WHERE e.organization_id = $1
   AND e.slug = $2
@@ -423,15 +426,21 @@ type GetEntitlementBySlugParams struct {
 }
 
 type GetEntitlementBySlugRow struct {
-	ID   uuid.UUID       `json:"id"`
-	Slug string          `json:"slug"`
-	Type EntitlementType `json:"type"`
+	ID          uuid.UUID              `json:"id"`
+	Slug        string                 `json:"slug"`
+	Type        EntitlementType        `json:"type"`
+	UsageSource EntitlementUsageSource `json:"usage_source"`
 }
 
 func (q *Queries) GetEntitlementBySlug(ctx context.Context, arg GetEntitlementBySlugParams) (GetEntitlementBySlugRow, error) {
 	row := q.db.QueryRow(ctx, getEntitlementBySlug, arg.OrganizationID, arg.Slug)
 	var i GetEntitlementBySlugRow
-	err := row.Scan(&i.ID, &i.Slug, &i.Type)
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Type,
+		&i.UsageSource,
+	)
 	return i, err
 }
 

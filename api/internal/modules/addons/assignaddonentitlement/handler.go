@@ -51,6 +51,10 @@ func (u *UseCase) Execute(ctx context.Context, addonSlug string, command NewAddo
 		if err := u.deps.AIPolicy.RequireType(ctx, string(entitlement.Type)); err != nil {
 			return err
 		}
+		if entitlement.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+			return kaitenerrors.UnprocessableEntity(operation+".EntitlementIsCombined",
+				"a combined entitlement is not granted: grant its sources, and it reads as their weighted sum")
+		}
 		value, percent, behavior, err := command.Normalize(operation, entitlement.Type)
 		if err != nil {
 			return err

@@ -202,7 +202,8 @@ func newModules(opts Options, workers *services.WorkerRegistry) (modules, error)
 	// billing: billing's jobs reach it through this handle, bound below.
 	checkoutSweep := newLateCheckoutSweeper()
 	// Billing's lifecycle job runs the exceptions' expiry notice, step (g).
-	entitlementModule := entitlements.NewUseCases(svc)
+	// A group's usage reads a combined member through the instance's usage list.
+	entitlementModule := entitlements.NewUseCases(svc, instanceModule.GetEntitlementsUsageMetrics)
 	billingModule := billing.NewUseCases(svc, billing.Ports{
 		Catalogue:  billablecatalogue.New(svc.Uof),
 		Usage:      instanceModule.BillableUsage,

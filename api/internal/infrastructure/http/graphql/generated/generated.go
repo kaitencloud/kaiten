@@ -127,6 +127,13 @@ type ComplexityRoot struct {
 		NextCursor func(childComplexity int) int
 	}
 
+	CombinedSourceUsage struct {
+		EntitlementSlug func(childComplexity int) int
+		Limit           func(childComplexity int) int
+		Usage           func(childComplexity int) int
+		Weight          func(childComplexity int) int
+	}
+
 	Component struct {
 		CreatedAt           func(childComplexity int) int
 		CreatedBy           func(childComplexity int) int
@@ -235,9 +242,11 @@ type ComplexityRoot struct {
 		SaleUnitPlural          func(childComplexity int) int
 		SaleUnitSingular        func(childComplexity int) int
 		Slug                    func(childComplexity int) int
+		Sources                 func(childComplexity int) int
 		Type                    func(childComplexity int) int
 		UnitPlural              func(childComplexity int) int
 		UnitSingular            func(childComplexity int) int
+		UsageSource             func(childComplexity int) int
 		UserFacing              func(childComplexity int) int
 		WarningThresholdPercent func(childComplexity int) int
 	}
@@ -268,6 +277,11 @@ type ComplexityRoot struct {
 		NextCursor func(childComplexity int) int
 	}
 
+	EntitlementSource struct {
+		EntitlementSlug func(childComplexity int) int
+		Weight          func(childComplexity int) int
+	}
+
 	EntitlementUsage struct {
 		CurrentPeriodEnd               func(childComplexity int) int
 		CurrentPeriodStart             func(childComplexity int) int
@@ -279,6 +293,7 @@ type ComplexityRoot struct {
 		LimitCapExceededOveragePercent func(childComplexity int) int
 		Provenance                     func(childComplexity int) int
 		Source                         func(childComplexity int) int
+		Sources                        func(childComplexity int) int
 		Value                          func(childComplexity int) int
 	}
 
@@ -924,6 +939,31 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.AuditTrailPage.NextCursor(childComplexity), true
 
+	case "CombinedSourceUsage.entitlementSlug":
+		if e.ComplexityRoot.CombinedSourceUsage.EntitlementSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CombinedSourceUsage.EntitlementSlug(childComplexity), true
+	case "CombinedSourceUsage.limit":
+		if e.ComplexityRoot.CombinedSourceUsage.Limit == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CombinedSourceUsage.Limit(childComplexity), true
+	case "CombinedSourceUsage.usage":
+		if e.ComplexityRoot.CombinedSourceUsage.Usage == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CombinedSourceUsage.Usage(childComplexity), true
+	case "CombinedSourceUsage.weight":
+		if e.ComplexityRoot.CombinedSourceUsage.Weight == nil {
+			break
+		}
+
+		return e.ComplexityRoot.CombinedSourceUsage.Weight(childComplexity), true
+
 	case "Component.createdAt":
 		if e.ComplexityRoot.Component.CreatedAt == nil {
 			break
@@ -1413,6 +1453,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Entitlement.Slug(childComplexity), true
+	case "Entitlement.sources":
+		if e.ComplexityRoot.Entitlement.Sources == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Entitlement.Sources(childComplexity), true
 	case "Entitlement.type":
 		if e.ComplexityRoot.Entitlement.Type == nil {
 			break
@@ -1431,6 +1477,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.Entitlement.UnitSingular(childComplexity), true
+	case "Entitlement.usageSource":
+		if e.ComplexityRoot.Entitlement.UsageSource == nil {
+			break
+		}
+
+		return e.ComplexityRoot.Entitlement.UsageSource(childComplexity), true
 	case "Entitlement.userFacing":
 		if e.ComplexityRoot.Entitlement.UserFacing == nil {
 			break
@@ -1549,6 +1601,19 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 
 		return e.ComplexityRoot.EntitlementPage.NextCursor(childComplexity), true
 
+	case "EntitlementSource.entitlementSlug":
+		if e.ComplexityRoot.EntitlementSource.EntitlementSlug == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementSource.EntitlementSlug(childComplexity), true
+	case "EntitlementSource.weight":
+		if e.ComplexityRoot.EntitlementSource.Weight == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementSource.Weight(childComplexity), true
+
 	case "EntitlementUsage.currentPeriodEnd":
 		if e.ComplexityRoot.EntitlementUsage.CurrentPeriodEnd == nil {
 			break
@@ -1609,6 +1674,12 @@ func (e *executableSchema) Complexity(ctx context.Context, typeName, field strin
 		}
 
 		return e.ComplexityRoot.EntitlementUsage.Source(childComplexity), true
+	case "EntitlementUsage.sources":
+		if e.ComplexityRoot.EntitlementUsage.Sources == nil {
+			break
+		}
+
+		return e.ComplexityRoot.EntitlementUsage.Sources(childComplexity), true
 	case "EntitlementUsage.value":
 		if e.ComplexityRoot.EntitlementUsage.Value == nil {
 			break
@@ -3411,6 +3482,36 @@ enum EntitlementType {
 }
 
 """
+Where the usage of a NUMBER or NUMBER_AI_CREDIT entitlement comes from.
+"""
+enum UsageSource {
+  """
+  The vendor's code reports it, and Kaiten folds each report with the
+  aggregation method. The default.
+  """
+  CALCULATED_USAGE
+  """
+  The weighted sum of the usage of other entitlements, its sources, computed
+  when it is read, for display only: nothing is stored for it and nothing is
+  enforced on it.
+  """
+  COMBINED_USAGE
+}
+
+"""
+One source of a combined entitlement: the entitlement whose usage it sums, and
+the rate one unit of that usage is worth.
+"""
+type EntitlementSource {
+  entitlementSlug: String!
+  """
+  Conversion rate, an exact decimal string: one unit of the source is worth this
+  many units of the combined entitlement.
+  """
+  weight: String!
+}
+
+"""
 Cadence at which usage automatically resets for a NUMBER entitlement.
 """
 enum EntitlementResetPeriod {
@@ -3452,6 +3553,18 @@ type Entitlement {
   slug: String!
   description: String
   type: EntitlementType
+
+  """
+  Where the usage comes from (NUMBER and NUMBER_AI_CREDIT only; null for
+  BOOLEAN and CONFIG). Immutable.
+  """
+  usageSource: UsageSource
+
+  """
+  What a COMBINED_USAGE entitlement sums, each source with its weight. Null for
+  any other entitlement.
+  """
+  sources: [EntitlementSource!]
 
   """
   Optional icon, stored as a provider-namespaced token (provider:name).
@@ -3748,9 +3861,32 @@ enum EntitlementUsageSource {
 }
 
 """
+What one source of a combined entitlement reads on its own, before its weight:
+the detail of the sum.
+"""
+type CombinedSourceUsage {
+  entitlementSlug: String!
+  """
+  The rate one unit of the source is worth in the combined entitlement, an exact
+  decimal string.
+  """
+  weight: String!
+  """
+  The source's own usage in its current window.
+  """
+  usage: Float!
+  """
+  The source's own effective limit; -1 means unlimited.
+  """
+  limit: Float!
+}
+
+"""
 Current usage of an entitlement on an instance. One row per license grant:
 NUMBER entitlements carry the accumulated usage (zeroed when nothing has been
-reported yet); other types carry the license value.
+reported yet); other types carry the license value. A combined entitlement
+(COMBINED_USAGE) has one too, as soon as one of its sources is granted: the
+weighted sum of its sources', computed when read.
 """
 type EntitlementUsage {
   entitlementId: UUID!
@@ -3795,6 +3931,12 @@ type EntitlementUsage {
   contribute, as the REST gauge read returns it.
   """
   provenance: Map
+
+  """
+  A combined entitlement's sources the instance is granted, each with its own
+  usage and limit before its weight. Null for any other entitlement.
+  """
+  sources: [CombinedSourceUsage!]
 }
 
 extend type Instance {
@@ -4520,6 +4662,20 @@ func (ec *executionContext) childFields_AuditTrailPage(ctx context.Context, fiel
 	return nil, fmt.Errorf("no field named %q was found under type AuditTrailPage", field.Name)
 }
 
+func (ec *executionContext) childFields_CombinedSourceUsage(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "entitlementSlug":
+		return ec.fieldContext_CombinedSourceUsage_entitlementSlug(ctx, field)
+	case "weight":
+		return ec.fieldContext_CombinedSourceUsage_weight(ctx, field)
+	case "usage":
+		return ec.fieldContext_CombinedSourceUsage_usage(ctx, field)
+	case "limit":
+		return ec.fieldContext_CombinedSourceUsage_limit(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type CombinedSourceUsage", field.Name)
+}
+
 func (ec *executionContext) childFields_Component(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "id":
@@ -4722,6 +4878,10 @@ func (ec *executionContext) childFields_Entitlement(ctx context.Context, field g
 		return ec.fieldContext_Entitlement_description(ctx, field)
 	case "type":
 		return ec.fieldContext_Entitlement_type(ctx, field)
+	case "usageSource":
+		return ec.fieldContext_Entitlement_usageSource(ctx, field)
+	case "sources":
+		return ec.fieldContext_Entitlement_sources(ctx, field)
 	case "icon":
 		return ec.fieldContext_Entitlement_icon(ctx, field)
 	case "unitSingular":
@@ -4802,6 +4962,16 @@ func (ec *executionContext) childFields_EntitlementPage(ctx context.Context, fie
 	return nil, fmt.Errorf("no field named %q was found under type EntitlementPage", field.Name)
 }
 
+func (ec *executionContext) childFields_EntitlementSource(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+	switch field.Name {
+	case "entitlementSlug":
+		return ec.fieldContext_EntitlementSource_entitlementSlug(ctx, field)
+	case "weight":
+		return ec.fieldContext_EntitlementSource_weight(ctx, field)
+	}
+	return nil, fmt.Errorf("no field named %q was found under type EntitlementSource", field.Name)
+}
+
 func (ec *executionContext) childFields_EntitlementUsage(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
 	switch field.Name {
 	case "entitlementId":
@@ -4826,6 +4996,8 @@ func (ec *executionContext) childFields_EntitlementUsage(ctx context.Context, fi
 		return ec.fieldContext_EntitlementUsage_limitCapExceededOveragePercent(ctx, field)
 	case "provenance":
 		return ec.fieldContext_EntitlementUsage_provenance(ctx, field)
+	case "sources":
+		return ec.fieldContext_EntitlementUsage_sources(ctx, field)
 	}
 	return nil, fmt.Errorf("no field named %q was found under type EntitlementUsage", field.Name)
 }
@@ -7151,6 +7323,98 @@ func (ec *executionContext) fieldContext_AuditTrailPage_hasMore(_ context.Contex
 	return graphql.NewScalarFieldContext("AuditTrailPage", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
+func (ec *executionContext) _CombinedSourceUsage_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema2.CombinedSourceUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CombinedSourceUsage_entitlementSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EntitlementSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CombinedSourceUsage_entitlementSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CombinedSourceUsage", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CombinedSourceUsage_weight(ctx context.Context, field graphql.CollectedField, obj *schema2.CombinedSourceUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CombinedSourceUsage_weight(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Weight, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CombinedSourceUsage_weight(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CombinedSourceUsage", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _CombinedSourceUsage_usage(ctx context.Context, field graphql.CollectedField, obj *schema2.CombinedSourceUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CombinedSourceUsage_usage(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Usage, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CombinedSourceUsage_usage(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CombinedSourceUsage", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
+func (ec *executionContext) _CombinedSourceUsage_limit(ctx context.Context, field graphql.CollectedField, obj *schema2.CombinedSourceUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_CombinedSourceUsage_limit(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Limit, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v float64) graphql.Marshaler {
+			return ec.marshalNFloat2float64(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_CombinedSourceUsage_limit(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("CombinedSourceUsage", field, false, false, errors.New("field of type Float does not have child fields"))
+}
+
 func (ec *executionContext) _Component_id(ctx context.Context, field graphql.CollectedField, obj *schema6.Component) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -8947,6 +9211,61 @@ func (ec *executionContext) fieldContext_Entitlement_type(_ context.Context, fie
 	return graphql.NewScalarFieldContext("Entitlement", field, false, false, errors.New("field of type EntitlementType does not have child fields"))
 }
 
+func (ec *executionContext) _Entitlement_usageSource(ctx context.Context, field graphql.CollectedField, obj *schema5.Entitlement) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Entitlement_usageSource(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.UsageSource, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v *schema5.UsageSource) graphql.Marshaler {
+			return ec.marshalOUsageSource2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐUsageSource(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Entitlement_usageSource(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("Entitlement", field, false, false, errors.New("field of type UsageSource does not have child fields"))
+}
+
+func (ec *executionContext) _Entitlement_sources(ctx context.Context, field graphql.CollectedField, obj *schema5.Entitlement) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_Entitlement_sources(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Sources, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []schema5.EntitlementSource) graphql.Marshaler {
+			return ec.marshalOEntitlementSource2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐEntitlementSourceᚄ(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_Entitlement_sources(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "Entitlement",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_EntitlementSource(ctx, field)
+		},
+	}
+	return fc, nil
+}
+
 func (ec *executionContext) _Entitlement_icon(ctx context.Context, field graphql.CollectedField, obj *schema5.Entitlement) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9632,6 +9951,52 @@ func (ec *executionContext) fieldContext_EntitlementPage_hasMore(_ context.Conte
 	return graphql.NewScalarFieldContext("EntitlementPage", field, false, false, errors.New("field of type Boolean does not have child fields"))
 }
 
+func (ec *executionContext) _EntitlementSource_entitlementSlug(ctx context.Context, field graphql.CollectedField, obj *schema5.EntitlementSource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementSource_entitlementSlug(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.EntitlementSlug, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementSource_entitlementSlug(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementSource", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementSource_weight(ctx context.Context, field graphql.CollectedField, obj *schema5.EntitlementSource) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementSource_weight(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Weight, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v string) graphql.Marshaler {
+			return ec.marshalNString2string(ctx, selections, v)
+		},
+		true,
+		true,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementSource_weight(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	return graphql.NewScalarFieldContext("EntitlementSource", field, false, false, errors.New("field of type String does not have child fields"))
+}
+
 func (ec *executionContext) _EntitlementUsage_entitlementId(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
 	return graphql.ResolveField(
 		ctx,
@@ -9883,6 +10248,38 @@ func (ec *executionContext) _EntitlementUsage_provenance(ctx context.Context, fi
 }
 func (ec *executionContext) fieldContext_EntitlementUsage_provenance(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
 	return graphql.NewScalarFieldContext("EntitlementUsage", field, true, true, errors.New("field of type Map does not have child fields"))
+}
+
+func (ec *executionContext) _EntitlementUsage_sources(ctx context.Context, field graphql.CollectedField, obj *schema2.EntitlementUsage) (ret graphql.Marshaler) {
+	return graphql.ResolveField(
+		ctx,
+		ec.OperationContext,
+		field,
+		func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.fieldContext_EntitlementUsage_sources(ctx, field)
+		},
+		func(ctx context.Context) (any, error) {
+			return obj.Sources, nil
+		},
+		nil,
+		func(ctx context.Context, selections ast.SelectionSet, v []schema2.CombinedSourceUsage) graphql.Marshaler {
+			return ec.marshalOCombinedSourceUsage2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐCombinedSourceUsageᚄ(ctx, selections, v)
+		},
+		true,
+		false,
+	)
+}
+func (ec *executionContext) fieldContext_EntitlementUsage_sources(_ context.Context, field graphql.CollectedField) (fc *graphql.FieldContext, err error) {
+	fc = &graphql.FieldContext{
+		Object:     "EntitlementUsage",
+		Field:      field,
+		IsMethod:   false,
+		IsResolver: false,
+		Child: func(ctx context.Context, field graphql.CollectedField) (*graphql.FieldContext, error) {
+			return ec.childFields_CombinedSourceUsage(ctx, field)
+		},
+	}
+	return fc, nil
 }
 
 func (ec *executionContext) _Instance_id(ctx context.Context, field graphql.CollectedField, obj *schema2.Instance) (ret graphql.Marshaler) {
@@ -16837,6 +17234,59 @@ func (ec *executionContext) _AuditTrailPage(ctx context.Context, sel ast.Selecti
 	return out
 }
 
+var combinedSourceUsageImplementors = []string{"CombinedSourceUsage"}
+
+func (ec *executionContext) _CombinedSourceUsage(ctx context.Context, sel ast.SelectionSet, obj *schema2.CombinedSourceUsage) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, combinedSourceUsageImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("CombinedSourceUsage")
+		case "entitlementSlug":
+			out.Values[i] = ec._CombinedSourceUsage_entitlementSlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "weight":
+			out.Values[i] = ec._CombinedSourceUsage_weight(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "usage":
+			out.Values[i] = ec._CombinedSourceUsage_usage(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "limit":
+			out.Values[i] = ec._CombinedSourceUsage_limit(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var componentImplementors = []string{"Component"}
 
 func (ec *executionContext) _Component(ctx context.Context, sel ast.SelectionSet, obj *schema6.Component) graphql.Marshaler {
@@ -17577,6 +18027,16 @@ func (ec *executionContext) _Entitlement(ctx context.Context, sel ast.SelectionS
 			if out.Values[i] == graphql.RequiredNull {
 				out.Invalids++
 			}
+		case "usageSource":
+			out.Values[i] = ec._Entitlement_usageSource(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
+		case "sources":
+			out.Values[i] = ec._Entitlement_sources(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				out.Invalids++
+			}
 		case "icon":
 			out.Values[i] = ec._Entitlement_icon(ctx, field, obj)
 			if out.Values[i] == graphql.RequiredNull {
@@ -17842,6 +18302,49 @@ func (ec *executionContext) _EntitlementPage(ctx context.Context, sel ast.Select
 	return out
 }
 
+var entitlementSourceImplementors = []string{"EntitlementSource"}
+
+func (ec *executionContext) _EntitlementSource(ctx context.Context, sel ast.SelectionSet, obj *schema5.EntitlementSource) graphql.Marshaler {
+	fields := graphql.CollectFields(ec.OperationContext, sel, entitlementSourceImplementors)
+
+	out := graphql.NewFieldSet(fields)
+	deferredFieldSet := graphql.NewFieldSet(nil)
+	deferLabelToView := make(map[string]*graphql.FieldSetView)
+	for i, field := range fields {
+		switch field.Name {
+		case "__typename":
+			out.Values[i] = graphql.MarshalString("EntitlementSource")
+		case "entitlementSlug":
+			out.Values[i] = ec._EntitlementSource_entitlementSlug(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		case "weight":
+			out.Values[i] = ec._EntitlementSource_weight(ctx, field, obj)
+			if out.Values[i] == graphql.Null {
+				out.Invalids++
+			}
+		default:
+			panic("unknown field " + strconv.Quote(field.Name))
+		}
+	}
+	out.Dispatch(ctx)
+	if out.Invalids > 0 {
+		return graphql.Null
+	}
+
+	atomic.AddInt32(&ec.Deferred, int32(min(len(deferLabelToView), math.MaxInt32)))
+
+	ec.ProcessDeferredGroup(graphql.DeferredGroup{
+		Defers:   deferLabelToView,
+		Path:     graphql.GetPath(ctx),
+		FieldSet: deferredFieldSet,
+		Context:  ctx,
+	})
+
+	return out
+}
+
 var entitlementUsageImplementors = []string{"EntitlementUsage"}
 
 func (ec *executionContext) _EntitlementUsage(ctx context.Context, sel ast.SelectionSet, obj *schema2.EntitlementUsage) graphql.Marshaler {
@@ -18041,6 +18544,11 @@ func (ec *executionContext) _EntitlementUsage(ctx context.Context, sel ast.Selec
 			}
 
 			out.Concurrently(i, func(ctx context.Context) graphql.Marshaler { return innerFunc(ctx, out) })
+		case "sources":
+			out.Values[i] = ec._EntitlementUsage_sources(ctx, field, obj)
+			if out.Values[i] == graphql.RequiredNull {
+				atomic.AddUint32(&out.Invalids, 1)
+			}
 		default:
 			panic("unknown field " + strconv.Quote(field.Name))
 		}
@@ -21566,6 +22074,10 @@ func (ec *executionContext) marshalNChargeOnErrorPolicy2githubᚗcomᚋkaitenclo
 	return res
 }
 
+func (ec *executionContext) marshalNCombinedSourceUsage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐCombinedSourceUsage(ctx context.Context, sel ast.SelectionSet, v schema2.CombinedSourceUsage) graphql.Marshaler {
+	return ec._CombinedSourceUsage(ctx, sel, &v)
+}
+
 func (ec *executionContext) marshalNComponent2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcomponentsᚋschemaᚐComponent(ctx context.Context, sel ast.SelectionSet, v schema6.Component) graphql.Marshaler {
 	return ec._Component(ctx, sel, &v)
 }
@@ -21845,6 +22357,10 @@ func (ec *executionContext) marshalNEntitlementPage2ᚖgithubᚗcomᚋkaitenclou
 	return ec._EntitlementPage(ctx, sel, v)
 }
 
+func (ec *executionContext) marshalNEntitlementSource2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐEntitlementSource(ctx context.Context, sel ast.SelectionSet, v schema5.EntitlementSource) graphql.Marshaler {
+	return ec._EntitlementSource(ctx, sel, &v)
+}
+
 func (ec *executionContext) unmarshalNEntitlementType2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐType(ctx context.Context, v any) (schema5.Type, error) {
 	tmp, err := graphql.UnmarshalString(v)
 	res := schema5.Type(tmp)
@@ -21896,6 +22412,22 @@ func (ec *executionContext) marshalNEntitlementUsageSource2string(ctx context.Co
 		}
 	}
 	return res
+}
+
+func (ec *executionContext) unmarshalNFloat2float64(ctx context.Context, v any) (float64, error) {
+	res, err := graphql.UnmarshalFloatContext(ctx, v)
+	return res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalNFloat2float64(ctx context.Context, sel ast.SelectionSet, v float64) graphql.Marshaler {
+	_ = sel
+	res := graphql.MarshalFloatContext(v)
+	if res == graphql.Null {
+		if !graphql.HasFieldError(ctx, graphql.GetFieldContext(ctx)) {
+			graphql.AddErrorf(ctx, "the requested element is null which the schema does not allow")
+		}
+	}
+	return graphql.WrapContextMarshaler(ctx, res)
 }
 
 func (ec *executionContext) unmarshalNIncreaseBilling2string(ctx context.Context, v any) (string, error) {
@@ -22753,6 +23285,25 @@ func (ec *executionContext) marshalOBoolean2ᚖbool(ctx context.Context, sel ast
 	return res
 }
 
+func (ec *executionContext) marshalOCombinedSourceUsage2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐCombinedSourceUsageᚄ(ctx context.Context, sel ast.SelectionSet, v []schema2.CombinedSourceUsage) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNCombinedSourceUsage2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋinstancesᚋschemaᚐCombinedSourceUsage(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
+}
+
 func (ec *executionContext) marshalOComponent2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋcomponentsᚋschemaᚐComponent(ctx context.Context, sel ast.SelectionSet, v *schema6.Component) graphql.Marshaler {
 	if v == nil {
 		return graphql.Null
@@ -22866,6 +23417,25 @@ func (ec *executionContext) marshalOEntitlementResetPeriod2ᚖgithubᚗcomᚋkai
 	_ = ctx
 	res := graphql.MarshalString(string(*v))
 	return res
+}
+
+func (ec *executionContext) marshalOEntitlementSource2ᚕgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐEntitlementSourceᚄ(ctx context.Context, sel ast.SelectionSet, v []schema5.EntitlementSource) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	ret := graphql.MarshalSliceConcurrently(ctx, len(v), 0, false, func(ctx context.Context, i int) graphql.Marshaler {
+		fc := graphql.GetFieldContext(ctx)
+		fc.Result = &v[i]
+		return ec.marshalNEntitlementSource2githubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐEntitlementSource(ctx, sel, v[i])
+	})
+
+	for _, e := range ret {
+		if e == graphql.Null {
+			return graphql.Null
+		}
+	}
+
+	return ret
 }
 
 func (ec *executionContext) unmarshalOEntitlementType2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐType(ctx context.Context, v any) (*schema5.Type, error) {
@@ -23106,6 +23676,25 @@ func (ec *executionContext) marshalOUUID2ᚖgithubᚗcomᚋgoogleᚋuuidᚐUUID(
 	_ = sel
 	_ = ctx
 	res := graphql.MarshalUUID(*v)
+	return res
+}
+
+func (ec *executionContext) unmarshalOUsageSource2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐUsageSource(ctx context.Context, v any) (*schema5.UsageSource, error) {
+	if v == nil {
+		return nil, nil
+	}
+	tmp, err := graphql.UnmarshalString(v)
+	res := schema5.UsageSource(tmp)
+	return &res, graphql.ErrorOnPath(ctx, err)
+}
+
+func (ec *executionContext) marshalOUsageSource2ᚖgithubᚗcomᚋkaitencloudᚋkaitenᚋapiᚋinternalᚋmodulesᚋentitlementsᚋschemaᚐUsageSource(ctx context.Context, sel ast.SelectionSet, v *schema5.UsageSource) graphql.Marshaler {
+	if v == nil {
+		return graphql.Null
+	}
+	_ = sel
+	_ = ctx
+	res := graphql.MarshalString(string(*v))
 	return res
 }
 

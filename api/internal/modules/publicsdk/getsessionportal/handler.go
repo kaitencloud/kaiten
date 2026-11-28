@@ -37,7 +37,7 @@ type SessionPortal struct {
 	Instance        *PortalInstance                 `json:"instance" doc:"The session's instance; null for a session bound to the customer only"`
 	Instances       []PortalInstanceSummary         `json:"instances" nullable:"false" doc:"The customer's instances, for a session bound to the customer only; empty otherwise"`
 	Subscription    *sessions.SessionSubscription   `json:"subscription" doc:"The instance's subscription; null when it has none, or the session is bound to no instance"`
-	Entitlements    []PortalEntitlement             `json:"entitlements" nullable:"false" doc:"The instance's effective entitlements: its licence's, raised or added by add-ons and boosts"`
+	Entitlements    []PortalEntitlement             `json:"entitlements" nullable:"false" doc:"The instance's effective entitlements that are user-facing: its licence's, raised or added by add-ons and boosts, and the combined ones its sources make up as a total, without the sources. An entitlement that is not user-facing is not listed."`
 	AddOns          []sessions.SessionAddon         `json:"addOns" nullable:"false" doc:"The add-ons the instance holds"`
 	Vouchers        []sessions.SessionRedemption    `json:"vouchers" nullable:"false" doc:"The instance's ACTIVE redemptions. Never a code."`
 	PaymentMethod   *PortalPaymentMethod            `json:"paymentMethod" doc:"The payment method the customer's invoices are charged to; null when none is saved"`
@@ -332,7 +332,14 @@ func (u *UseCase) entitlements(ctx context.Context, q *db.Queries, organizationI
 	}
 	out := make([]PortalEntitlement, 0, len(usages))
 	for _, usage := range usages {
-		out = append(out, entitlementFrom(usage, names[usage.EntitlementID]))
+		// Only what the vendor made user-facing reaches the browser, as in the
+		// public catalogue: an internal counter, a source of a combined
+		// entitlement for one, is not here to be named.
+		named, shown := names[usage.EntitlementID]
+		if !shown {
+			continue
+		}
+		out = append(out, entitlementFrom(usage, named))
 	}
 	slices.SortFunc(out, func(a, b PortalEntitlement) int {
 		switch {

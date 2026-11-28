@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/period"
 )
 
@@ -184,4 +186,84 @@ func ValidateWarningThresholdConfiguration(entitlementType Type, warningThreshol
 	}
 
 	return nil
+}
+
+// ValidateUsageSourceConfiguration enforces where usageSource may appear: a
+// NUMBER takes either value, a NUMBER_AI_CREDIT pool is always calculated (its
+// accounting is its own, and it has no sum to be one of), and BOOLEAN and
+// CONFIG entitlements have no usage to say the source of. An absent usageSource
+// is always valid: it is CALCULATED_USAGE for a NUMBER-family entitlement, and
+// nothing for the others.
+func ValidateUsageSourceConfiguration(entitlementType Type, usageSource *UsageSource) error {
+	if usageSource == nil {
+		return nil
+	}
+
+	if *usageSource != CalculatedUsage && *usageSource != CombinedUsage {
+		return fmt.Errorf("usageSource must be one of CALCULATED_USAGE, COMBINED_USAGE")
+	}
+
+	switch entitlementType {
+	case Number:
+		return nil
+	case NumberAICredit:
+		if *usageSource != CalculatedUsage {
+			return fmt.Errorf("usageSource must be CALCULATED_USAGE when type is NUMBER_AI_CREDIT")
+		}
+		return nil
+	default:
+		return fmt.Errorf("usageSource is only allowed when type is NUMBER or NUMBER_AI_CREDIT")
+	}
+}
+
+// The ways a combined entitlement's sources are refused before anything is read
+// from the database, for the handlers to tell apart with errors.Is: each is its
+// own error code.
+var (
+	ErrSourcesRequired = errors.New("a combined entitlement sums at least two sources")
+	ErrSourceDuplicate = errors.New("a source can be named only once")
+	ErrSourceWeight    = errors.New("a source weight must be an exact decimal, strictly positive, with at most 8 integer digits and 10 decimals")
+)
+
+// sourceWeightPattern is the contract's pattern for a weight: the one of the AI
+// conversion rates, which is what NUMERIC(18,10) holds.
+var sourceWeightPattern = regexp.MustCompile(`^[0-9]{1,8}(\.[0-9]{1,10})?$`)
+
+// ParsedSource is a source with its weight as the exact decimal it is.
+type ParsedSource struct {
+	EntitlementSlug string
+	Weight          decimal.Decimal
+}
+
+// ValidateCombinedSources checks the sources a combined entitlement names: at
+// least two, each named once, each weight a strictly positive exact decimal
+// (1 when omitted). It reads nothing: that the sources exist, and what they
+// are, is checked against the database under their lock.
+func ValidateCombinedSources(sources []EntitlementSource) ([]ParsedSource, error) {
+	if len(sources) < 2 {
+		return nil, ErrSourcesRequired
+	}
+
+	parsed := make([]ParsedSource, 0, len(sources))
+	seen := make(map[string]struct{}, len(sources))
+	for _, source := range sources {
+		if _, named := seen[source.EntitlementSlug]; named {
+			return nil, fmt.Errorf("%w: %q", ErrSourceDuplicate, source.EntitlementSlug)
+		}
+		seen[source.EntitlementSlug] = struct{}{}
+
+		weight := decimal.NewFromInt(1)
+		if source.Weight != "" {
+			if !sourceWeightPattern.MatchString(source.Weight) {
+				return nil, fmt.Errorf("%w: %q of %q", ErrSourceWeight, source.Weight, source.EntitlementSlug)
+			}
+			weight, _ = decimal.NewFromString(source.Weight) // the pattern admits only what parses
+			if !weight.IsPositive() {
+				return nil, fmt.Errorf("%w: %q of %q", ErrSourceWeight, source.Weight, source.EntitlementSlug)
+			}
+		}
+		parsed = append(parsed, ParsedSource{EntitlementSlug: source.EntitlementSlug, Weight: weight})
+	}
+
+	return parsed, nil
 }

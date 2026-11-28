@@ -253,6 +253,96 @@ func (q *Queries) ListPublicAddons(ctx context.Context, organizationID uuid.UUID
 	return items, nil
 }
 
+const listPublicPlanCombinedGrants = `-- name: ListPublicPlanCombinedGrants :many
+SELECT le.license_id,
+       c.slug,
+       c.name,
+       c.description,
+       c.type,
+       c.icon,
+       c.unit_singular,
+       c.unit_plural,
+       c.sale_unit_singular,
+       c.sale_unit_plural,
+       coalesce(c.sale_unit_factor::text, '')::text AS sale_unit_factor,
+       c.display_order,
+       trim_scale(es.weight)::text AS weight,
+       le.value AS grant_value
+FROM entitlement_source es
+JOIN entitlement c ON c.id = es.combined_entitlement_id AND c.organization_id = es.organization_id
+JOIN entitlement s ON s.id = es.source_entitlement_id AND s.organization_id = es.organization_id
+JOIN license_entitlement le ON le.entitlement_id = s.id AND le.organization_id = es.organization_id
+WHERE (NOT $1::boolean OR s.type IS DISTINCT FROM 'NUMBER_AI_CREDIT'::entitlement_type)
+ AND es.organization_id = $2
+  AND le.license_id = ANY ($3::uuid[])
+  AND c.user_facing
+ORDER BY le.license_id, c.display_order, c.slug, s.slug
+`
+
+type ListPublicPlanCombinedGrantsParams struct {
+	HideAi         bool        `json:"hide_ai"`
+	OrganizationID uuid.UUID   `json:"organization_id"`
+	LicenseIds     []uuid.UUID `json:"license_ids"`
+}
+
+type ListPublicPlanCombinedGrantsRow struct {
+	LicenseID        uuid.UUID       `json:"license_id"`
+	Slug             string          `json:"slug"`
+	Name             string          `json:"name"`
+	Description      *string         `json:"description"`
+	Type             EntitlementType `json:"type"`
+	Icon             *string         `json:"icon"`
+	UnitSingular     *string         `json:"unit_singular"`
+	UnitPlural       *string         `json:"unit_plural"`
+	SaleUnitSingular *string         `json:"sale_unit_singular"`
+	SaleUnitPlural   *string         `json:"sale_unit_plural"`
+	SaleUnitFactor   string          `json:"sale_unit_factor"`
+	DisplayOrder     int32           `json:"display_order"`
+	Weight           string          `json:"weight"`
+	GrantValue       []byte          `json:"grant_value"`
+}
+
+// What the given versions grant of each user-facing combined entitlement: one row
+// per version, combined entitlement and source the version grants, with the
+// source's weight and grant. The sum is the caller's, because it is the decimal
+// sum, and the rule for an unlimited source, that the usage readers share. A
+// source the catalogue would not show on its own (an AI credit pool, while AI
+// is off) counts as not granted, as in every reader that hides it.
+func (q *Queries) ListPublicPlanCombinedGrants(ctx context.Context, arg ListPublicPlanCombinedGrantsParams) ([]ListPublicPlanCombinedGrantsRow, error) {
+	rows, err := q.db.Query(ctx, listPublicPlanCombinedGrants, arg.HideAi, arg.OrganizationID, arg.LicenseIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPublicPlanCombinedGrantsRow
+	for rows.Next() {
+		var i ListPublicPlanCombinedGrantsRow
+		if err := rows.Scan(
+			&i.LicenseID,
+			&i.Slug,
+			&i.Name,
+			&i.Description,
+			&i.Type,
+			&i.Icon,
+			&i.UnitSingular,
+			&i.UnitPlural,
+			&i.SaleUnitSingular,
+			&i.SaleUnitPlural,
+			&i.SaleUnitFactor,
+			&i.DisplayOrder,
+			&i.Weight,
+			&i.GrantValue,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPublicPlanEntitlements = `-- name: ListPublicPlanEntitlements :many
 SELECT le.license_id,
        e.slug,

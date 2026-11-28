@@ -9,6 +9,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/dogfooding"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/outbox"
 	"github.com/kaitencloud/kaiten/api/internal/infrastructure/services"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/catalogue"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/events"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/instances/schema"
@@ -26,6 +27,9 @@ type Deps struct {
 	Queries          *db.Queries
 	UsageReporter    services.UsageReporter
 	OutboxRepository outbox.Repository
+	// Combined lists the combined entitlements, which the instance reads as the
+	// weighted sum of its sources' usage. Nil reads none.
+	Combined catalogue.CombinedReader
 }
 
 type UseCase struct {
@@ -48,9 +52,11 @@ type InstanceEntitlementValueGet struct {
 }
 
 func NewUseCase(deps Deps) *UseCase {
+	repository := NewQueryRepository(deps.Queries, deps.AIPolicy)
+	repository.combined = deps.Combined
 	return &UseCase{
 		deps:       deps,
-		repository: NewQueryRepository(deps.Queries, deps.AIPolicy),
+		repository: repository,
 		outboxRepo: deps.OutboxRepository,
 	}
 }

@@ -137,6 +137,9 @@ func newComplexityRoot() generated.ComplexityRoot {
 		return fanOut(assumedFanout, childComplexity)
 	}
 	root.Entitlement.EntitlementGroups = unbounded
+	// A combined entitlement's sources, and the instance's detail of its sum.
+	root.Entitlement.Sources = unbounded
+	root.EntitlementUsage.Sources = unbounded
 
 	return root
 }

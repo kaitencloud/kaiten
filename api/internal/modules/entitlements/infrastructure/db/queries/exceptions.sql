@@ -21,7 +21,7 @@ WHERE i.organization_id = sqlc.arg(organization_id)
 
 
 -- name: GetEntitlementForException :one
-SELECT e.id, e.slug, e.type
+SELECT e.id, e.slug, e.type, e.usage_source
 FROM entitlement e
 WHERE e.organization_id = sqlc.arg(organization_id)
   AND e.slug = sqlc.arg(slug);

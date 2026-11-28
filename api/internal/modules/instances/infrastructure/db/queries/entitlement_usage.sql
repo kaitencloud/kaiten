@@ -75,7 +75,8 @@ SELECT
   coalesce(ib.status::text, '')::text AS billing_status,
   ib.anchor_at      AS billing_anchor_at,
   ib.live_ended_at,
- (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved
+ (SELECT COALESCE(SUM(a.credits_reserved),0)::numeric FROM ai_inference a WHERE a.organization_id=i.organization_id AND a.instance_id=i.id AND a.entitlement_id=e.id AND a.status='RESERVED' AND a.expires_at>date_trunc('milliseconds', clock_timestamp() AT TIME ZONE 'UTC')) AS reserved,
+  e.usage_source
 FROM (VALUES (true)) AS sentinel(ok)
 LEFT JOIN instance i
   ON i.slug            = sqlc.arg(instance_slug)
@@ -234,7 +235,8 @@ SELECT
   e.warning_threshold_percent,
   e.reset_period,
   e.reset_anchor,
-  l.slug              AS license_slug
+  l.slug              AS license_slug,
+  e.usage_source
 FROM instance i
 JOIN entitlement e
   ON e.slug            = sqlc.arg(entitlement_slug)

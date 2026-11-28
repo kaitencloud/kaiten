@@ -87,7 +87,7 @@ func TestAnEntitlementInUseSaysWhatHoldsIt(t *testing.T) {
 		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
 		require.Equal(t, map[string]any{
 			"licenseGrants": float64(1), "licensePrices": float64(1),
-			"addonPrices": float64(0), "addonGrants": float64(0), "boostGrants": float64(0),
+			"addonPrices": float64(0), "addonGrants": float64(0), "boostGrants": float64(0), "combinedEntitlements": float64(0),
 		}, problem.Errors[0].Value)
 	})
 
@@ -109,7 +109,7 @@ func TestAnEntitlementInUseSaysWhatHoldsIt(t *testing.T) {
 		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
 		require.Equal(t, map[string]any{
 			"licenseGrants": float64(0), "licensePrices": float64(0),
-			"addonPrices": float64(1), "addonGrants": float64(1), "boostGrants": float64(1),
+			"addonPrices": float64(1), "addonGrants": float64(1), "boostGrants": float64(1), "combinedEntitlements": float64(0),
 		}, problem.Errors[0].Value)
 	})
 
@@ -133,7 +133,7 @@ func TestAnEntitlementInUseSaysWhatHoldsIt(t *testing.T) {
 		require.Equal(t, "DeleteEntitlement.InUseConflict", problem.Code)
 		require.Equal(t, map[string]any{
 			"licenseGrants": float64(1), "licensePrices": float64(1),
-			"addonPrices": float64(0), "addonGrants": float64(0), "boostGrants": float64(0),
+			"addonPrices": float64(0), "addonGrants": float64(0), "boostGrants": float64(0), "combinedEntitlements": float64(0),
 		}, problem.Errors[0].Value)
 	})
 }

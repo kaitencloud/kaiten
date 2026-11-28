@@ -12,6 +12,7 @@ import (
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/db"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/infrastructure/dbmap"
 	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/schema"
+	"github.com/kaitencloud/kaiten/api/internal/modules/entitlements/sourcerefs"
 	"github.com/kaitencloud/kaiten/api/internal/shared/aiusage"
 	kaitenerrors "github.com/kaitencloud/kaiten/api/pkg/apierrors"
 )
@@ -53,6 +54,9 @@ func (r *QueryRepository) GetEntitlement(ctx context.Context, slug string, organ
 	result := dbmap.ToEntitlement(&entitlement)
 	result.EntitlementGroups, err = grouprefs.LoadForEntitlement(ctx, r.repository, slug, organizationID)
 	if err != nil {
+		return nil, err
+	}
+	if err := sourcerefs.Attach(ctx, r.repository, result, organizationID); err != nil {
 		return nil, err
 	}
 

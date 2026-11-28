@@ -70,11 +70,16 @@ func (d Draft) Shape(operation string) (money.Currency, decimal.Decimal, error) 
 
 // Meters checks the entitlement a metered draft would meter, read with the
 // version's grant of it, and returns the sale-unit factor to snapshot:
+//   - never a combined entitlement: its usage is a sum computed when read;
 //   - only a flow is metered: a reset period, SUM or COUNT, a NUMBER type;
 //   - the version must grant it;
 //   - an OVERAGE price needs a grant whose overage can be reached;
 //   - no other ACTIVE price of the version may meter it (otherMeters).
 func Meters(operation string, d Draft, entitlement db.GetPricingEntitlementRow, otherMeters int32) (string, error) {
+	if entitlement.UsageSource == db.EntitlementUsageSourceCOMBINEDUSAGE {
+		return "", kaitenerrors.UnprocessableEntity(operation+".EntitlementIsCombined",
+			"a combined entitlement is not metered: its usage is a sum computed when read, nothing is stored to bill; meter its sources")
+	}
 	if entitlement.ResetPeriod == nil {
 		return "", kaitenerrors.UnprocessableEntity(operation+".EntitlementIsStock",
 			"only an entitlement with a reset period can be metered: a lifetime counter is a stock, sold as an add-on")
